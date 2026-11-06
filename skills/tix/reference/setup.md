@@ -83,6 +83,19 @@ $ tix token create x --scope nosuch
 error: invalid: unknown scope "nosuch"
 ```
 
+`*` does not carry `global:admin`, the scope for installation administration
+(creating tenants, reaching another tenant's users). Never ask for it for an
+agent. When a person asks you to create a tenant, they need a global admin's
+token naming that scope; first admins come with it and their generated
+passwords print once:
+
+```sh
+tix tenant create acme --name "Acme" --admin ada@example.com -o json
+```
+
+A tenant admin is refused with exit `5`. An admin email that already belongs
+to a user is exit `4`, and nothing is created.
+
 `--project` on `token create` takes either the project's key or its id, same
 as `-p`/`--project` everywhere else (`--project infra` works); an unknown key
 or id is a clean `not_found`, exit `3`.

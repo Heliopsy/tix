@@ -156,3 +156,24 @@ func (c *cli) mcpSession(t *testing.T, session []string, args ...string) map[flo
 	}
 	return got
 }
+
+func TestMCPOffersGlobalAdminToolsOnlyToAGlobalAdmin(t *testing.T) {
+	named := []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin}
+	tests := []struct {
+		name  string
+		actor *core.Actor
+		want  bool
+	}{
+		{"names the scope and is one", &core.Actor{Scopes: named, GlobalAdmin: true}, true},
+		{"names the scope and is not one", &core.Actor{Scopes: named}, false},
+		{"is one but the token holds only *", &core.Actor{Scopes: []core.Scope{core.ScopeAll}, GlobalAdmin: true}, false},
+	}
+	for _, tc := range tests {
+		if got := mcpHasScope(tc.actor, core.ScopeGlobalAdmin); got != tc.want {
+			t.Errorf("%s: offered = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	if !mcpHasScope(&core.Actor{Scopes: []core.Scope{core.ScopeAll}}, core.ScopeTenantAdmin) {
+		t.Error("an ordinary scope stopped being offered")
+	}
+}

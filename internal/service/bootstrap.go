@@ -126,7 +126,7 @@ func (l *Local) ensureDefaultTenant(ctx context.Context) (*core.Tenant, bool, er
 	tenantID := l.ids.New()
 	var created *core.Tenant
 	err = l.write(ctx, core.SystemActor(tenantID), func(m *mutation) error {
-		t, err := createTenantRow(ctx, m, tenantID, DefaultTenantKey, "Default")
+		t, err := createTenantRow(ctx, m, tenantID, DefaultTenantKey, "Default", nil)
 		created = t
 		return err
 	})

@@ -5,7 +5,8 @@
     "task": { "from": "/tasks", "match": "^/tasks/([a-z0-9]+-[0-9]+)$", "prefer": "infra-4" },
     "template": { "from": "/templates", "match": "^/templates/([0-9A-Z]{26})$" },
     "channel": { "from": "/settings/notifications", "match": "^/settings/notifications/([0-9A-Z]{26})$" },
-    "filter": { "from": "/tasks", "match": "^/filters/([^/?#]+)$" }
+    "filter": { "from": "/tasks", "match": "^/filters/([^/?#]+)$" },
+    "tenant": { "from": "/admin/global", "match": "^/admin/global/tenants/([^/?#]+)$" }
   },
   "global": [
     { "name": "command-palette", "click": "[data-palette-open]", "wait": "dialog#palette[open]" },
@@ -77,6 +78,8 @@
     { "pattern": "/admin/tenant" },
     { "pattern": "/admin/domains" },
     { "pattern": "/admin/users" },
+    { "pattern": "/admin/global" },
+    { "pattern": "/admin/global/tenants/{key}", "params": { "key": "tenant" } },
     { "pattern": "/admin/tokens" },
     { "pattern": "/admin/ssh-keys" },
     { "pattern": "/admin/connections" },

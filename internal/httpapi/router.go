@@ -182,6 +182,7 @@ func (rt *Router) register() {
 
 	rt.registerAuthRoutes()
 	rt.registerTenantRoutes()
+	rt.registerGlobalAdminRoutes()
 	rt.registerProjectRoutes()
 	rt.registerTaskRoutes()
 	rt.registerClaimRoutes()

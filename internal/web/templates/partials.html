@@ -45,12 +45,14 @@
        filtered by is:trashed, the only way the browser reaches a deleted
        task without already knowing its ref, and leaves with a tenant that
        deletes for good. The configuration screens need Advanced screens on.
-       A reader with neither gets no heading over nothing. */}}
-  {{if or .Advanced (not .TrashOff)}}
+       Global admin is drawn for a global admin whatever that preference
+       says. A reader with none of these gets no heading over nothing. */}}
+  {{if or .Advanced (not .TrashOff) .GlobalAdmin}}
   {{$side := .Side}}
   <div class="navgroup{{if $side.Folded "admin"}} is-folded{{end}}" data-navgroup="admin">
   {{template "navgroup-head" navGroup $side "admin" (t "Admin") ""}}
   <div class="navgroup-body" id="navgroup-admin">
+  {{if .GlobalAdmin}}<a href="/admin/global" data-rail-name="{{t "Global admin"}}" {{if hasPrefix .Path "/admin/global"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Global admin"}}</span></a>{{end}}
   {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
   {{if .Advanced}}
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>

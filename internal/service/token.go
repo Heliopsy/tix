@@ -46,6 +46,32 @@ func checkScopeGrant(actor *core.Actor, scopes []core.Scope) error {
 	return nil
 }
 
+// withoutScope returns scopes less one.
+func withoutScope(scopes []core.Scope, drop core.Scope) []core.Scope {
+	out := make([]core.Scope, 0, len(scopes))
+	for _, s := range scopes {
+		if s != drop {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// targetIsGlobalAdmin refuses a global:admin token for an actor whose user is
+// not a global admin. The scope is checked again on every call, but a token
+// that could never use it should not be minted to look as if it could.
+func targetIsGlobalAdmin(ctx context.Context, tx store.Tx, target *core.Actor) error {
+	u, err := tx.GetUser(ctx, target.ID)
+	if err == nil && u.GlobalAdmin && u.DisabledAt == nil {
+		return nil
+	}
+	if err != nil && !core.IsKind(err, core.KindNotFound) {
+		return err
+	}
+	return core.Forbidden("a token carries global:admin only when the actor it acts as is a global admin").
+		WithDetail("scope", string(core.ScopeGlobalAdmin))
+}
+
 // tokenActor resolves the actor a token acts as, defaulting to the caller.
 func tokenActor(ctx context.Context, tx store.Tx, actor *core.Actor, ref string) (*core.Actor, error) {
 	ref = strings.TrimSpace(ref)
@@ -69,7 +95,13 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
-	if err := checkScopeGrant(actor, in.Scopes); err != nil {
+	global := slices.Contains(in.Scopes, core.ScopeGlobalAdmin)
+	if global {
+		if _, err := l.authorizeGlobal(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if err := checkScopeGrant(actor, withoutScope(in.Scopes, core.ScopeGlobalAdmin)); err != nil {
 		return nil, err
 	}
 
@@ -78,6 +110,11 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 		target, err := tokenActor(ctx, m.tx, actor, in.ActorID)
 		if err != nil {
 			return err
+		}
+		if global {
+			if err := targetIsGlobalAdmin(ctx, m.tx, target); err != nil {
+				return err
+			}
 		}
 		if strings.TrimSpace(in.ProjectID) != "" {
 			project, err := lookupProject(ctx, m.tx, in.ProjectID)

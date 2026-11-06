@@ -29,7 +29,7 @@ func TestCreateTenantRecordsRowAuditAndEvent(t *testing.T) {
 	ctx := core.WithActor(context.Background(), actor)
 	events, audits := countRows(t, l, scope)
 
-	got, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	got, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestCreateTenantRejections(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := l.CreateTenant(ctx, tc.in); !core.IsKind(err, tc.kind) {
+			if _, err := l.CreateTenant(core.WithDirectStore(ctx), tc.in); !core.IsKind(err, tc.kind) {
 				t.Errorf("CreateTenant = %v, want %s", err, tc.kind)
 			}
 		})
@@ -94,7 +94,7 @@ func TestGetTenantCrossTenantReportsNotFound(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)
 
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestListTenantsReturnsOnlyTheActorsOwn(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)
 
-	if _, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"}); err != nil {
+	if _, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"}); err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}
 	got, cursor, err := l.ListTenants(ctx, core.Page{})
@@ -261,7 +261,7 @@ func TestCreateTenantSeedsTheBuiltinWorkflow(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)
 
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestCreateTenantSeedsTheBuiltinWorkflow(t *testing.T) {
 		t.Errorf("seeded workflow = %+v, want the builtin definition", wf)
 	}
 
-	if err := l.seedTenantWorkflow(context.Background(), other.ID); err != nil {
+	if _, err := l.seedTenant(context.Background(), &other.Tenant, nil); err != nil {
 		t.Fatalf("seeding twice: %v", err)
 	}
 	all, err := l.ListWorkflows(otherCtx)

@@ -411,6 +411,7 @@ type AuthTx interface {
 	GetUser(ctx context.Context, id string) (*core.User, error)
 	ListUsers(ctx context.Context, page core.Page) ([]core.User, error)
 	UpdateUser(ctx context.Context, u *core.User, passwordHash string) error
+	SetUserGlobalAdmin(ctx context.Context, userID string, on bool) error
 	DeleteUser(ctx context.Context, id string) error
 
 	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time) error

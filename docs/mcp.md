@@ -244,7 +244,7 @@ artifact_list   exposed
 
 ## Scopes and destructive tools
 
-Two rules decide which tools a session is offered, on top of the overlay.
+Three rules decide which tools a session is offered, on top of the overlay.
 
 - **Scope.** A tool whose scope the token does not hold is not listed. The server would refuse the call anyway;
   listing it would only spend the model's attention on a tool it cannot use. The scopes are read once, at
@@ -252,7 +252,11 @@ Two rules decide which tools a session is offered, on top of the overlay.
 - **Destructive.** A tool that deletes or cannot be undone is left out unless `--allow-destructive` is given or
   the overlay enables it. Every `DELETE` is destructive unless the overlay says otherwise, and the overlay marks
   the few that are not deletes but lose data all the same: `task_bulk`, `claim_reclaim`, `retention_prune` and
-  `housekeeping_run`. A model that is wrong about one task should cost one task, not a project.
+  `housekeeping_run`. It marks the global admin tools that hand out authority the same way: `tenant_create`,
+  `global_admin_grant`, `tenant_user_create` and `tenant_user_update`. A model that is wrong about one task should
+  cost one task, not a project.
+- **Global admin.** A global admin tool needs the token to name `global:admin` and the server to report the actor
+  as a global admin when `tix mcp` starts; `*` does not carry it. See [tenancy.md](tenancy.md#global-admins).
 
 A token without `task:delete` is never offered `task_delete`, with or without the flag.
 

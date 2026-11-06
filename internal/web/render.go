@@ -148,6 +148,9 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
+	// GlobalAdmin is whether the reader may act as a global admin, which is
+	// the only reader the sidebar offers the global admin area to.
+	GlobalAdmin bool
 	// Side is the sidebar as this browser left it; see sidebar.go.
 	Side     sidebarState
 	DragMove bool
@@ -453,6 +456,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Brand:           h.brand(r),
 		Actor:           actor,
 		Advanced:        advancedMode(r),
+		GlobalAdmin:     h.globalAdmin(r),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
@@ -611,7 +615,13 @@ var advancedPaths = []string{
 
 // OnAdvancedPath reports whether a path is one of the configuration screens
 // of the sidebar's Admin group.
+//
+// The global admin area sits under /admin/ and is not one of them: its entry
+// is drawn for a global admin whatever the preference says.
 func OnAdvancedPath(path string) bool {
+	if path == RouteGlobal || strings.HasPrefix(path, RouteGlobal+"/") {
+		return false
+	}
 	for _, prefix := range advancedPaths {
 		if path == prefix || strings.HasPrefix(path, strings.TrimSuffix(prefix, "/")+"/") {
 			return true

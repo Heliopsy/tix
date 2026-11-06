@@ -51,6 +51,22 @@ func (c *Client) DeleteUser(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteUser, "id", id), nil, nil)
 }
 
+// GrantGlobalAdmin makes a user a global admin.
+func (c *Client) GrantGlobalAdmin(ctx context.Context, in core.GlobalAdminInput) (*core.User, error) {
+	return call[core.User](ctx, c, http.MethodPost, wire.RouteGlobalAdmins, nil, in)
+}
+
+// RevokeGlobalAdmin takes global admin away from a user.
+func (c *Client) RevokeGlobalAdmin(ctx context.Context, email string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteGlobalAdmin, "email", email), nil, nil)
+}
+
+// ListGlobalAdmins lists the global admins.
+func (c *Client) ListGlobalAdmins(ctx context.Context) ([]core.User, error) {
+	out, _, err := list[core.User](ctx, c, wire.RouteGlobalAdmins, nil)
+	return out, err
+}
+
 // Login performs one step of a sign-in. The client marshals and nothing else:
 // which step this is, and what to do with a challenge, belongs to the caller.
 func (c *Client) Login(ctx context.Context, in core.LoginInput) (*core.LoginResult, error) {

@@ -177,7 +177,7 @@ func TestProjectAndWorkflowMutationRoutes(t *testing.T) {
 func TestTenantMutationRoutes(t *testing.T) {
 	f := newFixture(t)
 
-	created := f.call(http.MethodPost, wire.RouteTenants,
+	created := f.do(http.MethodPost, wire.RouteTenants, f.hostA, f.globalAdminToken(),
 		core.CreateTenantInput{Key: "third", Name: "Third"})
 	mustStatus(t, created, http.StatusCreated)
 	_ = created.Body.Close()

@@ -87,13 +87,24 @@ func runMCP(cmd *cobra.Command, g *globals, o mcpOptions) error {
 	if !ok {
 		return core.Internal("the remote target opened no http client")
 	}
-	opts.HasScope = func(s string) bool { return conn.Actor.HasScope(core.Scope(s)) }
+	opts.HasScope = func(s string) bool { return mcpHasScope(conn.Actor, core.Scope(s)) }
 	tools, err := mcp.Plan(doc, ov, opts)
 	if err != nil {
 		return core.Invalid("%v", err)
 	}
 	g.diag(cmd, "tix mcp: %d tools for %s on %s", len(mcp.Exposed(tools)), conn.Actor.Handle, target.URL)
 	return mcp.Serve(ctx, mcp.NewServer(tools, remote, version.Version), cmd.InOrStdin(), cmd.OutOrStdout())
+}
+
+// mcpHasScope decides whether a tool needing scope is offered. A global admin
+// tool needs the token to name global:admin and the server to have said, in
+// its answer to whoami, that the actor is a global admin right now; anything
+// short of both would offer a tool every call to which is refused.
+func mcpHasScope(actor *core.Actor, scope core.Scope) bool {
+	if scope == core.ScopeGlobalAdmin && !actor.GlobalAdmin {
+		return false
+	}
+	return actor.HasScope(scope)
 }
 
 func init() { builders = append(builders, newMCPCmd) }

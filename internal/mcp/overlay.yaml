@@ -87,3 +87,18 @@ operations:
   housekeeping.run:
     destructive: true
     reason: moves finished tasks to the trash and empties the trash for good
+
+  # Global admin: not deletes, but each one hands out or reshapes authority
+  # over every tenant, so a model is offered them only when asked to be.
+  tenant.create:
+    destructive: true
+    reason: creates a tenant and admin accounts whose passwords come back in the answer
+  global_admin.grant:
+    destructive: true
+    reason: hands authority over every tenant to another user
+  tenant.user.create:
+    destructive: true
+    reason: creates an account in another tenant, with any role there
+  tenant.user.update:
+    destructive: true
+    reason: changes the role, password or access of an account in another tenant

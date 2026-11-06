@@ -1,0 +1,106 @@
+{{define "content"}}
+{{$v := .Data}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <h1>{{t "Users of %s" $v.Tenant.Name}}</h1>
+    <p class="lede summary"><a href="/admin/global">{{t "Global admin"}}</a> &middot; <span class="mono">{{$v.Tenant.Key}}</span></p>
+  </div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
+</div>
+
+<ul class="peoplelist rows">
+{{range $v.Users}}
+  <li class="person{{if .Disabled}} is-off{{end}}" id="user-{{.User.ID}}">
+    <span class="avatar" aria-hidden="true">{{.Monogram}}</span>
+    <span class="person-id">
+      <span class="person-name">{{.Label}}</span>
+      <span class="person-mail mono">{{.User.Email}}</span>
+    </span>
+    <span class="person-marks">
+      {{if .Role}}<span class="role role-{{slug .Role}}">{{.Role}}</span>
+      {{else}}<span class="role role-none">{{t "no role"}}</span>{{end}}
+      {{if .Disabled}}<span class="state off">{{t "disabled"}}</span>{{else}}<span class="state on">{{t "active"}}</span>{{end}}
+    </span>
+    <span class="person-act">{{template "dlg-open" ((opener (print "user-" .User.ID) (t "Manage") "settings" "secondary small" $.Here).Named (t "Manage %s" .Label))}}</span>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">{{t "No users yet"}}</p>
+    {{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" $.Here)}}
+  </li>
+{{end}}
+</ul>
+
+{{template "pager" $v.Pager}}
+
+{{range $v.Users}}
+{{$sh := shell (print "user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+        <form method="post" action="/admin/global/users/update">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="target" value="{{$v.Tenant.Key}}">
+          <input type="hidden" name="id" value="{{.User.ID}}">
+          <div class="row">
+            <div>
+              <label for="name-{{.User.ID}}">{{t "Display name"}}</label>
+              <input id="name-{{.User.ID}}" name="display_name" value="{{.User.DisplayName}}">
+            </div>
+            <div>
+              <label for="role-{{.User.ID}}">{{t "Role"}}</label>
+              {{$role := .Role}}
+              <select id="role-{{.User.ID}}" name="role">
+                {{if not $role}}<option value="" selected>{{t "leave unchanged"}}</option>{{end}}
+                {{range $v.Roles}}<option value="{{.}}" {{if eq . $role}}selected{{end}}>{{.}}</option>{{end}}
+              </select>
+            </div>
+          </div>
+          <div class="field-label">
+            <label class="check-inline" for="disabled-{{.User.ID}}">
+              <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
+              {{t "Disabled"}}
+            </label>
+          </div>
+          <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save changes"}}</button></div>
+        </form>
+        <div class="actiondlg-part actiondlg-danger">
+          <p class="muted">{{t "Deleting removes the account and its membership. Disabling is usually what you want, and can be undone."}}</p>
+          <div class="actions">{{template "dlg-open" (opener (print "user-del-" .User.ID) (t "Delete %s" .Label) "trash" "danger" $.Here)}}</div>
+        </div>
+{{template "dlg-end"}}
+{{$del := shell (print "user-del-" .User.ID) (t "Delete %s?" .Label) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $del}}
+<form method="post" action="/admin/global/users/delete" class="person-delete">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="target" value="{{$v.Tenant.Key}}">
+  <input type="hidden" name="id" value="{{.User.ID}}">
+  <p>{{t "Deleting removes the account and its membership. It cannot be undone."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $del.Back}}<button class="danger" type="submit">{{t "Delete %s" .Label}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+
+{{$d := .Dialog.For "user-new"}}
+{{$sh := shell "user-new" (t "Create a user") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+    <form method="post" action="/admin/global/users">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="target" value="{{$v.Tenant.Key}}">
+      {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+      <div class="row">
+        <div><label for="email">{{t "Email"}}</label><input id="email" name="email" type="email" value="{{$d.Value "email"}}" required{{$d.Errors.Attrs "email"}}>{{with $d.Errors.On "email"}}{{template "field-error" .}}{{end}}</div>
+        <div><label for="display_name">{{t "Display name"}}</label><input id="display_name" name="display_name" value="{{$d.Value "display_name"}}"></div>
+        <div>
+          <label for="role">{{t "Role"}}</label>
+          <select id="role" name="role"{{$d.Errors.Attrs "role"}}>
+            {{range $v.Roles}}<option value="{{.}}"{{if $d.Chose "role" (print .)}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+          {{with $d.Errors.On "role"}}{{template "field-error" .}}{{end}}
+        </div>
+      </div>
+      <label for="password">{{t "Password"}}</label>
+      <input id="password" name="password" type="password" autocomplete="new-password"{{$d.Errors.Attrs "password"}}>
+      {{with $d.Errors.On "password"}}{{template "field-error" .}}{{end}}
+      <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create user"}}</button></div>
+    </form>
+{{template "dlg-end"}}
+{{end}}

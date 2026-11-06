@@ -21,9 +21,29 @@ func TestActorHasScopeExplicit(t *testing.T) {
 func TestActorHasScopeWildcard(t *testing.T) {
 	a := &Actor{Scopes: []Scope{ScopeAll}}
 	for _, s := range AllScopes {
+		if s == ScopeGlobalAdmin {
+			continue
+		}
 		if !a.HasScope(s) {
 			t.Errorf("wildcard actor should hold %q", s)
 		}
+	}
+}
+
+// global:admin is carried only when named, so no token or role minted before
+// global admins existed gained authority over other tenants.
+func TestGlobalAdminScopeIsOnlyHeldWhenNamed(t *testing.T) {
+	for name, a := range map[string]*Actor{
+		"wildcard":   {Scopes: []Scope{ScopeAll}},
+		"admin role": {Role: RoleAdmin},
+		"both":       {Scopes: []Scope{ScopeAll}, Role: RoleAdmin},
+	} {
+		if a.HasScope(ScopeGlobalAdmin) {
+			t.Errorf("%s actor holds %q without naming it", name, ScopeGlobalAdmin)
+		}
+	}
+	if !(&Actor{Scopes: []Scope{ScopeGlobalAdmin}}).HasScope(ScopeGlobalAdmin) {
+		t.Errorf("an actor naming %q does not hold it", ScopeGlobalAdmin)
 	}
 }
 
@@ -38,6 +58,9 @@ func TestActorHasScopeFromRole(t *testing.T) {
 
 	admin := &Actor{Role: RoleAdmin}
 	for _, s := range AllScopes {
+		if s == ScopeGlobalAdmin {
+			continue
+		}
 		if !admin.HasScope(s) {
 			t.Errorf("admin role should grant %q", s)
 		}

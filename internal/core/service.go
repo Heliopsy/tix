@@ -48,23 +48,45 @@ type Service interface {
 
 // TenantService covers tenants, their domains, and membership.
 type TenantService interface {
-	// CreateTenant creates a tenant with the given key and name and seeds it with
-	// the builtin workflow. A key already in use is a conflict.
-	CreateTenant(ctx context.Context, in CreateTenantInput) (*Tenant, error)
+	// CreateTenant creates a tenant with the given key and name, seeds it with
+	// the builtin workflow, and creates the admins it names as users holding
+	// the admin role in the new tenant only. A password left out is generated
+	// and returned once in initial_credentials. Only a global admin may call
+	// it. A key already in use, or an admin email that already belongs to a
+	// user, is a conflict, and nothing is created.
+	CreateTenant(ctx context.Context, in CreateTenantInput) (*CreatedTenant, error)
 	// GetTenant returns the caller's own tenant by identifier or key; an empty
-	// reference means the caller's tenant. Any other tenant reads as not_found.
+	// reference means the caller's tenant. Any other tenant reads as not_found,
+	// except to a global admin, who may read any.
 	GetTenant(ctx context.Context, ref string) (*Tenant, error)
-	// ListTenants lists the tenants the caller can see, which is only its own,
-	// since an actor is bound to one tenant.
+	// ListTenants lists the tenants the caller can see: every live tenant for a
+	// global admin, and only its own for anybody else, since an actor is bound
+	// to one tenant.
 	ListTenants(ctx context.Context, page Page) ([]Tenant, string, error)
-	// UpdateTenant changes the caller's tenant: its name, theme, lease bounds,
+	// UpdateTenant changes the caller's tenant, or for a global admin any
+	// tenant: its name, theme, lease bounds,
 	// second-factor requirements and trash setting. Fields left out are
 	// unchanged. A lease default longer than the maximum, an unknown theme, or a
 	// second-factor requirement with no sealing key configured is refused.
 	UpdateTenant(ctx context.Context, ref string, in UpdateTenantInput) (*Tenant, error)
-	// DeleteTenant soft deletes the caller's tenant, so its data stops being
-	// reachable and its domains stop resolving. No row is destroyed.
+	// DeleteTenant soft deletes the caller's tenant, or for a global admin any
+	// tenant, so its data stops being reachable and its domains stop
+	// resolving. No row is destroyed.
 	DeleteTenant(ctx context.Context, ref string) error
+
+	// ListTenantUsers lists the users of any tenant, with each one's role
+	// there, keyset paginated. Only a global admin may call it; for anybody
+	// else it is forbidden whatever the tenant.
+	ListTenantUsers(ctx context.Context, tenant string, page Page) ([]TenantUser, string, error)
+	// CreateTenantUser creates a user, its actor and its membership in any
+	// tenant, as CreateUser does in the caller's own. Global admin only.
+	CreateTenantUser(ctx context.Context, tenant string, in CreateUserInput) (*User, error)
+	// UpdateTenantUser changes a user of any tenant: display name, password,
+	// role or disabled state, as UpdateUser does. Global admin only.
+	UpdateTenantUser(ctx context.Context, tenant, id string, in UpdateUserInput) (*User, error)
+	// DeleteTenantUser deletes a user of any tenant and revokes its membership
+	// there, as DeleteUser does. Global admin only.
+	DeleteTenantUser(ctx context.Context, tenant, id string) error
 
 	// AddDomain maps a hostname to the current tenant, so requests to that host
 	// resolve to it. A certificate mode of file needs both a certificate and a
@@ -335,6 +357,16 @@ type AuthService interface {
 	// DeleteUser deletes a user and revokes its membership of this tenant, which
 	// stops its actor acting.
 	DeleteUser(ctx context.Context, id string) error
+
+	// GrantGlobalAdmin makes the user with this email a global admin, who
+	// administers every tenant. Only a global admin may call it; the first
+	// one is granted from a shell holding the database.
+	GrantGlobalAdmin(ctx context.Context, in GlobalAdminInput) (*User, error)
+	// RevokeGlobalAdmin takes global admin away from the user with this email.
+	// Revoking the last global admin is refused.
+	RevokeGlobalAdmin(ctx context.Context, email string) error
+	// ListGlobalAdmins lists every global admin of the installation.
+	ListGlobalAdmins(ctx context.Context) ([]User, error)
 
 	// Login is one step of an interactive sign-in. It answers with a session
 	// when nothing further is needed, and with a challenge when the tenant

@@ -6,9 +6,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
 // Event types for records the core vocabulary does not name, because that
@@ -73,9 +75,10 @@ func lookupTenant(ctx context.Context, u store.UnscopedTx, ref string) (*core.Te
 	return u.GetTenantByKey(ctx, strings.ToLower(ref))
 }
 
-// ownTenant resolves a reference and refuses anything outside the actor's own
-// tenant as missing, so no caller can confirm another tenant exists.
-func ownTenant(ctx context.Context, tx store.Tx, actor *core.Actor, ref string) (*core.Tenant, error) {
+// reachTenant resolves a reference to a live tenant: the actor's own, or, for
+// a global admin, any. Every other tenant reads as missing, so no caller can
+// confirm another tenant exists.
+func reachTenant(ctx context.Context, tx store.Tx, actor *core.Actor, ref string, global bool) (*core.Tenant, error) {
 	if strings.TrimSpace(ref) == "" {
 		ref = actor.TenantID
 	}
@@ -87,15 +90,22 @@ func ownTenant(ctx context.Context, tx store.Tx, actor *core.Actor, ref string) 
 	if err != nil {
 		return nil, err
 	}
-	if t.ID != actor.TenantID || t.DeletedAt != nil {
+	if (t.ID != actor.TenantID && !global) || t.DeletedAt != nil {
 		return nil, core.NotFound("tenant %q", ref)
 	}
 	return t, nil
 }
 
-// CreateTenant registers a new tenant.
-func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*core.Tenant, error) {
-	actor, err := l.authorize(ctx, authz.ActionTenantAdmin, authz.Resource{})
+// CreateTenant registers a new tenant together with its first admins.
+//
+// The tenant row and its audit entry are written in the caller's tenant, as
+// before; the builtin workflow and the admins go in a second transaction
+// scoped to the new tenant, because a transaction is scoped to one tenant and
+// on PostgreSQL row-level security holds it there. The second transaction is
+// all or nothing, and when it fails the tenant row is removed again, so a
+// failure never leaves a tenant nobody can sign in to.
+func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*core.CreatedTenant, error) {
+	actor, err := l.authorizeGlobal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -103,37 +113,192 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 		return nil, err
 	}
 	key := strings.ToLower(strings.TrimSpace(in.Key))
+	admins, err := l.prepareAdmins(in.Admins)
+	if err != nil {
+		return nil, err
+	}
+	if err := l.adminEmailsFree(ctx, admins); err != nil {
+		return nil, err
+	}
 
-	var out *core.Tenant
+	var tenant *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
-		created, err := createTenantRow(ctx, m, "", key, in.Name)
-		out = created
+		created, err := createTenantRow(ctx, m, l.ids.New(), key, in.Name, adminEmails(admins))
+		tenant = created
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := l.seedTenantWorkflow(ctx, out.ID); err != nil {
+	out, err := l.seedTenant(ctx, tenant, admins)
+	if err != nil {
+		if undoErr := l.unwindTenant(ctx, actor, tenant); undoErr != nil {
+			return nil, core.Internal("setting up tenant %q failed and removing it failed too; "+
+				"remove it from a shell holding the database: %v; %v", key, err, undoErr)
+		}
 		return nil, err
 	}
 	return out, nil
 }
 
-// seedTenantWorkflow gives a new tenant the builtin workflow, without which it
-// could hold no projects. It runs in its own transaction because the caller's
-// transaction is scoped to the caller's tenant, not the new one. It is
-// idempotent, so a retry after a partial failure repairs the tenant.
-func (l *Local) seedTenantWorkflow(ctx context.Context, tenantID string) error {
-	system := core.SystemActor(tenantID)
-	return l.write(ctx, system, func(m *mutation) error {
-		_, err := ensureBuiltinWorkflow(ctx, m)
+// pendingAdmin is one admin of a tenant being created, resolved and hashed
+// before any transaction opens. Password is set only when it was generated.
+type pendingAdmin struct {
+	email, handle, displayName string
+	hash, generated            string
+}
+
+// prepareAdmins normalises the admins and hashes their passwords, generating
+// one where none was given. Hashing happens here, outside any transaction,
+// because it is deliberately slow.
+func (l *Local) prepareAdmins(in []core.TenantAdminInput) ([]pendingAdmin, error) {
+	out := make([]pendingAdmin, 0, len(in))
+	for _, a := range in {
+		p := pendingAdmin{
+			email:       core.NormalEmail(a.Email),
+			handle:      a.HandleOrDefault(),
+			displayName: strings.TrimSpace(a.DisplayName),
+		}
+		password := a.Password
+		if password == "" {
+			generated, err := auth.NewInitialPassword()
+			if err != nil {
+				return nil, err
+			}
+			password, p.generated = generated, generated
+		}
+		hash, err := l.hasher.Hash(password)
+		if err != nil {
+			return nil, err
+		}
+		p.hash = hash
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// adminEmails lists the admins' addresses, for the record of the creation.
+func adminEmails(admins []pendingAdmin) []string {
+	out := make([]string, 0, len(admins))
+	for _, a := range admins {
+		out = append(out, a.email)
+	}
+	return out
+}
+
+// adminEmailsFree refuses an admin whose email already belongs to a user,
+// before anything is written. A user row is bound to the one tenant its actor
+// lives in, so an existing user cannot be made an admin of a second tenant;
+// see openspec/changes/global-admins-and-tenant-bootstrap/design.md.
+func (l *Local) adminEmailsFree(ctx context.Context, admins []pendingAdmin) error {
+	if len(admins) == 0 {
+		return nil
+	}
+	return l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+		for _, a := range admins {
+			if err := emailFree(ctx, u, a.email); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// emailFree reports a conflict when a user already holds the address.
+func emailFree(ctx context.Context, u store.UnscopedTx, email string) error {
+	switch _, _, err := u.GetUserByEmail(ctx, email); {
+	case err == nil:
+		return core.Conflict("%s already belongs to a user, and a user belongs to one tenant; "+
+			"name another address for this tenant", email).WithDetail(core.DetailField, "admins")
+	case !core.IsKind(err, core.KindNotFound):
 		return err
+	}
+	return nil
+}
+
+// seedTenant gives a new tenant the builtin workflow, without which it could
+// hold no projects, and its admins, in one transaction scoped to it.
+func (l *Local) seedTenant(ctx context.Context, tenant *core.Tenant, admins []pendingAdmin) (*core.CreatedTenant, error) {
+	out := &core.CreatedTenant{Tenant: *tenant}
+	err := l.write(ctx, core.SystemActor(tenant.ID), func(m *mutation) error {
+		if _, err := ensureBuiltinWorkflow(ctx, m); err != nil {
+			return err
+		}
+		u, err := asUnscoped(m.tx)
+		if err != nil {
+			return err
+		}
+		for _, a := range admins {
+			if err := emailFree(ctx, u, a.email); err != nil {
+				return err
+			}
+			created, err := createAdmin(ctx, m, l.ids.New(), a)
+			if err != nil {
+				return err
+			}
+			out.Admins = append(out.Admins, created)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range admins {
+		if a.generated != "" {
+			out.InitialCredentials = append(out.InitialCredentials,
+				core.InitialCredential{Email: a.email, Handle: a.handle, Password: a.generated})
+		}
+	}
+	return out, nil
+}
+
+// createAdmin writes one admin's user, actor and membership, and records the
+// user without any credential: the audit entry and the event name the account
+// and say whether its password was generated, never the password.
+func createAdmin(ctx context.Context, m *mutation, id string, a pendingAdmin) (core.CreatedAdmin, error) {
+	u := &core.User{ID: id, Email: a.email, DisplayName: a.displayName}
+	if err := m.tx.CreateUser(ctx, u, a.hash); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	actor := &core.Actor{ID: id, Kind: core.ActorUser, Handle: a.handle, DisplayName: a.displayName}
+	if err := m.tx.CreateActor(ctx, actor); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	if err := m.tx.AddMember(ctx, &core.Membership{ActorID: id, Role: core.RoleAdmin}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	credential := "supplied"
+	if a.generated != "" {
+		credential = "generated"
+	}
+	if err := m.Record(auditUserCreate, eventUserCreated, "user", id, "", nil, u, map[string]any{
+		"email": a.email, "handle": a.handle, "role": string(core.RoleAdmin),
+		"credential": credential, "with_tenant": true,
+	}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	return core.CreatedAdmin{UserID: id, Email: a.email, Handle: a.handle, PasswordGenerated: a.generated != ""}, nil
+}
+
+// unwindTenant removes a tenant whose setup failed, and records the removal
+// in the caller's tenant beside the creation it undoes.
+func (l *Local) unwindTenant(ctx context.Context, actor *core.Actor, tenant *core.Tenant) error {
+	return l.write(ctx, actor, func(m *mutation) error {
+		u, err := asUnscoped(m.tx)
+		if err != nil {
+			return err
+		}
+		if err := u.DeleteTenant(ctx, tenant.ID); err != nil {
+			return err
+		}
+		return m.Record(auditTenantDelete, eventTenantDeleted, "tenant", tenant.ID, "", tenant, nil,
+			map[string]any{"key": tenant.Key, "reason": "setup_failed"})
 	})
 }
 
 // createTenantRow inserts a tenant and records it, rejecting a taken key.
-func createTenantRow(ctx context.Context, m *mutation, tenantID, key, name string) (*core.Tenant, error) {
+func createTenantRow(ctx context.Context, m *mutation, tenantID, key, name string, admins []string) (*core.Tenant, error) {
 	u, err := asUnscoped(m.tx)
 	if err != nil {
 		return nil, err
@@ -149,8 +314,11 @@ func createTenantRow(ctx context.Context, m *mutation, tenantID, key, name strin
 	if err := u.CreateTenant(ctx, t); err != nil {
 		return nil, err
 	}
-	if err := m.Record(auditTenantCreate, eventTenantCreated, "tenant", t.ID, "", nil, t,
-		map[string]any{"key": t.Key}); err != nil {
+	payload := map[string]any{"key": t.Key}
+	if len(admins) > 0 {
+		payload["admins"] = admins
+	}
+	if err := m.Record(auditTenantCreate, eventTenantCreated, "tenant", t.ID, "", nil, t, payload); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -163,9 +331,13 @@ func (l *Local) GetTenant(ctx context.Context, ref string) (*core.Tenant, error)
 	if err != nil {
 		return nil, err
 	}
+	global, err := l.globalAllowed(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var out *core.Tenant
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		t, err := ownTenant(ctx, tx, actor, ref)
+		t, err := reachTenant(ctx, tx, actor, ref, global)
 		out = t
 		return err
 	}); err != nil {
@@ -174,15 +346,23 @@ func (l *Local) GetTenant(ctx context.Context, ref string) (*core.Tenant, error)
 	return out, nil
 }
 
-// ListTenants returns the tenants the actor may see, which is its own. An actor
-// is bound to one tenant, so a wider listing would disclose another's data.
+// ListTenants returns the tenants the actor may see: every live tenant for a
+// global admin, and the actor's own for anybody else, since an actor is bound
+// to one tenant and a wider listing would disclose another's data.
 func (l *Local) ListTenants(ctx context.Context, page core.Page) ([]core.Tenant, string, error) {
 	actor, err := l.authorize(ctx, authz.ActionTenantAdmin, authz.Resource{})
 	if err != nil {
 		return nil, "", err
 	}
-	if _, err := page.Normalize(); err != nil {
+	if page, err = page.Normalize(); err != nil {
 		return nil, "", err
+	}
+	global, err := l.globalAllowed(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if global {
+		return l.listEveryTenant(ctx, actor, page)
 	}
 	out := []core.Tenant{}
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
@@ -198,6 +378,63 @@ func (l *Local) ListTenants(ctx context.Context, page core.Page) ([]core.Tenant,
 		return nil, "", err
 	}
 	return out, "", nil
+}
+
+// listEveryTenant pages through every live tenant. Deleted tenants are
+// skipped, and a page is refilled until it is full, so a short page means the
+// listing has ended.
+func (l *Local) listEveryTenant(ctx context.Context, actor *core.Actor, page core.Page) ([]core.Tenant, string, error) {
+	if page.Sort == "" {
+		page.Sort = core.SortCreatedAt
+	}
+	out := []core.Tenant{}
+	err := l.read(ctx, actor, func(tx store.Tx) error {
+		u, err := asUnscoped(tx)
+		if err != nil {
+			return err
+		}
+		scan := page
+		scan.Limit = core.MaxPageLimit
+		for {
+			found, err := u.ListTenants(ctx, scan)
+			if err != nil {
+				return err
+			}
+			for _, t := range found {
+				if t.DeletedAt != nil {
+					continue
+				}
+				out = append(out, t)
+				if len(out) == page.Limit {
+					return nil
+				}
+			}
+			if len(found) < scan.Limit {
+				return nil
+			}
+			scan.Cursor = tenantCursor(scan, found[len(found)-1]).Encode()
+		}
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	next := ""
+	if len(out) == page.Limit {
+		next = tenantCursor(page, out[len(out)-1]).Encode()
+	}
+	return out, next, nil
+}
+
+// tenantCursor addresses the position just after this tenant in the ordering.
+func tenantCursor(page core.Page, t core.Tenant) core.Cursor {
+	value := sqlb.TimeText(t.CreatedAt)
+	switch page.Sort {
+	case "key":
+		value = t.Key
+	case "name":
+		value = t.Name
+	}
+	return core.Cursor{SortValue: value, ID: t.ID, Sort: page.Sort, Direction: page.Direction}
 }
 
 // UpdateTenant changes a tenant's mutable fields.
@@ -235,9 +472,13 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		return nil, err
 	}
 
+	global, err := l.globalAllowed(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var out *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
-		t, err := ownTenant(ctx, m.tx, actor, ref)
+		t, err := reachTenant(ctx, m.tx, actor, ref, global)
 		if err != nil {
 			return err
 		}
@@ -302,8 +543,12 @@ func (l *Local) DeleteTenant(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
+	global, err := l.globalAllowed(ctx)
+	if err != nil {
+		return err
+	}
 	return l.write(ctx, actor, func(m *mutation) error {
-		t, err := ownTenant(ctx, m.tx, actor, ref)
+		t, err := reachTenant(ctx, m.tx, actor, ref, global)
 		if err != nil {
 			return err
 		}

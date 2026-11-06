@@ -24,6 +24,7 @@ tags:
   - name: event
   - name: field
   - name: filter
+  - name: global_admin
   - name: housekeeping
   - name: identity
   - name: inbox
@@ -2448,6 +2449,152 @@ paths:
       summary: UpdateSavedFilter renames, edits or shares a filter
       tags:
         - filter
+  /api/v1/global-admins:
+    get:
+      description: |-
+        ListGlobalAdmins lists every global admin of the installation.
+
+        Command line: `tix global-admin ls`.
+      operationId: global_admin.list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/User'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/User'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: ListGlobalAdmins lists every global admin of the installation
+      tags:
+        - global_admin
+    post:
+      description: |-
+        GrantGlobalAdmin makes the user with this email a global admin, who administers every tenant. Only a global admin may call it; the first one is granted from a shell holding the database.
+
+        Command line: `tix global-admin grant`.
+      operationId: global_admin.grant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalAdminInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: User is a credentialed human.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: GrantGlobalAdmin makes the user with this email a global admin, who
+        administers every tenant
+      tags:
+        - global_admin
+  /api/v1/global-admins/{email}:
+    delete:
+      description: |-
+        RevokeGlobalAdmin takes global admin away from the user with this email. Revoking the last global admin is refused.
+
+        Command line: `tix global-admin revoke`.
+      operationId: global_admin.revoke
+      parameters:
+        - description: Sign-in email of the global admin.
+          in: path
+          name: email
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: RevokeGlobalAdmin takes global admin away from the user with this email
+      tags:
+        - global_admin
   /api/v1/housekeeping:
     get:
       description: |-
@@ -7030,7 +7177,7 @@ paths:
   /api/v1/tenants:
     get:
       description: |-
-        ListTenants lists the tenants the caller can see, which is only its own, since an actor is bound to one tenant.
+        ListTenants lists the tenants the caller can see: every live tenant for a global admin, and only its own for anybody else, since an actor is bound to one tenant.
 
         Command line: `tix tenant ls`.
       operationId: tenant.list
@@ -7104,13 +7251,14 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: ListTenants lists the tenants the caller can see, which is only its
-        own, since an actor is bound to one tenant
+      summary: 'ListTenants lists the tenants the caller can see: every live tenant
+        for a global admin, and only its own for anybody else, since an actor is bound
+        to one tenant'
       tags:
         - tenant
     post:
       description: |-
-        CreateTenant creates a tenant with the given key and name and seeds it with the builtin workflow. A key already in use is a conflict.
+        CreateTenant creates a tenant with the given key and name, seeds it with the builtin workflow, and creates the admins it names as users holding the admin role in the new tenant only. A password left out is generated and returned once in initial_credentials. Only a global admin may call it. A key already in use, or an admin email that already belongs to a user, is a conflict, and nothing is created.
 
         Command line: `tix tenant create`.
       operationId: tenant.create
@@ -7125,8 +7273,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tenant'
-          description: Tenant is the top-level isolation boundary.
+                $ref: '#/components/schemas/CreatedTenant'
+          description: CreatedTenant is a tenant just created, with the administrators
+            created alongside it.
         "400":
           $ref: '#/components/responses/Error400'
         "401":
@@ -7151,22 +7300,24 @@ paths:
           $ref: '#/components/responses/Error504'
       security:
         - bearer:
-            - tenant:admin
+            - global:admin
         - session:
-            - tenant:admin
-      summary: CreateTenant creates a tenant with the given key and name and seeds
-        it with the builtin workflow
+            - global:admin
+      summary: CreateTenant creates a tenant with the given key and name, seeds it
+        with the builtin workflow, and creates the admins it names as users holding
+        the admin role in the new tenant only
       tags:
         - tenant
   /api/v1/tenants/{ref}:
     delete:
       description: |-
-        DeleteTenant soft deletes the caller's tenant, so its data stops being reachable and its domains stop resolving. No row is destroyed.
+        DeleteTenant soft deletes the caller's tenant, or for a global admin any tenant, so its data stops being reachable and its domains stop resolving. No row is destroyed.
 
         Command line: `tix tenant rm`.
       operationId: tenant.delete
       parameters:
-        - description: Tenant key or ID. Only the caller's own tenant is found.
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
           in: path
           name: ref
           required: true
@@ -7198,18 +7349,19 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: DeleteTenant soft deletes the caller's tenant, so its data stops being
-        reachable and its domains stop resolving
+      summary: DeleteTenant soft deletes the caller's tenant, or for a global admin
+        any tenant, so its data stops being reachable and its domains stop resolving
       tags:
         - tenant
     get:
       description: |-
-        GetTenant returns the caller's own tenant by identifier or key; an empty reference means the caller's tenant. Any other tenant reads as not_found.
+        GetTenant returns the caller's own tenant by identifier or key; an empty reference means the caller's tenant. Any other tenant reads as not_found, except to a global admin, who may read any.
 
         Command line: `tix tenant show`.
       operationId: tenant.show
       parameters:
-        - description: Tenant key or ID. Only the caller's own tenant is found.
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
           in: path
           name: ref
           required: true
@@ -7251,12 +7403,13 @@ paths:
         - tenant
     patch:
       description: |-
-        UpdateTenant changes the caller's tenant: its name, theme, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
+        UpdateTenant changes the caller's tenant, or for a global admin any tenant: its name, theme, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
 
         Command line: `tix tenant edit`.
       operationId: tenant.update
       parameters:
-        - description: Tenant key or ID. Only the caller's own tenant is found.
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
           in: path
           name: ref
           required: true
@@ -7302,8 +7455,270 @@ paths:
             - tenant:admin
         - session:
             - tenant:admin
-      summary: 'UpdateTenant changes the caller''s tenant: its name, theme, lease
-        bounds, second-factor requirements and trash setting'
+      summary: 'UpdateTenant changes the caller''s tenant, or for a global admin any
+        tenant: its name, theme, lease bounds, second-factor requirements and trash
+        setting'
+      tags:
+        - tenant
+  /api/v1/tenants/{ref}/users:
+    get:
+      description: |-
+        ListTenantUsers lists the users of any tenant, with each one's role there, keyset paginated. Only a global admin may call it; for anybody else it is forbidden whatever the tenant.
+
+        Command line: `tix tenant user ls`.
+      operationId: tenant.user.list
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
+          name: sort
+          schema:
+            type: string
+        - description: Direction is asc or desc, default asc.
+          in: query
+          name: direction
+          schema:
+            enum:
+              - asc
+              - desc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/TenantUser'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/TenantUser'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: ListTenantUsers lists the users of any tenant, with each one's role
+        there, keyset paginated
+      tags:
+        - tenant
+    post:
+      description: |-
+        CreateTenantUser creates a user, its actor and its membership in any tenant, as CreateUser does in the caller's own. Global admin only.
+
+        Command line: `tix tenant user create`.
+      operationId: tenant.user.create
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: User is a credentialed human.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: CreateTenantUser creates a user, its actor and its membership in any
+        tenant, as CreateUser does in the caller's own
+      tags:
+        - tenant
+  /api/v1/tenants/{ref}/users/{id}:
+    delete:
+      description: |-
+        DeleteTenantUser deletes a user of any tenant and revokes its membership there, as DeleteUser does. Global admin only.
+
+        Command line: `tix tenant user rm`.
+      operationId: tenant.user.delete
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: User's actor ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: DeleteTenantUser deletes a user of any tenant and revokes its membership
+        there, as DeleteUser does
+      tags:
+        - tenant
+    patch:
+      description: |-
+        UpdateTenantUser changes a user of any tenant: display name, password, role or disabled state, as UpdateUser does. Global admin only.
+
+        Command line: `tix tenant user edit`.
+      operationId: tenant.user.update
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: User's actor ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: User is a credentialed human.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: 'UpdateTenantUser changes a user of any tenant: display name, password,
+        role or disabled state, as UpdateUser does'
       tags:
         - tenant
   /api/v1/tokens:
@@ -8867,6 +9282,11 @@ components:
         display_name:
           description: DisplayName is the human-readable name, when one is set.
           type: string
+        global_admin:
+          description: GlobalAdmin reports, on the answer to WhoAmI, that the actor
+            may act as a global admin right now. It is a report for interfaces deciding
+            what to offer; authorization never reads it, and asks the store instead.
+          type: boolean
         handle:
           description: Handle is the actor's short unique name within the tenant.
           type: string
@@ -9666,6 +10086,13 @@ components:
     CreateTenantInput:
       description: CreateTenantInput creates a tenant.
       properties:
+        admins:
+          description: Admins are the first administrators of the new tenant, each
+            created as a user holding the admin role there and nowhere else, in the
+            same operation as the tenant. Omitted creates a tenant with no members.
+          items:
+            $ref: '#/components/schemas/TenantAdminInput'
+          type: array
         key:
           description: 'Key is the tenant''s short unique key, lowercased: letters,
             digits, hyphens and underscores, starting with a letter. Required.'
@@ -9724,6 +10151,99 @@ components:
         role:
           $ref: '#/components/schemas/Role'
           description: Role is the user's role in this tenant; empty means "viewer".
+      type: object
+    CreatedAdmin:
+      description: CreatedAdmin is one administrator created with a tenant.
+      properties:
+        email:
+          description: Email is the administrator's sign-in address.
+          type: string
+        handle:
+          description: Handle is the administrator's handle in the new tenant.
+          type: string
+        password_generated:
+          description: PasswordGenerated is true when the server chose the password,
+            which is then in InitialCredentials.
+          type: boolean
+        user_id:
+          description: UserID is the new user's identifier, which is also its actor's.
+          type: string
+      type: object
+    CreatedTenant:
+      description: CreatedTenant is a tenant just created, with the administrators
+        created alongside it.
+      properties:
+        admins:
+          description: Admins are the administrators created with the tenant, in the
+            order they were named.
+          items:
+            $ref: '#/components/schemas/CreatedAdmin'
+          type: array
+        created_at:
+          description: CreatedAt is when the tenant was created, RFC 3339.
+          format: date-time
+          type: string
+        deleted_at:
+          description: DeletedAt is when the tenant was deleted, RFC 3339. Absent
+            on a live tenant.
+          format: date-time
+          type:
+            - "null"
+            - string
+        id:
+          description: ID is the tenant's unique identifier.
+          type: string
+        initial_credentials:
+          description: InitialCredentials carries every password the server generated,
+            in plain text, exactly once. Nothing stores it and no later call returns
+            it; a caller that discards it has to set a new password.
+          items:
+            $ref: '#/components/schemas/InitialCredential'
+          type: array
+        key:
+          description: Key is the tenant's short, unique, human-readable key, used
+            to refer to it in place of the ID.
+          type: string
+        lease_default:
+          description: LeaseDefault is how long a claim on this tenant's tasks holds
+            when the claim, task, project and workflow name none, as a duration such
+            as "4h". Zero or absent defers to the deployment configuration, then the
+            built-in default.
+          type: string
+        lease_max:
+          description: LeaseMax caps any lease granted on this tenant's tasks, as
+            a duration such as "24h". It can lower the deployment's ceiling but never
+            raise it; zero or absent inherits the deployment's.
+          type: string
+        name:
+          description: Name is the tenant's display name.
+          type: string
+        require_totp_cli:
+          description: RequireTOTPCLI requires a second factor when signing in from
+            the command line. Defaults to false.
+          type: boolean
+        require_totp_ssh:
+          description: RequireTOTPSSH requires a second factor when opening the board
+            over SSH, on top of the key. Defaults to false.
+          type: boolean
+        require_totp_web:
+          description: RequireTOTPWeb requires a second factor when signing in to
+            the browser interface. Each surface is set independently and defaults
+            to false.
+          type: boolean
+        theme:
+          description: Theme names the palette this tenant presents itself with, on
+            every surface. Empty means nobody chose, and the accent is derived from
+            the tenant's own identity instead; see ThemeRegistry.Resolve.
+          type: string
+        trash_off:
+          description: TrashOff makes deleting a task permanent on this tenant. False,
+            the default, keeps deleted tasks in a trash they can be restored from.
+          type: boolean
+        updated_at:
+          description: UpdatedAt is when the tenant was last changed, RFC 3339.
+          format: date-time
+          type: string
       type: object
     DeliveryStatus:
       description: DeliveryStatus is the state of one webhook delivery attempt chain.
@@ -9937,6 +10457,13 @@ components:
       properties:
         reason:
           description: Reason says why the lease was taken, at most 500 characters.
+          type: string
+      type: object
+    GlobalAdminInput:
+      description: GlobalAdminInput names the user a global admin grant concerns.
+      properties:
+        email:
+          description: Email is the user's sign-in address. Required.
           type: string
       type: object
     GroupOrderInput:
@@ -10386,6 +10913,19 @@ components:
         marked:
           description: Marked is how many unread items were marked read.
           type: integer
+      type: object
+    InitialCredential:
+      description: InitialCredential is a generated password, shown once.
+      properties:
+        email:
+          description: Email is the address the password signs in with.
+          type: string
+        handle:
+          description: Handle is the administrator's handle in the new tenant.
+          type: string
+        password:
+          description: Password is the generated password in plain text.
+          type: string
       type: object
     Installation:
       description: Installation describes the store the report was taken against.
@@ -11199,6 +11739,7 @@ components:
         - webhook:admin
         - tenant:admin
         - sync:admin
+        - global:admin
         - audit:read
         - export
         - import
@@ -12147,6 +12688,76 @@ components:
           format: date-time
           type: string
       type: object
+    TenantAdminInput:
+      description: TenantAdminInput names one first administrator of a new tenant.
+      properties:
+        display_name:
+          description: DisplayName is the name shown for the administrator.
+          type: string
+        email:
+          description: Email is the administrator's sign-in address, lowercased. Required.
+          type: string
+        handle:
+          description: Handle is the administrator's short name in the new tenant,
+            lowercased; empty uses the part of the email before the "@".
+          type: string
+        password:
+          description: Password is at least 12 characters. Empty generates a random
+            one, which the response carries once in initial_credentials and nothing
+            stores.
+          type: string
+      type: object
+    TenantUser:
+      description: TenantUser is a user of some tenant together with their role there.
+      properties:
+        created_at:
+          description: CreatedAt is when the user was created, RFC 3339.
+          format: date-time
+          type: string
+        disabled_at:
+          description: DisabledAt is when the user was disabled, RFC 3339. A disabled
+            user cannot sign in; absent on an active user.
+          format: date-time
+          type:
+            - "null"
+            - string
+        display_name:
+          description: DisplayName is the name shown for the user. Empty means the
+            email is shown instead.
+          type: string
+        email:
+          description: Email is the user's sign-in address, unique within the installation.
+          type: string
+        global_admin:
+          description: GlobalAdmin reports whether the user is a global admin, who
+            administers every tenant of the installation rather than only their own.
+          type: boolean
+        id:
+          description: ID is the user's actor identifier.
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the user's role in that tenant; empty when they hold
+            no membership there.
+        sso_provider:
+          description: SSOProvider names the single sign-on provider that vouches
+            for the user. Empty for a password user.
+          type: string
+        sso_subject:
+          description: SSOSubject is the user's subject identifier at SSOProvider.
+          type: string
+        totp_enrolled:
+          description: 'TOTPEnrolled reports whether this user holds a confirmed second
+            factor. It is state, not a credential: nothing here can produce a code,
+            and it is what lets an administrative listing say who holds one rather
+            than only offering to clear it. Set by the listings and by GetUser; a
+            user written back from one carries it and nothing reads it as an input.'
+          type: boolean
+        updated_at:
+          description: UpdatedAt is when the user was last changed, RFC 3339.
+          format: date-time
+          type: string
+      type: object
     Transition:
       description: Transition is one permitted edge of a workflow's state machine.
       properties:
@@ -12515,6 +13126,10 @@ components:
         email:
           description: Email is the user's sign-in address, unique within the installation.
           type: string
+        global_admin:
+          description: GlobalAdmin reports whether the user is a global admin, who
+            administers every tenant of the installation rather than only their own.
+          type: boolean
         id:
           description: ID is the user's actor identifier.
           type: string
@@ -12757,7 +13372,7 @@ components:
         `task:delete`, `task:reclaim`, `project:read`, `project:write`, `workflow:read`,
         `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`, `user:admin`,
         `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`, `sync:admin`,
-        `audit:read`, `export`, `import`.'
+        `audit:read`, `export`, `import`, `global:admin`.'
       scheme: bearer
       type: http
     session:
@@ -12767,7 +13382,7 @@ components:
         `task:claim`, `task:delete`, `task:reclaim`, `project:read`, `project:write`,
         `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
         `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
-        `sync:admin`, `audit:read`, `export`, `import`.
+        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`.
       in: cookie
       name: tix_session
       type: apiKey

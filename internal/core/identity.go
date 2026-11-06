@@ -74,6 +74,11 @@ const (
 	ScopeTenantAdmin  Scope = "tenant:admin"
 	ScopeSyncAdmin    Scope = "sync:admin"
 
+	// ScopeGlobalAdmin lets a token act for a global admin across tenants. "*"
+	// does not imply it: it is carried only when named, and only by a token
+	// whose actor is a global admin when the call is made.
+	ScopeGlobalAdmin Scope = "global:admin"
+
 	ScopeAuditRead Scope = "audit:read"
 	ScopeExport    Scope = "export"
 	ScopeImport    Scope = "import"
@@ -89,6 +94,7 @@ var AllScopes = []Scope{
 	ScopeEventSubscribe,
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
+	ScopeGlobalAdmin,
 }
 
 // Role is a named bundle of scopes granted to a human within one tenant.
@@ -151,12 +157,19 @@ type Actor struct {
 	// ProjectID restricts the actor to one project when set, as a
 	// project-scoped token does.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// GlobalAdmin reports, on the answer to WhoAmI, that the actor may act as a
+	// global admin right now. It is a report for interfaces deciding what to
+	// offer; authorization never reads it, and asks the store instead.
+	GlobalAdmin bool `json:"global_admin,omitempty" yaml:"global_admin,omitempty"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
 func (a *Actor) HasScope(s Scope) bool {
 	if a == nil {
 		return false
+	}
+	if s == ScopeGlobalAdmin {
+		return slices.Contains(a.Scopes, ScopeGlobalAdmin)
 	}
 	if slices.Contains(a.Scopes, ScopeAll) {
 		return true
@@ -200,6 +213,7 @@ const (
 	ctxKeyTenant
 	ctxKeySource
 	ctxKeyAudience
+	ctxKeyDirectStore
 )
 
 // Source records which access path an operation arrived through.
@@ -252,6 +266,20 @@ func AudienceFrom(ctx context.Context) string {
 		return strings.ToLower(strings.TrimSpace(a))
 	}
 	return AudienceLocal
+}
+
+// WithDirectStore marks a call made by a process that opened the database
+// itself, with no credential: whoever can open the file already holds every
+// row in it, so such a call stands as a global admin. Only the command line's
+// local connection sets it; nothing arriving over a network can.
+func WithDirectStore(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxKeyDirectStore, true)
+}
+
+// DirectStoreFrom reports whether ctx was marked by WithDirectStore.
+func DirectStoreFrom(ctx context.Context) bool {
+	v, _ := ctx.Value(ctxKeyDirectStore).(bool)
+	return v
 }
 
 // WithTenant returns a context carrying the tenant scope.

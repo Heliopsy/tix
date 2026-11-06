@@ -238,7 +238,7 @@ func (f *fakeService) WhoAmI(context.Context) (*core.Actor, error) {
 }
 func (f *fakeService) Close() error { return nil }
 
-func (f *fakeService) CreateTenant(context.Context, core.CreateTenantInput) (*core.Tenant, error) {
+func (f *fakeService) CreateTenant(context.Context, core.CreateTenantInput) (*core.CreatedTenant, error) {
 	return nil, nil
 }
 func (f *fakeService) GetTenant(_ context.Context, ref string) (*core.Tenant, error) {
@@ -663,6 +663,21 @@ func (f *fakeService) UpdateUser(context.Context, string, core.UpdateUserInput) 
 	return nil, nil
 }
 func (f *fakeService) DeleteUser(context.Context, string) error { return nil }
+func (f *fakeService) GrantGlobalAdmin(context.Context, core.GlobalAdminInput) (*core.User, error) {
+	return nil, nil
+}
+func (f *fakeService) RevokeGlobalAdmin(context.Context, string) error       { return nil }
+func (f *fakeService) ListGlobalAdmins(context.Context) ([]core.User, error) { return nil, nil }
+func (f *fakeService) ListTenantUsers(context.Context, string, core.Page) ([]core.TenantUser, string, error) {
+	return nil, "", nil
+}
+func (f *fakeService) CreateTenantUser(context.Context, string, core.CreateUserInput) (*core.User, error) {
+	return nil, nil
+}
+func (f *fakeService) UpdateTenantUser(context.Context, string, string, core.UpdateUserInput) (*core.User, error) {
+	return nil, nil
+}
+func (f *fakeService) DeleteTenantUser(context.Context, string, string) error { return nil }
 func (f *fakeService) Login(context.Context, core.LoginInput) (*core.LoginResult, error) {
 	return nil, nil
 }

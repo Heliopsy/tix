@@ -12,8 +12,8 @@ import (
 )
 
 // CreateTenant creates a tenant.
-func (c *Client) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*core.Tenant, error) {
-	return call[core.Tenant](ctx, c, http.MethodPost, wire.RouteTenants, nil, in)
+func (c *Client) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*core.CreatedTenant, error) {
+	return call[core.CreatedTenant](ctx, c, http.MethodPost, wire.RouteTenants, nil, in)
 }
 
 // GetTenant returns one tenant.
@@ -86,4 +86,25 @@ func (c *Client) ListMembers(ctx context.Context) ([]core.Membership, error) {
 // RemoveMember revokes a membership.
 func (c *Client) RemoveMember(ctx context.Context, actorID string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteMember, "actorID", actorID), nil, nil)
+}
+
+// ListTenantUsers returns one page of a tenant's users.
+func (c *Client) ListTenantUsers(ctx context.Context, tenant string, page core.Page) ([]core.TenantUser, string, error) {
+	return list[core.TenantUser](ctx, c, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), pageQuery(page))
+}
+
+// CreateTenantUser creates a user in a tenant.
+func (c *Client) CreateTenantUser(ctx context.Context, tenant string, in core.CreateUserInput) (*core.User, error) {
+	return call[core.User](ctx, c, http.MethodPost, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), nil, in)
+}
+
+// UpdateTenantUser changes a user of a tenant.
+func (c *Client) UpdateTenantUser(ctx context.Context, tenant, id string, in core.UpdateUserInput) (*core.User, error) {
+	return call[core.User](ctx, c, http.MethodPatch,
+		routePath(wire.RouteTenantUser, "ref", tenantRef(tenant), "id", id), nil, in)
+}
+
+// DeleteTenantUser deletes a user of a tenant.
+func (c *Client) DeleteTenantUser(ctx context.Context, tenant, id string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteTenantUser, "ref", tenantRef(tenant), "id", id), nil, nil)
 }

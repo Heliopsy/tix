@@ -223,7 +223,7 @@ func TestDomainsDoNotLeakAcrossTenants(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx := core.WithActor(context.Background(), actor)
 
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}

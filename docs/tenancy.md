@@ -10,13 +10,83 @@ everything lands in it.
 
 ```sh
 tix tenant create acme "Acme Corp"
+tix tenant create acme --name "Acme Corp" --admin ada@example.com --admin bob@example.com
 tix tenant ls
 tix tenant show acme
 tix tenant edit acme --name "Acme Limited"
 tix tenant rm acme
 ```
 
-Keys must be valid and unique; a duplicate is exit 4.
+Keys must be valid and unique; a duplicate is exit 4. Creating a tenant needs a [global admin](#global-admins).
+
+### First admins
+
+A tenant created with no members is one nobody can sign in to, since every other call acts on the caller's own
+tenant. So creation takes its first admins: each `--admin EMAIL` (or each entry of `admins` on
+`POST /api/v1/tenants`) becomes a user holding the admin role in the new tenant and in no other. A password left
+out is generated, 24 characters from `crypto/rand` over an alphabet without the look-alikes 0, O, o, 1, l and I,
+and returned once:
+
+```console
+$ tix tenant create test --name Test --admin villy@example.com
+...
+these passwords are shown once and cannot be retrieved again
+EMAIL              HANDLE  PASSWORD
+villy@example.com  villy   xxxxxx-xxxxxx-xxxxxx-xxxxxx
+```
+
+`-o json` carries the same in `initial_credentials`, as the API does. Nothing stores the password in plain text,
+and the audit entry and event for each new user record the account and `credential: generated`, never the value.
+A lost one is replaced by setting a new password (`tix tenant user edit KEY ID --password ...`).
+
+The handle comes from the part of the address before `@` unless one is given over the API. An address named twice,
+two admins that would share a handle, a supplied password under 12 characters, or more than 10 admins are refused
+before anything is written. So is an address that already belongs to a user: a user and its actor share one
+identifier, and an actor lives in one tenant, so in this version a user cannot also administer a second tenant.
+The answer is a conflict naming the address, exit 4, and nothing is created. The caller is never added to the new
+tenant for the same reason.
+
+The tenant and the record of its creation are written in the caller's tenant; the builtin workflow and the admins
+in one transaction in the new tenant. If that second transaction fails, the tenant is removed again, with a
+`tenant.delete` audit entry carrying `reason: setup_failed` beside the creation, so a retry with the same key
+works.
+
+## Global admins
+
+A global admin administers the installation rather than one tenant: they create tenants, list, rename and delete
+any tenant, and manage the users of any tenant. Every other tenant admin stays confined to their own tenant.
+
+```sh
+tix --db /var/lib/tix/tix.db global-admin grant ada@example.com   # the first one, from the server's shell
+tix global-admin ls
+tix global-admin grant bob@example.com
+tix global-admin revoke bob@example.com
+tix tenant user ls acme
+tix tenant user create acme carol@example.com --role admin --password '...'
+tix tenant user edit acme 01J0000000000000000000 --role member
+tix tenant user rm acme 01J0000000000000000000
+```
+
+It is a flag on the user, not a role: roles are per tenant. Who counts as one:
+
+- **A shell holding the database.** A command with `--db` (or a local store) and no `--token` stands as a global
+  admin, because whoever can open the file already holds every row. This is how the first one is granted.
+- **A signed-in global admin**, in the browser or with `tix login`. The flag is read on every call, so a revoke
+  takes effect on live sessions at once.
+- **A token naming `global:admin`** whose actor is a global admin at the time of the call. `*` does not carry
+  `global:admin`, so no token minted before global admins existed gained any authority. Only a global admin may
+  mint a token with it, and only for an actor who is one: `tix token create ops --scope '*' --scope global:admin`.
+
+The last global admin cannot be revoked (exit 6, `precondition_failed` with `reason: last_global_admin`). Grants
+and revokes are recorded as `global_admin.grant` and `global_admin.revoke` in the granter's tenant.
+
+**Upgrading.** Before this, any tenant admin could create a tenant. Now only a global admin can, so grant the
+first one from the server's shell before relying on tenant creation over the API or the browser.
+
+In the browser, a global admin gets a Global admin entry under Admin: every tenant with create, rename and delete,
+the passwords a creation generated shown once with a copy button each, the global admins, and each tenant's users.
+Over MCP the global admin tools are offered only to a token naming `global:admin` whose actor is one; see
+[mcp.md](mcp.md).
 
 ### The trash
 
@@ -46,7 +116,7 @@ what it holds then is kept as promised. Changing the setting writes one `tenant.
 
 ## Members and roles
 
-Membership is per tenant. The same person can hold different roles in different tenants.
+Membership is per tenant: a role says what an account may do in the tenant it belongs to.
 
 ```sh
 tix user create alice@example.com --handle alice --display-name "Alice" --role member
@@ -61,12 +131,12 @@ tix member rm 01J0000000000000000000
 | `member` | viewer, plus task write, transition, claim, `comment:write`, `artifact:write`, `export` |
 | `admin` | `*` |
 
-User accounts are the one exception to "belongs to exactly one tenant": a user row is global so that the same
-address can hold a membership in several tenants, and it is the actor row sharing its identifier that binds it to
-one. Listing users therefore filters by actor rather than by a `tenant_id` column. The listing pages the global
-ordering until this tenant's page is full, so the cursor it hands back always names a user the caller can see; a
-cursor is base64 of a sort key and an identifier, not a secret, and one taken from the unfiltered page would have
-named another tenant's user and their email address.
+User accounts are the one exception to "belongs to exactly one tenant": a user row is global, and it is the actor
+row sharing its identifier that binds it to one tenant. An email address is unique across the installation, so in
+this version an address signs in to exactly one tenant. Listing users therefore filters by actor rather than by a
+`tenant_id` column. The listing pages the global ordering until this tenant's page is full, so the cursor it hands
+back always names a user the caller can see; a cursor is base64 of a sort key and an identifier, not a secret, and
+one taken from the unfiltered page would have named another tenant's user and their email address.
 
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.

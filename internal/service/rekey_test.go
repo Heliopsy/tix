@@ -185,7 +185,7 @@ func TestOldKeysDoNotCrossTenants(t *testing.T) {
 	if _, err := l.UpdateProject(ctx, "infra", core.UpdateProjectInput{Key: strp("ops")}); err != nil {
 		t.Fatalf("UpdateProject: %v", err)
 	}
-	other, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "beta", Name: "Beta"})
+	other, err := l.CreateTenant(core.WithDirectStore(ctx), core.CreateTenantInput{Key: "beta", Name: "Beta"})
 	if err != nil {
 		t.Fatalf("CreateTenant: %v", err)
 	}

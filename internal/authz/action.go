@@ -65,6 +65,10 @@ const (
 	ActionWebhookAdmin Action = "webhook.admin"
 	ActionTenantAdmin  Action = "tenant.admin"
 	ActionSyncAdmin    Action = "sync.admin"
+	// ActionGlobalAdmin administers the installation across tenants: creating
+	// tenants and granting global admin. It is decided by Policy.CanGlobal,
+	// never by Can, because a scope alone does not carry it.
+	ActionGlobalAdmin Action = "global.admin"
 
 	// ActionServerRead reads the installation: which servers are registered,
 	// what the store is, and how big the tenant's work is. It is not confinable
@@ -112,6 +116,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionWebhookAdmin: core.ScopeWebhookAdmin,
 	ActionTenantAdmin:  core.ScopeTenantAdmin,
 	ActionSyncAdmin:    core.ScopeSyncAdmin,
+	ActionGlobalAdmin:  core.ScopeGlobalAdmin,
 
 	ActionExport:         core.ScopeExport,
 	ActionImport:         core.ScopeImport,
@@ -174,6 +179,7 @@ var allActions = []Action{
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
+	ActionGlobalAdmin,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead,
 }

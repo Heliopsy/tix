@@ -27,7 +27,8 @@ type inputReach struct {
 }
 
 var inputReaches = []inputReach{
-	{"tix tenant create", core.CreateTenantInput{}, map[string]string{"key": "arg", "name": "arg"}},
+	{"tix tenant create", core.CreateTenantInput{}, map[string]string{"key": "arg", "name": "arg", "admins": "--admin"}},
+	{"tix global-admin grant", core.GlobalAdminInput{}, map[string]string{"email": "arg"}},
 	{"tix tenant edit", core.UpdateTenantInput{}, map[string]string{
 		"name": "--name", "theme": "--theme",
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
@@ -100,6 +101,13 @@ var inputReaches = []inputReach{
 	{"tix user create", core.CreateUserInput{}, map[string]string{
 		"email": "arg", "password": "--password", "display_name": "--display-name",
 		"handle": "--handle", "role": "--role",
+	}},
+	{"tix tenant user create", core.CreateUserInput{}, map[string]string{
+		"email": "arg", "password": "--password", "display_name": "--display-name",
+		"handle": "--handle", "role": "--role",
+	}},
+	{"tix tenant user edit", core.UpdateUserInput{}, map[string]string{
+		"display_name": "--display-name", "password": "--password", "role": "--role", "disabled": "--disabled",
 	}},
 	{"tix user edit", core.UpdateUserInput{}, map[string]string{
 		"display_name": "--display-name", "password": "--password", "role": "--role", "disabled": "--disabled",
