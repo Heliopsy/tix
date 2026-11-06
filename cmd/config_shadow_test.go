@@ -68,6 +68,7 @@ var unshadowedKeys = map[string]string{
 	"database.dsn":                   "connect.Resolve; --db only wins when non-empty",
 	"database.allow_network_fs":      "connect.dialLocal, ORed with --allow-network-fs",
 	"database.connect_timeout":       "connect.openStore",
+	"cli.record_host":                "connect.dialLocal, into the cli-local access channel; there is no flag",
 	"server.url":                     "connect.Resolve; --server only wins when non-empty",
 	"server.token":                   "globals.credential, into connect.Overrides.Token",
 	"target":                         "connect.NeedsOptIn, via globals.confirmTarget; tix init writes it",
