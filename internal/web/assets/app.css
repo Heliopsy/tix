@@ -1090,6 +1090,16 @@ input[readonly] {
 .tip > summary svg { display: block; }
 .tip > p { max-width: min(360px, 80vw); line-height: 1.45; text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; }
 .tip-doc { display: block; margin-top: 4px; }
+/* Values to type, each kept whole where it fits: "every 2 weeks" broken
+   after "every" reads as two examples. An inline block moves to the next line
+   as one piece, and still wraps inside itself on a screen too narrow for it. */
+.tip-examples { display: block; margin-top: 4px; }
+.tip-examples code { display: inline-block; margin: 2px 4px 2px 0; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: 4px; }
+/* The quick-add tip sits part way along its row, so a note anchored to it ran
+   off a phone's right edge. It is anchored to the whole row instead. */
+.quickadd { position: relative; }
+.quickadd > .tip { position: static; }
+.quickadd > .tip > p { left: 0; right: 0; width: auto; max-width: none; }
 /* A tip near the page's right edge opens leftwards, so its note stays on
    screen: the view switch sits at the end of the task screen's header. */
 .viewswitch .tip > p, .pagehead-actions .tip > p, .lanesbar .tip > p { left: auto; right: 0; }

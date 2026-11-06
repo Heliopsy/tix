@@ -293,13 +293,15 @@
 {{/* tip is the same "i" disclosure as field-info, for a concept rather than
      a field: a heading, a filter box, a figure a newcomer would not know how
      to read. Built with the tip func from a topic, one or two plain
-     sentences, and optionally the page in docs/ that says more. A disclosure
+     sentences, and optionally the page in docs/ that says more; the examples
+     func adds values to type, shown as typed, so a field that a parser reads
+     shows what it takes before anything is refused. A disclosure
      for the reasons field-info gives, and named "About <topic>" so a screen
      reader says what it explains rather than "i". The doc is named rather
      than linked: docs/ is not served here, and no page may point off-site. */}}
 {{define "tip"}}<details class="field-info tip">
   <summary aria-label="{{t "About %s" (t .Topic)}}" title="{{t "About %s" (t .Topic)}}"><svg aria-hidden="true" width="12" height="12"><use href="/assets/icons.svg#info"/></svg></summary>
-  <p>{{t .Text}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
+  <p>{{t .Text}}{{with .Examples}} <span class="tip-examples">{{t "For example:"}} {{range .}}<code>{{.}}</code> {{end}}</span>{{end}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
 </details>{{end}}
 
 {{/* colour-field is every colour control on the site: the predefined

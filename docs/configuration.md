@@ -65,7 +65,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `log.file.compress` | `TIX_LOG_FILE_COMPRESS` | `false` |
 | `output.format` | `TIX_OUTPUT_FORMAT` | `table` (`table`, `json`, `yaml`, `ndjson`) |
 | `output.color` | `TIX_OUTPUT_COLOR` | `auto` (`auto`, `always`, `never`) |
-| `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `us`, `relative`) |
+| `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `long`, `dotted`, `dayfirst`, `us`, `relative`) |
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
 | `cli.page_size` | `TIX_CLI_PAGE_SIZE` | `25` |
 | `web.page_size` | `TIX_WEB_PAGE_SIZE` | `25` |
@@ -360,8 +360,19 @@ timestamp quietly in the wrong zone is worse than an error at startup.
 | `iso` (default) | `2026-09-21 14:05` |
 | `rfc3339` | `2026-09-21T14:05:09+03:00` |
 | `short` | `21 Sep 14:05` |
+| `long` | `21 Sep 2026 14:05` |
+| `dotted` | `21.09.2026 14:05` |
+| `dayfirst` | `21/09/2026 14:05` |
 | `us` | `09/21/2026 2:05 PM` |
 | `relative` | `18 minutes ago` |
+
+The format also decides how a date typed by a person is read, in the web's due date fields, the quick-add
+line on every surface (`due:`) and `tix task add --parse`. `YYYY-MM-DD` and a date with the month as a word
+(`6 Nov 2026`) are read under every format. A date written with digits alone is read in the format's own
+order: `06.11.2026` and `06/11/2026` are the 6th of November under `dotted` and `dayfirst`, `11/06/2026` is
+the 6th of November under `us`, and under any other format such a date is refused rather than guessed.
+`--due` on the command line, the HTTP API and the MCP tools take `YYYY-MM-DD` or RFC 3339 only, whatever the
+format, because a script must not depend on a person's preference.
 
 A blank field in a table, or an empty value in a `Due` or `Expires` column on the web, means the timestamp was
 never set: the zero time renders as nothing rather than as `1970-01-01`, which every reader misreads as a real

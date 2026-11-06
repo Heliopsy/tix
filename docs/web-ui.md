@@ -146,15 +146,20 @@ permanently on the task screen, which was already explicit, does not ask again.
 due:fri +web` sets the priority, a tag, the assignee, the due date and the project, and the title is what
 is left. A moment after you stop typing, a row of chips under the box shows what the line will set, and a
 project or handle the tenant does not have is drawn in red with the reason, before anything is sent. A
-refused line comes back in the box with the reason under it. The box's (i) tip lists the syntax. The
+refused line comes back in the box with the reason under it. The box's (i) tip lists the syntax, with
+`due:` examples whose date is written in the reader's date format. The
 project picker beside the box is where the task goes when the line names no project. Dates count in the
 zone chosen under Settings. With scripting off the add still parses; only the preview needs a script.
-Add with details has a field per attribute and stores its title as typed. Its More options fold holds
+Add with details has a field per attribute and stores its title as typed. Its Due date field, like the
+task screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`),
+`YYYY-MM-DD`, or a date in the order the reader's date format writes one (`06.11.2026` under Dotted); its
+(i) tip shows those examples before anything is typed, the date among them in the reader's format. Its More options fold holds
 the repeat rule, parent, dependencies and the task's lease length, blank to inherit; a lease above the
 maximum is refused on that field and nothing is created.
 
 **Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
-a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. The task screen's
+a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. Its (i) tip lists
+`daily`, `every 2 weeks`, `every week on mon,thu`, `every month on day 15` and `3 days after done`. The task screen's
 Repeats row states the rule, links the occurrence it created once the task is finished, and before that
 gives the date finishing it now would make the next one due, or says that this is the last occurrence.
 A recurring row or card carries a `↻` marker with the rule beside it, linking every recurring task. The
@@ -1101,7 +1106,7 @@ going back a page.
 | --- | --- | --- |
 | Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
-| Date format | `tix_time_format` | one of the layouts this build renders |
+| Date format | `tix_time_format` | one of the layouts this build renders; also the order a typed date is read in |
 | Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |

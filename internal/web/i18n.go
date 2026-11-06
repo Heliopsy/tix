@@ -128,20 +128,24 @@ func translators(lang string) template.FuncMap {
 		"t": func(key string, args ...any) string { return i18n.T(lang, key, args...) },
 		// #nosec G203 -- key is a literal in a template, and every catalog
 		// entry for it is checked to carry the same markup as the key.
-		"th":     func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
-		"tn":     func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
-		"tc":     func(ctx, text string) string { return i18n.C(lang, ctx, text) },
-		"tip":    newTip,
-		"phrase": func(text string) string { return phraseText(lang, text) },
+		"th":  func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
+		"tn":  func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
+		"tc":  func(ctx, text string) string { return i18n.C(lang, ctx, text) },
+		"tip": newTip,
+		// examples hands a tip the values it shows as typed, untranslated,
+		// because they are what a parser reads.
+		"examples": func(v tipView, ex []string) tipView { v.Examples = ex; return v },
+		"phrase":   func(text string) string { return phraseText(lang, text) },
 	}
 }
 
 // tipView is one info tip: what it is about, the explanation, and the page in
 // docs/ that says more, if any.
 type tipView struct {
-	Topic string
-	Text  string
-	Doc   string
+	Topic    string
+	Text     string
+	Doc      string
+	Examples []string
 }
 
 // newTip builds the "tip" partial's argument. A doc is optional.

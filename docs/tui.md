@@ -477,7 +477,7 @@ otherwise unreachable: four settings meant four presses and nothing moved after 
 | Row | Configuration key | Values |
 | --- | --- | --- |
 | keys | `tui.keymap` | `default`, `vim`, `emacs`, `nano`, `helix` |
-| time format | `output.time_format` | `iso`, `rfc3339`, `short`, `us`, `relative` |
+| time format | `output.time_format` | `iso`, `rfc3339`, `short`, `long`, `dotted`, `dayfirst`, `us`, `relative` |
 | timezone | `output.timezone` | `local`, `UTC`, and a selection of named zones |
 | colour | `output.color` | `auto`, `always`, `never` |
 | motion | `tui.motion` | `on`, `off` |

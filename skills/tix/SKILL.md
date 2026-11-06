@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 17
+version: 18
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -527,8 +527,11 @@ others. None of it affects how tasks are listed or claimed.
 title you give it, `#`, `@` and `!` included, so pass issue titles and commit
 subjects as they are. `--parse` reads quick-add syntax out of the line instead:
 `tix task add --parse 'Fix login !high #auth @raj due:fri +web ^infra-3'`.
-Prefer explicit flags in scripts; `--parse` is for a line a person wrote. Over
-HTTP the same switch is `"parse": true` on `POST /v1/tasks`.
+Prefer explicit flags in scripts; `--parse` is for a line a person wrote. A
+`due:` date there is read in the order `output.time_format` writes dates
+(`due:06.11.2026` under `dotted`); `YYYY-MM-DD` reads the same everywhere and is
+what to write. Over HTTP the same switch is `"parse": true` on `POST /v1/tasks`,
+which reads `YYYY-MM-DD` only.
 
 **A recurring task makes its own successor.** A task whose JSON carries
 `recurrence` (set with `tix task add --repeat 'every week'`, changed with

@@ -76,6 +76,12 @@ var commaSpace = regexp.MustCompile(`\s*,\s*`)
 // RecurrenceSyntax is the one-line reminder of the grammar a refusal points at.
 const RecurrenceSyntax = `every [N] day|week|month|year [on mon,thu | on day D] [after done] [until YYYY-MM-DD | for N times]`
 
+// RecurrenceExamples are the rules a repeat hint offers before anything is
+// typed. Every one parses, which a test holds them to.
+var RecurrenceExamples = []string{
+	"daily", "every 2 weeks", "every week on mon,thu", "every month on day 15", "3 days after done",
+}
+
 // NormalizeRecurrence returns the canonical spelling of a rule, or the empty
 // string for an empty one.
 func NormalizeRecurrence(text string) (string, error) {

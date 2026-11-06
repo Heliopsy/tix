@@ -254,3 +254,12 @@ func TestRecurrenceSuccessor(t *testing.T) {
 		t.Fatal("the zero rule produced an occurrence")
 	}
 }
+
+// Every rule a hint offers is one the parser takes.
+func TestEveryRecurrenceExampleParses(t *testing.T) {
+	for _, ex := range RecurrenceExamples {
+		if _, err := ParseRecurrence(ex); err != nil {
+			t.Errorf("the example %q is refused: %v", ex, err)
+		}
+	}
+}
