@@ -3,6 +3,28 @@
 How an autonomous worker uses tix. Everything here is reachable from a shell, so it works the same from a Python
 agent, a shell script, a CI job or a language model with a `bash` tool.
 
+## Check where you are writing
+
+Before an agent does anything, it confirms that tix points where the person expects:
+
+```sh
+tix whoami
+```
+
+`target  server https://...` with a `token   yes, from ...` line is a server. `target  local database PATH`
+means the tasks stay on this machine. If the person expected a server, stop and set one up with the URL and an
+API token from the server (its `/connect` page prints the exact line):
+
+```sh
+tix ctx add work --server https://tix.example.com --token "$TOKEN" --use
+tix whoami
+```
+
+The token in the context is used by every command; exporting `TIX_TOKEN` is not needed. With nothing
+configured at all, a command run by an agent fails with exit `6` instead of creating a local database, and the
+message names both commands above and `tix init`. While the default local database is in use, every command
+prints `using local database PATH` on standard error, `-q` included.
+
 ## The shape of a worker
 
 ```sh
@@ -333,7 +355,8 @@ tix token create ci --scope task:read --scope task:claim --scope task:transition
 `claim next` and friends: `tix token create ci --project infra ...` restricts the token to that project.
 
 The token value is printed once and cannot be retrieved again. Supply it with `--token`, or the `TIX_TOKEN`
-environment variable, or a named context.
+environment variable, or a named context (`tix ctx add NAME --server URL --token TOKEN --use`), which every
+command then presents. `tix whoami` says which one is in use.
 
 `tix token ls` lists what a tenant holds, with the name, scopes, creation time, expiry and last use of each;
 `tix token rm ID` revokes one, and a revoked token stops authenticating immediately.

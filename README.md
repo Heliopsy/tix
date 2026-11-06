@@ -50,7 +50,7 @@ everywhere, and a durable event stream. Both work the same tasks in the same sto
 ## How it works
 
 ```text
-$ tix task add "migrate the database" -o json   # creates db, tenant and project on first run
+$ tix task add "migrate the database" -o json   # after tix init: creates db, tenant and project
 {"ref":"infra-42","title":"migrate the database","status":"todo", ...}
 
 $ tix claim next --project infra -o json        # an agent grabs the next unblocked task
@@ -140,14 +140,20 @@ The same store, three ways in. More in [screenshots/](screenshots/README.md).
 ## Quick start
 
 ```sh
-tix task add "buy milk"        # creates the database, tenant and project on first run
+tix init                       # a local database on this machine; or connect to a server:
+# tix ctx add work --server https://tix.example.com --token "$TOKEN" --use
+tix whoami                     # where commands go: the server, or the local database path
+tix task add "buy milk"
 tix task ls
 tix claim next                 # an agent grabs the next unblocked task
 tix serve                      # HTTP API, WebSocket and web UI on 127.0.0.1:8080
 ```
 
-No configuration file is required. Every setting also has a `TIX_*` environment variable and can come
-from a `.env` file, with precedence `flags > env > .env > config > defaults`.
+With nothing configured, tix asks on a terminal and refuses elsewhere rather than creating a local database by
+itself; an existing database at the default path keeps working as before
+([docs/configuration.md](docs/configuration.md#where-commands-go)). No configuration file is required. Every
+setting also has a `TIX_*` environment variable and can come from a `.env` file, with precedence
+`flags > env > .env > config > defaults`.
 
 ## Commands
 

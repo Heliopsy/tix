@@ -25,14 +25,55 @@ config file > default. `--no-discovery` ignores the per-directory context
 files, which is what you want when a script must not be steered by whatever
 directory it happens to run in.
 
-Three commands answer "where am I writing?", and it is worth asking before a
-first write rather than after:
+Ask "where am I writing?" before a first write rather than after:
 
 ```sh
+tix whoami            # server URL or local database path, tenant, user, token
 tix config show -v    # what resolved, and why
 tix doctor            # whether the target is sound; fails when a check does
-tix status            # what the installation holds and what is serving it
+tix status            # whoami's lines, then what the installation holds
 ```
+
+```console
+$ tix whoami
+target  server https://tix.example.com (context work)
+tenant  default
+user    ci-agent
+token   yes, from context work
+```
+
+### Connecting to a server
+
+One line, which the server's `/connect` page prints with its own URL:
+
+```sh
+tix ctx add work --server https://tix.example.com --token "$TOKEN" --use
+tix whoami
+```
+
+The context stores the token, and every command run under it presents the
+token; nothing has to be exported. (Up to 0.43.0 only some commands did, which
+is why `TIX_TOKEN` looked necessary. It is still the flag layer and still
+wins when set.) `tix ctx ls` shows whether each context has a token in its
+`TOKEN` column. `tix login` exchanges a password for a browser session and
+does not configure the command line; use an API token from `tix token create`
+or the web interface's tokens screen.
+
+### With nothing configured
+
+A command with no server, no `--db`, no context and no `TIX_DATABASE_DSN`
+used to create `$XDG_DATA_HOME/tix/tix.db` silently. Now:
+
+- on a terminal it asks: create the local database, or connect to a server;
+- anywhere else it exits `6` and names `tix ctx add ... --use` and `tix init`.
+
+Any of these opts into the local database, and then nothing changes from
+before: a database already at the default path, `target: local` in the
+configuration file or `TIX_TARGET=local` (`tix init` writes it), `--db`,
+`TIX_DATABASE_DSN`, or a context naming a database. While that default
+database is in use, each command prints one line on standard error,
+`using local database PATH (...)`, even with `-q`;
+`TIX_CLI_TARGET_NOTICE=false` drops it.
 
 `tix status` and `tix doctor` are different questions. Doctor asks whether
 this installation is sound and fails when it is not. Status reports what
@@ -44,6 +85,11 @@ is refreshing is a process that died; a graceful shutdown removes its own row.
 
 ```console
 $ tix status
+target  local database /tmp/scratch.db (from flag)
+tenant  default
+user    local (you), admin
+token   none; this process opens the database directly
+
 INSTALLATION
   version  0.15.1  store   local /tmp/scratch.db (from flag)
   schema   10      engine  sqlite

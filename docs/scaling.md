@@ -5,7 +5,8 @@ does.
 
 ## SQLite
 
-The default. The DSN is `sqlite://~/.local/share/tix/tix.db`, and the file is created on first use.
+The default. The DSN is `sqlite://~/.local/share/tix/tix.db`, and the file is created on first use once
+`tix init` (or `target: local`) has asked for it.
 
 The driver is pure Go, so builds stay `CGO_ENABLED=0` and the binary has no libc dependency. That is what makes
 `go install` and a scratch container image work without a toolchain.
