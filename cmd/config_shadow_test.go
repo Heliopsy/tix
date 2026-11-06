@@ -96,6 +96,7 @@ var unshadowedKeys = map[string]string{
 	"output.timezone":                "globals.timeStyle",
 	"tui.keymap":                     "newTUICmd; --keymap only wins when non-empty",
 	"tui.motion":                     "tuiPreferences, into tui.Options.Prefs; tix tui has no flag for it",
+	"ssh.public_address":             "runServe, into web.WithSSH; shown on the connect screen, never bound, so no flag",
 	"web.page_size":                  "runServe, into web.WithPageSize; tix serve has no flag for it",
 }
 

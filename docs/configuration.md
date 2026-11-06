@@ -72,6 +72,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
 | `ssh.allow_public` | `TIX_SSH_ALLOW_PUBLIC` | `false` |
+| `ssh.public_address` | `TIX_SSH_PUBLIC_ADDRESS` | (unset: the browser's host and the `--ssh-listen` port) |
 | `ssh.trusted_proxies` | `TIX_SSH_TRUSTED_PROXIES` | (unset) |
 | `ssh.demo` | `TIX_SSH_DEMO` | `false` |
 | `ssh.tenant_ttl` | `TIX_SSH_TENANT_TTL` | `6h` |
@@ -319,9 +320,16 @@ This is a different key from `server.trusted_proxies` and neither implies the ot
 the L4 SSH proxy need not be the same host, and a list written for one surface must not arm the other. See
 [deployment.md](deployment.md) for a worked HAProxy example.
 
-Of these keys only `ssh.trusted_proxies` reaches `tix serve`, which has no flag for it either. Its four SSH
+Of these keys only `ssh.trusted_proxies` and `ssh.public_address` reach `tix serve`, which has no flag for
+either. Its four SSH
 flags (`--ssh-listen`, `--ssh-host-key`, `--ssh-allow-public`, `--ssh-idle-timeout`) are flags only, so
 `TIX_SSH_LISTEN` in a `tix serve` environment binds nothing, and `tix serve` has no demo mode at all.
+
+`ssh.public_address` is where people reach the listener, as a host or `host:port`, when that is not where it
+binds. A container that listens on `:2222` and is published as host port 2020 sets it to
+`tix.example.com:2020`. Nothing binds it: the browser's [Connect an agent](web-ui.md#connect-an-agent) screen
+writes it into the `ssh` commands it shows. Unset, the screen uses the host name the browser reached and the port
+`--ssh-listen` binds. A scheme, a path, a user or a port outside 1 to 65535 is refused at startup.
 
 `ssh.idle_timeout` closes a session nobody is typing at, measured from the last key the interface saw.
 `ssh.keepalive_interval` and `ssh.keepalive_max_missed` are a different question: whether the client is still

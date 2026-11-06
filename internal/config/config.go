@@ -126,6 +126,10 @@ type SSH struct {
 	// AllowPublic permits binding a non-loopback address, which is the same
 	// explicit choice `tix serve` demands before it faces a network.
 	AllowPublic bool `yaml:"allow_public"`
+	// PublicAddress is where people reach the listener, host or host:port,
+	// when that is not where it binds: a container listening on 2222 that
+	// the host publishes as 2020. It is shown, never bound.
+	PublicAddress string `yaml:"public_address"`
 	// TrustedProxies lists the L4 proxies, as IPs or CIDR blocks, whose PROXY
 	// protocol header names the real client. Any peer can send such a header,
 	// so an empty list, the default, reads none from anybody. It is its own

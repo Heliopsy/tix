@@ -17,6 +17,7 @@ func TestSSHKeysAreRegisteredWithTheirVariables(t *testing.T) {
 		"ssh.listen":               "TIX_SSH_LISTEN",
 		"ssh.host_key":             "TIX_SSH_HOST_KEY",
 		"ssh.allow_public":         "TIX_SSH_ALLOW_PUBLIC",
+		"ssh.public_address":       "TIX_SSH_PUBLIC_ADDRESS",
 		"ssh.trusted_proxies":      "TIX_SSH_TRUSTED_PROXIES",
 		"ssh.demo":                 "TIX_SSH_DEMO",
 		"ssh.tenant_ttl":           "TIX_SSH_TENANT_TTL",
@@ -191,5 +192,28 @@ func TestSSHDefaultsAreUsable(t *testing.T) {
 	}
 	if cfg.SSH.MaxSessionsPerKey > cfg.SSH.MaxSessions {
 		t.Fatal("one key may hold more sessions than the listener")
+	}
+}
+
+// TestSSHPublicAddressIsAHostAndPort refuses what would be handed out as a
+// broken ssh command, and accepts the shapes an operator writes.
+func TestSSHPublicAddressIsAHostAndPort(t *testing.T) {
+	cases := map[string]bool{
+		"":                      true,
+		"tix.example.com":       true,
+		"tix.example.com:2020":  true,
+		"[2001:db8::1]:2020":    true,
+		"ssh://tix.example.com": false,
+		"tix.example.com:0":     false,
+		"tix.example.com:ssh":   false,
+		"root@tix.example.com":  false,
+	}
+	for addr, ok := range cases {
+		cfg := Defaults()
+		cfg.SSH.PublicAddress = addr
+		err := Validate(&cfg, map[string]Layer{"ssh.public_address": LayerFile})
+		if (err == nil) != ok {
+			t.Errorf("ssh.public_address %q: Validate = %v, want accepted %v", addr, err, ok)
+		}
 	}
 }
