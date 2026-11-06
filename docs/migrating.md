@@ -187,6 +187,7 @@ lossy:
 | `types` | what an external issue type contributes: tags, priority, status |
 | `custom` | external field to a tix custom field definition |
 | `unmapped` | keep the fields the mapping does not name, under a prefix |
+| `users` | how the source's assignee becomes a tix person, see [Assignees](#assignees) |
 | `lossy` | declare, in writing, what the mapping deliberately drops |
 
 A mapping is validated before a single record is read. Targeting a tix field that does not exist, or naming a
@@ -201,6 +202,71 @@ first time.
 
 `lossy` does not change behaviour. It exists so that what you decided not to carry across is recorded next to the
 mapping instead of in somebody's memory.
+
+### Assignees
+
+A field mapped to `assignee` holds the source's idea of a person: a login, an email or a display name. The `users`
+section turns it into a tix person:
+
+```yaml
+users:
+  map:                          # tried first
+    "Jane Doe": jane            # source value -> tix handle or email
+    jdoe@old-corp.example: jane@example.com
+  match: [email, handle, name]  # then these, in order; this is the default, [] turns them off
+  email_field: _embedded.assignee.email   # optional: where the source keeps the person's email
+  unknown: unassigned           # or placeholder
+```
+
+- `map` is checked first. An entry naming nobody in tix warns once and falls through to `match`.
+- `email` compares the value, and the value at `email_field` when there is one, with the email of every member
+  of the tenant, ignoring case. `handle` compares with tix handles. `name` compares with display names and only
+  counts when exactly one person has that name.
+- `unknown: unassigned`, the default, leaves the task unassigned and keeps the source value in the `<prefix>assignee`
+  custom field. `unknown: placeholder` creates a person with handle `ext-<name>`, no account, no role and no
+  scopes, and assigns the task to it, reusing the same placeholder for every task and every later run. The
+  `ext-` handle stays taken.
+
+Everyone nothing matched is listed in the result's `unmatched_users`, and named in one warning, on a dry run as
+well as a real one. Dry-run first, then add the stragglers to `map` or invite them. Once a person matches, the
+next run moves their tasks from unassigned, or from the placeholder, to them.
+
+A field mapped to `parent` that holds a link, such as OpenProject's `/api/v3/work_packages/42`, also matches the
+record imported as `42`.
+
+### Walkthrough: OpenProject
+
+1. In OpenProject, open **My account**, then **Access tokens**, and create an API token. Note the identifier of
+   the project to import, as it appears in its URL (`/projects/website`).
+2. In tix, create or pick the project the work packages land in, say `web`.
+3. Open **Sync**, **Configure a source**, choose `openproject`, and follow **Start from the OpenProject mapping**.
+   It fills the mapping with one for OpenProject work packages: subject, description, status, priority, assignee,
+   due and start dates, parent, type as a tag, and the OpenProject project and author as custom fields. Replace
+   `CHANGE-ME` with `web`, and adjust `statuses` if your instance has statuses of its own or the project uses a
+   workflow other than the built-in one. The same document is in the source tree at
+   `internal/sync/openproject/default.yaml`.
+4. Fill in the url (`https://op.example.com`), the external project (`website`), user `apikey` and the API token
+   as the password.
+5. Press **Check**. It shows the target project, the mapped fields and statuses, and anything the server still
+   lacks, without saving. Then **Save source**.
+6. Run it with **Dry run** ticked. Read the warnings and **People with no tix account**; map those people under
+   `users.map`, or invite them, and dry-run again until the plan is right. Then run it for real.
+
+From the command line the same thing is:
+
+```sh
+tix sync source add openproject op --url https://op.example.com --project website --mapping-file op.yaml --check
+tix sync source add openproject op --url https://op.example.com --project website --mapping-file op.yaml
+printf %s "$OP_TOKEN" | tix sync source set op --user apikey --password-stdin
+tix sync source ls
+tix sync run "$ID" --dry-run -o json | jq '.unmatched_users, .warnings'
+tix sync run "$ID"
+```
+
+OpenProject's `_links.assignee.title` is a display name. Its email is only embedded when the API token's user may
+see it, so on many instances matching falls back to the name, or to `users.map`. The default mapping does not
+keep the rest of the HAL `_links` and `_embedded` plumbing (`unmapped.preserve: false`); add fields to `custom`
+when you want more of it.
 
 ### Dry runs
 
