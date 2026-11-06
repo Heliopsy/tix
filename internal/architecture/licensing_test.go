@@ -21,6 +21,7 @@ const spdxLine = "SPDX-License-Identifier: AGPL-3.0-or-later"
 // the header check and asserted to stay bare by TestVendoredFilesAreNotStamped.
 var vendored = []string{
 	"internal/web/assets/htmx.min.js",
+	"internal/web/assets/prosemirror.min.js",
 }
 
 // ownedSuffixes are the extensions whose files this project authors and ships
