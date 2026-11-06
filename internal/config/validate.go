@@ -3,6 +3,8 @@
 package config
 
 import (
+	"errors"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -75,6 +77,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 	if _, err := auth.NewProxyPolicy(cfg.SSH.TrustedProxies); err != nil {
 		return invalidKey("ssh.trusted_proxies", sources).
 			WithDetail("value", strings.Join(cfg.SSH.TrustedProxies, ",")).
+			WithDetail("reason", err.Error())
+	}
+	if err := checkPublicAddress(cfg.SSH.PublicAddress); err != nil {
+		return invalidKey("ssh.public_address", sources).
+			WithDetail("value", cfg.SSH.PublicAddress).
 			WithDetail("reason", err.Error())
 	}
 	// The sealing key is checked here so a malformed value fails at start-up
@@ -273,6 +280,29 @@ func (c Context) validate(name string) error {
 		}
 		return core.Invalid("context %q has an invalid %s %q", name, field.name, field.value).
 			WithDetail("allowed", field.set)
+	}
+	return nil
+}
+
+// checkPublicAddress accepts a host or host:port with a port in range. It is
+// written into commands people copy, so a stray scheme or path is refused
+// here rather than handed out.
+func checkPublicAddress(addr string) error {
+	if addr == "" {
+		return nil
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		host, port = strings.Trim(addr, "[]"), ""
+	}
+	if host == "" || strings.ContainsAny(host, "/@ ") {
+		return errors.New("want a host or host:port, such as tix.example.com:2020")
+	}
+	if port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return errors.New("the port must be a number from 1 to 65535")
+		}
 	}
 	return nil
 }
