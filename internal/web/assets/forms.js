@@ -25,6 +25,11 @@
 // row its data-quickadd-target names. Only the latest answer is drawn, so a
 // slow reply never overwrites a newer one.
 //
+// An ordered list of choices, ol[data-colorder] such as the columns of a task
+// export, has an up and a down button on each row, button[data-colmove]. A
+// click moves the row, so the order the form posts its checkboxes in is the
+// order the reader arranged. Focus stays on the button that was pressed.
+//
 // A housekeeping rule's number of days, label.hkdays, is shown only while its
 // select[data-hk-mode] says "days"; choosing that option moves focus into it.
 //
@@ -282,10 +287,29 @@
     if (!days.hidden && input && typeof input.focus === "function") input.focus();
   }
 
+  // onColumnMove moves a row of an ordered choice list up or down by one.
+  function onColumnMove(event) {
+    var target = event.target;
+    if (!target || typeof target.closest !== "function") return false;
+    var btn = target.closest("button[data-colmove]");
+    if (!btn) return false;
+    var row = btn.closest("li");
+    var list = row ? row.parentNode : null;
+    if (!list) return false;
+    event.preventDefault();
+    var up = btn.getAttribute("data-colmove") === "up";
+    var other = up ? row.previousElementSibling : row.nextElementSibling;
+    if (!other) return true;
+    list.insertBefore(up ? row : other, up ? other : row);
+    if (typeof btn.focus === "function") btn.focus();
+    return true;
+  }
+
   window.tixForms = {
     suggestKey: suggestKey, onKeydown: onKeydown, onInput: onInput, reveal: reveal, shortLabels: shortLabels,
     showDialog: showDialog, onDialogClick: onDialogClick, promote: promote, onHousekeepingMode: onHousekeepingMode,
     forgetDialog: forgetDialog,
+    onColumnMove: onColumnMove,
   };
 
   if (typeof document === "undefined" || !document.addEventListener) return;
@@ -293,6 +317,7 @@
   document.addEventListener("input", onInput);
   document.addEventListener("change", onHousekeepingMode);
   document.addEventListener("click", onDialogClick, true);
+  document.addEventListener("click", onColumnMove);
   document.addEventListener("close", onDialogClose, true);
   reveal(document);
   promote(document);

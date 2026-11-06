@@ -4284,6 +4284,77 @@ paths:
       summary: GetProjectIcon returns a project's uploaded icon image
       tags:
         - project
+  /api/v1/projects/{ref}/tasks/export:
+    post:
+      description: |-
+        ExportTasks writes one project's tasks as CSV, JSON, NDJSON or a Markdown table, as it walks them. The selection takes the task list's query language, and the columns, their order, the date style and the CSV delimiter are the caller's to choose. A CSV or Markdown cell that a spreadsheet would read as a formula starts with a quote.
+
+        Command line: `tix export tasks`.
+      operationId: task.export
+      parameters:
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskExportInput'
+        required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: object
+                type: array
+            application/x-ndjson:
+              schema:
+                type: object
+              x-tix-stream: one record per line
+            text/csv:
+              schema:
+                type: string
+            text/markdown:
+              schema:
+                type: string
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - export
+        - session:
+            - export
+      summary: ExportTasks writes one project's tasks as CSV, JSON, NDJSON or a Markdown
+        table, as it walks them
+      tags:
+        - task
   /api/v1/prune:
     post:
       description: |-
@@ -13244,6 +13315,57 @@ components:
           description: Version increases by one on every change. Pass it back on an
             update to have a stale write refused with a conflict.
           type: integer
+      type: object
+    TaskExportInput:
+      description: TaskExportInput selects a project's tasks and the shape of the
+        file they are written as.
+      properties:
+        columns:
+          description: 'Columns names the columns and their order: ref, id, project,
+            title, body, status, priority, assignee, creator, tags, due, parent, depends_on,
+            recurrence, created_at, updated_at, started_at, completed_at, deleted_at,
+            comments, history, or custom:KEY. Empty writes the default columns and
+            every custom field.'
+          items:
+            type: string
+          type: array
+        dates:
+          description: Dates is iso (RFC 3339 in UTC, the default), date (YYYY-MM-DD)
+            or display (TimeFormat in Timezone, for a spreadsheet).
+          type: string
+        delimiter:
+          description: 'Delimiter separates CSV cells: "," (the default), ";", "tab"
+            or "|".'
+          type: string
+        exclude_finished:
+          description: ExcludeFinished leaves out tasks in a terminal state.
+          type: boolean
+        exclude_subtasks:
+          description: ExcludeSubtasks keeps top-level tasks alone.
+          type: boolean
+        format:
+          description: TaskFormat is a file format a project's tasks are exported
+            in.
+          type: string
+        include_trashed:
+          description: IncludeTrashed adds the tasks in the trash.
+          type: boolean
+        project_ref:
+          description: ProjectRef is the key or identifier of the project to export.
+            Required.
+          type: string
+        query:
+          description: Query is a filter in the task list's query language, such as
+            "tag:infra priority:high"; empty selects every task of the project.
+          type: string
+        time_format:
+          description: 'TimeFormat is the named time format display dates use: iso,
+            rfc3339, short or us.'
+          type: string
+        timezone:
+          description: Timezone is the IANA zone display dates are written in; empty
+            is UTC.
+          type: string
       type: object
     TaskTemplate:
       description: 'TaskTemplate is a named shape of a task that is not itself work:

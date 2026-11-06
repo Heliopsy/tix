@@ -94,6 +94,7 @@ func TestAnnotationsFollowTheMethod(t *testing.T) {
 		{"workflow.put", false, true, false},
 		{"task.delete", false, true, true},
 		{"task.bulk", false, false, true},
+		{"task.export", true, true, false},
 	} {
 		ann := toolFor(t, tc.op).descriptor().Annotations
 		destr := ann.DestructiveHint != nil && *ann.DestructiveHint

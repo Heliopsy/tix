@@ -65,3 +65,25 @@ func (c *Client) ImportFrom(ctx context.Context, r io.Reader, in core.ImportInpu
 	}
 	return out, nil
 }
+
+// ExportTasks streams one project's tasks to w as the server writes them.
+func (c *Client) ExportTasks(ctx context.Context, in core.TaskExportInput, w io.Writer) error {
+	body, contentType, err := encodeBody(in)
+	if err != nil {
+		return err
+	}
+	req, err := c.newRequest(ctx, http.MethodPost, routePath(wire.RouteProjectTaskExport, "ref", in.ProjectRef), nil, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set(wire.HeaderContentType, contentType)
+	resp, err := c.send(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return core.Internal("streaming task export: %v", err).Wrap(err)
+	}
+	return nil
+}
