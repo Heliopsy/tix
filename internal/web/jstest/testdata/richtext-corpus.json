@@ -1,0 +1,202 @@
+{
+  "": "keep: texts the rich editor opens, with what it writes back once edited. source: texts it leaves in Markdown, and why. Checked by internal/web/jstest/richtext.test.mjs and internal/markdown/richtext_corpus_test.go.",
+  "keep": [
+    {
+      "name": "table with alignment, code, emphasis, refs and mentions",
+      "in": "| Step | Owner | Done |\n| :--- | :---: | ---: |\n| `make \\| tee` | @alice | **yes** |\n| INFRA-8 | @bob.smith | _no_ |",
+      "out": "| Step | Owner | Done |\n| :--- | :---: | ---: |\n| `make \\| tee` | @alice | **yes** |\n| INFRA-8 | @bob.smith | *no* |"
+    },
+    {
+      "name": "table without outer pipes",
+      "in": "a | b\n--|--\n1 | 2",
+      "out": "| a | b |\n| --- | --- |\n| 1 | 2 |"
+    },
+    {
+      "name": "table with raw HTML in a cell",
+      "in": "| a |\n|---|\n| <b>x</b> |",
+      "out": "| a |\n| --- |\n| <b>x</b> |"
+    },
+    {
+      "name": "nested bullet and ordered lists",
+      "in": "- one\n  - two\n    - three\n- four\n\n1. a\n2. b\n   1. c",
+      "out": "- one\n  - two\n    - three\n- four\n\n1. a\n2. b\n   1. c"
+    },
+    {
+      "name": "loose list with a second paragraph and a quote",
+      "in": "- a\n\n  para two\n\n  > q\n\n- b",
+      "out": "- a\n\n  para two\n\n  > q\n\n- b"
+    },
+    {
+      "name": "checklist, nested and ordered",
+      "in": "- [ ] todo\n- [x] done\n  - [ ] nested\n\n1. [X] ordered",
+      "out": "- [ ] todo\n- [x] done\n  - [ ] nested\n\n1. [x] ordered"
+    },
+    {
+      "name": "checklist item with nothing after the box",
+      "in": "- [ ] ",
+      "out": "- [ ] "
+    },
+    {
+      "name": "brackets that are not a checklist",
+      "in": "text [ ] x",
+      "out": "text \\[ \\] x"
+    },
+    {
+      "name": "fenced code with a language",
+      "in": "```go\nfunc main() {\n\tprintln(\"*not em*\")\n}\n```",
+      "out": "```go\nfunc main() {\n\tprintln(\"*not em*\")\n}\n```"
+    },
+    {
+      "name": "fence holding a fence",
+      "in": "````\n```\ninner\n```\n````",
+      "out": "````\n```\ninner\n```\n````"
+    },
+    {
+      "name": "empty fence",
+      "in": "```\n```",
+      "out": "```\n```"
+    },
+    {
+      "name": "indented code",
+      "in": "    indented\n    two",
+      "out": "```\nindented\ntwo\n```"
+    },
+    {
+      "name": "code inside a list item",
+      "in": "1. x\n\n   ```\n   code\n   ```",
+      "out": "1. x\n\n   ```\n   code\n   ```"
+    },
+    {
+      "name": "task references and mentions",
+      "in": "See INFRA-8 and @alice_bob, mail a@b.co.\nCC @carol-x, not covid-19.",
+      "out": "See INFRA-8 and @alice_bob, mail a@b.co.\nCC @carol-x, not covid-19."
+    },
+    {
+      "name": "mention and reference inside code",
+      "in": "`@alice` INFRA-8",
+      "out": "`@alice` INFRA-8"
+    },
+    {
+      "name": "raw HTML shown as typed",
+      "in": "<b>bold?</b> and <div>block</div>\n\n<script>alert(1)</script>",
+      "out": "<b>bold?</b> and <div>block</div>\n\n<script>alert(1)</script>"
+    },
+    {
+      "name": "HTML comment and line break tag",
+      "in": "<!-- c -->\ntext x<br>y",
+      "out": "<!-- c -->\ntext x<br>y"
+    },
+    {
+      "name": "links of every kind",
+      "in": "[x](https://e.com \"t\") <https://a.b> https://bare.example/a_b_c www.x.com",
+      "out": "[x](https://e.com \"t\") <https://a.b> https://bare.example/a_b_c www.x.com"
+    },
+    {
+      "name": "link with parentheses in the address",
+      "in": "[p](https://x.y/a_(b))",
+      "out": "[p](https://x.y/a_\\(b\\))"
+    },
+    {
+      "name": "link around bold text",
+      "in": "[link **bold**](http://x)",
+      "out": "[link **bold**](http://x)"
+    },
+    {
+      "name": "mailto autolink",
+      "in": "<mailto:a@b.c>",
+      "out": "<mailto:a@b.c>"
+    },
+    {
+      "name": "query string with an ampersand",
+      "in": "http://x.y/?a=1&b=2",
+      "out": "http://x.y/?a=1&b=2"
+    },
+    {
+      "name": "image is a link, never loaded",
+      "in": "![alt](http://img/x.png)",
+      "out": "![alt](http://img/x.png)"
+    },
+    {
+      "name": "headings, quote, rule",
+      "in": "# H1\n\n## H2\n\n> quote\n> more\n\n---\n\nafter",
+      "out": "# H1\n\n## H2\n\n> quote\n> more\n\n---\n\nafter"
+    },
+    {
+      "name": "setext heading",
+      "in": "Setext\n======",
+      "out": "# Setext"
+    },
+    {
+      "name": "emphasis variants",
+      "in": "~~strike~~ *em* _em_ __strong__ ***both*** **a**b foo*bar*baz",
+      "out": "~~strike~~ *em* *em* **strong** ***both*** **a**b foo*bar*baz"
+    },
+    {
+      "name": "escaped characters",
+      "in": "\\*not em\\* and \\- and \\# and 1\\. x",
+      "out": "\\*not em\\* and - and # and 1. x"
+    },
+    {
+      "name": "line breaks the server draws",
+      "in": "first\nsecond\nthird\\\nfourth  \nfifth",
+      "out": "first\nsecond\nthird\nfourth\nfifth"
+    },
+    {
+      "name": "a line break before something that would start a block",
+      "in": "foo\n\\- bar\n\\# baz",
+      "out": "foo\n\\- bar\n\\# baz"
+    },
+    {
+      "name": "entities",
+      "in": "&copy; &amp; &#35;",
+      "out": "© & #"
+    },
+    {
+      "name": "reference link",
+      "in": "[a][1]\n\n[1]: https://x.y",
+      "out": "[a](https://x.y)"
+    },
+    {
+      "name": "quote holding a list",
+      "in": "> - a\n> - b",
+      "out": "> - a\n> - b"
+    },
+    {
+      "name": "alternative bullets and ordered delimiters",
+      "in": "+ a\n+ b\n\n3) x\n4) y",
+      "out": "+ a\n+ b\n\n3. x\n4. y"
+    },
+    {
+      "name": "empty",
+      "in": "",
+      "out": ""
+    }
+  ],
+  "source": [
+    {
+      "name": "single tilde strikethrough",
+      "in": "~single~",
+      "reason": "tilde"
+    },
+    {
+      "name": "list item that opens with a code fence",
+      "in": "- ```\n  x\n  ```",
+      "reason": "render"
+    },
+    {
+      "name": "list item that opens with a quote",
+      "in": "- > q",
+      "reason": "render"
+    },
+    {
+      "name": "list item that opens with a heading",
+      "in": "- # h",
+      "reason": "render"
+    },
+    {
+      "name": "empty list item",
+      "in": "- \n- b",
+      "reason": "render"
+    }
+  ]
+}

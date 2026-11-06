@@ -52,9 +52,10 @@ assignee. Text inside code or an existing link SHALL NOT be linked.
 
 ### Requirement: The editor offers a Preview
 
-The description editor and the comment composer SHALL stay plain textareas. With scripting, each SHALL
-offer a Preview toggle that renders the typed text through the same renderer without saving it, with
-checklist items drawn inert. The preview route SHALL require the CSRF token.
+The comment composer SHALL stay a plain textarea, and the description editor SHALL keep one as its form
+field. With scripting, each SHALL offer a Preview toggle (the description editor in its Markdown mode)
+that renders the typed text through the same renderer without saving it, with checklist items drawn
+inert. The preview route SHALL require the CSRF token.
 
 #### Scenario: Preview writes nothing
 
