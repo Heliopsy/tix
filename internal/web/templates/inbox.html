@@ -53,7 +53,7 @@
         </p>
         {{if and .Excerpt (ne (printf "%s" .Kind) "assigned")}}<p class="inbox-excerpt">{{.Excerpt}}</p>{{end}}
       </div>
-      <time class="inbox-when muted" datetime="{{absolute .CreatedAt}}" title="{{absolute .CreatedAt}}">{{relativeAt .CreatedAt}}</time>
+      {{whenRel .CreatedAt}}
       <form method="post" class="inbox-mark" action="{{if .Read}}/inbox/unread{{else}}/inbox/read{{end}}">
         {{template "csrf" $.CSRF}}
         <input type="hidden" name="id" value="{{.ID}}">

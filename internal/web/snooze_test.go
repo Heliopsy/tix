@@ -66,8 +66,7 @@ func TestTheTaskScreenOffersASnoozeMenu(t *testing.T) {
 func TestASnoozePresetSnoozesTheTaskInTheReadersZone(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	b := f.as("alice")
-	b.setCookie(web.TimezoneCookie, "Asia/Tokyo")
+	b := f.reader(t, "", "Asia/Tokyo")
 	ref := b.createTask("infra", "after the weekend")
 
 	resp := b.post("/tasks/"+ref+"/snooze", url.Values{"until": {"tomorrow"}, "next": {"/tasks"}})
@@ -97,8 +96,7 @@ func TestASnoozePresetSnoozesTheTaskInTheReadersZone(t *testing.T) {
 func TestAPickedDateSnoozesUntilThatMoment(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	b := f.as("alice")
-	b.setCookie(web.TimezoneCookie, "Europe/Sofia")
+	b := f.reader(t, "", "Europe/Sofia")
 	ref := b.createTask("infra", "on a date")
 	sofia, _ := time.LoadLocation("Europe/Sofia")
 	want := time.Now().In(sofia).Add(72 * time.Hour).Truncate(time.Minute)

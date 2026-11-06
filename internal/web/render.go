@@ -268,6 +268,10 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"kindLabel":        componentKindLabel,
 		"schemeLabel":      keySchemeLabel,
 		"relativeAt":       style.Relative,
+		"when":             func(v any) template.HTML { return timeElement(style, v, false) },
+		"whenRel":          func(v any) template.HTML { return timeElement(style, v, true) },
+		"day":              func(d string) string { return calendarDay(d, style.Date) },
+		"dayMonth":         func(d string) string { return calendarDay(d, style.DayMonth) },
 		"dateValue":        func(t *time.Time) string { return dateValue(style, t) },
 		"dueExamples":      func() []string { return dueExamples(style) },
 		"dueDate":          func() string { return style.Date(quickadd.ExampleDay) },
@@ -805,10 +809,12 @@ func themeOf(r *http.Request) string {
 	return ""
 }
 
-// TimeFormatCookie remembers the timestamp layout this browser asked for.
+// TimeFormatCookie is where a browser kept its date format before the
+// preference moved onto the account. It is read once, moved and expired.
 const TimeFormatCookie = "tix_time_format"
 
-// TimezoneCookie remembers the zone this browser asked for.
+// TimezoneCookie is where a browser kept its timezone before the preference
+// moved onto the account. It is read once, moved and expired.
 const TimezoneCookie = "tix_timezone"
 
 // Timezones are the zones on offer. An empty value follows the deployment's
@@ -827,16 +833,6 @@ var Timezones = []string{
 	"America/Chicago", "America/Denver", "America/Los_Angeles",
 }
 
-// timeFormatOf reports the layout this browser asked for, or an empty string
-// when it has not asked and the deployment's configuration should decide.
-func timeFormatOf(r *http.Request) string {
-	c, err := r.Cookie(TimeFormatCookie)
-	if err != nil {
-		return ""
-	}
-	return resolvedTimeFormat(c.Value)
-}
-
 // resolvedTimeFormat returns want when it names a layout this build renders,
 // and an empty string otherwise, so a value typed by hand into the cookie can
 // never reach the renderer.
@@ -847,16 +843,6 @@ func resolvedTimeFormat(want string) string {
 		}
 	}
 	return ""
-}
-
-// timezoneOf reports the zone this browser asked for, or an empty string when
-// it has not asked and the deployment's configuration should decide.
-func timezoneOf(r *http.Request) string {
-	c, err := r.Cookie(TimezoneCookie)
-	if err != nil {
-		return ""
-	}
-	return resolvedZone(c.Value)
 }
 
 // resolvedZone returns want when it is on offer and this system's zone
@@ -883,49 +869,41 @@ func resolvedZone(want string) string {
 // styleKey identifies one resolved way of rendering an instant.
 type styleKey struct{ format, zone, lang string }
 
-// styleTemplates caches one parsed template set per style a browser has asked
-// for.
+// styleTemplates caches one parsed template set per style a reader resolves
+// to.
 //
 // The formatting helpers are bound into a template at parse time, so a
-// per-viewer zone cannot be a value handed to Execute; it has to be a set
-// parsed against that viewer's style. A set is immutable once parsed and is
+// per-reader zone cannot be a value handed to Execute; it has to be a set
+// parsed against that reader's style. A set is immutable once parsed and is
 // only ever executed under the key it was parsed for, so no request can be
-// served another's preference, and Timezones above bounds how many sets exist.
+// served another's preference. The formats are a fixed list and the zones
+// are the ones the service accepted, so the number of sets is bounded by
+// what people actually chose.
 var styleTemplates sync.Map
 
 // templatesFor returns the template set this request renders through: the
-// deployment's own when the browser has chosen neither preference, and one
-// parsed for the chosen style otherwise.
-//
-// Choosing one of the two leaves the other at output's neutral default, which
-// is what NewTimeStyle reads an empty value as, because a TimeStyle does not
-// give its format and zone back and this package therefore cannot compose a
-// half-overridden one. Those neutral values are the shipped configuration
-// defaults, so only a deployment that moved one of them away sees a
-// difference.
+// one parsed for the style its reader resolves to (their own choice, else
+// their tenant's, else the deployment's) in their language.
 func (h *handler) templatesFor(r *http.Request) map[string]*template.Template {
 	if r == nil {
 		return h.templates
 	}
-	key := styleKey{format: timeFormatOf(r), zone: timezoneOf(r), lang: langOf(r)}
-	if key.format == "" && key.zone == "" && key.lang == i18n.English {
+	style := h.readerStyle(r)
+	lang := langOf(r)
+	if lang == i18n.English && sameStyle(style, h.style) {
 		return h.templates
 	}
+	key := styleKey{format: style.Name(), zone: style.Location().String(), lang: lang}
 	if set, ok := styleTemplates.Load(key); ok {
 		return set.(map[string]*template.Template)
 	}
-	style, err := output.NewTimeStyle(key.format, key.zone)
-	if err != nil {
-		// Both halves of the key were validated on the way in, so reaching
-		// here means the host's zone database moved under a running process.
-		// The fallback keeps the screen up, but it serves a zone nobody chose,
-		// which is the kind of wrong that has to be visible to an operator.
-		h.logger.Error("rendering in the deployment default", "format", key.format,
-			"zone", key.zone, "error", err)
-		return h.templates
-	}
 	set, _ := styleTemplates.LoadOrStore(key, parseTemplates(style, key.lang))
 	return set.(map[string]*template.Template)
+}
+
+// sameStyle reports whether two styles render every instant alike.
+func sameStyle(a, b output.TimeStyle) bool {
+	return a.Name() == b.Name() && a.Location().String() == b.Location().String()
 }
 
 // defaultTemplates caches the template set each handler draws in its

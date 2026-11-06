@@ -79,8 +79,7 @@ func TestAPickedDayReadsBackAsTheSameDay(t *testing.T) {
 	patterns := map[string]string{}
 	var all []string
 	for _, format := range output.TimeFormats {
-		b := f.as("alice")
-		b.setCookie("tix_time_format", format)
+		b := f.reader(t, format, "")
 		list, task := b.page("/tasks"), b.page("/tasks/"+ref)
 		p := attrOf(t, list, "new-due", "data-date-pattern")
 		if other := attrOf(t, task, "due", "data-date-pattern"); other != p {
@@ -126,8 +125,7 @@ func TestTheDuePlaceholderIsAcceptedExamples(t *testing.T) {
 	f := newFixture(t)
 	ref := f.as("alice").createTask("infra", "placeholder")
 	for _, format := range output.TimeFormats {
-		b := f.as("alice")
-		b.setCookie("tix_time_format", format)
+		b := f.reader(t, format, "")
 		style, err := output.NewTimeStyle(format, "utc")
 		if err != nil {
 			t.Fatal(err)

@@ -7723,3 +7723,48 @@ ul.tasklist, .board, .column, .lanes, .lane { overflow-anchor: none; }
 .invites { margin-top: var(--space-6); }
 .invites .person-act { display: inline-flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .invite-reissue { margin: 0; }
+
+/* A timestamp, written by the one template helper that shows an instant
+   (when, whenRel). The visible text is the reader's format; the full instant,
+   to the second with its zone and offset, is the title on hover and, because
+   a title never shows on a touch screen or to a keyboard, this tip on focus:
+   each <time> takes focus, so a tap or a Tab shows it. */
+time.ts {
+  position: relative;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: help;
+  border-radius: 3px;
+}
+time.ts:focus-visible { outline: 2px solid var(--accent, var(--ink)); outline-offset: 2px; }
+time.ts:focus::after {
+  content: attr(data-full);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2 * var(--gutter)));
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--shadow-strong);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+  font-family: inherit;
+  pointer-events: none;
+}
+/* Placed by assets/timetip.js: pinned to the viewport, so a table that scrolls
+   sideways cannot clip it and the screen edge cannot cut it off. */
+time.ts.ts-placed:focus::after {
+  position: fixed;
+  left: var(--ts-left);
+  top: var(--ts-top);
+  max-width: var(--ts-width);
+}

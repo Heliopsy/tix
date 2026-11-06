@@ -1173,7 +1173,8 @@ the API `DELETE /api/v1/projects/{ref}?move_tasks_to=OTHER` or `?delete_tasks=tr
 ## Display preferences
 
 Every display preference under Settings is a property of the person reading, not of the tenant, so
-each one is stored in a cookie on that browser and reaches no other reader. The Second factor and
+each one is stored in a cookie on that browser and reaches no other reader, except the date format and
+the timezone, which are kept with the account (see Dates and times below). The Second factor and
 Database sections are not preferences: the first is your enrolment, kept by the service and the same
 from every surface, and the second only shows a tenant administrator what this server is talking to.
 Two people sharing a tenant are frequently in different timezones for the same reason they may want
@@ -1208,8 +1209,6 @@ going back a page.
 | --- | --- | --- |
 | Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
-| Date format | `tix_time_format` | one of the layouts this build renders; also the order a typed date is read in |
-| Timezone | `tix_timezone` | one of the offered zones, empty follows the deployment |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
 | Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
@@ -1362,7 +1361,35 @@ it does not resend a refused value. Enter or F2 on a selected row edits its titl
 opens the task as Task opens in says. The edit address changes the description and assignee only
 when the submission names them, so renaming leaves them alone. Without scripting a title is a link.
 
-### The terminal and the command line keep their own
+### Dates and times
+
+The date format and the timezone are kept with the account, not the browser, so every browser and
+device a person signs in from shows dates the same way, and so do `tix task ls` and the terminal
+interface. They resolve in three levels: the person's own choice under Settings, else the tenant
+default an administrator sets on the Tenant screen, else the server's `output.time_format` and
+`output.timezone`. Each control offers Inherit, and names what Inherit would give and from where, and
+the line under it says what is in use and where it came from, such as "from tenant default". The
+format and the zone resolve separately.
+
+Earlier builds kept these two in the `tix_time_format` and `tix_timezone` cookies. The first request a
+browser still carrying them makes moves each value onto the account, unless the account already holds
+one for that field, and expires both cookies. There is no per-browser override any more.
+
+Every timestamp a screen shows goes through one template helper, which writes a `<time>` whose
+`datetime` stays RFC 3339 and whose text is in the reader's format. Its title, its accessible label and
+a tip shown on focus carry the full instant: the date, the time to the second, the zone and its offset,
+and how long ago it was (`06.11.2026 14:05:32 EET (UTC+02:00) · 2 hours ago`). Each one takes focus, so
+a tap on a touch screen or Tab from the keyboard shows the tip, which a `title` never does. A relative
+time such as "2 hours ago" in the activity feed or a task's history shows the absolute instant the same
+way. A timestamp inside a link or another element's title stays plain text, because nothing focusable
+may sit inside a link.
+
+A test renders every screen in `scripts/screenshots/routes.json` on a seeded database as a reader in
+`dotted` and `Asia/Tokyo` and fails on a timestamp in another layout, one written as text instead of
+through the helper, or a `<time>` missing part of its tooltip. A new field that prints a date raw fails
+it.
+
+### The terminal and the command line
 
 A browser preference is a cookie on that browser. The terminal interface's settings screen writes the
 CLI's own configuration keys instead, because somebody at a terminal already has a configuration file
@@ -1372,18 +1399,19 @@ change the other:
 
 | Preference | Browser | Terminal and CLI |
 | --- | --- | --- |
-| Date format | `tix_time_format` | `output.time_format` |
-| Timezone | `tix_timezone` | `output.timezone` |
+| Date format | the account | the account, unless the machine sets `output.time_format` |
+| Timezone | the account | the account, unless the machine sets `output.timezone` |
 | Keyboard scheme | `tix_keyscheme` | `tui.keymap` |
 | Colour | `tix_theme`, which palette | `output.color`, whether colour at all |
 | Advanced screens, drag to move, open a new task, hover effects, task opens in, clicking a title, columns, hidden projects, task view, colour rows by, language | cookie | no equivalent |
 | Selected-row pulse | no equivalent | `tui.motion` |
 
-So a timezone chosen in the browser does not change what `tix task ls` prints, and one chosen in the
-terminal is what `tix task ls` prints and not what a browser renders. See [tui.md](tui.md) for the
-terminal screen and [configuration.md](configuration.md) for the keys.
+So a timezone chosen in the browser is what `tix task ls` prints too, unless that machine's
+configuration names one, and one chosen in the terminal's settings screen stays on that machine.
+See [tui.md](tui.md) for the terminal screen and [configuration.md](configuration.md) for the keys.
 
-The zone list is a selection rather than every name the system carries. A `select` of six hundred
+The zone list is a selection rather than every name the system carries; a zone set from the command
+line that is not on it is still shown, rather than replaced by the first option. A `select` of six hundred
 entries is not a control anybody can use, and a fixed list also bounds how many template sets one
 process can be made to parse: the formatting helpers are bound into a template at parse time, so a
 per-reader zone has to be a separately parsed set rather than a value handed to `Execute`.
