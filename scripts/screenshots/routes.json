@@ -55,6 +55,8 @@
       "states": [
         { "name": "board", "cookies": { "tix_task_view": "board" } },
         { "name": "lanes", "cookies": { "tix_task_view": "lanes" } },
+        { "name": "board-project", "cookies": { "tix_task_view": "board" }, "query": "?project=infra" },
+        { "name": "lanes-project", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infra,web" },
         { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
         {
           "name": "task-dialog",
