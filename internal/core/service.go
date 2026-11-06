@@ -764,6 +764,9 @@ type SyncResult struct {
 	Source string `json:"source" yaml:"source"`
 	// Cursor is where the next incremental run resumes.
 	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
+	// UnmatchedUsers lists, sorted and once each, the source assignees no tix
+	// actor matched; they were left unassigned or given placeholder actors.
+	UnmatchedUsers []string `json:"unmatched_users,omitempty" yaml:"unmatched_users,omitempty"`
 }
 
 // PruneResult reports what pruning removed, or would remove under a dry run.
