@@ -51,6 +51,13 @@ Coding standards for tix. Terse by design. Read before writing code.
 - Coverage floor is 85% with both engines, 78% when the PostgreSQL suite skips. No package is excluded.
 - A test that skips on a missing capability skips through `internal/testenv`, so the run reports it.
 - New behaviour ships with its test in the same change.
+- Every fix for a user-reported UI bug lands with a regression test, or a
+  strict-check assertion in `scripts/screenshots/shoot.mjs`, that fails on
+  the old code. Watch it fail, as below.
+- The **UI regression** CI job is green before a merge. A finding it reports
+  is fixed, not added to `scripts/screenshots/known.json`; that file holds
+  only findings someone else already owns. See
+  [docs/testing.md](docs/testing.md#ui-regression).
 
 ### Watch the guard fail
 

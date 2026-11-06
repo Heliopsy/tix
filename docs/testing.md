@@ -282,8 +282,10 @@ capture drops it, so for those two the tool grows the viewport to the page's hei
 shot instead. A phone shot shows what a phone shows, without the rows hidden under
 `(hover: none) and (pointer: coarse)`.
 
-Animations and transitions are off, fonts and htmx settle before each shot, and the viewports run one after
-another in a single browser, so a full run stays light on the machine. Playwright is pinned in
+Animations and transitions are off, reduced motion is requested, every page sees the same `Date.now()` for
+the whole run, and fonts and htmx settle before each shot. The viewports run one after another in a single
+browser, so a full run stays light on the machine; `--jobs N` runs N viewport and theme combinations at
+once instead. Playwright is pinned in
 `scripts/screenshots/package-lock.json`; the recipe installs it and Chromium only when they are missing.
 
 **The layout check.** After every shot the page is measured: each visible button, button-styled link, menu
@@ -310,6 +312,51 @@ at. `just ui-rows` runs the listings with both at phone, tablet and laptop, ligh
 ```sh
 just ui-rows
 ```
+
+**Checks on every screen.** Besides controls, words and task rows, `--strict` fails on four things that
+hold on any page:
+
+- the page scrolling sideways, `document.scrollingElement.scrollWidth` wider than the window, even by 1px;
+- content spilling out of its box: text or an image whose right edge passes the edge of a box that neither
+  clips nor scrolls (`overflow-x: visible`), by more than 3px. A box that clips or scrolls has chosen what
+  happens to the extra and is left alone, and only the innermost spilled box is reported;
+- a `<time>` without a `datetime` attribute, or with Go's zero time in it;
+- visible text or a tooltip holding what Go prints for a zero or default-formatted time: `0001-01-01`,
+  `+0000 UTC` or `m=+`.
+
+A word split is not reported when the run of characters it belongs to is wider than its box: that token
+has to break or spill, and breaking it is the right call.
+
+`--hostile` also adds, through the API after signing in, sixty-four tasks in the `web` project with long
+titles, long tags, unbroken tokens and Markdown bodies with tables, code and quotes, a project with a long
+name, a task with a long history of edits and comments, users with long names and two dozen tokens, half
+of them expiring.
+
+## UI regression
+
+The **UI regression** job in `ci.yaml` runs on every pull request and every push to `main`, and has to be
+green before a merge. `just ui-regression` runs the same steps locally:
+
+| Step | Recipe | What it runs |
+| --- | --- | --- |
+| Page check on every route | `just ui-check` | every route at `phone` and `fullhd`, light and dark, `--hostile --strict` |
+| Task rows and cards | `just ui-rows` | the listings at phone, tablet and laptop |
+| Browser tests | `just ui-browser` | the Go tests named `*InABrowser`, which drive a real Chrome |
+| JavaScript tests | `just jstest` | `internal/web/jstest` |
+
+A test that drives a browser is named `...InABrowser` so this job picks it up. `ui-browser` retries once
+when Chrome never writes `DevToolsActivePort`, a known runner flake, and never for any other failure.
+
+The screenshots and contact sheet are uploaded as the `ui-regression-screenshots` artifact when the job
+fails, and kept for five days when a pull request touches `internal/web` or `scripts/screenshots`.
+
+`scripts/screenshots/known.json` lists findings already reported and owned by somebody, each with why, so
+the gate can run while they are fixed. A listed finding is printed under `known:` and does not fail the
+run. An entry that matches nothing on a page the run captured is stale and fails `--strict`, so the change
+that fixes a finding deletes its entry in the same commit. An entry marked `"popup": true` is only judged
+by a run that opens popups, and one marked `"varies": true` depends on the fonts installed and is never
+stale. CI's runner is the reference. Never add an entry to get a change of your own
+through.
 
 ## PostgreSQL
 

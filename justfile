@@ -91,6 +91,41 @@ screenshots *ARGS: build
 ui-rows *ARGS:
     just screenshots --hostile --strict --only /tasks,/mine,/projects/ --viewports phone,tablet,laptop --theme both --max-popups 0 {{ARGS}}
 
+# The UI regression gate, run exactly as CI's "UI regression" job runs it: the
+# page check over every route on the hostile seed, the task row checks, the
+# browser tests in internal/web and the JavaScript suite.
+# See docs/testing.md#ui-regression.
+ui-regression: ui-check (ui-rows "--jobs 4") ui-browser jstest
+
+# Every route at phone and Full HD, light and dark, on the hostile seed, with
+# --strict. ui-rows covers the task listings at tablet and laptop besides.
+# TIX_UI_JOBS sets how many of the four run at once.
+ui-check: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd scripts/screenshots
+    [ -d node_modules/playwright ] || npm ci --no-audit --no-fund
+    node -e 'import("playwright").then(({chromium}) => process.exit(require("node:fs").existsSync(chromium.executablePath()) ? 0 : 1))' \
+      || npx playwright install chromium
+    node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/ui-regression --hostile --strict \
+      --viewports phone,fullhd --theme both --jobs "${TIX_UI_JOBS:-4}" --max-popups 15
+
+# The tests that drive a real browser, named *InABrowser. Chrome failing to
+# start ("never wrote DevToolsActivePort") is a known runner flake, retried
+# once; any other failure is not.
+ui-browser:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    log=$(mktemp); trap 'rm -f "$log"' EXIT
+    for try in 1 2; do
+      go test ./internal/web/ -count=1 -run 'InABrowser' -timeout 10m -v 2>&1 | tee "$log"
+      rc=${PIPESTATUS[0]}
+      [ "$rc" -eq 0 ] && exit 0
+      grep -q 'DevToolsActivePort' "$log" || exit "$rc"
+      echo "Chrome did not start (try $try), retrying" >&2
+    done
+    exit "$rc"
+
 # After a version bump, update the versions and sha256 recorded in REUSE.toml.
 # Rebuild the description editor's Rich text library from scripts/vendor/prosemirror.
 vendor-prosemirror:
