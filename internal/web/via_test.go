@@ -19,6 +19,9 @@ import (
 // words, so an assertion reads the chip and not the page around it.
 var viaChip = regexp.MustCompile(`(?s)<span class="via via-([a-z-]+)"(?: title="([^"]*)")?>.*?<span>([^<]*)</span></span>`)
 
+// channelCell is the history table's channel column, one row's cell.
+var channelCell = regexp.MustCompile(`(?s)<td data-label="Channel">(.*?)</td>`)
+
 type chip struct{ kind, title, label string }
 
 func chipsIn(region string) []chip {
@@ -151,9 +154,13 @@ func TestATaskHistoryShowsTheChannelColumn(t *testing.T) {
 	if !strings.Contains(region, "<th>Channel</th>") {
 		t.Errorf("the history table has no channel column:\n%s", region)
 	}
-	c, ok := findChip(chipsIn(region), "via token ci-agent")
+	var cells []chip
+	for _, m := range channelCell.FindAllStringSubmatch(region, -1) {
+		cells = append(cells, chipsIn(m[1])...)
+	}
+	c, ok := findChip(cells, "via token ci-agent")
 	if !ok || !strings.Contains(c.title, "User agent: curl/8") {
-		t.Errorf("the history row shows %+v, want the ci-agent token with its user agent in the hover", chipsIn(region))
+		t.Errorf("the channel column shows %+v, want the ci-agent token with its user agent in the hover", cells)
 	}
 }
 
