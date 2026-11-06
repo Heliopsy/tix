@@ -179,6 +179,9 @@ type taskView struct {
 	// BackLabel names where Back goes, so the link says where it leads
 	// rather than promising "the list" and arriving at a board.
 	BackLabel string
+
+	// Handoff is the text that hands this task to a coding agent.
+	Handoff handoffView
 }
 
 // backTo resolves where this screen's back link points.
@@ -347,6 +350,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		Back:          backTo(r),
 	}
 	data.BackLabel = backLabel(data.Back)
+	data.Handoff = newHandoff(r, *task)
 	if err := h.attachRelations(r, ref, &data); err != nil {
 		return taskView{}, err
 	}

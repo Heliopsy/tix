@@ -777,6 +777,32 @@ task does. A lane card's three dots menu offers **Copy to…** too, opening the 
 when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
 command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
+## Handing a task to an agent
+
+**Hand to an agent** in the task screen's header, beside the star and the actions menu, opens a dialog of
+text that hands this one task to a coding agent. The same button is in the header when the task is open in
+a dialog. On a phone the button is its icon alone. Every piece has a Copy button:
+
+- **Prompt**: an instruction for an agent that runs the tix CLI. It names the task's reference, its title
+  and the address this browser reached the server at, and the commands that do the work: `tix claim task`
+  to claim it, `tix task show` to read it, `tix comment add` for progress and `tix claim release` with
+  `--status done` to close it.
+- **Start it from your client**: one tab per client [mcp.md](mcp.md#wiring-it-into-a-client) documents.
+  Claude Code, Codex, OpenCode, Gemini CLI, Cursor and VS Code have a command that starts them with a prompt
+  (`claude`, `codex`, `opencode --prompt`, `gemini -i`, `agent` and `code chat`), shown with the prompt
+  after it. Claude Desktop and Zed have none, so their tab holds the MCP prompt to paste into the chat.
+- **With the tix MCP tools**: the same prompt for an agent that has `tix mcp` connected, naming the tools
+  `claim_task`, `task_show`, `comment_add` and `claim_release`.
+
+A command passes the prompt as one argument in single quotes, quoted for sh, bash and zsh, so a title
+holding quotes, `$(...)`, backticks or `$` reaches the agent as text and is never run. A title over several
+lines is folded onto one. Nothing in the dialog carries a token: the agent needs tix connected first, with
+a token of its own ([agents.md](agents.md#tokens-and-scopes), [mcp.md](mcp.md)). The prompt is in English
+whatever language the interface speaks, since a model reads it.
+
+The browser remembers the last client tab chosen, so the next task opens on it. Without scripting the button
+draws the dialog in place, with no tabs and every client's block one under another.
+
 ## Acting on many tasks
 
 Every row of the list starts with a checkbox. Tick one and a bar appears under the list, saying how many

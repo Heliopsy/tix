@@ -971,3 +971,41 @@
 {{/* A dialog's Cancel: back to the screen without the dialog, which is
      closing it when scripting runs. Takes the shell's Back. */}}
 {{define "dlg-cancel"}}<a class="btn secondary" href="{{.}}" data-dlg-close>{{t "Cancel"}}</a>{{end}}
+
+{{/* handoff-dlg is the task screen's Hand to an agent dialog: copy-ready
+     text that hands this task to a coding agent. Takes the task screen's
+     view; the text is internal/web/handoff.go's, from internal/handoff.
+
+     The client tabs are decoration over plain blocks. Without scripting the
+     strip is not drawn ([data-needs-js]) and every client's block sits under
+     its own heading; assets/handoff.js shows one at a time and remembers the
+     last one chosen. The first is current as drawn, so the first paint with
+     scripting already shows one panel. */}}
+{{define "handoff-dlg"}}{{$h := .Data.Handoff}}{{$p := .IDPrefix}}
+{{$sh := shell (print $p "handoff") (t "Hand to an agent") "handoffdlg" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<div class="handoff" data-handoff>
+  <p class="muted">{{t "The agent needs tix connected first: the tix CLI or the tix MCP tools, with a token of its own. Nothing here carries a token."}} {{t "Setting it up:"}} <code>docs/agents.md</code></p>
+  <h3 class="handoff-h">{{t "Prompt"}}</h3>
+  <div class="copyline"><pre class="wraps" id="{{$p}}handoff-prompt"><code>{{$h.Prompt}}</code></pre><button type="button" class="secondary" data-copy-target="{{$p}}handoff-prompt">{{t "Copy"}}</button></div>
+  <h3 class="handoff-h">{{t "Start it from your client"}}</h3>
+  <div class="handoff-tabs" role="tablist" aria-label="{{t "Client"}}" data-needs-js>
+    {{range $i, $s := $h.Snippets}}<button type="button" role="tab" class="handoff-tab" id="{{$p}}handoff-tab-{{.ID}}" aria-controls="{{$p}}handoff-panel-{{.ID}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if ne $i 0}} tabindex="-1"{{end}} data-handoff-tab="{{.ID}}">{{.Name}}</button>{{end}}
+  </div>
+  {{range $i, $s := $h.Snippets}}
+  <section class="handoff-panel{{if eq $i 0}} is-current{{end}}" id="{{$p}}handoff-panel-{{.ID}}" data-handoff-panel="{{.ID}}" aria-labelledby="{{$p}}handoff-name-{{.ID}}">
+    <h4 class="handoff-name" id="{{$p}}handoff-name-{{.ID}}">{{.Name}}</h4>
+    {{if .Command}}
+    <p class="muted">{{t "Run this in the repository the work is in. It is quoted for sh, bash and zsh."}}</p>
+    <div class="copyline"><pre class="wraps" id="{{$p}}handoff-cmd-{{.ID}}"><code>{{.Command}}</code></pre><button type="button" class="secondary" data-copy-target="{{$p}}handoff-cmd-{{.ID}}">{{t "Copy"}}</button></div>
+    {{else}}
+    <p class="muted">{{t "%s has no command that starts it with a prompt. Paste this into its chat; it uses the tix MCP tools:" .Name}}</p>
+    <div class="copyline"><pre class="wraps" id="{{$p}}handoff-paste-{{.ID}}"><code>{{.Prompt}}</code></pre><button type="button" class="secondary" data-copy-target="{{$p}}handoff-paste-{{.ID}}">{{t "Copy"}}</button></div>
+    {{end}}
+  </section>
+  {{end}}
+  <h3 class="handoff-h">{{t "With the tix MCP tools"}}</h3>
+  <div class="copyline"><pre class="wraps" id="{{$p}}handoff-mcp"><code>{{$h.MCP}}</code></pre><button type="button" class="secondary" data-copy-target="{{$p}}handoff-mcp">{{t "Copy"}}</button></div>
+</div>
+<div class="actiondlg-foot"><a class="btn secondary" href="{{$sh.Back}}" data-dlg-close>{{t "Close"}}</a></div>
+{{template "dlg-end"}}{{end}}

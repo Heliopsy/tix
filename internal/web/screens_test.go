@@ -199,7 +199,9 @@ func TestPagesReferenceNoExternalOrigin(t *testing.T) {
 		"/admin/ssh-keys", "/admin/webhooks", "/admin/connections",
 		"/transfer", "/bundles", "/sync", "/sync/runs", "/settings", "/release",
 	} {
-		page := b.page(path)
+		// The task screen's hand to an agent dialog names the address the
+		// reader reached this install at, which is not another origin.
+		page := strings.ReplaceAll(b.page(path), f.server.URL, "")
 		for _, forbidden := range []string{"http://", "https://", "//cdn", "unpkg"} {
 			if strings.Contains(page, forbidden) {
 				t.Errorf("%s references an external origin %q", path, forbidden)
