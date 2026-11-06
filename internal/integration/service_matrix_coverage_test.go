@@ -25,6 +25,23 @@ var matrixExemptions = map[string]string{
 	"ReadCalendarFeed": "a feed is answered as iCalendar to a calendar app at its address with no " +
 		"credential, so client.Client refuses it by design; internal/httpapi/handlers_calendar_test.go " +
 		"reads the same service through the HTTP route instead",
+	"CreateInvite": "every answer carries a freshly minted random secret, and the HTTP transport alone fills in the " +
+		"absolute url from the request's origin, so the two transports never agree byte for byte; " +
+		"internal/httpapi/handlers_invite_test.go drives the same service over HTTP and " +
+		"internal/service/invite_test.go covers the behaviour",
+	"ReissueInvite": "every answer carries a freshly minted random secret, and the HTTP transport alone fills in the " +
+		"absolute url from the request's origin, so the two transports never agree byte for byte; " +
+		"internal/httpapi/handlers_invite_test.go drives the same service over HTTP and " +
+		"internal/service/invite_test.go covers the behaviour",
+	"ListInvites": "lists invites whose identifiers and expiries come from CreateInvite, exempt above; " +
+		"internal/httpapi/handlers_invite_test.go lists them over HTTP",
+	"RevokeInvite": "acts on an invite only CreateInvite, exempt above, can produce; " +
+		"internal/service/invite_test.go and cmd/user_invite_test.go cover it",
+	"PreviewInvite": "takes the secret only CreateInvite, exempt above, returns; " +
+		"internal/httpapi/handlers_invite_test.go reads it over the public route",
+	"AcceptInvite": "takes the secret only CreateInvite, exempt above, returns, and uses it up, so the " +
+		"same link cannot be accepted over both transports; internal/httpapi/handlers_invite_test.go " +
+		"accepts one over the public route",
 }
 
 // TestEveryOperationIsCoveredOrExempt is the guard the matrix lacked. The

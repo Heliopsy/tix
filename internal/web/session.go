@@ -21,6 +21,8 @@ func (h *handler) sessionRoutes() []route {
 		get(RouteRoot, "", h.showRoot, "WhoAmI"),
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
+		public(get(RouteInviteAccept, inviteTemplate, h.showInvite, "PreviewInvite")),
+		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
 		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
@@ -90,14 +92,31 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 	next := safeNext(field(r, "next"))
 	ticket := field(r, "ticket")
 	in := core.LoginInput{Surface: core.SurfaceWeb}
+	_, changing := sent(r, "new_password")
 	if ticket != "" {
 		in.Ticket, in.Code = ticket, field(r, "code")
 	} else {
 		in.Email, in.Password = field(r, "email"), r.PostFormValue("password")
 	}
+	change := passwordChangeView{Email: in.Email, Next: next}
+	if changing && ticket == "" {
+		in.NewPassword = r.PostFormValue("new_password")
+		if in.NewPassword != r.PostFormValue("confirm") {
+			change.Errors = fieldErrors{"confirm": "the two passwords do not match"}
+			return h.renderPasswordChange(w, r, http.StatusUnprocessableEntity, change)
+		}
+	}
 
 	result, err := h.svc.Login(r.Context(), in)
 	if err != nil {
+		if ticket == "" && changing && (correctable(err) || core.IsKind(err, core.KindUnauthenticated)) {
+			name := core.FieldOf(err)
+			if name == "" {
+				name = "password"
+			}
+			change.Errors = fieldErrors{name: safeMessage(err, core.KindOf(err))}
+			return h.renderPasswordChange(w, r, core.KindOf(err).HTTPStatus(), change)
+		}
 		if ticket == "" {
 			return err
 		}
@@ -108,6 +127,34 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 		return h.renderTOTP(w, r, core.KindOf(err).HTTPStatus(),
 			signInChallenge(ticket, next, field(r, "uri"), totpRefusal(err)))
 	}
+	if result.Challenge != nil && result.Challenge.Kind == core.ChallengePasswordChange {
+		return h.renderPasswordChange(w, r, http.StatusOK, change)
+	}
+	return h.finishSignIn(w, r, result, next)
+}
+
+// passwordChangeView is the page a sign-in that must choose a new password
+// lands on. No session exists yet, so the page carries the address and asks
+// for the current password again beside the new one.
+type passwordChangeView struct {
+	Email  string
+	Next   string
+	Errors fieldErrors
+}
+
+// passwordChangeTemplate is the Choose a new password page.
+const passwordChangeTemplate = "passwordchange.html"
+
+// renderPasswordChange draws the Choose a new password page.
+func (h *handler) renderPasswordChange(w http.ResponseWriter, r *http.Request, status int, v passwordChangeView) error {
+	return h.renderStatus(w, r, status, passwordChangeTemplate, "Choose a new password", v)
+}
+
+// finishSignIn takes a sign-in that got past its first step the rest of the
+// way: the second factor when one is asked for, otherwise the session cookie,
+// the recovery codes an enrolment issued, and the screen the reader was
+// going to.
+func (h *handler) finishSignIn(w http.ResponseWriter, r *http.Request, result *core.LoginResult, next string) error {
 	if challenge := result.Challenge; challenge != nil {
 		uri := ""
 		if challenge.Enrolment != nil {

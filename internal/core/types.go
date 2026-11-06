@@ -140,6 +140,9 @@ type User struct {
 	// GlobalAdmin reports whether the user is a global admin, who administers
 	// every tenant of the installation rather than only their own.
 	GlobalAdmin bool `json:"global_admin" yaml:"global_admin"`
+	// RequirePasswordChange reports whether the next password sign-in must
+	// choose a new password before a session is minted.
+	RequirePasswordChange bool `json:"require_password_change" yaml:"require_password_change"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.

@@ -36,3 +36,15 @@ func init() {
 		},
 	)
 }
+
+// The invite form's lifetimes and the flashes its handlers pass through a
+// variable, which the template scan cannot see.
+func init() {
+	labelSets = append(labelSets, func() []string {
+		out := []string{"invite created", "invite re-issued"}
+		for _, c := range inviteExpiryChoices {
+			out = append(out, c.Label)
+		}
+		return out
+	})
+}
