@@ -55,8 +55,7 @@ func TestEveryExampleATipOffersIsAccepted(t *testing.T) {
 	for _, format := range output.TimeFormats {
 		t.Run(format, func(t *testing.T) {
 			t.Parallel()
-			b := f.as("alice")
-			b.setCookie("tix_time_format", format)
+			b := f.reader(t, format, "")
 			style, err := output.NewTimeStyle(format, "utc")
 			if err != nil {
 				t.Fatal(err)
@@ -131,8 +130,7 @@ func TestADueDateIsTypedInTheReadersFormat(t *testing.T) {
 		t.Run(c.format+" "+c.typed, func(t *testing.T) {
 			t.Parallel()
 			f := newFixture(t)
-			b := f.as("alice")
-			b.setCookie("tix_time_format", c.format)
+			b := f.reader(t, c.format, "")
 			ref := b.createTask("infra", "deadline")
 			task, err := f.svc.GetTask(f.ctx(), core.MustParseTaskRef(ref))
 			if err != nil {
@@ -167,8 +165,7 @@ func TestADueDateIsTypedInTheReadersFormat(t *testing.T) {
 func TestTheAddFormReadsADueDateInTheReadersFormat(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	b := f.as("alice")
-	b.setCookie("tix_time_format", output.TimeDotted)
+	b := f.reader(t, output.TimeDotted, "")
 	resp := b.post("/tasks", url.Values{"project_ref": {"infra"}, "title": {"dotted"}, "due_at": {"06.11.2026"}})
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)

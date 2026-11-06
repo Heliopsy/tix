@@ -56,7 +56,7 @@
       </span>
       <span class="recrow-meta">
         <span class="server-ver">{{.Version}}</span>
-        <span class="muted">&middot; {{t "last seen %s" (compact .LastSeenAt)}}</span>
+        <span class="muted">&middot; {{tt "last seen %s" (when .LastSeenAt)}}</span>
         {{if .Connections}}<span class="muted">&middot; {{tn "%d connection" "%d connections" .Connections}}</span>
         {{else}}<span class="muted">&middot; {{t "connections known only to the server answering"}}</span>{{end}}
       </span>

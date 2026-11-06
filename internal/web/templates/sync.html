@@ -34,7 +34,7 @@
           </div>
         </div>
       </td>
-      <td>{{stamp .LastRunAt}}</td>
+      <td>{{when .LastRunAt}}</td>
       <td>{{if .LastStatus}}{{.LastStatus}}{{else}}{{t "never run"}}{{end}}</td>
       <td>
         <form method="post" action="/sync/run">

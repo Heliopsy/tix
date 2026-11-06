@@ -94,6 +94,27 @@
   </select>
   {{with .Data.Trash.Held}}<p class="note trashheld">{{if $.Data.Tenant.TrashOff}}{{tn "%d task deleted while the trash was on is kept out of reach until it is turned back on." "%d tasks deleted while the trash was on are kept out of reach until it is turned back on." .}}{{else}}{{tn "%d task is in the trash. Turning the trash off keeps it, out of reach, until the trash is on again." "%d tasks are in the trash. Turning the trash off keeps them, out of reach, until the trash is on again." .}}{{end}}</p>{{end}}
 
+  {{/* The tenant's default date format and timezone: what every member
+       reads until they choose their own under Settings, and what an agent
+       on this tenant reads always. Inherit hands it to the server. */}}
+  <div class="field-label">
+    <label for="time_format">{{t "Date format"}}</label>
+    {{template "field-info" "How this tenant's people read timestamps unless they chose their own under Settings. Inherit uses the server's output.time_format."}}
+  </div>
+  <select id="time_format" name="time_format" aria-describedby="tenant-format-help">
+    {{range .Data.DateFormat.Choices}}<option value="{{.Value}}"{{if eq $.Data.DateFormat.Held .Value}} selected{{end}}>{{template "time-choice" .}}</option>{{end}}
+  </select>
+  <p class="note" id="tenant-format-help">{{t "Tenant default in use:"}} <strong class="timeeff">{{t .Data.DateFormat.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateFormat.Source)}}</span></p>
+
+  <div class="field-label">
+    <label for="timezone">{{t "Timezone"}}</label>
+    {{template "field-info" "The zone this tenant's people read timestamps in unless they chose their own under Settings. Inherit uses the server's output.timezone."}}
+  </div>
+  <select id="timezone" name="timezone" aria-describedby="tenant-zone-help">
+    {{range .Data.DateZone.Choices}}<option value="{{.Value}}"{{if eq $.Data.DateZone.Held .Value}} selected{{end}}>{{template "time-choice" .}}</option>{{end}}
+  </select>
+  <p class="note" id="tenant-zone-help">{{t "Tenant default in use:"}} <strong class="timeeff">{{t .Data.DateZone.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateZone.Source)}}</span></p>
+
   <p><button type="submit">{{t "Save"}}</button></p>
 </form>
 

@@ -305,18 +305,24 @@
 
 <section class="setgroup" id="dates">
   <h2>{{t "Dates and times"}}</h2>
+  {{/* Kept with the account, like the inbox switches below: a date format is
+       how this person reads, not a property of this browser, so it follows
+       them to every browser, the command line and the terminal interface.
+       Each control can inherit, and says what it would inherit and from
+       where, because "Server default" told nobody what they would get. */}}
   <div class="setlist">
+    <p class="setrow setlead">{{t "Kept with your account, so every browser and terminal you sign in from shows dates this way. Inherit follows your tenant's default, which follows the server's."}}</p>
 
     <form class="setrow" method="post" action="/timezone" hx-boost="false" data-apply>
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Timezone" "dates"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="timezone">{{t "Timezone"}}</label>{{template "field-info" "The zone every timestamp on every screen is written in. Server default follows the zone this deployment was configured with. The terminal interface keeps its own setting."}}</div>
-        <span class="sethelp" id="timezone-help">{{t "The zone timestamps are written in."}}</span>
+        <div class="setname-line"><label class="setname" for="timezone">{{t "Timezone"}}</label>{{template "field-info" "The zone every timestamp on every screen is written in. Inherit uses your tenant's default, and the server's when the tenant has none."}}</div>
+        <span class="sethelp" id="timezone-help">{{t "In use:"}} <strong class="timeeff">{{t .Data.DateZone.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateZone.Source)}}</span></span>
       </div>
       <div class="setrow-ctl">
         <select id="timezone" name="timezone" aria-describedby="timezone-help">
-          {{range .Data.Timezones}}<option value="{{.Value}}" {{if eq $.Data.Timezone .Value}}selected{{end}}>{{t .Label}}</option>{{end}}
+          {{range .Data.DateZone.Choices}}<option value="{{.Value}}" {{if eq $.Data.DateZone.Held .Value}}selected{{end}}>{{template "time-choice" .}}</option>{{end}}
         </select>
         <button class="apply" type="submit">{{t "Apply timezone"}}</button>
       </div>
@@ -326,12 +332,12 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Date format" "dates"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Server default follows the format this deployment was configured with."}}</div>
-        <span class="sethelp" id="time-format-help">{{t "How a timestamp is written."}}</span>
+        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Inherit uses your tenant's default, and the server's when the tenant has none."}}</div>
+        <span class="sethelp" id="time-format-help">{{t "In use:"}} <strong class="timeeff">{{t .Data.DateFormat.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateFormat.Source)}}</span></span>
       </div>
       <div class="setrow-ctl">
         <select id="time_format" name="time_format" aria-describedby="time-format-help">
-          {{range .Data.TimeFormats}}<option value="{{.Value}}" {{if eq $.Data.TimeFormat .Value}}selected{{end}}>{{t .Label}}</option>{{end}}
+          {{range .Data.DateFormat.Choices}}<option value="{{.Value}}" {{if eq $.Data.DateFormat.Held .Value}}selected{{end}}>{{template "time-choice" .}}</option>{{end}}
         </select>
         <button class="apply" type="submit">{{t "Apply date format"}}</button>
       </div>
@@ -410,11 +416,11 @@
     <div class="setrow">
       <div class="setrow-text">
         <div class="setname-line"><span class="setname">{{t "Authenticator"}}</span>{{template "field-info" "A six-digit code from an authenticator application, asked for after your password. It belongs to your account, so it applies in every browser and in the terminal."}}</div>
-        <span class="sethelp">{{if $totp.ConfirmedAt}}{{th "A second factor is <strong>on</strong> for this account, since"}} {{stamp $totp.ConfirmedAt}}.{{else}}{{th "A second factor is <strong>on</strong> for this account."}}{{end}} <strong>{{$totp.RecoveryCodesLeft}}</strong> {{t "of ten recovery codes are unused."}}</span>
+        <span class="sethelp">{{if $totp.ConfirmedAt}}{{th "A second factor is <strong>on</strong> for this account, since"}} {{when $totp.ConfirmedAt}}.{{else}}{{th "A second factor is <strong>on</strong> for this account."}}{{end}} <strong>{{$totp.RecoveryCodesLeft}}</strong> {{t "of ten recovery codes are unused."}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "On"}}</span></div>
     </div>
-    {{if $totp.VerificationLocked}}<div class="setrow"><p class="flash error">{{t "Too many incorrect codes. Verification is locked until %s." (stamp $totp.VerificationLockEnd)}}</p></div>{{end}}
+    {{if $totp.VerificationLocked}}<div class="setrow"><p class="flash error">{{tt "Too many incorrect codes. Verification is locked until %s." (when $totp.VerificationLockEnd)}}</p></div>{{end}}
 
     <form class="setrow" method="post" action="/settings/totp/recovery-codes" hx-boost="false">
       {{template "csrf" .CSRF}}
@@ -490,7 +496,7 @@
     <div class="setrow" id="calendar-state">
       <div class="setrow-text">
         <div class="setname-line"><span class="setname">{{t "Feed address"}}</span>{{template "field-info" "Google Calendar, Apple Calendar or Outlook subscribes to the address, and each task with a due date is an all-day event that links back here. Anybody holding the address can read what it lists, so treat it like a password. Only a hash of it is kept, which is why it was shown once, when it was created, and cannot be shown again. Rotate issues a new one; calendars subscribed to the old address stop updating. More in docs/calendar.md."}}</div>
-        <span class="sethelp">{{t "Created %s. The address is shown only once, when the feed is created or rotated; Rotate below issues a new one." (stamp $c.Feed.CreatedAt)}}</span>
+        <span class="sethelp">{{tt "Created %s. The address is shown only once, when the feed is created or rotated; Rotate below issues a new one." (when $c.Feed.CreatedAt)}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "Active"}}</span></div>
     </div>

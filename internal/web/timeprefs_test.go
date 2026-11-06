@@ -3,21 +3,59 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/web"
 )
 
-// The date format and the timezone are per-browser preferences, the same way
-// the theme and the keyboard scheme are, so the settings page has to offer
-// both as plain forms and remember what was chosen.
-func TestDatePreferencesPersistPerBrowser(t *testing.T) {
+// makePerson gives an actor of the fixture tenant the users row a person has,
+// which is where their own date preference is kept. The fixture's actors have
+// none, the way an agent has none.
+func makePerson(t *testing.T, f *fixture, actorID, email string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := f.store.Update(ctx, core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
+		return tx.CreateUser(ctx, &core.User{ID: actorID, Email: email}, "unused-hash")
+	}); err != nil {
+		t.Fatalf("creating user %q: %v", email, err)
+	}
+}
+
+// personFixture is a fixture whose alice is a person.
+func personFixture(t *testing.T) *fixture {
+	t.Helper()
+	f := newFixture(t)
+	makePerson(t, f, f.actorA.ID, "alice@example.com")
+	return f
+}
+
+// setTenantTime sets the tenant's default date format and timezone through
+// the tenant screen, the way an administrator does.
+func setTenantTime(t *testing.T, b *browser, format, zone string) {
+	t.Helper()
+	page := b.page("/admin/tenant")
+	name := between(t, page, `id="name" name="name" value="`, `"`)
+	resp := b.post("/admin/tenant", url.Values{"name": {name}, "theme": {""},
+		"time_format": {format}, "timezone": {zone}})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+}
+
+// A date preference chosen in one browser is kept with the account, so a
+// second browser signed in as the same person reads it without choosing.
+func TestDatePreferencesFollowThePersonToAnotherBrowser(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name   string
@@ -34,153 +72,194 @@ func TestDatePreferencesPersistPerBrowser(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			f := newFixture(t)
-			b := f.as("alice")
-
-			page := b.page("/settings")
-			if !hasPlainForm(page, c.action) {
+			f := personFixture(t)
+			first := f.as("alice")
+			if page := first.page("/settings"); !hasPlainForm(page, c.action) {
 				t.Fatalf("the settings page offers no %s control:\n%s", c.name, page)
 			}
-
-			resp := b.post(c.action, url.Values{c.field: {c.value}, "next": {"/tasks"}})
+			resp := first.post(c.action, url.Values{c.field: {c.value}, "next": {"/tasks"}})
 			_ = resp.Body.Close()
 			wantStatus(t, resp, http.StatusSeeOther)
 
-			settings := b.page("/settings")
-			if !strings.Contains(settings, c.option) {
-				t.Errorf("the %s choice did not stick across a reload:\n%s", c.name, settings)
+			second := f.as("alice")
+			if page := second.page("/settings"); !strings.Contains(page, c.option) {
+				t.Errorf("another browser does not read the %s the person chose:\n%s", c.name, page)
+			}
+			for _, cookie := range []string{web.TimeFormatCookie, web.TimezoneCookie} {
+				if v := first.cookie(cookie); v != "" {
+					t.Errorf("the choice was also kept in the %s cookie as %q", cookie, v)
+				}
 			}
 		})
 	}
 }
 
-// A value submitted by hand, or left behind in a cookie by something else,
-// falls back to the deployment default rather than being stored verbatim, the
-// same defence setKeyScheme applies to an unknown scheme.
-func TestUnknownDatePreferenceFallsBackToTheDefault(t *testing.T) {
+// A value the renderer does not know is refused and nothing is stored.
+func TestUnknownDatePreferenceIsRefused(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name   string
-		action string
-		field  string
-		value  string
-		cookie string
+		name, action, field, value string
 	}{
-		{"unknown zone", "/timezone", "timezone", "Mars/Olympus", "tix_timezone"},
-		{"zone off the list", "/timezone", "timezone", "Antarctica/Troll", "tix_timezone"},
-		{"unknown format", "/timeformat", "time_format", "klingon", "tix_time_format"},
+		{"unknown zone", "/timezone", "timezone", "Mars/Olympus"},
+		{"server zone", "/timezone", "timezone", "local"},
+		{"unknown format", "/timeformat", "time_format", "klingon"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			f := newFixture(t)
+			f := personFixture(t)
 			b := f.as("alice")
-
 			resp := b.post(c.action, url.Values{c.field: {c.value}, "next": {"/tasks"}})
 			_ = resp.Body.Close()
-
-			if stored := b.cookie(c.cookie); stored != "" {
-				t.Errorf("%s was stored as %q, want the default", c.name, stored)
+			if resp.StatusCode == http.StatusSeeOther {
+				t.Fatalf("%s %q was accepted", c.field, c.value)
 			}
 			page := b.page("/settings")
-			if !strings.Contains(page, `<option value="" selected>Server default</option>`) {
-				t.Errorf("%s did not fall back to the server default:\n%s", c.name, page)
-			}
-			if strings.Contains(page, c.value) {
-				t.Errorf("%s reached the page verbatim:\n%s", c.name, page)
+			control := between(t, page, `<select id="`+c.field+`"`, "</select>")
+			if !strings.Contains(control, `<option value="" selected>`) || strings.Contains(control, c.value+`" selected`) {
+				t.Errorf("%s did not stay on inherit:\n%s", c.name, control)
 			}
 		})
 	}
+}
 
-	// A cookie planted directly, never through the form, is refused the same
-	// way: validation is on the way out as well as on the way in.
-	f := newFixture(t)
+// The settings screen says what is in use and where it came from, and what
+// Inherit would give, so "inherit" never reads as an unknown.
+func TestSettingsSayWhereEachDatePreferenceComesFrom(t *testing.T) {
+	t.Parallel()
+	f := personFixture(t)
 	b := f.as("alice")
-	b.setCookie("tix_timezone", "Mars/Olympus")
-	b.setCookie("tix_time_format", "klingon")
+	setTenantTime(t, b, "dotted", "Europe/Sofia")
+
+	page := b.page("/settings")
+	help := between(t, page, `id="time-format-help">`, "</span></span>")
+	if !strings.Contains(help, "Dotted") || !strings.Contains(help, "from tenant default") {
+		t.Errorf("the format help does not say dotted from the tenant default: %q", help)
+	}
+	if got := optionLabel(t, page, "time_format", ""); !strings.Contains(got, "Inherit: Dotted") || !strings.Contains(got, "tenant default") {
+		t.Errorf("the inherit option does not name what it inherits: %q", got)
+	}
+
+	resp := b.post("/timezone", url.Values{"timezone": {"Asia/Tokyo"}, "next": {"/settings"}})
+	_ = resp.Body.Close()
+	page = b.page("/settings")
+	zone := between(t, page, `id="timezone-help">`, "</span></span>")
+	if !strings.Contains(zone, "Asia/Tokyo") || !strings.Contains(zone, "from your choice") {
+		t.Errorf("the zone help does not say Tokyo from the person's choice: %q", zone)
+	}
+	if got := optionLabel(t, page, "timezone", ""); !strings.Contains(got, "Europe/Sofia") {
+		t.Errorf("the zone inherit option does not name the tenant's zone: %q", got)
+	}
+}
+
+// The tenant screen sets the default every member reads until they choose,
+// and says what the server would give when it inherits.
+func TestTenantDefaultReachesAMemberWhoChoseNothing(t *testing.T) {
+	t.Parallel()
+	f := personFixture(t)
+	admin := f.as("alice")
+	created, ref := seedTimedTask(t, f, admin)
+
+	page := admin.page("/admin/tenant")
+	if got := optionLabel(t, page, "time_format", ""); !strings.Contains(got, "Inherit:") || !strings.Contains(got, "server default") {
+		t.Errorf("the tenant's inherit option does not name the server default: %q", got)
+	}
+	setTenantTime(t, admin, "long", "Asia/Tokyo")
+	page = admin.page("/admin/tenant")
+	if !strings.Contains(between(t, page, `id="tenant-format-help">`, "</p>"), "from tenant default") {
+		t.Errorf("the tenant screen does not say its own default is in use")
+	}
+
+	makePerson(t, f, "member-1", "m@example.com")
+	member := f.as("member:member-1")
+	want := formatIn(t, "long", "Asia/Tokyo", created)
+	if got := member.page("/tasks/" + ref); !showsAt(got, created, want) {
+		t.Errorf("a member who chose nothing does not read the tenant default %q", want)
+	}
+}
+
+// A person's own choice wins over the tenant's, field by field: a zone of
+// their own keeps the tenant's format.
+func TestAPersonsChoiceOverridesTheTenantFieldByField(t *testing.T) {
+	t.Parallel()
+	f := personFixture(t)
+	b := f.as("alice")
 	created, ref := seedTimedTask(t, f, b)
-	page := b.page("/tasks/" + ref)
-	if want := formatIn(t, "", "", created); !strings.Contains(page, want) {
-		t.Errorf("a planted cookie displaced the default rendering %q:\n%s", want, page)
-	}
-}
-
-// The zone a browser chose is the zone its own timestamps render in, while the
-// deployment's configured zone stays the default for a browser that chose
-// nothing.
-func TestTimezonePreferenceRendersItsOwnZone(t *testing.T) {
-	t.Parallel()
-	f := newFixture(t)
-	chooser := f.as("alice")
-	created, ref := seedTimedTask(t, f, chooser)
-
-	plain := f.as("alice")
-	if want := formatIn(t, "", "", created); !strings.Contains(plain.page("/tasks/"+ref), want) {
-		t.Errorf("a browser that chose nothing does not read the deployment default %q", want)
-	}
-
-	resp := chooser.post("/timezone", url.Values{"timezone": {"Asia/Tokyo"}, "next": {"/tasks"}})
+	setTenantTime(t, b, "dotted", "Europe/Sofia")
+	resp := b.post("/timezone", url.Values{"timezone": {"Asia/Tokyo"}, "next": {"/tasks"}})
 	_ = resp.Body.Close()
 
-	page := chooser.page("/tasks/" + ref)
-	want := formatIn(t, "", "Asia/Tokyo", created)
-	if !strings.Contains(page, want) {
-		t.Errorf("the chosen zone did not reach the task screen, want %q:\n%s", want, page)
+	want := formatIn(t, "dotted", "Asia/Tokyo", created)
+	if got := b.page("/tasks/" + ref); !showsAt(got, created, want) {
+		t.Errorf("want the tenant's format in the person's zone, %q", want)
 	}
 }
 
-// A format chosen on its own has to reach the screens too. The preference
-// test above reads the control back off the settings page, which the screen
-// fills straight from the cookie, so it holds whether or not anything renders
-// through the chosen layout; and the zone test above always sets a zone,
-// which is the other half of the key the template set is cached under.
-func TestADateFormatChosenWithoutAZoneReachesTheScreens(t *testing.T) {
+// A browser still carrying the old per-browser cookies has them moved onto
+// the account on its next visit and dropped, so the choice now follows the
+// person; a field the account already holds is not overwritten.
+func TestLegacyDateCookiesMoveOntoTheAccount(t *testing.T) {
 	t.Parallel()
-	f := newFixture(t)
-	chooser := f.as("alice")
-	created, ref := seedTimedTask(t, f, chooser)
+	f := personFixture(t)
+	created, ref := seedTimedTask(t, f, f.as("alice"))
 
-	resp := chooser.post("/timeformat", url.Values{"time_format": {"us"}, "next": {"/tasks"}})
+	elsewhere := f.as("alice")
+	resp := elsewhere.post("/timeformat", url.Values{"time_format": {"long"}, "next": {"/tasks"}})
 	_ = resp.Body.Close()
-	wantStatus(t, resp, http.StatusSeeOther)
 
-	page := chooser.page("/tasks/" + ref)
-	want := formatIn(t, "us", "", created)
-	if !strings.Contains(page, want) {
-		t.Errorf("the chosen format did not reach the task screen, want %q:\n%s", want, page)
+	old := f.as("alice")
+	old.setCookie(web.TimeFormatCookie, "us")
+	old.setCookie(web.TimezoneCookie, "Asia/Tokyo")
+	want := formatIn(t, "long", "Asia/Tokyo", created)
+	if got := old.page("/tasks/" + ref); !showsAt(got, created, want) {
+		t.Errorf("the first visit does not read the moved zone with the account's format, want %q", want)
+	}
+	for _, name := range []string{web.TimeFormatCookie, web.TimezoneCookie} {
+		if v := old.cookie(name); v != "" {
+			t.Errorf("the %s cookie is still set to %q after the move", name, v)
+		}
+	}
+	fresh := f.as("alice")
+	if got := fresh.page("/tasks/" + ref); !showsAt(got, created, want) {
+		t.Errorf("another browser does not read the moved zone, want %q", want)
 	}
 }
 
-// The failure this whole design guards against: the formatting helpers are
-// bound into a template at parse time, so a style shared between requests
-// would serve one browser the zone another one chose. Two browsers hammer the
-// same task at once, each holding a different preference, and each response
-// has to carry that browser's own rendering and none of the other's.
-func TestConcurrentBrowsersNeverSeeAnotherZone(t *testing.T) {
+// A planted cookie naming something the renderer does not know is dropped
+// rather than moved.
+func TestABadLegacyCookieIsDroppedNotMoved(t *testing.T) {
+	t.Parallel()
+	f := personFixture(t)
+	b := f.as("alice")
+	b.setCookie(web.TimezoneCookie, "Mars/Olympus")
+	b.setCookie(web.TimeFormatCookie, "klingon")
+	page := b.page("/settings")
+	if strings.Contains(page, "Mars") || strings.Contains(page, "klingon") {
+		t.Errorf("a planted cookie reached the page")
+	}
+	if b.cookie(web.TimezoneCookie) != "" || b.cookie(web.TimeFormatCookie) != "" {
+		t.Errorf("the planted cookies were kept")
+	}
+}
+
+// The formatting helpers are bound into a template at parse time, so a style
+// shared between requests would serve one person the zone another chose. Four
+// people read the same task at once, each with their own preference.
+func TestConcurrentPeopleNeverSeeAnotherZone(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	seeder := f.as("alice")
-	created, ref := seedTimedTask(t, f, seeder)
+	created, ref := seedTimedTask(t, f, f.as("alice"))
 
-	// The last reader chose nothing, so it reads the deployment default,
-	// which here is whatever zone the host runs in. The zones the other two
-	// read in are therefore picked against that rather than named outright:
-	// hardcoding them made this suite go red on a machine set to one of them,
-	// which says nothing about the product.
 	zones := zonesDistinctFromTheHost(t, created, 2)
-	readers := []struct {
-		zone   string
-		format string
-	}{
-		{zones[0], ""},
-		{zones[1], ""},
-		{"UTC", "us"},
-		{"", ""},
+	readers := []struct{ zone, format string }{
+		{zones[0], ""}, {zones[1], ""}, {"UTC", "us"}, {"", ""},
 	}
 	stamps := make([]string, len(readers))
 	browsers := make([]*browser, len(readers))
 	for i, r := range readers {
-		browsers[i] = f.as("alice")
+		id := "reader-" + string(rune('a'+i))
+		makePerson(t, f, id, id+"@example.com")
+		browsers[i] = f.as("member:" + id)
 		stamps[i] = formatIn(t, r.format, r.zone, created)
 		if r.zone != "" {
 			resp := browsers[i].post("/timezone", url.Values{"timezone": {r.zone}, "next": {"/tasks"}})
@@ -210,7 +289,7 @@ func TestConcurrentBrowsersNeverSeeAnotherZone(t *testing.T) {
 				defer wg.Done()
 				<-start
 				page := browsers[i].page("/tasks/" + ref)
-				if !strings.Contains(page, stamps[i]) {
+				if !showsAt(page, created, stamps[i]) {
 					fail <- "reader " + stamps[i] + " did not get its own rendering"
 					return
 				}
@@ -240,8 +319,7 @@ func seedTimedTask(t *testing.T, f *fixture, b *browser) (time.Time, string) {
 }
 
 // zonesDistinctFromTheHost picks n offered zones that read differently
-// from each other and from the host's own zone, so every reader in the test
-// above carries a stamp no other reader can also be holding.
+// from each other and from the host's own zone.
 func zonesDistinctFromTheHost(t *testing.T, at time.Time, n int) []string {
 	t.Helper()
 	seen := map[string]bool{formatIn(t, "", "", at): true}
@@ -276,14 +354,10 @@ func optionLabel(t *testing.T, page, selectID, value string) string {
 	return between(t, control, `<option value="`+value+`"`, "</option>")
 }
 
-// Every date format is offered with an example of itself. An absolute layout
-// is demonstrated with one fixed instant, so the reader compares the layouts
-// rather than the moment; the relative one has to be demonstrated with a
-// moment that is actually relative, and in the past, or the example reads as
-// a date in the future.
+// Every date format is offered with an example of itself.
 func TestEachDateFormatIsOfferedWithAnExampleOfItself(t *testing.T) {
 	t.Parallel()
-	page := newFixture(t).as("alice").page("/settings")
+	page := personFixture(t).as("alice").page("/settings")
 
 	iso := optionLabel(t, page, "time_format", output.TimeISO)
 	if !strings.Contains(iso, "2026-09-21") {
@@ -303,7 +377,7 @@ func TestEachDateFormatIsOfferedWithAnExampleOfItself(t *testing.T) {
 	}
 }
 
-// formatIn renders an instant the way a browser holding those preferences
+// formatIn renders an instant the way a reader holding those preferences
 // reads it, through the renderer the screens themselves use.
 func formatIn(t *testing.T, format, zone string, at time.Time) string {
 	t.Helper()
@@ -312,4 +386,38 @@ func formatIn(t *testing.T, format, zone string, at time.Time) string {
 		t.Fatalf("NewTimeStyle(%q, %q): %v", format, zone, err)
 	}
 	return style.Format(at)
+}
+
+// showsAt reports whether the page shows the instant at as text, in a <time>
+// whose machine value is that instant. Matching the text alone could be
+// satisfied by some other instant on the page that happens to read the same.
+func showsAt(page string, at time.Time, text string) bool {
+	re := regexp.MustCompile(`<time [^>]*datetime="` + regexp.QuoteMeta(at.UTC().Format(time.RFC3339)) + `"[^>]*>` + regexp.QuoteMeta(text) + `</time>`)
+	return re.MatchString(page)
+}
+
+// readers numbers the people reader creates, so each has its own handle.
+var readers atomic.Int64
+
+// reader returns a browser for a new administrator of the fixture tenant who
+// reads dates in format and zone, either of which may be empty to inherit.
+// Each call is a separate person, because a date preference is the
+// account's, and two subtests sharing one account would race over it.
+func (f *fixture) reader(t *testing.T, format, zone string) *browser {
+	t.Helper()
+	handle := "reader" + strconv.FormatInt(readers.Add(1), 10)
+	actor := seedActor(t, f.store, f.tenantA.ID, handle, core.RoleAdmin)
+	makePerson(t, f, actor.ID, handle+"@example.com")
+	b := f.asActor(actor.ID)
+	for _, set := range []struct{ route, field, value string }{
+		{"/timeformat", "time_format", format}, {"/timezone", "timezone", zone},
+	} {
+		if set.value == "" {
+			continue
+		}
+		resp := b.post(set.route, url.Values{set.field: {set.value}, "next": {"/tasks"}})
+		_ = resp.Body.Close()
+		wantStatus(t, resp, http.StatusSeeOther)
+	}
+	return b
 }

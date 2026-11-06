@@ -348,7 +348,32 @@ project when there is one and is exit 2 when there are several.
 ### How a timestamp is shown
 
 `output.time_format` and `output.timezone` govern how an instant is shown to a person: the CLI table, a live
-`tix watch` line, and the web interface all render every timestamp the same way, through one shared setting.
+`tix watch` line, the terminal interface and the web interface all render every timestamp the same way.
+
+They are the bottom of three levels. A tenant administrator can set a tenant default (the Tenant screen,
+`tix tenant edit --time-format dotted --timezone Europe/Sofia`, or `time_format` and `timezone` on
+`PATCH /api/v1/tenants/REF`), and each person can set their own (Settings in the browser, `tix user time`,
+or `PATCH /api/v1/me/time`). Each level left empty inherits the one below, and the format and the zone
+resolve separately, so a person who picks only a zone keeps the tenant's format. A person's choice is stored
+with their account, so it follows them to every browser, terminal and tenant. Agents have no preference of
+their own and read the tenant's.
+
+```console
+$ tix user time
+┌────────┬──────────────────────┬──────────────────────────┐
+│ LEVEL  │ FORMAT               │ TIMEZONE                 │
+├────────┼──────────────────────┼──────────────────────────┤
+│ global │ iso                  │ local                    │
+│ tenant │ dotted               │ (inherit)                │
+│ user   │ (inherit)            │ Asia/Tokyo               │
+│ in use │ dotted (from tenant) │ Asia/Tokyo (from user)   │
+└────────┴──────────────────────┴──────────────────────────┘
+```
+
+On the command line and in the terminal interface, a format or zone set on the machine itself (a flag,
+`TIX_OUTPUT_TIME_FORMAT`, `TIX_OUTPUT_TIMEZONE` or the configuration file) wins for that field on that
+machine. A field left at its shipped default follows the account. For `tix serve`, these keys are the
+deployment default every tenant and person inherits.
 
 An unknown format or an unknown timezone name is refused at load rather than silently falling back, because a
 timestamp quietly in the wrong zone is worse than an error at startup.
@@ -376,8 +401,9 @@ format, because a script must not depend on a person's preference.
 
 A blank field in a table, or an empty value in a `Due` or `Expires` column on the web, means the timestamp was
 never set: the zero time renders as nothing rather than as `1970-01-01`, which every reader misreads as a real
-date. A relative timestamp on the web still carries the absolute instant in its `title` attribute (hover it), in
-the fixed `iso` layout regardless of the configured format, so a reader can always get the exact time.
+date. Every timestamp on the web carries the full instant, to the second with its zone and offset and how long
+ago it was (`06.11.2026 14:05:32 EET (UTC+02:00) · 2 hours ago`), on hover, to a screen reader, and on a tap
+or keyboard focus, so a reader can always get the exact time.
 
 `output.timezone` picks the zone a timestamp is converted into before it is laid out:
 
