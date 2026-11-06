@@ -64,7 +64,11 @@ type globals struct {
 	logCloser io.Closer
 
 	environ []string
-	dir     string
+
+	// personStyle caches the date style resolved for the person this run
+	// speaks for, so a command asks the service at most once.
+	personStyle *output.TimeStyle
+	dir         string
 
 	// prompts buffers standard input across every question one invocation
 	// asks, so a second prompt does not find the first one's read-ahead gone.

@@ -43,6 +43,7 @@ tags:
   - name: task
   - name: template
   - name: tenant
+  - name: time
   - name: token
   - name: totp
   - name: trash
@@ -13195,6 +13196,14 @@ components:
             every surface. Empty means nobody chose, and the accent is derived from
             the tenant's own identity instead; see ThemeRegistry.Resolve.
           type: string
+        time_format:
+          description: TimeFormat is the date format this tenant's people read unless
+            they chose their own. Empty inherits the deployment's output.time_format.
+          type: string
+        timezone:
+          description: Timezone is the IANA zone this tenant's people read dates in
+            unless they chose their own. Empty inherits the deployment's output.timezone.
+          type: string
         trash_off:
           description: TrashOff makes deleting a task permanent on this tenant. False,
             the default, keeps deleted tasks in a trash they can be restored from.
@@ -13572,6 +13581,20 @@ components:
           description: Theme names the palette this tenant presents itself with. A
             pointer to the empty string clears it, which returns the tenant to the
             accent derived from its own identity; nil leaves it alone.
+          type:
+            - "null"
+            - string
+        time_format:
+          description: 'TimeFormat is the date format this tenant''s people read unless
+            they chose their own: iso, rfc3339, short, long, dotted, dayfirst, us
+            or relative. "" returns it to the deployment default; nil leaves it.'
+          type:
+            - "null"
+            - string
+        timezone:
+          description: Timezone is the IANA zone this tenant's people read dates in
+            unless they chose their own. "" returns it to the deployment default;
+            nil leaves it.
           type:
             - "null"
             - string

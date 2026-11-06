@@ -146,7 +146,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	srv, err := server.Assemble(server.Options{
 		Logger:  log,
 		Service: conn.Service,
-		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.timeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
+		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.configTimeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
 			web.WithPageSize(resolved.Config.Web.PageSize), web.WithLeasePolicy(resolved.Config.Lease.Policy()),
 			web.WithSSH(o.sshListen, resolved.Config.SSH.PublicAddress)),
 		Store:                      conn.Store,
@@ -207,7 +207,7 @@ func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions, trustedProxie
 		// reads it from the configuration like the HTTP one reads its own.
 		TrustedProxies: trustedProxies,
 		IdleTimeout:    o.sshIdleTimeout,
-		TimeStyle:      g.timeStyle(),
+		TimeStyle:      g.configTimeStyle(),
 		Logger:         log,
 	})
 	if err != nil {

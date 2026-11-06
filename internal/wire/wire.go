@@ -161,6 +161,9 @@ const (
 	RouteInboxReadAll = APIPrefix + "/inbox/read-all"
 	RouteInboxPrefs   = APIPrefix + "/inbox/prefs"
 
+	// RouteTimeSettings is the caller's date format and timezone.
+	RouteTimeSettings = APIPrefix + "/me/time"
+
 	RouteChannels          = APIPrefix + "/channels"
 	RouteChannel           = APIPrefix + "/channels/{id}"
 	RouteChannelTest       = APIPrefix + "/channels/{id}/test"

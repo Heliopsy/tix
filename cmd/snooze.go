@@ -135,5 +135,5 @@ func noteSnoozed(g *globals, cmd *cobra.Command, task *core.Task) {
 	if !task.SnoozedAt(time.Now()) || g.formatName() != output.FormatTable {
 		return
 	}
-	g.diag(cmd, "snoozed until: %s", task.SnoozedUntil.Local().Format("2006-01-02 15:04"))
+	g.diag(cmd, "snoozed until: %s", g.timeStyle().FormatPtr(task.SnoozedUntil))
 }
