@@ -15,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/tui"
 )
 
@@ -145,7 +146,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		Profile:   profile,
 		Project:   l.project,
 		Start:     l.start,
-		TimeStyle: s.opts.TimeStyle,
+		TimeStyle: output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle),
 		Now:       s.opts.Clock.Now,
 	})
 	if notice := s.notice(); notice != "" {

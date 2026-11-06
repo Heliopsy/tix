@@ -78,11 +78,12 @@ func newTUICmd(g *globals) *cobra.Command {
 					brand = reg.Resolve(tenant)
 				}
 			}
+			prefs, sources := accountTimePrefs(ctx, conn.Service, tuiPreferences(resolved, scheme), preferenceSources(resolved))
 			code := tui.Run(tui.Options{
 				Brand:     brand,
 				TimeStyle: g.timeStyle(),
-				Prefs:     tuiPreferences(resolved, scheme),
-				Sources:   preferenceSources(resolved),
+				Prefs:     prefs,
+				Sources:   sources,
 				SavePrefs: g.savePreferences(),
 				Session:   g.sessionInfo(resolved),
 				Tenant:    resolved.Config.Tenant,
@@ -168,6 +169,24 @@ func tuiPreferences(resolved *config.Resolved, scheme string) tui.Preferences {
 		Color:      resolved.Config.Output.Color,
 		Motion:     resolved.Config.TUI.Motion,
 	}
+}
+
+// accountTimePrefs fills the date format and timezone this machine leaves
+// unset with what the account resolves to, and names where each came from, so
+// the settings screen shows the value in force rather than a default nobody
+// is reading.
+func accountTimePrefs(ctx context.Context, svc core.Service, prefs, sources tui.Preferences) (tui.Preferences, tui.Preferences) {
+	settings, err := svc.GetTimeSettings(ctx)
+	if err != nil {
+		return prefs, sources
+	}
+	if sources.TimeFormat == string(config.LayerDefault) && settings.Effective.TimeFormat != "" {
+		prefs.TimeFormat, sources.TimeFormat = settings.Effective.TimeFormat, tui.AccountLayer+settings.FormatSource
+	}
+	if sources.Timezone == string(config.LayerDefault) && settings.Effective.Timezone != "" {
+		prefs.Timezone, sources.Timezone = settings.Effective.Timezone, tui.AccountLayer+settings.TimezoneSource
+	}
+	return prefs, sources
 }
 
 // preferenceSources names the configuration layer each display preference
