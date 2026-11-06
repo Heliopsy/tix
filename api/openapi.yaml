@@ -3503,6 +3503,95 @@ paths:
         one carrying a fresh expiry, and returns it once
       tags:
         - invite
+  /api/v1/me/time:
+    get:
+      description: |-
+        GetTimeSettings returns the caller's date format and timezone at each level (deployment, tenant, their own) and the values in force. JSON output stays RFC 3339 whatever these say; they govern what a person reads.
+
+        Command line: `tix user time`.
+      operationId: time.settings
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSettings'
+          description: TimeSettings is the caller's date and time display at every
+            level and the value in force.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: GetTimeSettings returns the caller's date format and timezone at each
+        level (deployment, tenant, their own) and the values in force
+      tags:
+        - time
+    patch:
+      description: |-
+        SetTimePrefs changes the caller's own date format and timezone, which follow them to every browser and terminal. An empty value returns the field to the tenant's default. Only a person may hold one.
+
+        Command line: `tix user time`.
+      operationId: time.prefs.set
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimePrefsInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSettings'
+          description: TimeSettings is the caller's date and time display at every
+            level and the value in force.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: SetTimePrefs changes the caller's own date format and timezone, which
+        follow them to every browser and terminal
+      tags:
+        - time
   /api/v1/members:
     get:
       description: |-
@@ -10774,6 +10863,14 @@ components:
             every surface. Empty means nobody chose, and the accent is derived from
             the tenant's own identity instead; see ThemeRegistry.Resolve.
           type: string
+        time_format:
+          description: TimeFormat is the date format this tenant's people read unless
+            they chose their own. Empty inherits the deployment's output.time_format.
+          type: string
+        timezone:
+          description: Timezone is the IANA zone this tenant's people read dates in
+            unless they chose their own. Empty inherits the deployment's output.timezone.
+          type: string
         trash_off:
           description: TrashOff makes deleting a task permanent on this tenant. False,
             the default, keeps deleted tasks in a trash they can be restored from.
@@ -13859,6 +13956,66 @@ components:
           description: UpdatedAt is when the user was last changed, RFC 3339.
           format: date-time
           type: string
+      type: object
+    TimePrefs:
+      description: 'TimePrefs is how instants are shown to a person at one level:
+        a named format and an IANA zone. An empty field inherits from the level below.'
+      properties:
+        time_format:
+          description: TimeFormat is one of TimeFormatNames, or empty to inherit.
+          type: string
+        timezone:
+          description: Timezone is an IANA zone name such as Europe/Sofia, or empty
+            to inherit.
+          type: string
+      type: object
+    TimePrefsInput:
+      description: TimePrefsInput changes the caller's own date and time display.
+        A nil field is left alone; an empty string returns that field to the tenant's
+        default.
+      properties:
+        time_format:
+          description: TimeFormat is one of iso, rfc3339, short, long, dotted, dayfirst,
+            us or relative, or "" to inherit.
+          type:
+            - "null"
+            - string
+        timezone:
+          description: Timezone is an IANA zone name such as Europe/Sofia, or "" to
+            inherit.
+          type:
+            - "null"
+            - string
+      type: object
+    TimeSettings:
+      description: TimeSettings is the caller's date and time display at every level
+        and the value in force.
+      properties:
+        effective:
+          $ref: '#/components/schemas/TimePrefs'
+          description: Effective is what the caller's dates are shown in.
+        format_source:
+          description: 'FormatSource names the level Effective.TimeFormat came from:
+            global, tenant or user.'
+          type: string
+        global:
+          $ref: '#/components/schemas/TimePrefs'
+          description: Global is the deployment's configured default (output.time_format
+            and output.timezone).
+        personal:
+          description: Personal reports whether the caller is a person who can hold
+            a preference of their own. An automated actor reads the tenant's.
+          type: boolean
+        tenant:
+          $ref: '#/components/schemas/TimePrefs'
+          description: Tenant is this tenant's default, set by a tenant administrator.
+        timezone_source:
+          description: TimezoneSource names the level Effective.Timezone came from.
+          type: string
+        user:
+          $ref: '#/components/schemas/TimePrefs'
+          description: User is the caller's own choice, which follows them to every
+            device.
       type: object
     Transition:
       description: Transition is one permitted edge of a workflow's state machine.
