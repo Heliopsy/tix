@@ -202,18 +202,25 @@ func writeIdentity(w io.Writer, r identity) error {
 	if r.Role != "" {
 		user += ", " + string(r.Role)
 	}
-	token := "none"
-	switch {
-	case r.Token:
-		token = "yes, from " + r.TokenSource
-	case r.Target == connect.ModeLocal:
-		token = "none; this process opens the database directly"
-	}
-	_, err := fmt.Fprintf(tw, "target\t%s\ntenant\t%s\nuser\t%s\ntoken\t%s\n", where, dashIfEmpty(r.Tenant), dashIfEmpty(user), token)
+	_, err := fmt.Fprintf(tw, "target\t%s\ntenant\t%s\nuser\t%s\ntoken\t%s\n",
+		where, dashIfEmpty(r.Tenant), dashIfEmpty(user), credentialLine(r))
 	if err != nil {
 		return err
 	}
 	return tw.Flush()
+}
+
+// credentialLine says whether a token is presented and where it came from.
+// It names a source, never a value.
+func credentialLine(r identity) string {
+	switch {
+	case r.Token:
+		return "yes, from " + r.TokenSource
+	case r.Target == connect.ModeLocal:
+		return "none; this process opens the database directly"
+	default:
+		return "none"
+	}
 }
 
 // initResult is what tix init reports.
