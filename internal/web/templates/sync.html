@@ -2,6 +2,33 @@
 <div class="headtip"><h1>{{t "External sync"}}</h1>{{template "tip" (tip "External sync" "A sync copies tasks from another tracker into one project. Each run reads the source, turns every record into a task through your mapping file, and creates or updates the matching tasks. Start with a dry run to see the result first." "docs/migrating.md")}}</div>
 {{template "synctabs" .}}
 
+{{/* A run's answer, or why it was refused, is drawn first, where the reader
+     is looking after pressing Run. It used to sit under the explanation at
+     the foot of the screen, and a refusal went to the error screen, whose
+     way back pointed at /sync/run: an address with no screen. The way back
+     leads to the sources as they were before the run. */}}
+{{if .Data.Refusal}}
+<section class="runresult" aria-labelledby="runresult-h" data-scroll-here>
+<h2 id="runresult-h">{{t "Run refused, nothing was written"}}</h2>
+<p class="failure-message" role="alert">{{.Data.Refusal}}</p>
+<p class="meta">{{t "Fix the source or its mapping file, then run it again."}}</p>
+<div class="actions"><a class="btn secondary" href="/sync" data-way-back>{{t "Back to the sources"}}</a></div>
+</section>
+{{else if .Data.Result}}
+<section class="runresult" aria-labelledby="runresult-h" data-scroll-here>
+<h2 id="runresult-h">{{if .Data.Result.DryRun}}{{t "Run result, dry run, nothing was written"}}{{else}}{{t "Run result"}}{{end}}</h2>
+<dl class="fields">
+  <dt>{{t "Source"}}</dt><dd>{{.Data.Result.Source}} ({{.Data.Result.System}})</dd>
+  <dt>{{t "Created"}}</dt><dd>{{counts .Data.Result.Created}}</dd>
+  <dt>{{t "Updated"}}</dt><dd>{{counts .Data.Result.Updated}}</dd>
+  <dt>{{t "Skipped"}}</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  <dt>{{t "Warnings"}}</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}{{t "none"}}{{end}}</dd>
+  {{if .Data.Result.Cursor}}<dt>{{t "Cursor now"}}</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
+</dl>
+<div class="actions"><a class="btn secondary" href="/sync" data-way-back>{{t "Back to the sources"}}</a>{{if not .Data.Result.DryRun}}<a href="/sync/runs">{{t "See this run in the history"}}</a>{{end}}</div>
+</section>
+{{end}}
+
 <p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
 
 <div class="sechead"><h2>{{t "Sources"}}</h2>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" .Here)}}</div>
@@ -150,16 +177,4 @@
   </div>
 </div>
 
-{{if .Data.Result}}
-<h2>{{if .Data.Result.DryRun}}{{t "Run result, dry run, nothing was written"}}{{else}}{{t "Run result"}}{{end}}</h2>
-<dl class="fields">
-  <dt>{{t "Source"}}</dt><dd>{{.Data.Result.Source}} ({{.Data.Result.System}})</dd>
-  <dt>{{t "Created"}}</dt><dd>{{counts .Data.Result.Created}}</dd>
-  <dt>{{t "Updated"}}</dt><dd>{{counts .Data.Result.Updated}}</dd>
-  <dt>{{t "Skipped"}}</dt><dd>{{counts .Data.Result.Skipped}}</dd>
-  <dt>{{t "Warnings"}}</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}{{t "none"}}{{end}}</dd>
-  {{if .Data.Result.Cursor}}<dt>{{t "Cursor now"}}</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
-</dl>
-{{if not .Data.Result.DryRun}}<p><a href="/sync/runs">{{t "See this run in the history"}}</a></p>{{end}}
-{{end}}
 {{end}}

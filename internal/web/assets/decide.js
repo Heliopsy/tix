@@ -192,6 +192,14 @@
     return at.slice(0, dash).toLowerCase();
   };
 
+  // keepsPlace reports whether a boosted swap leaves the reader where they
+  // were scrolled. A form that redraws its own page keeps the place, unless
+  // the page now carries an answer to what was just asked, such as a sync
+  // run's result drawn at the top: keeping the place hid it below the fold.
+  tix.keepsPlace = function (keptPath, path, answered) {
+    return !answered && typeof keptPath === "string" && keptPath === path;
+  };
+
   // shouldRebind reports whether a setup bound to one element should move to
   // another. The layout boosts every internal navigation, so the element a
   // page-local setup connected to is replaced without the script running

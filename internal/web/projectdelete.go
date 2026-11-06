@@ -63,9 +63,7 @@ func (h *handler) renderProjectDelete(w http.ResponseWriter, r *http.Request, st
 		form.Errors = fieldErrors{}
 	}
 	if len(form.Targets) > 0 && plan.Total() > 0 {
-		if !hasProject(form.Targets, form.MoveTo) {
-			form.MoveTo = form.Targets[0].Key
-		}
+		form.MoveTo = targetKey(form.Targets, form.MoveTo)
 		mapping, err := h.svc.PlanProjectDeletion(r.Context(), project.Key,
 			core.DeleteProjectInput{MoveTasksTo: form.MoveTo})
 		switch {
@@ -82,14 +80,17 @@ func (h *handler) renderProjectDelete(w http.ResponseWriter, r *http.Request, st
 	return h.renderStatus(w, r, status, "projectdelete.html", "Delete project", form)
 }
 
-// hasProject reports whether key names one of the projects.
-func hasProject(projects []core.Project, key string) bool {
-	for _, p := range projects {
+// targetKey is the key of the target project key names, spelled as the
+// picker spells it, or the first target when key names none. A key typed in
+// another case used to keep its own spelling, so the picker selected nothing
+// and showed the first project while the mapping under it described another.
+func targetKey(targets []core.Project, key string) string {
+	for _, p := range targets {
 		if strings.EqualFold(p.Key, key) {
-			return true
+			return p.Key
 		}
 	}
-	return false
+	return targets[0].Key
 }
 
 // deleteProject performs the deletion the confirmation asked for, or sends

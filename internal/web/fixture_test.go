@@ -172,6 +172,9 @@ func (s *webService) RunSync(ctx context.Context, in core.RunSyncInput) (*core.S
 	if !ok {
 		return nil, core.NotFound("sync source %q", in.SourceID)
 	}
+	if strings.HasSuffix(src.MappingPath, "missing.yaml") {
+		return nil, core.Invalid("reading mapping file %q: no such file or directory", src.MappingPath)
+	}
 	// Three distinct counts, so a test asserting on the run history pins each
 	// column separately rather than matching whichever one happens to share a
 	// value with another.

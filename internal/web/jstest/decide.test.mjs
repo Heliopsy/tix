@@ -488,3 +488,16 @@ test("copyValue copies a given text, or a link made absolute on this origin", ()
   assert.equal(tix.copyValue(btn({ "data-copy-target": "x" }), origin), null);
   assert.equal(tix.copyValue(null, origin), null);
 });
+
+test("keepsPlace keeps the reader's place unless the page answers what they asked", () => {
+  const { tix } = newContext();
+  const cases = [
+    ["/sync", "/sync", false, true],
+    ["/sync", "/sync", true, false],
+    ["/sync", "/projects", false, false],
+    [null, "/sync", false, false],
+  ];
+  for (const [kept, path, answered, want] of cases) {
+    assert.equal(tix.keepsPlace(kept, path, answered), want, `${kept} -> ${path}, answered ${answered}`);
+  }
+});

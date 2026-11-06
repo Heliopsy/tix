@@ -1031,7 +1031,7 @@ func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		h.logger.Error("serving page", "path", r.URL.Path, "error", err)
 	}
 	data := errorView{Heading: headingFor(kind), Message: message,
-		Hint: hintFor(kind), Back: backFrom(r)}
+		Hint: hintFor(kind), Back: h.wayBack(r)}
 	if renderErr := h.renderStatus(w, r, kind.HTTPStatus(), "error.html", headingFor(kind), data); renderErr != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
@@ -1052,14 +1052,16 @@ func hintFor(kind core.Kind) string {
 	}
 }
 
-// backFrom is the screen a failed request came from, so the reader returns to
-// their work. A failed mutation goes back to the screen it was posted from. A
-// failed page goes back to the page that linked to it when that was one of
-// ours, and otherwise to the task list. It used to answer "/", which is not a
-// screen: it redirects to the projects list, so "back" from a task that no
-// longer existed landed somewhere the reader had never been.
-func backFrom(r *http.Request) string {
-	if r.Method == http.MethodPost {
+// wayBack is the screen a failed request came from, so the reader returns to
+// their work. A failed mutation goes back to the screen it was posted from: its
+// own address when a screen is drawn there, and otherwise the page that posted
+// it, because an action such as /sync/run has no screen and leading back to it
+// was a dead end. A failed page goes back to the page that linked to it when
+// that was one of ours, and otherwise to the task list. It used to answer "/",
+// which is not a screen: it redirects to the projects list, so "back" from a
+// task that no longer existed landed somewhere the reader had never been.
+func (h *handler) wayBack(r *http.Request) string {
+	if r.Method == http.MethodPost && h.isScreen(r.URL.Path) {
 		return safeNext(r.URL.Path)
 	}
 	ref := r.Referer()
@@ -1070,7 +1072,21 @@ func backFrom(r *http.Request) string {
 	if err != nil || u.IsAbs() && u.Host != r.Host || u.Path == r.URL.Path || u.Path == RouteRoot {
 		return RouteTasks
 	}
+	if r.Method == http.MethodPost && !h.isScreen(u.Path) {
+		return RouteTasks
+	}
 	return backTarget(withoutFlash(u.Path, u.Query()))
+}
+
+// isScreen reports whether a GET of path draws a screen of its own, rather
+// than finding only the catch-all root or a route that answers POST alone.
+func (h *handler) isScreen(path string) bool {
+	if h.mux == nil {
+		return true
+	}
+	probe := &http.Request{Method: http.MethodGet, URL: &url.URL{Path: path}, Host: "tix"}
+	_, pattern := h.mux.Handler(probe)
+	return pattern != "" && (pattern != "GET "+RouteRoot || path == RouteRoot)
 }
 
 // safeMessage returns the text an error may disclose to a browser.

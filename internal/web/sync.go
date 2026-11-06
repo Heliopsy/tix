@@ -164,6 +164,9 @@ type syncView struct {
 	Sources []syncSourceRow
 	Systems []syncSystem
 	Result  *core.SyncResult
+	// Refusal is why a run was refused before it wrote anything, such as a
+	// mapping file that is missing or does not parse.
+	Refusal string
 	// Prefix is the environment namespace pattern, shown so the rule is
 	// visible before any source exists to demonstrate it.
 	Prefix string
@@ -245,21 +248,34 @@ func (h *handler) deleteSyncSource(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-// runSync runs or refreshes an external import and shows its result.
+// runSync runs or refreshes an external import and shows its result, or why
+// it was refused, at the top of the sources screen.
+//
+// The answer is drawn at /sync rather than at the address it was posted to,
+// which has no screen: reloading it or coming back to it must not run the
+// import again or land on a missing page.
 func (h *handler) runSync(w http.ResponseWriter, r *http.Request) error {
 	result, err := h.svc.RunSync(r.Context(), core.RunSyncInput{
 		SourceID: field(r, "source_id"),
 		DryRun:   checked(r, "dry_run"),
 		Full:     checked(r, "full"),
 	})
+	status := http.StatusOK
 	if err != nil {
-		return err
+		if !correctable(err) {
+			return err
+		}
+		status = core.KindOf(err).HTTPStatus()
 	}
-	data, err := h.buildSyncView(r, result)
+	data, buildErr := h.buildSyncView(r, result)
+	if buildErr != nil {
+		return buildErr
+	}
 	if err != nil {
-		return err
+		data.Refusal = safeMessage(err, core.KindOf(err))
 	}
-	return h.render(w, r, "sync.html", "Sync", data)
+	w.Header().Set("HX-Replace-Url", RouteSync)
+	return h.renderStatus(w, r, status, "sync.html", "Sync", data)
 }
 
 // auditSyncRunAction is the audit action one completed import writes. It

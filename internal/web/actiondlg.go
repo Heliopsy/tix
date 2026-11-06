@@ -84,6 +84,9 @@ func (h *handler) refuseIn(w http.ResponseWriter, r *http.Request, id, path stri
 	if state.Values == nil {
 		state.Values = url.Values{}
 	}
+	if r.URL.Path != path {
+		w.Header().Set("HX-Replace-Url", path+"?"+url.Values{DialogParam: {id}}.Encode())
+	}
 	clone := r.Clone(context.WithValue(r.Context(), dialogKey{}, state))
 	clone.Method = http.MethodGet
 	clone.URL = &url.URL{Path: path}

@@ -231,13 +231,18 @@
     // (scrollIntoViewOnBoost), which hx-swap="show:none" does not cover, so
     // ticking a task or applying a column filter threw the reader back to the
     // top of a list they were part way down.
-    if (keptScroll !== null && keptPath === window.location.pathname) {
+    var answer = document.querySelector("[data-scroll-here]");
+    if (keptScroll !== null && tix.keepsPlace(keptPath, window.location.pathname, answer !== null)) {
       var wanted = keptScroll;
       // After the swap the document may be shorter than it was, so clamp
       // rather than asking for an offset that no longer exists.
       window.requestAnimationFrame(function () {
         var max = document.documentElement.scrollHeight - window.innerHeight;
         window.scrollTo(0, Math.max(0, Math.min(wanted, max)));
+      });
+    } else if (keptScroll !== null && answer) {
+      window.requestAnimationFrame(function () {
+        answer.scrollIntoView({ block: "start" });
       });
     }
     keptScroll = null;
