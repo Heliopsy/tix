@@ -1,0 +1,6 @@
+Summary,Issue key,Issue id,Parent id,Issue Type,Status,Project key,Project name,Priority,Resolution,Assignee,Reporter,Created,Updated,Last Viewed,Resolved,Due date,Labels,Labels,Sprint,Sprint,Watchers,Watchers,Description,Custom field (Story Points)
+Set up CI pipeline,DEMO-1,10001,,Task,Done,DEMO,Demo Project,High,Done,alice.smith,bob.jones,01/Jan/26 9:00 AM,05/Jan/26 4:30 PM,06/Jan/26 8:00 AM,05/Jan/26 4:30 PM,15/Jan/26 5:00 PM,infra,ci,Sprint 1,,alice.smith,bob.jones,Configure the build and test jobs.,3
+Write onboarding docs,DEMO-2,10002,,Story,In Progress,DEMO,Demo Project,Medium,,carol.white,bob.jones,02/Jan/26 10:00 AM,08/Jan/26 1:00 PM,,,,docs,,Sprint 1,Sprint 2,carol.white,,"Cover the local setup.
+Mention the ""make"" targets.",5
+Fix login redirect,DEMO-3,10003,,Bug,To Do,DEMO,Demo Project,Blocker,,,alice.smith,03/Jan/26 11:15 AM,03/Jan/26 11:15 AM,,,03/Feb/26 11:15 AM,auth,urgent,,,,,Users land on a blank page after login.,
+Add cache step,DEMO-4,10004,10001,Sub-task,Selected for Development,DEMO,Demo Project,Minor,,alice.smith,alice.smith,04/Jan/26 2:00 PM,04/Jan/26 2:00 PM,,,,ci,,Sprint 2,,,,,1
