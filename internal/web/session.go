@@ -434,6 +434,9 @@ var timeFormatNames = map[string]string{
 	output.TimeRFC3339:  "RFC 3339",
 	output.TimeShort:    "Short",
 	output.TimeUS:       "US",
+	output.TimeDotted:   "Dotted",
+	output.TimeDayFirst: "Day first",
+	output.TimeLong:     "Long",
 	output.TimeRelative: "Relative",
 }
 

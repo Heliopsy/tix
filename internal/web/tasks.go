@@ -631,7 +631,7 @@ func doneState(d core.WorkflowDefinition) string {
 // createTask creates a task from the list screen's form.
 func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	form := readTaskForm(r)
-	in, err := form.input(r)
+	in, err := form.input(r, h.readerNow(r), h.readerStyle(r).DateOrder())
 	if err == nil && form.Quick {
 		in, err = h.quickInput(r, in)
 	}

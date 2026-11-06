@@ -697,7 +697,7 @@ func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) error {
 		in.Priority = &priority
 	}
 	if _, named := r.PostForm["due_at"]; named {
-		due, err := dateField(field(r, "due_at"), "due_at")
+		due, err := dateField(field(r, "due_at"), "due_at", h.readerNow(r), h.readerStyle(r).DateOrder())
 		if err != nil {
 			return err
 		}

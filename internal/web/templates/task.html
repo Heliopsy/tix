@@ -184,13 +184,13 @@
         {{else if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
     </div>
     <div class="prop" data-prop="due">
-      <dt><label for="{{.IDPrefix}}due">{{t "Due"}}</label></dt>
+      <dt><span class="proplabel"><label for="{{.IDPrefix}}due">{{t "Due"}}</label>{{if .Data.CanWrite}}{{template "tip" (examples (tip "Due date" "A word, an offset from today or a date in your date format. Leave it empty for no due date.") dueExamples)}}{{end}}</span></dt>
       <dd>{{if .Data.CanWrite}}
         <form method="post" class="propform" action="/tasks/{{$t.Ref}}">
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}due" name="due_at" type="date" value="{{with $t.DueAt}}{{.UTC.Format "2006-01-02"}}{{end}}">
+          <input id="{{.IDPrefix}}due" name="due_at" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{t "No due date"}}">
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
         {{else if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}
@@ -229,7 +229,7 @@
       </dd>
     </div>
     <div class="prop" data-prop="repeat">
-      <dt><span class="proplabel">{{if .Data.CanWrite}}<label for="{{.IDPrefix}}repeat">{{t "Repeats"}}</label>{{else}}{{t "Repeats"}}{{end}}{{template "tip" (tip "Repeat when done" "Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times." "docs/features.md")}}</span></dt>
+      <dt><span class="proplabel">{{if .Data.CanWrite}}<label for="{{.IDPrefix}}repeat">{{t "Repeats"}}</label>{{else}}{{t "Repeats"}}{{end}}{{template "tip" (examples (tip "Repeat when done" "Finishing a task that carries a rule creates the next one at once: same title, tags and assignee, a due date moved on by the rule. Cancelling it does not. Add after done to count from the day it was finished; end a rule with until 2027-06-30 or for 5 times." "docs/features.md") repeatExamples)}}</span></dt>
       <dd class="repeatline">
         {{/* Only this form names the rule. A form that does not name it
              leaves it alone, so saving anything else never clears a repeat. */}}

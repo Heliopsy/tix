@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/quickadd"
 )
 
 // taskForm is what Add with details was submitted with, so a refused add is
@@ -48,12 +50,12 @@ func readTaskForm(r *http.Request) taskForm {
 }
 
 // input turns the form into what the service creates a task from.
-func (f taskForm) input(r *http.Request) (core.CreateTaskInput, error) {
+func (f taskForm) input(r *http.Request, now time.Time, order output.DateOrder) (core.CreateTaskInput, error) {
 	priority, err := priorityField(r, "priority")
 	if err != nil {
 		return core.CreateTaskInput{}, core.OnField(err, "priority")
 	}
-	due, err := dateField(f.Due, "due_at")
+	due, err := dateField(f.Due, "due_at", now, order)
 	if err != nil {
 		return core.CreateTaskInput{}, err
 	}
@@ -68,17 +70,19 @@ func (f taskForm) input(r *http.Request) (core.CreateTaskInput, error) {
 	}, nil
 }
 
-// dateField reads a date control's YYYY-MM-DD value as midnight UTC, the same
-// instant the command line's --due gives a bare date.
-func dateField(raw, name string) (*time.Time, error) {
-	if raw == "" {
+// dateField reads a typed due date as midnight UTC, the same instant the
+// command line's --due gives a bare date: a word such as tomorrow or fri, an
+// offset such as +3d, YYYY-MM-DD, or a date in the order the reader's date
+// format writes one.
+func dateField(raw, name string, now time.Time, order output.DateOrder) (*time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
-	t, err := time.Parse(time.DateOnly, raw)
+	t, err := quickadd.ParseDueIn(raw, now, order)
 	if err != nil {
-		return nil, core.Invalid("date %q must be YYYY-MM-DD", raw).WithDetail(core.DetailField, name)
+		return nil, core.OnField(err, name)
 	}
-	return &t, nil
+	return t, nil
 }
 
 // projectForm is what the new project form and the project settings were

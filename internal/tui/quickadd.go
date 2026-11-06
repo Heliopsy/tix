@@ -12,7 +12,7 @@ import (
 // quickInput reads the new-task prompt's line, counting relative dates in the
 // local zone. The open project is the default a line naming none goes to.
 func (m Model) quickInput(line string) (core.CreateTaskInput, error) {
-	parsed, err := quickadd.Parse(line, m.now())
+	parsed, err := quickadd.ParseIn(line, m.now(), m.timeStyle.DateOrder())
 	if err != nil {
 		return core.CreateTaskInput{}, err
 	}
@@ -42,7 +42,7 @@ func (m Model) quickRow() (string, bool) {
 	if m.quickErr != "" {
 		return m.theme.Error.Render("✗ " + m.quickErr), true
 	}
-	parsed, err := quickadd.Parse(m.input.Value(), m.now())
+	parsed, err := quickadd.ParseIn(m.input.Value(), m.now(), m.timeStyle.DateOrder())
 	if err != nil {
 		return "", false
 	}

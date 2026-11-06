@@ -16,12 +16,32 @@ const (
 	TimeRFC3339  = "rfc3339"  // 2026-09-21T14:05:09+03:00
 	TimeShort    = "short"    // 21 Sep 14:05
 	TimeUS       = "us"       // 09/21/2026 2:05 PM
+	TimeDotted   = "dotted"   // 21.09.2026 14:05
+	TimeDayFirst = "dayfirst" // 21/09/2026 14:05
+	TimeLong     = "long"     // 21 Sep 2026 14:05
 	TimeRelative = "relative" // 18 minutes ago
 )
 
 // TimeFormats lists the named layouts this build implements, in the order a
 // chooser should offer them.
-var TimeFormats = []string{TimeISO, TimeRFC3339, TimeShort, TimeUS, TimeRelative}
+var TimeFormats = []string{TimeISO, TimeRFC3339, TimeShort, TimeLong, TimeDotted, TimeDayFirst, TimeUS, TimeRelative}
+
+// DateOrder is how a date a person types with digits alone is read. YYYY-MM-DD
+// is read the same way under every order; a date such as 06/11/2026 is not,
+// so it is read only under an order that names which number is the day.
+type DateOrder int
+
+// Date orders.
+const (
+	// DateISO reads YYYY-MM-DD only and refuses any other run of digits,
+	// because guessing which number is the day is how a task lands a month
+	// early.
+	DateISO DateOrder = iota
+	// DateDayFirst reads 06.11.2026 and 06/11/2026 as the 6th of November.
+	DateDayFirst
+	// DateMonthFirst reads 11/06/2026 as the 6th of November.
+	DateMonthFirst
+)
 
 // TimeStyle renders an instant the way a person configured. It is the one
 // place that decides, so the table, the terminal interface, the live stream and
@@ -109,10 +129,48 @@ func (s TimeStyle) Format(t time.Time) string {
 		return in.Format("2 Jan 15:04")
 	case TimeUS:
 		return in.Format("01/02/2006 3:04 PM")
+	case TimeDotted:
+		return in.Format("02.01.2006 15:04")
+	case TimeDayFirst:
+		return in.Format("02/01/2006 15:04")
+	case TimeLong:
+		return in.Format("2 Jan 2006 15:04")
 	case TimeRelative:
 		return s.relative(t)
 	default:
 		return in.Format(CompactTimeLayout)
+	}
+}
+
+// DateOrder is how this style reads a date typed with digits alone: the order
+// its own dates are written in, or ISO only for a style whose dates do not
+// say.
+func (s TimeStyle) DateOrder() DateOrder {
+	switch s.format {
+	case TimeDotted, TimeDayFirst:
+		return DateDayFirst
+	case TimeUS:
+		return DateMonthFirst
+	default:
+		return DateISO
+	}
+}
+
+// Date writes t's calendar date, as it stands, the way a person using this
+// style would type it into a date field, so a field filled with it saves back
+// to the same day.
+func (s TimeStyle) Date(t time.Time) string {
+	switch s.format {
+	case TimeDotted:
+		return t.Format("02.01.2006")
+	case TimeDayFirst:
+		return t.Format("02/01/2006")
+	case TimeUS:
+		return t.Format("01/02/2006")
+	case TimeLong, TimeShort:
+		return t.Format("2 Jan 2006")
+	default:
+		return t.Format(time.DateOnly)
 	}
 }
 

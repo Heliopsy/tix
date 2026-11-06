@@ -118,7 +118,7 @@
        add comes back with the line still in the box and the reason there. */}}
   <input type="hidden" name="quick" value="1">
   <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
-  {{template "tip" (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due:fri, due:tomorrow, due:+3d or due:2026-11-20, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md")}}
+  {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
   </select>
@@ -1100,8 +1100,8 @@
           {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
         </div>
         <div class="cfield">
-          <div class="cfield-label"><label for="new-due">{{t "Due date"}}</label></div>
-          <input id="new-due" name="due_at" type="date" value="{{$f.Due}}"{{$e.Attrs "due_at"}}>
+          <div class="cfield-label"><label for="new-due">{{t "Due date"}}</label>{{template "tip" (examples (tip "Due date" "A word, an offset from today or a date in your date format. Leave it empty for no due date.") dueExamples)}}</div>
+          <input id="new-due" name="due_at" value="{{$f.Due}}" autocomplete="off"{{$e.Attrs "due_at"}}>
           {{with $e.On "due_at"}}{{template "field-error" .}}{{end}}
         </div>
       </div>
@@ -1123,7 +1123,7 @@
     <summary>{{t "More options"}} <span class="muted">{{t "repeat, parent, dependencies, lease"}}</span></summary>
     <div class="cform-moregrid">
       <div class="cfield cfield-wide">
-        <div class="cfield-label"><label for="new-repeat">{{t "Repeat when done"}}</label>{{template "tip" (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md")}}</div>
+        <div class="cfield-label"><label for="new-repeat">{{t "Repeat when done"}}</label>{{template "tip" (examples (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md") repeatExamples)}}</div>
         <input id="new-repeat" name="repeat" value="{{$f.Repeat}}" placeholder="{{t "every week, every month on day 1, 3 days after done"}}"{{$e.Attrs "repeat"}}>
         {{with $e.On "repeat"}}{{template "field-error" .}}{{end}}
       </div>

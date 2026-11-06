@@ -60,7 +60,7 @@
           {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
         </div>
         <div class="cfield">
-          <div class="cfield-label"><label for="tpl-due">{{t "Due in"}}</label></div>
+          <div class="cfield-label"><label for="tpl-due">{{t "Due in"}}</label>{{template "field-info" "Each task made from the template falls due this long after it is made, such as 3d or 12h. Leave it empty for no due date."}}</div>
           <input id="tpl-due" name="due_in" value="{{$f.DueIn}}" placeholder="{{t "3d"}}" autocomplete="off"{{$e.Attrs "due_in"}}>
           {{with $e.On "due_in"}}{{template "field-error" .}}{{end}}
         </div>
@@ -71,7 +71,7 @@
         {{with $e.On "tags"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">
-        <div class="cfield-label"><label for="tpl-repeat">{{t "Repeat when done"}}</label></div>
+        <div class="cfield-label"><label for="tpl-repeat">{{t "Repeat when done"}}</label>{{template "tip" (examples (tip "Repeating tasks" "Finishing a repeating task creates the next one, with the same title, tags and assignee, due on the next date. Cancelling it ends the series." "docs/features.md") repeatExamples)}}</div>
         <input id="tpl-repeat" name="repeat" value="{{$f.Repeat}}" autocomplete="off"{{$e.Attrs "repeat"}}>
         {{with $e.On "repeat"}}{{template "field-error" .}}{{end}}
       </div>

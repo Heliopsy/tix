@@ -95,7 +95,7 @@ func init() {
 		"The zone timestamps are written in.": "Зоната, в която се изписват часовете.",
 		"Apply timezone":                      "Приложи зоната",
 		"Date format":                         "Формат на датата",
-		"How a timestamp is written. Each option shows how it writes the same instant. Server default follows the format this deployment was configured with.": "Как се изписва моментът. Всяка опция показва как изписва един и същ момент. „По подразбиране за сървъра“ следва формата, с който е настроена тази инсталация.",
+		"How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Server default follows the format this deployment was configured with.": "Как се изписва моментът и как се чете дата, която въвеждате: 06.11.2026 е 6 ноември при „Dotted“ и „Day first“, а 11/06/2026 е 6 ноември при „US“. 2026-11-06 се чете при всеки формат. „По подразбиране за сървъра“ следва формата, с който е настроена тази инсталация.",
 		"How a timestamp is written.": "Как се изписва моментът.",
 		"Apply date format":           "Приложи формата",
 		"Server default":              "По подразбиране за сървъра",

@@ -52,6 +52,9 @@ func TestNamedFormatsRenderTheDocumentedExamples(t *testing.T) {
 		{TimeRFC3339, "2026-09-21T14:05:09Z"},
 		{TimeShort, "21 Sep 14:05"},
 		{TimeUS, "09/21/2026 2:05 PM"},
+		{TimeDotted, "21.09.2026 14:05"},
+		{TimeDayFirst, "21/09/2026 14:05"},
+		{TimeLong, "21 Sep 2026 14:05"},
 	}
 	for _, c := range cases {
 		style, err := NewTimeStyle(c.format, "utc")
@@ -226,5 +229,40 @@ func TestRelativeCoarsensThroughEveryUnit(t *testing.T) {
 				t.Errorf("Relative(+%s) = %q, want %q", c.gap, got, c.future)
 			}
 		})
+	}
+}
+
+// A date field is filled the way its reader types a date, and only the
+// styles that write the day and month in a known order read digits that way.
+func TestDateIsWrittenTheWayEachStyleReadsIt(t *testing.T) {
+	day := time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		format string
+		date   string
+		order  DateOrder
+	}{
+		{TimeISO, "2026-11-06", DateISO},
+		{TimeRFC3339, "2026-11-06", DateISO},
+		{TimeRelative, "2026-11-06", DateISO},
+		{TimeShort, "6 Nov 2026", DateISO},
+		{TimeLong, "6 Nov 2026", DateISO},
+		{TimeDotted, "06.11.2026", DateDayFirst},
+		{TimeDayFirst, "06/11/2026", DateDayFirst},
+		{TimeUS, "11/06/2026", DateMonthFirst},
+	}
+	if len(cases) != len(TimeFormats) {
+		t.Fatalf("%d cases for %d formats", len(cases), len(TimeFormats))
+	}
+	for _, c := range cases {
+		style, err := NewTimeStyle(c.format, "utc")
+		if err != nil {
+			t.Fatalf("%s: NewTimeStyle: %v", c.format, err)
+		}
+		if got := style.Date(day); got != c.date {
+			t.Errorf("%s: Date = %q, want %q", c.format, got, c.date)
+		}
+		if got := style.DateOrder(); got != c.order {
+			t.Errorf("%s: DateOrder = %d, want %d", c.format, got, c.order)
+		}
 	}
 }

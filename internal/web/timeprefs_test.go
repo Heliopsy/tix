@@ -289,6 +289,14 @@ func TestEachDateFormatIsOfferedWithAnExampleOfItself(t *testing.T) {
 	if !strings.Contains(iso, "2026-09-21") {
 		t.Errorf("the ISO option is not demonstrated with the fixed example: %q", iso)
 	}
+	for format, want := range map[string]string{
+		output.TimeDotted: "21.09.2026", output.TimeDayFirst: "21/09/2026",
+		output.TimeLong: "21 Sep 2026", output.TimeUS: "09/21/2026",
+	} {
+		if got := optionLabel(t, page, "time_format", format); !strings.Contains(got, want) {
+			t.Errorf("the %s option is not demonstrated as %s: %q", format, want, got)
+		}
+	}
 	relative := optionLabel(t, page, "time_format", output.TimeRelative)
 	if !strings.Contains(relative, "18 minutes ago") {
 		t.Errorf("the relative option does not read as a moment in the past: %q", relative)

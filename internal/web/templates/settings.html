@@ -326,7 +326,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Date format" "dates"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written. Each option shows how it writes the same instant. Server default follows the format this deployment was configured with."}}</div>
+        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Server default follows the format this deployment was configured with."}}</div>
         <span class="sethelp" id="time-format-help">{{t "How a timestamp is written."}}</span>
       </div>
       <div class="setrow-ctl">

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/quickadd"
 )
 
@@ -115,5 +116,27 @@ func TestQuickSummary(t *testing.T) {
 	}
 	if got := QuickSummary(r); got != "assignee raj, project web" {
 		t.Errorf("QuickSummary = %q", got)
+	}
+}
+
+// A due date typed with digits is read in the order the configured time
+// format writes dates, as it is in the browser.
+func TestTheNewTaskPromptReadsDatesInTheConfiguredOrder(t *testing.T) {
+	m := boardModel(t)
+	svc := newFakeService()
+	m.svc = svc
+	style, err := output.NewTimeStyle(output.TimeDotted, "utc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.timeStyle = style
+	_, cmd := typeInto(t, m, "n", "pay rent due:06.11.2026")
+	if cmd == nil {
+		t.Fatal("a dotted date was refused under the dotted format")
+	}
+	cmd()
+	if len(svc.created) != 1 || svc.created[0].DueAt == nil ||
+		!svc.created[0].DueAt.Equal(time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("created %+v", svc.created)
 	}
 }

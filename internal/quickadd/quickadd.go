@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/query"
 )
 
@@ -83,8 +84,15 @@ type word struct {
 }
 
 // Parse reads a line against now, whose location is the calendar that
-// "tomorrow" and "fri" are counted in.
+// "tomorrow" and "fri" are counted in. A due date written with digits must be
+// YYYY-MM-DD.
 func Parse(line string, now time.Time) (Result, error) {
+	return ParseIn(line, now, output.DateISO)
+}
+
+// ParseIn is Parse for a reader whose dates are written in order, so a due
+// date such as 06.11.2026 is read the way that reader writes it.
+func ParseIn(line string, now time.Time, order output.DateOrder) (Result, error) {
 	var r Result
 	var title []string
 	for _, w := range split(line) {
@@ -96,7 +104,7 @@ func Parse(line string, now time.Time) (Result, error) {
 			title = append(title, text)
 			continue
 		}
-		tok, ok, err := classify(w.text, now)
+		tok, ok, err := classify(w.text, now, order)
 		if err != nil {
 			return Result{}, err
 		}
@@ -179,10 +187,10 @@ func escaped(text string) (string, bool) {
 // classify decides what one word sets. A sigil whose value does not fit is not
 // a token; a keyed form whose value does not fit is refused, because the key
 // says the writer meant it.
-func classify(text string, now time.Time) (Token, bool, error) {
+func classify(text string, now time.Time, order output.DateOrder) (Token, bool, error) {
 	if key, value, ok := strings.Cut(text, ":"); ok {
 		if kind, known := keyed[strings.ToLower(key)]; known && value != "" {
-			tok, err := keyedToken(kind, text, value, now)
+			tok, err := keyedToken(kind, text, value, now, order)
 			return tok, err == nil, err
 		}
 	}
@@ -216,7 +224,7 @@ func classify(text string, now time.Time) (Token, bool, error) {
 }
 
 // keyedToken reads the value of a key: form, refusing one that does not fit.
-func keyedToken(kind Kind, raw, value string, now time.Time) (Token, error) {
+func keyedToken(kind Kind, raw, value string, now time.Time, order output.DateOrder) (Token, error) {
 	tok := Token{Kind: kind, Raw: raw, Value: value}
 	switch kind {
 	case KindPriority:
@@ -226,7 +234,7 @@ func keyedToken(kind Kind, raw, value string, now time.Time) (Token, error) {
 		}
 		tok.Value, tok.priority = PriorityName(p), p
 	case KindDue:
-		due, err := ParseDue(value, now)
+		due, err := ParseDueIn(value, now, order)
 		if err != nil {
 			return Token{}, err
 		}
@@ -455,6 +463,6 @@ func PriorityName(p core.Priority) string {
 
 // SyntaxHint is the one line a surface offering quick add shows to list it.
 func SyntaxHint() string {
-	return "!high or !1-!5 priority, #tag, @handle, due:fri|tomorrow|+3d|2026-11-20, " +
+	return "!high or !1-!5 priority, #tag, @handle, due:" + strings.Join(DueExamples(ExampleDay.Format(time.DateOnly)), "|") + ", " +
 		"+project, ^parent-ref, status:doing; \\ or quotes keep text literal"
 }

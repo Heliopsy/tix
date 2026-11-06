@@ -124,7 +124,7 @@ func taskAddCmd(g *globals) *cobra.Command {
 				in.Lease = *lease
 			}
 			if parse {
-				parsed, err := quickadd.Parse(in.Title, time.Now())
+				parsed, err := quickadd.ParseIn(in.Title, time.Now(), g.timeStyle().DateOrder())
 				if err != nil {
 					return err
 				}
@@ -160,8 +160,8 @@ func taskAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&priority, "priority", "", "priority name or number")
 	f.StringVar(&assignee, "assignee", "", "actor handle or id the task is assigned to")
 	f.StringVar(&parent, "parent", "", "parent task reference")
-	f.StringVar(&due, "due", "", "due date")
-	f.StringVar(&repeat, "repeat", "", "repeat rule, such as 'every week' or '3 days after done'")
+	f.StringVar(&due, "due", "", "due date as YYYY-MM-DD or RFC 3339, such as 2026-11-20 or 2026-11-20T17:00:00Z")
+	f.StringVar(&repeat, "repeat", "", "repeat rule, such as 'daily', 'every 2 weeks', 'every month on day 15' or '3 days after done'")
 	f.StringVar(&leaseRaw, "lease", "", "how long a claim on the task holds, such as 2h; empty uses the project's")
 	f.StringSliceVarP(&tags, "tag", "l", nil, "tag to attach, repeatable")
 	f.StringSliceVar(&depends, "depends-on", nil, "task this one depends on, repeatable")
@@ -672,7 +672,7 @@ func taskEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&priority, "priority", "", "new priority")
 	f.StringVar(&assignee, "assignee", "", "new assignee, actor handle or id")
 	f.StringVar(&parent, "parent", "", "new parent reference")
-	f.StringVar(&due, "due", "", "new due date")
+	f.StringVar(&due, "due", "", "new due date as YYYY-MM-DD or RFC 3339, such as 2026-11-20")
 	f.StringVar(&repeat, "repeat", "", "new repeat rule, such as 'every month on day 1'")
 	f.BoolVar(&noRepeat, "no-repeat", false, "remove the repeat rule")
 	f.StringVar(&leaseRaw, "lease", "", "how long a claim on the task holds, such as 4h, or \"\" to use the project's")

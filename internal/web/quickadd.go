@@ -46,7 +46,7 @@ func (h *handler) readerNow(r *http.Request) time.Time {
 // the box is a default, so a project the line names takes its place rather
 // than contradicting it.
 func (h *handler) quickInput(r *http.Request, in core.CreateTaskInput) (core.CreateTaskInput, error) {
-	parsed, err := quickadd.Parse(in.Title, h.readerNow(r))
+	parsed, err := quickadd.ParseIn(in.Title, h.readerNow(r), h.readerStyle(r).DateOrder())
 	if err != nil {
 		return in, err
 	}
@@ -73,7 +73,7 @@ func (h *handler) previewLine(r *http.Request, line string) quickPreview {
 	if strings.TrimSpace(line) == "" {
 		return quickPreview{}
 	}
-	parsed, err := quickadd.Parse(line, h.readerNow(r))
+	parsed, err := quickadd.ParseIn(line, h.readerNow(r), h.readerStyle(r).DateOrder())
 	if err != nil {
 		return quickPreview{Error: safeMessage(err, core.KindOf(err))}
 	}
