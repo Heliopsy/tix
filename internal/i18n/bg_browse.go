@@ -169,8 +169,6 @@ func init() {
 		"Search activity":                                    "Търсене в активността",
 		"Kind of record":                                     "Вид запис",
 		"Everything":                                         "Всичко",
-		"Where the change came from":                         "Откъде е дошла промяната",
-		"Any surface":                                        "Всеки интерфейс",
 		"Showing":                                            "Показани",
 		"matching “%s”":                                      "съвпадащи с „%s“",
 		"(remove this filter)":                               "(премахни този филтър)",
