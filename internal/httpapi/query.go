@@ -144,6 +144,13 @@ type AuditQuery struct {
 	// Source keeps entries that arrived from a surface: cli, api, web, tui or
 	// system; repeat it for several.
 	Source []string `query:"source"`
+	// Via keeps entries that arrived through an access channel: web, api,
+	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
+	// it for several.
+	Via []string `query:"via"`
+	// Token keeps entries made with an API token, named by the token's name;
+	// repeat it for several.
+	Token []string `query:"token"`
 	// Since keeps entries recorded at or after an RFC 3339 instant.
 	Since time.Time `query:"since"`
 	// Until keeps entries recorded at or before an RFC 3339 instant.
@@ -165,6 +172,13 @@ type TaskAuditQuery struct {
 	// Source keeps entries that arrived from a surface: cli, api, web, tui or
 	// system; repeat it for several.
 	Source []string `query:"source"`
+	// Via keeps entries that arrived through an access channel: web, api,
+	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
+	// it for several.
+	Via []string `query:"via"`
+	// Token keeps entries made with an API token, named by the token's name;
+	// repeat it for several.
+	Token []string `query:"token"`
 	// Since keeps entries recorded at or after an RFC 3339 instant.
 	Since time.Time `query:"since"`
 	// Until keeps entries recorded at or before an RFC 3339 instant.

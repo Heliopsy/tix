@@ -154,6 +154,12 @@ type Actor struct {
 	Role Role `json:"role,omitempty" yaml:"role,omitempty"`
 	// TokenID is the API token the request authenticated with, if any.
 	TokenID string `json:"token_id,omitempty" yaml:"token_id,omitempty"`
+	// TokenName is the name of that token, kept for the access channel an
+	// audit entry records. It is never serialised.
+	TokenName string `json:"-" yaml:"-"`
+	// SessionID is the stored browser session the request authenticated
+	// with, never the cookie value. It is never serialised.
+	SessionID string `json:"-" yaml:"-"`
 	// ProjectID restricts the actor to one project when set, as a
 	// project-scoped token does.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`

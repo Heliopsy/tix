@@ -928,6 +928,9 @@ type Event struct {
 	// Payload carries event-specific details, including the subject's ref when
 	// it has one.
 	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
+	// Via is the access channel the change arrived through: its kind and the
+	// token's name. Network details stay in the audit log.
+	Via *Via `json:"via,omitempty" yaml:"via,omitempty"`
 	// OccurredAt is when the event happened, RFC 3339.
 	OccurredAt time.Time `json:"occurred_at" yaml:"occurred_at"`
 }
@@ -952,6 +955,10 @@ type AuditEntry struct {
 	After json.RawMessage `json:"after,omitempty" yaml:"after,omitempty"`
 	// Source is the surface the change came through.
 	Source Source `json:"source" yaml:"source"`
+	// Via is the access channel the change arrived through and what
+	// identified the caller on it. Kind is unknown on an entry recorded
+	// before channels were.
+	Via Via `json:"via" yaml:"via"`
 	// OccurredAt is when the change was made, RFC 3339.
 	OccurredAt time.Time `json:"occurred_at" yaml:"occurred_at"`
 }

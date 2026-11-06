@@ -208,6 +208,11 @@ const (
 	SessionCookieName = "tix_session"
 )
 
+// HeaderClient names the tix client making a request: cli or mcp. The server
+// treats it as a hint that refines a token request's access channel and never
+// as a credential.
+const HeaderClient = "X-Tix-Client"
+
 // ErrorBody is the single error envelope every failing response carries.
 type ErrorBody struct {
 	// Code is the error kind, which decides the HTTP status.

@@ -80,7 +80,10 @@ func HistoryRow(e core.AuditEntry, style output.TimeStyle, actors map[string]str
 		e.Action,
 		subject,
 	}
-	if e.Source != "" {
+	switch {
+	case e.Via.Known().Kind != core.ViaUnknown:
+		parts = append(parts, "via "+output.ViaLabel(e.Via))
+	case e.Source != "":
 		parts = append(parts, "via "+string(e.Source))
 	}
 	return strings.Join(parts, "  ")

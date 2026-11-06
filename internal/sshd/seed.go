@@ -33,6 +33,7 @@ func (p *provisioner) seed(ctx context.Context, tenantID, actorID string) error 
 		return err
 	}
 	system := core.WithSource(core.WithActor(ctx, core.SystemActor(tenantID)), core.SourceSystem)
+	system = core.WithVia(system, core.Via{Kind: core.ViaSystem, Job: "sandbox-seed"})
 	if _, err := p.service.ImportFrom(system, &buf, core.ImportInput{Mode: core.ImportMerge}); err != nil {
 		return core.Internal("seeding sandbox %q", tenantID).Wrap(err)
 	}

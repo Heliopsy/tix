@@ -27,6 +27,10 @@ func (c *Client) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.Audi
 	for _, s := range f.Sources {
 		q.Add("source", string(s))
 	}
+	for _, v := range f.Vias {
+		q.Add("via", string(v))
+	}
+	setStrings(q, "token", f.Tokens)
 	setTime(q, "since", f.Since)
 	setTime(q, "until", f.Until)
 	return list[core.AuditEntry](ctx, c, wire.RouteAudit, q)

@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package i18n
+
+func init() {
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
+		"via web":                 "през уеб",
+		"via API":                 "през API",
+		"via token %s":            "с токен %s",
+		"via CLI":                 "през CLI",
+		"via CLI (token %s)":      "през CLI (токен %s)",
+		"via SSH":                 "през SSH",
+		"via MCP":                 "през MCP",
+		"via MCP (token %s)":      "през MCP (токен %s)",
+		"via sync":                "чрез синхронизация",
+		"via import":              "чрез импорт",
+		"via system":              "от системата",
+		"via system (%s)":         "от системата (%s)",
+		"via unknown channel":     "по неизвестен канал",
+		"Web":                     "Уеб",
+		"API token":               "API токен",
+		"CLI on the database":     "CLI директно към базата",
+		"CLI through a server":    "CLI през сървър",
+		"SSH":                     "SSH",
+		"MCP":                     "MCP",
+		"Sync":                    "Синхронизация",
+		"Import":                  "Импорт",
+		"System":                  "Система",
+		"Unknown (older entries)": "Неизвестен (по-стари записи)",
+		"Started from":            "Започнато от",
+		"Token":                   "Токен",
+		"Token ID":                "ID на токена",
+		"Job":                     "Задание",
+		"Session":                 "Сесия",
+		"SSH key":                 "SSH ключ",
+		"Address":                 "Адрес",
+		"User agent":              "Клиент (user agent)",
+		"Host":                    "Хост",
+		"OS user":                 "Потребител на ОС",
+		"How the change arrived":  "Как е направена промяната",
+		"Any channel":             "Всеки канал",
+		"Token name":              "Име на токен",
+		"API token name":          "Име на API токен",
+		"via %s":                  "през %s",
+		"token %s":                "токен %s",
+		"Channel":                 "Канал",
+	})
+}

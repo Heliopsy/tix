@@ -77,6 +77,10 @@ type personSeed struct {
 	// token minted beside it, and a password on it would describe a way of
 	// running a fleet that the product does not have.
 	signIn bool
+	// via is the channel this identity's seeded changes record, so the
+	// activity feed shows the mix a real team produces: people in the browser
+	// and over SSH, agents on their tokens through the API, MCP and the CLI.
+	via core.ViaKind
 }
 
 // The two accounts that can sign in are an admin and a member, because the
@@ -85,13 +89,13 @@ type personSeed struct {
 // may not create or move work, so an eighth identity would be needed to hold
 // the role, and it would author nothing anywhere in the seeded history.
 var people = []personSeed{
-	{handle: "nadia", name: "Nadia Petrova", email: "nadia@demo.invalid", role: core.RoleAdmin, signIn: true},
-	{handle: "tom", name: "Tom Okafor", email: "tom@demo.invalid", role: core.RoleMember, signIn: true},
-	{handle: "lena", name: "Lena Fischer", email: "lena@demo.invalid", role: core.RoleMember},
-	{handle: "raj", name: "Raj Mehta", email: "raj@demo.invalid", role: core.RoleMember},
-	{handle: "atlas", name: "Atlas (build agent)", email: "atlas@demo.invalid", role: core.RoleMember, agent: true},
-	{handle: "scout", name: "Scout (triage agent)", email: "scout@demo.invalid", role: core.RoleMember, agent: true},
-	{handle: "mint", name: "Mint (docs agent)", email: "mint@demo.invalid", role: core.RoleMember, agent: true},
+	{handle: "nadia", name: "Nadia Petrova", email: "nadia@demo.invalid", role: core.RoleAdmin, signIn: true, via: core.ViaWeb},
+	{handle: "tom", name: "Tom Okafor", email: "tom@demo.invalid", role: core.RoleMember, signIn: true, via: core.ViaSSH},
+	{handle: "lena", name: "Lena Fischer", email: "lena@demo.invalid", role: core.RoleMember, via: core.ViaCLIRemote},
+	{handle: "raj", name: "Raj Mehta", email: "raj@demo.invalid", role: core.RoleMember, via: core.ViaWeb},
+	{handle: "atlas", name: "Atlas (build agent)", email: "atlas@demo.invalid", role: core.RoleMember, agent: true, via: core.ViaAPI},
+	{handle: "scout", name: "Scout (triage agent)", email: "scout@demo.invalid", role: core.RoleMember, agent: true, via: core.ViaMCP},
+	{handle: "mint", name: "Mint (docs agent)", email: "mint@demo.invalid", role: core.RoleMember, agent: true, via: core.ViaCLIRemote},
 }
 
 // fieldSeed is one typed custom field, so the values the tasks carry render as

@@ -186,7 +186,7 @@ var (
 	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
 	tokenHeader           = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
 	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
-	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "OCCURRED"}
+	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "VIA", "OCCURRED"}
 	endpointHeader        = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
 	tenantHeader          = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
 	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
@@ -528,7 +528,7 @@ func (p Painter) auditRow(a core.AuditEntry) table.Row {
 	}
 	return table.Row{
 		strconv.FormatInt(a.Seq, 10), a.Action, subject, a.ActorID,
-		string(a.Source), p.style.Format(a.OccurredAt),
+		string(a.Source), ViaLabel(a.Via), p.style.Format(a.OccurredAt),
 	}
 }
 
@@ -884,4 +884,21 @@ func countOf(n int, one, many string) string {
 		return "1 " + one
 	}
 	return fmt.Sprintf("%d %s", n, many)
+}
+
+// ViaLabel renders an access channel in a few words: the kind, and the token
+// or job that names the caller on it.
+func ViaLabel(v core.Via) string {
+	v = v.Known()
+	label := string(v.Kind)
+	switch {
+	case v.TokenName != "":
+		label += " (" + v.TokenName + ")"
+	case v.Job != "":
+		label += " (" + v.Job + ")"
+	}
+	if v.Origin != "" {
+		label += " from " + string(v.Origin)
+	}
+	return label
 }

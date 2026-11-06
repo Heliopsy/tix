@@ -30,6 +30,7 @@ type Client struct {
 	token     string
 	cookie    string
 	userAgent string
+	hint      string
 	timeout   time.Duration
 	http      *http.Client
 
@@ -63,6 +64,13 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithClientHint names the client in the X-Tix-Client header, cli or mcp. The
+// server may use it to tell a command line or an MCP server from another API
+// caller on the same token; it grants nothing.
+func WithClientHint(hint string) Option {
+	return func(c *Client) { c.hint = hint }
+}
+
 // WithSessionCookie authenticates with a session cookie instead of a bearer token.
 func WithSessionCookie(value string) Option {
 	return func(c *Client) { c.cookie = value }
@@ -76,6 +84,7 @@ func (c *Client) WithSession(token string) *Client {
 		token:     c.token,
 		cookie:    token,
 		userAgent: c.userAgent,
+		hint:      c.hint,
 		timeout:   c.timeout,
 		http:      c.http,
 	}
