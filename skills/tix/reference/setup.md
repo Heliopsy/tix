@@ -211,7 +211,9 @@ Tools the token has no scope for are not listed, and destructive ones
 the complete interface; the project's `docs/mcp.md` owns the details.
 
 Registering it in Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop,
-Cursor, VS Code or Zed: see "Wiring it into a client" in `docs/mcp.md`.
+Cursor, VS Code or Zed: see "Wiring it into a client" in `docs/mcp.md`. A person
+can open `/connect` on the server in a browser instead: it shows each snippet
+filled in with the server's address and a token it issues on the spot.
 
 ## Housekeeping
 

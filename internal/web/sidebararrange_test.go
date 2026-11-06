@@ -33,7 +33,7 @@ func TestTheSidebarIsOrderedByUse(t *testing.T) {
 	for _, m := range topEntry.FindAllStringSubmatch(top, -1) {
 		got = append(got, m[1])
 	}
-	want := []string{"/inbox", "/mine", "/tasks", "/projects", "/activity", "/stats"}
+	want := []string{"/inbox", "/mine", "/tasks", "/projects", "/activity", "/stats", "/connect", "/docs"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("the top-level entries are %v, want %v", got, want)
 	}

@@ -167,19 +167,12 @@ func TestEmptyScopeSelectionRedrawsTheFormAndKeepsTheName(t *testing.T) {
 	}
 	// On the line under the control it is about, not loose at the top of the
 	// page: the form carries three controls and a toast cannot say which.
-	_, tail, ok := strings.Cut(form, `id="scopes"`)
+	head, _, ok := strings.Cut(form, `<p class="field-error" id="scopes-error"`)
 	if !ok {
-		t.Fatalf("the re-rendered form has no scopes control:\n%s", form)
+		t.Fatalf("the re-rendered form has no message about the scopes:\n%s", form)
 	}
-	_, tail, _ = strings.Cut(tail, "</select>")
-	if !strings.HasPrefix(strings.TrimSpace(tail), `<p class="field-error" id="scopes-error"`) {
-		t.Errorf("the refusal does not sit under the scopes control, it is followed by %.120q", tail)
-	}
-	if !strings.Contains(form, `aria-describedby="scopes-error"`) {
-		t.Errorf("the scopes control does not point at its own message:\n%s", form)
-	}
-	if !strings.Contains(form, `id="scopes" name="scopes" multiple size="8" required`) {
-		t.Errorf("the scopes control is not marked required:\n%s", form)
+	if !strings.Contains(head, "data-scope-picker") || !strings.HasSuffix(strings.TrimSpace(head), "</fieldset>") {
+		t.Errorf("the refusal does not sit under the scope picker, it follows %.200q", head)
 	}
 }
 

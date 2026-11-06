@@ -560,7 +560,7 @@ type tokenRow struct {
 // tokensView is what the token administration screen renders.
 type tokensView struct {
 	Tokens []tokenRow
-	Scopes []core.Scope
+	Picker scopePicker
 	Expiry []tokenExpiry
 	Secret *oneTimeSecret
 	Form   tokenForm
@@ -799,7 +799,7 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 		return err
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
-		Tokens: list.Rows, Scopes: core.AllScopes, Expiry: tokenExpiryChoices,
+		Tokens: list.Rows, Picker: newScopePicker(actor, form.Scopes), Expiry: tokenExpiryChoices,
 		Secret: issuedTokenSecret(issued), Form: form, Errors: errs,
 		Owners: list.Owners, Whole: list.Whole})
 }
@@ -841,7 +841,7 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
 		return h.refuseToken(w, r, form, err)
 	}
 	// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
-	http.SetCookie(w, oneTimeCookie(issuedTokenCookie, RouteTokens, issued.Token, h.secureCookie(r)))
+	http.SetCookie(w, oneTimeCookie(issuedTokenCookie, RouteTokens, issuedValue(issued.Token, issued.Scopes), h.secureCookie(r)))
 	redirect(w, r, RouteTokens, "token issued")
 	return nil
 }

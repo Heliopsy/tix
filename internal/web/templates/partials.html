@@ -38,6 +38,11 @@
   {{template "pinned-projects" .}}
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
+  <a href="/connect" data-rail-name="{{t "Connect an agent"}}" {{if eq .Path "/connect"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connect"/></svg><span>{{t "Connect an agent"}}</span></a>
+  {{/* The documentation, through /docs, which redirects to it for the
+       running version; see connect.go. A new tab, so reading it never
+       loses the reader's place here. */}}
+  <a href="/docs" data-rail-name="{{t "Docs"}}" target="_blank" rel="noopener" data-nav-docs><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#docs"/></svg><span>{{t "Docs"}}</span></a>
   {{template "saved-filters" .}}
   {{template "recent-tasks" .}}
   {{/* Admin is what Configure, Data and the Trash entry were: the screens a
@@ -109,6 +114,7 @@
     <p class="flowhead">{{if .Actor.DisplayName}}{{.Actor.DisplayName}} &middot; {{end}}{{.Actor.Handle}}</p>
     <ul class="accountlist">
       <li><a href="/settings" class="flowgo" {{if eq .Path "/settings"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#settings"/></svg><span>{{t "Settings"}}</span></a></li>
+      <li><a href="/docs" class="flowgo" target="_blank" rel="noopener"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#docs"/></svg><span>{{t "Docs"}}</span></a></li>
       <li>{{template "themeswitch" .ThemeToggle}}</li>
       {{/* The "?" overlay, findable by someone who does not know to press
            "?". Shown only with scripting: shortcuts.js is what opens it. */}}
@@ -357,10 +363,53 @@
   <h2 id="{{.ID}}-heading">{{.Heading}}</h2>
   <p>{{.Note}}</p>
   <div class="copyline">
-    <code id="{{.ID}}">{{.Value}}</code>
+    <code id="{{.ID}}"{{if .Fill}} data-token-value{{end}}>{{.Value}}</code>
     <button type="button" class="secondary" data-copy-target="{{.ID}}">{{t "Copy"}}</button>
   </div>
+  {{/* What the token was actually granted, read back from the service's
+       answer rather than from the form, so a reader sees what they got. */}}
+  {{with .Scopes}}<p class="secret-scopes">{{t "This token can use:"}} {{range .}}<code class="evchip">{{.}}</code>{{end}}</p>{{end}}
 </section>
+{{end}}
+
+{{/* scope-picker is the one scope control every token form draws: a labelled
+     checkbox per scope, grouped, each saying what it allows. A scope the
+     reader does not hold is drawn disabled with the reason rather than left
+     out, so the list never shrinks without explanation. Presets, Select all,
+     Clear, the group checkboxes and the summary need scripting
+     (assets/scopes.js) and are not drawn without it; the plain checkboxes
+     post on their own. * is a separate, explicit choice that Select all never
+     ticks. */}}
+{{define "scope-picker"}}
+<fieldset class="scopepick" data-scope-picker>
+  <legend>{{t "Scopes"}}</legend>
+  <p class="meta">{{t "The token can do what you tick here and nothing else. Tick only what its work needs."}}</p>
+  <div class="scopepick-tools" data-needs-js>
+    {{range .Presets}}<button type="button" class="secondary small" data-scope-preset="{{.Scopes}}" title="{{t .Note}}">{{t .Name}}</button>{{end}}
+    <button type="button" class="secondary small" data-scope-select="all">{{t "Select all"}}</button>
+    <button type="button" class="secondary small" data-scope-select="none">{{t "Clear"}}</button>
+  </div>
+  <div class="scopepick-groups">
+  {{range .Groups}}
+    <fieldset class="scopegroup" data-scope-group>
+      <legend><input type="checkbox" class="scopegroup-all" data-scope-group-all data-needs-js aria-label="{{t "All of %s" (t .Name)}}"><span>{{t .Name}}</span></legend>
+      {{range .Scopes}}
+      <label class="scopeopt{{if not .Held}} is-unheld{{end}}">
+        <input type="checkbox" name="scopes" value="{{.Value}}"{{if .Checked}} checked{{end}}{{if not .Held}} disabled{{end}}>
+        <span class="scopeopt-text"><code>{{.Value}}</code> <span class="scopeopt-note">{{t .Note}}{{if not .Held}} <em>{{t "You do not hold it, so you cannot grant it."}}</em>{{end}}</span></span>
+      </label>
+      {{end}}
+    </fieldset>
+  {{end}}
+  </div>
+  {{if .All}}
+  <label class="scopeopt scopeopt-star">
+    <input type="checkbox" name="scopes" value="*" data-scope-star{{if .AllChecked}} checked{{end}}>
+    <span class="scopeopt-text"><code>*</code> <span class="scopeopt-note">{{t "Everything, including scopes later releases add. Use it only for a credential nobody else can reach."}}</span></span>
+  </label>
+  {{end}}
+  <p class="scopepick-summary" data-scope-summary aria-live="polite" data-needs-js></p>
+</fieldset>
 {{end}}
 
 {{/* field-error is why one control's value was refused, rendered on the line

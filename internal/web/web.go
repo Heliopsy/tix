@@ -107,6 +107,15 @@ func WithThemes(r *core.ThemeRegistry) Option {
 	return func(h *handler) { h.themes = r }
 }
 
+// WithSSH tells the connect screen that this process runs an SSH listener
+// bound to listen, and where people reach it when public is set. Without it
+// the screen shows no SSH commands.
+func WithSSH(listen, public string) Option {
+	return func(h *handler) {
+		h.sshListen, h.sshPublic = strings.TrimSpace(listen), strings.TrimSpace(public)
+	}
+}
+
 // WithLeasePolicy supplies the deployment's lease bounds, so the tenant
 // screen can show what an empty field falls back to rather than leaving the
 // reader to guess whether blank means "none" or "the default".
@@ -164,6 +173,8 @@ type handler struct {
 	themes         *core.ThemeRegistry
 	leases         lease.Policy
 	pageSize       int
+	sshListen      string
+	sshPublic      string
 }
 
 // Handler returns an http.Handler serving the browser interface.

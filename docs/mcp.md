@@ -16,8 +16,12 @@ other command does: `--server` and `--token`, `TIX_SERVER_URL` and `TIX_TOKEN`, 
 ([configuration.md](configuration.md)). Mint a token with only the scopes the agent needs:
 
 ```sh
-tix token create mcp-agent --scope task:read --scope task:write --scope task:claim --scope comment:write -o json
+tix token create mcp-agent --scope task:read --scope task:write --scope task:transition --scope task:claim --scope comment:write
 ```
+
+The browser's Connect an agent screen (`/connect`, [web-ui.md](web-ui.md#connect-an-agent)) shows every
+snippet below already filled in with your server's address and a token it can issue for you. A test keeps
+that screen and this page in step.
 
 Every client registers it the same way: `tix` with the argument `mcp` as a stdio server, and the two variables
 in its environment. Below, URL stands for your server's address, such as `https://tix.example.com`, and TOKEN

@@ -319,6 +319,10 @@ can back off on 7 and page someone on 1.
 
 ## Tokens and scopes
 
+The browser's **Connect an agent** screen (`/connect`) issues a token and fills it into every command an
+agent needs: the CLI context, the MCP client of your choice, the skill and the REST API. See
+[web-ui.md](web-ui.md#connect-an-agent).
+
 Give an agent a token, not a user session:
 
 ```sh
