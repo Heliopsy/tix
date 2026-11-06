@@ -233,6 +233,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var leaseDefault, leaseMax string
 	var totpWeb, totpCLI, totpSSH bool
 	var trash string
+	var timeFormat, timezone string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -258,7 +259,10 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
 			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
 			"stay there untouched, and --trash on brings them back into reach.\n\n" +
-			"Exit codes: 2 --trash is not on or off; 3 unknown tenant or unknown theme;\n" +
+			"--time-format and --timezone set the date format and zone this tenant's people\n" +
+			"read dates in unless they chose their own (tix user time). Either as \"\" falls\n" +
+			"back to the deployment's output.time_format and output.timezone.\n\n" +
+			"Exit codes: 2 --trash is not on or off, or an unknown format or timezone; 3 unknown tenant or unknown theme;\n" +
 			"6 no second factor key.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
@@ -268,7 +272,8 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
 			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
 			"  tix tenant edit acme --lease-max \"\"\n" +
-			"  tix tenant edit acme --trash off",
+			"  tix tenant edit acme --trash off\n" +
+			"  tix tenant edit acme --time-format dotted --timezone Europe/Sofia",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateTenantInput
@@ -327,6 +332,12 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				off := !on
 				in.TrashOff = &off
 			}
+			if cmd.Flags().Changed("time-format") {
+				in.TimeFormat = &timeFormat
+			}
+			if cmd.Flags().Changed("timezone") {
+				in.Timezone = &timezone
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -356,7 +367,12 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
+	cmd.Flags().StringVar(&timeFormat, "time-format", "",
+		"the date format this tenant's people read, or \"\" for the deployment setting")
+	cmd.Flags().StringVar(&timezone, "timezone", "",
+		"the IANA timezone this tenant's people read dates in, or \"\" for the deployment setting")
 	_ = cmd.RegisterFlagCompletionFunc("trash", fixedCompletion([]string{"on", "off"}))
+	_ = cmd.RegisterFlagCompletionFunc("time-format", fixedCompletion(core.TimeFormatNames))
 	return cmd
 }
 

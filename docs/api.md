@@ -96,6 +96,7 @@ the routes the server registers. The areas are the first segment of each operati
 | task | `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
 | tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
+| time | `GET /me/time`, `PATCH /me/time` |
 | token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
 | trash | `GET /trash` |
@@ -547,6 +548,30 @@ Every route works on the caller's own items: another actor's identifier is `not_
 and muting write an audit entry and emit `inbox.updated`; one that changes nothing writes neither. A
 change that creates items emits one `inbox.updated` whose payload `recipients` lists the actor
 identifiers that received one, which is what the web sidebar's badge listens for.
+
+### Date format and timezone
+
+Every timestamp in a response is RFC 3339 in UTC, whatever anybody chose. These routes hold how dates are
+shown to a person in the browser, the terminal interface and the command line's tables, at three levels:
+the deployment (`output.time_format`, `output.timezone`), the tenant (`time_format` and `timezone` on
+`PATCH /tenants/REF`, admin only) and the person. Each level left empty inherits the one below it, and
+the format and the zone resolve separately.
+
+| Route | Does |
+| --- | --- |
+| `GET /me/time` | Every level, the values in force and where each came from (`global`, `tenant` or `user`) |
+| `PATCH /me/time` | Sets the caller's own `time_format` and `timezone`; `""` inherits, an absent field is left |
+
+```json
+{"global": {"time_format": "iso", "timezone": "local"}, "tenant": {"time_format": "dotted"},
+ "user": {"timezone": "Asia/Tokyo"}, "effective": {"time_format": "dotted", "timezone": "Asia/Tokyo"},
+ "format_source": "tenant", "timezone_source": "user", "personal": true}
+```
+
+An agent has no preference of its own: `PATCH` is `invalid` for it, and `GET` reports `personal: false`
+with the tenant's values in force. A format outside `iso`, `rfc3339`, `short`, `long`, `dotted`,
+`dayfirst`, `us` and `relative`, a zone the server cannot load, or `local` is `invalid`. A change writes
+an audit entry and emits `user.updated`.
 
 ### Notification channels
 

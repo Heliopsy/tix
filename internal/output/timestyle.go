@@ -3,9 +3,12 @@
 package output
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Named time layouts a person can choose between. A layout string is not
@@ -24,7 +27,9 @@ const (
 
 // TimeFormats lists the named layouts this build implements, in the order a
 // chooser should offer them.
-var TimeFormats = []string{TimeISO, TimeRFC3339, TimeShort, TimeLong, TimeDotted, TimeDayFirst, TimeUS, TimeRelative}
+// It is core.TimeFormatNames, so a tenant or a person can be refused a name
+// this package would not render.
+var TimeFormats = core.TimeFormatNames
 
 // DateOrder is how a date a person types with digits alone is read. YYYY-MM-DD
 // is read the same way under every order; a date such as 06/11/2026 is not,
@@ -77,10 +82,20 @@ func NewTimeStyle(format, timezone string) (TimeStyle, error) {
 	return TimeStyle{format: f, loc: loc}, nil
 }
 
-// Location is the zone instants are rendered in. A zero style renders in UTC.
+// Name is the named format this style renders, iso for a zero style.
+func (s TimeStyle) Name() string {
+	if s.format == "" {
+		return TimeISO
+	}
+	return s.format
+}
+
+// Location is the zone instants are rendered in. A zero style renders in the
+// machine's own zone, as Format does, so a caller that counts days in
+// Location and a screen that prints with Format agree.
 func (s TimeStyle) Location() *time.Location {
 	if s.loc == nil {
-		return time.UTC
+		return time.Local
 	}
 	return s.loc
 }
@@ -171,6 +186,63 @@ func (s TimeStyle) Date(t time.Time) string {
 		return t.Format("2 Jan 2006")
 	default:
 		return t.Format(time.DateOnly)
+	}
+}
+
+// Full renders t with everything a reader could ask of it: the date in this
+// style's order with the year, the time to the second, and the zone by name
+// and by offset, such as "06.11.2026 14:05:32 EET (UTC+02:00)". It is what a
+// timestamp's tooltip says, so a relative "2 hours ago" or a short "6 Nov
+// 14:05" can always be pinned down to an instant.
+func (s TimeStyle) Full(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	in := t.In(s.Location())
+	var layout string
+	switch s.format {
+	case TimeUS:
+		layout = "01/02/2006 3:04:05 PM"
+	case TimeDotted:
+		layout = "02.01.2006 15:04:05"
+	case TimeDayFirst:
+		layout = "02/01/2006 15:04:05"
+	case TimeLong, TimeShort:
+		layout = "2 Jan 2006 15:04:05"
+	default:
+		layout = "2006-01-02 15:04:05"
+	}
+	return in.Format(layout) + " " + zoneSuffix(in)
+}
+
+// zoneSuffix names t's zone and offset, "EET (UTC+02:00)", without repeating
+// a zone whose abbreviation is only its offset.
+func zoneSuffix(t time.Time) string {
+	offset := "UTC" + t.Format("-07:00")
+	if t.Format("-07:00") == "+00:00" {
+		offset = "UTC+00:00"
+	}
+	name := t.Format("MST")
+	if name == "" || name[0] == '+' || name[0] == '-' {
+		return "(" + offset + ")"
+	}
+	return name + " (" + offset + ")"
+}
+
+// DayMonth writes t's calendar day without the year, in this style's order,
+// for a label in a series whose year every column shares.
+func (s TimeStyle) DayMonth(t time.Time) string {
+	switch s.format {
+	case TimeDotted:
+		return t.Format("02.01")
+	case TimeDayFirst:
+		return t.Format("02/01")
+	case TimeUS:
+		return t.Format("01/02")
+	case TimeLong, TimeShort:
+		return t.Format("2 Jan")
+	default:
+		return t.Format("01-02")
 	}
 }
 
@@ -291,4 +363,34 @@ func atLeastOne(v float64) int {
 		return n
 	}
 	return 1
+}
+
+// TimeSettingsReader is anything that can say how a caller's dates are shown,
+// which every core.Service can.
+type TimeSettingsReader interface {
+	GetTimeSettings(ctx context.Context) (*core.TimeSettings, error)
+}
+
+// StyleFor renders a resolved core.TimeSettings as a style.
+func StyleFor(s core.TimeSettings) (TimeStyle, error) {
+	return NewTimeStyle(s.Effective.TimeFormat, s.Effective.Timezone)
+}
+
+// ForCaller resolves the style the caller in ctx reads dates in: their own
+// choice, else their tenant's, else the deployment's. A service that cannot
+// answer, such as an older server, leaves fallback in force, because a date in
+// the wrong layout is a smaller failure than a screen that will not open.
+func ForCaller(ctx context.Context, src TimeSettingsReader, fallback TimeStyle) TimeStyle {
+	if src == nil {
+		return fallback
+	}
+	settings, err := src.GetTimeSettings(ctx)
+	if err != nil || settings == nil {
+		return fallback
+	}
+	style, err := StyleFor(*settings)
+	if err != nil {
+		return fallback
+	}
+	return style
 }

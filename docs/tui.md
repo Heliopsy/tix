@@ -482,6 +482,12 @@ otherwise unreachable: four settings meant four presses and nothing moved after 
 | colour | `output.color` | `auto`, `always`, `never` |
 | motion | `tui.motion` | `on`, `off` |
 
+A time format or timezone the machine leaves unset shows the account's value instead, with a note
+naming where it came from (your own choice, the tenant default or the server default) and that a
+value picked here applies to this machine only. The interface draws every date in the account's
+style otherwise, over SSH as well, where the signed-in person's choice applies; see
+[web-ui.md](web-ui.md#dates-and-times) and `tix user time`.
+
 These are the command line's own keys, not a second store. Somebody at a terminal already has a
 configuration file, and a separate place to write a time zone down would be a second place to disagree
 with `tix task ls`. A change applies to the frame it is read in and is written to the file at once: a

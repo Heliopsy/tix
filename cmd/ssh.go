@@ -257,7 +257,7 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 		MaxSessionsPerKey:  o.maxSessionsPerKey,
 		MaxSessions:        o.maxSessions,
 
-		TimeStyle: g.timeStyle(),
+		TimeStyle: g.configTimeStyle(),
 	})
 	if err != nil {
 		return err

@@ -202,10 +202,21 @@ type UpdateTenantInput struct {
 	// TrashOff turns the trash off (true) or back on (false); nil leaves it
 	// alone. Turning it off keeps the tasks already in the trash.
 	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
+	// TimeFormat is the date format this tenant's people read unless they
+	// chose their own: iso, rfc3339, short, long, dotted, dayfirst, us or
+	// relative. "" returns it to the deployment default; nil leaves it.
+	TimeFormat *string `json:"time_format,omitempty" yaml:"time_format,omitempty"`
+	// Timezone is the IANA zone this tenant's people read dates in unless
+	// they chose their own. "" returns it to the deployment default; nil
+	// leaves it.
+	Timezone *string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
 }
 
 // Validate checks the input.
 func (in UpdateTenantInput) Validate() error {
+	if err := ValidateTimePrefs(in.TimeFormat, in.Timezone); err != nil {
+		return err
+	}
 	if in.LeaseDefault != nil && *in.LeaseDefault < 0 {
 		return Invalid("lease default must not be negative")
 	}
