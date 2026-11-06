@@ -123,13 +123,15 @@ func boardLiveRoute(key string) string {
 	return strings.Replace(RouteBoardLive, "{key}", url.PathEscape(key), 1)
 }
 
-// liveTasks is the binding the task screen renders, for either drawing: the
-// list and the board are one selection of tasks, so they refresh as one.
-func (h *handler) liveTasks(r *http.Request) liveScreen {
+// liveTasks is the binding the task screen renders, for every drawing: the
+// list, the board and the lanes are one selection of tasks, so they refresh
+// as one. projectIDs narrows the subscription to the projects the filter
+// names; nil is every project.
+func (h *handler) liveTasks(r *http.Request, projectIDs []string) liveScreen {
 	return liveScreen{
 		Events:  h.eventsPath,
 		Href:    fragmentHref(r, RouteTasksLive),
-		Filter:  liveFilter(nil, liveTaskTypes),
+		Filter:  liveFilter(projectIDs, liveTaskTypes),
 		Regions: "tasks-summary tasks-listing",
 		Window:  liveListWindow,
 	}

@@ -38,7 +38,7 @@
          full. It is one button there and unchanged everywhere else. */}}
     <button type="button" class="secondary filterbtn" popovertarget="filterpop">
       <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-      {{t "Filter"}}{{if $v.Query}} &middot; {{t "on"}}{{end}}
+      {{t "Filter"}}{{if or $v.Query $v.Project}} &middot; {{t "on"}}{{end}}
     </button>
     <div class="colmenu listprefs">
       <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
@@ -184,6 +184,16 @@
     <option value="">{{t "any deadline"}}</option>
     {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
   </select>{{template "tip" (tip "Deadline" "Overdue lists tasks whose deadline has passed; today, week and month look ahead from now. Tasks with no deadline are left out." "docs/filtering.md")}}
+  {{/* The project control. The board and the lanes had no way to narrow to
+       a project short of typing project:KEY into the box, which nobody looking
+       at a board thinks to do. It sits in the one filter bar every drawing
+       shares, and like the deadline control it is folded into the expression
+       as project: terms, so the list, the board and the lanes answer it the
+       same way and the view switch, which keeps the address, keeps it. */}}
+  <select name="project" aria-label="{{t "Project"}}">
+    <option value="">{{t "any project"}}</option>
+    {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select>{{template "tip" (tip "Project filter" "Shows only the tasks of the chosen project, in the list, the board and the lanes alike. On the board the columns are that project's own workflow." "docs/web-ui.md")}}
   <select name="sort" aria-label="{{t "Sort"}}">
     {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
   </select>{{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
@@ -192,13 +202,13 @@
        was to select the text in the box and delete it. A project chip on a row
        writes a filter into that box in one click, so getting out of it should
        cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if or $v.Query $v.Due}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
+  {{if or $v.Query $v.Due $v.Project}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
 </form>
 {{/* Keeps what the bar is answering under a name, listed in the sidebar
      under Tasks. The button opens the naming form over the screen; the form
      itself is drawn after this menu, outside it, because a dialog inside a
      closed popover would be hidden with it. */}}
-{{if and (or $v.Query $v.Due) (not $v.FilterError)}}
+{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
 {{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
 {{end}}
 <button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
@@ -211,13 +221,14 @@
 {{if $v.FilterError}}
 <p class="filterfault" role="alert">{{$v.FilterError}}</p>
 {{end}}
-{{if and (or $v.Query $v.Due) (not $v.FilterError)}}
+{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
 {{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
 {{template "dlg-start" $sh}}
 <form method="post" class="savefilter-form" action="/filters">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="q" value="{{$v.Query}}">
   <input type="hidden" name="due" value="{{$v.Due}}">
+  <input type="hidden" name="project" value="{{$v.Project}}">
   <input type="hidden" name="sort" value="{{$v.Sort}}">
   <input type="hidden" name="view" value="{{$v.View}}">
   <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>

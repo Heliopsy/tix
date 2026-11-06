@@ -20,6 +20,44 @@ import (
 // filter they type say the same thing.
 const DueParam = "due"
 
+// ProjectParam is the query parameter the project control submits: one
+// project key, or several joined by commas or repeated. Like the deadline
+// control it is folded into the expression as project: terms, so the list,
+// the board and the lanes answer it with the one parser the box uses.
+const ProjectParam = "project"
+
+// projectPick reads the project control off a query: every key it names,
+// once each, in the order given.
+func projectPick(query url.Values) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, raw := range query[ProjectParam] {
+		for _, key := range strings.Split(raw, ",") {
+			key = strings.TrimSpace(key)
+			if key == "" || seen[strings.ToLower(key)] {
+				continue
+			}
+			seen[strings.ToLower(key)] = true
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
+// foldControls is the expression the filter bar asks for: the box, with the
+// deadline and project controls folded in ahead of it as terms of the same
+// language, so a term typed by hand is read after them.
+func foldControls(expression, due string, projects []string) string {
+	lead := make([]string, 0, len(projects)+1)
+	if due != "" {
+		lead = append(lead, "due:"+due)
+	}
+	for _, key := range projects {
+		lead = append(lead, "project:"+key)
+	}
+	return strings.TrimSpace(strings.Join(lead, " ") + " " + expression)
+}
+
 // AllParam turns off the open-work default, so the listing shows finished
 // tasks too. It is a parameter of its own rather than a filter expression
 // because "everything" is not a term the filter language has, and writing one
@@ -67,6 +105,12 @@ type tasksView struct {
 	// answer one question with one parser.
 	Due        string
 	DueWindows []string
+
+	// Project is the project control's value as it came in, and
+	// ProjectPicks what it offers: every project, and the picked set
+	// itself when it names more than one.
+	Project      string
+	ProjectPicks []projectPickOption
 
 	Pager pager
 
@@ -319,9 +363,7 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 	// the same term in two places for the reader to keep in step. The term
 	// leads the expression, so a due: term typed by hand wins.
 	due = strings.TrimSpace(query.Get(DueParam))
-	if due != "" {
-		expression = strings.TrimSpace("due:" + due + " " + expression)
-	}
+	expression = foldControls(expression, due, projectPick(query))
 	filter, err = ParseFilter(expression)
 	if err != nil {
 		if expression == "" || !filterFault(err) {
@@ -414,10 +456,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		}
 		filter.Page.Cursor, filter.Page.Limit = "", myWorkLimit
 	}
-	expression := query.Get("q")
-	if due != "" {
-		expression = strings.TrimSpace("due:" + due + " " + expression)
-	}
+	expression := foldControls(query.Get("q"), due, projectPick(query))
 	projects, whole, err := h.allProjects(r, false)
 	if err != nil {
 		return tasksView{}, err
@@ -492,8 +531,8 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 	case view == TaskViewList && group != ListGroupNone && refused == "":
 		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
 	}
-	live := h.liveTasks(r)
-	pageNav := newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, SizeParam, AllParam)
+	live := h.liveTasks(r, liveProjectIDs(projects, filter))
+	pageNav := newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
@@ -513,6 +552,8 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		Sort:          filter.Page.Sort,
 		Due:           due,
 		DueWindows:    FilterDueWindows,
+		Project:       strings.Join(projectPick(query), ","),
+		ProjectPicks:  projectPickOptions(projects, projectPick(query)),
 		Pager:         pageNav,
 		Self:          self,
 		CompleteState: complete,
@@ -904,4 +945,57 @@ func showAllHref(r *http.Request) string {
 	query.Del(FlashUndoParam)
 	query.Set(AllParam, "1")
 	return RouteTasks + "?" + query.Encode()
+}
+
+// projectPickOption is one option of the project control.
+type projectPickOption struct {
+	Value    string
+	Label    string
+	Selected bool
+}
+
+// projectPickOptions is what the project control offers: any project, each
+// project by name, and when the address names several at once, that set as
+// one more option, so the control shows what the screen is answering and
+// submitting it again keeps it.
+func projectPickOptions(projects []core.Project, picked []string) []projectPickOption {
+	out := make([]projectPickOption, 0, len(projects)+1)
+	joined := strings.Join(picked, ",")
+	if len(picked) > 1 {
+		out = append(out, projectPickOption{Value: joined, Label: strings.ToUpper(strings.Join(picked, ", ")), Selected: true})
+	}
+	for _, p := range projects {
+		out = append(out, projectPickOption{
+			Value:    p.Key,
+			Label:    p.Name + " (" + strings.ToUpper(p.Key) + ")",
+			Selected: len(picked) == 1 && strings.EqualFold(picked[0], p.Key),
+		})
+	}
+	return out
+}
+
+// liveProjectIDs narrows the task screen's subscription to the projects its
+// filter names, so a change in any other project does not even wake it. A
+// filter naming none, or a key that is not a current one (an old key still
+// answers as an alias), keeps the whole tenant: a subscription narrower than
+// the listing would miss changes the listing shows.
+func liveProjectIDs(projects []core.Project, filter core.TaskFilter) []string {
+	if len(filter.ProjectKeys) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(filter.ProjectKeys))
+	for _, key := range filter.ProjectKeys {
+		found := ""
+		for _, p := range projects {
+			if strings.EqualFold(p.Key, key) || p.ID == key {
+				found = p.ID
+				break
+			}
+		}
+		if found == "" {
+			return nil
+		}
+		ids = append(ids, found)
+	}
+	return ids
 }

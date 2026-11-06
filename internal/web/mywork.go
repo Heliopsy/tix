@@ -148,6 +148,7 @@ func myWorkRequest(r *http.Request) *http.Request {
 	q := r.URL.Query()
 	q.Set("q", myWorkQuery)
 	q.Del(DueParam)
+	q.Del(ProjectParam)
 	q.Del(CursorParam)
 	out := r.Clone(r.Context())
 	u := *r.URL
