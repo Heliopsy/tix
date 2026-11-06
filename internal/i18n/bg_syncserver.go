@@ -42,6 +42,10 @@ func init() {
 		"File on the server": "Файл на сървъра",
 		"Check":              "Провери",
 		"A name, a system, and what the form stores on it: the settings, the mapping document and the credentials. A stored value wins over its environment variable on the server, and one left empty is read from that variable when a run starts. Credentials are sealed with the server's key and never shown, audited or logged.": "Име, система и това, което формата съхранява в него: настройките, документът за съпоставяне и идентификационните данни. Съхранената стойност има предимство пред своята променлива на средата на сървъра, а оставената празна се чете от тази променлива при стартиране на изпълнението. Идентификационните данни се запечатват с ключа на сървъра и никога не се показват, одитират или записват в журнали.",
-		"A mapping": "Съпоставяне",
+		"A mapping":                          "Съпоставяне",
+		"Start from the OpenProject mapping": "Започнете от съпоставянето за OpenProject",
+		"fills this in with a mapping for OpenProject work packages: subject, description, status, priority, assignee, dates, parent and type. Replace CHANGE-ME with the key of the tix project to import into.": "попълва полето със съпоставяне за работните пакети на OpenProject: тема, описание, статус, приоритет, отговорник, дати, родител и тип. Заменете CHANGE-ME с ключа на проекта в tix, в който да се внася.",
+		"People with no tix account": "Хора без акаунт в tix",
+		"Map them under users in the mapping, or set users.unknown to placeholder.": "Съпоставете ги в раздела users на съпоставянето или задайте users.unknown на placeholder.",
 	})
 }
