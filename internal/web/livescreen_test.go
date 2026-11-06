@@ -364,8 +364,8 @@ func TestOneTaskRedrawsSoonerThanAWholeListing(t *testing.T) {
 	// the wait is the whole of the delay the reader perceives.
 	list := liveAttr(t, b.page("/tasks"), "data-live-window")
 	detail := liveAttr(t, b.page("/tasks/"+ref), "data-live-window")
-	if list != "300" || detail != "150" {
-		t.Errorf("coalescing windows are list %q, task %q; want 300 and 150", list, detail)
+	if list != "500" || detail != "150" {
+		t.Errorf("coalescing windows are list %q, task %q; want 500 and 150", list, detail)
 	}
 }
 

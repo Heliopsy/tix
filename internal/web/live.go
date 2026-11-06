@@ -42,9 +42,11 @@ type liveScreen struct {
 // and re-rendering fifty rows for each of them is work nobody sees. One
 // task's own screen waits half as long, because on it a burst is a handful
 // of hops at most and the wait is the whole of the delay a reader perceives
-// between a change and the pill changing.
+// between a change and the pill changing. Half a second for a listing is the
+// most a reader under a burst sees it redrawn: twice a second, last answer
+// wins.
 const (
-	liveListWindow   = 300
+	liveListWindow   = 500
 	liveDetailWindow = 150
 )
 

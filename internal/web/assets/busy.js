@@ -29,6 +29,35 @@
   "use strict";
 
   var BUSY = "is-busy";
+  var SLOT = "has-busy-slot";
+  var SPINNER = 14;
+  var SLOW = 300;
+
+  // slotFor puts the spinner where the button's own icon is, so the label
+  // beside it stays readable. A button of text alone, or of an icon alone,
+  // has no slot: the spinner takes the middle and the label is hidden.
+  function slotFor(button) {
+    var icon = button.firstElementChild;
+    if (!icon || icon.tagName.toLowerCase() !== "svg" || !button.textContent.trim() ||
+        typeof icon.getBoundingClientRect !== "function") {
+      return;
+    }
+    var box = button.getBoundingClientRect();
+    var r = icon.getBoundingClientRect();
+    var x = r.left - box.left - (button.clientLeft || 0) + (r.width - SPINNER) / 2;
+    var y = r.top - box.top - (button.clientTop || 0) + (r.height - SPINNER) / 2;
+    button.style.setProperty("--busy-x", Math.round(x) + "px");
+    button.style.setProperty("--busy-y", Math.round(y) + "px");
+    button.classList.add(SLOT);
+  }
+
+  // pending marks one button as waiting, in the same frame as the press.
+  function pending(button) {
+    if (!button || !button.classList || button.classList.contains(BUSY)) return;
+    slotFor(button);
+    button.classList.add(BUSY);
+    button.setAttribute("aria-busy", "true");
+  }
 
   function markBusy(form, submitter) {
     var button =
@@ -37,26 +66,51 @@
     if (!button || button.disabled) return;
 
     form.setAttribute("aria-busy", "true");
-    button.classList.add(BUSY);
+    pending(button);
+    window.setTimeout(function () {
+      if (form.getAttribute("aria-busy") === "true") form.classList.add("is-slow");
+    }, SLOW);
 
     // Next task, not this one: see the note above about disabled controls
     // being dropped from the submission.
     window.setTimeout(function () {
-      button.disabled = true;
+      if (button.classList.contains(BUSY)) button.disabled = true;
     }, 0);
+  }
+
+  function release(button) {
+    button.classList.remove(BUSY, SLOT);
+    button.removeAttribute("aria-busy");
+    if (button.style && typeof button.style.removeProperty === "function") {
+      button.style.removeProperty("--busy-x");
+      button.style.removeProperty("--busy-y");
+    }
+    button.disabled = false;
   }
 
   function clear(root) {
     var scope = root || document;
     var busy = scope.querySelectorAll("." + BUSY);
     for (var i = 0; i < busy.length; i++) {
-      busy[i].classList.remove(BUSY);
-      busy[i].disabled = false;
+      release(busy[i]);
     }
     var forms = scope.querySelectorAll('form[aria-busy="true"]');
     for (var j = 0; j < forms.length; j++) {
       forms[j].removeAttribute("aria-busy");
+      forms[j].classList.remove("is-slow");
     }
+  }
+
+  // settle releases what one request marked, wherever its answer was drawn:
+  // a form whose response is swapped somewhere else kept its button spinning
+  // for as long as the page was open.
+  function settle(elt) {
+    if (!elt || typeof elt.closest !== "function") return;
+    var form = elt.tagName === "FORM" ? elt : elt.closest("form");
+    if (form) {
+      clear(form);
+    }
+    if (elt.classList && elt.classList.contains(BUSY)) release(elt);
   }
 
   document.addEventListener(
@@ -66,10 +120,30 @@
       if (!form || form.tagName !== "FORM") return;
       // A form the page intends to handle itself is not ours to freeze.
       if (form.hasAttribute("data-no-busy")) return;
-      markBusy(form, event.submitter);
+      // A second press on a button already waiting is the double submit
+      // this exists to stop; the button is only disabled a task later.
+      var button = event.submitter;
+      if (button && button.classList && button.classList.contains(BUSY)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      markBusy(form, button);
     },
     true,
   );
+
+  // A button that makes its own request (hx-post on the button, not a form
+  // submit) gets the same mark. Only requests htmx makes for an element the
+  // reader pressed reach here: a live refresh is a plain fetch and never
+  // marks anything.
+  document.addEventListener("htmx:beforeRequest", function (event) {
+    var elt = event.detail && event.detail.elt;
+    if (elt && elt.tagName === "BUTTON" && !elt.closest("form[data-no-busy]")) pending(elt);
+  });
+  document.addEventListener("htmx:afterRequest", function (event) {
+    settle(event.detail && event.detail.elt);
+  });
 
   // htmx swaps the page in place rather than navigating, so nothing resets on
   // its own: the button that was frozen is still the button on screen.

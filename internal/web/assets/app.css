@@ -1354,11 +1354,21 @@ button:active { transform: translateY(0.5px); }
 button.small { min-height: var(--control-h-sm); padding: 0 var(--space-3); font-size: var(--text-xs); }
 
 /* The submitting button, while the round trip is in flight. assets/busy.js
- * adds the class; with JavaScript off nothing here applies and every form
- * still posts. The label is hidden rather than replaced so the button keeps
- * its width and nothing shifts under the pointer. */
+ * adds the class in the click's own frame; with JavaScript off nothing here
+ * applies and every form still posts.
+ *
+ * Nothing about it is animated in. The label used to fade out over the
+ * button's 120ms colour transition while the spinner was already drawn, so
+ * for a moment the spinner sat on top of the words. Now the change is
+ * immediate, and the spinner never shares a box with visible text: on a
+ * button with an icon it takes the icon's place and the label stays; on a
+ * button of text alone the label is hidden (not removed, so the button keeps
+ * its width and nothing shifts) and the spinner takes its place. */
 button.is-busy, button:disabled { cursor: default; filter: none; }
-button.is-busy { position: relative; color: transparent; }
+button.is-busy { position: relative; transition: none; }
+button.is-busy:not(.has-busy-slot) { color: transparent; }
+button.is-busy:not(.has-busy-slot) > *,
+button.is-busy.has-busy-slot > svg:first-child { visibility: hidden; }
 button.is-busy::after {
   content: "";
   position: absolute;
@@ -1366,6 +1376,7 @@ button.is-busy::after {
   margin: auto;
   width: 14px;
   height: 14px;
+  box-sizing: border-box;
   border: 2px solid currentcolor;
   border-top-color: transparent;
   border-radius: 999px;
@@ -1373,11 +1384,20 @@ button.is-busy::after {
   animation: tix-spin 620ms linear infinite;
 }
 button.is-busy.secondary::after, button.is-busy.ghost::after { color: var(--ink); }
+button.is-busy.has-busy-slot::after {
+  inset: auto;
+  left: var(--busy-x, var(--space-4));
+  top: var(--busy-y, 50%);
+  margin: 0;
+  color: inherit;
+}
 @keyframes tix-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   button.is-busy::after { animation: none; border-top-color: currentcolor; opacity: 0.55; }
 }
-form[aria-busy="true"] { cursor: progress; }
+/* The pointer says "working" only once a request has taken long enough to be
+   noticed. Set at once, it flashed on every quick save. */
+form[aria-busy="true"].is-slow { cursor: progress; }
 
 button.secondary {
   background: var(--surface);
@@ -2338,6 +2358,10 @@ a.secondary.clear:hover { filter: brightness(1.08); }
  * the whole reason the row menus are popovers instead of panels. */
 ul.tasklist {
   list-style: none;
+  /* The scrollbar's room is kept whether or not the rows overflow, so the
+     rows do not reflow sideways the moment a live update adds the one that
+     makes the list scroll. */
+  scrollbar-gutter: stable;
   margin: 0 0 var(--space-3);
   padding: 0;
   /* The frame runs to the bottom of the window. The pager sits above the
@@ -7492,3 +7516,25 @@ dialog.actiondlg.is-inplace {
 .dangerrow + .dangerrow { border-top: 1px solid var(--line); }
 .dangerrow-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 16rem; }
 /* ===== end Action buttons and dialogs ================================ */
+
+/* ===== Live updates ===================================================== */
+/* The board's columns and the lanes keep their scrollbar's room too, for the
+   same reason as the task list's frame. */
+.column, .lane { scrollbar-gutter: stable; }
+
+/* "N new, show": rows a live update put above where the reader is reading
+   (assets/live.js livePill). It floats over the top edge of the box those
+   rows are in rather than pushing anything down, and goes away when pressed
+   or when the reader scrolls back to the top on their own. */
+.livepill {
+  position: fixed;
+  z-index: 30;
+  transform: translateX(-50%);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-strong, 0 4px 12px rgb(0 0 0 / 0.18));
+}
+.livepill[hidden] { display: none; }
+/* ===== end Live updates ================================================= */
