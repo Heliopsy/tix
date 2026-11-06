@@ -24,6 +24,10 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 	}
 	for _, stmt := range []string{
 		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 1",
+		"ALTER TABLE tenants DROP COLUMN time_format",
+		"ALTER TABLE tenants DROP COLUMN timezone",
+		"ALTER TABLE users DROP COLUMN time_format",
+		"ALTER TABLE users DROP COLUMN timezone",
 		"DELETE FROM schema_migrations WHERE version > 28",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {
