@@ -34,13 +34,15 @@ func (s HistorySubject) Title() string {
 	return "history of " + s.Label
 }
 
-// Filter selects the entries this subject's history is made of. A subject that
-// names nothing selects the tenant's whole log, which is what the audit listing
-// returns with no subject named.
+// Filter selects the entries this subject's history is made of, newest first.
+// A subject that names nothing selects the tenant's whole log, which is what
+// the audit listing returns with no subject named. The listing's own default
+// order is oldest first, which drew the oldest page of a long log under a
+// heading promising the newest.
 func (s HistorySubject) Filter() core.AuditFilter {
 	return core.AuditFilter{
 		SubjectType: s.Type, SubjectID: s.ID,
-		Page: core.Page{Limit: historyLimit},
+		Page: core.Page{Limit: historyLimit, Sort: "seq", Direction: core.Descending},
 	}
 }
 

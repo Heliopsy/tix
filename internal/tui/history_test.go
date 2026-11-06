@@ -110,6 +110,9 @@ func TestTheHistoryViewReadsTheStoredLogForWhatIsSelected(t *testing.T) {
 	if got.Page.Limit != historyLimit {
 		t.Errorf("the history read asked for %d entries, not the page it draws", got.Page.Limit)
 	}
+	if got.Page.Sort != "seq" || got.Page.Direction != core.Descending {
+		t.Errorf("the history read %q %q, not the newest entries first", got.Page.Sort, got.Page.Direction)
+	}
 
 	frame := m.Frame()
 	if head := historyBlock(t, frame); !strings.Contains(head, task.Ref) {
