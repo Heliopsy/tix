@@ -7650,7 +7650,11 @@ ul.tasklist, .board, .column, .lanes, .lane { overflow-anchor: none; }
 .snippet-title, .tabpanel-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); font-weight: 600; }
 .snippet .copyline { align-items: flex-start; flex-wrap: nowrap; }
 .snippet .copyline pre { flex: 1 1 auto; line-height: 1.5; }
-.snippet .copyline pre.wraps > code { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* break-spaces, not pre-wrap: under pre-wrap the space a line breaks after
+   hangs past the right edge, so "install.sh | sh" wrapping before "sh" drew
+   a character's width outside the box. break-spaces wraps that space with
+   the line instead, and still keeps the JSON snippets' indentation. */
+.snippet .copyline pre.wraps > code { white-space: break-spaces; overflow-wrap: anywhere; }
 .tokslot { color: var(--accent); font-weight: 600; }
 .connect-tokenform { max-width: 46rem; }
 .connect-tokenrow { display: flex; flex-wrap: wrap; gap: var(--space-3); }
