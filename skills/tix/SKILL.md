@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 18
+version: 20
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -718,6 +718,25 @@ A snooze is for everybody, not just you, and nothing has to run for the task
 to come back: listings compare the wake time with the clock. Snooze a task you
 cannot move until a date instead of parking it in a fake status, and note
 that it leaves the claim queue for that time too.
+
+## Bringing tasks over from another tracker
+
+For a handful of tasks, copy them one by one with `tix task add`, setting the
+assignee, status and due date as you go; check the result with
+`tix task ls -o json`.
+
+For a whole tracker, do not script a loop of `task add`: it loses history,
+assignees and the link back, and running it twice duplicates everything. Use
+`tix sync`, which keeps an external reference on every task so a rerun
+refreshes instead of copying again. **Sync runs on the server**: upload the
+mapping with `tix sync source set NAME --mapping-file FILE` and store the
+credentials with `--token-stdin` or `--user` plus `--password-stdin`, then
+`tix sync source ls` must show nothing missing before
+`tix sync run ID --dry-run`. Details in
+[reference/setup.md](reference/setup.md). A one-off CSV or JSON export can go
+through a `generic` source, whose file has to be on the server too; when the
+build has a project import (`tix project --help` lists it), that is the
+simpler route for such a file.
 
 ## Know which store you are writing to
 
