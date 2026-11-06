@@ -235,7 +235,13 @@ one transaction, so the audit log cannot disagree with the data:
 ```sh
 tix audit ls -o json --limit 50
 tix audit ls --actor ci-agent
+tix audit ls --via mcp --token ci-agent
 ```
+
+Each entry's `via` says how the change arrived: `web`, `api`, `cli-local`,
+`cli-remote`, `ssh`, `mcp`, `sync`, `import` or `system`, with the token's
+name, never its secret. Filter on it with `--via` and `--token`, or `via:` and
+`token:` in `--filter`.
 
 Audit actions are imperative and name who did what (`task.reclaim`,
 `token.revoke_other`); the event stream's types are past tense
