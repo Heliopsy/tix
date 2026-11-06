@@ -37,10 +37,10 @@ func (h *handler) connectRoutes() []route {
 // tokenSlot marks where a snippet carries the token. The template draws it
 // as a span reading $TIX_TOKEN, which assets/connect.js fills in once a token
 // has been issued. A private-use character cannot occur in a URL or a key.
-const tokenSlot = "TIX_TOKEN"
+const tokenSlot = "TIX_TOKEN" // #nosec G101 -- a placeholder marker, not a credential
 
 // tokenSlotHTML is what each slot is drawn as.
-const tokenSlotHTML = `<span class="tokslot" data-token-slot>$TIX_TOKEN</span>`
+const tokenSlotHTML = `<span class="tokslot" data-token-slot>$TIX_TOKEN</span>` // #nosec G101 -- markup for a placeholder, not a credential
 
 // slotted escapes a snippet and draws its token slots.
 func slotted(text string) template.HTML {
