@@ -25,6 +25,10 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 	for _, stmt := range []string{
 		"ALTER TABLE field_defs ADD COLUMN indexed BOOLEAN NOT NULL DEFAULT TRUE",
 		"ALTER TABLE users DROP COLUMN global_admin",
+		"ALTER TABLE sync_sources DROP COLUMN mapping",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_sealed",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_nonce",
+		"ALTER TABLE sync_sources DROP COLUMN credential_hints",
 		"DELETE FROM schema_migrations WHERE version > 28",
 	} {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {

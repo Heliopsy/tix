@@ -96,6 +96,10 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 		"ALTER TABLE tasks DROP COLUMN lease",
 		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE users DROP COLUMN global_admin",
+		"ALTER TABLE sync_sources DROP COLUMN mapping",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_sealed",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_nonce",
+		"ALTER TABLE sync_sources DROP COLUMN credential_hints",
 		"DELETE FROM schema_migrations WHERE version > 9",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

@@ -87,10 +87,11 @@ func buildImporter(system string, cfg extsync.SourceConfig, m *extsync.Mapping) 
 
 // PutSyncSource registers an external import source or updates one in place.
 //
-// A source stores its non-secret settings and its mapping path, which win over
-// the matching TIX_SYNC_<SOURCE>_* variables at run time. Credentials are
-// refused and read only from the environment, so none can reach a snapshot, an
-// audit entry or an event.
+// A source stores its non-secret settings, its mapping path or the mapping
+// document itself, and its credentials sealed with the server's key. A stored
+// value wins over the matching TIX_SYNC_<SOURCE>_* variable at run time.
+// Credentials never reach a snapshot, an audit entry, an event or a response:
+// only which ones are stored, with a hint, is ever read back.
 func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*core.SyncSource, error) {
 	actor, err := l.authorize(ctx, authz.ActionSyncAdmin, authz.Resource{})
 	if err != nil {
@@ -107,31 +108,86 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	if err != nil {
 		return nil, err
 	}
-	mappingPath := strings.TrimSpace(in.MappingPath)
+	if err := checkSyncSourceInput(in); err != nil {
+		return nil, err
+	}
+
+	var existing *core.SyncSource
+	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		found, err := findSyncSource(ctx, tx, in)
+		existing = found
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	src := core.SyncSource{System: in.System, Name: in.Name, Config: settings,
+		MappingPath: strings.TrimSpace(in.MappingPath)}
+	if existing != nil {
+		src.ID, src.CreatedAt = existing.ID, existing.CreatedAt
+		src.Cursor, src.LastRunAt, src.LastStatus = existing.Cursor, existing.LastRunAt, existing.LastStatus
+		src.Mapping = existing.Mapping
+		src.SealedCredentials, src.CredentialsNonce = existing.SealedCredentials, existing.CredentialsNonce
+		src.Credentials = existing.Credentials
+		if in.KeepSettings {
+			src.Config, src.MappingPath = existing.Config, existing.MappingPath
+		}
+	}
+	switch {
+	case in.ClearMapping:
+		src.Mapping = ""
+	case strings.TrimSpace(in.Mapping) != "":
+		src.Mapping = in.Mapping
+	}
+	switch {
+	case in.ClearCredentials:
+		src.SealedCredentials, src.CredentialsNonce, src.Credentials = "", "", nil
+	case in.HasCredentials():
+		if err := l.sealSyncCredentials(actor.TenantID, &src, in); err != nil {
+			return nil, err
+		}
+	}
+
+	if in.Check {
+		return l.checkSyncSource(ctx, actor, src)
+	}
 
 	var out core.SyncSource
 	err = l.write(ctx, actor, func(m *mutation) error {
 		var before any
-		if in.ID != "" {
-			existing, err := m.tx.GetSyncSource(ctx, in.ID)
-			if err != nil {
-				return err
-			}
-			before = *existing
+		if existing != nil {
+			before = auditableSyncSource(*existing)
 		}
-		src := core.SyncSource{ID: in.ID, System: in.System, Name: in.Name,
-			Config: settings, MappingPath: mappingPath}
 		if err := m.tx.PutSyncSource(ctx, &src); err != nil {
 			return err
 		}
 		out = src
 		return m.Record(auditSyncSourcePut, eventSyncSourcePut, syncSourceSubject, src.ID, "",
-			before, src, map[string]any{"system": src.System, "name": src.Name})
+			before, auditableSyncSource(src), map[string]any{"system": src.System, "name": src.Name})
 	})
 	if err != nil {
 		return nil, err
 	}
+	resolved := l.resolveSync(out)
+	out.Resolved = &resolved
 	return &out, nil
+}
+
+// findSyncSource returns the source an input updates: the one its ID names, or
+// the one already registered under its system and name. A new source is nil.
+func findSyncSource(ctx context.Context, tx store.Tx, in core.SyncSourceInput) (*core.SyncSource, error) {
+	if in.ID != "" {
+		return tx.GetSyncSource(ctx, in.ID)
+	}
+	sources, err := tx.ListSyncSources(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range sources {
+		if sources[i].System == in.System && sources[i].Name == in.Name {
+			return &sources[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // syncCredentialKeys are credential names isSecretKey does not match, because
@@ -143,7 +199,8 @@ var syncCredentialKeys = map[string]bool{"user": true, "username": true, "login"
 func refuseCredentialKeys(config map[string]any) error {
 	for _, key := range sortedMapKeys(config) {
 		if isSecretKey(key) || syncCredentialKeys[strings.ToLower(strings.TrimSpace(key))] {
-			return core.Invalid("sync source configuration must not carry %q; credentials are read from %s%s_* at run time",
+			return core.Invalid("sync source configuration must not carry %q; send credentials as token, user and "+
+				"password, which are sealed and never returned, or set %s%s_* on the server",
 				key, extsync.EnvPrefix, "<SOURCE>")
 		}
 	}
@@ -242,6 +299,10 @@ func (l *Local) ListSyncSources(ctx context.Context) ([]core.SyncSource, error) 
 	}); err != nil {
 		return nil, err
 	}
+	for i := range out {
+		resolved := l.resolveSync(out[i])
+		out[i].Resolved = &resolved
+	}
 	return out, nil
 }
 
@@ -322,11 +383,15 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 		return nil, err
 	}
 
-	cfg, err := extsync.LoadSourceConfig(source.Name, extsync.StoredFirst(source, syncEnv))
+	resolved := l.resolveSync(source)
+	if err := refuseUnready(source, resolved); err != nil {
+		return nil, err
+	}
+	cfg, err := l.syncConfigFor(actor.TenantID, source)
 	if err != nil {
 		return nil, err
 	}
-	mapping, err := extsync.LoadMapping(cfg.MappingPath)
+	mapping, err := loadSyncMapping(source, resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -549,11 +614,9 @@ func (r *syncRun) advance(ctx context.Context, m *mutation, cursor, status strin
 	// pull() returned left every audit entry claiming the run reached nothing.
 	r.result.Cursor = r.cursor
 	now := m.now
-	src := core.SyncSource{
-		ID: r.source.ID, System: r.source.System, Name: r.source.Name,
-		Config: r.source.Config, MappingPath: r.source.MappingPath,
-		Cursor: r.cursor, LastRunAt: &now, LastStatus: status,
-	}
+	src := r.source
+	src.Resolved = nil
+	src.Cursor, src.LastRunAt, src.LastStatus = r.cursor, &now, status
 	return m.tx.PutSyncSource(ctx, &src)
 }
 

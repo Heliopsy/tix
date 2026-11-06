@@ -627,16 +627,22 @@ type BundleResult struct {
 // SyncService covers one-way import from external systems.
 type SyncService interface {
 	// PutSyncSource registers an external system to import from, or updates one
-	// in place. Credentials are never stored: they are read from the environment
-	// when the sync runs.
+	// in place. Sync runs on the server, so everything a run needs can be stored
+	// here: the mapping document itself and the credentials, which are sealed
+	// with the server's key and never returned. Anything not stored is read from
+	// TIX_SYNC_<SOURCE>_* in the server's environment. With check set it
+	// validates and describes the source and writes nothing.
 	PutSyncSource(ctx context.Context, in SyncSourceInput) (*SyncSource, error)
-	// ListSyncSources lists this tenant's external import sources.
+	// ListSyncSources lists this tenant's external import sources, each with
+	// where its mapping, credentials and settings come from on the server and
+	// what a run would still lack.
 	ListSyncSources(ctx context.Context) ([]SyncSource, error)
 	// DeleteSyncSource removes an import source and its cursor.
 	DeleteSyncSource(ctx context.Context, id string) error
 	// RunSync imports from a configured source, creating what is new, updating
 	// what changed and skipping the rest. A rerun refreshes rather than
-	// duplicating, and a dry run writes nothing.
+	// duplicating, and a dry run writes nothing. The run executes on the server
+	// and is refused, naming what is missing there, before anything is read.
 	RunSync(ctx context.Context, in RunSyncInput) (*SyncResult, error)
 }
 

@@ -313,25 +313,34 @@ error: invalid: a collision policy is required; there is no default because repl
 (`workflow|field_def|tag|project_template|webhook`), `--workflow`,
 `-p`/`--project`, `--webhook` and `--name`.
 
-`tix sync` pulls from Jira, OpenProject and shaped files:
+`tix sync` pulls from Jira, OpenProject and shaped files. **A run executes on
+the tix server**, so its mapping and credentials have to be there. Put them
+there from wherever you are:
 
 ```sh
-tix sync source ls
-tix sync source add jira production-jira --url https://acme.atlassian.net --project OPS --mapping ./jira.yaml
+tix sync source add openproject op --url https://op.example.com --project web --mapping-file ./op.yaml
+printf %s "$OP_API_KEY" | tix sync source set op --user apikey --password-stdin
+tix sync source ls            # MAPPING, CREDENTIALS, READY ON SERVER; what is missing goes to stderr
 tix sync run SOURCEID --dry-run
 tix sync run SOURCEID --full
 ```
 
-A run names the source it pulls from, which `sync source ls` lists. A run is
-incremental by default; `--full` ignores the stored cursor and reconsiders
-every source record. A source stores the settings given to `sync source add`
-(`--mapping`, `--url`, `--project`, `--query`, `--file`, `--page-size`; generic
-takes only `--file` and `--page-size` of the config ones) and reads the rest
-from `TIX_SYNC_<NAME>_*`, a stored value winning over its variable.
-Credentials come only from the environment. A run with no mapping or no
-endpoint is exit `2` saying which is missing. A source that answers badly is exit `7`,
-`upstream_failed`. That is the one exit code an agent will otherwise never
-see, and it means the remote system failed, not that your request was wrong.
+`--mapping-file` uploads a local file into the source; `--mapping` instead
+names a file already on the server. Credentials are read from standard input,
+sealed with the server's key and never shown again: `ls` names which are set
+and the last four characters of a long one. A stored value wins over its
+`TIX_SYNC_<NAME>_*` variable, stored credentials win as a set.
+`tix sync source set NAME` changes only the mapping and the credentials;
+`--check` validates on the server without saving, and `--clear-mapping` and
+`--clear-credentials` remove what is stored. A server with no
+`auth.totp_key` refuses to store a credential, exit `6`.
+
+A run is incremental by default; `--full` ignores the stored cursor and
+reconsiders every source record. A run whose source is missing anything on the
+server is exit `2` with every missing piece named. A source that answers badly
+is exit `7`, `upstream_failed`. That is the one exit code an agent will
+otherwise never see, and it means the remote system failed, not that your
+request was wrong.
 
 `tix webhook` registers outgoing HTTP calls on events:
 

@@ -201,7 +201,7 @@ var (
 	tagHeader             = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
 	savedFilterHeader     = table.Row{"NAME", "FILTER", "VIEW", "SORT", "SHARED", "MINE", "ID"}
-	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "SETTINGS", "CURSOR", "LAST RUN", "LAST STATUS"}
+	syncHeader            = table.Row{"ID", "SYSTEM", "NAME", "SETTINGS", "MAPPING", "CREDENTIALS", "READY ON SERVER", "CURSOR", "LAST RUN", "LAST STATUS"}
 	templateHeader        = table.Row{"NAME", "PROJECT", "TITLE", "TASKS", "DUE IN", "USES"}
 
 	connectionHeader = table.Row{"ID", "SURFACE", "ACTOR", "FROM", "SINCE", "KEY"}
@@ -402,8 +402,63 @@ func tagRow(t core.Tag) table.Row {
 }
 
 func (p Painter) syncRow(s core.SyncSource) table.Row {
-	return table.Row{s.ID, s.System, s.Name, truncate(syncSettingsCell(s), 60), truncate(s.Cursor, 24),
+	return table.Row{s.ID, s.System, s.Name, truncate(syncSettingsCell(s), 60), truncate(syncMappingCell(s), 40),
+		truncate(syncCredentialsCell(s), 40), syncReadyCell(s), truncate(s.Cursor, 24),
 		p.style.FormatPtr(s.LastRunAt), s.LastStatus}
+}
+
+// syncMappingCell says which mapping document a run on the server reads.
+func syncMappingCell(s core.SyncSource) string {
+	if s.Resolved == nil {
+		return ""
+	}
+	switch m := s.Resolved.Mapping; m.From {
+	case core.SyncFromStored:
+		return "stored"
+	case core.SyncFromPath:
+		return "file " + m.Detail
+	case core.SyncFromEnv:
+		return "env " + m.Detail
+	default:
+		return m.From
+	}
+}
+
+// syncCredentialsCell says where a run's credentials come from, naming the
+// stored ones by their hints and the environment's by their variables.
+func syncCredentialsCell(s core.SyncSource) string {
+	if s.Resolved == nil {
+		return ""
+	}
+	c := s.Resolved.Credentials
+	switch c.From {
+	case core.SyncFromStored:
+		parts := make([]string, 0, len(s.Credentials))
+		for _, h := range s.Credentials {
+			if h.Hint != "" {
+				parts = append(parts, h.Name+" ..."+h.Hint)
+			} else {
+				parts = append(parts, h.Name)
+			}
+		}
+		return "stored: " + strings.Join(parts, ", ")
+	case core.SyncFromEnv:
+		return "env: " + c.Detail
+	default:
+		return c.From
+	}
+}
+
+// syncReadyCell is "yes", or how many things the server lacks for a run.
+func syncReadyCell(s core.SyncSource) string {
+	switch {
+	case s.Resolved == nil:
+		return ""
+	case s.Resolved.Ready():
+		return "yes"
+	default:
+		return fmt.Sprintf("no, %d missing", len(s.Resolved.Missing))
+	}
 }
 
 // syncSettingsCell lists a source's stored settings as key=value pairs, the
