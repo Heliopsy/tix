@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.44.0](https://github.com/Heliopsy/tix/compare/v0.43.0...v0.44.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cmd:** on a machine with no configuration and no database at the default path, the first command asks (terminal) or exits 6 instead of creating ~/.local/share/tix/tix.db. Run `tix init` or set target: local.
+* tenant admins and tokens holding * can no longer create tenants. Grant the first global admin from the server's shell before relying on tenant creation over the API.
+
+### Features
+
+* **cmd:** say where commands go, and send the configured token from every command ([eca2b82](https://github.com/Heliopsy/tix/commit/eca2b82a8debae61ec4fa33bceafbd4c7a4a407c))
+* **config:** ssh.public_address names where people reach the SSH listener ([da14147](https://github.com/Heliopsy/tix/commit/da14147ddc6c99227e84023241b5a01c00287d78))
+* global admins, and tenants created with their first admins ([7be6cf4](https://github.com/Heliopsy/tix/commit/7be6cf4a15ae0188429398fafcbc683effcb60c2))
+* **web:** a Connect an agent screen with every command filled in ([83d47ba](https://github.com/Heliopsy/tix/commit/83d47ba6050073e5c65b1e16d6730f2d3bbe34b4))
+* **web:** filter the list, board and lanes by project ([a4d4ab9](https://github.com/Heliopsy/tix/commit/a4d4ab994856edc636cc20fa90ae26b623082f1d))
+* **web:** hand a task to a coding agent from its screen ([809beb2](https://github.com/Heliopsy/tix/commit/809beb2bee68cc00de07144c112a1eb1a15f1e15))
+* **web:** put a calendar back beside the typed due date ([88590e9](https://github.com/Heliopsy/tix/commit/88590e9eaaad8158edec66af2845c9d944dcb076))
+* **web:** rich text mode for the description editor ([1e31cd3](https://github.com/Heliopsy/tix/commit/1e31cd35d92af17b2b0d3e30870a8f274e5ecc9d))
+* **web:** show date and repeat examples up front, add day-first date formats ([e5360f1](https://github.com/Heliopsy/tix/commit/e5360f15eb71713d23b343605256c055a918a822))
+
+
+### Bug Fixes
+
+* **tui:** read the history view newest first ([ad2282f](https://github.com/Heliopsy/tix/commit/ad2282f302689aad04107558d86949e9b0d4a9b5))
+* **web:** clear the layout bugs listed in known.json ([7529707](https://github.com/Heliopsy/tix/commit/752970765fbcaaea90cb88e419f15eabb8bd62c2))
+* **web:** give every sync and deletion state a way back ([9ae57f4](https://github.com/Heliopsy/tix/commit/9ae57f4e89cd71ec198d9127854ed78f70502e76))
+* **web:** give every table row one set of states and stop Manage leaving a ring ([4b7a035](https://github.com/Heliopsy/tix/commit/4b7a035affcbbca2a0a88b12c156d53595f67734))
+* **web:** keep task list columns lined up below 1700px ([ac6ead2](https://github.com/Heliopsy/tix/commit/ac6ead2d8a162b778733002a53be09c210938c70))
+* **web:** keep the filter bar inside the window with a long project name ([5fd1170](https://github.com/Heliopsy/tix/commit/5fd117099634ea72e97e107b9b9e2ab4933f1af5))
+* **web:** mark the connect screen's token placeholder and its Bulgarian text as not credentials ([767923e](https://github.com/Heliopsy/tix/commit/767923e67c2032f51a871ad4f8e8237f78f5d930))
+* **web:** page a task's history instead of dropping everything past 50 ([93179f6](https://github.com/Heliopsy/tix/commit/93179f6cf95881d9455fba99fce21272bbb33cb4))
+* **web:** patch live updates in place so scrolling, focus and buttons stay put ([2ef53cd](https://github.com/Heliopsy/tix/commit/2ef53cd10238bc128a1ba2c705bb7af4b9ba022f))
+* **web:** put the global admin scope in the token scope picker ([36211a9](https://github.com/Heliopsy/tix/commit/36211a9a68e13e0fbe22b1dd41ac3355a59b50f8))
+* **web:** run a refresh asked for mid-fetch instead of dropping it ([bcca7ea](https://github.com/Heliopsy/tix/commit/bcca7ea6e4a1901b06a79366b2b321b1a9d41c69))
+* **web:** wrap the space a connect command breaks at instead of letting it hang ([c8a8630](https://github.com/Heliopsy/tix/commit/c8a86307d25917205f322f7cc2ed798e9167779b))
+
+
+### Dependencies
+
+* **web:** vendor ProseMirror and markdown-it for the description editor ([f0d4a59](https://github.com/Heliopsy/tix/commit/f0d4a59a9084a74a594f8839682517b570c5a917))
+
 ## [0.43.0](https://github.com/Heliopsy/tix/compare/v0.42.0...v0.43.0) (2026-11-05)
 
 
