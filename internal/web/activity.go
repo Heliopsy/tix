@@ -175,6 +175,29 @@ type activityView struct {
 	Sources    []core.Source
 	Vias       []viaChoice
 	TokenNames []string
+	// Raw is the raw entry dialog the address asks for, drawn open.
+	Raw *rawEntry
+}
+
+// RawOpener is the Raw control of one row, a link to this page of the feed
+// with the row's dialog open.
+func (v activityView) RawOpener(g activityGroup) rawOpener {
+	return newRawOpener(v.Query.Href(v.Cursor), "", g.Group, false)
+}
+
+// attachRaw draws the raw entry dialog the request names, when it names a
+// row on this page.
+func (v *activityView) attachRaw(open string) {
+	seq, ok := rawGroupID(open, "")
+	if !ok {
+		return
+	}
+	for _, g := range v.Groups {
+		if g.Group.Latest().Entry.Seq == seq {
+			v.Raw = newRawEntry(open, v.Query.Href(v.Cursor), g.Group, v.Names, g.Subject, g.SubjectHref)
+			return
+		}
+	}
 }
 
 // activityChoice is one option of the subject-kind control: the value the
@@ -213,6 +236,7 @@ func (h *handler) showActivity(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	data.attachRaw(dialogOf(r).Open)
 	return h.render(w, r, "activity.html", "Activity", data)
 }
 
