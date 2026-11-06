@@ -794,7 +794,7 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
       for (const st of variants) {
         const cookies = Object.entries(st.cookies || {}).map(([name, value]) => ({ name, value, domain: host, path: "/" }));
         if (cookies.length) await ctx.addCookies(cookies);
-        const res = await page.goto(`${target.base}${pg.path}`, { waitUntil: "domcontentloaded" });
+        const res = await page.goto(`${target.base}${pg.path}${st.query || ""}`, { waitUntil: "domcontentloaded" });
         if (!pg.public && new URL(page.url()).pathname === "/login") throw new Error("session lost: landed on /login");
         if (res && res.status() >= 400) stats.problems.push(`${dirName} ${pg.path}: HTTP ${res.status()}`);
         await settle(page, { navigated: true });
