@@ -73,7 +73,7 @@ func (l *Local) sealSyncCredentials(tenantID string, src *core.SyncSource, in co
 		User:     strings.TrimSpace(in.User),
 		Password: strings.TrimSpace(in.Password),
 	}
-	plain, err := json.Marshal(creds)
+	plain, err := json.Marshal(creds) // #nosec G117 -- marshaled only to be sealed, never sent
 	if err != nil {
 		return core.Internal("encoding sync credentials")
 	}
