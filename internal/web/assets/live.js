@@ -343,8 +343,17 @@
     filter: function () { return null; },
     wants: function () { return true; },
     busy: function () { return false; },
-    apply: function (el, html) { el.innerHTML = html; },
-    window: function () { return 300; },
+    apply: function (el, html) {
+      if (!tix.morph || !document.scrollingElement) {
+        el.innerHTML = html;
+        return;
+      }
+      var fresh = document.createElement("ul");
+      fresh.innerHTML = html;
+      var anchors = tix.liveAnchors([el]);
+      tix.liveHold(anchors, tix.morph(el, fresh));
+    },
+    window: function () { return 500; },
     cap: 1000
   });
 
@@ -447,35 +456,72 @@
     return dragging;
   }
 
-  // processed hands markup this file wrote with innerHTML to htmx. htmx only
-  // wires up what it swapped in itself, so every form a refresh drew had no
-  // hx-post and no boost: the next tick or move was a plain post that
-  // reloaded the page and threw the reader back to the top.
+  // processed hands markup this file wrote to htmx. htmx only wires up what
+  // it swapped in itself, so every form a refresh drew had no hx-post and no
+  // boost: the next tick or move was a plain post that reloaded the page and
+  // threw the reader back to the top. An element already wired keeps its
+  // wiring unless the morph changed its attributes.
   function processed(el) {
     if (window.htmx && typeof window.htmx.process === "function") {
       window.htmx.process(el);
     }
   }
 
-  // applyRegions replaces each region and puts back what the reader had in
-  // it: focus, since the refresh that follows a reader's own change lands on
-  // the region holding the control they just pressed; and the scroll position
-  // of any box inside it, since the task list scrolls inside its own box and
-  // went back to its first row on every update.
+  // patch draws a fresh copy of a region over the one on screen. Morphed in
+  // place where the page is a real DOM (tix.morph below); the plain
+  // replacement is left for a document that cannot be walked.
+  function patch(here, fresh) {
+    if (fresh.childNodes && here.childNodes && typeof here.insertBefore === "function") {
+      return tix.morph(here, fresh);
+    }
+    var places = tix.scrollPlaces(here.querySelectorAll("*"));
+    here.innerHTML = fresh.innerHTML;
+    tix.restorePlaces(here.querySelectorAll("*"), places);
+    return [];
+  }
+
+  // applyRegions draws each region's fresh copy and leaves the reader where
+  // they were.
+  //
+  // It used to replace each region's markup whole and then put back the
+  // scroll offset of every box inside it. Under a burst of changes that was
+  // a new task list, new board columns and new lanes three times a second:
+  // a wheel or a swipe in progress was scrolling a box that had just been
+  // thrown away, so the reader's scrolling was lost and the list snapped back
+  // to where it stood when the update began; every scrollbar on the screen
+  // was a new one, so they all blinked; and every row played its entrance
+  // animation again. Morphing keeps every row, card, column and scrolling
+  // box that is still there as the same element, so none of that happens,
+  // and only rows that are genuinely new are inserted.
+  //
+  // What scrolls is then held to the row the reader was looking at, not to
+  // an offset: a task inserted above it would otherwise push it down. When
+  // the reader is away from the top and new rows land above them, the pill
+  // says so instead of moving the page (tix.liveAnchors, tix.livePill).
   function applyRegions(el, html) {
     var doc = new DOMParser().parseFromString(html, "text/html");
     var ids = regionIDs(el);
+    var regions = [];
     for (var i = 0; i < ids.length; i++) {
-      var fresh = doc.getElementById(ids[i]);
       var here = document.getElementById(ids[i]);
+      var fresh = doc.getElementById(ids[i]);
       if (fresh && here) {
-        var memo = tix.focusMemo(document.activeElement, here);
-        var places = tix.scrollPlaces(here.querySelectorAll("*"));
-        here.innerHTML = fresh.innerHTML;
-        tix.restorePlaces(here.querySelectorAll("*"), places);
-        processed(here);
+        regions.push({ here: here, fresh: fresh });
+      }
+    }
+    var anchors = tix.liveAnchors && document.scrollingElement
+      ? tix.liveAnchors(regions.map(function (r) { return r.here; })) : null;
+    var added = [];
+    for (var j = 0; j < regions.length; j++) {
+      var memo = tix.focusMemo(document.activeElement, regions[j].here);
+      added = added.concat(patch(regions[j].here, regions[j].fresh));
+      processed(regions[j].here);
+      if (memo && !regions[j].here.contains(document.activeElement)) {
         tix.focusRestore(document, memo);
       }
+    }
+    if (anchors) {
+      tix.liveHold(anchors, added);
     }
     // Tells a screen's own script that its regions were redrawn, so it can
     // mark what is new (assets/inbox.js).
@@ -737,4 +783,357 @@
       });
     return refreshing;
   }
+})();
+
+// Drawing a live update in place. Everything here runs against a real
+// document; the tests that need layout drive it in a browser
+// (internal/web/browser_live_test.go).
+(function () {
+  "use strict";
+  var tix = window.tix;
+  if (!tix) {
+    return;
+  }
+
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return tix.t ? tix.t(text) : text;
+  }
+
+  // keyOf names an element across two renderings of the same region: a row,
+  // card or lane by its id, a board column or list group by its group key.
+  // Anything without one is matched by position among its unnamed siblings.
+  function keyOf(node) {
+    if (!node || node.nodeType !== 1) {
+      return "";
+    }
+    var key = node.id || node.getAttribute("data-group") || node.getAttribute("data-state") || "";
+    return key ? node.tagName + "#" + key : "";
+  }
+
+  function sameKind(a, b) {
+    return a.nodeType === b.nodeType && (a.nodeType !== 1 || a.tagName === b.tagName);
+  }
+
+  // A field's value is the reader's once they have touched it. The region is
+  // never refreshed while one is dirty (decide.js regionBusy), so this only
+  // keeps a focused, untouched field from being rewritten under the caret.
+  function syncField(old, fresh) {
+    if (old === document.activeElement) {
+      return;
+    }
+    if (old.tagName === "INPUT") {
+      if (old.type === "checkbox" || old.type === "radio") {
+        old.checked = fresh.hasAttribute("checked");
+      } else if (old.type !== "file") {
+        old.value = fresh.getAttribute("value") || "";
+      }
+    } else if (old.tagName === "TEXTAREA") {
+      old.value = fresh.textContent;
+    }
+  }
+
+  // keptAttribute is an attribute the reader, not the server, owns: whether a
+  // disclosure is open. The server always draws it closed, and a refresh
+  // shutting the panel the reader had just opened is the screen taking it
+  // away from them.
+  function keptAttribute(el, name) {
+    return name === "open" && el.tagName === "DETAILS";
+  }
+
+  function syncAttributes(old, fresh) {
+    var i;
+    var attrs = fresh.attributes;
+    for (i = 0; i < attrs.length; i++) {
+      if (keptAttribute(old, attrs[i].name)) {
+        continue;
+      }
+      if (old.getAttribute(attrs[i].name) !== attrs[i].value) {
+        old.setAttribute(attrs[i].name, attrs[i].value);
+      }
+    }
+    var gone = [];
+    for (i = 0; i < old.attributes.length; i++) {
+      var name = old.attributes[i].name;
+      if (!fresh.hasAttribute(name) && !keptAttribute(old, name)) {
+        gone.push(name);
+      }
+    }
+    for (i = 0; i < gone.length; i++) {
+      old.removeAttribute(gone[i]);
+    }
+  }
+
+  function morphNode(old, fresh, added) {
+    if (old.nodeType !== 1) {
+      if (old.nodeValue !== fresh.nodeValue) {
+        old.nodeValue = fresh.nodeValue;
+      }
+      return;
+    }
+    syncAttributes(old, fresh);
+    if (old.tagName === "INPUT" || old.tagName === "TEXTAREA") {
+      syncField(old, fresh);
+    }
+    if (old.tagName === "TEXTAREA" && old === document.activeElement) {
+      return;
+    }
+    morphChildren(old, fresh, added);
+  }
+
+  // place puts a kept node at a position, atomically where the browser can
+  // (moveBefore keeps focus, scroll and a running animation), otherwise by an
+  // ordinary insert.
+  function place(parent, node, before) {
+    if (typeof parent.moveBefore === "function") {
+      try {
+        parent.moveBefore(node, before);
+        return;
+      } catch (e) {
+        // fall through to the plain insert
+      }
+    }
+    parent.insertBefore(node, before);
+  }
+
+  function morphChildren(target, source, added) {
+    var keyed = {};
+    var used = new Set();
+    var node;
+    for (node = target.firstChild; node; node = node.nextSibling) {
+      var k = keyOf(node);
+      if (k && !keyed[k]) {
+        keyed[k] = node;
+      }
+    }
+    var cursor = target.firstChild;
+    var freshNodes = Array.prototype.slice.call(source.childNodes);
+    for (var i = 0; i < freshNodes.length; i++) {
+      var fresh = freshNodes[i];
+      var key = keyOf(fresh);
+      var match = null;
+      if (key) {
+        match = keyed[key] && !used.has(keyed[key]) && sameKind(keyed[key], fresh) ? keyed[key] : null;
+      } else {
+        for (node = cursor; node; node = node.nextSibling) {
+          if (!used.has(node) && !keyOf(node) && sameKind(node, fresh)) {
+            match = node;
+            break;
+          }
+        }
+      }
+      if (match) {
+        used.add(match);
+        if (match === cursor) {
+          cursor = cursor.nextSibling;
+        } else {
+          place(target, match, cursor);
+        }
+        morphNode(match, fresh, added);
+        continue;
+      }
+      var adopted = document.importNode(fresh, true);
+      target.insertBefore(adopted, cursor);
+      used.add(adopted);
+      if (adopted.nodeType === 1) {
+        added.push(adopted);
+      }
+    }
+    var leftover = [];
+    for (node = target.firstChild; node; node = node.nextSibling) {
+      if (!used.has(node)) {
+        leftover.push(node);
+      }
+    }
+    for (var j = 0; j < leftover.length; j++) {
+      target.removeChild(leftover[j]);
+    }
+  }
+
+  // morph makes here's contents match fresh's, keeping every element that is
+  // in both, and returns the elements it had to insert.
+  tix.morph = function (here, fresh) {
+    var added = [];
+    morphChildren(here, fresh, added);
+    return added;
+  };
+
+  // scrollers are the boxes a region scrolls in: the page itself, any box
+  // around the region, and every box inside it.
+  function scrollers(regions) {
+    var out = [document.scrollingElement || document.documentElement];
+    function add(el) {
+      if (el && out.indexOf(el) < 0 && (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth)) {
+        var style = window.getComputedStyle(el);
+        if (/(auto|scroll)/.test(style.overflowY + " " + style.overflowX)) {
+          out.push(el);
+        }
+      }
+    }
+    for (var i = 0; i < regions.length; i++) {
+      for (var up = regions[i].parentElement; up && up !== document.body; up = up.parentElement) {
+        add(up);
+      }
+      add(regions[i]);
+      var inside = regions[i].querySelectorAll("ul, ol, section, div");
+      for (var j = 0; j < inside.length; j++) {
+        add(inside[j]);
+      }
+    }
+    return out;
+  }
+
+  function viewport(box) {
+    if (box === document.scrollingElement || box === document.documentElement) {
+      return { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
+    }
+    return box.getBoundingClientRect();
+  }
+
+  // firstSeen is the first named element inside box whose leading edge is in
+  // view along one axis: the row the reader is reading, or the column they
+  // scrolled to.
+  function firstSeen(box, regions, axis) {
+    var view = viewport(box);
+    var lead = axis === "y" ? "top" : "left";
+    var trail = axis === "y" ? "bottom" : "right";
+    for (var i = 0; i < regions.length; i++) {
+      var named = regions[i].querySelectorAll("[id], [data-group]");
+      for (var j = 0; j < named.length; j++) {
+        if (named[j] === box || !box.contains(named[j])) {
+          continue;
+        }
+        var r = named[j].getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) {
+          continue;
+        }
+        if (r[lead] >= view[lead] - 1 && r[lead] < view[trail]) {
+          return { el: named[j], at: r[lead] };
+        }
+      }
+    }
+    return null;
+  }
+
+  // liveAnchors records, for every box that is scrolled away from its start,
+  // which element the reader has at the top and at the left of it.
+  tix.liveAnchors = function (regions) {
+    var out = [];
+    var boxes = scrollers(regions);
+    for (var i = 0; i < boxes.length; i++) {
+      var box = boxes[i];
+      var entry = { box: box, top: box.scrollTop, left: box.scrollLeft, y: null, x: null };
+      if (box.scrollTop > 0) {
+        entry.y = firstSeen(box, regions, "y");
+      }
+      if (box.scrollLeft > 0) {
+        entry.x = firstSeen(box, regions, "x");
+      }
+      out.push(entry);
+    }
+    return out;
+  };
+
+  // liveHold scrolls each box by however far its anchor moved, so the reader
+  // is looking at the same row and the same column as before the update, and
+  // counts the new rows that landed above them for the pill.
+  tix.liveHold = function (anchors, added) {
+    for (var i = 0; i < anchors.length; i++) {
+      var a = anchors[i];
+      var box = a.box;
+      if (a.y && a.y.el.isConnected) {
+        box.scrollTop += a.y.el.getBoundingClientRect().top - a.y.at;
+      } else if (box.scrollTop !== a.top) {
+        box.scrollTop = a.top;
+      }
+      if (a.x && a.x.el.isConnected) {
+        box.scrollLeft += a.x.el.getBoundingClientRect().left - a.x.at;
+      } else if (box.scrollLeft !== a.left) {
+        box.scrollLeft = a.left;
+      }
+      if (!a.y || !a.y.el.isConnected) {
+        continue;
+      }
+      var above = 0;
+      var edge = a.y.el.getBoundingClientRect().top;
+      for (var j = 0; j < added.length; j++) {
+        var row = added[j];
+        if (row.isConnected && /^t-/.test(row.id || "") && box.contains(row) &&
+            row.getBoundingClientRect().bottom <= edge + 1) {
+          above++;
+        }
+      }
+      if (above > 0) {
+        tix.livePill(box, above);
+      }
+    }
+  };
+
+  // The pill. One per scrolling box, outside every live region so no refresh
+  // ever redraws it, and placed over the top edge of the box it is about.
+  var pills = [];
+
+  function pillFor(box) {
+    for (var i = 0; i < pills.length; i++) {
+      if (pills[i].box === box) {
+        return pills[i];
+      }
+    }
+    return null;
+  }
+
+  function dismiss(entry) {
+    entry.count = 0;
+    entry.button.hidden = true;
+  }
+
+  function position(entry) {
+    var view = viewport(entry.box);
+    var top = Math.max(view.top, 0) + 8;
+    entry.button.style.top = Math.round(top) + "px";
+    entry.button.style.left = Math.round((view.left + view.right) / 2) + "px";
+  }
+
+  // livePill says how many new rows arrived above where the reader is, and
+  // takes them there on a press. It never moves the page by itself.
+  tix.livePill = function (box, count) {
+    var entry = pillFor(box);
+    if (!entry || !entry.button.isConnected) {
+      if (entry) {
+        pills.splice(pills.indexOf(entry), 1);
+      }
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "livepill";
+      button.hidden = true;
+      entry = { box: box, button: button, count: 0 };
+      button.addEventListener("click", function () {
+        dismiss(entry);
+        box.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      var watched = box === document.scrollingElement || box === document.documentElement ? window : box;
+      watched.addEventListener("scroll", function () {
+        if (box.scrollTop <= 0) {
+          dismiss(entry);
+        }
+      }, { passive: true });
+      document.body.appendChild(button);
+      pills.push(entry);
+    }
+    entry.count += count;
+    entry.button.textContent = say("%d new, show").replace("%d", String(entry.count));
+    position(entry);
+    entry.button.hidden = false;
+  };
+
+  // A boosted navigation leaves the pills of the page it replaced behind,
+  // pointing at boxes that are gone.
+  document.addEventListener("htmx:beforeSwap", function (event) {
+    if (event.detail && event.detail.target === document.body) {
+      for (var i = 0; i < pills.length; i++) {
+        pills[i].button.remove();
+      }
+      pills = [];
+    }
+  });
 })();

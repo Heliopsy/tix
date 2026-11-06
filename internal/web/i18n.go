@@ -165,6 +165,7 @@ var jsMessages = []string{
 	"People to mention",
 	"Copied",
 	"Copy failed",
+	"%d new, show",
 	"Nothing has changed yet",
 	"%d files chosen",
 	"No file chosen",

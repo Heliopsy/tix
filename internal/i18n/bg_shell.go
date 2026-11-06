@@ -65,6 +65,7 @@ func init() {
 		"Unstar %s":               "Махни звездата от %s",
 		"Copy":                    "Копирай",
 		"Copied":                  "Копирано",
+		"%d new, show":            "%d нови, покажи",
 		"Copy failed":             "Неуспешно копиране",
 		"Nothing has changed yet": "Още нищо не е променено",
 		"%d files chosen":         "Избрани файлове: %d",
