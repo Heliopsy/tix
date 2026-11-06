@@ -114,7 +114,7 @@ func plausibleRef(s string) bool {
 // writing an alternate screen or escape codes into it would corrupt what the
 // pipe reads, so nothing here touches bubbletea.
 func (s *Server) stream(sess ssh.Session, actor *core.Actor, req watchRequest) {
-	ctx, cancel := context.WithCancel(core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI))
+	ctx, cancel := context.WithCancel(sessionCtx(sess, actor))
 	defer cancel()
 
 	filter, keys, err := s.watchFilter(ctx, req)

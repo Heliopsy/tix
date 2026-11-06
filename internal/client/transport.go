@@ -51,6 +51,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, q url.Valu
 	}
 	req.Header.Set(wire.HeaderAccept, wire.ContentJSON)
 	req.Header.Set("User-Agent", c.userAgent)
+	if c.hint != "" {
+		req.Header.Set(wire.HeaderClient, c.hint)
+	}
 	if c.token != "" {
 		req.Header.Set(wire.HeaderAuth, "Bearer "+c.token)
 	}

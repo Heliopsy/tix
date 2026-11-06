@@ -68,6 +68,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `long`, `dotted`, `dayfirst`, `us`, `relative`) |
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
 | `cli.page_size` | `TIX_CLI_PAGE_SIZE` | `25` |
+| `cli.record_host` | `TIX_CLI_RECORD_HOST` | `false` |
 | `web.page_size` | `TIX_WEB_PAGE_SIZE` | `25` |
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
@@ -113,6 +114,11 @@ Both default to 25.
 `cli.page_size` is the default of `--limit` on every listing command (`tix task ls`, `project ls`, `actor ls`,
 `user ls`, `tenant ls`, `audit ls`, `webhook deliveries`). Typing `--limit` wins, as the layer order says;
 without it the configured value is used, so `TIX_CLI_PAGE_SIZE=100 tix task ls` prints a hundred rows.
+
+`cli.record_host` adds this machine's host name and operating-system user to the access channel of every
+change a command makes against a database directly (`--db`, the `cli-local` channel). It is off by default:
+every member who can read the audit log would see which machine somebody worked from, which is more than
+most teams want to share. Changes through a server never record it. See [audit-log.md](audit-log.md).
 
 `web.page_size` is what a browser listing shows, and `tix serve` reads it. A reader can ask one page for a
 different number with the `limit` query parameter, `/tasks?limit=100`, which the Previous and Next links

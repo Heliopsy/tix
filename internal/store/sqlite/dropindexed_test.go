@@ -23,6 +23,12 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, stmt := range []string{
+		"DROP INDEX idx_audit_via",
+		"ALTER TABLE audit_entries DROP COLUMN via_kind",
+		"ALTER TABLE audit_entries DROP COLUMN via_token",
+		"ALTER TABLE audit_entries DROP COLUMN via_detail",
+		"ALTER TABLE events DROP COLUMN via_kind",
+		"ALTER TABLE events DROP COLUMN via_detail",
 		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 1",
 		"DELETE FROM schema_migrations WHERE version > 28",
 	} {

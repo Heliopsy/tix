@@ -336,6 +336,7 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			actor.TenantID = scope.TenantID
 		}
 		ctx := core.WithSource(core.WithActor(r.Context(), actor), core.SourceAPI)
+		ctx = core.WithVia(ctx, credentialVia(r, actor))
 		// The event stream outlives this request and has to ask again.
 		ctx = context.WithValue(ctx, ctxKeyRevalidate, rt.revalidator(r))
 		// Logout ends the session the caller presented, so it has to know which
@@ -403,7 +404,8 @@ func (rt *Router) withForwarded(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), ctxKeyClientIP, rt.proxies.ClientIP(r))
 		ctx = context.WithValue(ctx, ctxKeyScheme, rt.proxies.Scheme(r))
-		next.ServeHTTP(w, r.WithContext(ctx))
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r.WithContext(core.WithVia(ctx, baseVia(r))))
 	})
 }
 
@@ -462,4 +464,38 @@ func (rt *Router) revalidator(r *http.Request) Revalidate {
 		}
 		return actor, nil
 	}
+}
+
+// baseVia is the access channel a request is on before any credential is
+// read: web for the browser interface's paths, api under the API prefix, the
+// latter refined by the client hint. It carries the client address, which the
+// trusted proxy policy has already resolved, and a truncated user agent.
+func baseVia(r *http.Request) core.Via {
+	v := core.Via{Kind: core.ViaWeb, UserAgent: core.TruncateUserAgent(r.UserAgent())}
+	if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
+		v.Kind = core.ViaAPI
+	}
+	if ip := ClientIPFrom(r.Context()); ip.IsValid() {
+		v.ClientAddr = ip.String()
+	}
+	return v.Refine(r.Header.Get(wire.HeaderClient))
+}
+
+// credentialVia is the access channel the credential decides. A session
+// cookie is the browser and nothing a header says changes that; a bearer
+// token is the API, which the client hint may narrow to the CLI or MCP. With
+// neither, as in no-auth mode, the path decides as it did before any
+// credential was read.
+func credentialVia(r *http.Request, actor *core.Actor) core.Via {
+	v := baseVia(r)
+	switch {
+	case actor.TokenID != "":
+		v.Kind = core.ViaAPI
+		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
+		v = v.Refine(r.Header.Get(wire.HeaderClient))
+	case actor.SessionID != "":
+		v.Kind = core.ViaWeb
+		v.Session = actor.SessionID
+	}
+	return v
 }

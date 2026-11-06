@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -33,6 +34,11 @@ func (l *Local) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.Audit
 		return nil, "", err
 	}
 	f.Page = page
+	for _, v := range f.Vias {
+		if !v.Valid() {
+			return nil, "", core.Invalid("unknown access channel %q; try one of %s", v, viaNames())
+		}
+	}
 
 	var entries []core.AuditEntry
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
@@ -310,4 +316,13 @@ func (l *Local) PutRetention(ctx context.Context, next core.RetentionPolicy) (*c
 		return nil, err
 	}
 	return &merged, nil
+}
+
+// viaNames renders the access channels for a message.
+func viaNames() string {
+	out := make([]string, len(core.ViaKinds))
+	for i, k := range core.ViaKinds {
+		out[i] = string(k)
+	}
+	return strings.Join(out, ", ")
 }

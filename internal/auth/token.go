@@ -158,6 +158,7 @@ func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, 
 		Handle:    tok.Name,
 		Scopes:    slices.Clone(tok.Scopes),
 		TokenID:   tok.ID,
+		TokenName: tok.Name,
 		ProjectID: tok.ProjectID,
 	}, nil
 }

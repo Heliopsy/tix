@@ -125,7 +125,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 
 	l, _ := sess.Context().Value(launchKey{}).(launch)
 
-	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
+	ctx := sessionCtx(sess, actor)
 	pty, _, hasPty := sess.Pty()
 	environ := withTerm(sess.Environ(), pty.Term, hasPty)
 	color := colorFor(environ)

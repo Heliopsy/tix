@@ -40,7 +40,7 @@ const recoveryCodeMarker = "  - "
 // the question was asked. Nothing in this file reads a task, a project or
 // anything else belonging to the tenant.
 func (s *Server) proveSecondFactor(sess ssh.Session, actor *core.Actor) error {
-	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
+	ctx := sessionCtx(sess, actor)
 
 	status, err := s.opts.Service.TOTPStatus(ctx)
 	if err != nil {

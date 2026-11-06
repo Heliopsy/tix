@@ -14,7 +14,7 @@ import (
 // the tenant just did and has no status, priority or due date to ask about.
 // The lexer, the negation prefix and the weak operator are shared, so the two
 // grammars are spelled the same way even where their vocabularies differ.
-var ActivityKeys = []string{"actor", "kind", "action", "type", "source", "text", "q"}
+var ActivityKeys = []string{"actor", "kind", "action", "type", "source", "via", "token", "text", "q"}
 
 // ActivitySyntaxHint is the one line that tells somebody the operators exist,
 // the activity counterpart of SyntaxHint.
@@ -36,6 +36,8 @@ type ActivityFilter struct {
 	Kinds   []string
 	Actions []string
 	Sources []core.Source
+	Vias    []core.ViaKind
+	Tokens  []string
 	Exclude ActivityExclusion
 }
 
@@ -46,6 +48,8 @@ type ActivityExclusion struct {
 	Kinds   []string
 	Actions []string
 	Sources []core.Source
+	Vias    []core.ViaKind
+	Tokens  []string
 }
 
 // ActivityRow is one row of the feed reduced to what a filter asks about, so
@@ -58,6 +62,8 @@ type ActivityRow struct {
 	Kind   string
 	Action string
 	Source core.Source
+	Via    core.ViaKind
+	Token  string
 	Text   []string
 }
 
@@ -72,8 +78,11 @@ func AuditRow(e core.AuditEntry) ActivityRow {
 		Kind:   e.SubjectType,
 		Action: e.Action,
 		Source: e.Source,
+		Via:    e.Via.Known().Kind,
+		Token:  e.Via.TokenName,
 		Text: []string{
 			e.Action, e.SubjectType, e.SubjectID, string(e.Source),
+			string(e.Via.Known().Kind), e.Via.TokenName,
 			string(e.Before), string(e.After),
 		},
 	}
@@ -133,6 +142,18 @@ func (f *ActivityFilter) applyActivityTerm(key, value string, negate bool) error
 			return nil
 		}
 		f.Sources = append(f.Sources, source)
+	case "via":
+		via, err := ParseVia(value)
+		if err != nil {
+			return err
+		}
+		if negate {
+			f.Exclude.Vias = append(f.Exclude.Vias, via)
+			return nil
+		}
+		f.Vias = append(f.Vias, via)
+	case "token":
+		appendTo(&f.Tokens, &f.Exclude.Tokens, value, negate)
 	case "text", "q":
 		appendTo(&f.Text, &f.Exclude.Text, value, negate)
 	default:
@@ -155,6 +176,20 @@ func ParseSource(value string) (core.Source, error) {
 	return "", core.Invalid("unknown source %q; try one of %s", value, sourceNames())
 }
 
+// ParseVia resolves an access channel name, naming the alternatives when it
+// cannot, for the same reason ParseSource refuses an unknown surface.
+func ParseVia(value string) (core.ViaKind, error) {
+	want := core.ViaKind(strings.ToLower(strings.TrimSpace(value)))
+	if want.Valid() {
+		return want, nil
+	}
+	names := make([]string, len(core.ViaKinds))
+	for i, k := range core.ViaKinds {
+		names[i] = string(k)
+	}
+	return "", core.Invalid("unknown access channel %q; try one of %s", value, strings.Join(names, ", "))
+}
+
 // sourceNames renders the recorded surfaces for a message.
 func sourceNames() string {
 	out := make([]string, 0, len(ActivitySources))
@@ -167,7 +202,8 @@ func sourceNames() string {
 // Active reports whether the filter selects anything out.
 func (f ActivityFilter) Active() bool {
 	return len(f.Text) > 0 || len(f.Actors) > 0 || len(f.Kinds) > 0 ||
-		len(f.Actions) > 0 || len(f.Sources) > 0 ||
+		len(f.Actions) > 0 || len(f.Sources) > 0 || len(f.Vias) > 0 || len(f.Tokens) > 0 ||
+		len(f.Exclude.Vias) > 0 || len(f.Exclude.Tokens) > 0 ||
 		len(f.Exclude.Text) > 0 || len(f.Exclude.Actors) > 0 || len(f.Exclude.Kinds) > 0 ||
 		len(f.Exclude.Actions) > 0 || len(f.Exclude.Sources) > 0
 }
@@ -195,6 +231,14 @@ func (f ActivityFilter) Matches(r ActivityRow) bool {
 	case !matchesAny(f.Actions, r.Action):
 		return false
 	case !matchesAny(sourceStrings(f.Sources), string(r.Source)):
+		return false
+	case !matchesAny(viaStrings(f.Vias), string(r.Via)):
+		return false
+	case !matchesAny(f.Tokens, r.Token):
+		return false
+	case excludes(viaStrings(f.Exclude.Vias), string(r.Via)):
+		return false
+	case excludes(f.Exclude.Tokens, r.Token):
 		return false
 	case excludes(f.Exclude.Actors, r.Actors...):
 		return false
@@ -264,6 +308,15 @@ func sourceStrings(sources []core.Source) []string {
 	return out
 }
 
+// viaStrings renders access channels for the shared comparison.
+func viaStrings(vias []core.ViaKind) []string {
+	out := make([]string, 0, len(vias))
+	for _, v := range vias {
+		out = append(out, string(v))
+	}
+	return out
+}
+
 // AuditFilter folds the parts of the filter the store can answer into an
 // audit query, leaving base's own terms in place. It is an optimisation and
 // never the definition: Matches is applied to whatever comes back, so a term
@@ -275,6 +328,8 @@ func (f ActivityFilter) AuditFilter(base core.AuditFilter) core.AuditFilter {
 	out.ActorIDs = append(append([]string(nil), out.ActorIDs...), f.Actors...)
 	out.Actions = append(append([]string(nil), out.Actions...), f.Actions...)
 	out.Sources = append(append([]core.Source(nil), out.Sources...), f.Sources...)
+	out.Vias = append(append([]core.ViaKind(nil), out.Vias...), f.Vias...)
+	out.Tokens = append(append([]string(nil), out.Tokens...), f.Tokens...)
 	if len(f.Kinds) == 1 && out.SubjectType == "" {
 		out.SubjectType = f.Kinds[0]
 	}

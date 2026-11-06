@@ -140,6 +140,9 @@ func (c *Client) dialEvents(ctx context.Context) (*websocket.Conn, error) {
 		header.Set("Cookie", (&http.Cookie{Name: wire.SessionCookieName, Value: c.cookie}).String())
 	}
 	header.Set("User-Agent", c.userAgent)
+	if c.hint != "" {
+		header.Set(wire.HeaderClient, c.hint)
+	}
 
 	conn, resp, err := websocket.Dial(ctx, c.eventsURL(), &websocket.DialOptions{
 		HTTPClient: c.http,

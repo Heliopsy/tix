@@ -230,7 +230,7 @@ const auditScanPages = 8
 
 func auditLsCmd(g *globals) *cobra.Command {
 	var subjectType, subjectID, since, until, cursor, expr string
-	var actors, actions []string
+	var actors, actions, vias, tokens []string
 	var limit int
 	cmd := &cobra.Command{
 		Use:     "ls",
@@ -242,6 +242,8 @@ func auditLsCmd(g *globals) *cobra.Command {
 			"A filter and the flags above it both apply, so a filter never widens what a flag selected.\n\n" +
 			"Exit codes: 2 unreadable filter, 5 permission denied.",
 		Example: "  tix audit ls --subject-type task -o ndjson\n" +
+			"  tix audit ls --via ssh --via mcp\n" +
+			"  tix audit ls --token ci-agent\n" +
 			"  tix audit ls --filter \"kind:task source:web -action:task.deleted\"\n" +
 			"  tix audit ls --filter \"actor:01J0 certificates\"",
 		Args: noArgs,
@@ -258,13 +260,22 @@ func auditLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			channels := make([]core.ViaKind, 0, len(vias))
+			for _, v := range vias {
+				kind, err := query.ParseVia(v)
+				if err != nil {
+					return err
+				}
+				channels = append(channels, kind)
+			}
 			size, err := g.pageSize(cmd, limit)
 			if err != nil {
 				return err
 			}
 			filter := activity.AuditFilter(core.AuditFilter{
 				SubjectType: subjectType, SubjectID: subjectID,
-				ActorIDs: actors, Actions: actions, Since: from, Until: to,
+				ActorIDs: actors, Actions: actions, Vias: channels, Tokens: tokens,
+				Since: from, Until: to,
 				Page: core.Page{Limit: size, Cursor: cursor},
 			})
 			conn, ctx, err := g.dial(cmd)
@@ -279,12 +290,15 @@ func auditLsCmd(g *globals) *cobra.Command {
 	f.StringVar(&subjectID, "subject-id", "", "restrict to a subject identifier")
 	f.StringSliceVar(&actors, "actor", nil, "restrict to actors, repeatable")
 	f.StringSliceVar(&actions, "action", nil, "restrict to actions, repeatable")
+	f.StringSliceVar(&vias, "via", nil, "restrict to access channels, such as ssh or mcp, repeatable")
+	f.StringSliceVar(&tokens, "token", nil, "restrict to changes made with the API token of this name, repeatable")
 	f.StringVar(&since, "since", "", "only entries at or after this time")
 	f.StringVar(&until, "until", "", "only entries at or before this time")
 	f.StringVar(&expr, "filter", "", "activity filter expression, such as \"kind:task source:web\"")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
 	f.IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	_ = cmd.RegisterFlagCompletionFunc("subject-type", fixedCompletion(auditKinds))
+	_ = cmd.RegisterFlagCompletionFunc("via", fixedCompletion(viaNames()))
 	return cmd
 }
 
@@ -294,6 +308,15 @@ func auditLsCmd(g *globals) *cobra.Command {
 var auditKinds = []string{
 	"task", "comment", "artifact", "project", "workflow", "user",
 	"membership", "session", "api_token", "webhook", "tenant",
+}
+
+// viaNames are the access channels completion offers.
+func viaNames() []string {
+	out := make([]string, len(core.ViaKinds))
+	for i, k := range core.ViaKinds {
+		out[i] = string(k)
+	}
+	return out
 }
 
 // auditLister is the listing call streamAudit reads pages from.
