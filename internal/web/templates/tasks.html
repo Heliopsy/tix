@@ -1091,19 +1091,22 @@
         </select>
         {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
       </div>
-      <div class="cform-pair">
-        <div class="cfield">
-          <div class="cfield-label"><label for="new-priority">{{t "Priority"}}</label></div>
-          <select id="new-priority" name="priority"{{$e.Attrs "priority"}}>
-            {{range $v.Priorities}}<option value="{{.Value}}"{{if or (eq (printf "%d" .Value) $f.Priority) (and (not $f.Priority) (eq .Label "normal"))}} selected{{end}}>{{t .Label}}</option>{{end}}
-          </select>
-          {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
-        </div>
-        <div class="cfield">
-          <div class="cfield-label"><label for="new-due">{{t "Due date"}}</label>{{template "tip" (examples (tip "Due date" "A word, an offset from today or a date in your date format. Leave it empty for no due date.") dueExamples)}}</div>
-          <input id="new-due" name="due_at" value="{{$f.Due}}" autocomplete="off"{{$e.Attrs "due_at"}}>
-          {{with $e.On "due_at"}}{{template "field-error" .}}{{end}}
-        </div>
+      {{/* The due date has a row of its own: beside the priority it was too
+           narrow to show its placeholder or a typed date whole. */}}
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-priority">{{t "Priority"}}</label></div>
+        <select id="new-priority" name="priority"{{$e.Attrs "priority"}}>
+          {{range $v.Priorities}}<option value="{{.Value}}"{{if or (eq (printf "%d" .Value) $f.Priority) (and (not $f.Priority) (eq .Label "normal"))}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        {{with $e.On "priority"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="new-due">{{t "Due date"}}</label>{{template "tip" (examples (tip "Due date" "A word, an offset from today or a date in your date format. Leave it empty for no due date.") dueExamples)}}</div>
+        <span class="datefield">
+          <input id="new-due" name="due_at" value="{{$f.Due}}" autocomplete="off" placeholder="{{t "tomorrow, +3d or %s" dueDate}}" data-date-pattern="{{datePattern}}"{{$e.Attrs "due_at"}}>
+          {{template "date-pick" "new-due"}}
+        </span>
+        {{with $e.On "due_at"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">
         <div class="cfield-label"><label for="new-assignee">{{t "Assignee"}}</label>{{template "tip" (tip "Assignee" "A person's or an agent's handle. Leave it empty and the task waits for whoever picks it up.")}}</div>

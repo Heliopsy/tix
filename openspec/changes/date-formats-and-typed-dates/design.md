@@ -26,5 +26,7 @@ because a quick-add line splits on spaces.
 ## Trade-off
 
 The due field used to be `<input type="date">`, which gave a browser date picker. A picker cannot take
-`tomorrow` or `+3d` and submits ISO whatever the reader typed, so the field is now text. The snooze menu
-keeps its `datetime-local` picker, which is not free text.
+`tomorrow` or `+3d` and submits ISO whatever the reader typed, so the field is now text, with a calendar
+button beside it. The button opens a hidden native date input with `showPicker()` (focusing it where that
+is refused) and writes the picked day in `data-date-pattern`, which the server derives from the same
+`TimeStyle.Date` it reads with. The snooze menu keeps its `datetime-local` picker, which is not free text.

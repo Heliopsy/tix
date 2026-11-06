@@ -19,6 +19,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/quickadd"
 )
 
 // layoutFiles are parsed into every screen.
@@ -265,6 +266,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"relativeAt":       style.Relative,
 		"dateValue":        func(t *time.Time) string { return dateValue(style, t) },
 		"dueExamples":      func() []string { return dueExamples(style) },
+		"dueDate":          func() string { return style.Date(quickadd.ExampleDay) },
+		"datePattern":      func() string { return datePattern(style) },
 		"quickDueExamples": func() []string { return quickDueExamples(style) },
 		"repeatExamples":   func() []string { return core.RecurrenceExamples },
 		"sentence":         sentenceFor,
