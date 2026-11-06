@@ -57,8 +57,9 @@ A generated password is 24 characters from `crypto/rand` over an alphabet withou
 sixes with hyphens. It is returned once in `initial_credentials` and nowhere else: the audit entry and the
 event record the user and `credential: generated` or `supplied`, never the value.
 
-TODO: once the separate change adding "require a password change at first sign-in" lands, set that flag on
-every admin whose password was generated here.
+Every admin whose password was generated here is created with the require password change flag set, so
+their first sign-in replaces it (see `invite-links-and-password-change`). A supplied password is not
+flagged: whoever chose it is assumed to be its owner.
 
 ## Existing users
 

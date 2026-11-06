@@ -257,7 +257,9 @@ func (l *Local) seedTenant(ctx context.Context, tenant *core.Tenant, admins []pe
 // user without any credential: the audit entry and the event name the account
 // and say whether its password was generated, never the password.
 func createAdmin(ctx context.Context, m *mutation, id string, a pendingAdmin) (core.CreatedAdmin, error) {
-	u := &core.User{ID: id, Email: a.email, DisplayName: a.displayName}
+	// A generated password has been read by whoever created the tenant, so
+	// its owner is asked to replace it at the first sign-in.
+	u := &core.User{ID: id, Email: a.email, DisplayName: a.displayName, RequirePasswordChange: a.generated != ""}
 	if err := m.tx.CreateUser(ctx, u, a.hash); err != nil {
 		return core.CreatedAdmin{}, err
 	}
