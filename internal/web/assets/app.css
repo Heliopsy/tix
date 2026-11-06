@@ -4530,20 +4530,15 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
    the feed narrowed to that channel. */
 .via {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   color: var(--muted);
   font-size: var(--text-sm);
-  white-space: nowrap;
 }
-.via .icon { width: 14px; height: 14px; flex: none; }
+.via .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; }
 .via-link { text-decoration: none; }
 .via-link:hover .via, .via-link:focus-visible .via { color: var(--ink); text-decoration: underline; }
 .feed .via-link { margin-left: 8px; }
-/* In a table the channel is a column of its own and may wrap under its icon
-   rather than push the table wider than the panel holding it. */
-td .via { white-space: normal; align-items: flex-start; }
-td .via .icon { margin-top: 2px; }
 
 
 /* ------------------------------------------------------------------------

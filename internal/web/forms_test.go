@@ -165,8 +165,8 @@ func TestTaskHistoryListsRecordedChanges(t *testing.T) {
 	if !strings.Contains(page, "task.transition") {
 		t.Fatalf("history does not list the transition:\n%s", page)
 	}
-	if !strings.Contains(page, ">web<") {
-		t.Fatalf("history does not record the web source")
+	if !strings.Contains(page, ">via web<") {
+		t.Fatalf("history does not record the web channel")
 	}
 }
 
