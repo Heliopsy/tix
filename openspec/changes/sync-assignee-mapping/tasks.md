@@ -17,3 +17,9 @@
 
 - [x] 3.1 Embedded default mapping and `DefaultMapping()`
 - [x] 3.2 Tests: the default parses once `project` is filled, and drives a two-page import end to end
+
+## 4. Surfaces and docs
+
+- [x] 4.1 Web: the source dialog starts from the OpenProject mapping, and a run result names the people with no tix account
+- [x] 4.2 `docs/migrating.md`: assignees, the `users` section and an OpenProject walkthrough
+- [x] 4.3 Skill: assignees carry across through sync
