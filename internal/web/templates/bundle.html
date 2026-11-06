@@ -80,7 +80,7 @@
   <dt>{{t "Bundle"}}</dt><dd>{{if .BundleName}}{{.BundleName}}{{else}}{{t "unnamed"}}{{end}}</dd>
   <dt>{{t "Schema version"}}</dt><dd>{{.BundleVersion}}</dd>
 </dl>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Kind"}}</th><th>{{t "Key"}}</th><th>{{t "Action"}}</th><th>{{t "New key"}}</th><th>{{t "Reason"}}</th></tr></thead>
   <tbody>
   {{range .Outcomes}}

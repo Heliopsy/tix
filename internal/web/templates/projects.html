@@ -32,7 +32,7 @@
      it said anything about the work, which is the only reason to open this
      screen. The description is shown because it is the one field here a
      person wrote, and the state only when it is not the ordinary one. */}}
-<ul class="projlist">
+<ul class="projlist rows">
   {{range .Data.Projects}}
   <li class="projrow{{with projClass .Color}} {{.}}{{end}}{{if .Archived}} is-archived{{end}}"{{with projStyle .Color}} style="{{.}}"{{end}}>
     <a class="projrow-main" href="/projects/{{.Key}}">

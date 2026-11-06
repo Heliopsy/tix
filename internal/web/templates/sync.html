@@ -5,7 +5,7 @@
 <p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
 
 <div class="sechead"><h2>{{t "Sources"}}</h2>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" .Here)}}</div>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Name"}}</th><th>{{t "System"}}</th><th>{{t "Configured through"}}</th><th>{{t "Last run"}}</th><th>{{t "Status"}}</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Sources}}

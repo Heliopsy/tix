@@ -263,8 +263,10 @@ func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 		"--window-size=1400,900",
 		// Headless Chrome has no pointing device, so it answers pointer: none
 		// and the board, which offers dragging only to a fine pointer, turns
-		// it off. Tell it there is a mouse (Blink's PointerType fine is 4).
-		"--blink-settings=primaryPointerType=4,availablePointerTypes=4",
+		// it off. Tell it there is a mouse (Blink's PointerType fine is 4),
+		// and that the mouse hovers (HoverType hover is 2), or no hover
+		// effect would apply for the row test to read.
+		"--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
 		"about:blank")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("starting %s: %v", chrome, err)

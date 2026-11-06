@@ -110,7 +110,7 @@ func TestEveryCreateButtonOpensItsFormInADialog(t *testing.T) {
 		at, from := strings.Index(page, opener), strings.Index(page, tc.head)
 		if at < 0 || from < 0 || from > at ||
 			strings.Contains(page[from:at], "<table") || strings.Contains(page[from:at], "<dialog") ||
-			strings.Contains(page[from:at], `class="peoplelist"`) || strings.Contains(page[from:at], `class="reclist"`) {
+			strings.Contains(page[from:at], `class="peoplelist`) || strings.Contains(page[from:at], `class="reclist`) {
 			t.Errorf("%s: the header holds no plus button opening %s", tc.name, tc.id)
 		}
 		if tag := dialogTag(t, page, tc.id); strings.Contains(tag, " open") {

@@ -46,7 +46,7 @@
 <p class="meta">{{t "This page was answered by"}} <code>{{$r.AnsweringServer}}</code>{{if not $r.AnsweringRegistered}}{{t ", which is not counting itself, so it has no row below"}}{{end}}.</p>
 {{end}}
 
-<ul class="reclist serverlist">
+<ul class="reclist serverlist rows">
 {{range $r.Servers}}
   <li class="recrow server{{if not .Attached}} is-stale{{end}}">
     <span class="recrow-main">

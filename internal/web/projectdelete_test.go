@@ -179,7 +179,7 @@ func TestTheDeletionConfirmationReadsAsAForm(t *testing.T) {
 		t.Errorf("the foot does not carry Cancel, then the delete action:\n%s", foot)
 	}
 	move := between(t, form, `<div class="delchoice">`, `<div class="delchoice is-danger">`)
-	for _, want := range []string{`value="move"`, `id="move_to"`, `<table class="delmap">`} {
+	for _, want := range []string{`value="move"`, `id="move_to"`, `<table class="rows delmap">`} {
 		if !strings.Contains(move, want) {
 			t.Errorf("the move card does not hold %q:\n%s", want, move)
 		}

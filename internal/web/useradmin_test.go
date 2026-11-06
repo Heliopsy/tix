@@ -136,7 +136,7 @@ func TestTheUserListingShowsWhoEachAccountIs(t *testing.T) {
 
 	page := b.page("/admin/users")
 	for _, want := range []string{
-		`class="peoplelist"`, `class="avatar"`, `>RK<`,
+		`class="peoplelist rows"`, `class="avatar"`, `>RK<`,
 		`class="person-name"`, `Rosa Klebb`, `class="person-mail mono">rosa@example.test<`,
 		`class="role role-member">member<`, `class="state on">active<`,
 	} {
@@ -167,10 +167,10 @@ func personRow(t *testing.T, page, userID string) string {
 // its controls; the row itself carries only the button.
 func manageDialog(t *testing.T, page, userID string) string {
 	t.Helper()
-	if !strings.Contains(personRow(t, page, userID), `data-dlg-open="user-`+userID+`"`) {
+	if !strings.Contains(personRow(t, page, userID), `data-dlg-open="manage-user-`+userID+`"`) {
 		t.Fatalf("the row for %q has no Manage button", userID)
 	}
-	dlg := dialogBlock(page, "user-"+userID)
+	dlg := dialogBlock(page, "manage-user-"+userID)
 	if dlg == "" {
 		t.Fatalf("the listing has no Manage dialog for %q", userID)
 	}

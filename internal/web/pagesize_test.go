@@ -24,7 +24,7 @@ var taskRow = regexp.MustCompile(`<li id="t-[^"]+" class="task`)
 // as a page size taking effect.
 func taskRows(t *testing.T, page string) int {
 	t.Helper()
-	_, after, ok := strings.Cut(page, `<ul class="tasklist">`)
+	_, after, ok := strings.Cut(page, `<ul class="tasklist rows">`)
 	if !ok {
 		t.Fatalf("the page carries no task list:\n%s", tail(page))
 	}

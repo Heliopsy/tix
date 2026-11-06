@@ -787,7 +787,7 @@
     {{template "group-menu" (groupMenu $v.Arrange .Head)}}
   </div>
   {{if not .Head.Collapsed}}
-  <ul class="tasklist">
+  <ul class="tasklist rows">
   {{range .Tasks}}{{template "task-row" (taskRow $ .)}}{{end}}
   </ul>
   {{end}}
@@ -798,7 +798,7 @@
 {{template "group-hidden" $v.Arrange}}
 </div>
 {{else}}
-<ul class="tasklist">
+<ul class="tasklist rows">
 {{range $v.Tasks}}{{template "task-row" (taskRow $ .)}}
 {{else}}
   <li class="empty">

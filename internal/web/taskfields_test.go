@@ -116,7 +116,7 @@ func TestHidingTheStarKeepsTheOrder(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	b.hideTaskFields("star")
-	list := between(t, b.page("/tasks"), `<ul class="tasklist">`, "</ul>")
+	list := between(t, b.page("/tasks"), `<ul class="tasklist rows">`, "</ul>")
 	if strings.Contains(list, `class="starform"`) {
 		t.Errorf("hiding Star left a toggle on the list:\n%s", list)
 	}

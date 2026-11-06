@@ -51,7 +51,7 @@
           {{with .Data.Errors.On "move_to"}}{{template "field-error" .}}{{end}}
         </div>
         {{with .Data.Mapping}}
-        <table class="delmap">
+        <table class="rows delmap">
           <caption>{{t "Statuses in %s" .MoveTo}}</caption>
           <colgroup><col><col><col class="delmap-n"></colgroup>
           <thead><tr><th>{{t "Status now"}}</th><th>{{t "Status after the move"}}</th><th>{{t "Tasks"}}</th></tr></thead>

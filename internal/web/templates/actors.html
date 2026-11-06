@@ -4,7 +4,7 @@
      say: work is assigned to agents as often as to people, and a handle
      alone does not tell the two apart. */}}
 <p class="lede summary">{{if eq (len .Data.Actors) 0}}{{t "No actors yet."}}{{else}}{{t "Everyone and everything work can be assigned to here."}}{{end}}</p>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Handle"}}</th><th>{{t "Kind"}}</th><th>{{t "Name"}}</th><th>{{t "Id"}}</th></tr></thead>
   <tbody>
   {{range .Data.Actors}}

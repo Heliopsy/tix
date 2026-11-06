@@ -19,7 +19,7 @@
      The role is shown on the row because "who is an administrator here" is
      the question this screen exists to answer, and it used to be the one
      thing it did not show. */}}
-<ul class="peoplelist">
+<ul class="peoplelist rows">
 {{range $v.Users}}
   <li class="person{{if .Disabled}} is-off{{end}}" id="user-{{.User.ID}}">
     <span class="avatar" aria-hidden="true">{{.Monogram}}</span>
@@ -37,7 +37,7 @@
         {{else}}<span class="state on">{{t "active"}}</span>{{end}}
       {{end}}
     </span>
-    <span class="person-act">{{template "dlg-open" ((opener (print "user-" .User.ID) (t "Manage") "settings" "secondary small" $.Here).Named (t "Manage %s" .Label))}}</span>
+    <span class="person-act">{{template "dlg-open" ((opener (print "manage-user-" .User.ID) (t "Manage") "settings" "secondary small" $.Here).Named (t "Manage %s" .Label))}}</span>
   </li>
 {{else}}
   <li class="empty">
@@ -54,7 +54,7 @@
      dialog that asks first, because disabling is usually what is meant and
      can be undone. */}}
 {{range $v.Users}}
-{{$sh := shell (print "user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
+{{$sh := shell (print "manage-user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
 {{template "dlg-start" $sh}}
         <form method="post" action="/admin/users/update">
           {{template "csrf" $.CSRF}}

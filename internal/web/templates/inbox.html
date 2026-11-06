@@ -34,7 +34,7 @@
   {{if not $v.Items}}
   <p class="empty">{{if $v.Unread}}{{t "Nothing unread."}}{{else}}{{t "Nothing here yet. When somebody mentions you, assigns you a task or comments on one you follow, it shows up here."}}{{end}}</p>
   {{else}}
-  <ul class="plain inbox-items">
+  <ul class="plain inbox-items rows">
     {{range $v.Items}}
     <li class="inbox-item{{if not .Read}} is-unread{{end}}" id="i-{{.ID}}">
       <span class="inbox-dot" aria-hidden="true"></span>

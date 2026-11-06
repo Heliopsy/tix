@@ -92,7 +92,7 @@ func TestActivityFeedNamesItsActorsAndSubjects(t *testing.T) {
 	ref := b.createTask("infra", "shows up in activity")
 
 	page := b.page("/activity")
-	for _, want := range []string{`class="lede"`, `class="card"`, `class="plain feed"`,
+	for _, want := range []string{`class="lede"`, `class="card"`, `class="plain feed rows"`,
 		`id="live-feed"`, `data-events=`, `class="badge act-create"`, `class="who-link"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("the activity feed is missing %q:\n%s", want, page)

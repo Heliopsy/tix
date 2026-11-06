@@ -958,7 +958,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
    row rather than only toggling a class, so these need the same visible ring
    as every other focusable element; a screen reader already follows the
    focus move, this is only what a sighted keyboard user sees. */
-.tasklist .task:focus-visible, .board .card:focus-visible {
+.board .card:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   background: var(--accent-soft);
@@ -1447,9 +1447,57 @@ tbody tr:last-child td { border-bottom: 0; }
    "acti / ve" down two lines whenever its column was squeezed; a Save button
    came out as "Sav / e". Controls, badges and chips say their own wrapping in
    the one rule under the button, so nothing in a cell inherits this. */
-tbody tr:hover { background: var(--surface); }
 td a { font-weight: 500; text-decoration: none; }
 td a:hover { text-decoration: underline; }
+
+/* Row states. Every table and every list read as a table carries the class
+   rows, and its rows take their states from here and nowhere else: the
+   same tint under the pointer, the same tint while a control in the row
+   has keyboard focus, one colour for a picked row and one short flash for
+   the row a link or an action just landed on. Seven lists used to carry
+   seven hovers between them (two greys, an accent bar on the first cell,
+   a border and a shadow), and a deep link left a ring on its row that
+   nothing ever took away.
+ *
+ * The tint mixes the ink into whatever the row sits on, so it reads on
+ * every surface and in every scheme without a value per theme. Only the
+ * background changes, so nothing moves and no border appears. The focus
+ * tint follows :focus-visible, not :focus-within: a click that leaves focus
+ * on a row's button must not leave the row lit. The focus ring itself stays
+ * on the control. No row gets a pointer cursor; where a row leads
+ * somewhere, its link says so. The pointer tint is in the hover layer,
+ * because the Hover effects preference governs it. */
+:root {
+  --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
+  --row-selected: var(--accent-soft);
+  --row-target: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.rows > tbody > tr:has(:focus-visible),
+.rows > li:has(:focus-visible) { background-color: var(--row-hover); }
+/* A row the keyboard cursor sits on is itself the focused control, so it
+   takes the picked colour and the ring, drawn inside so nothing moves. */
+.rows > li:focus-visible,
+.rows > tbody > tr:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background-color: var(--row-selected);
+}
+.rows > tbody > tr:has([data-pick]:checked),
+.rows > li:has([data-pick]:checked),
+.rows > li.is-selected,
+.rows > tbody > tr.is-selected { background-color: var(--row-selected); }
+
+/* A row a fragment names, or the one the toast is about, lights and then
+   lets go. Without scripting :target starts it; copy.js marks the row on a
+   boosted navigation and takes the mark off when the flash ends. Only the
+   colour changes, so a reader who asked for less motion sees it too. */
+.is-target,
+.is-flashed,
+.rows > tbody > tr:is(:target, .is-target, .is-flashed),
+.rows > li:is(:target, .is-target, .is-flashed) { animation: row-flash 1.6s ease-out; }
+@keyframes row-flash {
+  from { background-color: var(--row-target); }
+}
 
 .table-wrap { overflow-x: auto; }
 
@@ -1672,7 +1720,6 @@ ul.plain > li:last-child { border-bottom: 0; }
   thead { display: none; }
   table, tbody, tr, td { display: block; width: 100%; }
   tr { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
-  tbody tr:hover { background: none; }
   td { border-bottom: 0; padding: 3px 0; }
   td[data-label]::before {
     content: attr(data-label);
@@ -1933,13 +1980,6 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 .repeatmark:hover { border-color: var(--line); background: var(--bg); }
 .repeatmark .repeat-rule { margin-left: 3px; }
 
-/* The row or card the toast is about: the task just added without leaving
-   the list, or the one just ticked. A ring in the accent colour, so it
-   reads in every scheme and moves nothing around it. An outline rather than
-   a shadow or a border, so neither the card's own shadow nor the tint stripe
-   is replaced. */
-.task.is-flashed,
-.card.is-flashed { outline: 2px solid var(--accent); outline-offset: -2px; background-color: var(--accent-soft); }
 
 /* How many times the task has been claimed, shown only beside an expiry,
    where it is the difference between one agent that died once and one that
@@ -2524,7 +2564,6 @@ li.task.is-accented, .feed > li.is-accented {
 }
 
 li.task:last-child { border-bottom: 0; }
-li.task:hover { background: var(--bg); }
 ul.tasklist li.empty { padding: 26px 14px; text-align: center; }
 
 .tick { flex: 0 0 auto; display: flex; }
@@ -3355,7 +3394,6 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
   border-bottom-color: var(--line);
   border-radius: var(--radius-md);
 }
-.projrow:hover { background: var(--surface); border-color: var(--line); }
 .projrow.is-archived { opacity: 0.6; }
 
 .projrow-main {
@@ -4202,7 +4240,6 @@ li.person {
 
 
 li.person:last-child { border-bottom: 0; }
-li.person:hover { background: var(--bg); }
 li.person.is-off { background: repeating-linear-gradient(
   135deg, transparent, transparent 7px, var(--bg) 7px, var(--bg) 14px); }
 
@@ -4325,19 +4362,6 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
 .feed .who-name { text-decoration: none; }
 .feed .who-name:hover, .feed .who-link:hover { text-decoration: underline; }
 
-/* A record a deep link landed on, marked until the reader looks elsewhere so
-   a link from the activity feed lands somewhere they can see.
- *
- * Deliberately persistent, and deliberately not what a tick uses. Marking a
- * ticked row with this left a green outline sitting around it long after the
- * tick, because "you arrived here" and "this just changed" want opposite
- * lifetimes: one holds until the reader moves on, the other has to clear
- * itself. The transient one is .is-ticked, above. */
-.is-target {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius);
-}
 
 /* The feed row lost the duplicated actor name that used to sit at its end,
    so the timestamp takes over that job of pushing to the right, and the Raw
@@ -5196,7 +5220,6 @@ li.recrow {
   border-top: 1px solid var(--line);
 }
 li.recrow:first-child { border-top: 0; }
-li.recrow:hover { background: var(--surface); }
 li.recrow.is-off { color: var(--muted); }
 
 .recrow-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
@@ -5329,14 +5352,11 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
 }
 
 @media (hover: hover) {
-  :root:not([data-hover="off"]) .setrow:hover { background: var(--bg); }
-  :root:not([data-hover="off"]) tbody tr:hover > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
-  :root:not([data-hover="off"]) li.person:hover,
-  :root:not([data-hover="off"]) li.recrow:hover { box-shadow: inset 2px 0 0 var(--accent); }
+  :root:not([data-hover="off"]) .rows > tbody > tr:hover,
+  :root:not([data-hover="off"]) .rows > li:hover { background-color: var(--row-hover); }
 
   :root:not([data-hover="off"]) .column .card:hover,
-  :root:not([data-hover="off"]) .lane .lane-card:hover,
-  :root:not([data-hover="off"]) .projrow:hover {
+  :root:not([data-hover="off"]) .lane .lane-card:hover {
     border-color: var(--line-strong);
     box-shadow: var(--shadow-hover);
   }
@@ -5359,12 +5379,9 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   :root:not([data-hover="off"]) .column .card,
   :root:not([data-hover="off"]) .lane .lane-card,
-  :root:not([data-hover="off"]) .projrow,
-  :root:not([data-hover="off"]) .setrow,
+  :root:not([data-hover="off"]) .rows > tbody > tr,
+  :root:not([data-hover="off"]) .rows > li,
   :root:not([data-hover="off"]) .setnav a,
-  :root:not([data-hover="off"]) tbody tr,
-  :root:not([data-hover="off"]) li.task,
-  :root:not([data-hover="off"]) li.person,
   :root:not([data-hover="off"]) nav.main a,
   :root:not([data-hover="off"]) .switch-track {
     transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, color 140ms ease;
@@ -5379,12 +5396,7 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
    resting look here, rather than each being rewritten under the attribute,
    so turning it off means what it says. Focus rings are not hover effects and
    are untouched. */
-:root[data-hover="off"] tbody tr:hover,
-:root[data-hover="off"] li.task:hover,
-:root[data-hover="off"] li.person:hover,
-:root[data-hover="off"] li.recrow:hover { background: transparent; }
 :root[data-hover="off"] li.task:hover .task-meta .ref { color: inherit; }
-:root[data-hover="off"] .projrow:hover { background: transparent; border-color: transparent; border-bottom-color: var(--line); }
 :root[data-hover="off"] nav.main a:not([aria-current="page"]):hover { background: transparent; color: var(--muted); }
 :root[data-hover="off"] nav.main a:not([aria-current="page"]):hover .nav-icon { color: inherit; }
 :root[data-hover="off"] .account-open:hover { background: transparent; }
@@ -6904,7 +6916,6 @@ details[open] > .editswitch .when-open { display: inline; }
   margin: 0 calc(-1 * var(--space-2));
   border-radius: var(--radius-sm);
 }
-.rellist > li:hover { background: var(--surface); }
 .rellist > li > .mono { flex: 0 0 auto; font-size: var(--text-sm); }
 .reltitle { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .reldrop { display: inline-flex; margin: 0; }

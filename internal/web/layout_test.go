@@ -172,7 +172,7 @@ func TestTheTickAnimatesOnlyTheRowThatWasActedOn(t *testing.T) {
 			if !strings.Contains(sel, ".is-ticked") {
 				t.Errorf("%q is declared under %q, which fires on every render of an\n"+
 					"already-completed task; it belongs under .is-ticked, the mark that\n"+
-					"clears itself, not .is-target, which holds until the reader moves on",
+					"clears itself, not .is-target, which marks where a deep link landed",
 					decl, sel)
 			}
 		}

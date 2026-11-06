@@ -98,7 +98,7 @@
 </form>
 
 <div class="sechead"><div class="headtip"><h2>{{t "Members"}}</h2>{{template "tip" (tip "Members and roles" "A member is a person or agent with a role in this tenant. viewer reads, member also writes, claims and moves tasks, and admin may do everything, this screen included." "docs/tenancy.md")}}</div>{{template "dlg-open" (opener "member-new" (t "Add a member") "plus" "" .Here)}}</div>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Member"}}</th><th>{{t "Role"}}</th><th></th></tr></thead>
   <tbody>
   {{$names := .Data.Names}}

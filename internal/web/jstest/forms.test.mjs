@@ -340,3 +340,33 @@ test("a housekeeping rule's days show only beside After a number of days", () =>
   forms.onHousekeepingMode({ target: other });
   assert.equal(days.hidden, true, "a select that is not a rule's mode changed the days");
 });
+
+function forgetIn(search, hash) {
+  const replaced = [];
+  const location = { pathname: "/admin/users", search, hash };
+  const document = { addEventListener() {}, querySelectorAll() { return []; } };
+  const history = { state: null, replaceState(_s, _t, url) { replaced.push(url); } };
+  const ctx = bareContext({ document, location, history, navigator: { platform: "Linux" } });
+  run(ctx, "forms.js");
+  return { forms: ctx.tixForms, replaced };
+}
+
+// The fragment a dialog's link carries named the dialog, and a row sharing
+// the name kept the mark of a deep link after the dialog had closed.
+test("closing a dialog takes its parameter and its fragment out of the address", () => {
+  const { forms, replaced } = forgetIn("?dialog=manage-user-01&sort=name", "#manage-user-01");
+  forms.forgetDialog("manage-user-01");
+  assert.deepEqual(replaced, ["/admin/users?sort=name"]);
+});
+
+test("closing a dialog keeps a fragment that names something else", () => {
+  const { forms, replaced } = forgetIn("?dialog=user-new", "#user-01");
+  forms.forgetDialog("user-new");
+  assert.deepEqual(replaced, ["/admin/users#user-01"]);
+});
+
+test("closing a dialog the address never named leaves the address alone", () => {
+  const { forms, replaced } = forgetIn("", "#user-01");
+  forms.forgetDialog("manage-user-02");
+  assert.deepEqual(replaced, []);
+});

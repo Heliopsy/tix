@@ -93,7 +93,20 @@
     for (var i = 0; i < marked.length; i++) {
       marked[i].classList.remove("is-target");
     }
+    // The mark is a flash, not a state: it lights the row and lets go, so a
+    // row a dialog's fragment once named is not left ringed for good. It
+    // stays until the flash ends, or two seconds when no animation runs.
+    void row.offsetWidth;
     row.classList.add("is-target");
+    var clear = function (event) {
+      if (event && event.target !== row) {
+        return;
+      }
+      row.classList.remove("is-target");
+      row.removeEventListener("animationend", clear);
+    };
+    row.addEventListener("animationend", clear);
+    window.setTimeout(clear, 2000);
     // Only when the row is not already on screen. Centring it unconditionally
     // moved the page every time a fragment appeared, and after a tick the row
     // is right where the reader left it: ticking the topmost item scrolled
@@ -179,10 +192,9 @@
     if (!row || !row.classList || !row.classList.contains("task")) {
       return;
     }
-    // is-ticked, not is-target. The two want opposite lifetimes: is-target
-    // marks where a deep link landed and holds until the reader moves on,
-    // which left a green outline sitting around every row anyone ticked.
-    // This one clears itself the moment its animation finishes.
+    // is-ticked, not is-target: is-target marks where a deep link landed and
+    // drives the settling of the whole list, while this one only lights the
+    // ticked row and clears itself the moment its animation finishes.
     row.classList.add("is-ticked");
     var clear = function () {
       row.classList.remove("is-ticked");

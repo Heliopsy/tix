@@ -6,7 +6,7 @@
   </div>
   <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "key-new" (t "Enrol a key") "plus" "" .Here)}}</div>
 </div>
-<table>
+<table class="rows">
   <thead><tr><th>{{t "Fingerprint"}}</th>{{if .Columns.Show "sshkeys" "label"}}<th>{{t "Label"}}</th>{{end}}{{if .Columns.Show "sshkeys" "added"}}<th>{{t "Added"}}</th>{{end}}{{if .Columns.Show "sshkeys" "used"}}<th>{{t "Last used"}}</th>{{end}}<th>{{t "State"}}</th><th></th></tr></thead>
   <tbody>
   {{range .Data.Keys}}

@@ -330,7 +330,7 @@ func TestWorkflowsThatDisagreeRefuseTheBoardAndNameThem(t *testing.T) {
 	if !strings.Contains(fault, "Default") {
 		t.Errorf("the refusal does not name the workflows:\n%s", fault)
 	}
-	if !strings.Contains(page, `<ul class="tasklist">`) {
+	if !strings.Contains(page, `<ul class="tasklist rows">`) {
 		t.Errorf("the refusal did not fall back to the list:\n%s", page)
 	}
 	for _, ref := range []string{first, second, third} {

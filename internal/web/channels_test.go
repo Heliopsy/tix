@@ -67,7 +67,7 @@ func TestSettingsAddsAChannelAndShowsItsSecretOnce(t *testing.T) {
 		}
 	}
 	settings := b.page("/settings")
-	if list := between(t, settings, `<ul class="plain channels">`, "</ul>"); !strings.Contains(list, "phone") {
+	if list := between(t, settings, `<ul class="plain channels rows">`, "</ul>"); !strings.Contains(list, "phone") {
 		t.Fatalf("settings does not list the channel:\n%s", list)
 	}
 	assertChannelsInACard(t, between(t, settings, `<section class="setgroup" id="notifications">`, "</section>"), true)
@@ -129,7 +129,7 @@ func TestChannelFormsRefuseInPlaceTestAndRemove(t *testing.T) {
 
 	b.post(page+"/test", url.Values{})
 	screen := b.page(page)
-	if !strings.Contains(between(t, screen, `<table class="deliveries">`, "</table>"), "test") {
+	if !strings.Contains(between(t, screen, `<table class="rows deliveries">`, "</table>"), "test") {
 		t.Fatal("the test delivery is not listed")
 	}
 	if !strings.Contains(screen, `action="`+page+`/redeliver">`) {
