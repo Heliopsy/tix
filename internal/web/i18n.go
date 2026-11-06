@@ -4,6 +4,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -128,7 +129,11 @@ func translators(lang string) template.FuncMap {
 		"t": func(key string, args ...any) string { return i18n.T(lang, key, args...) },
 		// #nosec G203 -- key is a literal in a template, and every catalog
 		// entry for it is checked to carry the same markup as the key.
-		"th":  func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
+		"th": func(key string) template.HTML { return template.HTML(i18n.T(lang, key)) },
+		// tt translates a sentence that carries markup in its arguments, such
+		// as a timestamp from when: the sentence is escaped, an HTML argument
+		// is not.
+		"tt":  func(key string, args ...any) template.HTML { return translateHTML(lang, key, args...) },
 		"tn":  func(one, other string, n int, args ...any) string { return i18n.N(lang, one, other, n, args...) },
 		"tc":  func(ctx, text string) string { return i18n.C(lang, ctx, text) },
 		"tip": newTip,
@@ -243,4 +248,20 @@ func jsMessagesFor(lang string) template.JS {
 	// #nosec G203 -- JSON marshalled from the compiled-in catalog, rendered
 	// into a script element of type application/json.
 	return template.JS(out)
+}
+
+// translateHTML translates key with its arguments, escaping the translated
+// text and every argument but one already rendered as HTML.
+func translateHTML(lang, key string, args ...any) template.HTML {
+	text := template.HTMLEscapeString(i18n.T(lang, key))
+	safe := make([]any, len(args))
+	for i, a := range args {
+		if h, ok := a.(template.HTML); ok {
+			safe[i] = string(h)
+			continue
+		}
+		safe[i] = template.HTMLEscapeString(fmt.Sprint(a))
+	}
+	// #nosec G203 -- the text and every non-HTML argument are escaped above.
+	return template.HTML(fmt.Sprintf(text, safe...))
 }

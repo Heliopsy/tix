@@ -501,6 +501,11 @@ colour escapes, even with `--color` forced. `-q` suppresses diagnostics (not
 errors, which still go to stderr with a nonzero exit), and it does not
 suppress the command's own result table.
 
+Timestamps in `json`, `yaml`, `ndjson` and `csv` are always RFC 3339 in UTC.
+Only the `table` format follows a date preference (the person's own from
+`tix user time`, the tenant's default, or the deployment's
+`output.time_format`), so never parse a date out of a table.
+
 ```console
 $ tix claim next -p default -s todo -o json -q
 {
@@ -564,7 +569,7 @@ title you give it, `#`, `@` and `!` included, so pass issue titles and commit
 subjects as they are. `--parse` reads quick-add syntax out of the line instead:
 `tix task add --parse 'Fix login !high #auth @raj due:fri +web ^infra-3'`.
 Prefer explicit flags in scripts; `--parse` is for a line a person wrote. A
-`due:` date there is read in the order `output.time_format` writes dates
+`due:` date there is read in the order the caller's date format writes dates
 (`due:06.11.2026` under `dotted`); `YYYY-MM-DD` reads the same everywhere and is
 what to write. Over HTTP the same switch is `"parse": true` on `POST /v1/tasks`,
 which reads `YYYY-MM-DD` only.

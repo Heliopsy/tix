@@ -13,9 +13,9 @@
     <tr>
       <td><code>{{.Fingerprint}}</code></td>
       {{if $.Columns.Show "sshkeys" "label"}}<td>{{.Label}}</td>{{end}}
-      {{if $.Columns.Show "sshkeys" "added"}}<td>{{compact .CreatedAt}}</td>{{end}}
-      {{if $.Columns.Show "sshkeys" "used"}}<td>{{stamp .LastUsedAt}}</td>{{end}}
-      <td>{{if .Active}}{{t "Active"}}{{else}}{{t "Revoked %s" (stamp .RevokedAt)}}{{end}}</td>
+      {{if $.Columns.Show "sshkeys" "added"}}<td>{{when .CreatedAt}}</td>{{end}}
+      {{if $.Columns.Show "sshkeys" "used"}}<td>{{when .LastUsedAt}}</td>{{end}}
+      <td>{{if .Active}}{{t "Active"}}{{else}}{{tt "Revoked %s" (when .RevokedAt)}}{{end}}</td>
       <td>
         {{if .Active}}
         <form method="post" action="/admin/ssh-keys/revoke">

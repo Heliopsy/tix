@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/query"
 )
 
@@ -48,21 +47,6 @@ func (snoozeForm) Presets() []snoozePreset { return snoozePresets }
 // on a lane card, whose own forms swap only the card.
 func newSnoozeForm(ref, next, csrf, id, card string) snoozeForm {
 	return snoozeForm{Ref: ref, Next: next, CSRF: csrf, ID: id, Card: card}
-}
-
-// readerStyle is the time style this request's pages render in, built the
-// way templatesFor builds it, so a toast and the page around it agree on the
-// zone and the layout.
-func (h *handler) readerStyle(r *http.Request) output.TimeStyle {
-	format, zone := timeFormatOf(r), timezoneOf(r)
-	if format == "" && zone == "" {
-		return h.style
-	}
-	style, err := output.NewTimeStyle(format, zone)
-	if err != nil {
-		return h.style
-	}
-	return style
 }
 
 // snoozeUntil reads when the reader asked the task to wake: a preset posted

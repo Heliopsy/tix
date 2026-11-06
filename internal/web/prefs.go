@@ -133,8 +133,6 @@ type Preference struct {
 var Preferences = []Preference{
 	{Cookie: ThemeCookie, Route: RouteTheme, Label: "Colour scheme", Sidebar: true},
 	{Cookie: KeySchemeCookie, Route: RouteKeyScheme, Label: "Keyboard shortcuts"},
-	{Cookie: TimeFormatCookie, Route: RouteTimeFormat, Label: "Date format"},
-	{Cookie: TimezoneCookie, Route: RouteTimezone, Label: "Timezone"},
 	{Cookie: AdvancedCookie, Route: RouteAdvanced, Label: "Advanced screens"},
 	{Cookie: DragMoveCookie, Route: RouteDragMove, Label: "Drag to move"},
 	{Cookie: OpenAfterAddCookie, Route: RouteOpenAfterAdd, Label: "Open a new task"},

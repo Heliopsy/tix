@@ -207,9 +207,7 @@ func TestQuickAddCountsDaysInTheReadersZone(t *testing.T) {
 		if err != nil {
 			t.Fatalf("loading %s: %v", zone, err)
 		}
-		b := f.as("alice")
-		resp := b.post("/timezone", url.Values{"timezone": {zone}, "next": {"/tasks"}})
-		_ = resp.Body.Close()
+		b := f.reader(t, "", zone)
 		got := b.page(web.RouteQuickAdd + "?title=" + url.QueryEscape("x due:today"))
 		if want := time.Now().In(loc).Format(time.DateOnly); !strings.Contains(got, want) {
 			t.Errorf("due:today for a reader in %s previewed as\n%s\nwant %s", zone, got, want)

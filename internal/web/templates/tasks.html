@@ -389,7 +389,7 @@
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
-          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
+          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{tt "until %s" (when .Task.SnoozedUntil)}}</span>{{end}}
           {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
@@ -576,7 +576,7 @@
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{ref .Task.Ref}}</span>{{end}}
-          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
+          {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{tt "until %s" (when .Task.SnoozedUntil)}}</span>{{end}}
         </div>
       </div>
       {{/* More actions: the one control the View menu cannot hide, so a
@@ -1049,7 +1049,7 @@
       {{with .Checklist}}{{template "checkmark" .}}{{end}}
       {{if snoozed .}}<a class="snoozemark" href="/tasks?q=is:snoozed" title="{{t "Snoozed until %s" (stamp .SnoozedUntil)}}{{with $r.Data.Names.Label .SnoozedByActorID}}, {{t "snoozed by %s" .}}{{end}}">{{t "until %s" (stamp .SnoozedUntil)}}</a>{{end}}
       </span>
-      {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when" title="{{t "Last updated %s" (compact .UpdatedAt)}}"><span class="when-label">{{t "updated"}}</span> {{compact .UpdatedAt}}</span></span>{{end}}
+      {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when"><span class="when-label">{{t "updated"}}</span> {{when .UpdatedAt}}</span></span>{{end}}
       {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{ref .Ref}}</span></span>{{end}}
     </span>
     {{/* The whole listing and its count are swapped, not the row: a restored
