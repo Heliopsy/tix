@@ -480,7 +480,7 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
-		name: "date settings round-trip",
+		name:   "date settings round-trip",
 		covers: []string{"GetTimeSettings", "SetTimePrefs"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
 			dotted, zone := "dotted", "Asia/Tokyo"
