@@ -216,6 +216,7 @@ func TestRunSyncDryRunReportsUnmatchedUsers(t *testing.T) {
 
 func TestRunSyncPlaceholderCarriesTheAssignmentAcrossRuns(t *testing.T) {
 	f := newOpenProjectFixture(t, "placeholder")
+	f.bump("2", `"assignee": {"href": null}`, `"assignee": {"href": "/api/v3/users/12", "title": "Nobody Known"}`)
 	res := f.run(t, false)
 	if !anyContains(res.Warnings, "1 assignee has no tix actor and got placeholder actors: Nobody Known") {
 		t.Errorf("warnings = %v", res.Warnings)
@@ -246,6 +247,9 @@ func TestRunSyncPlaceholderCarriesTheAssignmentAcrossRuns(t *testing.T) {
 	task := f.byTitle(t)["Fix the sign-in loop"]
 	if task.AssigneeActorID != placeholder.ID {
 		t.Fatalf("assignee = %q, want the placeholder %q", task.AssigneeActorID, placeholder.ID)
+	}
+	if got := f.byTitle(t)["Vendor lock-in"].AssigneeActorID; got != placeholder.ID {
+		t.Errorf("second record of the run assigned to %q, want the same placeholder %q", got, placeholder.ID)
 	}
 	if _, kept := task.CustomFields["op_assignee"]; kept {
 		t.Errorf("custom fields = %v; a carried assignment needs no fallback field", task.CustomFields)
