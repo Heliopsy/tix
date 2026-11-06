@@ -5,7 +5,11 @@
 // marshal. It carries no behaviour and depends on nothing but internal/core.
 package wire
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"strings"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // APIPrefix is the versioned namespace every resource route lives under.
 const APIPrefix = "/api/v1"
@@ -126,6 +130,9 @@ const (
 
 	RouteExport = APIPrefix + "/export"
 	RouteImport = APIPrefix + "/import"
+
+	// RouteProjectTaskExport writes one project's tasks as a file.
+	RouteProjectTaskExport = APIPrefix + "/projects/{ref}/tasks/export"
 
 	RouteSyncSources = APIPrefix + "/sync/sources"
 	RouteSyncSource  = APIPrefix + "/sync/sources/{id}"
@@ -249,6 +256,39 @@ const TenantSelf = "~"
 // ContentCSV is the media type a task listing is served as when a client asks
 // for CSV.
 const ContentCSV = "text/csv"
+
+// ContentMarkdown is the media type a task export is served as in Markdown.
+const ContentMarkdown = "text/markdown"
+
+// TaskExportFilename is the download name of a project's task export. Only
+// letters, digits, dashes and underscores of the project reference survive,
+// so the name cannot break out of the header that carries it.
+func TaskExportFilename(project, ext string) string {
+	var b strings.Builder
+	for _, r := range project {
+		if r == '-' || r == '_' || (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "tasks." + ext
+	}
+	return strings.ToLower(b.String()) + "-tasks." + ext
+}
+
+// TaskFormatContent is the media type a task export in a format is served as.
+func TaskFormatContent(format string) string {
+	switch format {
+	case "json":
+		return ContentJSON
+	case "ndjson":
+		return ContentNDJSON
+	case "markdown":
+		return ContentMarkdown
+	default:
+		return ContentCSV
+	}
+}
 
 // HeaderNextCursor names the cursor of the next page on a CSV listing, which
 // has no envelope to carry it in.

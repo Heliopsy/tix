@@ -836,6 +836,16 @@ in the order the list draws them. Cells are quoted the RFC 4180 way, and a cell 
 running it as a formula. `tix task ls -o csv` and `GET /api/v1/tasks?format=csv` export with a fixed set of
 columns.
 
+## Exporting a project
+
+**Export** in a project's header opens a dialog that writes the project's tasks as CSV, JSON, NDJSON or a
+Markdown table. It takes a filter in the task list's language, whether finished tasks, subtasks and the trash
+are included, the date style (ISO, the day alone, or the date format and timezone you chose on the settings
+screen, for a spreadsheet), the CSV separator and the columns. Every column has an up and a down arrow, and
+the ticked ones are written in the order shown. The download streams, so a large project starts at once. A
+filter that does not parse brings the dialog back with your choices and the reason under the field. See
+[import-export.md](import-export.md).
+
 ## Task templates
 
 A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the

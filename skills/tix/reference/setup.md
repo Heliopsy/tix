@@ -287,6 +287,21 @@ $ tix import < snapshot.json
 error: invalid: import mode is required; there is no default because replace is destructive
 ```
 
+One project's tasks go out as a file another tool reads, CSV by default:
+
+```sh
+tix export tasks -p infra --format json --columns ref,title,status,due
+tix export tasks -p infra --query 'tag:ops' --out ops.csv
+```
+
+`--query` takes the task list's filter language, `--columns` picks and orders
+the fields (`custom:KEY` for a custom field), `--finished=false` and
+`--subtasks=false` leave those out (both are in by default, the trash is not
+unless `--trashed`), and a CSV cell starting with
+`= + - @` gets a leading quote. It needs the `export` scope, which a token
+pinned to a project has only for its own. To read one task, `tix task show REF
+-o json` is cheaper.
+
 A bundle is the opposite choice: reusable configuration and **never work
 items**, so sharing a way of working cannot disclose what anyone is working
 on. Webhook endpoints travel without their signing secrets and arrive

@@ -370,3 +370,62 @@ test("closing a dialog the address never named leaves the address alone", () => 
   forms.forgetDialog("manage-user-02");
   assert.deepEqual(replaced, []);
 });
+
+// An ordered list of choices, such as the columns of a task export: each
+// row's arrows move it, and the end rows stay put.
+function orderList(names) {
+  const list = {
+    rows: [],
+    insertBefore(node, ref) {
+      this.rows.splice(this.rows.indexOf(node), 1);
+      this.rows.splice(this.rows.indexOf(ref), 0, node);
+    },
+  };
+  for (const name of names) {
+    const row = {
+      name,
+      parentNode: list,
+      get previousElementSibling() { return list.rows[list.rows.indexOf(this) - 1] || null; },
+      get nextElementSibling() { return list.rows[list.rows.indexOf(this) + 1] || null; },
+    };
+    list.rows.push(row);
+  }
+  return list;
+}
+
+function moveButton(list, name, dir) {
+  const row = list.rows.find((r) => r.name === name);
+  const btn = node({ "data-colmove": dir }, { li: row });
+  btn.focused = false;
+  btn.focus = () => { btn.focused = true; };
+  btn.closest = (sel) => (sel === "button[data-colmove]" ? btn : sel === "li" ? row : null);
+  return btn;
+}
+
+test("a column moves up and down by one, and the ends stay put", () => {
+  const { forms } = load();
+  const list = orderList(["ref", "title", "status"]);
+  const click = (name, dir) => {
+    let prevented = false;
+    const btn = moveButton(list, name, dir);
+    const handled = forms.onColumnMove({ target: btn, preventDefault() { prevented = true; } });
+    assert.equal(handled, true);
+    assert.equal(prevented, true);
+    return btn;
+  };
+  const btn = click("status", "up");
+  assert.deepEqual(list.rows.map((r) => r.name), ["ref", "status", "title"]);
+  assert.equal(btn.focused, true);
+  click("ref", "down");
+  assert.deepEqual(list.rows.map((r) => r.name), ["status", "ref", "title"]);
+  click("status", "up");
+  click("title", "down");
+  assert.deepEqual(list.rows.map((r) => r.name), ["status", "ref", "title"]);
+});
+
+test("a click anywhere else is not a column move", () => {
+  const { forms } = load();
+  const target = node({}, {});
+  target.closest = () => null;
+  assert.equal(forms.onColumnMove({ target, preventDefault() { throw new Error("prevented"); } }), false);
+});

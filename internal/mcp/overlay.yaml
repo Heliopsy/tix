@@ -74,6 +74,15 @@ operations:
     destructive: false
     reason: resets a personal column arrangement to its default and loses no task data
 
+  # A POST that only reads: the export's choices travel as a body.
+  task.export:
+    read_only: true
+    reason: writes a project's tasks out as a file and changes nothing
+    description: |-
+      Write one project's tasks as CSV (the default), JSON, NDJSON or a Markdown table. Pass format json for
+      records a model can read, columns to choose and order the fields, and query for the task list's filter.
+      To read one task, task_show is quicker.
+
   # Not a DELETE, but loses work or data all the same.
   task.bulk:
     destructive: true
