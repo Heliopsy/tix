@@ -1223,6 +1223,7 @@ select[multiple] {
    the browser's own native behaviour, with no script involved and nothing
    that breaks if JavaScript is off. */
 .file-field {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1231,9 +1232,14 @@ select[multiple] {
   cursor: pointer;
 }
 
-.file-field input[type="file"] {
+/* The second selector outranks the .cform rule that stretches every input to
+   width: 100%; a stretched hidden input in a form scrolled the import screen
+   sideways by its full width. */
+.file-field input[type="file"],
+.cform label.file-field input[type="file"] {
   position: absolute;
   width: 1px;
+  max-width: 1px;
   height: 1px;
   padding: 0;
   margin: -1px;
