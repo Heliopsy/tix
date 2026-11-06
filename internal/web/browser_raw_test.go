@@ -22,14 +22,27 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			if path != "/activity" {
 				page.eval(t, `document.getElementById("history").open = true`, nil)
 			}
+			// The press waits on explicit signals, not the clock: the live
+			// feed has drawn everything it was asked to (a refresh landing
+			// between measuring and pressing moves the row, and the press
+			// hits whatever slid under it), htmx has wired the control, and
+			// the point about to be pressed is the control itself. Without
+			// them a slow runner pressed empty space and waited for a dialog
+			// that was never asked for.
+			ready := `(() => { const b = ` + btn + `; if (!b || !window.tix.liveSettled() || !b["htmx-internal-data"]) return false;
+				b.scrollIntoView({block: "center"});
+				const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+				return !!hit && hit.closest("a.rawopen") === b; })()`
 			click := func() {
-				page.eval(t, btn+`.scrollIntoView({block: "center"})`, nil)
+				page.waitFor(t, ready, "Raw never settled under the pointer, wired by htmx")
 				x, y := page.point(t, `(() => { const r = `+btn+`.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`)
 				page.mouse("mouseMoved", x, y)
 				page.mouse("mousePressed", x, y)
 				page.mouse("mouseReleased", x, y)
 			}
+			page.eval(t, `window.__rawFetched = 0; document.addEventListener("htmx:afterRequest", () => { window.__rawFetched++; })`, nil)
 			click()
+			page.waitFor(t, `window.__rawFetched > 0 || `+dlg+`?.open`, "pressing Raw neither fetched its dialog nor opened one")
 			page.waitFor(t, dlg+`?.matches(":modal")`, "Raw did not open its dialog as a modal one")
 			var address string
 			page.eval(t, `location.pathname + location.search`, &address)
