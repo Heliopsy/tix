@@ -246,7 +246,11 @@ func (h *handler) stageImport(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return h.refuseImportUpload(w, r, project, err)
 	}
-	if mapping := uploadedMapping(r); mapping != "" {
+	mapping, err := uploadedMapping(r)
+	if err != nil {
+		return h.refuseImportUpload(w, r, project, core.OnField(err, "mapping_file"))
+	}
+	if mapping != "" {
 		if _, err := taskio.ParseMapping([]byte(mapping)); err != nil {
 			return h.refuseImportUpload(w, r, project, core.OnField(err, "mapping_file"))
 		}
@@ -299,25 +303,6 @@ func uploadedImport(r *http.Request) (string, []byte, error) {
 		return "", nil, core.Invalid("the uploaded file could not be read").WithDetail(core.DetailField, "file")
 	}
 	return files[0].Filename, buf.Bytes(), nil
-}
-
-// uploadedMapping is a mapping file sent with the upload, if any.
-func uploadedMapping(r *http.Request) string {
-	if r.MultipartForm == nil {
-		return ""
-	}
-	files := r.MultipartForm.File["mapping_file"]
-	if len(files) == 0 || files[0].Size == 0 {
-		return ""
-	}
-	f, err := files[0].Open()
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = f.Close() }()
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(f)
-	return buf.String()
 }
 
 // stagedImport resolves the project and the reader's own stage a step names.

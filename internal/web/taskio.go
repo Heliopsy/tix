@@ -121,14 +121,12 @@ func (h *handler) exportProjectTasks(w http.ResponseWriter, r *http.Request) err
 // draw instants. A relative time cannot be read back, so it is written in
 // the ISO style instead.
 func (h *handler) exportStyle(r *http.Request) (string, string) {
-	format, zone := timeFormatOf(r), timezoneOf(r)
-	if format == "" || format == output.TimeRelative {
+	style := h.readerStyle(r)
+	format := style.Name()
+	if format == output.TimeRelative {
 		format = output.TimeISO
 	}
-	if zone == "" {
-		zone = h.readerStyle(r).Location().String()
-	}
-	return format, zone
+	return format, style.Location().String()
 }
 
 // lazyDownload sends a download's headers with its first byte, so an error
