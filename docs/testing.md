@@ -341,11 +341,14 @@ green before a merge. `just ui-regression` runs the same steps locally:
 | --- | --- | --- |
 | Page check on every route | `just ui-check` | every route at `phone` and `fullhd`, light and dark, `--hostile --strict` |
 | Task rows and cards | `just ui-rows` | the listings at phone, tablet and laptop |
-| Browser tests | `just ui-browser` | the Go tests named `*InABrowser`, which drive a real Chrome |
+| Browser tests | `just ui-browser` | the Go tests named `*InABrowser`, which drive a real Chrome, and the launcher's tests |
 | JavaScript tests | `just jstest` | `internal/web/jstest` |
 
-A test that drives a browser is named `...InABrowser` so this job picks it up. `ui-browser` retries once
-when Chrome never writes `DevToolsActivePort`, a known runner flake, and never for any other failure.
+A test that drives a browser is named `...InABrowser` so this job picks it up, and starts Chrome through
+`launchChrome` in `internal/web`. Chrome on a loaded runner sometimes never writes `DevToolsActivePort`;
+the launcher gives it 45 seconds, notices at once when it exits instead, and tries again up to three
+times, each with a fresh profile, with `--disable-dev-shm-usage` and `--no-sandbox`. Its own tests drive a
+stand-in browser that fails twice before starting.
 
 The screenshots and contact sheet are uploaded as the `ui-regression-screenshots` artifact when the job
 fails, and kept for five days when a pull request touches `internal/web` or `scripts/screenshots`.

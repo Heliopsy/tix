@@ -218,7 +218,8 @@ Rules for a batch of agents working at once, each learned the slow way.
   a PR with a failed check once. Rerun a failed job only for a known flake,
   with `gh run rerun ID --failed`, and name it in the PR: #102, the SSH timing
   tests; Chrome failing to start in `TestBoardCardsDragBetweenColumnsInABrowser`
-  ("DevToolsActivePort"); macOS jobs cancelled before any step ran during a
+  ("DevToolsActivePort", now retried by `launchChrome` itself, so a recurrence
+  is worth a look); macOS jobs cancelled before any step ran during a
   GitHub outage.
 - **Rebase once, when it is your turn.** A PR waiting behind another does
   nothing until that one merges, then rebases once and pushes. Rebasing on

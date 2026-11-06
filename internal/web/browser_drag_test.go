@@ -249,33 +249,10 @@ type cdpReply struct {
 // helper processes on macOS still writing into the profile as it was deleted.
 func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 	t.Helper()
-	profile, err := os.MkdirTemp("", "tix-chrome-")
+	proc, endpoint, err := startChromeRetrying(chrome, chromeAttempts, chromePortWait, t.Logf)
 	if err != nil {
-		t.Fatalf("making a Chrome profile: %v", err)
+		t.Fatal(err)
 	}
-	// Not CommandContext: the test's context is cancelled before cleanups
-	// run, and that would kill the browser before it is asked to close.
-	// #nosec G204 -- the browser path is resolved from PATH or the test's own environment.
-	cmd := exec.Command(chrome,
-		"--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
-		"--no-first-run", "--no-default-browser-check", "--disable-gpu",
-		"--disable-extensions", "--disable-background-networking", "--no-sandbox",
-		"--window-size=1400,900",
-		// Headless Chrome has no pointing device, so it answers pointer: none
-		// and the board, which offers dragging only to a fine pointer, turns
-		// it off. Tell it there is a mouse (Blink's PointerType fine is 4),
-		// and that the mouse hovers (HoverType hover is 2), or no hover
-		// effect would apply for the row test to read.
-		"--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
-		"about:blank")
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("starting %s: %v", chrome, err)
-	}
-	exited := make(chan struct{})
-	go func() {
-		_ = cmd.Wait()
-		close(exited)
-	}()
 	var conn *websocket.Conn
 	// The socket lives until the browser is closed, not until the test's own
 	// context ends: websocket closes a connection whose read is cancelled.
@@ -287,46 +264,13 @@ func launchChrome(ctx context.Context, t *testing.T, chrome string) *cdpPage {
 			_ = conn.Write(closing, websocket.MessageText, []byte(`{"id":999999,"method":"Browser.close"}`))
 			cancel()
 		}
-		select {
-		case <-exited:
-		case <-time.After(5 * time.Second):
-			_ = cmd.Process.Kill()
-			<-exited
+		if !proc.stop(5 * time.Second) {
+			t.Logf("could not remove the Chrome profile %s", proc.profile)
 		}
 		if conn != nil {
 			_ = conn.CloseNow()
 		}
-		// Helpers can outlive the main process by a moment.
-		for i := 0; i < 20; i++ {
-			if os.RemoveAll(profile) == nil {
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		t.Logf("could not remove the Chrome profile %s", profile)
 	})
-
-	var endpoint string
-	deadline := time.Now().Add(20 * time.Second)
-	for endpoint == "" {
-		if time.Now().After(deadline) {
-			t.Fatal("Chrome never wrote DevToolsActivePort")
-		}
-		file, err := os.Open(filepath.Join(profile, "DevToolsActivePort"))
-		if err == nil {
-			scan := bufio.NewScanner(file)
-			var lines []string
-			for scan.Scan() {
-				lines = append(lines, scan.Text())
-			}
-			_ = file.Close()
-			if len(lines) >= 2 {
-				endpoint = "ws://127.0.0.1:" + lines[0] + lines[1]
-				break
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
 
 	dialled, resp, err := websocket.Dial(ctx, endpoint, nil)
 	if resp != nil && resp.Body != nil {
@@ -539,4 +483,148 @@ func (p *cdpPage) open(t *testing.T, address string) {
 	if drag.Attr != "1" || !drag.Fine {
 		t.Fatalf("the board would not offer dragging here (data-drag=%q, pointer fine=%v)", drag.Attr, drag.Fine)
 	}
+}
+
+// Chrome on a loaded CI runner sometimes never writes DevToolsActivePort: it
+// starts, stalls or dies before the port is up, and the test failed on the
+// browser rather than on the board. Each attempt gets a fresh profile, since
+// a half-written one is a reason the next start fails too, and a browser that
+// exits early is noticed at once rather than waited out.
+const (
+	chromeAttempts = 3
+	chromePortWait = 45 * time.Second
+)
+
+// chromeProc is one started browser and the profile it owns.
+type chromeProc struct {
+	cmd     *exec.Cmd
+	exited  chan struct{}
+	profile string
+	stderr  *tailBuffer
+}
+
+// tailBuffer keeps the last few kilobytes written to it, for an error message.
+type tailBuffer struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (b *tailBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, p...)
+	if len(b.buf) > 4096 {
+		b.buf = b.buf[len(b.buf)-4096:]
+	}
+	return len(p), nil
+}
+
+func (b *tailBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
+}
+
+func startChromeRetrying(chrome string, attempts int, wait time.Duration, logf func(string, ...any)) (*chromeProc, string, error) {
+	var last error
+	for i := 1; i <= attempts; i++ {
+		proc, endpoint, err := startChrome(chrome, wait)
+		if err == nil {
+			return proc, endpoint, nil
+		}
+		last = err
+		logf("Chrome start %d of %d: %v", i, attempts, err)
+	}
+	return nil, "", fmt.Errorf("chrome did not start in %d attempts: %w", attempts, last)
+}
+
+func startChrome(chrome string, wait time.Duration) (*chromeProc, string, error) {
+	profile, err := os.MkdirTemp("", "tix-chrome-")
+	if err != nil {
+		return nil, "", fmt.Errorf("making a Chrome profile: %w", err)
+	}
+	// Not CommandContext: the test's context is cancelled before cleanups
+	// run, and that would kill the browser before it is asked to close.
+	// #nosec G204 -- the browser path is resolved from PATH or the test's own environment.
+	cmd := exec.Command(chrome,
+		"--headless=new", "--remote-debugging-port=0", "--user-data-dir="+profile,
+		"--no-first-run", "--no-default-browser-check", "--disable-gpu",
+		"--disable-extensions", "--disable-background-networking", "--no-sandbox",
+		// A container's /dev/shm is 64MB, which a renderer outgrows and then
+		// crashes on; /tmp has no such limit.
+		"--disable-dev-shm-usage",
+		"--window-size=1400,900",
+		// Headless Chrome has no pointing device, so it answers pointer: none
+		// and the board, which offers dragging only to a fine pointer, turns
+		// it off. Tell it there is a mouse (Blink's PointerType fine is 4),
+		// and that the mouse hovers (HoverType hover is 2), or no hover
+		// effect would apply for the row test to read.
+		"--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2",
+		"about:blank")
+	stderr := &tailBuffer{}
+	cmd.Stderr = stderr
+	if err := cmd.Start(); err != nil {
+		_ = os.RemoveAll(profile)
+		return nil, "", fmt.Errorf("starting %s: %w", chrome, err)
+	}
+	proc := &chromeProc{cmd: cmd, exited: make(chan struct{}), profile: profile, stderr: stderr}
+	go func() {
+		_ = cmd.Wait()
+		close(proc.exited)
+	}()
+	deadline := time.Now().Add(wait)
+	for {
+		if endpoint := devToolsEndpoint(profile); endpoint != "" {
+			return proc, endpoint, nil
+		}
+		select {
+		case <-proc.exited:
+			proc.stop(0)
+			return nil, "", fmt.Errorf("chrome exited before writing DevToolsActivePort: %s", stderr)
+		default:
+		}
+		if time.Now().After(deadline) {
+			proc.stop(time.Second)
+			return nil, "", fmt.Errorf("chrome never wrote DevToolsActivePort in %s: %s", wait, stderr)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// devToolsEndpoint reads the browser's websocket address from its profile,
+// or returns "" while the file is missing or half written.
+func devToolsEndpoint(profile string) string {
+	file, err := os.Open(filepath.Join(profile, "DevToolsActivePort"))
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = file.Close() }()
+	scan := bufio.NewScanner(file)
+	var lines []string
+	for scan.Scan() {
+		lines = append(lines, scan.Text())
+	}
+	if len(lines) < 2 {
+		return ""
+	}
+	return "ws://127.0.0.1:" + lines[0] + lines[1]
+}
+
+// stop waits up to grace for the browser to exit, kills it after that, and
+// removes its profile. It reports whether the profile is gone.
+func (p *chromeProc) stop(grace time.Duration) bool {
+	select {
+	case <-p.exited:
+	case <-time.After(grace):
+		_ = p.cmd.Process.Kill()
+		<-p.exited
+	}
+	// Helpers can outlive the main process by a moment.
+	for i := 0; i < 20; i++ {
+		if os.RemoveAll(p.profile) == nil {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
 }

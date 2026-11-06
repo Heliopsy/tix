@@ -110,21 +110,11 @@ ui-check: build
     node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/ui-regression --hostile --strict \
       --viewports phone,fullhd --theme both --jobs "${TIX_UI_JOBS:-4}" --max-popups 15
 
-# The tests that drive a real browser, named *InABrowser. Chrome failing to
-# start ("never wrote DevToolsActivePort") is a known runner flake, retried
-# once; any other failure is not.
+# The tests that drive a real browser, named *InABrowser, and the tests of the
+# launcher they share, which retries a Chrome that never writes
+# DevToolsActivePort with a fresh profile.
 ui-browser:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    log=$(mktemp); trap 'rm -f "$log"' EXIT
-    for try in 1 2; do
-      go test ./internal/web/ -count=1 -run 'InABrowser' -timeout 10m -v 2>&1 | tee "$log"
-      rc=${PIPESTATUS[0]}
-      [ "$rc" -eq 0 ] && exit 0
-      grep -q 'DevToolsActivePort' "$log" || exit "$rc"
-      echo "Chrome did not start (try $try), retrying" >&2
-    done
-    exit "$rc"
+    go test ./internal/web/ -count=1 -run 'InABrowser|ChromeLaunch' -timeout 10m -v
 
 # After a version bump, update the versions and sha256 recorded in REUSE.toml.
 # Rebuild the description editor's Rich text library from scripts/vendor/prosemirror.
