@@ -140,6 +140,9 @@ func Suggest(headers []string, source string, fields []FieldInfo) map[string]Tar
 }
 
 func classify(h, source string, fields []FieldInfo) candidate {
+	if c, ok := exportColumn(h, source, fields); ok {
+		return c
+	}
 	f := fold(BaseHeader(h))
 	if source == SourceJira {
 		f = strings.TrimPrefix(f, "customfield")
@@ -189,4 +192,36 @@ func fallback(h string) Target {
 func isCustom(t Target) bool {
 	_, ok := t.CustomKey()
 	return ok
+}
+
+// exportColumns are the columns tix export tasks writes that map straight onto
+// a target of the same meaning, so a file tix wrote reads back with no mapping.
+var exportColumns = map[string]Target{
+	"ref": TargetRef, "title": TargetTitle, "body": TargetBody, "status": TargetStatus,
+	"priority": TargetPriority, "assignee": TargetAssignee, "tags": TargetTags, "due": TargetDue,
+	"parent": TargetParent, "depends_on": TargetDependsOn, "recurrence": TargetRecurrence,
+	"id": TargetAlias, "created_at": TargetIgnore, "updated_at": TargetIgnore, "started_at": TargetIgnore,
+	"completed_at": TargetIgnore, "deleted_at": TargetIgnore, "project": TargetIgnore,
+	"creator": TargetIgnore, "comments": TargetIgnore, "history": TargetIgnore,
+}
+
+// exportColumn recognises a column of a file tix wrote by its exact name, and
+// a custom field as custom:KEY or, flattened from JSON, custom.KEY in any file.
+func exportColumn(h, source string, fields []FieldInfo) (candidate, bool) {
+	if t, ok := exportColumns[h]; ok && source == SourceTix {
+		return candidate{t, -1}, true
+	}
+	key, ok := strings.CutPrefix(h, customPrefix)
+	if !ok {
+		key, ok = strings.CutPrefix(h, "custom.")
+	}
+	if !ok {
+		return candidate{}, false
+	}
+	for _, fi := range fields {
+		if fi.Key == key {
+			return candidate{CustomTarget(key), -1}, true
+		}
+	}
+	return candidate{}, false
 }

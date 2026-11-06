@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package taskio turns a foreign file of tasks into normalised draft rows
-// under a user-editable column and value mapping.
 package taskio
 
 import (

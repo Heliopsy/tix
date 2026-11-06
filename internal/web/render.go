@@ -257,6 +257,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"exportDlg":        newExportDialog,
 		"exportFormat":     exportFormatLabel,
 		"delimiterLabel":   delimiterLabel,
+		"importCount":      importCount,
 		"monogram":         monogramOf,
 		"navGroup":         newNavGroup,
 		"compact":          style.Format,

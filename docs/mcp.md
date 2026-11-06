@@ -255,12 +255,16 @@ Three rules decide which tools a session is offered, on top of the overlay.
   startup, from `GET /api/v1/whoami`.
 - **Destructive.** A tool that deletes or cannot be undone is left out unless `--allow-destructive` is given or
   the overlay enables it. Every `DELETE` is destructive unless the overlay says otherwise, and the overlay marks
-  the few that are not deletes but lose data all the same: `task_bulk`, `claim_reclaim`, `retention_prune` and
-  `housekeeping_run`. It marks the global admin tools that hand out authority the same way: `tenant_create`,
-  `global_admin_grant`, `tenant_user_create` and `tenant_user_update`. A model that is wrong about one task should
-  cost one task, not a project.
+  the few that are not deletes but lose data all the same: `task_bulk`, `claim_reclaim`, `retention_prune`,
+  `housekeeping_run` and `task_import`, which can create or overwrite hundreds of tasks in one call. It marks the
+  global admin tools that hand out authority the same way: `tenant_create`, `global_admin_grant`,
+  `tenant_user_create` and `tenant_user_update`. A model that is wrong about one task should cost one task, not a
+  project.
 - **Global admin.** A global admin tool needs the token to name `global:admin` and the server to report the actor
   as a global admin when `tix mcp` starts; `*` does not carry it. See [tenancy.md](tenancy.md#global-admins).
+
+An agent adding a handful of tasks creates each one with the task create tool rather than asking for the
+import; the import's description says so.
 
 A token without `task:delete` is never offered `task_delete`, with or without the flag.
 

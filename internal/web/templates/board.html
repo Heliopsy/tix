@@ -9,6 +9,7 @@
     <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
   </div>
   <div class="pagehead-tools">
+    {{if .Data.Import}}<a class="btn secondary" href="/projects/{{.Data.Project.Key}}/import">{{template "icon" "upload"}}<span class="btn-label">{{t "Import"}}</span></a>{{end}}
     {{if .Data.Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary" .Here)}}{{end}}
     <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
   </div>

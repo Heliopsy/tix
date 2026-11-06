@@ -519,7 +519,7 @@ func TestNoCLIGapRemains(t *testing.T) {
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 43,
+		capability.SurfaceTUI: 44,
 		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}

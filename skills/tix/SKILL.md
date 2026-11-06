@@ -93,6 +93,14 @@ as `DEFAULT-1`; JSON, YAML and NDJSON keep the stored `default-1`, so parse
 those. Every argument, `-p` value and `project:` filter takes a key or a ref in
 any case.
 
+**To add N tasks, call `task add` N times** (or `POST /api/v1/tasks`, or the
+MCP task create tool). Do not reach for an import and a mapping file for tasks
+you are making up. A plan already written as a list reads in one call with no
+mapping, one task per line in quick-add syntax, all lines or none:
+`printf 'step one ^default-1\nstep two !high\n' | tix import tasks -p default --lines -`.
+`tix import tasks FILE` is for files another tool wrote; see
+[reference/setup.md](reference/setup.md).
+
 **Subtasks and dependencies are deliberately different things, and you want
 both.**
 
@@ -824,6 +832,8 @@ Targets, contexts, tokens and scopes are in
   the release fails after the child already ran.
 - Do not assume `claim task REF` screened the task for you. It hands out
   blocked tasks; `claim next` does not.
+- Do not write a mapping file to add a few tasks. `task add` per task, or
+  `import tasks --lines`, needs none.
 - Do not leave abandoned work in `doing`. Move it to `cancelled`, which is
   terminal, so whatever depends on it stops waiting.
 
