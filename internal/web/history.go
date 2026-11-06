@@ -135,6 +135,9 @@ func continuesChain(groups []historyGroup, row historyRow) bool {
 	if last.Entry.Action != "task.transition" || last.Entry.ActorID != row.Entry.ActorID {
 		return false
 	}
+	if last.Entry.Via.Known().Kind != row.Entry.Via.Known().Kind {
+		return false
+	}
 	if last.Entry.SubjectType != row.Entry.SubjectType || last.Entry.SubjectID != row.Entry.SubjectID {
 		return false
 	}

@@ -34,6 +34,8 @@ const EnvToken = "TIX_TOKEN"
 // globals holds every flag that applies to every command, plus the process
 // environment so the whole tree can be exercised without touching the machine.
 type globals struct {
+	// clientHint names this process to a remote server; tix mcp sets mcp.
+	clientHint  string
 	configPath  string
 	contextName string
 	db          string
@@ -447,6 +449,7 @@ func (g *globals) overrides() connect.Overrides {
 		Environ:        g.environ,
 		DrainMode:      g.drainMode,
 		AllowNetworkFS: g.allowNetworkFS,
+		ClientHint:     g.clientHint,
 	}
 }
 

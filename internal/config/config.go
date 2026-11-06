@@ -340,6 +340,9 @@ type CLI struct {
 	// TargetNotice prints the one line naming the local database a command
 	// used when no target was configured.
 	TargetNotice bool `yaml:"target_notice"`
+	// RecordHost adds the host name and operating-system user to the access
+	// channel of every change a command makes against a database directly.
+	RecordHost bool `yaml:"record_host"`
 }
 
 // Web holds the settings of the browser interface. PageSize is how many rows

@@ -614,7 +614,11 @@
          inside the sentence. One of the two had to go, and the one in the
          sentence is the one that reads; what is left here is when it
          happened and which surface it came from. */}}
-    <span class="muted when">{{whenRel .Group.Latest.Entry.OccurredAt}} &middot; {{.Group.Source}}</span>
+    <span class="muted when">{{whenRel .Group.Latest.Entry.OccurredAt}}</span>
+    {{/* The channel links to the feed narrowed to it, and to the token when
+         the change was made with one; its details are in the hover and in
+         the raw view below. */}}
+    <a class="via-link" href="{{.ViaHref}}">{{template "via" .Group.Channel}}</a>
     {{/* Ordered after the row's own timestamp and actor, and always its own
          full-width flex line (see .feed-raw in app.css), so opening it can
          never push those two spans around: everything they need is already
@@ -627,6 +631,7 @@
           <div><dt>{{t "When"}}</dt><dd class="mono">{{when .Entry.OccurredAt}}</dd></div>
           <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
           {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
+          {{template "via-fields" .Channel}}
         </dl>
         {{end}}
       </div>
@@ -636,6 +641,16 @@
   <li class="empty">{{if .Data.Query.Active}}{{t "Nothing here matches that filter, anywhere in this tenant's history."}} <a href="/activity">{{t "Clear the filter to see everything."}}</a>{{else}}{{t "No recorded activity."}}{{end}}</li>
 {{end}}
 {{end}}
+
+{{/* via is a recorded change's access channel: an icon and a few words,
+     "via SSH" or "via token ci-agent", with every detail the entry recorded
+     (address, key fingerprint, token, session) in the hover. via-fields is
+     the same detail as rows of a raw view's field list. */}}
+{{define "via"}}<span class="via via-{{.Kind}}"{{with .Details}} title="{{range $i, $d := .}}{{if $i}}
+{{end}}{{t $d.Label}}: {{$d.Value}}{{end}}"{{end}}>{{template "icon" .Icon}}<span>{{if .Arg}}{{t .Label .Arg}}{{else}}{{t .Label}}{{end}}</span></span>{{end}}
+
+{{define "via-fields"}}<div><dt>{{t "Channel"}}</dt><dd>{{template "via" .}}</dd></div>
+{{range .Details}}<div><dt>{{t .Label}}</dt><dd class="mono">{{.Value}}</dd></div>{{end}}{{end}}
 
 {{/* One symbol from assets/icons.svg, hidden from screen readers because
      the words beside it already say what it means. The sprite holds the

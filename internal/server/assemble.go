@@ -210,7 +210,7 @@ func workersFor(opts Options) []Worker {
 	if !opts.DisableSweep {
 		sweeper := lease.NewSweeper(
 			func(ctx context.Context, limit int) (int, error) {
-				return opts.Service.SweepLeases(systemContext(ctx, opts.TenantID), limit)
+				return opts.Service.SweepLeases(systemContext(ctx, opts.TenantID, JobLeaseSweep), limit)
 			},
 			lease.WithClock(opts.Clock),
 			lease.WithInterval(opts.SweepInterval),
@@ -222,7 +222,7 @@ func workersFor(opts Options) []Worker {
 
 		waker := lease.NewSweeper(
 			func(ctx context.Context, limit int) (int, error) {
-				return opts.Service.WakeSnoozed(systemContext(ctx, opts.TenantID), limit)
+				return opts.Service.WakeSnoozed(systemContext(ctx, opts.TenantID, JobSnoozeWake), limit)
 			},
 			lease.WithClock(opts.Clock),
 			lease.WithInterval(opts.SweepInterval),
@@ -273,10 +273,19 @@ func workersFor(opts Options) []Worker {
 	return workers
 }
 
+// Background jobs, as the access channel of what they change names them.
+const (
+	JobLeaseSweep   = "lease-sweep"
+	JobSnoozeWake   = "snooze-wake"
+	JobPrune        = "prune"
+	JobHousekeeping = "housekeeping"
+)
+
 // systemContext gives background work the identity it has no request to
-// borrow from.
-func systemContext(ctx context.Context, tenantID string) context.Context {
-	return core.WithSource(core.WithActor(ctx, core.SystemActor(tenantID)), core.SourceSystem)
+// borrow from, and names the job on the system channel.
+func systemContext(ctx context.Context, tenantID, job string) context.Context {
+	ctx = core.WithSource(core.WithActor(ctx, core.SystemActor(tenantID)), core.SourceSystem)
+	return core.WithVia(ctx, core.Via{Kind: core.ViaSystem, Job: job})
 }
 
 // systemRunner prunes as the system actor.
@@ -287,10 +296,10 @@ type systemRunner struct {
 
 // Prune removes records past their retention window.
 func (r systemRunner) Prune(ctx context.Context, in core.PruneInput) (*core.PruneResult, error) {
-	return r.service.Prune(systemContext(ctx, r.tenantID), in)
+	return r.service.Prune(systemContext(ctx, r.tenantID, JobPrune), in)
 }
 
 // RunHousekeeping applies the housekeeping policy as the system actor.
 func (r systemRunner) RunHousekeeping(ctx context.Context, in core.HousekeepingRunInput) (*core.HousekeepingResult, error) {
-	return r.service.RunHousekeeping(systemContext(ctx, r.tenantID), in)
+	return r.service.RunHousekeeping(systemContext(ctx, r.tenantID, JobHousekeeping), in)
 }

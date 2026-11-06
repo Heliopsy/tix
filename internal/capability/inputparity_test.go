@@ -165,7 +165,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix audit ls", core.AuditFilter{}, map[string]string{
 		"subject_type": "--subject-type", "subject_id": "--subject-id", "actor_ids": "--actor",
-		"actions": "--action", "sources": "--filter", "since": "--since", "until": "--until",
+		"actions": "--action", "sources": "--filter", "vias": "--via", "tokens": "--token", "since": "--since", "until": "--until",
 		"text": "--filter", "page": "--cursor",
 	}},
 	{"tix watch", core.EventFilter{}, map[string]string{

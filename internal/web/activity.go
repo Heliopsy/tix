@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -44,6 +45,7 @@ type activityGroup struct {
 	Subject     string
 	SubjectHref string
 	ActorHref   string
+	ViaHref     string
 	Accent      projectAccent
 }
 
@@ -55,6 +57,8 @@ type activityQuery struct {
 	Actor  string
 	Kind   string
 	Source string
+	Via    string
+	Token  string
 }
 
 // activityQueryFrom reads the filter out of a request's query string.
@@ -65,12 +69,14 @@ func activityQueryFrom(r *http.Request) activityQuery {
 		Actor:  strings.TrimSpace(q.Get("actor")),
 		Kind:   strings.TrimSpace(q.Get("kind")),
 		Source: strings.TrimSpace(q.Get("source")),
+		Via:    strings.TrimSpace(q.Get("via")),
+		Token:  strings.TrimSpace(q.Get("token")),
 	}
 }
 
 // Active reports whether anything is being filtered out.
 func (q activityQuery) Active() bool {
-	return q.Text != "" || q.Actor != "" || q.Kind != "" || q.Source != ""
+	return q.Text != "" || q.Actor != "" || q.Kind != "" || q.Source != "" || q.Via != "" || q.Token != ""
 }
 
 // values renders the filter as query parameters, dropping the empty ones so a
@@ -79,6 +85,7 @@ func (q activityQuery) values() url.Values {
 	out := url.Values{}
 	for name, value := range map[string]string{
 		"q": q.Text, "actor": q.Actor, "kind": q.Kind, "source": q.Source,
+		"via": q.Via, "token": q.Token,
 	} {
 		if value != "" {
 			out.Set(name, value)
@@ -117,6 +124,22 @@ func (q activityQuery) WithActor(id string) string {
 	return q.Href("")
 }
 
+// WithVia is this filter narrowed to one channel, and to the token when the
+// entry names one, which is what a row's channel links to.
+func (q activityQuery) WithVia(v core.Via) string {
+	v = v.Known()
+	q.Via, q.Token = string(v.Kind), v.TokenName
+	return q.Href("")
+}
+
+// ViaLabel is the channel filter's chip text.
+func (q activityQuery) ViaLabel() string {
+	if l, ok := viaChoiceLabels[core.ViaKind(q.Via)]; ok {
+		return l
+	}
+	return q.Via
+}
+
 // Without is this filter with one field cleared, which is what each active
 // filter's own remove control links to.
 func (q activityQuery) Without(name string) string {
@@ -129,6 +152,10 @@ func (q activityQuery) Without(name string) string {
 		q.Kind = ""
 	case "source":
 		q.Source = ""
+	case "via":
+		q.Via = ""
+	case "token":
+		q.Token = ""
 	}
 	return q.Href("")
 }
@@ -146,6 +173,8 @@ type activityView struct {
 	ActorLabel string
 	Kinds      []activityChoice
 	Sources    []core.Source
+	Vias       []viaChoice
+	TokenNames []string
 }
 
 // activityChoice is one option of the subject-kind control: the value the
@@ -267,8 +296,9 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 	data := activityView{
 		Groups: make([]activityGroup, len(groups)), Cursor: cursor,
 		Pager: newPager(r, RouteActivity, next, len(groups), "entries",
-			"q", "kind", "actor", "source"),
+			"q", "kind", "actor", "source", "via", "token"),
 		Names: names, Query: query, Kinds: activityKinds, Sources: activitySources,
+		Vias: viaChoices(), TokenNames: tokenNames(entries, query.Token),
 	}
 	if query.Actor != "" {
 		data.ActorLabel = names.Label(query.Actor)
@@ -278,7 +308,8 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 		subject, href, projectID := h.subjectFor(r, entry, accents, workflows, tenant, users, names, tasks)
 		data.Groups[len(groups)-1-i] = activityGroup{
 			Group: g, Subject: subject, SubjectHref: href,
-			ActorHref: query.WithActor(entry.ActorID), Accent: accents[projectID],
+			ActorHref: query.WithActor(entry.ActorID), ViaHref: query.WithVia(entry.Via),
+			Accent: accents[projectID],
 		}
 	}
 	return data, nil
@@ -306,6 +337,12 @@ func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string)
 	}
 	if query.Source != "" {
 		filter.Sources = []core.Source{core.Source(query.Source)}
+	}
+	if query.Via != "" {
+		filter.Vias = []core.ViaKind{core.ViaKind(query.Via)}
+	}
+	if query.Token != "" {
+		filter.Tokens = []string{query.Token}
 	}
 	entries, next, err := h.svc.ListAudit(r.Context(), filter)
 	if err != nil {
@@ -519,4 +556,28 @@ func anySubject(groups []historyGroup, subjectType string) bool {
 		}
 	}
 	return false
+}
+
+// tokenNames are the token names the token box suggests: the ones on this page
+// and the one being filtered by, sorted, each once.
+func tokenNames(entries []core.AuditEntry, current string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, name := range append([]string{current}, tokenNamesOf(entries)...) {
+		if name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// tokenNamesOf lists the token name of every entry that has one.
+func tokenNamesOf(entries []core.AuditEntry) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Via.TokenName)
+	}
+	return out
 }

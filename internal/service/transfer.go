@@ -420,6 +420,7 @@ func bufferSnapshot(r io.Reader) (*snapshot, error) {
 
 // ImportFrom reads a snapshot record by record and applies it atomically.
 func (l *Local) ImportFrom(ctx context.Context, r io.Reader, in core.ImportInput) (*core.ImportResult, error) {
+	ctx = core.WithVia(ctx, core.ViaFrom(ctx).Derive(core.ViaImport))
 	actor, err := l.authorize(ctx, authz.ActionImport, authz.Resource{})
 	if err != nil {
 		return nil, err

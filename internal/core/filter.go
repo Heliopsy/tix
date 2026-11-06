@@ -361,6 +361,8 @@ type AuditFilter struct {
 	ActorIDs    []string   `json:"actor_ids,omitempty" yaml:"actor_ids,omitempty"`
 	Actions     []string   `json:"actions,omitempty" yaml:"actions,omitempty"`
 	Sources     []Source   `json:"sources,omitempty" yaml:"sources,omitempty"`
+	Vias        []ViaKind  `json:"vias,omitempty" yaml:"vias,omitempty"`
+	Tokens      []string   `json:"tokens,omitempty" yaml:"tokens,omitempty"`
 	Since       *time.Time `json:"since,omitempty" yaml:"since,omitempty"`
 	Until       *time.Time `json:"until,omitempty" yaml:"until,omitempty"`
 

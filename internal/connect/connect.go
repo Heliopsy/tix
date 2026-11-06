@@ -90,6 +90,10 @@ type Overrides struct {
 	// Nil means the real clock, which is every other caller.
 	Clock clock.Clock
 
+	// ClientHint names this client to a remote server: cli, or mcp for
+	// `tix mcp`. Empty means cli.
+	ClientHint string
+
 	// Anonymous skips confirming the credential against a remote server.
 	// tix login sets it: it exists to obtain a credential, so asking the
 	// server who the caller is first could only fail.
@@ -157,13 +161,17 @@ type Conn struct {
 	// direct is true for a local target opened with no token: this process
 	// holds the database, and its calls stand as a global admin.
 	direct bool
+	// Via is the access channel every call through this connection records
+	// when it reaches a local store.
+	Via core.Via
 
 	closers []func() error
 }
 
-// Context returns ctx carrying the connection's actor and the CLI source.
+// Context returns ctx carrying the connection's actor, the CLI source and
+// the access channel.
 func (c *Conn) Context(ctx context.Context) context.Context {
-	ctx = core.WithSource(core.WithActor(ctx, c.Actor), core.SourceCLI)
+	ctx = core.WithVia(core.WithSource(core.WithActor(ctx, c.Actor), core.SourceCLI), c.Via)
 	if c.direct {
 		ctx = core.WithDirectStore(ctx)
 	}
@@ -320,11 +328,18 @@ var _ core.Service = (*client.Client)(nil)
 
 // dialRemote opens the HTTP client and confirms the credential it carries.
 func dialRemote(ctx context.Context, target Target, ov Overrides) (*Conn, error) {
-	remote, err := client.New(target.URL, ov.Token)
+	hint := ov.ClientHint
+	if hint == "" {
+		hint = core.ClientHintCLI
+	}
+	remote, err := client.New(target.URL, ov.Token, client.WithClientHint(hint))
 	if err != nil {
 		return nil, err
 	}
-	conn := &Conn{Service: remote, Info: Info{Target: target}, closers: []func() error{remote.Close}}
+	conn := &Conn{
+		Service: remote, Info: Info{Target: target}, closers: []func() error{remote.Close},
+		Via: core.Via{Kind: core.ViaAPI}.Refine(hint),
+	}
 	if ov.Anonymous {
 		return conn, nil
 	}
@@ -354,6 +369,8 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		return nil, err
 	}
 	conn := &Conn{Store: st, Info: Info{Target: target}, closers: []func() error{st.Close}}
+	conn.Via = localVia(cfg.Config.CLI.RecordHost)
+	ctx = core.WithVia(ctx, conn.Via)
 
 	if err := st.Migrate(ctx); err != nil {
 		return nil, closeWith(conn, err)
@@ -388,7 +405,26 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	}
 	conn.Actor = actor
 	conn.direct = strings.TrimSpace(ov.Token) == ""
+	conn.Via.TokenID, conn.Via.TokenName = actor.TokenID, actor.TokenName
 	return conn, nil
+}
+
+// localVia is the channel of a command run against a database directly. The
+// host name and operating-system user are recorded only when asked for: they
+// say which machine somebody worked from, which an operator may not want in a
+// log every tenant member can read.
+func localVia(recordHost bool) core.Via {
+	v := core.Via{Kind: core.ViaCLILocal}
+	if !recordHost {
+		return v
+	}
+	if host, err := os.Hostname(); err == nil {
+		v.Host = host
+	}
+	if u, err := user.Current(); err == nil {
+		v.OSUser = u.Username
+	}
+	return v
 }
 
 // drainMode resolves who delivers queued webhooks. The process preference only
