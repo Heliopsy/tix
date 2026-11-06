@@ -141,6 +141,104 @@ jobs:
       - name: Smoke the built binary
         run: just smoke
 
+  # Layout regressions used to merge because the only thing that looked for
+  # them, `just screenshots --strict`, ran on a laptop when somebody
+  # remembered. This runs it on every change, against a seed written to break
+  # layouts, plus the tests that drive a real browser and the JavaScript suite.
+  # `just ui-regression` is the same gate locally.
+  ui-regression:
+    name: UI regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      TIX_TOOL_MODE: direct
+      TIX_UI_JOBS: "4"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # On a pull request HEAD is the merge commit and HEAD^1 its base, which
+          # is all the artifact step below needs to see what the change touched.
+          fetch-depth: 2
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+      # Pinned for the reason given in ci.yaml: an unset version makes the
+      # action resolve "latest" on every run, and that resolution can blink.
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+        with:
+          just-version: 1.59.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install Playwright
+        id: playwright
+        working-directory: scripts/screenshots
+        run: |
+          npm ci --no-audit --no-fund
+          echo "version=$(node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
+      # Restore and save are separate steps so the download is cached even
+      # when the checks below fail; the combined action only saves on success.
+      - name: Restore the Playwright browser
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Download Chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        working-directory: scripts/screenshots
+        run: npx playwright install chromium
+      - name: Save the Playwright browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # The system libraries and fonts Chromium draws with, every run: they live
+      # outside the cache, and a missing font changes every line break.
+      - name: Install Chromium's libraries and fonts
+        working-directory: scripts/screenshots
+        run: npx playwright install-deps chromium
+
+      # `just ui-regression` runs these four steps in this order. They are
+      # separate here so one failing still lets the others report.
+      - name: Page check on every route
+        run: just ui-check
+
+      - name: Task rows and cards
+        if: success() || failure()
+        run: just ui-rows --jobs "$TIX_UI_JOBS"
+
+      - name: Browser tests
+        if: success() || failure()
+        run: just ui-browser
+
+      - name: JavaScript tests
+        if: success() || failure()
+        run: just jstest
+
+      - name: Did the change touch the web interface
+        id: touched
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -qE '^(internal/web/|scripts/screenshots/)'; then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload screenshots and contact sheet
+        if: failure() || steps.touched.outputs.web == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ui-regression-screenshots
+          path: |
+            out/ui-regression/
+            out/screenshots/
+          retention-days: ${{ job.status == 'success' && 5 || 14 }}
+          if-no-files-found: ignore
+
   lint:
     name: Lint
     runs-on: ubuntu-24.04
