@@ -82,8 +82,9 @@ cards carry a `3/5` count (cards add a thin progress bar), `tix task show` repor
 terminal's `[` key and `POST /tasks/{ref}/checklist` tick and clear item N. A tick rewrites only that
 item's marker and carries the version it was made against, so a tick on a description somebody changed
 since is refused with the usual conflict rather than landing on the wrong line. `has:checklist`,
-`checklist:open` and `checklist:done` filter by it. The editor stays a plain textarea, with a Preview
-toggle that renders on the server.
+`checklist:open` and `checklist:done` filter by it. The description editor can be switched between
+Markdown, a plain textarea with a Preview toggle that renders on the server, and Rich text, which edits
+the same Markdown formatted and writes it back on every change. What is stored is always Markdown.
 
 What is never rendered, by design: raw HTML is shown as the text that was typed, a link survives only
 when it is `http`, `https` or `mailto` and opens in the same tab with `rel="noopener noreferrer

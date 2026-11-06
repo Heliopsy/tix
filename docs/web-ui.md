@@ -709,8 +709,15 @@ The description is drawn from its Markdown: lists, tables, code, links, and refe
 Enter press it, it flips at once and the screen swaps in place when the answer arrives, and a description
 somebody changed in the meantime is refused like any other stale save, with the box put back. Without a
 script the press posts the form and the page reloads with the item ticked. Comments render the same way,
-their checkboxes always read-only. The editor and the comment box stay plain textareas, with a Preview
-link beside them that shows the text as it will be drawn without saving it. Rows and cards in every
+their checkboxes always read-only. The comment box is a plain textarea, with a Preview link beside it
+that shows the text as it will be drawn without saving it. The description editor, on the task screen and
+in the New task form, has two modes, Rich text and Markdown, switched at the end of its label row and
+remembered per browser. Markdown is the textarea with its Preview. Rich text edits the same text
+formatted, with a toolbar for bold, italic, strikethrough, headings, lists, checklists, quotes, code,
+links and tables, and `@` completion as in the textarea. The form still sends Markdown, and only an edit
+rewrites it: opening and closing Rich text changes nothing. A text Rich text could not give back as it
+found it, such as a list item that opens with a code block or a single-tilde strikethrough, stays in
+Markdown with a line saying so. Without a script there is only the textarea. Rows and cards in every
 listing carry a `3/5` checklist count, and board cards a thin bar under it. What is shown as typed rather
 than rendered, and why images are linked rather than loaded, is in [features.md](features.md).
 

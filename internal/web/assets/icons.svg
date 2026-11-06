@@ -406,4 +406,55 @@
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>
   </symbol>
+
+  <!-- The rich text description editor's toolbar (assets/richtext.js).
+       Code and Checklist reuse pi-code and checklist above. -->
+  <symbol id="fmt-bold" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"/>
+  </symbol>
+
+  <symbol id="fmt-italic" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 5h8"/><path d="M6 19h8"/><path d="M14 5l-4 14"/>
+  </symbol>
+
+  <symbol id="fmt-strike" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12h16"/><path d="M16.5 7.5C16 6 14.3 5 12 5c-2.8 0-4.5 1.4-4.5 3.2 0 1.4.9 2.3 2.4 2.8"/>
+    <path d="M7.5 16.5C8 18 9.7 19 12 19c2.8 0 4.5-1.4 4.5-3.2 0-.7-.2-1.3-.6-1.8"/>
+  </symbol>
+
+  <symbol id="fmt-heading" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 5v14"/><path d="M18 5v14"/><path d="M6 12h12"/>
+  </symbol>
+
+  <symbol id="fmt-list" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>
+    <circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>
+  </symbol>
+
+  <symbol id="fmt-numbers" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 6h10"/><path d="M10 12h10"/><path d="M10 18h10"/>
+    <path d="M4 4.5l1.5-1v5"/><path d="M3.5 13.5c0-1 .8-1.5 1.5-1.5s1.5.5 1.5 1.3c0 1.2-3 2.2-3 3.7h3"/>
+  </symbol>
+
+  <symbol id="fmt-quote" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 5v14"/><path d="M10 8h10"/><path d="M10 12h10"/><path d="M10 16h6"/>
+  </symbol>
+
+  <symbol id="fmt-link" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 13a4.5 4.5 0 0 0 6.4.4l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.5 1.5"/>
+    <path d="M14 11a4.5 4.5 0 0 0-6.4-.4l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.5-1.5"/>
+  </symbol>
+
+  <symbol id="fmt-table" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M3 15h18"/><path d="M10 4v16"/>
+  </symbol>
 </svg>

@@ -313,7 +313,7 @@
         <div class="field-label"><label class="sr-only" for="{{.IDPrefix}}body">{{t "Description"}}</label>
           {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as INFRA-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
           {{template "md-preview" (print .IDPrefix "body")}}</div>
-        <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+        <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" data-md-editor placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
         <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
         <div class="actions"><button type="submit">{{t "Save"}}</button></div>
       </form>
