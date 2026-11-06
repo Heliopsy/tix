@@ -25,6 +25,24 @@ import { chromium } from "playwright";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANIFEST = JSON.parse(readFileSync(join(HERE, "routes.json"), "utf8"));
 
+// Findings already reported and owned by somebody, so the strict check can
+// gate on everything else from day one. An entry matches a finding on its
+// page pattern, a substring of its kind, a substring of the element and,
+// when given, a viewport prefix ("phone" covers "phone-dark"). An entry that
+// matches nothing on a page the run captured is stale and fails --strict too,
+// so the fix that clears a finding also deletes its entry. One marked popup
+// is seen only with a popup open, so a run that opens none cannot judge it,
+// and one marked varies turns on the fonts installed and is never stale.
+const KNOWN = JSON.parse(readFileSync(join(HERE, "known.json"), "utf8")).findings.map((k) => ({ ...k, hits: 0 }));
+const knownFor = (dirName, pattern, f) =>
+  KNOWN.find(
+    (k) =>
+      k.page === pattern &&
+      f.kind.includes(k.kind) &&
+      f.el.includes(k.el) &&
+      (!k.viewport || dirName === k.viewport || dirName.startsWith(`${k.viewport}-`)),
+  );
+
 const MOBILE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const TABLET_UA =
@@ -41,6 +59,11 @@ const VIEWPORTS = {
 };
 const DEFAULT_VIEWPORTS = ["phone", "tablet", "fullhd", "4k"];
 
+// One instant for the whole run. Every page sees the same Date.now(), so a
+// relative time reads the same on the first screen and the last, and on every
+// viewport, whatever the run's wall time.
+const RUN_CLOCK = Date.now();
+
 const QUIET_CSS = `*,*::before,*::after{transition:none!important;animation:none!important;
 caret-color:transparent!important;scroll-behavior:auto!important}`;
 
@@ -55,17 +78,21 @@ const USAGE = `usage: node shoot.mjs [flags]
   --max-popups N        popups captured per page state, after dedupe (default 40)
   --out DIR             parent of the timestamped output directory (default out/screenshots)
   --headed              show the browser
-  --hostile             also seed a project of tasks with long titles, long tags and long
-                        Markdown descriptions (headings, tables, code, unbroken tokens), sorted
-                        to the top of /tasks, so the row checks have something to break on
-  --strict              exit non-zero when the layout check finds a control on two lines, a
-                        word broken in the middle, or a task row or card out of shape
+  --hostile             also seed content written to break layouts: tasks with long titles, long
+                        tags and Markdown descriptions (headings, tables, code, unbroken tokens)
+                        sorted to the top of /tasks, sixty more in one project, a long history,
+                        long user, project and token names and many expiring tokens
+  --strict              exit non-zero when the page check finds anything: a control on two lines,
+                        a word broken in the middle, a task row or card out of shape, the page
+                        scrolling sideways, content spilling out of its box, a <time> without
+                        datetime, or a raw Go time
+  --jobs N              viewport and theme combinations captured at once (default 1)
 
   TIX_SHOT_DEBUG=1 prints how long each step took.
 `;
 
 function parseArgs(argv) {
-  const a = { viewports: DEFAULT_VIEWPORTS, theme: "light", only: [], maxPopups: 40, out: "out/screenshots" };
+  const a = { viewports: DEFAULT_VIEWPORTS, theme: "light", only: [], maxPopups: 40, out: "out/screenshots", jobs: 1 };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     const v = () => {
@@ -82,6 +109,7 @@ function parseArgs(argv) {
     else if (k === "--headed") a.headed = true;
     else if (k === "--strict") a.strict = true;
     else if (k === "--hostile") a.hostile = true;
+    else if (k === "--jobs") a.jobs = Number(v());
     else if (k === "-h" || k === "--help") {
       out(USAGE);
       process.exit(0);
@@ -90,6 +118,7 @@ function parseArgs(argv) {
   for (const vp of a.viewports) if (!VIEWPORTS[vp]) throw new Error(`unknown viewport ${vp}`);
   if (!["light", "dark", "both"].includes(a.theme)) throw new Error(`--theme must be light, dark or both`);
   if (!(a.maxPopups >= 0)) throw new Error("--max-popups must be a number");
+  if (!(a.jobs >= 1)) throw new Error("--jobs must be 1 or more");
   if (!a.url && !a.tix) throw new Error("pass --tix PATH, or --url URL for a running instance");
   if (a.hostile && a.url) throw new Error("--hostile seeds a scratch database, so it cannot be used with --url");
   return a;
@@ -329,6 +358,92 @@ async function addFixtures(page, base, taskRef) {
   await post("/calendar", {});
 }
 
+// Content written to break a layout rather than to look good: tokens with no
+// place to wrap, names longer than any column, Markdown that renders as a
+// table or a code block, a project with more tasks than a page holds and a
+// task with a long history. A screen that holds up against this holds up
+// against what people paste. Additive only: it adds rows on top of the demo
+// and changes none, so a route's preferred parameter still resolves.
+const HOSTILE = (() => {
+  const word = "Wolfeschlegelsteinhausenbergerdorffvoralternwarenge";
+  const hex = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+  const url = `https://ci.example.invalid/artifacts/builds/2026/11/06/regression-${hex}/report.html?filter=${"x".repeat(48)}`;
+  const path = "internal/service/workflow/transitions/validators/strict_mode_regression_guard_test.go";
+  const body = [
+    `# ${word}${word}`,
+    "",
+    `Paste from a log: \`${hex}${hex}\` then ${url} and ${path}:1234.`,
+    "",
+    `An unbroken token in prose: ${"A".repeat(30)}${word}${"9".repeat(20)}.`,
+    "",
+    "| Column with a long header that keeps going | Path | Hash | Status | Owner | Notes |",
+    "| --- | --- | --- | --- | --- | --- |",
+    `| ${word} | \`${path}\` | ${hex} | blocked-on-upstream-dependency | ${word} | ${url} |`,
+    `| short | \`a/b\` | ${hex.slice(0, 8)} | ok | me | - |`,
+    "",
+    "```go",
+    `func ${word}(ctx context.Context, ${"argument".repeat(6)} string) error { return fmt.Errorf("${"wrapped: ".repeat(12)}%w", errUpstream) }`,
+    "```",
+    "",
+    `> A quoted line ${"that keeps going ".repeat(8)}${word}${word}`,
+    "",
+    `- one ${url}`,
+    `  - nested ${path}`,
+    `    - deeper ${hex}${hex}`,
+  ].join("\n");
+  const title = (n) =>
+    `Investigate why the background synchronisation worker retries upstream webhook deliveries after the lease expires ${n} ${word}${hex.slice(0, 24)}`;
+  return { word, hex, url, path, body, title };
+})();
+
+async function addHostileFixtures(page, base, taskRef) {
+  const api = async (method, path, data) => {
+    const r = await page.request.fetch(`${base}/api/v1${path}`, { method, data });
+    if (!r.ok()) {
+      say(`hostile fixture ${method} ${path}: ${r.status()} ${(await r.text()).slice(0, 200)}`);
+      return null;
+    }
+    return r.json().catch(() => null);
+  };
+  const { word, hex, url, path, body, title } = HOSTILE;
+  await api("POST", "/projects", { key: "overflow", name: `Overflow ${word} ${word} regression project with a long name` });
+  const created = [];
+  for (let i = 1; i <= 64; i++) {
+    const t = await api("POST", "/tasks", {
+      project_ref: "web",
+      title: i % 4 === 0 ? `${word}${word}${i}` : title(i),
+      body: i % 2 ? body : `${url}\n\n${path}`,
+      priority: (i % 4) + 1,
+      tags: i % 3 ? [`${word.toLowerCase()}-${i}`, "regression"] : undefined,
+    });
+    if (t?.ref) created.push(t.ref);
+    if (t?.ref && i % 5 === 0) await api("PATCH", `/tasks/${encodeURIComponent(t.ref)}`, { due_at: new Date(RUN_CLOCK + i * 86400000).toISOString(), version: 0 });
+  }
+  await api("POST", "/tasks", { project_ref: "overflow", title: title(0), body });
+  await api("PATCH", `/tasks/${encodeURIComponent(taskRef)}`, { body, version: 0 });
+  for (let i = 1; i <= 25; i++) {
+    await api("PATCH", `/tasks/${encodeURIComponent(taskRef)}`, { priority: (i % 4) + 1, version: 0 });
+    await api("POST", `/tasks/${encodeURIComponent(taskRef)}/comments`, { body: i % 2 ? body : `${hex}${hex} ${url}` });
+  }
+  if (created[0]) await api("PATCH", `/tasks/${encodeURIComponent(taskRef)}`, { parent_ref: created[0], version: 0 });
+  for (let i = 1; i <= 3; i++) {
+    await api("POST", "/users", {
+      display_name: `${word} ${i} Konstantinopolskaya-${word}`,
+      email: `${word.toLowerCase()}.${i}.${hex.slice(0, 20)}@example.invalid`,
+      handle: `h${i}-${word.toLowerCase()}`.slice(0, 40),
+      role: "member",
+    });
+  }
+  const day = 24 * 60 * 60 * 1000;
+  for (let i = 1; i <= 24; i++) {
+    await api("POST", "/tokens", {
+      name: i % 3 ? `ci-${word.toLowerCase()}-${hex.slice(0, 16)}-${i}` : `deploy ${i}`,
+      scopes: ["task:read"],
+      expires_at: i % 2 ? new Date(RUN_CLOCK + i * 7 * day).toISOString() : undefined,
+    });
+  }
+}
+
 // ---------------------------------------------------------------- page work
 
 // Waits for the page to stop changing. networkidle is only worth waiting for
@@ -375,7 +490,7 @@ async function shoot(page, file, layout) {
   if (!touch) {
     await page.screenshot({ ...opts, fullPage: true });
     mark("shot");
-    if (layout) for (const f of await page.evaluate(layoutFindings, LAYOUT)) layout(f);
+    if (layout) for (const f of await page.evaluate(LAYOUT_SCRIPT)) layout(f);
     return;
   }
   const size = page.viewportSize();
@@ -393,7 +508,7 @@ async function shoot(page, file, layout) {
     await page.setViewportSize(size);
   }
   mark("shot");
-  if (layout) for (const f of await page.evaluate(layoutFindings, LAYOUT)) layout(f);
+  if (layout) for (const f of await page.evaluate(LAYOUT_SCRIPT)) layout(f);
 }
 
 // ---------------------------------------------------------------- layout check
@@ -454,6 +569,22 @@ function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFr
     }
     return tops.length;
   };
+  const ctx2d = document.createElement("canvas").getContext("2d");
+  // A run of characters with no break opportunity that is wider than the box
+  // it sits in has to be broken or has to spill, and breaking it is the right
+  // call. Such a token is not reported as a split word.
+  const tooWide = (n, index) => {
+    const v = n.nodeValue;
+    let a = index;
+    let b = index;
+    while (a > 0 && !/\s/.test(v[a - 1])) a--;
+    while (b < v.length && !/\s/.test(v[b])) b++;
+    let box = n.parentElement;
+    while (box.parentElement && /^(inline|contents)$/.test(getComputedStyle(box).display)) box = box.parentElement;
+    const cs = getComputedStyle(n.parentElement);
+    ctx2d.font = cs.font || `${cs.fontSize} ${cs.fontFamily}`;
+    return ctx2d.measureText(v.slice(a, b)).width > box.clientWidth * 0.9;
+  };
   const broken = (nodes) => {
     for (const n of nodes) {
       for (const m of n.nodeValue.matchAll(/\p{L}{2,}/gu)) {
@@ -461,7 +592,7 @@ function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFr
         r.setStart(n, m.index);
         r.setEnd(n, m.index + m[0].length);
         const tops = new Set(rects(r).map((b) => Math.round(b.top)));
-        if (tops.size > 1) return m[0];
+        if (tops.size > 1 && !tooWide(n, m.index)) return m[0];
       }
     }
     return "";
@@ -545,8 +676,108 @@ function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFr
     const b = leaked(card);
     if (b) report(card, "markdown block inside a card", b.tagName.toLowerCase());
   }
+
+  for (const f of pageFindings(shown, name, label)) report(f.el, f.kind, f.word);
   return found;
 }
+
+// The checks that hold on every screen, whatever it shows. Runs in the page,
+// inside layoutFindings, so it reuses its idea of shown, name and label.
+//
+// The page scrolling sideways: on a phone that is the whole screen sliding
+// under a thumb, and the usual cause is one long token in one row.
+//
+// A box its content spills out of: an element that neither clips nor scrolls
+// (overflow-x visible) whose content is wider than it. A container that
+// clips or scrolls has chosen what happens to the extra and is left alone.
+// Only the innermost such box is reported, since every visible ancestor of
+// it overflows too.
+//
+// Time: every <time> carries a machine-readable datetime, and no visible text
+// or tooltip shows what Go prints for a zero or a default-formatted time.
+function pageFindings(shown, name, label) {
+  const out = [];
+  const se = document.scrollingElement || document.documentElement;
+  const vw = document.documentElement.clientWidth;
+  const inScroller = (el) => {
+    for (let a = el.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(a).overflowX)) return true;
+    }
+    return false;
+  };
+  const skip = (el) => el.closest("svg, [hidden], dialog:not([open]), [popover]:not(:popover-open), .sr-only, [data-shot-quiet]");
+  if (se.scrollWidth > vw) {
+    let culprit = null;
+    for (const el of document.body.querySelectorAll("*")) {
+      if (skip(el) || !shown(el) || inScroller(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right > vw + 0.5 && ![...el.children].some((c) => c.getBoundingClientRect().right > vw + 0.5)) {
+        culprit = el;
+        break;
+      }
+    }
+    out.push({ el: culprit || document.body, kind: `page scrolls sideways (${se.scrollWidth}px in ${vw}px)` });
+  }
+  // A few pixels is a negative margin or a rounding, not a layout coming apart.
+  const SLACK = 3;
+  const seen = (el) => el.checkVisibility({ visibilityProperty: true });
+  const spilled = new Map();
+  const box = (cs) => !/^(inline|contents|table-row|table-row-group|table-header-group|table-footer-group)$/.test(cs.display);
+  const spill = (start, right) => {
+    for (let a = start; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.overflowX !== "visible" || cs.clipPath !== "none") return;
+      if (box(cs)) {
+        const r = a.getBoundingClientRect();
+        const edge = r.right - parseFloat(cs.borderRightWidth || "0");
+        if (right > edge + SLACK) {
+          spilled.set(a, Math.max(spilled.get(a) || 0, Math.round(right - edge)));
+          return;
+        }
+      }
+      if (cs.position === "absolute" || cs.position === "fixed") return;
+    }
+  };
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+    const p = n.parentElement;
+    if (!n.nodeValue.trim() || !p || p.closest("script, style, template, select, textarea") || skip(p)) continue;
+    if (!seen(p)) continue;
+    const r = document.createRange();
+    r.selectNodeContents(n);
+    const right = Math.max(...[...r.getClientRects()].filter((b) => b.width > 0.5).map((b) => b.right), -Infinity);
+    if (right > -Infinity) spill(p, right);
+  }
+  for (const el of document.body.querySelectorAll("img, svg, input:not([type=hidden]), select, textarea, video, canvas")) {
+    if (el.parentElement?.closest("svg") || skip(el.parentElement) || !shown(el) || !seen(el)) continue;
+    spill(el.parentElement, el.getBoundingClientRect().right);
+  }
+  for (const [el, px] of spilled) {
+    if ([...spilled.keys()].some((o) => o !== el && el.contains(o))) continue;
+    out.push({ el, kind: `content spills ${px}px out of its box` });
+  }
+  for (const el of document.querySelectorAll("time")) {
+    const dt = el.getAttribute("datetime");
+    if (!dt) out.push({ el, kind: "time without datetime" });
+    else if (/^0001-01-01/.test(dt)) out.push({ el, kind: "time with a zero datetime", word: dt });
+  }
+  const goTime = /0001-01-01|\+0000 UTC|\bm=[+-]\d/;
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const m = n.nodeValue.match(goTime);
+    const p = n.parentElement;
+    if (m && p && !p.closest("script, style, template") && shown(p) && seen(p)) out.push({ el: p, kind: "raw Go time", word: m[0] });
+  }
+  for (const el of document.querySelectorAll("[title]")) {
+    const m = el.getAttribute("title").match(goTime);
+    if (m && shown(el) && seen(el)) out.push({ el, kind: "raw Go time in a tooltip", word: m[0] });
+  }
+  return out;
+}
+
+// Both checks as one expression, since page.evaluate ships a function's source
+// and nothing it refers to.
+const LAYOUT_SCRIPT = `(() => { ${pageFindings}; return (${layoutFindings})(${JSON.stringify(LAYOUT)}); })()`;
 
 function slug(s, max = 60) {
   return (
@@ -748,6 +979,7 @@ async function newContext(browser, vp, theme, target, storageState) {
     reducedMotion: "reduce",
     storageState,
   });
+  await ctx.clock.setFixedTime(RUN_CLOCK);
   const host = new URL(target.base).hostname;
   await ctx.addCookies([
     { name: "tix_theme", value: theme, domain: host, path: "/" },
@@ -778,7 +1010,11 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
     const sig = `${dirName}|${pg.pattern}|${f.kind}|${f.el}|${f.text}`;
     if (stats.layoutSeen.has(sig)) return;
     stats.layoutSeen.add(sig);
-    stats.layout.push(line);
+    const k = knownFor(dirName, pg.pattern, f);
+    if (k) {
+      k.hits++;
+      stats.known.push(line);
+    } else stats.layout.push(line);
   };
   const record = (pg, state, popup, file) => {
     shots.push({ page: pg.pattern, slug: pg.slug, state, popup, viewport: dirName, file: relative(runDir, file) });
@@ -977,6 +1213,7 @@ async function main() {
   if (target.local) {
     const pre = await resolveParams(lp, target.base, ["task"]);
     await addFixtures(lp, target.base, pre.task);
+    if (args.hostile) await addHostileFixtures(lp, target.base, pre.task);
   }
   const values = await resolveParams(lp, target.base, [...wanted]);
   const storageState = await login.storageState();
@@ -989,15 +1226,27 @@ async function main() {
   out(`capturing ${plans.pages.length} pages into ${runDir}`);
 
   const themes = args.theme === "both" ? ["light", "dark"] : [args.theme];
-  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], layoutSeen: new Set() };
-  const shots = [];
-  const columns = [];
-  for (const theme of themes) {
-    for (const vp of args.viewports) {
-      columns.push(theme === "light" ? vp : `${vp}-dark`);
-      shots.push(...(await captureViewport(browser, args, target, storageState, vp, theme, runDir, plans, stats)));
+  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], known: [], layoutSeen: new Set() };
+  const combos = themes.flatMap((theme) => args.viewports.map((vp) => ({ theme, vp })));
+  const columns = combos.map(({ theme, vp }) => (theme === "light" ? vp : `${vp}-dark`));
+  const results = new Array(combos.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < combos.length) {
+      const i = next++;
+      results[i] = await captureViewport(browser, args, target, storageState, combos[i].vp, combos[i].theme, runDir, plans, stats);
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(args.jobs, combos.length) }, worker));
+  const shots = results.flat();
+  const stale = KNOWN.filter(
+    (k) =>
+      !k.hits &&
+      stats.pages.has(k.page) &&
+      !(k.popup && args.maxPopups === 0) &&
+      !k.varies &&
+      (!k.viewport || columns.some((c) => c === k.viewport || c.startsWith(`${k.viewport}-`))),
+  );
 
   const secs = Math.round((Date.now() - started) / 1000);
   const summary =
@@ -1007,7 +1256,7 @@ async function main() {
   const index = writeIndex(runDir, shots, columns, summary);
   writeFileSync(
     join(runDir, "report.json"),
-    JSON.stringify({ summary, skipped: plans.skipped, problems: stats.problems, layout: stats.layout, shots }, null, 2) + "\n",
+    JSON.stringify({ summary, skipped: plans.skipped, problems: stats.problems, layout: stats.layout, known: stats.known, stale, shots }, null, 2) + "\n",
   );
   out(summary);
   if (plans.skipped.length) {
@@ -1017,12 +1266,19 @@ async function main() {
   if (stats.problems.length) {
     out(`problems:`);
     for (const p of stats.problems) out(`  ${p}`);
+    if (args.strict && stats.problems.some((p) => / HTTP \d{3}$/.test(p))) process.exitCode = 1;
+  }
+  if (stats.known.length) out(`known: ${stats.known.length} findings listed in known.json, not failing the run`);
+  if (stale.length) {
+    out(`stale: ${stale.length} known.json entries matched nothing, so the finding is gone; delete them:`);
+    for (const k of stale) out(`  ${JSON.stringify({ page: k.page, kind: k.kind, el: k.el, viewport: k.viewport })}`);
+    if (args.strict) process.exitCode = 1;
   }
   if (stats.layout.length) {
-    out(`layout: ${stats.layout.length} findings (controls on two lines, words split, rows or cards out of shape)`);
+    out(`layout: ${stats.layout.length} findings`);
     for (const l of stats.layout) out(`  ${l}`);
     if (args.strict) process.exitCode = 1;
-  } else out("layout: no control on two lines, no word split, every row and card in shape");
+  } else out("layout: no control on two lines, no word split, every row and card in shape, nothing spilling, every time readable");
   out(`\ncontact sheet: ${index}`);
 }
 
