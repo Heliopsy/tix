@@ -103,6 +103,9 @@ admins and manage every tenant from the CLI, the API or the browser. Isolation d
 lint rule forbids raw database calls. On PostgreSQL the same scoping is enforced a second time by
 row-level security policies, applied to the connection when tix opens the database.
 
+Bring people in with a single-use invite link instead of a password you have to pass on (`tix user
+invite`, or the Users screen), or set one and require it to be changed at the first sign-in.
+
 ## Access paths
 
 One binary, one service layer, six ways in. The web UI is required to cover 100% of the CLI, enforced

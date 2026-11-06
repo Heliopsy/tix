@@ -7577,3 +7577,19 @@ ul.tasklist, .board, .column, .lanes, .lane { overflow-anchor: none; }
 }
 .livepill[hidden] { display: none; }
 /* ===== end Live updates ================================================= */
+/* The create-a-user dialog's two ways in: a password typed now, or an invite
+   link. One radio pair drawn as a segmented control, and the fields the other
+   way needs hidden by :has alone, so the choice works without scripting. */
+.usermode { margin-bottom: var(--space-3); }
+.usermode label.segment { display: inline-flex; align-items: center; margin: 0; }
+.usermode label.segment input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.usermode label.segment:has(input:checked) { background: var(--accent); color: var(--on-accent); }
+.usermode label.segment:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -4px; }
+.usernew:has(input[name="mode"][value="invite"]:checked) .usermode-password,
+.usernew:not(:has(input[name="mode"][value="invite"]:checked)) .usermode-invite { display: none; }
+.usernew .check-inline { margin-top: var(--space-2); }
+
+/* Pending invites sit under the accounts, in the same row shape. */
+.invites { margin-top: var(--space-6); }
+.invites .person-act { display: inline-flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.invite-reissue { margin: 0; }

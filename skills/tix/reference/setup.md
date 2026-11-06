@@ -129,6 +129,23 @@ tix token create ci-agent --expires never --scope task:read
 them. Revoking a token that is not yours is recorded as `token.revoke_other`
 in the audit trail, so it can be told apart from somebody rotating their own.
 
+## People: invites and password changes
+
+Bring a person in without choosing their password: `tix user invite EMAIL
+--role member` creates the account with no password and prints a single-use
+link (`/invite/tix_inv_...`, 7 days unless `--expires` says 1h to 30d). tix
+sends no email, so you pass the link on. `tix user invite ls`, `revoke ID` and
+`reissue ID` manage pending ones. If you set a password for someone with `tix
+user create --password`, add `--require-password-change` so their first sign-in
+replaces it. A flagged account's `tix login` asks for the new password on a
+terminal and exits `6` without one; API tokens are not affected. `tix user
+edit --disabled` locks an account out instead, ending its sessions and tokens.
+
+```sh
+tix user invite ada@example.com --role member --expires 48h
+tix user edit 01J000000000000000000A --require-password-change
+```
+
 ## Workflows and custom fields
 
 A workflow is the state machine a project's tasks move through. Read one

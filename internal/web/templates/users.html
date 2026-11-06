@@ -49,6 +49,47 @@
 
 {{template "pager" $v.Pager}}
 
+{{if $v.Invites}}
+<section class="invites" aria-labelledby="invites-heading">
+  <div class="headtip"><h2 id="invites-heading">{{t "Pending invites"}}</h2>{{template "tip" (tip "Pending invites" "Links issued and not used yet. Re-issuing stops the old link and gives you a new one to send; revoking stops it and keeps the account, without a password." "docs/tenancy.md")}}</div>
+  <ul class="peoplelist rows">
+  {{range $v.Invites}}
+    <li class="person{{if .Expired}} is-off{{end}}" id="invite-{{.ID}}">
+      <span class="avatar" aria-hidden="true">{{monogram .Email}}</span>
+      <span class="person-id">
+        <span class="person-mail mono">{{.Email}}</span>
+        <span class="muted">{{if .InvitedByHandle}}{{t "invited by %s" .InvitedByHandle}}{{else}}{{t "invited"}}{{end}}</span>
+      </span>
+      <span class="person-marks">
+        <span class="role role-{{slug .Role}}">{{.Role}}</span>
+        {{if .Expired}}<span class="state off">{{t "expired"}}</span>
+        {{else}}<span class="state on" title="{{absolute .ExpiresAt}}">{{t "expires %s" (compact .ExpiresAt)}}</span>{{end}}
+      </span>
+      <span class="person-act">
+        <form method="post" action="/admin/users/invites/reissue" class="invite-reissue">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button type="submit" class="secondary small" aria-label="{{t "Re-issue the invite for %s" .Email}}">{{t "Re-issue"}}</button>
+        </form>
+        {{template "dlg-open" ((opener (print "invite-del-" .ID) (t "Revoke") "trash" "danger small" $.Here).Named (t "Revoke the invite for %s" .Email))}}
+      </span>
+    </li>
+  {{end}}
+  </ul>
+</section>
+{{range $v.Invites}}
+{{$rsh := shell (print "invite-del-" .ID) (t "Revoke the invite for %s?" .Email) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $rsh}}
+<form method="post" action="/admin/users/invites/revoke">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  <p>{{t "The link stops working at once. The account stays, without a password, until you delete it or invite it again."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $rsh.Back}}<button class="danger" type="submit">{{t "Revoke"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{end}}
+
 {{/* Each account's controls open over the list, from its Manage button.
      Deleting is a step of its own, behind its own red button and the
      dialog that asks first, because disabling is usually what is meant and
@@ -81,6 +122,13 @@
               {{t "Disabled"}}
             </label>
             {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
+          </div>
+          <div class="field-label">
+            <label class="check-inline" for="pwchange-{{.User.ID}}">
+              <input id="pwchange-{{.User.ID}}" type="checkbox" name="require_password_change" value="1" {{if .User.RequirePasswordChange}}checked{{end}}>
+              {{t "Ask to change the password at next sign-in"}}
+            </label>
+            {{template "field-info" "Their next sign-in with a password stops at a page asking for a new one, and goes no further until they choose it. Sessions already open and API tokens are not affected."}}
           </div>
           <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save changes"}}</button></div>
         </form>
@@ -117,9 +165,18 @@
 {{$d := .Dialog.For "user-new"}}
 {{$sh := shell "user-new" (t "Create a user") "" .Dialog .Here}}
 {{template "dlg-start" $sh}}
-    <form method="post" action="/admin/users">
+    {{/* Two ways in, both visible as one control: type a password for them,
+         or get a link they set their own password with. The fields the other
+         way needs are hidden by the stylesheet alone (:has), so the choice
+         works with scripting off. */}}
+    <form method="post" action="/admin/users" class="usernew">
       {{template "csrf" .CSRF}}
       {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+      <div class="field-label"><span id="usernew-mode">{{t "How they sign in"}}</span>{{template "tip" (tip "Invite links" "An invite link lets the person choose their own password. It works once and expires; tix sends no email, so you pass the link on yourself. A password you type yourself can be made to change at their first sign-in." "docs/tenancy.md")}}</div>
+      <div class="segmented usermode" role="radiogroup" aria-labelledby="usernew-mode">
+        <label class="segment"><input type="radio" name="mode" value="password"{{if not ($d.Chose "mode" "invite")}} checked{{end}}>{{t "Set a password"}}</label>
+        <label class="segment"><input type="radio" name="mode" value="invite"{{if $d.Chose "mode" "invite"}} checked{{end}}>{{t "Send an invite link"}}</label>
+      </div>
       <div class="row">
         <div><label for="email">{{t "Email"}}</label><input id="email" name="email" type="email" value="{{$d.Value "email"}}" required{{$d.Errors.Attrs "email"}}>{{with $d.Errors.On "email"}}{{template "field-error" .}}{{end}}</div>
         <div><label for="display_name">{{t "Display name"}}</label><input id="display_name" name="display_name" value="{{$d.Value "display_name"}}"></div>
@@ -131,10 +188,40 @@
           {{with $d.Errors.On "role"}}{{template "field-error" .}}{{end}}
         </div>
       </div>
-      <label for="password">{{t "Password"}}</label>
-      <input id="password" name="password" type="password" autocomplete="new-password"{{$d.Errors.Attrs "password"}}>
-      {{with $d.Errors.On "password"}}{{template "field-error" .}}{{end}}
-      <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create user"}}</button></div>
+      <div class="usermode-password">
+        <label for="password">{{t "Password"}}</label>
+        <input id="password" name="password" type="password" autocomplete="new-password"{{$d.Errors.Attrs "password"}}>
+        {{with $d.Errors.On "password"}}{{template "field-error" .}}{{end}}
+        <label class="check-inline" for="require_password_change">
+          <input id="require_password_change" type="checkbox" name="require_password_change" value="1"{{if $d.Checked "require_password_change" true}} checked{{end}}>
+          {{t "Require a password change at first sign-in"}}
+        </label>
+        {{with $d.Errors.On "require_password_change"}}{{template "field-error" .}}{{end}}
+      </div>
+      <div class="usermode-invite">
+        <label for="expires">{{t "Link expires after"}}</label>
+        <select id="expires" name="expires"{{$d.Errors.Attrs "expires"}}>
+          {{range $v.InviteExpiries}}<option value="{{.Key}}"{{if $d.Refused}}{{if $d.Chose "expires" .Key}} selected{{end}}{{else if eq .Key "7d"}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        {{with $d.Errors.On "expires"}}{{template "field-error" .}}{{end}}
+        <p class="muted">{{t "You get a link to send them. It works once, and they choose their own password with it."}}</p>
+      </div>
+      <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit" class="usermode-password">{{t "Create user"}}</button><button type="submit" class="usermode-invite">{{t "Create invite link"}}</button></div>
     </form>
 {{template "dlg-end"}}
+
+{{with $v.IssuedInvite}}
+{{$ish := shell "invite-link" (t "Invite link") "" $.Dialog $.Here}}
+{{template "dlg-start" $ish}}
+  <section class="secret" aria-labelledby="invite-url-heading">
+    <h3 id="invite-url-heading">{{t "Send this link to them"}}</h3>
+    <p>{{t "It works once and expires on %s. tix does not send email, and the link is not shown again." (absolute .ExpiresAt)}}</p>
+    <div class="copyline">
+      <pre id="invite-url" class="wraps"><code>{{.URL}}</code></pre>
+      <button type="button" class="secondary" data-copy-target="invite-url">{{t "Copy"}}</button>
+    </div>
+  </section>
+  <div class="actiondlg-foot"><a class="btn" href="{{$ish.Back}}" data-dlg-close>{{t "Close"}}</a></div>
+{{template "dlg-end"}}
+{{end}}
 {{end}}

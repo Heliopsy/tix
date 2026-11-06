@@ -243,9 +243,16 @@ const (
 	RouteGlobalUserUpdate   = "/admin/global/users/update"
 	RouteGlobalUserDelete   = "/admin/global/users/delete"
 
-	RouteUsers         = "/admin/users"
-	RouteUserUpdate    = "/admin/users/update"
-	RouteUserDelete    = "/admin/users/delete"
+	RouteUsers      = "/admin/users"
+	RouteUserUpdate = "/admin/users/update"
+	RouteUserDelete = "/admin/users/delete"
+	// RouteInvites issues an invite link from the Users screen, and the two
+	// after it revoke and re-issue one.
+	RouteInvites       = "/admin/users/invites"
+	RouteInviteRevoke  = "/admin/users/invites/revoke"
+	RouteInviteReissue = "/admin/users/invites/reissue"
+	// RouteInviteAccept is the public page an invite link opens.
+	RouteInviteAccept  = "/invite/{token}"
 	RouteTokens        = "/admin/tokens"
 	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
 	RouteStatus        = "/admin/status"

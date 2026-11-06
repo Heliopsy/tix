@@ -28,6 +28,7 @@ tags:
   - name: housekeeping
   - name: identity
   - name: inbox
+  - name: invite
   - name: member
   - name: project
   - name: retention
@@ -316,6 +317,105 @@ paths:
         page at a time, with the cursor for the next page
       tags:
         - audit
+  /api/v1/auth/invites/{token}:
+    get:
+      description: PreviewInvite describes the invite an invite token accepts, without
+        a credential. An unknown, expired, used or revoked token is the same not found.
+      operationId: invite.preview
+      parameters:
+        - description: The invite secret, starting tix_inv_, as the invite link ends.
+          in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitePreview'
+          description: InvitePreview is what the person holding a live invite link
+            is shown before accepting it. It names the account and nothing about who
+            else exists.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: PreviewInvite describes the invite an invite token accepts, without
+        a credential
+      tags:
+        - invite
+    post:
+      description: 'AcceptInvite sets the invited account''s password and display
+        name, or confirms an existing account''s password, marks the invite used and
+        signs the person in. It answers as Login does: a session, or the second factor
+        challenge the tenant requires.'
+      operationId: invite.accept
+      parameters:
+        - description: The invite secret, starting tix_inv_, as the invite link ends.
+          in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInviteInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: LoginResult is either a session or the challenge standing between
+            the caller and one. Exactly one of the two is set.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: AcceptInvite sets the invited account's password and display name,
+        or confirms an existing account's password, marks the invite used and signs
+        the person in
+      tags:
+        - invite
   /api/v1/auth/login:
     post:
       description: |-
@@ -3174,6 +3274,217 @@ paths:
       summary: ReadInboxItem marks one of the caller's items read and returns it
       tags:
         - inbox
+  /api/v1/invites:
+    get:
+      description: |-
+        ListInvites lists this tenant's invites that are neither accepted nor revoked, expired ones included, oldest first. No secret is returned.
+
+        Command line: `tix user invite ls`.
+      operationId: invite.list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/Invite'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/Invite'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - user:admin
+        - session:
+            - user:admin
+      summary: ListInvites lists this tenant's invites that are neither accepted nor
+        revoked, expired ones included, oldest first
+      tags:
+        - invite
+    post:
+      description: |-
+        CreateInvite invites an email address to this tenant and returns a single-use link, once. A new address gets an account with no password; an account of this tenant without a membership is granted one. An address of a member who has a password, or of another tenant's user, is a conflict.
+
+        Command line: `tix user invite`.
+      operationId: invite.create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedInvite'
+          description: IssuedInvite carries an invite together with its freshly minted
+            secret. Path is the browser route that accepts it; URL is that route made
+            absolute by a surface that knows the address it was reached at, and is
+            empty otherwise.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - user:admin
+        - session:
+            - user:admin
+      summary: CreateInvite invites an email address to this tenant and returns a
+        single-use link, once
+      tags:
+        - invite
+  /api/v1/invites/{id}:
+    delete:
+      description: |-
+        RevokeInvite stops a pending invite's link at once. The account it created stays, without a password.
+
+        Command line: `tix user invite revoke`.
+      operationId: invite.revoke
+      parameters:
+        - description: Invite ID, as the invite listing gives it.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - user:admin
+        - session:
+            - user:admin
+      summary: RevokeInvite stops a pending invite's link at once
+      tags:
+        - invite
+  /api/v1/invites/{id}/reissue:
+    post:
+      description: |-
+        ReissueInvite replaces a pending or expired invite's link with a new one carrying a fresh expiry, and returns it once. The old link stops.
+
+        Command line: `tix user invite reissue`.
+      operationId: invite.reissue
+      parameters:
+        - description: Invite ID, as the invite listing gives it.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReissueInviteInput'
+        required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedInvite'
+          description: IssuedInvite carries an invite together with its freshly minted
+            secret. Path is the browser route that accepts it; URL is that route made
+            absolute by a surface that knows the address it was reached at, and is
+            empty otherwise.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - user:admin
+        - session:
+            - user:admin
+      summary: ReissueInvite replaces a pending or expired invite's link with a new
+        one carrying a fresh expiry, and returns it once
+      tags:
+        - invite
   /api/v1/members:
     get:
       description: |-
@@ -9276,6 +9587,22 @@ components:
           description: TenantID is the tenant the token authenticates to.
           type: string
       type: object
+    AcceptInviteInput:
+      description: AcceptInviteInput accepts an invite.
+      properties:
+        display_name:
+          description: DisplayName replaces the account's display name when set; ignored
+            for an existing account.
+          type: string
+        password:
+          description: Password is the new password, at least 12 characters, or for
+            an existing account its current password.
+          type: string
+        surface:
+          $ref: '#/components/schemas/Surface'
+          description: Surface is the sign-in path the session is for, which decides
+            whether a second factor is required; omitted means the command line.
+      type: object
     Actor:
       description: Actor is the authenticated identity performing an operation.
       properties:
@@ -9984,6 +10311,28 @@ components:
             of the copy.
           type: boolean
       type: object
+    CreateInviteInput:
+      description: CreateInviteInput invites an email address to this tenant.
+      properties:
+        display_name:
+          description: DisplayName is the name shown for a new account until its owner
+            chooses one.
+          type: string
+        email:
+          description: Email is the address to invite, lowercased. Required.
+          type: string
+        expires_in:
+          description: ExpiresIn is how long the link works, such as "48h" or "7d",
+            between one hour and 30 days; omitted means 7 days.
+          type: string
+        handle:
+          description: Handle is a new account's short name; empty uses the part of
+            the email before the "@".
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role granted in this tenant; empty means "viewer".
+      type: object
     CreateProjectInput:
       description: CreateProjectInput creates a project.
       properties:
@@ -10148,6 +10497,10 @@ components:
           description: Password is at least 12 characters; empty creates a user with
             no password.
           type: string
+        require_password_change:
+          description: RequirePasswordChange makes the first password sign-in choose
+            a new password before it is let in. It needs a password.
+          type: boolean
         role:
           $ref: '#/components/schemas/Role'
           description: Role is the user's role in this tenant; empty means "viewer".
@@ -10948,6 +11301,86 @@ components:
           description: Version is the tix version that produced the report.
           type: string
       type: object
+    Invite:
+      description: 'Invite is a pending or finished invitation to sign in to this
+        tenant. The secret that accepts it is never part of it: only IssuedInvite
+        carries that, and only on the call that minted it.'
+      properties:
+        accepted_at:
+          description: AcceptedAt is when the link was used, RFC 3339; absent while
+            pending.
+          format: date-time
+          type:
+            - "null"
+            - string
+        created_at:
+          description: CreatedAt is when the invite was issued, RFC 3339.
+          format: date-time
+          type: string
+        email:
+          description: Email is the invited address.
+          type: string
+        existing_account:
+          description: ExistingAccount reports that the account already had a password
+            when it was invited, so accepting confirms that password instead of setting
+            one.
+          type: boolean
+        expires_at:
+          description: ExpiresAt is when the link stops working, RFC 3339.
+          format: date-time
+          type: string
+        id:
+          description: ID identifies the invite, for listing, revoking and re-issuing
+            it.
+          type: string
+        invited_by:
+          description: InvitedBy is the actor who issued the invite.
+          type: string
+        invited_by_handle:
+          description: InvitedByHandle is that actor's handle, empty when it no longer
+            exists.
+          type: string
+        revoked_at:
+          description: RevokedAt is when the link was revoked or replaced, RFC 3339;
+            absent while pending.
+          format: date-time
+          type:
+            - "null"
+            - string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role the invite granted in this tenant.
+        tenant_id:
+          description: TenantID is the tenant the invite admits to.
+          type: string
+        user_id:
+          description: UserID is the invited account, created when the invite was
+            issued.
+          type: string
+      type: object
+    InvitePreview:
+      description: InvitePreview is what the person holding a live invite link is
+        shown before accepting it. It names the account and nothing about who else
+        exists.
+      properties:
+        display_name:
+          description: DisplayName is the account's current display name.
+          type: string
+        email:
+          description: Email is the invited address.
+          type: string
+        existing_account:
+          description: ExistingAccount reports that the account already has a password,
+            which accepting confirms rather than replaces.
+          type: boolean
+        expires_at:
+          description: ExpiresAt is when the link stops working, RFC 3339.
+          format: date-time
+          type: string
+        tenant_name:
+          description: TenantName is the tenant the invite admits to.
+          type: string
+      type: object
     IssuedCalendarFeed:
       description: IssuedCalendarFeed carries a feed together with its freshly minted
         secret. Path is the route the secret is read at; URL is that route made absolute
@@ -11028,6 +11461,75 @@ components:
           type: string
         url:
           description: URL is where tix posts each message.
+          type: string
+      type: object
+    IssuedInvite:
+      description: IssuedInvite carries an invite together with its freshly minted
+        secret. Path is the browser route that accepts it; URL is that route made
+        absolute by a surface that knows the address it was reached at, and is empty
+        otherwise.
+      properties:
+        accepted_at:
+          description: AcceptedAt is when the link was used, RFC 3339; absent while
+            pending.
+          format: date-time
+          type:
+            - "null"
+            - string
+        created_at:
+          description: CreatedAt is when the invite was issued, RFC 3339.
+          format: date-time
+          type: string
+        email:
+          description: Email is the invited address.
+          type: string
+        existing_account:
+          description: ExistingAccount reports that the account already had a password
+            when it was invited, so accepting confirms that password instead of setting
+            one.
+          type: boolean
+        expires_at:
+          description: ExpiresAt is when the link stops working, RFC 3339.
+          format: date-time
+          type: string
+        id:
+          description: ID identifies the invite, for listing, revoking and re-issuing
+            it.
+          type: string
+        invited_by:
+          description: InvitedBy is the actor who issued the invite.
+          type: string
+        invited_by_handle:
+          description: InvitedByHandle is that actor's handle, empty when it no longer
+            exists.
+          type: string
+        path:
+          description: 'Path is the browser route the invited person opens: /invite/TOKEN.'
+          type: string
+        revoked_at:
+          description: RevokedAt is when the link was revoked or replaced, RFC 3339;
+            absent while pending.
+          format: date-time
+          type:
+            - "null"
+            - string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role the invite granted in this tenant.
+        tenant_id:
+          description: TenantID is the tenant the invite admits to.
+          type: string
+        token:
+          description: Token is the secret that accepts the invite, returned only
+            by the call that minted it.
+          type: string
+        url:
+          description: URL is Path made absolute, empty when the surface does not
+            know its own address.
+          type: string
+        user_id:
+          description: UserID is the invited account, created when the invite was
+            issued.
           type: string
       type: object
     IssuedToken:
@@ -11149,6 +11651,10 @@ components:
         email:
           description: Email identifies the user, in the first step.
           type: string
+        new_password:
+          description: NewPassword replaces the password, sent with the email and
+            password again after a password_change challenge.
+          type: string
         password:
           description: Password is the user's password, in the first step.
           type: string
@@ -11167,7 +11673,8 @@ components:
       properties:
         challenge:
           $ref: '#/components/schemas/TOTPChallenge'
-          description: Challenge is set when a second factor is still needed.
+          description: Challenge is set when a second factor or a new password is
+            still needed.
         recovery_codes:
           description: RecoveryCodes is set once, when a sign-in completed by enrolling.
             The caller must show them and cannot ask for them again.
@@ -11354,6 +11861,14 @@ components:
         ready:
           description: Ready is true when every check passed.
           type: boolean
+      type: object
+    ReissueInviteInput:
+      description: ReissueInviteInput replaces a pending invite's link.
+      properties:
+        expires_in:
+          description: ExpiresIn is how long the new link works, between one hour
+            and 30 days; omitted means 7 days.
+          type: string
       type: object
     ReleaseRequest:
       description: ReleaseRequest gives up a lease held under a token.
@@ -12204,11 +12719,11 @@ components:
           description: Enrolment is set only for ChallengeEnrol.
         kind:
           $ref: '#/components/schemas/TOTPChallengeKind'
-          description: Kind says whether a code is asked for or enrolment must happen
-            first.
+          description: Kind says whether a code is asked for, enrolment must happen
+            first, or a new password must be chosen.
         ticket:
           description: Ticket is presented with the code in the next step; it expires
-            after five minutes.
+            after five minutes. Empty for a password change.
           type: string
       type: object
     TOTPChallengeKind:
@@ -12217,6 +12732,7 @@ components:
       enum:
         - code
         - enrol
+        - password_change
       type: string
     TOTPCodeRequest:
       description: TOTPCodeRequest carries the code proving possession of an authenticator.
@@ -12735,6 +13251,10 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        require_password_change:
+          description: RequirePasswordChange reports whether the next password sign-in
+            must choose a new password before a session is minted.
+          type: boolean
         role:
           $ref: '#/components/schemas/Role'
           description: Role is the user's role in that tenant; empty when they hold
@@ -13081,6 +13601,12 @@ components:
           type:
             - "null"
             - string
+        require_password_change:
+          description: RequirePasswordChange true makes the next password sign-in
+            choose a new password first; false lifts that; omitted leaves it.
+          type:
+            - "null"
+            - boolean
         role:
           $ref: '#/components/schemas/Role'
           description: Role changes the user's role in this tenant; omitted leaves
@@ -13133,6 +13659,10 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        require_password_change:
+          description: RequirePasswordChange reports whether the next password sign-in
+            must choose a new password before a session is minted.
+          type: boolean
         sso_provider:
           description: SSOProvider names the single sign-on provider that vouches
             for the user. Empty for a password user.

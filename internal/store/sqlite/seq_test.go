@@ -183,6 +183,8 @@ func TestMigrationResumesAboveExistingTasks(t *testing.T) {
 		"ALTER TABLE projects DROP COLUMN lease_default",
 		"ALTER TABLE projects DROP COLUMN lease_max",
 		"ALTER TABLE tasks DROP COLUMN lease",
+		"DROP TABLE user_invites",
+		"ALTER TABLE users DROP COLUMN require_password_change",
 		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE users DROP COLUMN global_admin",
 		"DELETE FROM schema_migrations WHERE version > 1",

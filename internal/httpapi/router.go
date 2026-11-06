@@ -181,6 +181,7 @@ func (rt *Router) register() {
 	rt.mux.HandleFunc("GET "+wire.RouteOpenAPI, rt.handleOpenAPI)
 
 	rt.registerAuthRoutes()
+	rt.registerInviteRoutes()
 	rt.registerTenantRoutes()
 	rt.registerGlobalAdminRoutes()
 	rt.registerProjectRoutes()
