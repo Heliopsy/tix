@@ -79,6 +79,7 @@ func runMCP(cmd *cobra.Command, g *globals, o mcpOptions) error {
 	if target.Mode != connect.ModeRemote {
 		return usagef(cmd, "tix mcp talks to a tix server: pass --server, or select a context that names one")
 	}
+	g.clientHint = core.ClientHintMCP
 	conn, ctx, err := g.dial(cmd)
 	if err != nil {
 		return err

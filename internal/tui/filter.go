@@ -67,12 +67,23 @@ func EventRow(e core.Event) query.ActivityRow {
 		Actors: []string{e.ActorID, output.EventActor(e)},
 		Kind:   e.SubjectType,
 		Action: string(e.Type),
+		Via:    eventVia(e).Kind,
+		Token:  eventVia(e).TokenName,
 		Text: []string{
 			string(e.Type), e.SubjectType, e.SubjectID,
 			output.EventActor(e), output.EventVerb(e.Type),
 			output.EventRef(e), output.EventDetail(e),
 		},
 	}
+}
+
+// eventVia is the channel an event records, unknown on one written before
+// events carried it.
+func eventVia(e core.Event) core.Via {
+	if e.Via == nil {
+		return core.Via{}.Known()
+	}
+	return e.Via.Known()
 }
 
 // MatchesActivity reports whether one event satisfies the activity filter.

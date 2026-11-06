@@ -38,6 +38,10 @@ func auditFilterFrom(r *http.Request) (core.AuditFilter, error) {
 	for _, s := range q["source"] {
 		f.Sources = append(f.Sources, core.Source(s))
 	}
+	for _, v := range q["via"] {
+		f.Vias = append(f.Vias, core.ViaKind(v))
+	}
+	f.Tokens = q["token"]
 	if f.Since, err = timeParam(q.Get("since")); err != nil {
 		return core.AuditFilter{}, err
 	}

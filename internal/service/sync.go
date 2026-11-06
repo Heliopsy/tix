@@ -302,6 +302,7 @@ const (
 // every entity it touches carries an external reference, so a second run
 // refreshes rather than duplicating.
 func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncResult, error) {
+	ctx = core.WithVia(ctx, core.ViaFrom(ctx).Derive(core.ViaSync))
 	actor, err := l.authorize(ctx, authz.ActionSyncAdmin, authz.Resource{})
 	if err != nil {
 		return nil, err

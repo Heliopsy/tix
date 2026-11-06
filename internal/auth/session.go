@@ -139,12 +139,23 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	return &core.Actor{
-		ID:       stored.ActorID,
-		TenantID: stored.TenantID,
-		Kind:     core.ActorUser,
-		Handle:   stored.Handle,
-		Role:     stored.Role,
+		ID:        stored.ActorID,
+		TenantID:  stored.TenantID,
+		Kind:      core.ActorUser,
+		Handle:    stored.Handle,
+		Role:      stored.Role,
+		SessionID: SessionRef(stored.TokenHash),
 	}, nil
+}
+
+// SessionRef is the opaque name an audit entry gives a browser session: a
+// digest of the stored hash, so it tells one session from another without
+// being the cookie, or the hash a lookup would accept.
+func SessionRef(tokenHash string) string {
+	if tokenHash == "" {
+		return ""
+	}
+	return "s-" + HashToken("session-ref:" + tokenHash)[:16]
 }
 
 // NewSessionCookie builds the session cookie, marking it Secure under TLS.

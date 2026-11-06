@@ -25,6 +25,12 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 	for _, stmt := range []string{
 		"DROP TABLE user_invites",
 		"ALTER TABLE users DROP COLUMN require_password_change",
+		"DROP INDEX idx_audit_via",
+		"ALTER TABLE audit_entries DROP COLUMN via_kind",
+		"ALTER TABLE audit_entries DROP COLUMN via_token",
+		"ALTER TABLE audit_entries DROP COLUMN via_detail",
+		"ALTER TABLE events DROP COLUMN via_kind",
+		"ALTER TABLE events DROP COLUMN via_detail",
 		"ALTER TABLE field_defs ADD COLUMN indexed BOOLEAN NOT NULL DEFAULT TRUE",
 		"ALTER TABLE tenants DROP COLUMN time_format",
 		"ALTER TABLE tenants DROP COLUMN timezone",

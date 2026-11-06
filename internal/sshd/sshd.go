@@ -375,3 +375,15 @@ func sourceOf(addr net.Addr) string {
 	}
 	return host
 }
+
+// sessionCtx is the context every call a terminal session makes runs in:
+// its actor, the terminal source, and the ssh channel with the key the session
+// signed in with and the address it came from.
+func sessionCtx(sess ssh.Session, actor *core.Actor) context.Context {
+	ctx := core.WithSource(core.WithActor(sess.Context(), actor), core.SourceTUI)
+	return core.WithVia(ctx, core.Via{
+		Kind:           core.ViaSSH,
+		KeyFingerprint: auth.Fingerprint(sess.PublicKey()),
+		ClientAddr:     sourceOf(sess.RemoteAddr()),
+	})
+}

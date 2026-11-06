@@ -15,7 +15,7 @@ import (
 
 var eventColumns = []string{
 	"seq", "id", "tenant_id", "type", "project_id", "subject_type", "subject_id",
-	"actor_id", "payload", "occurred_at",
+	"actor_id", "payload", "via_kind", "via_detail", "occurred_at",
 }
 
 func scanEvent(s scanner) (core.Event, error) {
@@ -24,18 +24,24 @@ func scanEvent(s scanner) (core.Event, error) {
 		project  sql.NullString
 		actor    sql.NullString
 		payload  string
+		viaKind  string
+		viaJSON  sql.NullString
 		occurred sql.NullString
 	)
 	if err := s.Scan(&e.Seq, &e.ID, &e.TenantID, &e.Type, &project, &e.SubjectType,
-		&e.SubjectID, &actor, &payload, &occurred); err != nil {
+		&e.SubjectID, &actor, &payload, &viaKind, &viaJSON, &occurred); err != nil {
 		return core.Event{}, mapErr(err, "scanning event")
 	}
+	via, err := sqlb.ScanVia(viaKind, viaJSON)
+	if err != nil {
+		return core.Event{}, err
+	}
+	e.Via = &via
 	e.ProjectID = sqlb.Text(project)
 	e.ActorID = sqlb.Text(actor)
 	if err := sqlb.ParseJSON(payload, &e.Payload); err != nil {
 		return core.Event{}, core.Internal("decoding payload of event %q", e.ID).Wrap(err)
 	}
-	var err error
 	if e.OccurredAt, err = sqlb.ScanTime(occurred); err != nil {
 		return core.Event{}, err
 	}
@@ -56,6 +62,14 @@ func (t *tx) AppendEvent(ctx context.Context, e *core.Event) error {
 	if err != nil {
 		return core.Internal("encoding payload of event %q", e.Type).Wrap(err)
 	}
+	var via core.Via
+	if e.Via != nil {
+		via = e.Via.Public()
+	}
+	viaDetail, err := sqlb.ViaDetailText(via)
+	if err != nil {
+		return core.Internal("encoding access channel of event %q", e.Type).Wrap(err)
+	}
 	ins := t.insert("events").
 		Set("id", e.ID).
 		Set("type", string(e.Type)).
@@ -64,6 +78,8 @@ func (t *tx) AppendEvent(ctx context.Context, e *core.Event) error {
 		Set("subject_id", e.SubjectID).
 		Set("actor_id", sqlb.NullText(e.ActorID)).
 		Set("payload", payload).
+		Set("via_kind", sqlb.ViaKindText(via)).
+		Set("via_detail", viaDetail).
 		Set("occurred_at", sqlb.TimeText(e.OccurredAt))
 	res, err := t.execInsert(ctx, ins, "appending event %q", string(e.Type))
 	if err != nil {
@@ -118,7 +134,7 @@ func (t *tx) LatestEventSeq(ctx context.Context) (int64, error) {
 
 var auditColumns = []string{
 	"seq", "tenant_id", "actor_id", "action", "subject_type", "subject_id",
-	"before_state", "after_state", "source", "occurred_at",
+	"before_state", "after_state", "source", "via_kind", "via_detail", "occurred_at",
 }
 
 func scanAudit(s scanner) (core.AuditEntry, error) {
@@ -127,12 +143,19 @@ func scanAudit(s scanner) (core.AuditEntry, error) {
 		actor    sql.NullString
 		before   sql.NullString
 		after    sql.NullString
+		viaKind  string
+		viaJSON  sql.NullString
 		occurred sql.NullString
 	)
 	if err := s.Scan(&e.Seq, &e.TenantID, &actor, &e.Action, &e.SubjectType, &e.SubjectID,
-		&before, &after, &e.Source, &occurred); err != nil {
+		&before, &after, &e.Source, &viaKind, &viaJSON, &occurred); err != nil {
 		return core.AuditEntry{}, mapErr(err, "scanning audit entry")
 	}
+	via, err := sqlb.ScanVia(viaKind, viaJSON)
+	if err != nil {
+		return core.AuditEntry{}, err
+	}
+	e.Via = via
 	e.ActorID = sqlb.Text(actor)
 	if s := sqlb.Text(before); s != "" {
 		e.Before = json.RawMessage(s)
@@ -140,7 +163,6 @@ func scanAudit(s scanner) (core.AuditEntry, error) {
 	if s := sqlb.Text(after); s != "" {
 		e.After = json.RawMessage(s)
 	}
-	var err error
 	if e.OccurredAt, err = sqlb.ScanTime(occurred); err != nil {
 		return core.AuditEntry{}, err
 	}
@@ -156,6 +178,11 @@ func (t *tx) AppendAudit(ctx context.Context, e *core.AuditEntry) error {
 	if e.Source == "" {
 		e.Source = core.SourceSystem
 	}
+	e.Via = e.Via.Known()
+	viaDetail, err := sqlb.ViaDetailText(e.Via)
+	if err != nil {
+		return core.Internal("encoding access channel of audit entry %q", e.Action).Wrap(err)
+	}
 	ins := t.insert("audit_entries").
 		Set("actor_id", sqlb.NullText(e.ActorID)).
 		Set("action", e.Action).
@@ -164,6 +191,9 @@ func (t *tx) AppendAudit(ctx context.Context, e *core.AuditEntry) error {
 		Set("before_state", sqlb.NullText(string(e.Before))).
 		Set("after_state", sqlb.NullText(string(e.After))).
 		Set("source", string(e.Source)).
+		Set("via_kind", string(e.Via.Kind)).
+		Set("via_token", e.Via.TokenName).
+		Set("via_detail", viaDetail).
 		Set("occurred_at", sqlb.TimeText(e.OccurredAt))
 	res, err := t.execInsert(ctx, ins, "appending audit entry %q", e.Action)
 	if err != nil {
@@ -206,6 +236,7 @@ func (t *tx) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEnt
 		}
 		b.WhereIn("source", sources)
 	}
+	sqlb.ApplyVia(b, f.Vias, f.Tokens)
 	if f.Since != nil {
 		b.Where("occurred_at >= ?", sqlb.TimeText(*f.Since))
 	}
@@ -213,7 +244,7 @@ func (t *tx) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEnt
 		b.Where("occurred_at <= ?", sqlb.TimeText(*f.Until))
 	}
 	sqlb.ApplyContains(b, f.Text,
-		"action", "subject_type", "source", "before_state", "after_state")
+		"action", "subject_type", "source", "via_kind", "via_token", "before_state", "after_state")
 	rows, err := t.query(ctx, spec.apply(b, "seq"), "listing audit entries")
 	if err != nil {
 		return nil, err
