@@ -99,7 +99,7 @@ func TestPutSyncSourceRefusesCredentialsAsCredentials(t *testing.T) {
 		_, err := f.local.PutSyncSource(f.ctx, core.SyncSourceInput{
 			System: core.SystemJira, Name: "jira", Config: map[string]any{key: "value"},
 		})
-		if !core.IsKind(err, core.KindInvalid) || !strings.Contains(err.Error(), "credentials are read from") {
+		if !core.IsKind(err, core.KindInvalid) || !strings.Contains(err.Error(), "sealed and never returned") {
 			t.Errorf("PutSyncSource(%s) = %v, want the credential refusal", key, err)
 		}
 		if err != nil && strings.Contains(err.Error(), "value") {

@@ -73,7 +73,13 @@ type syncFixture struct {
 
 func newSyncFixture(t *testing.T, name string) *syncFixture {
 	t.Helper()
-	l, clk, scope, actor := newLocal(t)
+	return newSyncFixtureWith(t, name)
+}
+
+// newSyncFixtureWith builds the fixture on a service carrying extra options.
+func newSyncFixtureWith(t *testing.T, name string, opts ...Option) *syncFixture {
+	t.Helper()
+	l, clk, scope, actor := newLocalWith(t, opts...)
 	ctx := core.WithActor(context.Background(), actor)
 
 	if _, err := l.PutWorkflow(ctx, core.WorkflowInput{

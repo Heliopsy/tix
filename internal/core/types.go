@@ -1077,6 +1077,19 @@ type SyncSource struct {
 	Config map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
 	// MappingPath is the stored mapping file, empty when the environment names it.
 	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
+	// Mapping is the mapping document stored on the source itself. When set it
+	// wins over MappingPath and over TIX_SYNC_<SOURCE>_MAPPING.
+	Mapping string `json:"mapping,omitempty" yaml:"mapping,omitempty"`
+	// Credentials names the credentials stored on the source, each with a hint
+	// at most. A stored credential is never returned.
+	Credentials []SyncCredentialHint `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	// Resolved is what a run started now would use and what it lacks, worked
+	// out on the server that runs it. It is not stored.
+	Resolved *SyncResolution `json:"resolved,omitempty" yaml:"resolved,omitempty"`
+	// SealedCredentials is the stored credential set, encrypted. Never serialized.
+	SealedCredentials string `json:"-" yaml:"-"`
+	// CredentialsNonce is the nonce SealedCredentials was sealed with.
+	CredentialsNonce string `json:"-" yaml:"-"`
 	// Cursor is how far the import has read, opaque and owned by the system's
 	// importer.
 	Cursor string `json:"cursor,omitempty" yaml:"cursor,omitempty"`
@@ -1086,6 +1099,74 @@ type SyncSource struct {
 	LastStatus string `json:"last_status,omitempty" yaml:"last_status,omitempty"`
 	// CreatedAt is when the source was added, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+}
+
+// SyncCredentialHint describes one credential stored on a sync source without
+// disclosing it.
+type SyncCredentialHint struct {
+	// Name is "token", "user" or "password".
+	Name string `json:"name" yaml:"name"`
+	// Hint is the last four characters of a long credential, empty otherwise.
+	Hint string `json:"hint,omitempty" yaml:"hint,omitempty"`
+}
+
+// Where a sync source's mapping, credentials or settings come from at run time.
+const (
+	SyncFromStored  = "stored"
+	SyncFromPath    = "mapping_path"
+	SyncFromEnv     = "env"
+	SyncFromNone    = "none"
+	SyncFromMissing = "missing"
+)
+
+// SyncOrigin says where one part of a source's configuration comes from.
+type SyncOrigin struct {
+	// From is "stored", "mapping_path", "env", "none" or "missing".
+	From string `json:"from" yaml:"from"`
+	// Detail names the file, the variables or the stored credentials used.
+	Detail string `json:"detail,omitempty" yaml:"detail,omitempty"`
+}
+
+// SyncSettingOrigin is one non-secret setting as a run would read it.
+type SyncSettingOrigin struct {
+	// Key is the setting, such as "url".
+	Key string `json:"key" yaml:"key"`
+	// From is "stored", "env" or "missing".
+	From string `json:"from" yaml:"from"`
+	// Value is the value a run would use.
+	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+	// Variable is the environment variable the setting falls back to.
+	Variable string `json:"variable" yaml:"variable"`
+}
+
+// SyncResolution is what a sync run would use on the server, and what it lacks.
+type SyncResolution struct {
+	// Mapping says which mapping document a run reads.
+	Mapping SyncOrigin `json:"mapping" yaml:"mapping"`
+	// Credentials says which credentials a run authenticates with.
+	Credentials SyncOrigin `json:"credentials" yaml:"credentials"`
+	// Settings lists every setting the source's system takes.
+	Settings []SyncSettingOrigin `json:"settings,omitempty" yaml:"settings,omitempty"`
+	// Missing lists what the server lacks, each with how to supply it. A run is
+	// refused while it is not empty.
+	Missing []string `json:"missing,omitempty" yaml:"missing,omitempty"`
+	// Summary describes the mapping, filled in only when a source is checked.
+	Summary *SyncMappingSummary `json:"summary,omitempty" yaml:"summary,omitempty"`
+}
+
+// Ready reports whether a run would start.
+func (r SyncResolution) Ready() bool { return len(r.Missing) == 0 }
+
+// SyncMappingSummary describes a mapping document as a run would apply it.
+type SyncMappingSummary struct {
+	// Project is the tix project records land in.
+	Project string `json:"project" yaml:"project"`
+	// Identity is the external field that identifies a record.
+	Identity string `json:"identity" yaml:"identity"`
+	// Fields lists each mapped external field as "external -> tix".
+	Fields []string `json:"fields,omitempty" yaml:"fields,omitempty"`
+	// Statuses lists each mapped external status as "external -> state".
+	Statuses []string `json:"statuses,omitempty" yaml:"statuses,omitempty"`
 }
 
 // TrashStatus says whether a tenant keeps deleted tasks, and how many it holds.
