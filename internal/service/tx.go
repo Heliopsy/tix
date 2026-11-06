@@ -40,7 +40,7 @@ func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID s
 		SubjectID:   subjectID,
 		ActorID:     m.actor.ID,
 		Payload:     m.withActor(payload),
-		Via:         new(m.via.Public()),
+		Via:         new(m.via),
 		OccurredAt:  m.now,
 	})
 }
