@@ -57,15 +57,17 @@ const (
 // field_defs.indexed stays listed because 0001 still creates it on a fresh
 // database, before 0029 drops it.
 var boolColumns = map[string]bool{
-	"workflows.builtin":        true,
-	"field_defs.required":      true,
-	"field_defs.indexed":       true,
-	"webhook_endpoints.active": true,
-	"tenants.require_totp_web": true,
-	"tenants.require_totp_cli": true,
-	"tenants.require_totp_ssh": true,
-	"tenants.trash_off":        true,
-	"users.global_admin":       true,
+	"workflows.builtin":             true,
+	"field_defs.required":           true,
+	"field_defs.indexed":            true,
+	"webhook_endpoints.active":      true,
+	"tenants.require_totp_web":      true,
+	"tenants.require_totp_cli":      true,
+	"tenants.require_totp_ssh":      true,
+	"tenants.trash_off":             true,
+	"users.global_admin":            true,
+	"users.require_password_change": true,
+	"user_invites.existing_account": true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.
@@ -153,6 +155,7 @@ var tableIntroducedIn = map[string]int{
 	"inbox_deliveries":      24,
 	"task_templates":        25,
 	"housekeeping_policies": 27,
+	"user_invites":          31,
 }
 
 func introducedIn(table string) int {

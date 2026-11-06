@@ -262,7 +262,9 @@ var subjectScope = map[string]core.Scope{
 	"ssh_key":       core.ScopeTokenAdmin,
 	"user":          core.ScopeUserAdmin,
 	"membership":    core.ScopeUserAdmin,
-	"session":       core.ScopeUserAdmin,
+	// An invite names an address and the role it was offered.
+	"user_invite": core.ScopeUserAdmin,
+	"session":     core.ScopeUserAdmin,
 
 	// A second-factor event names a user and says whether that account holds
 	// one, which is a list of who to attack first. The scope is the one that

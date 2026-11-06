@@ -78,7 +78,9 @@ func redact(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, val := range t {
-			if isSecretKey(k) {
+			// A true or false names whether something is so, and cannot
+			// carry a credential: require_password_change is state, not one.
+			if _, flag := val.(bool); isSecretKey(k) && !flag {
 				out[k] = redacted
 				continue
 			}

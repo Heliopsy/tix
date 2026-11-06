@@ -282,6 +282,17 @@ func concretePath(pattern string) string {
 // panics, and the router recovers a panic as an internal error.
 type stubService struct{ core.Service }
 
+// PreviewInvite and AcceptInvite answer for the two public browser routes that
+// reach the service with no session behind them: the invite page has to call
+// one before it can draw anything.
+func (stubService) PreviewInvite(context.Context, string) (*core.InvitePreview, error) {
+	return nil, core.Invalid("no invite")
+}
+
+func (stubService) AcceptInvite(context.Context, string, core.AcceptInviteInput) (*core.LoginResult, error) {
+	return nil, core.Invalid("no invite")
+}
+
 // stubResolver serves no host, which leaves the configured default tenant.
 type stubResolver struct{}
 
@@ -508,7 +519,7 @@ func TestNoCLIGapRemains(t *testing.T) {
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 38,
+		capability.SurfaceTUI: 42,
 		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}

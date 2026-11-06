@@ -54,6 +54,7 @@ const (
 	tplTenant    = "tenant.html"
 	tplDomains   = "domains.html"
 	tplUsers     = "users.html"
+	tplInvite    = "invite.html"
 	tplTokens    = "tokens.html"
 	tplSSHKeys   = "sshkeys.html"
 	tplProjects  = "projects.html"
@@ -1163,6 +1164,64 @@ var registry = []Operation{
 		Web:   webPost(web.RouteGlobalAdminRevoke),
 		Exempt: []Exemption{
 			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "invite.create", Method: "CreateInvite", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeUserAdmin,
+		CLI:   "tix user invite",
+		HTTP:  apiPost(wire.RouteInvites),
+		Web:   webPost(web.RouteInvites),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+	{
+		Name: "invite.list", Method: "ListInvites",
+		Scope: core.ScopeUserAdmin,
+		CLI:   "tix user invite ls",
+		HTTP:  apiGet(wire.RouteInvites),
+		Web:   webGet(web.RouteUsers, tplUsers),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+	{
+		Name: "invite.revoke", Method: "RevokeInvite",
+		Scope: core.ScopeUserAdmin,
+		CLI:   "tix user invite revoke",
+		HTTP:  apiDelete(wire.RouteInvite),
+		Web:   webPost(web.RouteInviteRevoke),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+	{
+		Name: "invite.reissue", Method: "ReissueInvite", Contract: Contract{OptionalBody: true},
+		Scope: core.ScopeUserAdmin,
+		CLI:   "tix user invite reissue",
+		HTTP:  apiPost(wire.RouteInviteReissue),
+		Web:   webPost(web.RouteInviteReissue),
+		Exempt: []Exemption{
+			gap(SurfaceTUI, "GAP: no tui binding yet; there is no user administration view"),
+		},
+	},
+	{
+		Name: "invite.preview", Method: "PreviewInvite", Contract: Contract{Public: true},
+		HTTP: apiGet(wire.RouteInviteToken),
+		Web:  webGet(web.RouteInviteAccept, tplInvite),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "the invited person opens the link in a browser before they have an account, let alone a configured command line"),
+			off(SurfaceTUI, "the invited person has no account to reach the terminal interface with until the invite is accepted"),
+		},
+	},
+	{
+		Name: "invite.accept", Method: "AcceptInvite", Contract: Contract{Public: true},
+		HTTP: apiPost(wire.RouteInviteToken),
+		Web:  webPost(web.RouteInviteAccept),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "the invited person opens the link in a browser before they have an account, let alone a configured command line"),
+			off(SurfaceTUI, "the invited person has no account to reach the terminal interface with until the invite is accepted"),
 		},
 	},
 	{

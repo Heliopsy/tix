@@ -59,18 +59,19 @@ func tenantUserLsCmd(g *globals) *cobra.Command {
 
 func tenantUserCreateCmd(g *globals) *cobra.Command {
 	var password, display, handle, role string
-	var dryRun bool
+	var dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "create KEY EMAIL",
 		Short: "Create a user in a tenant",
 		Long: "Create a credentialed human in the tenant named by KEY.\n\n" +
+			"--require-password-change makes the first password sign-in choose a new password before it is let in.\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown tenant, 4 email already used, 5 not a global admin.",
 		Example: "  tix tenant user create acme ada@example.com --role admin --password '...'",
 		Args:    exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := core.CreateUserInput{
 				Email: args[1], Password: password, DisplayName: display,
-				Handle: handle, Role: core.Role(role),
+				Handle: handle, Role: core.Role(role), RequirePasswordChange: mustChange,
 			}
 			if err := in.Validate(); err != nil {
 				return err
@@ -94,17 +95,20 @@ func tenantUserCreateCmd(g *globals) *cobra.Command {
 	f.StringVar(&display, "display-name", "", "display name")
 	f.StringVar(&handle, "handle", "", "actor handle")
 	f.StringVar(&role, "role", "", "role in that tenant")
+	f.BoolVar(&mustChange, "require-password-change", false, "make the first sign-in choose a new password")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }
 
 func tenantUserEditCmd(g *globals) *cobra.Command {
 	var display, password, role string
-	var disabled, dryRun bool
+	var disabled, dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "edit KEY ID",
 		Short: "Change a user of a tenant",
-		Long: "Change the display name, password, role or disabled state of a user of the tenant named by KEY.\n\n" +
+		Long: "Change the display name, password, role or disabled state of a user of the tenant named by KEY, " +
+			"or whether their next password sign-in must choose a new password (--require-password-change, " +
+			"=false to lift it).\n\n" +
 			"Exit codes: 3 unknown tenant or user, 5 not a global admin.",
 		Example: "  tix tenant user edit acme 01J000000000000000000A --role admin",
 		Args:    exactArgs(2),
@@ -122,6 +126,9 @@ func tenantUserEditCmd(g *globals) *cobra.Command {
 			}
 			if cmd.Flags().Changed("disabled") {
 				in.Disabled = &disabled
+			}
+			if cmd.Flags().Changed("require-password-change") {
+				in.RequirePasswordChange = &mustChange
 			}
 			if dryRun {
 				return g.render(cmd, newPlan("tenant.user.update", args[0]+"/"+args[1], nil))
@@ -142,6 +149,7 @@ func tenantUserEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&password, "password", "", "new password")
 	f.StringVar(&role, "role", "", "new role")
 	f.BoolVar(&disabled, "disabled", false, "disable or re-enable the user")
+	f.BoolVar(&mustChange, "require-password-change", false, "make the next password sign-in choose a new password")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }

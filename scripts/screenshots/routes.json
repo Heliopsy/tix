@@ -15,6 +15,7 @@
   "routes": [
     { "pattern": "/", "skip": "redirects to /projects, which is captured" },
     { "pattern": "/login", "public": true },
+    { "pattern": "/invite/{token}", "skip": "opens only with a live invite token, which no page links to; the invite tests draw it" },
     { "pattern": "/settings" },
     { "pattern": "/settings/notifications" },
     { "pattern": "/release" },

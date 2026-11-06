@@ -82,6 +82,7 @@ the routes the server registers. The areas are the first segment of each operati
 | housekeeping | `GET /housekeeping`, `PUT /housekeeping`, `POST /housekeeping/run` |
 | identity | `GET /whoami` |
 | inbox | `POST /channel-deliveries/{id}/redeliver`, `GET /channels`, `POST /channels`, `PATCH /channels/{id}`, `DELETE /channels/{id}`, `GET /channels/{id}/deliveries`, `POST /channels/{id}/test`, `GET /inbox`, `GET /inbox/count`, `GET /inbox/prefs`, `PUT /inbox/prefs`, `POST /inbox/read-all`, `PUT /inbox/{id}/read`, `DELETE /inbox/{id}/read` |
+| invite | `GET /auth/invites/{token}`, `POST /auth/invites/{token}`, `GET /invites`, `POST /invites`, `DELETE /invites/{id}`, `POST /invites/{id}/reissue` |
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |

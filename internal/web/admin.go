@@ -25,8 +25,11 @@ func (h *handler) adminRoutes() []route {
 		get(RouteDomains, "domains.html", h.showDomains, "ListDomains"),
 		post(RouteDomains, h.addDomain, "AddDomain"),
 		post(RouteDomainRemove, h.removeDomain, "RemoveDomain"),
-		get(RouteUsers, "users.html", h.showUsers, "ListUsers", "ListMembers"),
+		get(RouteUsers, "users.html", h.showUsers, "ListUsers", "ListMembers", "ListInvites"),
 		post(RouteUsers, h.createUser, "CreateUser"),
+		post(RouteInvites, h.createInvite, "CreateInvite"),
+		post(RouteInviteRevoke, h.revokeInvite, "RevokeInvite"),
+		post(RouteInviteReissue, h.reissueInvite, "ReissueInvite"),
 		post(RouteUserUpdate, h.updateUser, "UpdateUser"),
 		post(RouteUserDelete, h.deleteUser, "DeleteUser"),
 		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens", "ListActors"),
@@ -449,6 +452,12 @@ type usersView struct {
 	// somebody else to an unenrolled state. A member does not, so the control
 	// is drawn only where it would work.
 	CanClearTOTP bool
+	// Invites are the links issued and not yet used or revoked.
+	Invites []inviteRow
+	// InviteExpiries are the lifetimes the invite form offers.
+	InviteExpiries []inviteExpiry
+	// IssuedInvite is the link just issued, shown once; nil otherwise.
+	IssuedInvite *issuedInviteLink
 }
 
 // showUsers renders the tenant's users, each with the role its membership
@@ -466,7 +475,8 @@ func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 	actor, _ := core.ActorFrom(r.Context())
 	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
 		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam),
-		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin)}
+		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin), InviteExpiries: inviteExpiryChoices,
+		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r)}
 	for _, u := range users {
 		row := userRow{User: u, Role: roles[u.ID]}
 		if actor != nil && actor.ID == u.ID {
@@ -496,13 +506,19 @@ func (h *handler) memberRoles(r *http.Request) map[string]core.Role {
 	return out
 }
 
-// createUser creates a credentialed user.
+// createUser creates a credentialed user, or invites the address when the
+// form was switched to sending an invite link.
 func (h *handler) createUser(w http.ResponseWriter, r *http.Request) error {
+	if field(r, "mode") == createModeInvite {
+		return h.createInvite(w, r)
+	}
+	password := r.PostFormValue("password")
 	in := core.CreateUserInput{
-		Email:       field(r, "email"),
-		Password:    r.PostFormValue("password"),
-		DisplayName: field(r, "display_name"),
-		Role:        core.Role(field(r, "role")),
+		Email:                 field(r, "email"),
+		Password:              password,
+		DisplayName:           field(r, "display_name"),
+		Role:                  core.Role(field(r, "role")),
+		RequirePasswordChange: password != "" && checked(r, "require_password_change"),
 	}
 	if _, err := h.svc.CreateUser(r.Context(), in); err != nil {
 		return h.refuseIn(w, r, "user-new", RouteUsers, err, h.showUsers)
@@ -528,6 +544,8 @@ func (h *handler) updateUser(w http.ResponseWriter, r *http.Request) error {
 	}
 	disabled := checked(r, "disabled")
 	in.Disabled = &disabled
+	change := checked(r, "require_password_change")
+	in.RequirePasswordChange = &change
 	if _, err := h.svc.UpdateUser(r.Context(), field(r, "id"), in); err != nil {
 		return err
 	}
