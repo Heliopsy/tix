@@ -42,6 +42,7 @@ type Service interface {
 	InboxService
 	InboxChannelService
 	TemplateService
+	TimeService
 
 	// Close releases the service's resources, such as the underlying store.
 	Close() error

@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -31,11 +32,13 @@ func (g *globals) formatName() string {
 	return output.FormatTable
 }
 
-// timeStyle resolves how an instant is shown to a person. Configuration is
-// validated at load, so a bad value cannot reach here; a zero style is still
-// the fallback rather than a panic, because rendering a timestamp in the wrong
-// layout is a far smaller failure than refusing to print a task list.
-func (g *globals) timeStyle() output.TimeStyle {
+// configTimeStyle is the deployment's own style, from output.time_format and
+// output.timezone alone. A server hands it to the browser and SSH surfaces as
+// the global level, under each tenant's and each person's choice. Configuration
+// is validated at load, so a bad value cannot reach here; a zero style is
+// still the fallback rather than a panic, because rendering a timestamp in the
+// wrong layout is a far smaller failure than refusing to print a task list.
+func (g *globals) configTimeStyle() output.TimeStyle {
 	if g.resolved == nil {
 		return output.TimeStyle{}
 	}
@@ -46,9 +49,51 @@ func (g *globals) timeStyle() output.TimeStyle {
 	return style
 }
 
+// timeStyle resolves how an instant is shown to the person running this
+// command: a format or zone set on this machine (a flag, TIX_OUTPUT_* or the
+// configuration file) wins, field by field; otherwise their own choice, their
+// tenant's, then the deployment's, read once from the connection. Without a
+// connection, or from a server too old to answer, it is this machine's
+// configuration alone.
+func (g *globals) timeStyle() output.TimeStyle {
+	if g.personStyle != nil {
+		return *g.personStyle
+	}
+	base := g.configTimeStyle()
+	if g.conn == nil || g.resolved == nil {
+		return base
+	}
+	style := base
+	if settings, err := g.conn.Service.GetTimeSettings(g.conn.Context(context.Background())); err == nil {
+		format, zone := settings.Effective.TimeFormat, settings.Effective.Timezone
+		if g.resolved.Source(keyOutputTimeFormat) != config.LayerDefault {
+			format = g.resolved.Config.Output.TimeFormat
+		}
+		if g.resolved.Source(keyOutputTimezone) != config.LayerDefault {
+			zone = g.resolved.Config.Output.Timezone
+		}
+		if resolved, err := output.NewTimeStyle(format, zone); err == nil {
+			style = resolved
+		}
+	}
+	g.personStyle = &style
+	return style
+}
+
+// Configuration keys of the two date preferences this machine can set for
+// itself.
+const (
+	keyOutputTimeFormat = "output.time_format"
+	keyOutputTimezone   = "output.timezone"
+)
+
 // render writes one result to standard output in the selected format.
 func (g *globals) render(cmd *cobra.Command, data any) error {
-	return output.NewWithStyle(g.formatName(), g.colorMode(), g.timeStyle()).Format(cmd.OutOrStdout(), data)
+	style := output.TimeStyle{}
+	if g.formatName() == output.FormatTable {
+		style = g.timeStyle()
+	}
+	return output.NewWithStyle(g.formatName(), g.colorMode(), style).Format(cmd.OutOrStdout(), data)
 }
 
 // resolveActorNames looks up each distinct actor a list names. An actor that
