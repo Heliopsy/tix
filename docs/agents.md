@@ -437,6 +437,22 @@ without a visit. That listener faces strangers, so it refuses to share a databas
 An agent should still use a token. An enrolled key buys a terminal session and nothing else: the SSH listener
 serves the interactive interface, not the command tree, so there is no way to drive `tix claim` through it.
 
+## Adding many tasks
+
+To add tasks, create each one: `tix task add` per task, `POST /api/v1/tasks`, or the task create tool under
+MCP. A batch of a few dozen is still just that many calls. For a plan written as a list, one line per task
+reads in one call, with no mapping:
+
+```sh
+printf 'Write the migration ^infra-12 !high\nRun it on staging\nRun it on production due:fri\n' |
+  tix import tasks -p infra --lines -
+```
+
+Each line is quick-add syntax, and a line that names someone unknown or a parent that does not exist
+stops the whole list, so nothing half-lands. `tix import tasks` with a file and a mapping is for files
+another tool wrote, a Jira or GitHub export, not for tasks an agent makes up; under MCP the import is a
+destructive tool for that reason. See [import-export.md](import-export.md).
+
 ## Reporting results
 
 `tix claim release` records what happened:

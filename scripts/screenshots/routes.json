@@ -32,6 +32,8 @@
     { "pattern": "/projects/{key}/settings", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/fields", "params": { "key": "project" } },
+    { "pattern": "/projects/{key}/import", "params": { "key": "project" } },
+    { "pattern": "/projects/{key}/import/{id}/{step}", "skip": "a step of one upload, reached from the upload step; scratch capture covers each step" },
     { "pattern": "/filters/{filter}", "params": { "filter": "filter" } },
     {
       "pattern": "/mine",

@@ -446,6 +446,16 @@ type TransferService interface {
 	// CSV delimiter are the caller's to choose. A CSV or Markdown cell that a
 	// spreadsheet would read as a formula starts with a quote.
 	ExportTasks(ctx context.Context, in TaskExportInput, w io.Writer) error
+	// ImportTasks reads a file of tasks into one project: CSV, JSON or NDJSON,
+	// including files Jira, GitHub, Trello and Linear write, or a list of
+	// quick-add lines. Columns and values are mapped by the mapping file the
+	// input carries, or by tix's own suggestion, which reads a tix export and
+	// the common headers as they are. A row matched by external id or
+	// reference is updated, skipped or created again as the mode says. A dry
+	// run reports what would happen and writes nothing, and so does an import
+	// with any row in error: the import is all or nothing. To add a handful of
+	// tasks, creating each one is simpler.
+	ImportTasks(ctx context.Context, r io.Reader, in TaskImportInput) (*TaskImportResult, error)
 }
 
 // BundleService covers sharing reusable components between projects, tenants

@@ -17,7 +17,9 @@
 
 ## 3. Import
 
-- [ ] 3.1 Read CSV, JSON and NDJSON, detect Jira, GitHub, Trello, Linear and tix files
-- [ ] 3.2 Column and value mapping, auto-suggested; mapping file
-- [ ] 3.3 Dry run preview, upsert by external id, all-or-nothing commit, error report
-- [ ] 3.4 Surfaces: CLI, API, MCP, the import steps in the browser
+- [x] 3.1 Read CSV, JSON and NDJSON, detect Jira, GitHub, Trello, Linear and tix files
+- [x] 3.2 Column and value mapping, auto-suggested; mapping file
+- [x] 3.3 Dry run preview, upsert by external id, all-or-nothing commit, error report
+- [x] 3.4 Surfaces: CLI, API (JSON or multipart), MCP (destructive, opt in), the import steps in the browser
+- [x] 3.5 Pasted lists, notes that a few tasks need no import, Skip to preview, Back and Cancel on every step
+- [x] 3.6 Docs (import-export.md, agents.md, migrating.md, web-ui.md, mcp.md), skill, Bulgarian strings

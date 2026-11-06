@@ -716,6 +716,9 @@ func (f *fakeService) ListDeliveries(context.Context, core.DeliveryFilter) ([]co
 func (f *fakeService) RedeliverWebhook(context.Context, string) error { return nil }
 
 func (f *fakeService) ExportTo(context.Context, core.ExportInput, io.Writer) error { return nil }
+func (f *fakeService) ImportTasks(context.Context, io.Reader, core.TaskImportInput) (*core.TaskImportResult, error) {
+	return nil, nil
+}
 func (f *fakeService) ExportTasks(context.Context, core.TaskExportInput, io.Writer) error {
 	return nil
 }

@@ -25,3 +25,25 @@ submitted, and the reason beside the field it concerns.
 
 - **WHEN** a reader submits the export dialog with a filter that does not parse
 - **THEN** the dialog is open again holding that filter and the refusal
+
+### Requirement: Import steps
+
+A project's page SHALL offer Import to readers holding the import scope, leading through upload, column
+mapping, value mapping, preview and result, each step at its own address with a Back that keeps what was
+chosen and a Cancel that leaves the import.
+
+#### Scenario: Back keeps the mapping
+
+- **WHEN** a reader changes a column's field, goes on to the values and presses Back
+- **THEN** the columns step shows the field they chose
+
+### Requirement: The simple paths are offered first
+
+The first import step SHALL say that a few tasks need no import and that the mapping is optional, SHALL
+take a pasted list of quick-add lines, and the steps SHALL offer Skip to preview, said outright when every
+column was recognised.
+
+#### Scenario: Every column recognised
+
+- **WHEN** a file whose every header is recognised is uploaded
+- **THEN** the columns step says so and offers Skip to preview

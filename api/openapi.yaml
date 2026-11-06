@@ -3879,6 +3879,78 @@ paths:
         table, as it walks them
       tags:
         - task
+  /api/v1/projects/{ref}/tasks/import:
+    post:
+      description: |-
+        ImportTasks reads a file of tasks into one project: CSV, JSON or NDJSON, including files Jira, GitHub, Trello and Linear write, or a list of quick-add lines. Columns and values are mapped by the mapping file the input carries, or by tix's own suggestion, which reads a tix export and the common headers as they are. A row matched by external id or reference is updated, skipped or created again as the mode says. A dry run reports what would happen and writes nothing, and so does an import with any row in error: the import is all or nothing. To add a handful of tasks, creating each one is simpler.
+
+        Command line: `tix import tasks`.
+      operationId: task.import
+      parameters:
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskImportInput'
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/TaskImportInput'
+                - properties:
+                    file:
+                      description: The file to read; content is used when there is
+                        no file.
+                      format: binary
+                      type: string
+                  type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskImportResult'
+          description: TaskImportResult reports an import, or what a dry run would
+            have done.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - import
+        - session:
+            - import
+      summary: 'ImportTasks reads a file of tasks into one project: CSV, JSON or NDJSON,
+        including files Jira, GitHub, Trello and Linear write, or a list of quick-add
+        lines'
+      tags:
+        - task
   /api/v1/prune:
     post:
       description: |-
@@ -12126,6 +12198,204 @@ components:
         timezone:
           description: Timezone is the IANA zone display dates are written in; empty
             is UTC.
+          type: string
+      type: object
+    TaskImportColumn:
+      description: TaskImportColumn is one column of the file and the field it fills.
+      properties:
+        header:
+          description: Header is the column as the file names it.
+          type: string
+        sample:
+          description: Sample is the column's first non-empty values, up to three.
+          items:
+            type: string
+          type: array
+        suggested:
+          description: Suggested is true when the mapping did not name the column
+            and the target is tix's own guess.
+          type: boolean
+        target:
+          description: 'Target is the field it fills: title, body, status, priority,
+            assignee, tags, due, parent, depends_on, recurrence, external_id, alias,
+            ref, custom:KEY, append_body or ignore.'
+          type: string
+      type: object
+    TaskImportError:
+      description: TaskImportError is one row's refusal, the shape of the error report.
+      properties:
+        line:
+          type: integer
+        message:
+          type: string
+      type: object
+    TaskImportInput:
+      description: TaskImportInput says how to read a file of tasks into a project.
+      properties:
+        content:
+          description: Content is the file itself, for a caller that sends it inside
+            a JSON body rather than as the upload; the upload wins when both are given.
+          type: string
+        dry_run:
+          description: DryRun reads and checks the whole file and reports what would
+            happen, writing nothing.
+          type: boolean
+        filename:
+          description: Filename is the uploaded file's name, which helps tell its
+            format.
+          type: string
+        format:
+          description: TaskFormat is a file format a project's tasks are exported
+            in.
+          type: string
+        mapping:
+          description: 'Mapping is a mapping file, YAML or JSON: which column fills
+            which field, how values translate, and what to do with unknown ones. Empty
+            uses the suggested mapping, which reads a tix export and the common headers
+            of Jira, GitHub, Trello and Linear as they are.'
+          type: string
+        mode:
+          description: TaskImportMode says what an import does with a row that matches
+            a task the project already has, by external id or reference.
+          type: string
+        preview:
+          description: Preview is how many rows a dry run shows as tix would create
+            them, 20 when zero, at most 200.
+          type: integer
+        project_ref:
+          description: ProjectRef is the key or identifier of the project to import
+            into. Required.
+          type: string
+      type: object
+    TaskImportResult:
+      description: TaskImportResult reports an import, or what a dry run would have
+        done.
+      properties:
+        columns:
+          description: Columns is every column of the file and the field it fills.
+          items:
+            $ref: '#/components/schemas/TaskImportColumn'
+          type: array
+        committed:
+          description: Committed is true when the tasks were written. An import with
+            any row in error writes nothing.
+          type: boolean
+        confident:
+          description: Confident is true when every column was named by the mapping
+            or recognised outright, so the suggested mapping can be used as it is.
+          type: boolean
+        created:
+          type: integer
+        dry_run:
+          description: DryRun is true when nothing was written.
+          type: boolean
+        errors:
+          description: Errors lists every row that cannot be imported, up to 1000.
+          items:
+            $ref: '#/components/schemas/TaskImportError'
+          type: array
+        failed:
+          type: integer
+        format:
+          description: TaskFormat is a file format a project's tasks are exported
+            in.
+          type: string
+        mapping:
+          description: Mapping is the mapping in force, as a mapping file, to save
+            and pass back next time.
+          type: string
+        mode:
+          description: TaskImportMode says what an import does with a row that matches
+            a task the project already has, by external id or reference.
+          type: string
+        preview:
+          description: Preview is the first rows as tix would write them.
+          items:
+            $ref: '#/components/schemas/TaskImportRow'
+          type: array
+        rows:
+          description: Rows is how many rows the file holds.
+          type: integer
+        skipped:
+          type: integer
+        source:
+          description: 'Source is the tool the file looks like it came from: jira,
+            github, trello, linear, tix, or empty.'
+          type: string
+        updated:
+          type: integer
+        values:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/TaskImportValue'
+            type: array
+          description: Values lists, for status, priority and assignee, the distinct
+            values of the file and what each becomes.
+          type: object
+      type: object
+    TaskImportRow:
+      description: TaskImportRow is one row as the import would write it.
+      properties:
+        action:
+          description: Action is create, update, skip or error.
+          type: string
+        assignee:
+          type: string
+        due:
+          description: Due is the due date the row sets.
+          format: date-time
+          type:
+            - "null"
+            - string
+        errors:
+          description: Errors says why a row cannot be imported.
+          items:
+            type: string
+          type: array
+        external_id:
+          description: ExternalID is the row's identifier in the file.
+          type: string
+        line:
+          description: Line is the row's line or record number in the file.
+          type: integer
+        parent:
+          type: string
+        priority:
+          description: Priority orders tasks in a queue.
+          type: integer
+        reason:
+          description: Reason says why a row is skipped.
+          type: string
+        ref:
+          description: 'Ref is the task''s reference: the one it has when updated,
+            the one it would get or got when created.'
+          type: string
+        status:
+          type: string
+        tags:
+          items:
+            type: string
+          type: array
+        title:
+          type: string
+      type: object
+    TaskImportValue:
+      description: TaskImportValue is one distinct source value of a mapped field
+        and the tix value it becomes.
+      properties:
+        count:
+          description: Count is how many rows carry it.
+          type: integer
+        mapped:
+          description: Mapped is the tix value it becomes, empty when it has none
+            and the unknown-value policy decides.
+          type: string
+        suggested:
+          description: Suggested is true when Mapped is tix's own guess rather than
+            the mapping's.
+          type: boolean
+        value:
+          description: Value is the value as the file spells it.
           type: string
       type: object
     TaskTemplate:

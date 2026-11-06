@@ -164,6 +164,7 @@ type handler struct {
 	themes         *core.ThemeRegistry
 	leases         lease.Policy
 	pageSize       int
+	imports        *importStages
 }
 
 // Handler returns an http.Handler serving the browser interface.
@@ -176,6 +177,7 @@ func Handler(svc core.Service, opts ...Option) http.Handler {
 		eventsPath: DefaultEventsPath,
 		pageSize:   core.DefaultDisplayLimit,
 		leases:     lease.DefaultPolicy(),
+		imports:    newImportStages(),
 	}
 	for _, opt := range opts {
 		opt(h)
