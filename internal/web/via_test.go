@@ -91,8 +91,12 @@ func TestTheActivityFeedShowsEachChannelWithItsDetails(t *testing.T) {
 	if !strings.Contains(feed, `href="/activity?token=ci-agent&amp;via=api"`) {
 		t.Errorf("the ci-agent chip does not link to its channel and token:\n%s", feed)
 	}
-	if !strings.Contains(feed, "<dt>Channel</dt>") || !strings.Contains(feed, "SHA256:abcdef</dd>") {
-		t.Errorf("the raw view does not list the channel and its details:\n%s", feed)
+	var raws strings.Builder
+	for _, m := range regexp.MustCompile(`class="btn link small rawopen" href="([^"#]+)`).FindAllStringSubmatch(feed, -1) {
+		raws.WriteString(between(t, b.page(html.UnescapeString(m[1])), `<dialog id="raw-`, `</dialog>`))
+	}
+	if !strings.Contains(raws.String(), "<dt>Channel</dt>") || !strings.Contains(raws.String(), "SHA256:abcdef</dd>") {
+		t.Errorf("the raw dialogs do not list the channel and its details:\n%s", raws.String())
 	}
 }
 
