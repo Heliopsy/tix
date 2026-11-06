@@ -288,6 +288,7 @@ operations:
 | `name` | The tool name, instead of the one derived from the operationId. |
 | `description` | The tool description, instead of the document's. |
 | `destructive` | Mark the tool destructive or not. A departure from the method's default needs a `reason`. |
+| `read_only` | Mark a tool that only reads although its method is not `GET`, such as `task.export`. Needs a `reason`. |
 | `enable` | Offer a destructive tool without `--allow-destructive`. |
 | `hide_params` | Optional parameters to leave out of the input, such as `format` on `task.list`, which would ask for CSV. |
 

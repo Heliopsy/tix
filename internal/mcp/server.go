@@ -44,7 +44,7 @@ func NewServer(tools []Tool, caller Caller, version string) *sdk.Server {
 
 // descriptor is the tool as a client lists it.
 func (t Tool) descriptor() *sdk.Tool {
-	read := isRead(t.Op.Method)
+	read := isRead(t.Op.Method) || t.ReadOnly
 	ann := &sdk.ToolAnnotations{
 		ReadOnlyHint:   read,
 		IdempotentHint: read || t.Op.Method == http.MethodPut || t.Op.Method == http.MethodDelete,

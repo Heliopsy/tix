@@ -13,6 +13,7 @@ import (
 func (rt *Router) registerTransferRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteExport, rt.handleExport)
 	rt.mux.HandleFunc("POST "+wire.RouteImport, rt.handleImport)
+	rt.mux.HandleFunc("POST "+wire.RouteProjectTaskExport, rt.handleTaskExport)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSyncSources, rt.handleListSyncSources)
 	rt.mux.HandleFunc("PUT "+wire.RouteSyncSources, rt.handlePutSyncSource)
@@ -97,4 +98,46 @@ func (rt *Router) handleRunSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleTaskExport streams one project's tasks in the format the body names.
+// The status and media type are set on the first write, so an error found
+// before any task is written still answers in the error envelope.
+func (rt *Router) handleTaskExport(w http.ResponseWriter, r *http.Request) {
+	var in core.TaskExportInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	in.ProjectRef = r.PathValue("ref")
+	in = in.Normalize()
+	if err := in.Validate(); err != nil {
+		WriteError(w, err)
+		return
+	}
+	out := &lazyDownload{w: w, contentType: wire.TaskFormatContent(string(in.Format)),
+		filename: wire.TaskExportFilename(in.ProjectRef, in.Format.Extension())}
+	if err := rt.cfg.Service.ExportTasks(r.Context(), in, out); err != nil {
+		if out.started {
+			return
+		}
+		WriteError(w, err)
+	}
+}
+
+// lazyDownload sends its headers on the first byte rather than up front.
+type lazyDownload struct {
+	w           http.ResponseWriter
+	contentType string
+	filename    string
+	started     bool
+}
+
+func (d *lazyDownload) Write(p []byte) (int, error) {
+	if !d.started {
+		d.started = true
+		d.w.Header().Set(wire.HeaderContentType, d.contentType)
+		d.w.Header().Set(wire.HeaderContentDisposition, `attachment; filename="`+d.filename+`"`)
+		d.w.WriteHeader(http.StatusOK)
+	}
+	return d.w.Write(p)
 }
