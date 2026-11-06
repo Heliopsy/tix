@@ -90,7 +90,8 @@ func (h *handler) buildSavedNav(r *http.Request) savedNav {
 		if fsort == core.SortUrgency {
 			fsort = ""
 		}
-		item.Current = current && q == f.Query && sort == fsort && r.URL.Query().Get(DueParam) == ""
+		item.Current = current && q == f.Query && sort == fsort && r.URL.Query().Get(DueParam) == "" &&
+			r.URL.Query().Get(ProjectParam) == ""
 		item.Up = f.Mine && i > 0 && filters[i-1].Mine
 		item.Down = f.Mine && i+1 < len(filters) && filters[i+1].Mine
 		nav.Items = append(nav.Items, item)
@@ -113,10 +114,7 @@ func (h *handler) filterRoutes() []route {
 // it. The deadline control is folded into the expression the way the task
 // screen folds it, so the saved filter answers the question on screen.
 func (h *handler) createFilter(w http.ResponseWriter, r *http.Request) error {
-	expr := field(r, "q")
-	if due := field(r, DueParam); due != "" {
-		expr = strings.TrimSpace("due:" + due + " " + expr)
-	}
+	expr := foldControls(field(r, "q"), field(r, DueParam), projectPick(url.Values{ProjectParam: {field(r, ProjectParam)}}))
 	sort := field(r, "sort")
 	if sort == core.SortUrgency {
 		sort = ""
