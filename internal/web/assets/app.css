@@ -2759,17 +2759,16 @@ a.task-title:hover { color: var(--accent); }
  * and a row with no deadline leaves a gap where the deadline column is
  * rather than closing up and shifting everything after it.
  *
- * Only above 1700px. The seven cells a default listing draws come to a
- * little over 900px between them, so below that width the alignment would
- * be bought with the title's room to be read, which is the wrong trade on
- * the one column that matters. Under 1700px the row flows as it always has.
+ * These are the wide cells, above 1700px, where the seven a default listing
+ * draws fit at full width beside a title with room to be read. The block
+ * after this one gives narrower cells to every width down to 640px.
  *
- * Nothing here truncates. A cell is wide enough for the longest thing it
- * can hold -- the deadline cell for "claim expired, three hours ago, four
- * claims", which is the longest statement a row can make about itself -- and
- * anything longer wraps inside its cell rather than being cut off. A row
- * that wraps is a taller row; the columns either side of it are still in
- * the same place, which is the whole point of giving them one. */
+ * A cell is wide enough for the longest thing it usually holds -- the
+ * deadline cell for "claim expired, three hours ago, four claims", the
+ * longest statement a row can make about itself. Anything longer is cut with
+ * an ellipsis inside its cell, never wrapped onto a second line, so a row is
+ * as tall as its title and the columns either side stay in the same place,
+ * which is the whole point of giving them one. */
 @media (min-width: 1700px) {
   .task-meta { gap: var(--space-2); }
   .tm { flex: 0 0 auto; }
@@ -2781,6 +2780,78 @@ a.task-title:hover { color: var(--accent); }
   .tm-flags { width: 244px; }
   .tm-when { width: 144px; }
   .tm-ref { width: 84px; justify-content: flex-end; }
+}
+
+/* The same table under 1700px.
+ *
+ * Below 1700px the cells used to be inert and the row flowed: the attribute
+ * run took whatever width its content asked for and wrapped where it ran
+ * out. So a reference one digit longer (VUL-9, VUL-10) moved every column
+ * after it, a row with two long tags squeezed its title to "tagg" over "ed"
+ * and grew to three lines of attributes, and an imported checklist of forty
+ * rows read as forty differently shaped rows. That was most laptops.
+ *
+ * Now every row has the same cells at the same widths. The title takes what
+ * is left and stops at two lines, at every width; tags, the handle, the
+ * project and the flags are cut with an ellipsis inside their cell, the
+ * whole value still in each link's title and on the task. From 1360px the cells sit on the
+ * title's line; below that they go on a line of their own under it, as on a
+ * phone, still in columns. scripts/screenshots/shoot.mjs --strict (just
+ * ui-rows) fails when a row's columns drift or a row outgrows the others. */
+li.task a.task-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  li.task a.task-title { flex: 1 1 0; }
+  .task-meta .tm-tags,
+  .task-meta .tm-who,
+  .task-meta .tm-proj,
+  .task-meta .tm-flags,
+  .task-meta .tm-when { overflow: hidden; }
+  .tm-tags > .tagref,
+  .tm-who > .who-ref,
+  .tm-flags > .lease,
+  .tm-flags > .duemark,
+  .tm-flags > .snoozemark,
+  .tm-when > * {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .tm-tags > .tagmore, .tm-proj > .projref { flex: 0 0 auto; }
+  /* The first tag gives way last, so a narrow cell reads one tag rather than
+     two stumps. */
+  .tm-tags > .tagref + .tagref { flex-shrink: 8; }
+}
+@media (min-width: 640px) and (max-width: 1699px) {
+  .task-meta { flex: 0 0 auto; flex-wrap: nowrap; gap: var(--space-2); }
+  .tm { flex: 0 0 auto; }
+  .tm-status { width: 86px; }
+  .tm-prio { width: 72px; }
+  .tm-tags { width: 120px; }
+  .tm-who { width: 92px; }
+  .tm-proj { width: 80px; }
+  .tm-flags { width: 112px; }
+  .tm-when { width: 132px; }
+  .tm-ref { width: 84px; justify-content: flex-end; }
+}
+@media (min-width: 640px) and (max-width: 1359px) {
+  li.task { flex-wrap: wrap; row-gap: 0; }
+  .task-meta { width: 100%; padding-left: 30px; }
+  .tm-tags { width: auto; flex: 0 1 120px; }
+  .tm-flags { width: auto; flex: 1 1 0; }
+}
+@media (min-width: 640px) and (max-width: 899px) {
+  .tm-tags > .tagref, .tm-who > .who-ref, .tm-flags > .duemark { line-height: 26px; }
 }
 
 /* The reference and the date sat at the end of the row in the same muted
@@ -6384,6 +6455,10 @@ a.heldswitch[aria-checked="true"]::before { --mark: var(--mark-square-check); }
 .md pre code { padding: 0; background: none; }
 .md table { border-collapse: collapse; display: block; overflow-x: auto; }
 .md th, .md td { padding: 4px 8px; border: 1px solid var(--line); text-align: left; }
+/* A header names its column, so it keeps its words whole; a long cell wraps
+   or the table scrolls sideways instead. A 120 character cell beside it
+   used to break "another" across two lines. */
+.md th { overflow-wrap: normal; word-break: keep-all; }
 .md th[align="right"], .md td[align="right"] { text-align: right; }
 .md th[align="center"], .md td[align="center"] { text-align: center; }
 .md hr { border: 0; border-top: 1px solid var(--line); }
