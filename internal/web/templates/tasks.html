@@ -390,7 +390,7 @@
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
-          {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+          {{if $showTags}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
         </div>
         {{end}}
         {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
@@ -574,7 +574,7 @@
           {{else if and ($.Columns.Show "tasks" "priority") (ne $p "normal")}}<a class="prio p-{{$p}}" href="/tasks?q=priority:{{$p}}" title="{{t "Only %s priority tasks" (t $p)}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</a>{{end}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
-          {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
+          {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
           {{if $.Columns.Show "tasks" "ref"}}<span class="ref mono">{{ref .Task.Ref}}</span>{{end}}
           {{if snoozed .Task}}<span class="snoozemark" title="{{t "Snoozed until %s" (stamp .Task.SnoozedUntil)}}">{{t "until %s" (stamp .Task.SnoozedUntil)}}</span>{{end}}
         </div>
