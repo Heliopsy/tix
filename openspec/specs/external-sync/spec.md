@@ -285,3 +285,116 @@ change or clear a task's recurrence rule. A rule set in tix on a synced task SHA
 
 - **WHEN** a sync moves a task carrying `every week` to a done state
 - **THEN** no new task is created and the rule is unchanged
+
+### Requirement: A run records where it got to
+
+An import run SHALL store its watermark only when the run advances past records it has committed, and a
+run that fails SHALL leave the stored watermark at the last position it successfully committed.
+
+#### Scenario: An incremental run that fails keeps its position
+
+- **WHEN** a run fails after committing some pages
+- **THEN** the stored watermark covers exactly the pages that were committed
+
+### Requirement: A source that cannot be read is reported as an upstream failure
+
+An import SHALL report a failure to read the external system as an upstream failure, naming the source
+and how far the run got, and SHALL NOT report it as an internal error. This covers a system that could
+not be reached, one that refused the credentials, and one that returned something the adapter could not
+read.
+
+The message SHALL NOT include anything the adapter was configured with, so that a url carrying a token
+or a header cannot be re-rendered into an error someone pastes into an issue.
+
+#### Scenario: An unreachable source
+
+- **WHEN** the external system cannot be reached
+- **THEN** the failure says the source could not be read, names the source and the number of records
+  processed, and is classified as an upstream failure rather than an internal error
+
+#### Scenario: The failure discloses no configuration
+
+- **WHEN** the underlying cause carries a url, a header or a credential
+- **THEN** none of it appears in the reported failure
+
+### Requirement: A run's outcome is presented, not dumped
+
+The command line SHALL render an import result as readable output in every format it supports, and SHALL
+NOT fall back to printing the underlying structure.
+
+#### Scenario: Table output
+
+- **WHEN** a run completes and the output format is the default
+- **THEN** the created, updated and skipped counts, the source, and the watermark are printed as a table
+
+#### Scenario: A dry run says so
+
+- **WHEN** a run is a dry run
+- **THEN** the output states that nothing was written
+
+### Requirement: A full refresh leaves the stored watermark intact until it commits
+
+A full refresh ignores the stored watermark for the duration of the run. It SHALL NOT overwrite it with an
+empty value: a full refresh that fails before committing a page leaves the source exactly as it found it,
+so a transient network error during a refresh does not turn the next incremental run into a full re-import.
+
+#### Scenario: A full refresh that fails leaves the watermark alone
+
+- **WHEN** a run started with a full refresh fails before any page is committed
+- **THEN** the stored watermark is the one the previous run left, and the run is recorded as failed
+
+#### Scenario: A full refresh that succeeds stores the new watermark
+
+- **WHEN** a run started with a full refresh commits pages and completes
+- **THEN** the stored watermark is the one the final page carried
+
+### Requirement: An import run's audit entry carries the watermark it reached
+
+The audit entry a run writes SHALL carry the watermark the run reached, because that entry is the durable
+record of the run and the immediate command output is not.
+
+#### Scenario: The audit entry carries the watermark
+
+- **WHEN** a run completes and writes its audit entry
+- **THEN** that entry records the watermark the run reached, not an empty value
+
+### Requirement: A source stores its non-secret settings
+
+A sync source SHALL store `mapping_path` and a `config` map. The config keys SHALL be `file` and `page_size`
+for generic, and `url`, `project`, `query` and `page_size` for jira and openproject. Any other key SHALL be
+refused as invalid naming the keys the system accepts, and `page_size` SHALL be a positive integer.
+
+#### Scenario: Settings are kept
+
+- **WHEN** a jira source is saved with config `url` and `project` and a mapping path
+- **THEN** reading the source back returns the same url, project and mapping path
+
+#### Scenario: An unknown key is refused
+
+- **WHEN** a generic source is saved with config key `url`
+- **THEN** the save fails as invalid, nothing is stored, and the error names `file` and `page_size`
+
+### Requirement: Credentials are refused in source settings
+
+A source's config SHALL NOT carry a credential. A key naming a token, user, password or any other credential
+SHALL be refused as invalid before any other check, and credentials SHALL be read from the environment only.
+
+#### Scenario: A token in config
+
+- **WHEN** a source is saved with config key `token`
+- **THEN** the save fails as invalid, saying credentials are read from the environment
+
+### Requirement: Stored settings win over the environment
+
+At run time a setting stored on the source SHALL be used in place of its `TIX_SYNC_<SOURCE>_*` variable, and
+a setting the source does not store SHALL be read from that variable as before.
+
+#### Scenario: Stored beats the environment
+
+- **WHEN** a source stores `file` and `TIX_SYNC_<SOURCE>_FILE` names another file
+- **THEN** the run reads the stored file
+
+#### Scenario: The environment fills the gaps
+
+- **WHEN** a source stores no mapping path and `TIX_SYNC_<SOURCE>_MAPPING` names one
+- **THEN** the run uses the mapping the variable names

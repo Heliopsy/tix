@@ -345,3 +345,498 @@ and SHALL be held to the same scopes as the CLI command bound to the same operat
 
 - **WHEN** a client without `tenant:admin` sends `GET /api/v1/connections`
 - **THEN** the response is 403 in the standard error envelope
+
+### Requirement: Project icon endpoint
+
+A project read SHALL carry `icon`, `icon_name` and `icon_image` as present, the last being the
+digest of an uploaded image. Create and update SHALL accept `icon_name` and `icon_file`, an object
+of `content_type` and base64 `data`, beside `icon`. The API SHALL expose
+`GET /api/v1/projects/{ref}/icon`, answering with the image bytes, their content type,
+`X-Content-Type-Options: nosniff`, a sandboxing content security policy and an ETag, and with not
+found when the project has no uploaded icon.
+
+#### Scenario: Upload and fetch over HTTP
+
+- **WHEN** a client patches a project with `icon_file` holding a PNG and then requests `GET /api/v1/projects/{ref}/icon`
+- **THEN** the patch answers with a project carrying `icon_image`, and the fetch answers 200 with the same bytes and `Content-Type: image/png`
+
+#### Scenario: A project without an image
+
+- **WHEN** a client requests the icon of a project whose icon is text
+- **THEN** the response is 404 in the error envelope
+
+### Requirement: View arrangement endpoints
+
+The API SHALL expose, for the authenticated actor: `GET /v1/views/{view}/groups` returning the
+actor's preferences on the view; and `PATCH /v1/views/{view}/groups/{group}` taking any of `hidden`,
+`collapsed` and `starred` and returning the resulting preference. A view is `board`, `lanes` or
+`project:KEY`; anything else SHALL be refused as invalid, and a group the view cannot hold SHALL be
+refused as invalid or not found.
+
+#### Scenario: Hiding a column over HTTP
+
+- **WHEN** a client sends `PATCH /v1/views/board/groups/done` with `{"hidden": true}`
+- **THEN** the response carries `"hidden": true` and a following `GET /v1/views/board/groups` lists it
+
+#### Scenario: An unknown view is refused
+
+- **WHEN** a client sends `GET /v1/views/calendar/groups`
+- **THEN** the response is 400
+
+### Requirement: View arrangement order and reset endpoints
+
+The API SHALL expose, for the authenticated actor: `PUT /v1/views/{view}/order` taking `groups` and
+returning the preferences it wrote; and `DELETE /v1/views/{view}/groups` forgetting every preference
+on the view, or only the one named by the `group` query parameter, and answering `204 No Content`.
+
+#### Scenario: Resetting one group over HTTP
+
+- **GIVEN** an actor with preferences on the `done` and `todo` groups of `project:infra`
+- **WHEN** a client resets the view naming `done` in the `group` query parameter
+- **THEN** listing the view's preferences returns only the one for `todo`
+
+### Requirement: The project deletion route takes the task choice and the plan has a route
+
+`DELETE /api/v1/projects/{ref}` SHALL accept the query parameters `move_tasks_to` and `delete_tasks`, SHALL answer
+a project holding tasks and given neither with the precondition error envelope, and SHALL answer a successful
+deletion with `200` and the deletion's result. `GET /api/v1/projects/{ref}/deletion` SHALL accept the same
+parameters and return the plan without writing.
+
+#### Scenario: Deleting with no choice over HTTP
+
+- **WHEN** a project holding tasks is deleted over HTTP without a parameter
+- **THEN** the response is the precondition error and the project remains
+
+#### Scenario: Planning over HTTP
+
+- **WHEN** `GET /api/v1/projects/{ref}/deletion?move_tasks_to=other` is requested
+- **THEN** the response carries the task counts and the status mapping
+
+### Requirement: The project PATCH changes the key
+
+`PATCH /api/v1/projects/{ref}` SHALL accept a `key` member that changes the project's key, answering
+with the updated project. A key held by another project SHALL be answered with 409 and an invalid key
+with 400. A path naming a project or task by a kept alias SHALL be served as if it named the current
+key, and the response SHALL carry the current key and reference.
+
+#### Scenario: Renaming over the API
+
+- **WHEN** a client sends `PATCH /api/v1/projects/infra` with `{"key":"ops"}`
+- **THEN** the response is 200 with `"key":"ops"`
+
+#### Scenario: Reading by an old reference
+
+- **GIVEN** project `infra` was renamed to `ops`
+- **WHEN** a client sends `GET /api/v1/tasks/infra-8`
+- **THEN** the response is 200 with `"ref":"ops-8"`
+
+### Requirement: Copy endpoint
+
+The API SHALL expose `POST /v1/tasks/{ref}/copy` taking a JSON body with optional `project_ref`,
+`title`, `keep_status`, `with_comments`, `with_subtasks`, `with_dependencies` and `link`. It
+SHALL answer `201 Created` with the root copy. A task read SHALL carry `copied_from_id` when the
+task records one.
+
+#### Scenario: Copy over HTTP
+
+- **WHEN** a client sends `POST /v1/tasks/OPS-3/copy` with `{"project_ref": "WEB", "link": true}`
+- **THEN** the response is 201 and its body is a WEB task whose `copied_from_id` is OPS-3's identifier
+
+#### Scenario: Unknown target
+
+- **WHEN** a client copies to a project that does not exist
+- **THEN** the response is 404
+
+### Requirement: The task listing takes a trashed parameter
+
+`GET /api/v1/tasks` SHALL accept `trashed=true`, listing only soft-deleted tasks, and `trashed=false`,
+listing only live ones. The client SHALL send the filter contract's `Trashed` field as that parameter.
+
+#### Scenario: Asking for the trash over the API
+
+- **GIVEN** a deleted task and a live one
+- **WHEN** a client lists tasks with `trashed=true`
+- **THEN** only the deleted task is returned
+
+### Requirement: Bulk endpoint
+
+The API SHALL expose `POST /v1/tasks/bulk` taking a JSON body with `action`, `refs` and the
+action's argument (`to`, `priority`, `tag`, `assignee_actor_id`, `project_ref`, `cascade`), and
+SHALL answer `200 OK` with the per-task outcomes and the applied and refused counts, also when
+some tasks were refused.
+
+#### Scenario: Bulk over HTTP
+
+- **WHEN** a client sends `POST /v1/tasks/bulk` with `{"action": "priority", "refs": ["OPS-1", "OPS-2"], "priority": 1}`
+- **THEN** the response is 200, both outcomes are applied, and both tasks have priority 1
+
+#### Scenario: Unknown action
+
+- **WHEN** a client sends a bulk body whose action is `explode`
+- **THEN** the response is 400
+
+### Requirement: Task listing as CSV
+
+`GET /v1/tasks` SHALL answer with `text/csv` when the request carries `format=csv` or an
+`Accept` header naming `text/csv`. The body SHALL hold a header row and one row per task of the
+page, in the columns `ref, project, title, status, priority, assignee, tags, due, created,
+updated`, escaped by RFC 4180, with any cell starting with `=`, `+`, `-`, `@`, a tab or a
+carriage return prefixed with `'`. The next cursor, when there is one, SHALL be named in the
+`X-Tix-Next-Cursor` response header.
+
+#### Scenario: CSV by query parameter
+
+- **WHEN** a client requests `GET /v1/tasks?format=csv`
+- **THEN** the response has content type `text/csv` and its first line is the header row
+
+#### Scenario: Formula guard
+
+- **WHEN** a task titled `=HYPERLINK("x")` is listed as CSV
+- **THEN** its title cell reads `'=HYPERLINK("x")`, quoted
+
+### Requirement: Saved filter routes
+
+The API SHALL serve `GET /v1/filters`, `POST /v1/filters` (answering `201`), `GET /v1/filters/{filter}`,
+`PATCH /v1/filters/{filter}`, `PUT /v1/filters/order` and `DELETE /v1/filters/{filter}` (answering `204`)
+over the saved filter operations, with the filter addressed by identifier or name.
+
+#### Scenario: Save and read back
+
+- **WHEN** a client posts `{"name": "ops", "query": "tag:ops"}` to `/v1/filters`
+- **THEN** the answer is `201` with the filter, and `GET /v1/filters/ops` answers the same filter
+
+### Requirement: Quick-add over HTTP
+
+`POST /v1/tasks` SHALL accept `"parse": true`, which reads `title` through the quick-add
+parser, resolving relative dates in UTC, before the task is created. Without it the title
+SHALL be stored literally. A field in the body that the line contradicts SHALL be refused
+with 400.
+
+#### Scenario: Parsed create
+
+- **WHEN** a client posts `{"title": "Fix login !high #auth", "parse": true}`
+- **THEN** the response is 201 and the task is titled `Fix login` with priority high and the tag `auth`
+
+#### Scenario: Unknown project
+
+- **WHEN** a client posts `{"title": "Fix login +nope", "parse": true}` and no project has that key
+- **THEN** the response is 404 and no task is created
+
+### Requirement: A task read carries its checklist count
+
+A task in any read or update response SHALL carry `checklist` with `done` and `total` when its
+description has GitHub task-list items, and SHALL omit the field when it has none. The count SHALL be
+computed from the body on read and SHALL NOT appear in audit snapshots or exports.
+
+#### Scenario: The count travels with the task
+
+- **GIVEN** a task whose body is `- [x] a\n- [ ] b`
+- **WHEN** it is read
+- **THEN** the response carries `"checklist": {"done": 1, "total": 2}`
+
+### Requirement: The API ticks one checklist item
+
+`POST /api/v1/tasks/{ref}/checklist` SHALL take `item`, counted from one in reading order, `done`, and an
+optional `version`, and SHALL require `task:write`. It SHALL rewrite only that item's marker, record a
+`task.update` audit entry and event in the same transaction, and answer with the task. A stale version
+SHALL answer `409`; an item number the description does not have SHALL answer `400`; an item already in
+the asked-for state SHALL answer `200` and write nothing.
+
+#### Scenario: A stale tick is refused
+
+- **WHEN** a tick names a version the task has moved past
+- **THEN** the answer is `409` and the body is unchanged
+
+### Requirement: The task listing filters by checklist
+
+`GET /api/v1/tasks` SHALL accept `checklist=true|false`, selecting tasks whose body does or does not
+carry a checklist marker, and `checklist_open=true|false`, selecting those that do or do not carry an
+unticked one.
+
+#### Scenario: Only open checklists
+
+- **WHEN** a listing asks for `checklist_open=true`
+- **THEN** only tasks with an unticked marker are listed
+
+### Requirement: Calendar feed endpoints
+
+The API SHALL expose, for the authenticated actor: `GET /api/v1/calendar` returning their feed's
+metadata; `POST /api/v1/calendar` taking an optional `filter` and answering `201` with the feed, its
+secret and its absolute `url`; `PATCH /api/v1/calendar` taking `filter`; `POST
+/api/v1/calendar/rotate` answering with the new secret and `url`; and `DELETE /api/v1/calendar`
+answering `204`. It SHALL serve `GET /api/v1/calendar/feeds/{token}.ics` without a credential.
+
+#### Scenario: Creating a feed over HTTP returns its URL once
+
+- **WHEN** a client sends `POST /api/v1/calendar` with `{}`
+- **THEN** the answer is 201 with a `url` ending `.ics`, and a following `GET /api/v1/calendar`
+  carries no secret
+
+#### Scenario: The feed route needs no credential
+
+- **WHEN** a client with no Authorization header and no cookie fetches the `url` it was given
+- **THEN** the answer is 200 with `Content-Type: text/calendar; charset=utf-8`
+
+### Requirement: Inbox endpoints
+
+The API SHALL expose, for the authenticated actor: `GET /v1/inbox` listing items newest first with
+`limit`, `cursor` and `unread`, and a `next_cursor`; `GET /v1/inbox/count` returning `unread`;
+`PUT /v1/inbox/{id}/read` and `DELETE /v1/inbox/{id}/read` marking one item read or unread and
+returning it; `POST /v1/inbox/read-all` returning how many it marked; and `GET /v1/inbox/prefs` and
+`PUT /v1/inbox/prefs` reading and replacing the muted kinds. An unknown kind SHALL be refused as
+invalid.
+
+#### Scenario: Paging the inbox
+
+- **GIVEN** an actor with three items
+- **WHEN** a client sends `GET /v1/inbox?limit=2` and then follows `next_cursor`
+- **THEN** it sees the three items newest first, each once
+
+#### Scenario: Muting an unknown kind
+
+- **WHEN** a client sends `PUT /v1/inbox/prefs` with `{"muted": ["everything"]}`
+- **THEN** the response is 400
+
+### Requirement: Notification channel endpoints
+
+The API SHALL expose `GET /v1/channels`, `POST /v1/channels` (answering 201 with the channel and its
+`secret`), `PATCH /v1/channels/{id}`, `DELETE /v1/channels/{id}`, `POST /v1/channels/{id}/test`,
+`GET /v1/channels/{id}/deliveries` (keyset paginated, newest first) and
+`POST /v1/channel-deliveries/{id}/redeliver`, all over the authenticated actor's own channels.
+
+#### Scenario: The secret is returned once
+
+- **WHEN** a client creates a channel and then lists channels
+- **THEN** the creation carries `secret` and the listing does not
+
+### Requirement: Snooze over HTTP
+
+`PUT /api/v1/tasks/{ref}/snooze` with `{"until": RFC3339}` SHALL snooze the task and return it,
+`DELETE /api/v1/tasks/{ref}/snooze` SHALL unsnooze it and return it, and
+`POST /api/v1/snoozes/wake` with an optional `{"limit": N}` SHALL run one wake pass and return
+`{"woken": N}`. `GET /api/v1/tasks` SHALL take `snoozed=true|false|any`.
+
+#### Scenario: Snooze and list
+
+- **WHEN** a client snoozes OPS-3 over HTTP and lists tasks with `snoozed=true`
+- **THEN** the listing holds OPS-3 with its `snoozed_until`
+
+### Requirement: Template endpoints
+
+The API SHALL expose `GET /v1/templates` (with `project`, `limit` and `cursor`),
+`POST /v1/templates` taking `name`, `task_ref`, `tenant_wide`, `with_subtasks` and `due_in`,
+`GET`, `PATCH` and `DELETE /v1/templates/{ref}`, and `POST /v1/templates/{ref}/use` taking
+`project_ref`, `title` and `due_in`, answering `201 Created` with the new root task.
+
+#### Scenario: Use over HTTP
+
+- **WHEN** a client posts `{"due_in": "3d"}` to `/v1/templates/release/use`
+- **THEN** the response is 201 and its body is the new task with a due date
+
+#### Scenario: Unknown template
+
+- **WHEN** a client reads `/v1/templates/nope`
+- **THEN** the response is 404
+
+### Requirement: The API sets and reports the trash
+
+`PATCH /api/v1/tenants/{ref}` SHALL accept `trash_off`. `GET /api/v1/trash` SHALL answer `enabled` and
+`held`. A refusal because the trash is off SHALL be `422 precondition_failed` with `details.reason`
+`trash_off`.
+
+#### Scenario: Restoring over the API with the trash off
+
+- **GIVEN** a task in the trash and the trash turned off
+- **WHEN** a client posts to the task's restore route
+- **THEN** it answers 422 with `details.reason` `trash_off`
+
+### Requirement: The API takes keys and references in any case and answers the stored value
+
+Every API route and query parameter that names a project or a task SHALL accept it in any case.
+Responses, webhook payloads and events SHALL carry the stored lower-case key and reference, unchanged
+from earlier releases.
+
+#### Scenario: Upper-case reference
+
+- **WHEN** a client requests `GET /api/v1/tasks/INFRA-1`
+- **THEN** the answer is the task with `"ref": "infra-1"`
+
+#### Scenario: Upper-case project filter
+
+- **WHEN** a client requests `GET /api/v1/tasks?project=INFRA`
+- **THEN** the tasks of `infra` are listed
+
+### Requirement: The API exposes housekeeping
+
+`GET /api/v1/housekeeping` SHALL answer the policy, with `?project=KEY` the override and effective rules, and
+the preview counts. `PUT /api/v1/housekeeping` SHALL set either level. `POST /api/v1/housekeeping/run` SHALL
+run one pass, or preview with `dry_run`.
+
+#### Scenario: Refused while the trash is off
+
+- **GIVEN** a tenant whose trash is off
+- **WHEN** a client puts `{"done": "30"}`
+- **THEN** it answers 422 with `details.reason` `trash_off`
+
+### Requirement: The API sets and explains lease length
+
+`PATCH /api/v1/tasks/REF` SHALL accept `lease` and `PATCH /api/v1/projects/KEY` SHALL accept `lease_default` and
+`lease_max`. `GET /api/v1/tasks/REF/lease` SHALL answer with the lease a claim naming no ttl would be granted,
+with `ttl`, `source`, `max`, `max_source` and `clamped`. Claim and renew responses SHALL carry the same as `lease`.
+
+#### Scenario: Reading a task's lease
+
+- **WHEN** a task's lease is 4h and a client reads `/api/v1/tasks/REF/lease`
+- **THEN** the answer has `source` `task` and `ttl` of four hours
+
+### Requirement: SSH key sign-in routes
+
+`POST /api/v1/auth/ssh/challenge` and `POST /api/v1/auth/ssh/verify` SHALL be reachable without a
+credential, after tenant resolution, like `POST /api/v1/auth/login`. The challenge route SHALL answer
+`nonce`, `namespace` and `expires_at`, the namespace built from the request's Host. The verify route
+SHALL take `public_key`, `signature`, `nonce` and optional `tenant`, SHALL answer a login result shaped
+like the password route's, and SHALL set the session cookie when a session is issued.
+
+#### Scenario: A challenge names the host
+
+- **WHEN** a client posts to the challenge route on host `tix.example`
+- **THEN** the namespace is `tix-login@tix.example`
+
+#### Scenario: Verifying without a credential
+
+- **WHEN** an anonymous client posts a valid signature to the verify route
+- **THEN** it answers 200 with a session
+
+### Requirement: The API sets a lease when it creates a task
+
+`POST /api/v1/tasks` SHALL accept `lease`, a duration such as `"4h"`. A lease above the effective maximum SHALL be
+refused with `invalid` and create nothing.
+
+#### Scenario: Creating a task with a lease over HTTP
+
+- **WHEN** a client posts a task with `"lease": "2h"`
+- **THEN** the created task carries a two-hour lease
+
+### Requirement: The API serves its OpenAPI document
+
+The server SHALL answer `GET /api/v1/openapi.json` without a credential and before tenant resolution with the
+OpenAPI 3.1 document of the API it runs, as JSON. The document SHALL be generated from the capability registry,
+committed as `api/openapi.yaml` and embedded in the binary, and SHALL NOT be edited by hand.
+
+#### Scenario: Reading the document without a credential
+
+- **WHEN** a client sends `GET /api/v1/openapi.json` with no `Authorization` header
+- **THEN** the response is `200` with an `application/json` document whose `openapi` field starts with `3.1`
+
+#### Scenario: Every operation names its authority
+
+- **WHEN** an operation of the document needs a credential
+- **THEN** its security names the bearer token and the session cookie with the scope the service enforces, and an
+  operation served without a credential has an empty security list
+
+### Requirement: The OpenAPI document holds exactly the served routes
+
+The document SHALL describe one operation for every method and path the router registers, and none it does not.
+Each operation SHALL carry the registry name as its operation identifier, the first segment of that name as its
+tag, its request body, query and path parameters, its success response and the error statuses the error taxonomy
+maps to, each answering the standard error envelope.
+
+#### Scenario: A route registered without a registry entry
+
+- **WHEN** a handler is bound to the router with no registry operation or endpoint describing it
+- **THEN** the build fails naming the route
+
+#### Scenario: The committed document is stale
+
+- **WHEN** a route, a request or response type, or a doc comment changes and `just openapi` was not run
+- **THEN** the build fails naming the first line that differs
+
+### Requirement: Responses match the OpenAPI document
+
+Every request the HTTP API accepts and every response it gives SHALL validate against the document's schema for
+that operation and status. A query parameter the operation does not declare SHALL be a contract failure.
+
+#### Scenario: A handler answers a shape the document does not describe
+
+- **WHEN** a handler's response differs from the type its registry entry declares
+- **THEN** the API tests fail naming the operation, the status and the field
+
+### Requirement: Every OpenAPI parameter is described
+
+Every query and path parameter of the OpenAPI document SHALL carry a description, and so SHALL every parameter
+family an operation reads by prefix. A query parameter's description SHALL be the doc comment of its field on
+the operation's query type. A parameter without one SHALL fail the build.
+
+#### Scenario: A query field loses its doc comment
+
+- **WHEN** a field of a query type has no doc comment and `just openapi` runs
+- **THEN** the openapi tests fail naming the operation and the parameter
+
+#### Scenario: A tool argument carries the parameter's description
+
+- **WHEN** `tix mcp` builds the `task_list` tool
+- **THEN** its `snoozed` argument's schema carries the description of `TaskListQuery.Snoozed`
+
+### Requirement: A task update tells an absent due date from a null one
+
+`PATCH /api/v1/tasks/{ref}` SHALL treat `due_at` in three ways: an absent key SHALL leave the due date
+unchanged, `null` SHALL clear it, and an RFC 3339 timestamp SHALL set it. The OpenAPI document SHALL
+describe the field as nullable.
+
+#### Scenario: Null clears the due date
+
+- **WHEN** a task with a due date is updated with `{"due_at": null}`
+- **THEN** the task read back has no `due_at`
+
+#### Scenario: An absent key leaves it
+
+- **WHEN** a task with a due date is updated with `{"title": "renamed"}`
+- **THEN** the task read back keeps its due date
+
+#### Scenario: A remote client clears it
+
+- **WHEN** `tix task edit REF --due ""` runs against `--server`
+- **THEN** the server clears the task's due date
+
+### Requirement: The source body and response carry the settings
+
+`PUT /api/v1/sync/sources` SHALL store `config` and `mapping_path`, and its response and the source listing
+SHALL return them without any credential.
+
+#### Scenario: Round trip
+
+- **WHEN** a source is put with config `url` and a mapping path
+- **THEN** the response and `GET /api/v1/sync/sources` both return that url and mapping path
+
+### Requirement: Machine interfaces read dates in one format only
+
+The HTTP API, including `"parse": true` on task creation, and the MCP tools generated from it SHALL read
+dates as `YYYY-MM-DD` or RFC 3339 only, whatever date format a deployment or a browser has chosen, because
+a program must not depend on a person's preference or a browser cookie.
+
+#### Scenario: A dotted date over HTTP
+
+- **WHEN** a client creates a task with `"parse": true` and a title holding `due:06.11.2026`
+- **THEN** the request is refused, as it is under every configured format
+
+### Requirement: Tenant creation returns the first admins
+
+`POST /api/v1/tenants` SHALL accept `admins`, a list of `email`, `handle`, `display_name` and `password`,
+and SHALL answer 201 with the tenant's fields plus `admins` and, for generated passwords,
+`initial_credentials` of `email`, `handle` and `password`.
+
+#### Scenario: Creating with one admin
+
+- **WHEN** a global admin posts a tenant with one admin and no password
+- **THEN** the answer is 201 and `initial_credentials` holds one password for that email
+
+### Requirement: Global admin routes
+
+The API SHALL serve `GET` and `POST /api/v1/global-admins`, `DELETE /api/v1/global-admins/{email}`,
+`GET` and `POST /api/v1/tenants/{ref}/users`, and `PATCH` and `DELETE /api/v1/tenants/{ref}/users/{id}`,
+all for a global admin only.
+
+#### Scenario: A tenant admin's token
+
+- **WHEN** a token holding `*` but not `global:admin` lists `/api/v1/tenants/other/users`
+- **THEN** the answer is 403

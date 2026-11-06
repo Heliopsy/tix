@@ -238,11 +238,11 @@ Per-directory discovery SHALL be disabled when `discovery.enabled` is set to `fa
 
 ### Requirement: First-run bootstrap
 
-On first use against a database that does not yet exist or has never been initialized, tix SHALL create the database, apply all migrations, and create a default tenant together with a small set of starter projects, one of which SHALL be the default project, without requiring any prior command.
+On first use against a database that does not yet exist or has never been initialized, tix SHALL create the database, apply all migrations, and create a default tenant together with a small set of starter projects, one of which SHALL be the default project, without requiring any prior command, once the database has been asked for.
 
 #### Scenario: Fresh machine
 
-- **WHEN** a mutating command is run on a machine with no configuration file and no existing database
+- **WHEN** a mutating command is run on a machine with no existing database after `tix init`, or with `target: local`
 - **THEN** the database is created, migrations are applied, the default tenant and the starter projects are created, and the command completes successfully
 
 #### Scenario: Bootstrap is idempotent
@@ -332,7 +332,7 @@ the built-in default supplied, even when the flag declares a default of its own.
 
 The token a command authenticates with SHALL be resolved through the documented layers. `--token` and
 `TIX_TOKEN` SHALL be its flag layer, and `server.token`, a `TIX_SERVER_TOKEN`, a `.env` entry and the token a
-named context carries SHALL each be presented when no layer above them supplies one.
+named context carries SHALL each be presented when no layer above them supplies one, by every command.
 
 #### Scenario: A configuration file supplies the token
 
@@ -344,6 +344,12 @@ named context carries SHALL each be presented when no layer above them supplies 
 
 - **WHEN** a configuration file names a `server.token` and `--token` names another
 - **THEN** the token the flag names is presented
+
+#### Scenario: A context's token reaches a command that dials first
+
+- **WHEN** `tix ctx add x --server URL --token T --use` has run and `tix task show REF`, `tix claim next` or
+  `tix status` runs with nothing exported
+- **THEN** the request carries `Authorization: Bearer T`
 
 ### Requirement: Every configuration key has a named consumer
 
@@ -441,3 +447,91 @@ in place rather than failing the screen.
 - **WHEN** a browser listing is opened with a `limit` that is not a number, is zero, is negative, or is above
   the maximum a listing may return
 - **THEN** the page renders with the configured size
+
+### Requirement: Day-first and long date formats
+
+`output.time_format` SHALL accept `long` (21 Sep 2026 14:05), `dotted` (21.09.2026 14:05) and `dayfirst`
+(21/09/2026 14:05) beside `iso`, `rfc3339`, `short`, `us` and `relative`. The web settings, the TUI
+settings and the configuration file SHALL offer the same list.
+
+#### Scenario: A dotted format renders day first
+
+- **GIVEN** `output.time_format: dotted`
+- **WHEN** an instant of 2026-09-21T14:05Z is shown in UTC
+- **THEN** it reads `21.09.2026 14:05`
+
+### Requirement: A typed date is read in the format's order
+
+A date a person types SHALL be read in the order their date format writes dates: day first under `dotted`
+and `dayfirst`, month first under `us`. `YYYY-MM-DD` and a date with the month as a word SHALL be read
+under every format. A date written with digits alone in an order the format does not name SHALL be
+refused, never guessed.
+
+#### Scenario: Day first under dotted
+
+- **GIVEN** a reader whose format is `dotted`
+- **WHEN** they type `06.11.2026` as a due date
+- **THEN** the task falls due on 6 November 2026
+
+#### Scenario: Month first under us
+
+- **GIVEN** a reader whose format is `us`
+- **WHEN** they type `06/11/2026` as a due date
+- **THEN** the task falls due on 11 June 2026
+
+#### Scenario: No order, no guess
+
+- **GIVEN** a reader whose format is `iso`
+- **WHEN** they type `06/11/2026` as a due date
+- **THEN** it is refused and no due date is set
+
+### Requirement: Public SSH address
+
+The configuration SHALL accept `ssh.public_address` (`TIX_SSH_PUBLIC_ADDRESS`), a host or `host:port`
+naming where people reach the SSH listener. It SHALL change nothing about where the listener binds;
+the browser interface SHALL use it in the SSH commands it shows.
+
+#### Scenario: The address is shown, not bound
+
+- **GIVEN** `ssh.public_address: tix.example.com:2020` and `tix serve --ssh-listen 0.0.0.0:2222`
+- **WHEN** the server starts
+- **THEN** the listener binds port 2222, and the connect screen shows port 2020
+
+### Requirement: Nothing configured is not a request for a local database
+
+When no flag, environment variable, context or configuration names a server or a database, the target key is
+not `local`, and no database exists at the default path, a command SHALL NOT create one. Without a terminal it
+SHALL exit 6 naming `tix ctx add` and `tix init`; on a terminal it SHALL ask.
+
+#### Scenario: An agent's first command
+
+- **WHEN** `tix task add x` runs with no configuration and no terminal
+- **THEN** it exits 6, the message names `tix ctx add NAME --server URL --token TOKEN --use` and `tix init`,
+  and no database file exists afterwards
+
+#### Scenario: A person at a terminal chooses the local database
+
+- **WHEN** the same command runs on a terminal and the answer is `1`
+- **THEN** the database is created and the command completes
+
+### Requirement: Existing local use counts as opting in
+
+A database already at the default path, `target: local` (`TIX_TARGET=local`), `--db`, `TIX_DATABASE_DSN` and a
+context naming a database SHALL each be enough for a command to open the local database as before.
+`tix init` SHALL write `target: local` and create the database.
+
+#### Scenario: An install from before this change
+
+- **WHEN** a database exists at the default path and nothing else is configured
+- **THEN** commands use it without asking
+
+### Requirement: The implicit local database is named on every use
+
+While a command uses the default database because nothing named a target, it SHALL print one line on standard
+error naming the path and how to connect a server. `--quiet` SHALL NOT hide it, it SHALL NOT appear on standard
+output, and `cli.target_notice: false` SHALL drop it.
+
+#### Scenario: JSON output stays clean
+
+- **WHEN** `tix task ls -o json -q` runs against the default database
+- **THEN** standard output parses as JSON and standard error carries the line naming the database

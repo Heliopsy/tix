@@ -436,3 +436,74 @@ reference. The predecessor's `task.transitioned` event SHALL carry `next`, the s
 
 - **WHEN** a recurring task is finished while a subscriber is watching
 - **THEN** the subscriber receives the `task.transitioned` event naming `next` and a `task.created` event naming `recurs_from`
+
+### Requirement: Arranging a view emits its own event
+
+Every change to a reader's group preferences SHALL write an audit entry and emit a `view.arranged`
+event in the same transaction, carrying the view and the groups changed, and SHALL write neither
+when it changed nothing. `view.arranged` SHALL be nameable in a subscription filter.
+
+#### Scenario: Hiding a column emits view.arranged
+
+- **WHEN** an actor hides the `done` column of the board
+- **THEN** a `view.arranged` event naming the view `board` and the group `done` is emitted
+
+#### Scenario: A change that changes nothing is silent
+
+- **WHEN** an actor hides a column that is already hidden
+- **THEN** no event and no audit entry are written
+
+### Requirement: A copy announces itself as a created task
+
+Each task a copy creates SHALL emit `task.created` whose payload carries `copied_from` with the
+source's reference, so an existing subscriber sees a copy as the new task it is.
+
+#### Scenario: Subscriber sees the copy
+
+- **WHEN** a subscriber is watching and OPS-3 is copied to WEB
+- **THEN** it receives `task.created` for the WEB task with `copied_from: OPS-3`
+
+### Requirement: Saved filter events
+
+The event vocabulary SHALL include `filter.saved`, `filter.updated` and `filter.deleted`, each with
+subject type `filter` and a payload naming the filter and whether it is shared.
+
+#### Scenario: Saving emits an event
+
+- **WHEN** a reader saves a filter
+- **THEN** one `filter.saved` event is emitted in the same transaction as the row and its audit entry
+
+### Requirement: Inbox changes emit inbox.updated
+
+A change that creates inbox items SHALL emit one `inbox.updated` event in its transaction whose
+payload `recipients` lists the actor identifiers that received an item. Marking items read or
+unread, and changing mutes, SHALL emit `inbox.updated` naming the actor. `inbox.updated` SHALL be
+nameable in a subscription filter.
+
+#### Scenario: A comment that notifies two people
+
+- **WHEN** a comment creates items for bob and carol
+- **THEN** the stream carries `comment.added` and one `inbox.updated` whose recipients are bob and carol
+
+### Requirement: Snoozing is on the event stream
+
+The event vocabulary SHALL include `task.snoozed` with the task reference, the wake time and the
+snoozing actor; `task.unsnoozed` with the reference; and `task.woke` with the reference and the
+wake time that passed.
+
+#### Scenario: Subscriber sees a snooze and the wake
+
+- **GIVEN** a subscriber to `task.*`
+- **WHEN** OPS-3 is snoozed until 10:00 and a wake pass runs at 10:01
+- **THEN** the subscriber receives `task.snoozed` and then `task.woke` for OPS-3
+
+### Requirement: Template events
+
+Saving, editing and deleting a template SHALL emit `template.updated` with the template's
+identifier and name and the audit action in the payload. Using one SHALL emit `task.created`
+per new task with the template's name in the payload.
+
+#### Scenario: Delete emits
+
+- **WHEN** a member deletes template "release"
+- **THEN** one `template.updated` event with action `template.delete` is recorded
