@@ -1,11 +1,12 @@
 # Migrating and sharing
 
-Three separate mechanisms, often confused:
+Four separate mechanisms, often confused:
 
 | Command | Moves | Between |
 | --- | --- | --- |
 | `tix sync` | issues from Jira, OpenProject or a shaped file | an external tracker and tix |
 | `tix export` / `tix import` | a whole tenant, including the work | two tix installations |
+| `tix export tasks` | one project's tasks as CSV, JSON, NDJSON or Markdown, see [import-export.md](import-export.md) | tix and a spreadsheet or another tool |
 | `tix bundle export` / `tix bundle import` | reusable configuration, never the work | two tix installations |
 
 ## Importing from an external tracker

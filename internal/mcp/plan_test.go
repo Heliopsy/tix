@@ -90,6 +90,8 @@ func TestOverlayRefusesWhatItCannotHonour(t *testing.T) {
 		{"hidden without reason", "operations:\n  task.show: {hide: true}\n", `hides "task.show" without a reason`},
 		{"unmarked delete without reason", "operations:\n  task.delete: {destructive: false}\n", `"task.delete" is destructive without a reason`},
 		{"marked post without reason", "operations:\n  task.create: {destructive: true}\n", `"task.create" is destructive without a reason`},
+		{"read-only without reason", "operations:\n  task.export: {read_only: true}\n", `marks "task.export" read-only without a reason`},
+		{"read-only and destructive", "operations:\n  task.bulk: {read_only: true, destructive: true, reason: x}\n", `both read-only and destructive`},
 		{"unknown parameter", "operations:\n  task.list: {hide_params: [nope]}\n", `parameter "nope" of "task.list"`},
 		{"required parameter", "operations:\n  task.show: {hide_params: [ref]}\n", `parameter "ref" of "task.show"`},
 	} {

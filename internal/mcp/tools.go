@@ -46,9 +46,11 @@ type Tool struct {
 	Op          *Operation
 	Description string
 	Destructive bool
-	State       State
-	Reason      string
-	Schema      map[string]any
+	// ReadOnly marks a tool that only reads whatever its method.
+	ReadOnly bool
+	State    State
+	Reason   string
+	Schema   map[string]any
 
 	// nested is set when the body travels whole under bodyArgument.
 	nested bool
@@ -75,6 +77,7 @@ func Plan(doc *Document, ov Overlay, opts Options) ([]Tool, error) {
 		if e.Description != "" {
 			t.Description = e.Description
 		}
+		t.ReadOnly = isSet(e.ReadOnly)
 		t.Destructive = op.Method == http.MethodDelete
 		if e.Destructive != nil {
 			t.Destructive = *e.Destructive
