@@ -101,7 +101,6 @@ func init() {
 		"Source":                                "Източник",
 		"%d step":                               "%d стъпка",
 		"%d steps":                              "%d стъпки",
-		"details":                               "подробности",
 		"Action":                                "Действие",
 		"Fields":                                "Полета",
 		"No recorded changes.":                  "Няма записани промени.",

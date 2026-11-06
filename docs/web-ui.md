@@ -1052,6 +1052,11 @@ Each active filter is a chip that removes itself, and the live refresh keeps the
 widening back out. On the command line the same narrowing is `tix audit ls --filter "kind:task via:web"`;
 [filtering.md](filtering.md) has the expression.
 
+Raw on a row, and on a row of a task's History, opens the entry as recorded in a dialog: who, what, the
+full time, the source and the sequence number, the fields that changed side by side, and the before and
+after snapshots as indented JSON, each with a Copy button and a Copy all as JSON button for the whole
+entry. Without JavaScript Raw is a link to `?dialog=raw-SEQ`, which draws the same dialog in place.
+
 ## Housekeeping
 
 The Tenant screen has a Housekeeping section: how many days a done task, a cancelled task and a task in the
