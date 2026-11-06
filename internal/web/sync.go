@@ -3,9 +3,12 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -34,8 +37,33 @@ func envName(parts ...string) template.HTML {
 	if !envNameSafe(joined) {
 		return template.HTML(template.HTMLEscapeString(joined)) // #nosec G203 -- escaped
 	}
+	segments := strings.SplitAfter(joined, "_")
+	for i, segment := range segments {
+		segments[i] = chunked(segment, envNameChunk)
+	}
 	// #nosec G203 -- every character was just checked against [A-Z0-9_*].
-	return template.HTML(strings.ReplaceAll(joined, "_", "_<wbr>"))
+	return template.HTML(strings.Join(segments, "<wbr>"))
+}
+
+// envNameChunk is the longest run an environment variable name keeps without a
+// break opportunity. A source name with one very long word otherwise makes a
+// segment wider than a phone, and the cell holding it pushes the page sideways.
+const envNameChunk = 12
+
+// chunked puts a break opportunity every n characters of a segment longer than
+// n, and leaves a shorter one whole.
+func chunked(part string, n int) string {
+	if len(part) <= n+1 {
+		return part
+	}
+	var b strings.Builder
+	for len(part) > n+1 {
+		b.WriteString(part[:n])
+		b.WriteString("<wbr>")
+		part = part[n:]
+	}
+	b.WriteString(part)
+	return b.String()
 }
 
 // envNameSafe reports whether a value is drawn only from the alphabet
@@ -170,7 +198,14 @@ type syncView struct {
 	// Prefix is the environment namespace pattern, shown so the rule is
 	// visible before any source exists to demonstrate it.
 	Prefix string
+	// Preview is the source as the dialog's Check found it, nothing saved.
+	Preview *core.SyncSource
+	// Editing is the source the dialog was opened to set up, if any.
+	Editing string
 }
+
+// syncPreviewKey carries a checked source to the screen drawn for it.
+type syncPreviewKey struct{}
 
 // showSync renders the configured external import sources.
 func (h *handler) showSync(w http.ResponseWriter, r *http.Request) error {
@@ -178,8 +213,39 @@ func (h *handler) showSync(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	if preview, ok := r.Context().Value(syncPreviewKey{}).(*core.SyncSource); ok {
+		data.Preview = preview
+	}
+	r = h.prefillSource(r, &data)
 	return h.render(w, r, "sync.html", "Sync", data)
 }
+
+// prefillSource opens the source dialog holding an existing source's values
+// when its Set up link asked for it, so saving it again changes only what the
+// reader edits rather than clearing the settings they did not retype.
+func (h *handler) prefillSource(r *http.Request, data *syncView) *http.Request {
+	d := dialogOf(r)
+	id := r.URL.Query().Get("source")
+	if !d.Opens(syncDialog) || d.Refused() || id == "" {
+		return r
+	}
+	for _, s := range data.Sources {
+		if s.ID != id {
+			continue
+		}
+		values := url.Values{"name": {s.Name}, "system": {s.System}, "mapping_path": {s.MappingPath},
+			"mapping": {s.Mapping}}
+		for key, value := range s.Config {
+			values.Set(key, value)
+		}
+		data.Editing = s.Name
+		return r.WithContext(context.WithValue(r.Context(), dialogKey{}, dialogState{Open: syncDialog, Values: values}))
+	}
+	return r
+}
+
+// syncDialog is the id of the dialog that configures a source.
+const syncDialog = "source-new"
 
 // buildSyncView loads the sources and decorates each with the environment
 // namespace it reads, so both the screen and a run's result page describe a
@@ -204,17 +270,35 @@ func (h *handler) buildSyncView(r *http.Request, result *core.SyncResult) (syncV
 	}, nil
 }
 
-// putSyncSource registers or updates an external import source.
+// putSyncSource registers or updates an external import source, or, for the
+// dialog's Check button, validates it on the server and draws what a run
+// would use without saving anything.
 //
 // The form offers every setting any system stores, and sends on only the ones
 // filled in. The service refuses a setting the chosen system does not take,
-// so a url typed into a generic source is an error rather than ignored.
+// so a url typed into a generic source is an error rather than ignored. An
+// uploaded mapping file wins over the text pasted beside it.
 func (h *handler) putSyncSource(w http.ResponseWriter, r *http.Request) error {
 	in := core.SyncSourceInput{
-		ID:          field(r, "id"),
-		System:      field(r, "system"),
-		Name:        field(r, "name"),
-		MappingPath: field(r, "mapping_path"),
+		ID:               field(r, "id"),
+		System:           field(r, "system"),
+		Name:             field(r, "name"),
+		MappingPath:      field(r, "mapping_path"),
+		Mapping:          prose(r, "mapping"),
+		Token:            field(r, "token"),
+		User:             field(r, "user"),
+		Password:         field(r, "password"),
+		ClearMapping:     checked(r, "clear_mapping"),
+		ClearCredentials: checked(r, "clear_credentials"),
+		Check:            field(r, "intent") == "check",
+	}
+	uploaded, err := uploadedMapping(r)
+	if err != nil {
+		return h.refuseIn(w, r, syncDialog, RouteSync, core.OnField(err, "mapping"), h.showSync)
+	}
+	if uploaded != "" {
+		in.Mapping = uploaded
+		r.PostForm.Set("mapping", uploaded)
 	}
 	for _, key := range syncFormSettings {
 		if value := field(r, key); value != "" {
@@ -224,12 +308,57 @@ func (h *handler) putSyncSource(w http.ResponseWriter, r *http.Request) error {
 			in.Config[key] = value
 		}
 	}
-	if _, err := h.svc.PutSyncSource(r.Context(), in); err != nil {
-		return h.refuseIn(w, r, "source-new", RouteSync, err, h.showSync)
+	for _, secret := range []string{"token", "password"} {
+		r.PostForm.Del(secret)
 	}
-	redirect(w, r, RouteSync, "source saved, credentials and unset settings come from "+
-		extsync.EnvName(in.Name, "")+"* in the server's environment")
+	source, err := h.svc.PutSyncSource(r.Context(), in)
+	if err != nil {
+		return h.refuseIn(w, r, syncDialog, RouteSync, err, h.showSync)
+	}
+	if in.Check {
+		state := dialogState{Open: syncDialog, Values: r.PostForm}
+		if state.Values == nil {
+			state.Values = url.Values{}
+		}
+		ctx := context.WithValue(context.WithValue(r.Context(), dialogKey{}, state), syncPreviewKey{}, source)
+		clone := r.Clone(ctx)
+		clone.Method = http.MethodGet
+		clone.URL = &url.URL{Path: RouteSync}
+		w.Header().Set("HX-Replace-Url", RouteSync+"?"+url.Values{DialogParam: {syncDialog}}.Encode())
+		return h.showSync(w, clone)
+	}
+	message := "source saved; runs execute on the server"
+	if source.Resolved != nil && !source.Resolved.Ready() {
+		message = "source saved, but it cannot run yet: the server is missing " + strings.Join(source.Resolved.Missing, "; ")
+	}
+	redirect(w, r, RouteSync, message)
 	return nil
+}
+
+// maxUploadedMapping bounds how much of an uploaded mapping file is read; the
+// service refuses anything over its own, smaller limit with a message.
+const maxUploadedMapping = 1 << 20
+
+// uploadedMapping is the mapping file chosen in the dialog, or empty.
+func uploadedMapping(r *http.Request) (string, error) {
+	if r.MultipartForm == nil {
+		return "", nil
+	}
+	files := r.MultipartForm.File["mapping_file"]
+	if len(files) == 0 || files[0].Size == 0 {
+		return "", nil
+	}
+	file, err := files[0].Open()
+	if err != nil {
+		return "", core.Invalid("the uploaded mapping file could not be read")
+	}
+	defer func() { _ = file.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(file, maxUploadedMapping))
+	if err != nil {
+		return "", core.Invalid("the uploaded mapping file could not be read")
+	}
+	text := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	return strings.TrimSpace(text), nil
 }
 
 // syncFormSettings are the config keys the source form offers, the union of

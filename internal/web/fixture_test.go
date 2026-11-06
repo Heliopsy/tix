@@ -128,14 +128,17 @@ func (s *webService) PutSyncSource(ctx context.Context, in core.SyncSourceInput)
 	if err != nil {
 		return nil, err
 	}
+	if in.Check {
+		return stored, nil
+	}
 	id := in.ID
 	if id == "" {
 		id = "src-" + in.Name
 	}
-	src := &core.SyncSource{ID: id, TenantID: actor.TenantID, System: in.System, Name: in.Name,
-		Config: stored.Config, MappingPath: stored.MappingPath}
-	s.sources[id] = src
-	return src, nil
+	src := *stored
+	src.ID, src.TenantID = id, actor.TenantID
+	s.sources[id] = &src
+	return &src, nil
 }
 
 func (s *webService) ListSyncSources(ctx context.Context) ([]core.SyncSource, error) {
