@@ -1,0 +1,56 @@
+{
+  "_type": "WorkPackageCollection",
+  "total": 4,
+  "count": 2,
+  "pageSize": 2,
+  "offset": 2,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "WorkPackage",
+        "id": 43,
+        "lockVersion": 5,
+        "subject": "Fix the sign-in loop",
+        "description": {"format": "markdown", "raw": "Seen on Firefox only.", "html": "<p>Seen on Firefox only.</p>"},
+        "startDate": null,
+        "dueDate": null,
+        "createdAt": "2025-12-31T09:00:00Z",
+        "updatedAt": "2026-01-03T10:00:00Z",
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/43", "title": "Fix the sign-in loop"},
+          "type": {"href": "/api/v3/types/7", "title": "Bug"},
+          "status": {"href": "/api/v3/statuses/12", "title": "Closed"},
+          "priority": {"href": "/api/v3/priorities/10", "title": "Immediate"},
+          "project": {"href": "/api/v3/projects/3", "title": "Demo project"},
+          "author": {"href": "/api/v3/users/1", "title": "OpenProject Admin"},
+          "assignee": {"href": "/api/v3/users/12", "title": "Nobody Known"},
+          "parent": {"href": "/api/v3/work_packages/42", "title": "Write the operator guide"}
+        }
+      },
+      {
+        "_type": "WorkPackage",
+        "id": 44,
+        "lockVersion": 0,
+        "subject": "Vendor lock-in",
+        "description": {"format": "markdown", "raw": null, "html": ""},
+        "startDate": null,
+        "dueDate": null,
+        "createdAt": "2026-01-01T09:00:00Z",
+        "updatedAt": "2026-01-04T10:00:00Z",
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/44", "title": "Vendor lock-in"},
+          "type": {"href": "/api/v3/types/9", "title": "Risk"},
+          "status": {"href": "/api/v3/statuses/20", "title": "Under review"},
+          "priority": {"href": "/api/v3/priorities/7", "title": "Low"},
+          "project": {"href": "/api/v3/projects/3", "title": "Demo project"},
+          "author": {"href": "/api/v3/users/1", "title": "OpenProject Admin"},
+          "assignee": {"href": null},
+          "parent": {"href": null}
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {"href": "/api/v3/projects/demo/work_packages?offset=2&pageSize=2"}
+  }
+}

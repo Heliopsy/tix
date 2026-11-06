@@ -1,0 +1,91 @@
+# Default mapping for OpenProject work packages (API v3).
+#
+# Copy it, set project to the key of the tix project to import into, and
+# adjust the tables to your instance. Statuses map onto tix's built-in
+# workflow (todo, doing, blocked, done, cancelled); if the project uses
+# another workflow, point the statuses at its states.
+version: 1
+system: openproject
+project: CHANGE-ME
+identity:
+  id: id
+  url: url
+  version: updatedAt
+  updated_at: updatedAt
+fields:
+  subject: title
+  description.raw: body
+  dueDate: due_at
+  _links.priority.title: priority
+  _links.assignee.title: assignee
+  # A link such as /api/v3/work_packages/42 matches the work package
+  # imported as 42.
+  _links.parent.href: parent
+status_field: _links.status.title
+statuses:
+  New: todo
+  In specification: todo
+  Specified: todo
+  Confirmed: todo
+  To be scheduled: todo
+  Scheduled: todo
+  In progress: doing
+  Developed: doing
+  In testing: doing
+  Tested: doing
+  Test failed: doing
+  On hold: blocked
+  Closed: done
+  Rejected: cancelled
+default_status: todo
+priorities:
+  Low: low
+  Normal: normal
+  High: high
+  Immediate: highest
+types:
+  field: _links.type.title
+  # A type not listed here is kept in the op_type custom field.
+  map:
+    Task:
+      tags: [task]
+    Bug:
+      tags: [bug]
+    Feature:
+      tags: [feature]
+    Epic:
+      tags: [epic]
+    User story:
+      tags: [story]
+    Milestone:
+      tags: [milestone]
+    Phase:
+      tags: [phase]
+users:
+  # _links.assignee.title is the display name; the email, when the API
+  # embeds it and the caller may read it, is matched first.
+  email_field: _embedded.assignee.email
+  match: [email, handle, name]
+  unknown: unassigned
+  # map:
+  #   OpenProject Name: tix-handle-or-email
+custom:
+  startDate:
+    key: start_date
+    label: Start date
+    type: date
+  _links.project.title:
+    key: op_project
+    label: OpenProject project
+  _links.author.title:
+    key: op_author
+    label: Author
+  _links.responsible.title:
+    key: op_accountable
+    label: Accountable
+unmapped:
+  # A work package is mostly _links and _embedded HAL plumbing (hrefs,
+  # methods, actions). Preserving it would put dozens of link custom fields
+  # on every task, so only the fields named above are imported.
+  preserve: false
+  prefix: op_

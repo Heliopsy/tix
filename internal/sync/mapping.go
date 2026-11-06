@@ -78,6 +78,73 @@ type Unmapped struct {
 	Prefix   string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 }
 
+// User match strategies, tried in the order a mapping lists them.
+const (
+	MatchEmail  = "email"
+	MatchHandle = "handle"
+	MatchName   = "name"
+)
+
+// DefaultUserMatch is the strategy list a mapping that names none uses.
+var DefaultUserMatch = []string{MatchEmail, MatchHandle, MatchName}
+
+// What happens to an assignee no rule matches.
+const (
+	UnknownUnassigned  = "unassigned"
+	UnknownPlaceholder = "placeholder"
+)
+
+// Users maps the source's assignee values onto tix actors.
+type Users struct {
+	// Map takes a source value, as the source writes it, to a tix handle or email.
+	Map map[string]string `yaml:"map,omitempty" json:"map,omitempty"`
+	// Match lists the automatic strategies; nil means DefaultUserMatch, empty means none.
+	Match []string `yaml:"match,omitempty" json:"match,omitempty"`
+	// EmailField is a dotted path holding the assignee's email, when the source has one.
+	EmailField string `yaml:"email_field,omitempty" json:"email_field,omitempty"`
+	// Unknown is unassigned (the default) or placeholder.
+	Unknown string `yaml:"unknown,omitempty" json:"unknown,omitempty"`
+}
+
+// Strategies returns the automatic match strategies in the order to try them.
+func (u Users) Strategies() []string {
+	if u.Match == nil {
+		return DefaultUserMatch
+	}
+	return u.Match
+}
+
+// Placeholders reports whether an unmatched assignee gets a placeholder actor.
+func (u Users) Placeholders() bool { return u.Unknown == UnknownPlaceholder }
+
+func (u Users) check() error {
+	for _, ext := range sortedKeys(u.Map) {
+		if strings.TrimSpace(ext) == "" || strings.TrimSpace(u.Map[ext]) == "" {
+			return core.Invalid("mapping entry users.map.%s must map a source value to a tix handle or email", ext)
+		}
+	}
+	seen := map[string]bool{}
+	for _, s := range u.Match {
+		switch s {
+		case MatchEmail, MatchHandle, MatchName:
+		default:
+			return core.Invalid("mapping entry users.match names unknown strategy %q; use %s, %s or %s",
+				s, MatchEmail, MatchHandle, MatchName)
+		}
+		if seen[s] {
+			return core.Invalid("mapping entry users.match lists strategy %q twice", s)
+		}
+		seen[s] = true
+	}
+	switch u.Unknown {
+	case "", UnknownUnassigned, UnknownPlaceholder:
+	default:
+		return core.Invalid("mapping entry users.unknown is %q; use %s or %s",
+			u.Unknown, UnknownUnassigned, UnknownPlaceholder)
+	}
+	return nil
+}
+
 // Lossy declares a source concept the mapping deliberately flattens.
 type Lossy struct {
 	Field  string `yaml:"field" json:"field"`
@@ -98,6 +165,7 @@ type Mapping struct {
 	Priorities    map[string]string      `yaml:"priorities,omitempty" json:"priorities,omitempty"`
 	Types         TypeMapping            `yaml:"types,omitempty" json:"types,omitempty"`
 	Custom        map[string]CustomField `yaml:"custom,omitempty" json:"custom,omitempty"`
+	Users         Users                  `yaml:"users,omitempty" json:"users,omitempty"`
 	Unmapped      Unmapped               `yaml:"unmapped,omitempty" json:"unmapped,omitempty"`
 	Lossy         []Lossy                `yaml:"lossy,omitempty" json:"lossy,omitempty"`
 }
@@ -164,7 +232,7 @@ func (m *Mapping) check() error {
 	if len(m.Statuses) > 0 && strings.TrimSpace(m.StatusField) == "" {
 		return core.Invalid("mapping defines statuses but no status_field to read them from")
 	}
-	return nil
+	return m.Users.check()
 }
 
 // ValidateAgainst refuses a mapping that names a state the workflow does not
@@ -207,6 +275,9 @@ func (m *Mapping) preserveUnmapped() bool {
 	return m.Unmapped.Preserve == nil || *m.Unmapped.Preserve
 }
 
+// CustomPrefix is the prefix of the custom fields the import keeps values in.
+func (m *Mapping) CustomPrefix() string { return m.prefix() }
+
 func (m *Mapping) prefix() string {
 	if m.Unmapped.Prefix != "" {
 		return m.Unmapped.Prefix
@@ -222,14 +293,16 @@ type Mapped struct {
 	ExternalParentID string
 	UpdatedAt        time.Time
 
-	Title        string
-	Body         string
-	Status       string
-	Priority     core.Priority
-	Tags         []string
-	Assignee     string
-	DueAt        *time.Time
-	CustomFields map[string]any
+	Title    string
+	Body     string
+	Status   string
+	Priority core.Priority
+	Tags     []string
+	Assignee string
+	// AssigneeEmail is the value at users.email_field, when the mapping names one.
+	AssigneeEmail string
+	DueAt         *time.Time
+	CustomFields  map[string]any
 
 	Warnings []string
 }
@@ -257,6 +330,7 @@ func (m *Mapping) Apply(r Record) (Mapped, error) {
 	if err := m.applyFields(r, &out, consumed); err != nil {
 		return out, err
 	}
+	out.AssigneeEmail = strings.TrimSpace(Text(value(r, m.Users.EmailField, consumed)))
 	if err := m.applyStatus(r, &out, consumed); err != nil {
 		return out, err
 	}

@@ -216,6 +216,10 @@ func TestParseMappingRejectsBadDocuments(t *testing.T) {
 		{"custom bad type", "version: 1\nproject: ops\nidentity:\n  id: key\ncustom:\n  a:\n    key: k\n    type: rune\n", "field type"},
 		{"bad priority", "version: 1\nproject: ops\nidentity:\n  id: key\npriorities:\n  P1: sideways\n", "priority"},
 		{"statuses without field", "version: 1\nproject: ops\nidentity:\n  id: key\nstatuses:\n  A: todo\n", "status_field"},
+		{"unknown match strategy", "version: 1\nproject: ops\nidentity:\n  id: key\nusers:\n  match: [email, phone]\n", `users.match names unknown strategy "phone"`},
+		{"repeated match strategy", "version: 1\nproject: ops\nidentity:\n  id: key\nusers:\n  match: [name, name]\n", `strategy "name" twice`},
+		{"unknown policy", "version: 1\nproject: ops\nidentity:\n  id: key\nusers:\n  unknown: guess\n", "users.unknown"},
+		{"empty map target", "version: 1\nproject: ops\nidentity:\n  id: key\nusers:\n  map:\n    Jane: \"\"\n", "users.map.Jane"},
 		{"wrong version", "version: 99\nproject: ops\nidentity:\n  id: key\n", "version"},
 		{"not yaml", "\tnot: [yaml", "parsing mapping"},
 	}
@@ -335,4 +339,45 @@ func containsSubstring(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestUsersSectionDefaultsAndEmailField(t *testing.T) {
+	tests := []struct {
+		name        string
+		users       string
+		strategies  []string
+		placeholder bool
+		email       string
+	}{
+		{"omitted", "", DefaultUserMatch, false, ""},
+		{"disabled", "users:\n  match: []\n", []string{}, false, ""},
+		{"ordered", "users:\n  match: [name, email]\n  unknown: placeholder\n", []string{MatchName, MatchEmail}, true, ""},
+		{"email field", "users:\n  email_field: fields.assignee.email\n  unknown: unassigned\n", DefaultUserMatch, false, "jane@corp.test"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := mustMapping(t, "version: 1\nproject: ops\nidentity:\n  id: key\nfields:\n  fields.summary: title\n"+
+				"  fields.assignee.name: assignee\nunmapped:\n  preserve: true\n"+tc.users)
+			if got := m.Users.Strategies(); strings.Join(got, ",") != strings.Join(tc.strategies, ",") {
+				t.Errorf("strategies = %v, want %v", got, tc.strategies)
+			}
+			if m.Users.Placeholders() != tc.placeholder {
+				t.Errorf("placeholders = %v, want %v", m.Users.Placeholders(), tc.placeholder)
+			}
+			got, err := m.Apply(Record{Fields: map[string]any{"key": "OPS-9", "fields": map[string]any{
+				"summary":  "assigned",
+				"assignee": map[string]any{"name": "Jane Doe", "email": "jane@corp.test"},
+			}}})
+			if err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+			if got.Assignee != "Jane Doe" || got.AssigneeEmail != tc.email {
+				t.Errorf("assignee = %q <%s>, want Jane Doe <%s>", got.Assignee, got.AssigneeEmail, tc.email)
+			}
+			_, kept := got.CustomFields["ext_fields_assignee_email"]
+			if kept != (tc.email == "") {
+				t.Errorf("email preserved as unmapped = %v; the email field must be consumed when named", kept)
+			}
+		})
+	}
 }

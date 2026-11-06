@@ -12188,6 +12188,12 @@ components:
         system:
           description: System is the external system the source imports from.
           type: string
+        unmatched_users:
+          description: UnmatchedUsers lists, sorted and once each, the source assignees
+            no tix actor matched; they were left unassigned or given placeholder actors.
+          items:
+            type: string
+          type: array
         updated:
           additionalProperties:
             type: integer
