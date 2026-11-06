@@ -1,0 +1,4 @@
+number,title,body,state,labels,assignees,milestone,html_url,created_at,closed_at
+12,Crash on empty config,The app panics when the config file is empty.,open,"bug, p1",octo-dev,v1.2,https://github.com/example-org/example-repo/issues/12,2026-01-05T10:00:00Z,
+15,Add dark mode,,closed,"enhancement, ui","octo-dev, octo-design",v1.3,https://github.com/example-org/example-repo/issues/15,2026-01-06T09:30:00Z,2026-02-01T12:00:00Z
+18,Document the API,Write reference docs.,open,docs,,,https://github.com/example-org/example-repo/issues/18,2026-01-07T08:00:00Z,
