@@ -13,12 +13,31 @@ import (
 
 // TestZeroConfigurationPathWorksWithNoConfigAnywhere is the path a person
 // takes the first time: an empty home, no configuration file, no --db, no
-// tenant and no project. It has to create the default tenant and project on
-// its own and keep working across four commands.
+// tenant and no project. The first command refuses to create a database
+// nobody asked for and says how to get one; after `tix init`, which is the
+// whole of the setup, it has to create the default tenant and project on its
+// own and keep working across four commands.
 func TestZeroConfigurationPathWorksWithNoConfigAnywhere(t *testing.T) {
 	s := newScratch(t)
 
+	refused := s.run("task", "add", "buy milk")
+	if refused.code != 6 {
+		t.Fatalf("task add with nothing configured exited %d, want 6\nstderr:\n%s", refused.code, refused.err)
+	}
+	for _, want := range []string{"tix ctx add NAME --server URL --token TOKEN --use", "tix init"} {
+		if !strings.Contains(refused.err, want) {
+			t.Fatalf("the refusal does not name %q:\n%s", want, refused.err)
+		}
+	}
+	if _, err := os.Stat(s.path("data/tix/tix.db")); err == nil {
+		t.Fatal("the refused command created the zero-configuration store anyway")
+	}
+
+	s.mustRun("init")
 	added := s.mustRun("task", "add", "buy milk")
+	if !strings.Contains(added.err, "using local database "+s.path("data/tix/tix.db")) {
+		t.Fatalf("task add did not name the local database it wrote to:\n%s", added.err)
+	}
 	if !strings.Contains(added.out, "buy milk") {
 		t.Fatalf("task add did not show the task:\n%s", added.out)
 	}
@@ -49,6 +68,15 @@ func TestZeroConfigurationPathWorksWithNoConfigAnywhere(t *testing.T) {
 	}
 	if entries, err := filepath.Glob(s.path("config/tix/*")); err == nil && len(entries) > 0 {
 		t.Logf("configuration written on the zero-configuration path: %v", entries)
+	}
+
+	// A database already at the default path is the opt-in an install from
+	// before the refusal has. Without target: local, it still opens.
+	if err := os.Remove(s.path("config/tix/config.yaml")); err != nil {
+		t.Fatalf("removing the configuration tix init wrote: %v", err)
+	}
+	if again := s.mustRun("task", "show", ref); !strings.Contains(again.out, "buy milk") {
+		t.Fatalf("an existing database at the default path was not used:\n%s", again.out)
 	}
 }
 
