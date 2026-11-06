@@ -465,6 +465,15 @@ events, so a script reading ndjson off stdout never has to skip it. See
 [scripting.md](scripting.md#watching-the-event-stream) for the human-readable default a person reads instead
 of ndjson.
 
+## Handing one task over from the browser
+
+The task screen's **Hand to an agent** button gives a prompt, filled in for that task and server, that tells
+an agent to claim the task with `tix claim task REF -o json`, read it with `tix task show REF`, comment on its
+progress with `tix comment add`, and close it with `tix claim release REF --token LEASE --status done`. It
+also gives the command that starts Claude Code, Codex, OpenCode, Gemini CLI, Cursor or VS Code on that prompt,
+and a variant for an agent holding the [MCP tools](mcp.md). It never contains a token: the agent brings its
+own, through its configuration or `TIX_TOKEN`. See [web-ui.md](web-ui.md#handing-a-task-to-an-agent).
+
 ## Related
 
 - [scripting.md](scripting.md) for output formats, piping and NDJSON

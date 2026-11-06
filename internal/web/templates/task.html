@@ -40,6 +40,7 @@
     {{end}}
     <span class="taskhead-tools">
       {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
+      {{template "dlg-open" (opener (print .IDPrefix "handoff") (t "Hand to an agent") "agent" "secondary small handoff-open" .Here)}}
       <button type="button" class="taskmenu-open" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}"
               aria-label="{{t "Actions for %s" (ref $t.Ref)}}" title="{{t "Actions for %s" (ref $t.Ref)}}">
         <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
@@ -90,6 +91,8 @@
   {{end}}
   <button type="button" class="flowclose" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
+
+{{template "handoff-dlg" .}}
 
 {{/* The menus live out here, not inside #task-pills. That region is
      replaced wholesale by a live refresh, and a refresh that lands while a
