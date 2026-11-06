@@ -32,6 +32,7 @@ func (h *handler) wrap(rt route) http.Handler {
 			h.fail(w, r, err)
 			return
 		}
+		r = h.withReaderTime(w, r)
 		if err := rt.fn(w, r); err != nil {
 			h.fail(w, r, err)
 		}

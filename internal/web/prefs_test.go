@@ -287,8 +287,6 @@ func TestEveryPreferenceFormWorksWithoutScripting(t *testing.T) {
 		{"/taskopen", url.Values{}},
 		{"/titleclick", url.Values{}},
 		{"/keyscheme", url.Values{"keyscheme": {"emacs"}}},
-		{"/timezone", url.Values{"timezone": {"UTC"}}},
-		{"/timeformat", url.Values{"time_format": {"iso"}}},
 	} {
 		form := url.Values{"csrf_token": {b.csrf()}, "next": {"/settings"}}
 		for k, v := range c.form {

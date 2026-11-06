@@ -145,7 +145,7 @@
 <div id="{{.IDPrefix}}reclaim-{{$t.Ref}}" class="flowmenu reclaimpop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Reclaim the lease"}}</p>
   {{template "tip" (tip "Reclaim" "Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again." "docs/agents.md")}}
-  <p class="muted">{{if $t.LeaseExpiresAt}}{{t "%s holds this task until %s." ($.Data.Names.Label $t.ClaimedByActorID) (compact $t.LeaseExpiresAt)}}{{else}}{{t "%s holds this task." ($.Data.Names.Label $t.ClaimedByActorID)}}{{end}} {{t "Reclaiming ends their lease at once and leaves the task in %s." $t.Status}}</p>
+  <p class="muted">{{if $t.LeaseExpiresAt}}{{tt "%s holds this task until %s." ($.Data.Names.Label $t.ClaimedByActorID) (when $t.LeaseExpiresAt)}}{{else}}{{t "%s holds this task." ($.Data.Names.Label $t.ClaimedByActorID)}}{{end}} {{t "Reclaiming ends their lease at once and leaves the task in %s." $t.Status}}</p>
   <form method="post" action="/tasks/{{$t.Ref}}/reclaim">
     {{template "csrf" .CSRF}}
     <label for="{{.IDPrefix}}reason">{{t "Reason"}}</label>
@@ -197,7 +197,7 @@
           {{template "date-pick" (print .IDPrefix "due")}}
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
-        {{else if $t.DueAt}}{{stamp $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}
+        {{else if $t.DueAt}}{{when $t.DueAt}}{{else}}<span class="muted">&mdash;</span>{{end}}
         {{$due := due $t}}{{if $due}}<span class="duemark is-{{$due}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "this week"}}{{end}}</span>{{end}}</dd>
     </div>
     <div class="prop" data-prop="project">
@@ -248,8 +248,8 @@
         {{else if $t.Recurrence}}{{template "icon" "repeat"}} {{$t.Recurrence}}{{else}}<span class="muted">&mdash;</span>{{end}}
         {{/* What the rule will do next: the occurrence already created, or
              the date finishing now would give one. */}}
-        {{if .Data.Successor}}<span class="propnote">{{t "next"}} <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} {{t "due %s" (stamp .Data.SuccessorDue)}}{{end}}</span>
-        {{else if .Data.NextDue}}<span class="propnote">{{t "next due %s if finished now" (stamp .Data.NextDue)}}</span>
+        {{if .Data.Successor}}<span class="propnote">{{t "next"}} <a class="mono" href="/tasks/{{.Data.Successor}}">{{.Data.Successor}}</a>{{if .Data.SuccessorDue}} {{tt "due %s" (when .Data.SuccessorDue)}}{{end}}</span>
+        {{else if .Data.NextDue}}<span class="propnote">{{tt "next due %s if finished now" (when .Data.NextDue)}}</span>
         {{else if .Data.LastOccurrence}}<span class="propnote">{{t "this is the last occurrence"}}</span>{{end}}
       </dd>
     </div>
@@ -377,7 +377,7 @@
     <summary><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}</summary>
     {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
     <ul class="rellist rows">
-      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{compact .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
+      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
     </ul>
     {{if .Data.CanComment}}
     <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
@@ -428,10 +428,10 @@
      the properties on a wide screen. */}}
 <dl class="props propmeta">
   <div class="prop"><dt>{{t "Created by"}}</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd></div>
-  <div class="prop"><dt>{{t "Created"}}</dt><dd>{{compact $t.CreatedAt}}</dd></div>
-  <div class="prop"><dt>{{t "Updated"}}</dt><dd>{{compact $t.UpdatedAt}}</dd></div>
-  {{if $t.StartedAt}}<div class="prop"><dt>{{t "Started"}}</dt><dd>{{stamp $t.StartedAt}}</dd></div>{{end}}
-  {{if $t.CompletedAt}}<div class="prop"><dt>{{t "Finished"}}</dt><dd>{{stamp $t.CompletedAt}}</dd></div>{{end}}
+  <div class="prop"><dt>{{t "Created"}}</dt><dd>{{when $t.CreatedAt}}</dd></div>
+  <div class="prop"><dt>{{t "Updated"}}</dt><dd>{{when $t.UpdatedAt}}</dd></div>
+  {{if $t.StartedAt}}<div class="prop"><dt>{{t "Started"}}</dt><dd>{{when $t.StartedAt}}</dd></div>{{end}}
+  {{if $t.CompletedAt}}<div class="prop"><dt>{{t "Finished"}}</dt><dd>{{when $t.CompletedAt}}</dd></div>{{end}}
   <div class="prop"><dt>{{t "Version"}}</dt><dd>{{$t.Version}}</dd></div>
   {{/* The identifier, copyable rather than selectable by hand. */}}
   <div class="prop"><dt>{{t "Id"}}</dt><dd class="idline">
@@ -503,7 +503,7 @@
   {{if snoozed $t}}
   <div class="prop" data-prop="snooze">
     <dt>{{t "Snoozed"}}</dt>
-    <dd><span class="snoozemark"{{with $.Data.Names.Label $t.SnoozedByActorID}} title="{{t "Snoozed by %s" .}}"{{end}}>{{t "Snoozed until %s" (stamp $t.SnoozedUntil)}}</span></dd>
+    <dd><span class="snoozemark"{{with $.Data.Names.Label $t.SnoozedByActorID}} title="{{t "Snoozed by %s" .}}"{{end}}>{{tt "Snoozed until %s" (when $t.SnoozedUntil)}}</span></dd>
   </div>
   {{end}}
   {{/* The lease, and what is left of the last one. The sweeper clears the
@@ -554,7 +554,7 @@
              disclosure below it: three stacked blocks per comment is why ten
              comments were a screenful of chrome. */}}
         {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
-        <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> <span class="muted">&middot; {{compact .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
+        <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
@@ -625,7 +625,7 @@
             {{$raw := printf "%sraw-%d" $.IDPrefix $latest.Entry.Seq}}
             <tr>
               <td data-label="{{t "When"}}" class="muted">
-                <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
+                {{whenRel $latest.Entry.OccurredAt}}
               </td>
               {{/* The sentence, and nothing saying it twice. Each row used to
                    open with a verb badge, so "update" sat beside "tom moved
@@ -649,10 +649,10 @@
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
                 <button type="button" class="link rawopen" popovertarget="{{$raw}}">{{if gt (len .Hops) 1}}{{tn "%d step" "%d steps" (len .Hops)}}{{else}}{{t "details"}}{{end}}</button>
                 <div id="{{$raw}}" class="flowmenu rawpop" popover>
-                  <p class="flowhead">{{.Verb}} &middot; {{relativeAt $latest.Entry.OccurredAt}}</p>
+                  <p class="flowhead">{{.Verb}} &middot; {{whenRel $latest.Entry.OccurredAt}}</p>
                   {{range .Hops}}
                   <dl class="raw-fields">
-                    <div><dt>{{t "When"}}</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
+                    <div><dt>{{t "When"}}</dt><dd class="mono">{{when .Entry.OccurredAt}}</dd></div>
                     <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
                     {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
                   </dl>

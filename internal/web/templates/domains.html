@@ -9,7 +9,7 @@
   {{range .Data.Domains}}
     <tr>
       <td>{{.Hostname}}</td>
-      {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}{{t "verified %s" (stamp .VerifiedAt)}}{{else}}{{t "pending"}}{{end}}</td>{{end}}
+      {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}{{tt "verified %s" (when .VerifiedAt)}}{{else}}{{t "pending"}}{{end}}</td>{{end}}
       {{if $.Columns.Show "domains" "cert"}}<td>{{.CertMode}}</td>{{end}}
       <td>
         <form method="post" action="/admin/domains/remove">
