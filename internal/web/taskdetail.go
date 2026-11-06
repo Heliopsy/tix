@@ -120,6 +120,8 @@ type taskView struct {
 	Comments     []core.Comment
 	Artifacts    []core.Artifact
 	History      []historyGroup
+	// Raw is the raw entry dialog the address asks for, drawn open.
+	Raw *rawEntry
 	// HistoryCursor is where the history drawn starts, empty for the newest
 	// changes, and HistoryNext where the next older page starts, empty once
 	// the oldest change is drawn.
@@ -384,6 +386,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		}
 	}
 	data.Names = h.resolveActors(r, data.actorIDs()...)
+	data.attachRaw(r)
 	h.renderProse(r, &data, data.Task.Ref+"-")
 	data.Live = h.liveTask(data.Task)
 	return data, nil
@@ -597,6 +600,38 @@ func (v taskView) HistoryOlderHref() string {
 func (v taskView) HistoryOlderRows() string {
 	return strings.Replace(RouteTaskHistory, "{ref}", url.PathEscape(v.Task.Ref), 1) +
 		"?" + url.Values{CursorParam: {v.HistoryNext}}.Encode()
+}
+
+// historyHere is the task screen at the page of history it draws.
+func (v taskView) historyHere() string {
+	if v.HistoryCursor == "" {
+		return v.taskHref()
+	}
+	return v.taskHref() + "?" + url.Values{HistoryParam: {v.HistoryCursor}}.Encode()
+}
+
+// RawOpener is the Raw control of one history row, a link to the task screen
+// with the row's dialog open. prefix and inDialog are those of the task
+// dialog when the screen is drawn in one.
+func (v taskView) RawOpener(g historyGroup, prefix string, inDialog bool) rawOpener {
+	return newRawOpener(v.historyHere(), prefix, g, inDialog)
+}
+
+// attachRaw draws the raw entry dialog the request names, when it names a
+// row of the history on this screen.
+func (v *taskView) attachRaw(r *http.Request) {
+	prefix := ""
+	if dialogRequest(r) {
+		prefix = "dlg-"
+	}
+	open := dialogOf(r).Open
+	seq, ok := rawGroupID(open, prefix)
+	if !ok {
+		return
+	}
+	if g, found := findRawGroup(v.History, seq); found {
+		v.Raw = newRawEntry(open, v.historyHere(), g, v.Names, v.Task.Ref+" "+v.Task.Title, v.taskHref())
+	}
 }
 
 // HistoryNewestHref is the task screen drawing the newest changes again.

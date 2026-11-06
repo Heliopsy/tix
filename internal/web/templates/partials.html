@@ -619,23 +619,9 @@
          the change was made with one; its details are in the hover and in
          the raw view below. */}}
     <a class="via-link" href="{{.ViaHref}}">{{template "via" .Group.Channel}}</a>
-    {{/* Ordered after the row's own timestamp and actor, and always its own
-         full-width flex line (see .feed-raw in app.css), so opening it can
-         never push those two spans around: everything they need is already
-         laid out before this element wraps. */}}
-    <details class="panel raw feed-raw">
-      <summary>{{if gt (len .Group.Hops) 1}}{{t "%d steps" (len .Group.Hops)}}{{else}}{{t "Raw"}}{{end}}</summary>
-      <div class="body">
-        {{range .Group.Hops}}
-        <dl class="raw-fields">
-          <div><dt>{{t "When"}}</dt><dd class="mono">{{when .Entry.OccurredAt}}</dd></div>
-          <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-          {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
-          {{template "via-fields" .Channel}}
-        </dl>
-        {{end}}
-      </div>
-    </details>
+    {{/* Last on the row, so it follows the timestamp; it opens the row's
+         raw entries in a dialog of their own (raw-dialog). */}}
+    {{template "raw-open" ($.Data.RawOpener .)}}
   </li>
 {{else}}
   <li class="empty">{{if .Data.Query.Active}}{{t "Nothing here matches that filter, anywhere in this tenant's history."}} <a href="/activity">{{t "Clear the filter to see everything."}}</a>{{else}}{{t "No recorded activity."}}{{end}}</li>
@@ -651,6 +637,65 @@
 
 {{define "via-fields"}}<div><dt>{{t "Channel"}}</dt><dd>{{template "via" .}}</dd></div>
 {{range .Details}}<div><dt>{{t .Label}}</dt><dd class="mono">{{.Value}}</dd></div>{{end}}{{end}}
+
+{{/* raw-open is a history row's Raw control. It used to be a disclosure
+     opening inside the row, which the feed's flex line shrank to the width
+     of the word "Raw", so the entry was read down a column a few letters
+     wide. Now it is the link to the screen with the row's dialog drawn open
+     (raw-dialog), and with scripting it fetches only that dialog into the
+     slot after the list and opens it as a modal one; a second press opens
+     the one already fetched (assets/forms.js). Takes rawOpener. */}}
+{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{end}}
+
+{{/* raw-dialog shows one history row's audit entries as recorded: a table
+     of who, what, when and how, the fields that changed side by side, and
+     each snapshot as indented JSON with a Copy button. Without scripting it
+     is drawn in place, open, with Close leading back. Takes rawEntry. */}}
+{{define "raw-dialog"}}<div class="rawwrap"><dialog id="{{.ID}}" class="actiondlg wide rawdlg{{if .Open}} is-inplace{{end}}" aria-labelledby="{{.ID}}-title" data-dlg{{if .Open}} open{{end}}>
+<div class="actiondlg-head"><div class="rawdlg-title"><h2 id="{{.ID}}-title">{{t "Raw entry"}}</h2>
+<p class="rawdlg-sub"><span class="mono">{{.Action}}</span> &middot; {{if .SubjectHref}}<a href="{{.SubjectHref}}">{{.Subject}}</a>{{else}}{{.Subject}}{{end}} &middot; <time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute .At}}">{{relativeAt .At}}</time></p></div>
+<a class="actiondlg-x" href="{{.Back}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</a></div>
+{{range $h := .Hops}}
+<section class="rawhop" aria-labelledby="{{$h.ID}}-head">
+  {{if gt $.Steps 1}}<h3 id="{{$h.ID}}-head">{{t "Step %d of %d" $h.Step $.Steps}}</h3>{{else}}<h3 id="{{$h.ID}}-head" class="sr-only">{{t "Entry"}}</h3>{{end}}
+  <dl class="rawdl">
+    <div><dt>{{t "Actor"}}</dt><dd>{{if $h.ActorHref}}<a href="{{$h.ActorHref}}">{{$h.Actor}}</a>{{else}}{{t "system"}}{{end}}</dd></div>
+    <div><dt>{{t "Action"}}</dt><dd class="mono">{{$h.Entry.Action}}</dd></div>
+    <div><dt>{{t "Subject"}}</dt><dd>{{if $.SubjectHref}}<a href="{{$.SubjectHref}}">{{$.Subject}}</a>{{else}}{{$.Subject}}{{end}} <span class="mono muted">{{$h.Entry.SubjectType}} {{$h.Entry.SubjectID}}</span></dd></div>
+    <div><dt>{{t "Time"}}</dt><dd><time datetime="{{$h.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{absolute $h.Entry.OccurredAt}}</time> <span class="muted">({{relativeAt $h.Entry.OccurredAt}})</span></dd></div>
+    <div><dt>{{t "Source"}}</dt><dd class="mono">{{$h.Entry.Source}}</dd></div>
+    <div><dt>{{t "Sequence"}}</dt><dd class="mono">{{$h.Entry.Seq}}</dd></div>
+  </dl>
+  {{with $h.Diff}}
+  <h4>{{t "Changed fields"}}</h4>
+  <div class="rawdiff" role="table" aria-label="{{t "Changed fields"}}">
+    <div class="rawdiff-row rawdiff-headrow" role="row"><span role="columnheader">{{t "Field"}}</span><span role="columnheader">{{t "Before"}}</span><span role="columnheader">{{t "After"}}</span></div>
+    {{range .}}
+    <div class="rawdiff-row is-{{.Kind}}" role="row">
+      <span class="rawdiff-key" role="cell"><code>{{.Key}}</code> <span class="badge rawdiff-kind">{{if eq .Kind "added"}}{{t "added"}}{{else if eq .Kind "removed"}}{{t "removed"}}{{else}}{{t "changed"}}{{end}}</span></span>
+      <span class="rawdiff-before" role="cell" data-label="{{t "Before"}}">{{if .Before}}<code>{{.Before}}</code>{{else}}<span class="muted">{{t "(none)"}}</span>{{end}}</span>
+      <span class="rawdiff-after" role="cell" data-label="{{t "After"}}">{{if .After}}<code>{{.After}}</code>{{else}}<span class="muted">{{t "(none)"}}</span>{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  {{if $h.Before}}
+  <div class="rawjson">
+    <div class="rawjson-head"><h4>{{t "Before"}}</h4><button type="button" class="secondary small" data-copy-target="{{$h.ID}}-before">{{t "Copy"}}</button></div>
+    <pre id="{{$h.ID}}-before" class="rawpre">{{$h.Before}}</pre>
+  </div>
+  {{end}}
+  {{if $h.After}}
+  <div class="rawjson">
+    <div class="rawjson-head"><h4>{{t "After"}}</h4><button type="button" class="secondary small" data-copy-target="{{$h.ID}}-after">{{t "Copy"}}</button></div>
+    <pre id="{{$h.ID}}-after" class="rawpre">{{$h.After}}</pre>
+  </div>
+  {{end}}
+  {{if not (or $h.Before $h.After)}}<p class="muted">{{t "This entry recorded no snapshot."}}</p>{{end}}
+</section>
+{{end}}
+<div class="actiondlg-foot"><button type="button" class="secondary" data-copy-text="{{.All}}">{{t "Copy all as JSON"}}</button><a class="btn" href="{{.Back}}" data-dlg-close>{{t "Close"}}</a></div>
+</dialog></div>{{end}}
 
 {{/* One symbol from assets/icons.svg, hidden from screen readers because
      the words beside it already say what it means. The sprite holds the

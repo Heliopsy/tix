@@ -162,8 +162,12 @@ func TestTaskHistoryListsRecordedChanges(t *testing.T) {
 	_ = resp.Body.Close()
 
 	page := b.page("/tasks/" + ref)
-	if !strings.Contains(page, "task.transition") {
-		t.Fatalf("history does not list the transition:\n%s", page)
+	seqs := historyRowSeq.FindAllStringSubmatch(page, -1)
+	if len(seqs) == 0 {
+		t.Fatalf("history draws no rows:\n%s", page)
+	}
+	if raw := b.page("/tasks/" + ref + "?dialog=raw-" + seqs[0][1]); !strings.Contains(dialogBlock(raw, "raw-"+seqs[0][1]), "task.transition") {
+		t.Fatalf("the newest history row's raw entry is not the transition:\n%s", raw)
 	}
 	if !strings.Contains(page, ">via web<") {
 		t.Fatalf("history does not record the web channel")

@@ -18,17 +18,16 @@ import (
 // cannot be undone is never one: it is a button opening a dialog
 // (actiondlg.go), and an explanation is visible text or an (i) tip.
 var expanderAllowed = map[string]string{
-	"partials.html field-info":         "the (i) beside a field: a sentence about one control, opened where it is read",
-	"partials.html field-info tip":     "the (i) tip beside a heading, the same pattern",
-	"partials.html panel raw feed-raw": "an activity row's raw hops: detail of one row, not a section",
-	"board.html card-move":             "a card's Move menu, one card's control",
-	"tasks.html card-move":             "a card's Move menu on the task board, one card's control",
-	"tasks.html cform-more":            "the rarely used fields inside Add with details, a part of a form already open",
-	"task.html titleedit":              "Rename, an edit switch on the title it edits",
-	"task.html descedit":               "Edit, an edit switch on the description it edits",
-	"task.html tsec tfold":             "Artifacts and History: sections of a task folded by their own heading",
-	"release.html relentry":            "one version's notes in the release history",
-	"syncruns.html note":               "one run's warnings, a detail of its table row",
+	"partials.html field-info":     "the (i) beside a field: a sentence about one control, opened where it is read",
+	"partials.html field-info tip": "the (i) tip beside a heading, the same pattern",
+	"board.html card-move":         "a card's Move menu, one card's control",
+	"tasks.html card-move":         "a card's Move menu on the task board, one card's control",
+	"tasks.html cform-more":        "the rarely used fields inside Add with details, a part of a form already open",
+	"task.html titleedit":          "Rename, an edit switch on the title it edits",
+	"task.html descedit":           "Edit, an edit switch on the description it edits",
+	"task.html tsec tfold":         "Artifacts and History: sections of a task folded by their own heading",
+	"release.html relentry":        "one version's notes in the release history",
+	"syncruns.html note":           "one run's warnings, a detail of its table row",
 }
 
 var detailsTag = regexp.MustCompile(`<details(?:\s+class="([^"]*)")?`)
