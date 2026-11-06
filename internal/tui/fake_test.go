@@ -463,6 +463,16 @@ func (f *fakeService) TrashStatus(context.Context) (*core.TrashStatus, error) {
 	return &core.TrashStatus{Enabled: true}, nil
 }
 
+// GetTimeSettings reports nothing chosen at any level.
+func (f *fakeService) GetTimeSettings(context.Context) (*core.TimeSettings, error) {
+	return &core.TimeSettings{}, nil
+}
+
+// SetTimePrefs is refused: the fake has no person to hold a preference.
+func (f *fakeService) SetTimePrefs(context.Context, core.TimePrefsInput) (*core.TimeSettings, error) {
+	return nil, core.Invalid("no person")
+}
+
 // copyCall is one CopyTask the fake was asked for.
 type copyCall struct {
 	ref core.TaskRef

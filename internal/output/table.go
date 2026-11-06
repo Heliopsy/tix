@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -172,6 +173,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderSyncResult(w, p, v)
 	case core.SyncResult:
 		return renderSyncResult(w, p, &v)
+	case core.TimeSettings:
+		return renderTimeSettings(w, p, v)
 	}
 	return renderReflected(w, p, data)
 }
@@ -636,10 +639,45 @@ func renderStructs(w io.Writer, p Painter, rv reflect.Value) error {
 			if skipField(elem.Field(f)) {
 				continue
 			}
-			row = append(row, showCell(elem.Field(f), fmt.Sprintf("%v", item.Field(f).Interface())))
+			row = append(row, showCell(elem.Field(f), p.reflectedCell(item.Field(f).Interface())))
 		}
 		tbl.AppendRow(row)
 	}
+	return emit(w, p, tbl)
+}
+
+// reflectedCell renders one field of a struct the table has no layout for. An
+// instant goes through the reader's style like every other timestamp in a
+// table; fmt's own rendering of a time.Time is Go's debugging layout, in
+// whatever zone the value happened to carry.
+func (p Painter) reflectedCell(v any) string {
+	switch t := v.(type) {
+	case time.Time:
+		return p.style.Format(t)
+	case *time.Time:
+		return p.style.FormatPtr(t)
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+// renderTimeSettings lays out one row per level, so a reader sees what each
+// level holds and which one is in force.
+func renderTimeSettings(w io.Writer, p Painter, s core.TimeSettings) error {
+	inherit := func(v string) string {
+		if v == "" {
+			return "(inherit)"
+		}
+		return v
+	}
+	tbl := newWriter()
+	tbl.AppendHeader(paintHeader(p, table.Row{"LEVEL", "FORMAT", "TIMEZONE"}))
+	tbl.AppendRow(table.Row{core.TimeSourceGlobal, inherit(s.Global.TimeFormat), inherit(s.Global.Timezone)})
+	tbl.AppendRow(table.Row{core.TimeSourceTenant, inherit(s.Tenant.TimeFormat), inherit(s.Tenant.Timezone)})
+	if s.Personal {
+		tbl.AppendRow(table.Row{core.TimeSourceUser, inherit(s.User.TimeFormat), inherit(s.User.Timezone)})
+	}
+	tbl.AppendRow(table.Row{"in use", s.Effective.TimeFormat + " (from " + s.FormatSource + ")",
+		s.Effective.Timezone + " (from " + s.TimezoneSource + ")"})
 	return emit(w, p, tbl)
 }
 

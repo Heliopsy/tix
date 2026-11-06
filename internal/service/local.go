@@ -55,6 +55,10 @@ type Local struct {
 	// see lease.Policy.Narrow for which way each bound moves.
 	leaseDefaults lease.Policy
 
+	// timeDefaults are the deployment's date format and timezone, under the
+	// tenant's and each person's own.
+	timeDefaults core.TimePrefs
+
 	// allowInsecureWebhooks permits a plaintext delivery target outside
 	// loopback. Deliveries carry task content, so this is opt-in.
 	allowInsecureWebhooks bool

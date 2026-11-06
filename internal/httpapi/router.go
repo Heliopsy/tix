@@ -196,6 +196,7 @@ func (rt *Router) register() {
 	rt.registerFilterRoutes()
 	rt.registerCalendarRoutes()
 	rt.registerInboxRoutes()
+	rt.registerTimeRoutes()
 	rt.registerTemplateRoutes()
 
 	if rt.cfg.EventHandler != nil {
