@@ -156,9 +156,9 @@ task screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an off
 (i) tip shows those examples before anything is typed, the date among them in the reader's format, and
 the placeholder shows three of them. The calendar button beside the field opens the browser's date picker
 and writes the picked day into the field in the reader's format (YYYY-MM-DD for a format that writes the
-month as a word); without scripting the button is not drawn and the field still takes a typed date. Its More options fold holds
-the repeat rule, parent, dependencies and the task's lease length, blank to inherit; a lease above the
-maximum is refused on that field and nothing is created.
+month as a word); without scripting the button is not drawn and the field still takes a typed date.
+Its More options fold holds the repeat rule, parent, dependencies and the task's lease length, blank to inherit;
+a lease above the maximum is refused on that field and nothing is created.
 
 **Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. Its (i) tip lists
