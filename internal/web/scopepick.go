@@ -72,6 +72,7 @@ var scopeNotes = map[core.Scope]string{
 	core.ScopeAuditRead:      "Read the audit log.",
 	core.ScopeExport:         "Export a snapshot of the whole tenant.",
 	core.ScopeImport:         "Import a snapshot into the tenant.",
+	core.ScopeGlobalAdmin:    "Administer every tenant on this server. Only a global admin's token can carry it.",
 }
 
 // scopeGroups orders the scopes the way a person looks for them.
@@ -88,7 +89,7 @@ var scopeGroups = []struct {
 	{"events", "Events", []core.Scope{core.ScopeEventSubscribe}},
 	{"admin", "Administration", []core.Scope{core.ScopeUserAdmin, core.ScopeTOTPAdmin, core.ScopeTokenAdmin,
 		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeAuditRead,
-		core.ScopeExport, core.ScopeImport}},
+		core.ScopeExport, core.ScopeImport, core.ScopeGlobalAdmin}},
 }
 
 // newScopePicker draws the picker for a reader, with chosen ticked.
