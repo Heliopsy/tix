@@ -72,6 +72,10 @@ type globals struct {
 
 	resolved *config.Resolved
 	conn     *connect.Conn
+
+	// completing is true while the shell asks for completions, which must
+	// never stop to ask a question or print a notice.
+	completing bool
 }
 
 // logFlags are the logging settings as the command line carries them.
@@ -138,6 +142,8 @@ func Execute() {
 // Run executes one invocation and returns the process exit code.
 func Run(args []string, in io.Reader, out, errw io.Writer, environ []string, dir string) int {
 	root, g := newRoot(environ, dir)
+	g.completing = len(args) > 0 &&
+		(args[0] == cobra.ShellCompRequestCmd || args[0] == cobra.ShellCompNoDescRequestCmd)
 	root.SetArgs(args)
 	root.SetIn(in)
 	root.SetOut(out)
@@ -231,6 +237,7 @@ var builders = []func(*globals) *cobra.Command{
 	newTenantCmd, newGlobalAdminCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
 	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newCleanupCmd, newWebhookCmd,
 	newAuditCmd, newSyncCmd, newArtifactCmd, newWatchCmd, newLogoutCmd, newConnectionCmd,
+	newWhoAmICmd, newInitCmd,
 	newDocsCmd, newCompletionCmd, newVersionCmd,
 }
 
@@ -411,9 +418,15 @@ func (g *globals) bearer() string {
 // and a context's token reach the wire rather than only --token and TIX_TOKEN.
 // resolve() has already laid those two on top as the flag layer, so reading
 // the resolved value keeps the documented precedence instead of inverting it.
+//
+// It resolves the configuration itself rather than reading whatever an earlier
+// call left behind. It used to read g.resolved only when set, and overrides()
+// is built before dialWith resolves anything, so a configured token reached the
+// wire only on the commands that happened to resolve first (task ls did, task
+// show, claim next and status did not) and TIX_TOKEN looked like the only way in.
 func (g *globals) credential() string {
-	if g.resolved != nil {
-		if token := strings.TrimSpace(g.resolved.Config.Server.Token); token != "" {
+	if resolved, err := g.resolve(); err == nil {
+		if token := strings.TrimSpace(resolved.Config.Server.Token); token != "" {
 			return token
 		}
 	}
@@ -454,14 +467,22 @@ func (g *globals) dialWith(cmd *cobra.Command, ov connect.Overrides) (*connect.C
 	if err != nil {
 		return nil, nil, err
 	}
-	conn, err := connect.Dial(cmd.Context(), resolved, ov)
+	target, err := connect.Resolve(resolved, ov)
 	if err != nil {
 		return nil, nil, err
+	}
+	if err := g.confirmTarget(cmd, resolved, target); err != nil {
+		return nil, nil, err
+	}
+	conn, err := connect.Dial(cmd.Context(), resolved, ov)
+	if err != nil {
+		return nil, nil, explainUnauthenticated(err, target, ov.Token)
 	}
 	g.conn = conn
 	if g.verbose {
 		g.diag(cmd, "target: %s", conn.Info.Target.Describe())
 	}
+	g.noticeTarget(cmd, resolved, conn.Info.Target)
 	return conn, conn.Context(cmd.Context()), nil
 }
 

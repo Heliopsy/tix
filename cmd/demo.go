@@ -59,6 +59,13 @@ func demoSeedCmd(g *globals) *cobra.Command {
 			clk := clock.NewFake(now)
 			overrides := g.overrides()
 			overrides.Clock = clk
+			target, err := connect.Resolve(resolved, overrides)
+			if err != nil {
+				return err
+			}
+			if err := g.confirmTarget(cmd, resolved, target); err != nil {
+				return err
+			}
 			conn, err := connect.Dial(cmd.Context(), resolved, overrides)
 			if err != nil {
 				return err

@@ -1,7 +1,9 @@
 # Configuration
 
-tix runs with no configuration file. `tix task add "buy milk"` works on a machine that has never seen tix: it
-creates the database, the tenant and the default project on first use.
+tix runs with no configuration file. After `tix init`, `tix task add "buy milk"` works on a machine that has
+never seen tix: it creates the database, the tenant and the default project on first use. Without `tix init`,
+or a server or database named some other way, a first command asks on a terminal and refuses elsewhere rather
+than create a local database nobody asked for; see [Where commands go](#where-commands-go).
 
 Everything below is for when the defaults are not what you want.
 
@@ -24,8 +26,10 @@ $ tix config show --sources -o json
 ]
 ```
 
-Secrets are redacted in that output. `-v` on any command reports how the target was resolved, which is the
-quicker answer when the question is only "which database am I talking to".
+Secrets are redacted in that output. `tix whoami` is the quicker answer when the question is only "which server
+or database am I talking to": it names the server URL or the local database path, the context that chose it,
+the tenant, the user, and whether a token is presented and where it came from. `-v` on any command reports how
+the target was resolved.
 
 ## Keys
 
@@ -33,6 +37,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 
 | Key | Environment variable | Default |
 | --- | --- | --- |
+| `target` | `TIX_TARGET` | `auto` (`auto`, `local`) |
 | `tenant` | `TIX_TENANT` | `default` |
 | `project` | `TIX_PROJECT` | (unset) |
 | `current_context` | `TIX_CURRENT_CONTEXT` | (unset) |
@@ -68,6 +73,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `output.time_format` | `TIX_OUTPUT_TIME_FORMAT` | `iso` (`iso`, `rfc3339`, `short`, `long`, `dotted`, `dayfirst`, `us`, `relative`) |
 | `output.timezone` | `TIX_OUTPUT_TIMEZONE` | `local` (`local`, `utc`, or an IANA name) |
 | `cli.page_size` | `TIX_CLI_PAGE_SIZE` | `25` |
+| `cli.target_notice` | `TIX_CLI_TARGET_NOTICE` | `true` |
 | `web.page_size` | `TIX_WEB_PAGE_SIZE` | `25` |
 | `ssh.listen` | `TIX_SSH_LISTEN` | `127.0.0.1:2222` |
 | `ssh.host_key` | `TIX_SSH_HOST_KEY` | (unset: beside the database) |
@@ -132,6 +138,36 @@ process and is still coming up, which is the ordinary shape of a compose file or
 process that refuses to start against a database that is merely busy. Lower it when something above restarts
 this process and a fast failure is worth more than a slow success. It must be positive; zero would mean "give
 up immediately", not "wait forever". SQLite ignores it, having no connection to wait for.
+
+### Where commands go
+
+With nothing configured, a command has no target. tix used to create a database at
+`~/.local/share/tix/tix.db` (or under `$XDG_DATA_HOME`) and carry on, which is how a person who meant to work
+on a server spent a week filling a database on their own machine. It no longer does that by itself:
+
+- On a terminal it asks whether to create the local database or connect to a server. Choosing the server
+  writes nothing and prints the command to run.
+- Anywhere else, a script or an agent, the command fails with exit `6` and names both ways forward:
+  `tix ctx add NAME --server URL --token TOKEN --use` for a server, `tix init` for a local database.
+
+Any one of these is the request for a local database, and with it every command behaves as before:
+
+- a database already at the default path, so an existing install keeps working untouched;
+- `target: local` in the configuration file, or `TIX_TARGET=local`, which `tix init` writes for you;
+- `--db PATH` or `TIX_DATABASE_DSN`, which name the database outright;
+- a context that names a database.
+
+`target` changes nothing else. A server URL from any layer still wins over it.
+
+While a command uses that default database, it prints one line on standard error naming it:
+
+```text
+using local database /home/you/.local/share/tix/tix.db (no server configured; run `tix ctx add` to use a server)
+```
+
+It is never on standard output, so `-o json` stays parseable, and `--quiet` does not hide it, because it is
+the line that says where the work went. Set `cli.target_notice: false` (or `TIX_CLI_TARGET_NOTICE=false`) to
+drop it. A target you named yourself, with `--db`, a context or `database.dsn`, prints nothing.
 
 ### Logging
 
@@ -528,6 +564,27 @@ A context may name a database or a server, not both; giving both is exit 2.
 
 Select one for a single command with `--ctx work`, or make it the default with `tix ctx use work`, which sets
 `current_context`.
+
+The token a context carries is presented on every command run under it, with nothing exported. `tix ctx list`
+shows whether each context has one (the `TOKEN` column, never the value), and `tix whoami` confirms which
+server, tenant and user a command will reach:
+
+```text
+$ tix whoami
+target  server https://tix.internal.example.com (context work)
+tenant  acme
+user    ada (Ada Lovelace), admin
+token   yes, from context work
+```
+
+Up to 0.43.0 that held only for some commands. `task ls` and `task add` read the configuration before
+connecting and presented the context's token; `task show`, `claim next`, `status` and others connected first
+and presented nothing, so a server answered "no credential presented" and exporting `TIX_TOKEN` looked like
+the only way in. Every command now resolves the token the same way.
+
+`tix login` does not set up the command line: it prints a browser session, which the API does not accept as a
+bearer token. For the command line, mint an API token (`tix token create`, or the tokens screen of the web
+interface) and give it to `tix ctx add --token`.
 
 ## Per-directory discovery
 

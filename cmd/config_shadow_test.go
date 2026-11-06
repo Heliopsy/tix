@@ -70,6 +70,8 @@ var unshadowedKeys = map[string]string{
 	"database.connect_timeout":       "connect.openStore",
 	"server.url":                     "connect.Resolve; --server only wins when non-empty",
 	"server.token":                   "globals.credential, into connect.Overrides.Token",
+	"target":                         "connect.NeedsOptIn, via globals.confirmTarget; tix init writes it",
+	"cli.target_notice":              "globals.noticeTarget",
 	"server.trusted_proxies":         "runServe, into server.Options",
 	"ssh.trusted_proxies":            "runSSH and buildServeSSH, into sshd.Options; neither command has a flag for it",
 	"server.cookie_security":         "runServe, into server.Options",

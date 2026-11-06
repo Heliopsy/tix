@@ -28,6 +28,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		set           []string
 		unimplemented []string
 	}{
+		{"target", cfg.Target, Targets, nil},
 		{"auth.mode", cfg.Auth.Mode, AuthModes, UnimplementedAuthModes},
 		{"hooks.mode", cfg.Hooks.Mode, HookModes, UnimplementedHookModes},
 		{"log.level", cfg.Log.Level, LogLevels, nil},

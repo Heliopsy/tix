@@ -42,6 +42,12 @@ func newCLI(t *testing.T) *cli {
 }
 
 func (c *cli) environ() []string {
+	return append(c.bare(), "TIX_TARGET=local", "TIX_CLI_TARGET_NOTICE=false")
+}
+
+// bare is the environment with nothing opting into the local database and the
+// target notice left on, which is what a person installing tix starts with.
+func (c *cli) bare() []string {
 	return []string{"HOME=" + c.home, "XDG_DATA_HOME=" + c.data, "XDG_CONFIG_HOME=" + filepath.Join(c.home, "conf"), "NO_COLOR=1"}
 }
 

@@ -5,6 +5,7 @@ package cmd
 import (
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
@@ -20,6 +21,7 @@ type contextRow struct {
 	Server   string `json:"server,omitempty" yaml:"server,omitempty"`
 	Tenant   string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
 	Project  string `json:"project,omitempty" yaml:"project,omitempty" show:"key"`
+	Token    bool   `json:"token" yaml:"token"`
 }
 
 // newCtxCmd builds the context command group.
@@ -53,6 +55,9 @@ func ctxListCmd(g *globals) *cobra.Command {
 			rows := make([]contextRow, 0, len(names))
 			for _, name := range names {
 				rows = append(rows, row(name, resolved.Config.Contexts[name], name == resolved.ContextName))
+			}
+			if len(rows) == 0 {
+				g.diag(cmd, "no contexts; commands use %s", g.describeTarget())
 			}
 			return g.render(cmd, rows)
 		},
@@ -263,6 +268,7 @@ func row(name string, ctx config.Context, current bool) contextRow {
 	return contextRow{
 		Name: name, Current: current, Database: ctx.Database,
 		Server: ctx.Server, Tenant: ctx.Tenant, Project: ctx.Project,
+		Token: strings.TrimSpace(ctx.Token) != "",
 	}
 }
 

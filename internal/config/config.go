@@ -18,6 +18,9 @@ import (
 
 // Config is the fully resolved tix configuration.
 type Config struct {
+	// Target is auto or local. Local opts into the zero-configuration database,
+	// which a first run otherwise refuses to create on its own.
+	Target         string             `yaml:"target"`
 	Tenant         string             `yaml:"tenant"`
 	Project        string             `yaml:"project"`
 	CurrentContext string             `yaml:"current_context"`
@@ -330,6 +333,9 @@ type Output struct {
 // window, a browser window and a pipe do not hold the same number of lines.
 type CLI struct {
 	PageSize int `yaml:"page_size"`
+	// TargetNotice prints the one line naming the local database a command
+	// used when no target was configured.
+	TargetNotice bool `yaml:"target_notice"`
 }
 
 // Web holds the settings of the browser interface. PageSize is how many rows
@@ -486,9 +492,22 @@ const (
 	TUIMotionOff = "off"
 )
 
+// Values of the target key.
+const (
+	// TargetAuto uses whatever target is configured, and refuses to create
+	// the zero-configuration database without being asked.
+	TargetAuto = "auto"
+	// TargetLocal opts into the zero-configuration database.
+	TargetLocal = "local"
+)
+
+// Targets lists the accepted values of the target key.
+var Targets = []string{TargetAuto, TargetLocal}
+
 // Defaults returns the built-in configuration.
 func Defaults() Config {
 	return Config{
+		Target:   TargetAuto,
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity},
@@ -535,7 +554,7 @@ func Defaults() Config {
 			TimeFormat: DefaultOutputTimeFormat,
 			Timezone:   DefaultOutputTimezone,
 		},
-		CLI: CLI{PageSize: DefaultPageSize},
+		CLI: CLI{PageSize: DefaultPageSize, TargetNotice: true},
 		Web: Web{PageSize: DefaultPageSize},
 		TUI: TUI{Keymap: DefaultTUIKeymap, Motion: DefaultTUIMotion},
 	}
