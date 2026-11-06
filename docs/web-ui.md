@@ -13,7 +13,8 @@ browser that runs no script submits it normally and follows the redirect.
 
 The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
 toggle, then Search (ctrl+k). Then Inbox with its unread badge, My work with a badge counting your open
-tasks that are overdue, Tasks, Projects with the projects you pinned under it, Activity and Statistics.
+tasks that are overdue, Tasks, Projects with the projects you pinned under it, Activity, Statistics,
+Connect an agent and Docs.
 Your own views follow, Saved filters and Recently viewed, then Admin, and at the foot your account menu
 with the version under it.
 
@@ -45,7 +46,7 @@ Manage dialog as Users. A tenant created with first admins brings the screen bac
 passwords at the top, each with a Copy button, once; a reload shows none. See
 [tenancy.md](tenancy.md#global-admins).
 
-**The account menu.** Your initials and handle at the foot open one menu: Settings, the colour scheme
+**The account menu.** Your initials and handle at the foot open one menu: Settings, Docs, the colour scheme
 switch, Keyboard shortcuts and Sign out. These were four blocks stacked under the navigation. It is a
 popover, like every other menu here, so it opens and closes with no script, Escape closes it alone (inside
 the phone menu too, which stays open) and focus returns to the button. A browser without popovers draws
@@ -1047,6 +1048,44 @@ which servers are running against it. `/admin/connections` is `tix connection ls
 event streams and SSH sessions this server holds, and ending one. `/admin/ssh-keys` is `tix user key`:
 the public keys the SSH listener accepts, enrolled and revoked. [deployment.md](deployment.md) covers
 the listener and live connections.
+
+## Connect an agent
+
+`/connect`, in the sidebar and on the API tokens screen, has every command a person needs to point a CLI, an
+MCP client or an agent at this server, filled in for it. The server address is the one the browser reached,
+with the scheme taken from `server.trusted_proxies` the way the calendar feed takes it; the tenant key is
+filled in for a reader allowed to read the tenant, and left out otherwise, since a token already names its
+tenant. The steps, each linking to its documentation:
+
+1. Install the CLI: `install.sh`, PowerShell, `go install` and the container image, pinned to the version the
+   server runs.
+2. Issue a token, with the scope picker below. Only a reader holding `token:admin` gets the form.
+3. Point the CLI at the server with `tix ctx add`, and check it with `tix task ls`.
+4. Register `tix mcp` with Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop, Cursor, VS Code or Zed,
+   one tab each. These are the snippets in [mcp.md](mcp.md), from one Go source a test holds to that page.
+5. Install the agent skill for Claude Code, in the project or for every project, or point another agent at it.
+6. Open the terminal interface and stream events over SSH. Shown only when `tix serve` runs with
+   `--ssh-listen`; the address is `ssh.public_address` when set ([configuration.md](configuration.md)).
+7. Call the REST API with `curl`, and open the OpenAPI document.
+
+Before a token is issued the commands read `$TIX_TOKEN`. Issuing one draws the value once, with the scopes it
+got, and the page's script writes it into every command. It is not stored and not put in the URL, so a reload
+puts `$TIX_TOKEN` back. Every `tix` command the screen shows is checked against the command tree by
+`cmd/connect_test.go`.
+
+**Docs** in the sidebar and the account menu, and the docs link on each step, go through `/docs/PAGE`, which
+redirects to that page on GitHub at the running release's tag (`main` for a development build). Rendered pages
+name no external origin, and only a page that exists under `docs/` is redirected.
+
+### Choosing scopes
+
+The token form here and on the API tokens screen use one picker: a checkbox per scope, grouped as Tasks,
+Projects, Workflows, Comments and artifacts, Events and Administration, each saying what it allows. A scope you
+do not hold is drawn disabled with the reason, since you cannot grant what you do not have; the server refuses
+it too. With scripting there are presets (Agent, Read only), Select all, Clear, a checkbox per group and a
+line saying what the token will be able to do. Select all ticks each scope you hold, never `*`; an
+administrator gets `*` as its own choice with a warning. The issued token's confirmation lists the scopes it
+was granted.
 
 ## The release screen
 

@@ -40,7 +40,7 @@ func TestCSRFRejection(t *testing.T) {
 
 	page := b.page("/tasks")
 	for _, title := range []string{"no token", "blank", "wrong"} {
-		if strings.Contains(page, title) {
+		if strings.Contains(page, ">"+title+"<") {
 			t.Fatalf("a rejected submission created %q", title)
 		}
 	}

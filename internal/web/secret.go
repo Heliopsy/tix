@@ -2,7 +2,12 @@
 
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // oneTimeSecret is a value the server will never disclose again, shown once to
 // whoever caused it to exist.
@@ -23,15 +28,32 @@ type oneTimeSecret struct {
 	Note string
 	// Value is the secret itself.
 	Value string
+	// Scopes are what an issued token was granted, listed under the value so
+	// the reader sees what they actually got.
+	Scopes []string
+	// Fill marks the value for assets/connect.js to write into the commands
+	// on the screen.
+	Fill bool
+}
+
+// issuedValue packs a token and its scopes into the one-time cookie.
+func issuedValue(token string, scopes []core.Scope) string {
+	names := make([]string, len(scopes))
+	for i, s := range scopes {
+		names[i] = string(s)
+	}
+	return token + "|" + strings.Join(names, "+")
 }
 
 // issuedTokenSecret presents a freshly minted API token, or nothing when no
 // token was just issued.
-func issuedTokenSecret(value string) *oneTimeSecret {
+func issuedTokenSecret(packed string) *oneTimeSecret {
+	value, scopes, _ := strings.Cut(packed, "|")
 	if value == "" {
 		return nil
 	}
 	return &oneTimeSecret{
+		Scopes:  strings.FieldsFunc(scopes, func(r rune) bool { return r == '+' }),
 		ID:      "issued-token",
 		Heading: "Copy this token now",
 		Note: "It is shown once and cannot be retrieved again. " +

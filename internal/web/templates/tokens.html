@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="pagehead">
   <div class="pagehead-title"><div class="headtip"><h1>{{t "API tokens"}}</h1>{{template "tip" (tip "API tokens" "A token is the credential a script, the CLI or an agent presents to the HTTP API instead of signing in. It carries its own list of scopes rather than a role, and its value is shown once, when it is issued." "docs/api.md")}}</div></div>
-  <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "token-new" (t "Issue a token") "plus" "" .Here)}}</div>
+  <div class="pagehead-tools"><a class="btn secondary" href="/connect">{{template "icon" "connect"}}<span class="btn-label">{{t "Connect an agent"}}</span></a>{{template "column-menu" .}}{{template "dlg-open" (opener "token-new" (t "Issue a token") "plus" "" .Here)}}</div>
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 {{if .Data.Owners}}
@@ -73,13 +73,7 @@
   <label for="name">{{t "Name"}}</label>
   <input id="name" name="name" value="{{.Data.Form.Name}}" required{{with .Data.Errors.On "name"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
   {{with .Data.Errors.On "name"}}{{template "field-error" .}}{{end}}
-  <div class="field-label">
-    <label for="scopes">{{t "Scopes"}}</label>
-    {{template "field-info" "Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select the scopes its work needs and no others, for example task:write and task:transition for an agent that moves its own tasks. A token is usually held outside your own control."}}
-  </div>
-  <select id="scopes" name="scopes" multiple size="8" required{{with .Data.Errors.On "scopes"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
-    {{range .Data.Scopes}}<option value="{{.}}" {{if $.Data.Form.Chose .}}selected{{end}}>{{.}}</option>{{end}}
-  </select>
+  {{template "scope-picker" .Data.Picker}}
   {{with .Data.Errors.On "scopes"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
     <label for="expires">{{t "Expires"}}</label>

@@ -95,6 +95,7 @@ func patternFor(handler http.Handler, req *http.Request) (bool, string) {
 // concretePath replaces a pattern's wildcards with usable values.
 func concretePath(pattern string) string {
 	path := strings.ReplaceAll(pattern, "{key}", "infra")
+	path = strings.ReplaceAll(path, "{page}", "mcp.md")
 	return strings.ReplaceAll(path, "{ref}", "infra-1")
 }
 

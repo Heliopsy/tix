@@ -251,6 +251,7 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 func funcs(style output.TimeStyle) template.FuncMap {
 	return template.FuncMap{
 		"hasPrefix":        strings.HasPrefix,
+		"slotted":          slotted,
 		"opener":           newOpener,
 		"shell":            newShell,
 		"monogram":         monogramOf,

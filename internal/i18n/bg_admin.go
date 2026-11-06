@@ -117,7 +117,6 @@ func init() {
 		"No tokens.":    "Няма токени.",
 		"Issue a token": "Издаване на токен",
 		"Issue token":   "Издай токен",
-		"Exactly what this token may do; the CLI or agent holding it can do nothing outside this list, and at least one scope is required. Select the scopes its work needs and no others, for example task:write and task:transition for an agent that moves its own tasks. A token is usually held outside your own control.":                    "Точно какво може този токен; CLI или агентът, който го държи, не може нищо извън този списък, и е нужен поне един обхват. Изберете обхватите, нужни за работата му, и никои други, например task:write и task:transition за агент, който мести собствените си задачи. Токенът обикновено се държи извън вашия контрол.",
 		"When this token stops working, counted from now. An expiry is the one control that limits the damage of a token that leaks without anybody noticing, so prefer the shortest window the work fits in and issue a new one when it runs out. Never expires is for a credential you are certain nothing outside your control will ever hold.": "Кога този токен спира да работи, броено от сега. Срокът е единственото, което ограничава вредата от токен, изтекъл незабелязано, затова предпочитайте най-краткия срок, в който се побира работата, и издайте нов, когато изтече. „Без изтичане“ е за идентификационни данни, за които сте сигурни, че нищо извън вашия контрол никога няма да ги държи.",
 		"7 days":        "7 дни",
 		"30 days":       "30 дни",
