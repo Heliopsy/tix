@@ -69,6 +69,7 @@
     { "pattern": "/tasks/live", "skip": "htmx fragment of /tasks" },
     { "pattern": "/tasks/{ref}", "params": { "ref": "task" } },
     { "pattern": "/tasks/{ref}/live", "skip": "htmx fragment of the task screen" },
+    { "pattern": "/tasks/{ref}/history", "skip": "htmx fragment of the task screen's history" },
     { "pattern": "/tasks/{ref}/copy", "params": { "ref": "task" } },
     { "pattern": "/actors" },
     { "pattern": "/admin/tenant" },

@@ -173,6 +173,7 @@ const (
 	RouteTasksCSV        = "/tasks/export.csv"
 	RouteTask            = "/tasks/{ref}"
 	RouteTaskLive        = "/tasks/{ref}/live"
+	RouteTaskHistory     = "/tasks/{ref}/history"
 	RouteTaskMove        = "/tasks/{ref}/transition"
 	RouteTaskComplete    = "/tasks/{ref}/complete"
 	RouteTaskPriority    = "/tasks/{ref}/priority"

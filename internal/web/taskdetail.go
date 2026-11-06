@@ -36,6 +36,7 @@ func (h *handler) taskRoutes() []route {
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
 		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
+		get(RouteTaskHistory, "task.html", h.showTaskHistory, "GetTask", "ListAudit", "GetActor"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
@@ -112,13 +113,18 @@ type taskView struct {
 	ProjectKey string
 	// Project is the task's project, named in the Project row the way the
 	// reader's pickers name it; nil until attachProject has read it.
-	Project       *core.Project
-	Fields        []fieldValue
-	Subtasks      []core.Task
-	Dependencies  []depRow
-	Comments      []core.Comment
-	Artifacts     []core.Artifact
-	History       []historyGroup
+	Project      *core.Project
+	Fields       []fieldValue
+	Subtasks     []core.Task
+	Dependencies []depRow
+	Comments     []core.Comment
+	Artifacts    []core.Artifact
+	History      []historyGroup
+	// HistoryCursor is where the history drawn starts, empty for the newest
+	// changes, and HistoryNext where the next older page starts, empty once
+	// the oldest change is drawn.
+	HistoryCursor string
+	HistoryNext   string
 	Names         actorNames
 	Routes        []flowRoute
 	Priorities    []priorityChoice
@@ -348,7 +354,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		return taskView{}, err
 	}
 	if data.CanAudit {
-		if err := h.attachHistory(r, task.ID, &data); err != nil {
+		if err := h.attachHistory(r, task.ID, historyCursorFrom(r), &data); err != nil {
 			return taskView{}, err
 		}
 	}
@@ -457,15 +463,58 @@ func renderFieldValue(value any) string {
 	return fmt.Sprintf("%v", value)
 }
 
-// attachHistory loads the audit entries recorded against the task and folds
-// a multi-hop workflow walk (completeTask, in tasks.go) into a single row per
-// user action. See groupHistory for the rule that decides what chains.
-func (h *handler) attachHistory(r *http.Request, taskID string, data *taskView) error {
-	entries, _, err := h.svc.ListAudit(r.Context(), core.AuditFilter{
-		SubjectType: "task",
-		SubjectID:   taskID,
-		Page:        core.Page{Sort: "seq", Direction: core.Descending},
-	})
+// HistoryParam carries, on the task screen's own address, where the history
+// it draws starts. It is the Show older control's link without JavaScript.
+const HistoryParam = "history"
+
+// maxChainLookahead bounds how many older hops one history page reaches past
+// its size to keep a multi-hop move on one row. A workflow path is a handful
+// of states, so a chain longer than this is split rather than read whole.
+const maxChainLookahead = 32
+
+// historyCursorFrom reads the history position the task screen's address
+// carries. A cursor this listing did not issue is dropped rather than failing
+// the whole screen, which then draws the newest changes.
+func historyCursorFrom(r *http.Request) string {
+	raw := r.URL.Query().Get(HistoryParam)
+	c, err := core.DecodeCursor(raw)
+	if err != nil || c.CheckOrdering("seq", core.Descending) != nil {
+		return ""
+	}
+	return raw
+}
+
+// showTaskHistory renders one older page of a task's history as table rows,
+// with the control for the page after it, which Show older appends in place.
+func (h *handler) showTaskHistory(w http.ResponseWriter, r *http.Request) error {
+	ref, err := core.ParseTaskRef(r.PathValue("ref"))
+	if err != nil {
+		return err
+	}
+	task, err := h.svc.GetTask(r.Context(), ref)
+	if err != nil {
+		return err
+	}
+	actor, err := core.RequireActor(r.Context())
+	if err != nil {
+		return err
+	}
+	data := taskView{Task: *task, ProjectKey: ref.ProjectKey, CanAudit: actor.HasScope(core.ScopeAuditRead)}
+	if data.CanAudit {
+		if err := h.attachHistory(r, task.ID, r.URL.Query().Get(CursorParam), &data); err != nil {
+			return err
+		}
+	}
+	data.Names = h.resolveActors(r, data.actorIDs()...)
+	return h.renderFragment(w, r, "task.html", "task-history-page", data.Task.Ref, data)
+}
+
+// attachHistory loads one page of the audit entries recorded against the task,
+// starting at cursor, and folds a multi-hop workflow walk (completeTask, in
+// tasks.go) into a single row per user action. See groupHistory for the rule
+// that decides what chains, and historyPage for how a page boundary keeps it.
+func (h *handler) attachHistory(r *http.Request, taskID, cursor string, data *taskView) error {
+	entries, next, err := h.historyPage(r.Context(), taskID, cursor)
 	if err != nil {
 		if core.IsKind(err, core.KindForbidden) {
 			data.CanAudit = false
@@ -473,6 +522,7 @@ func (h *handler) attachHistory(r *http.Request, taskID string, data *taskView) 
 		}
 		return err
 	}
+	data.HistoryCursor, data.HistoryNext = cursor, next
 	// entries arrive newest first; chaining reads left to right in time, so
 	// it runs oldest first and the result is reversed back to newest first.
 	rows := make([]historyRow, len(entries))
@@ -486,6 +536,70 @@ func (h *handler) attachHistory(r *http.Request, taskID string, data *taskView) 
 	}
 	return nil
 }
+
+// historyPage reads one screen of a task's audit entries, newest first, and
+// the cursor of the page after it.
+//
+// It then looks one entry past the page. An older entry that chains into the
+// page's oldest is a hop of the same move, so it joins this page rather than
+// opening the next one, where it would read as a separate, partial move; the
+// look repeats until a hop does not chain. An empty look means the page was
+// the last, so no Show older control promises a page that holds nothing,
+// which the store's cursor alone cannot tell on a page that was exactly full.
+func (h *handler) historyPage(ctx context.Context, taskID, cursor string) ([]core.AuditEntry, string, error) {
+	filter := func(cursor string, limit int) core.AuditFilter {
+		return core.AuditFilter{SubjectType: "task", SubjectID: taskID, Page: core.Page{
+			Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: limit,
+		}}
+	}
+	entries, next, err := h.svc.ListAudit(ctx, filter(cursor, h.pageSize))
+	if err != nil {
+		return nil, "", err
+	}
+	for range maxChainLookahead + 1 {
+		if next == "" || len(entries) == 0 {
+			break
+		}
+		older, after, err := h.svc.ListAudit(ctx, filter(next, 1))
+		if err != nil {
+			return nil, "", err
+		}
+		if len(older) == 0 {
+			next = ""
+			break
+		}
+		if !chainsInto(older[0], entries[len(entries)-1]) {
+			break
+		}
+		entries, next = append(entries, older[0]), after
+	}
+	return entries, next, nil
+}
+
+// chainsInto reports whether newer is the next hop of the move older began,
+// by the same rule groupHistory applies.
+func chainsInto(older, newer core.AuditEntry) bool {
+	open := []historyGroup{{Hops: []historyRow{{Entry: older}}}}
+	return continuesChain(open, historyRow{Entry: newer})
+}
+
+// HistoryOlderHref is the task screen drawing the next older page of history,
+// the Show older control's destination without JavaScript.
+func (v taskView) HistoryOlderHref() string {
+	return v.taskHref() + "?" + url.Values{HistoryParam: {v.HistoryNext}}.Encode() + "#history"
+}
+
+// HistoryOlderRows is the fragment of table rows Show older appends in place.
+func (v taskView) HistoryOlderRows() string {
+	return strings.Replace(RouteTaskHistory, "{ref}", url.PathEscape(v.Task.Ref), 1) +
+		"?" + url.Values{CursorParam: {v.HistoryNext}}.Encode()
+}
+
+// HistoryNewestHref is the task screen drawing the newest changes again.
+func (v taskView) HistoryNewestHref() string { return v.taskHref() + "#history" }
+
+// taskHref is the task screen's own address.
+func (v taskView) taskHref() string { return RouteTasks + "/" + url.PathEscape(v.Task.Ref) }
 
 // changedFields names the fields one audit entry altered.
 func changedFields(entry core.AuditEntry) []string {

@@ -413,7 +413,7 @@
     {{end}}
   </section>
 
-  <details class="tsec tfold" id="{{.IDPrefix}}history">
+  <details class="tsec tfold" id="{{.IDPrefix}}history"{{if .Data.HistoryCursor}} open{{end}}>
     <summary><h2>{{t "History"}}</h2></summary>
     <div class="body" id="task-history">{{template "task-history" .}}</div>
   </details>
@@ -590,6 +590,9 @@
 
 {{define "task-history"}}
       {{if .Data.CanAudit}}
+      {{/* A page reached by the Show older link without JavaScript says it
+           is not the newest one, and leads back to it. */}}
+      {{if .Data.HistoryCursor}}<p class="histnewest"><a class="ghostlink" href="{{.Data.HistoryNewestHref}}">{{t "Newest changes"}}</a></p>{{end}}
       <div class="table-wrap">
         <table>
           {{/* When holds a relative stamp and Source a one-word badge, so an
@@ -599,10 +602,23 @@
           <colgroup><col class="c-when"><col><col class="c-source"></colgroup>
           <thead><tr><th>{{t "When"}}</th><th>{{t "What changed"}}</th><th>{{t "Source"}}</th></tr></thead>
           <tbody>
-          {{range $i, $h := .Data.History}}
-            {{with $h}}
+          {{template "task-history-rows" .}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}<p class="empty">{{t "You do not hold the audit read scope."}}</p>{{end}}
+{{end}}
+
+{{/* The rows of one page of history, newest first, and the control that
+     appends the page after it. Show older is a link to the task screen at
+     that page, so it works without JavaScript; with it, the next page's rows
+     replace the control's own row, which brings the control for the page
+     after that, until the oldest change is drawn. */}}
+{{define "task-history-rows"}}
+          {{range .Data.History}}
+            {{with .}}
             {{$latest := .Latest}}
-            {{$raw := printf "raw-%d" $i}}
+            {{$raw := printf "%sraw-%d" $.IDPrefix $latest.Entry.Seq}}
             <tr>
               <td data-label="{{t "When"}}" class="muted">
                 <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
@@ -644,10 +660,18 @@
             </tr>
             {{end}}
           {{else}}
-            <tr><td colspan="3"><p class="empty">{{t "No recorded changes."}}</p></td></tr>
+            {{if not .Data.HistoryCursor}}<tr><td colspan="3"><p class="empty">{{t "No recorded changes."}}</p></td></tr>{{end}}
           {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{else}}<p class="empty">{{t "You do not hold the audit read scope."}}</p>{{end}}
+          {{if .Data.HistoryNext}}
+            <tr class="histmore"><td colspan="3">
+              <a class="btn secondary small" href="{{.Data.HistoryOlderHref}}" hx-get="{{.Data.HistoryOlderRows}}"
+                 hx-target="closest tr" hx-swap="outerHTML" hx-push-url="false">{{template "icon" "chevron-down"}}<span class="btn-label">{{t "Show older"}}</span></a>
+            </td></tr>
+          {{end}}
+{{end}}
+
+{{/* One older page fetched by Show older: its rows, or the reason there are
+     none for a reader who may not read the audit log. */}}
+{{define "task-history-page"}}
+{{if .Data.CanAudit}}{{template "task-history-rows" .}}{{else}}<tr><td colspan="3"><p class="empty">{{t "You do not hold the audit read scope."}}</p></td></tr>{{end}}
 {{end}}

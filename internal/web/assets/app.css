@@ -6845,6 +6845,8 @@ details[open] > .editswitch .when-open { display: inline; }
 .tfold > summary:hover > h2 { color: var(--accent); }
 .tfold[open] > summary { margin-bottom: var(--space-2); }
 .tfold .table-wrap { margin: 0; }
+/* An older page of history reached without JavaScript leads back to the newest. */
+.histnewest { margin: 0 0 var(--space-2); }
 
 /* Comments: a byline with a monogram, the body under it, aligned. */
 .commentlist > li.comment { padding: var(--space-3) 0; border: 0; border-top: 1px solid var(--line); }
