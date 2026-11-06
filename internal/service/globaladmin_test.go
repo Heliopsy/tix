@@ -43,12 +43,22 @@ func tenantAdmin(t *testing.T, l *Local, actor *core.Actor, email string) contex
 		Kind: core.ActorUser, Handle: userHandle("", email), Role: core.RoleAdmin})
 }
 
+// signInAt signs in with a password. A generated first password has to be
+// replaced on the way in, so a password_change challenge is answered with the
+// same password and a suffix, which is what the person would do on the page.
 func signInAt(t *testing.T, l *Local, tenantID, email, password string) (*core.Session, error) {
 	t.Helper()
-	res, err := l.Login(core.WithTenant(context.Background(), core.TenantScope{TenantID: tenantID}),
-		core.LoginInput{Email: email, Password: password, Surface: core.SurfaceWeb})
+	ctx := core.WithTenant(context.Background(), core.TenantScope{TenantID: tenantID})
+	in := core.LoginInput{Email: email, Password: password, Surface: core.SurfaceWeb}
+	res, err := l.Login(ctx, in)
 	if err != nil {
 		return nil, err
+	}
+	if res.Challenge != nil && res.Challenge.Kind == core.ChallengePasswordChange {
+		in.NewPassword = password + "-replaced"
+		if res, err = l.Login(ctx, in); err != nil {
+			return nil, err
+		}
 	}
 	if res.Session == nil {
 		t.Fatalf("signing in %s asked for a second factor", email)
@@ -594,5 +604,24 @@ func TestGlobalAdminRefusesBadAddresses(t *testing.T) {
 	}
 	if _, _, err := l.ListTenantUsers(root, "acme", core.Page{Limit: -1}); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("a bad page = %v, want invalid", err)
+	}
+}
+
+func TestAGeneratedFirstAdminPasswordMustBeChanged(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx, _ := globalAdmin(t, l, actor, "root@acme.test")
+	created, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "test", Name: "Test", Admins: []core.TenantAdminInput{
+		{Email: "villy@z09.test"}, {Email: "icek@z09.test", Password: "icek-chose-this-one"},
+	}})
+	if err != nil || len(created.InitialCredentials) != 1 {
+		t.Fatalf("CreateTenant = %+v, %v; want one generated password", created, err)
+	}
+	login := core.WithTenant(context.Background(), core.TenantScope{TenantID: created.ID})
+	generated, err := l.Login(login, core.LoginInput{Email: "villy@z09.test", Password: created.InitialCredentials[0].Password})
+	if err != nil || generated.Challenge == nil || generated.Challenge.Kind != core.ChallengePasswordChange {
+		t.Fatalf("signing in with the generated password = %+v, %v; want a password_change challenge", generated, err)
+	}
+	if _, err := signInAt(t, l, created.ID, "icek@z09.test", "icek-chose-this-one"); err != nil {
+		t.Fatalf("a supplied password was flagged too: %v", err)
 	}
 }
