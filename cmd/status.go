@@ -18,7 +18,9 @@ func newStatusCmd(g *globals) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Report what the installation holds and what is running",
-		Long: "Report the installation, the servers registered against it and the work it holds.\n\n" +
+		Long: "Report where this command line is pointed, the installation, the servers registered against it " +
+			"and the work it holds. The first lines name the server or local database, the tenant, the user " +
+			"and the token, as tix whoami does.\n\n" +
 			"A server registers itself when it starts and refreshes that registration while it " +
 			"runs, so this answers how many servers are up rather than what one of them can see. " +
 			"A server that stopped answering stays listed and is marked. A graceful shutdown " +
@@ -49,6 +51,12 @@ func newStatusCmd(g *globals) *cobra.Command {
 			}
 			if g.formatName() != output.FormatTable {
 				return g.render(cmd, report)
+			}
+			if err := writeIdentity(cmd.OutOrStdout(), g.identity(ctx, conn)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(cmd.OutOrStdout()); err != nil {
+				return err
 			}
 			return writeStatusTable(cmd.OutOrStdout(), report, g.timeStyle())
 		},

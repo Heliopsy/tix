@@ -8788,7 +8788,7 @@ paths:
       description: |-
         WhoAmI returns the actor the request authenticated as, with its tenant, role and scopes.
 
-        Command line: `tix doctor`.
+        Command line: `tix whoami`.
 
         Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: identity.whoami

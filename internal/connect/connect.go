@@ -5,6 +5,8 @@ package connect
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -116,6 +118,22 @@ func (t Target) Describe() string {
 		endpoint = redactDSN(t.DSN)
 	}
 	return string(t.Mode) + " " + endpoint + " (from " + string(t.Origin) + ")"
+}
+
+// Implicit reports whether the target is the zero-configuration database:
+// local, and chosen only because nothing named another target.
+func (t Target) Implicit() bool { return t.Mode == ModeLocal && t.Origin == OriginDefault }
+
+// NeedsOptIn reports whether opening the target would create the
+// zero-configuration database without anyone having asked for it. A database
+// already at that path counts as the request, so an existing install keeps
+// working, and so does the target key set to local.
+func NeedsOptIn(cfg *config.Resolved, t Target) bool {
+	if !t.Implicit() || cfg.Config.Target == config.TargetLocal {
+		return false
+	}
+	_, err := os.Stat(t.Path)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // Info reports what a successful open found.

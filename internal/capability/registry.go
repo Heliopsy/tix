@@ -86,7 +86,7 @@ const (
 var registry = []Operation{
 	{
 		Name: "identity.whoami", Method: "WhoAmI",
-		CLI:  "tix doctor",
+		CLI:  "tix whoami",
 		HTTP: apiGet(wire.RouteWhoAmI),
 		Exempt: []Exemption{
 			gap(SurfaceWeb, "GAP: no browser binding; the root route calls it for its error and discards the identity, then redirects, so no screen states who the reader is"),
