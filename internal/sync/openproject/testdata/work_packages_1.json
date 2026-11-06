@@ -1,0 +1,63 @@
+{
+  "_type": "WorkPackageCollection",
+  "total": 4,
+  "count": 2,
+  "pageSize": 2,
+  "offset": 1,
+  "_embedded": {
+    "elements": [
+      {
+        "_type": "WorkPackage",
+        "id": 41,
+        "lockVersion": 3,
+        "subject": "Set up CI",
+        "description": {"format": "markdown", "raw": "Build and test on every push.", "html": "<p>Build and test on every push.</p>"},
+        "startDate": "2026-01-05",
+        "dueDate": "2026-01-20",
+        "createdAt": "2025-12-30T09:00:00Z",
+        "updatedAt": "2026-01-01T10:00:00Z",
+        "_embedded": {
+          "assignee": {"_type": "User", "id": 7, "name": "Jane Doe", "login": "jdoe", "email": "JANE@corp.test"}
+        },
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/41", "title": "Set up CI"},
+          "type": {"href": "/api/v3/types/1", "title": "Task"},
+          "status": {"href": "/api/v3/statuses/1", "title": "New"},
+          "priority": {"href": "/api/v3/priorities/8", "title": "Normal"},
+          "project": {"href": "/api/v3/projects/3", "title": "Demo project"},
+          "author": {"href": "/api/v3/users/1", "title": "OpenProject Admin"},
+          "responsible": {"href": null},
+          "assignee": {"href": "/api/v3/users/7", "title": "Jane Doe"},
+          "parent": {"href": null},
+          "update": {"href": "/api/v3/work_packages/41/form", "method": "post"},
+          "watch": {"href": "/api/v3/work_packages/41/watchers", "method": "post"}
+        }
+      },
+      {
+        "_type": "WorkPackage",
+        "id": 42,
+        "lockVersion": 1,
+        "subject": "Write the operator guide",
+        "description": {"format": "markdown", "raw": "", "html": ""},
+        "startDate": null,
+        "dueDate": null,
+        "createdAt": "2025-12-30T09:05:00Z",
+        "updatedAt": "2026-01-02T10:00:00Z",
+        "_links": {
+          "self": {"href": "/api/v3/work_packages/42", "title": "Write the operator guide"},
+          "type": {"href": "/api/v3/types/4", "title": "Feature"},
+          "status": {"href": "/api/v3/statuses/7", "title": "In progress"},
+          "priority": {"href": "/api/v3/priorities/9", "title": "High"},
+          "project": {"href": "/api/v3/projects/3", "title": "Demo project"},
+          "author": {"href": "/api/v3/users/1", "title": "OpenProject Admin"},
+          "assignee": {"href": "/api/v3/users/9", "title": "J. Smith"},
+          "parent": {"href": null}
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": {"href": "/api/v3/projects/demo/work_packages?offset=1&pageSize=2"},
+    "nextByOffset": {"href": "/api/v3/projects/demo/work_packages?offset=2&pageSize=2"}
+  }
+}
