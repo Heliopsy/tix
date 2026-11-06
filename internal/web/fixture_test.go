@@ -188,7 +188,8 @@ func (s *webService) RunSync(ctx context.Context, in core.RunSyncInput) (*core.S
 			Skipped:  map[string]int{"task": 5},
 			Warnings: []string{"assignee nobody has no tix actor; preserved as a custom field"},
 			DryRun:   in.DryRun,
-		}}
+		},
+		UnmatchedUsers: []string{"Nobody Known", "Zed External"}}
 	if in.DryRun {
 		return result, nil
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	extsync "github.com/heliopsy/tix/internal/sync"
+	"github.com/heliopsy/tix/internal/sync/openproject"
 )
 
 // syncRoutes are the external import screens: the sources themselves and the
@@ -226,7 +227,14 @@ func (h *handler) showSync(w http.ResponseWriter, r *http.Request) error {
 func (h *handler) prefillSource(r *http.Request, data *syncView) *http.Request {
 	d := dialogOf(r)
 	id := r.URL.Query().Get("source")
-	if !d.Opens(syncDialog) || d.Refused() || id == "" {
+	if !d.Opens(syncDialog) || d.Refused() {
+		return r
+	}
+	if r.URL.Query().Get("template") == core.SystemOpenProject {
+		values := url.Values{"system": {core.SystemOpenProject}, "mapping": {string(openproject.DefaultMapping())}}
+		return r.WithContext(context.WithValue(r.Context(), dialogKey{}, dialogState{Open: syncDialog, Values: values}))
+	}
+	if id == "" {
 		return r
 	}
 	for _, s := range data.Sources {
