@@ -42,6 +42,7 @@ func TestEveryAssetCarriesACacheValidator(t *testing.T) {
 		{"/assets/sidebar.js", "text/javascript; charset=utf-8"},
 		{"/assets/recent.js", "text/javascript; charset=utf-8"},
 		{"/assets/datepick.js", "text/javascript; charset=utf-8"},
+		{"/assets/tipplace.js", "text/javascript; charset=utf-8"},
 		{"/assets/tix.svg", "image/svg+xml"},
 	}
 	seen := make(map[string]string, len(tests))

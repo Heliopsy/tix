@@ -827,7 +827,20 @@ fieldset > label:has(> input[type="radio"]) { margin: var(--space-1) 0; }
   border: 0;
 }
 
-.card-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-width: 0; }
+/* A tag longer than its card ends in an ellipsis inside it, as it does in
+   the list's tag cell; its title carries the whole name. */
+.card-meta > .tagref {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 899px) { .card-meta > .tagref { line-height: 26px; } }
 
 /* The move form is the one action every card offers, but it does not need to
    be on screen for every card at once: a disclosure keeps the board scannable
@@ -1090,6 +1103,11 @@ input[readonly] {
 .tip > summary svg { display: block; }
 .tip > p { max-width: min(360px, 80vw); line-height: 1.45; text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; }
 .tip-doc { display: block; margin-top: 4px; }
+/* A docs path is one long word; it breaks rather than widen a phone's page. */
+.tip-doc code { overflow-wrap: anywhere; }
+/* Set by assets/tipplace.js when an open note would run past the window. */
+.field-info > p { translate: var(--tip-shift, 0) 0; }
+.field-info > p[style*="--tip-width"] { max-width: var(--tip-width); }
 /* Values to type, each kept whole where it fits: "every 2 weeks" broken
    after "every" reads as two examples. An inline block moves to the next line
    as one piece, and still wraps inside itself on a screen too narrow for it. */
@@ -1608,7 +1626,7 @@ col.c-age { width: 96px; }
   border-left: 3px solid transparent;
 }
 
-.feed .subject { color: var(--ink); }
+.feed .subject { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .feed .muted, .feed .who-name { font-size: var(--text-sm); }
 .feed .who-name { margin-left: auto; }
 
@@ -3542,10 +3560,15 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 }
 
 .projrow-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* The name wraps, and breaks inside a word longer than the row, rather than
+   run under the row's links or past the window. */
 .projrow-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0 var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 600;
   color: var(--ink);
 }
@@ -3567,6 +3590,12 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 .projrow:hover .projrow-tools, .projrow:focus-within .projrow-tools { opacity: 1; }
 @media (hover: none) { .projrow-tools { opacity: 1; } }
 .projpin { margin: 0; display: inline-flex; }
+/* A phone has no room for the name beside four links, so they take their own
+   line under it, lined up with the name. */
+@media (max-width: 639px) {
+  .projrow { flex-wrap: wrap; row-gap: var(--space-1); }
+  .projrow-tools { flex: 1 1 100%; flex-wrap: wrap; padding-inline-start: calc(34px + var(--space-3) - var(--space-2)); }
+}
 
 .ghostlink {
   padding: var(--space-1) var(--space-2);
@@ -5561,9 +5590,11 @@ td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: 
 
   /* The "i" beside a label keeps its 16px circle and grows a 44px tap zone
      around it. Drawn at 44 it would be a bordered square the size of a
-     button, which says it is the field rather than a note about it. */
+     button, which says it is the field rather than a note about it. It
+     reaches 12px to each side, the page's gutter, so a circle at the end of
+     a line does not widen the page: at 14px the page scrolled by a pixel. */
   .field-info > summary { position: relative; }
-  .field-info > summary::after { content: ""; position: absolute; inset: -14px; }
+  .field-info > summary::after { content: ""; position: absolute; inset: -14px -12px; }
 
   /* Chips that are controls rather than labels: on a task row, under a
      task's title, and the dismissal on a tag. The tag's chip carries the
@@ -6126,7 +6157,7 @@ li.task:has(> .title-edit-error:not([hidden])),
 .groupmenu .groupmenu-sect { display: block; margin: var(--space-2) 0 2px; padding-top: var(--space-2); border-top: 1px solid var(--line); }
 .groupmenu .groupmenu-row { display: flex; gap: var(--space-1); padding: 0 var(--space-1); }
 .groupmenu .groupmenu-row input { flex: 1 1 auto; min-width: 0; }
-.groupmenu .groupmenu-row select { flex: 0 1 auto; width: auto; }
+.groupmenu .groupmenu-row select { flex: 0 1 auto; width: auto; min-width: 0; }
 
 .column.is-collapsed,
 .board.is-merged > .column.is-collapsed,

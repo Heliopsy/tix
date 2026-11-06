@@ -1,20 +1,3 @@
 {
-  "findings": [
-    { "page": "/activity", "kind": "page scrolls sideways", "el": "a", "viewport": "phone", "why": "an event line does not wrap a long user name" },
-    { "page": "/activity", "kind": "content spills", "el": "li", "viewport": "phone", "why": "an event line does not wrap a long user name" },
-    { "page": "/projects", "kind": "content spills", "el": "span.projrow-title", "why": "a project row's title runs over its actions, already with the demo's two-word names on a phone" },
-    { "page": "/projects", "kind": "page scrolls sideways", "el": "projrow", "viewport": "phone", "why": "a long project name pushes its row past the window" },
-    { "page": "/projects/{key}", "kind": "card wider than its column", "el": "article.card", "why": "a long tag on a board card runs out of the card" },
-    { "page": "/projects/{key}", "kind": "content spills", "el": "div.card-meta", "why": "a long tag on a board card runs out of the card" },
-    { "page": "/tasks", "kind": "card wider than its column", "el": "article", "why": "a long tag on a board or lanes card runs out of the card" },
-    { "page": "/tasks", "kind": "content spills", "el": "div.card-meta", "why": "a long tag on a board card runs out of the card" },
-    { "page": "/tasks", "kind": "content spills", "el": "groupmenu-row", "viewport": "fullhd", "popup": true, "why": "the project chips in a column's menu run out of the menu" },
-    { "page": "/tasks", "kind": "page scrolls sideways", "el": "", "viewport": "phone", "why": "lanes widen the page by 1px" },
-    { "page": "/mine", "kind": "page scrolls sideways", "el": "code", "viewport": "fullhd", "popup": true, "why": "an (i) tip near the right edge opens past the window" },
-    { "page": "/templates/new", "kind": "page scrolls sideways", "el": "code", "popup": true, "why": "an (i) tip near the right edge opens past the window" },
-    { "page": "/templates/{id}", "kind": "page scrolls sideways", "el": "code", "viewport": "phone", "why": "an (i) tip's docs path widens the page" },
-    { "page": "/tasks/{ref}/copy", "kind": "page scrolls sideways", "el": "code", "viewport": "phone", "popup": true, "why": "an (i) tip near the right edge opens past the window" },
-    { "page": "/tasks/{ref}/template", "kind": "page scrolls sideways", "el": "code", "viewport": "phone", "popup": true, "why": "an (i) tip near the right edge opens past the window" },
-    { "page": "/filters/{filter}", "kind": "page scrolls sideways", "el": "tip-doc", "viewport": "phone", "popup": true, "varies": true, "why": "an (i) tip's docs line widens the page; how far depends on the fonts installed, and on CI's it fits" }
-  ]
+  "findings": []
 }
