@@ -124,6 +124,8 @@ A list the code already holds is asserted rather than maintained: see
   they are not the screen's point (a project's settings are
   `/projects/{key}/settings`, not folds under the board).
 - An explanation is visible text or an (i) tip, never a fold.
+- Every screen state, including results, previews and errors, has a visible
+  way back that leads to a screen (`TestEveryScreenStateHasAWayBack`).
 - `TestNoPageActionOrSectionSitsInAnExpander` lists the few toggles allowed to
   stay `<details>` (a row's Move menu, the (i) tips, a task's Rename), each with
   its reason. Adding to it needs the same kind of reason.

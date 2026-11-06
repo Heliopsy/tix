@@ -2258,6 +2258,10 @@ a.secondary.clear:hover { filter: brightness(1.08); }
 }
 .failure-hint { margin: 0; color: var(--muted); line-height: 1.55; }
 .failure .actions { gap: var(--space-2); }
+/* A sync run's answer, drawn above the sources it was run from, with Done
+   as its way back. */
+.runresult { max-width: var(--measure-text); margin: 0 0 var(--space-5); }
+.runresult .actions { align-items: center; gap: var(--space-3); }
 
 
 /* The list itself: one line per task, a tick box on the left. */
