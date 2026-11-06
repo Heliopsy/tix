@@ -371,15 +371,20 @@
     filter: function () { return null; },
     wants: function () { return true; },
     busy: function () { return false; },
+    // Rows a refresh draws are handed to htmx like the screen's regions are
+    // (processed below): a Raw control on a new row was a plain link, so it
+    // reloaded the page instead of fetching its dialog.
     apply: function (el, html) {
       if (!tix.morph || !document.scrollingElement) {
         el.innerHTML = html;
+        processed(el);
         return;
       }
       var fresh = document.createElement("ul");
       fresh.innerHTML = html;
       var anchors = tix.liveAnchors([el]);
       tix.liveHold(anchors, tix.morph(el, fresh));
+      processed(el);
     },
     window: function () { return 500; },
     cap: 1000
