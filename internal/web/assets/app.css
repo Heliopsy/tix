@@ -1806,7 +1806,10 @@ ul.plain > li:last-child { border-bottom: 0; }
 .quickadd input[name="title"] { flex: 1 1 auto; font-size: var(--text-base); }
 .quickadd select, .filterbar select { flex: 0 0 auto; width: auto; }
 .filterbar input { flex: 1 1 auto; }
-.filterbar { margin-bottom: var(--space-3); }
+.filterbar { margin-bottom: var(--space-3); flex-wrap: wrap; }
+/* A long project name made the project select as wide as itself and pushed
+   Apply past a laptop's edge; capped, the select shows the name cut short. */
+.filterbar select { max-width: 16rem; }
 
 /* A refused filter reports under the box it is about, so the expression that
    caused it is still on screen and still editable. The bar keeps its own

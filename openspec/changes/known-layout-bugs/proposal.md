@@ -14,6 +14,8 @@ opening past the window's right edge, and a pixel of sideways scroll from the (i
 - An activity line breaks a long name instead of widening the page.
 - A tag on a board or lane card ends in an ellipsis inside the card and carries its name as a title.
 - The project picker in a column's menu shrinks to the menu.
+- The task filter bar wraps, and its selects are capped, so the project select added in #205 no
+  longer pushes Apply past a laptop's edge when a project has a long name.
 - An open (i) note that would run past the window is moved back inside it (`assets/tipplace.js`); a
   docs path inside a note breaks rather than widen it.
 - The (i) circle's touch zone reaches the page gutter and no further.
