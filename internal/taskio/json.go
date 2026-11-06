@@ -147,7 +147,6 @@ type jsonReader struct {
 	pending []Row
 	rows    int
 	source  string
-	err     error
 }
 
 func newJSONReader(src recordSource, capped *cappedReader, limits Limits) (Reader, error) {
