@@ -3,12 +3,14 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	extsync "github.com/heliopsy/tix/internal/sync"
 )
@@ -181,5 +183,64 @@ func TestSyncSourceAddStoresItsSettings(t *testing.T) {
 	got := c.run("sync", "source", "add", core.SystemGeneric, "ops", "--url", "https://jira.test")
 	if got.code != core.ExitUsage {
 		t.Errorf("a url on a generic source exited %d, want %d\n%s", got.code, core.ExitUsage, got.err)
+	}
+}
+
+// runWithKey runs tix with a sealing key configured and stdin fed.
+func runWithKey(c *cli, key, stdin string, args ...string) result {
+	c.t.Helper()
+	var out, errb bytes.Buffer
+	code := Run(args, strings.NewReader(stdin), &out, &errb, append(c.environ(), "TIX_AUTH_TOTP_KEY="+key), c.home)
+	return result{code: code, out: out.String(), err: errb.String()}
+}
+
+func TestSyncSourceSetUploadsTheMappingAndCredentials(t *testing.T) {
+	c := newCLI(t)
+	key, err := auth.NewTOTPKey()
+	if err != nil {
+		t.Fatalf("minting key: %v", err)
+	}
+	const secret = "cli-secret-api-key-0123456789"
+	mapping := filepath.Join(t.TempDir(), "laptop.yaml")
+	if err := os.WriteFile(mapping, []byte(cliMapping), 0o600); err != nil {
+		t.Fatalf("writing mapping: %v", err)
+	}
+	added := runWithKey(c, key, "", "sync", "source", "add", core.SystemOpenProject, "op", "--url", "https://op.test")
+	if added.code != core.ExitOK {
+		t.Fatalf("add exited %d: %s", added.code, added.err)
+	}
+	for _, want := range []string{"sync runs on the server", "missing on the server: a mapping document",
+		"missing on the server: credentials"} {
+		if !strings.Contains(added.err, want) {
+			t.Errorf("add said %q, want it to say %q", added.err, want)
+		}
+	}
+
+	set := runWithKey(c, key, "", "-o", "json", "sync", "source", "set", "op", "--mapping-file", mapping)
+	if set.code != core.ExitOK {
+		t.Fatalf("set --mapping-file exited %d: %s", set.code, set.err)
+	}
+	set = runWithKey(c, key, secret+"\n", "-o", "json", "sync", "source", "set", "op", "--user", "apikey", "--password-stdin")
+	if set.code != core.ExitOK {
+		t.Fatalf("set --password-stdin exited %d: %s", set.code, set.err)
+	}
+	var source core.SyncSource
+	if err := json.Unmarshal([]byte(set.out), &source); err != nil {
+		t.Fatalf("decoding: %v\n%s", err, set.out)
+	}
+	if source.Mapping != cliMapping || source.Config["url"] != "https://op.test" {
+		t.Errorf("set lost the uploaded mapping or the url: %+v", source)
+	}
+	if source.Resolved == nil || source.Resolved.Credentials.From != core.SyncFromStored || !source.Resolved.Ready() {
+		t.Errorf("resolved = %+v, want stored credentials and nothing missing", source.Resolved)
+	}
+	listed := runWithKey(c, key, "", "sync", "source", "ls")
+	for _, got := range []string{set.out, set.err, listed.out, listed.err} {
+		if strings.Contains(got, secret) {
+			t.Errorf("the credential was printed: %s", got)
+		}
+	}
+	if !strings.Contains(listed.out, "password ...6789") {
+		t.Errorf("ls = %q, want the stored password named by its last four characters", listed.out)
 	}
 }
