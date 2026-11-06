@@ -49,5 +49,6 @@ func newExportCmd(g *globals) *cobra.Command {
 	f.BoolVar(&comments, "comments", false, "include task comments")
 	f.BoolVar(&artifacts, "artifacts", false, "include task artifacts")
 	registerCompletions(g, cmd, "project")
+	cmd.AddCommand(newExportTasksCmd(g))
 	return cmd
 }

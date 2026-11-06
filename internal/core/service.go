@@ -474,6 +474,12 @@ type TransferService interface {
 	// replaces, the tenant's data. A dry run reports the counts and writes
 	// nothing.
 	ImportFrom(ctx context.Context, r io.Reader, in ImportInput) (*ImportResult, error)
+	// ExportTasks writes one project's tasks as CSV, JSON, NDJSON or a
+	// Markdown table, as it walks them. The selection takes the task list's
+	// query language, and the columns, their order, the date style and the
+	// CSV delimiter are the caller's to choose. A CSV or Markdown cell that a
+	// spreadsheet would read as a formula starts with a quote.
+	ExportTasks(ctx context.Context, in TaskExportInput, w io.Writer) error
 }
 
 // BundleService covers sharing reusable components between projects, tenants

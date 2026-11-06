@@ -60,7 +60,7 @@ func (g *generator) finish(doc map[string]any, entries []entry) {
 			}
 			addStreamed(doc, content)
 			for _, alt := range e.contract.Alt {
-				content[alt] = map[string]any{"schema": map[string]any{"type": "string"}}
+				content[alt] = altContent(alt)
 			}
 		}
 		if p, ok := e.contract.Query.(interface{ QueryPrefixes() []string }); ok {
@@ -150,6 +150,22 @@ func shareErrors(components, responses map[string]any) {
 		name := "Error" + code
 		shared[name] = r
 		responses[code] = map[string]any{"$ref": "#/components/responses/" + name}
+	}
+}
+
+// altContent describes a further media type a route answers in. JSON is an
+// array of objects and NDJSON one object per line, since a route that
+// negotiates them writes records whose keys the caller chose; anything else
+// is text.
+func altContent(media string) map[string]any {
+	object := map[string]any{"type": "object"}
+	switch media {
+	case wire.ContentJSON:
+		return map[string]any{"schema": map[string]any{"type": "array", "items": object}}
+	case wire.ContentNDJSON:
+		return map[string]any{"schema": object, "x-tix-stream": "one record per line"}
+	default:
+		return map[string]any{"schema": map[string]any{"type": "string"}}
 	}
 }
 

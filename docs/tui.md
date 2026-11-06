@@ -760,7 +760,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 42 such gaps against 164
+a reason as a gap when the binding ought to exist. As of this writing there are 43 such gaps against 165
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -770,7 +770,7 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 42 now has one of two shapes:
+Every one of the 43 now has one of two shapes:
 
 - **Administration.** Users and their invites, tokens, credentials, webhooks and their deliveries, retention and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
@@ -779,7 +779,7 @@ Every one of the 42 now has one of two shapes:
   removing it, replacing the recovery codes, reading the state of either and clearing somebody else's are
   six operations with no screen. That is thirty-four of the count.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
-  That is the other eight.
+  That is the other nine.
 
 The calendar feed is absent on purpose rather than as a gap: its address is pasted into a calendar app,
 which the terminal has no part in, so its six operations are managed from `tix calendar` and the settings

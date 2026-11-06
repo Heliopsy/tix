@@ -88,6 +88,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.connectionRoutes()...)
 	out = append(out, h.webhookRoutes()...)
 	out = append(out, h.transferRoutes()...)
+	out = append(out, h.taskIORoutes()...)
 	out = append(out, h.syncRoutes()...)
 	out = append(out, h.bundleRoutes()...)
 	out = append(out, h.paletteRoutes()...)
@@ -265,14 +266,17 @@ const (
 	RouteWebhookDelete = "/admin/webhooks/delete"
 	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"
 
-	RouteTransfer    = "/transfer"
-	RouteExport      = "/transfer/export"
-	RouteImport      = "/transfer/import"
-	RouteSync        = "/sync"
-	RouteSyncSources = "/sync/sources"
-	RouteSyncDelete  = "/sync/sources/delete"
-	RouteSyncRun     = "/sync/run"
-	RouteSyncRuns    = "/sync/runs"
+	RouteTransfer = "/transfer"
+	RouteExport   = "/transfer/export"
+	RouteImport   = "/transfer/import"
+
+	// RouteProjectTaskExport downloads a project's tasks as a file.
+	RouteProjectTaskExport = "/projects/{key}/tasks/export"
+	RouteSync              = "/sync"
+	RouteSyncSources       = "/sync/sources"
+	RouteSyncDelete        = "/sync/sources/delete"
+	RouteSyncRun           = "/sync/run"
+	RouteSyncRuns          = "/sync/runs"
 )
 
 // Route patterns for component sharing.
