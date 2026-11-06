@@ -2027,6 +2027,37 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a file of tasks imports into a project, all or nothing",
+		covers: []string{"CreateProject", "ImportTasks", "ListTasks"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			file := "Summary,Status,Priority,Labels\nfirst imported,In Progress,High,ops\nsecond imported,Done,Low,\n"
+			dry, err := tg.svc.ImportTasks(tg.ctx, strings.NewReader(file),
+				core.TaskImportInput{ProjectRef: p.Key, Filename: "tasks.csv", DryRun: true})
+			if err != nil {
+				return nil, err
+			}
+			res, err := tg.svc.ImportTasks(tg.ctx, strings.NewReader(file),
+				core.TaskImportInput{ProjectRef: p.Key, Filename: "tasks.csv"})
+			if err != nil {
+				return nil, err
+			}
+			page, err := tg.svc.ListTasks(tg.ctx, core.TaskFilter{ProjectKeys: []string{p.Key},
+				Page: core.Page{Sort: core.SortSeq, Direction: core.Ascending}})
+			mustf(t, tg, err, "listing the imported tasks")
+			var rows []string
+			for _, task := range page.Tasks {
+				rows = append(rows, fmt.Sprintf("%s/%s/%d/%v", task.Title, task.Status, task.Priority, task.Tags))
+			}
+			return sig{
+				"dry":     fmt.Sprintf("%v %v %d", dry.DryRun, dry.Committed, dry.Created),
+				"done":    fmt.Sprintf("%v %d %d %d", res.Committed, res.Created, res.Updated, res.Failed),
+				"tasks":   strings.Join(rows, "; "),
+				"mapping": fmt.Sprint(len(res.Columns), res.Confident),
+			}, nil
+		},
+	},
+	{
 		name:   "a snapshot imports back into the same tenant",
 		covers: []string{"CreateProject", "CreateTask", "ExportTo", "ImportFrom", "ListTasks"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

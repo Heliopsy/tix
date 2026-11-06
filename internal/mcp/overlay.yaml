@@ -83,6 +83,16 @@ operations:
       records a model can read, columns to choose and order the fields, and query for the task list's filter.
       To read one task, task_show is quicker.
 
+  task.import:
+    destructive: true
+    reason: one call can create or overwrite hundreds of tasks
+    description: |-
+      Read a file of tasks into a project: CSV, JSON or NDJSON in content, or format lines for one task per line
+      in quick-add syntax. To add a handful of tasks, call task_create once per task instead. Run with dry_run first:
+      the answer lists the column mapping tix suggests, the first rows as they would be written and every row in
+      error, and nothing is written while any row is in error. Pass mapping, a YAML mapping file, only for files from
+      other tools whose columns the suggestion gets wrong.
+
   # Not a DELETE, but loses work or data all the same.
   task.bulk:
     destructive: true

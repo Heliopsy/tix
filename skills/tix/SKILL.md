@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 18
+version: 19
 verified-against: tix 17d1152 (2026-11-01)
 ---
 
@@ -56,6 +56,14 @@ A table or a line of text shows a reference with its project key upper case,
 as `DEFAULT-1`; JSON, YAML and NDJSON keep the stored `default-1`, so parse
 those. Every argument, `-p` value and `project:` filter takes a key or a ref in
 any case.
+
+**To add N tasks, call `task add` N times** (or `POST /api/v1/tasks`, or the
+MCP task create tool). Do not reach for an import and a mapping file for tasks
+you are making up. A plan already written as a list reads in one call with no
+mapping, one task per line in quick-add syntax, all lines or none:
+`printf 'step one ^default-1\nstep two !high\n' | tix import tasks -p default --lines -`.
+`tix import tasks FILE` is for files another tool wrote; see
+[reference/setup.md](reference/setup.md).
 
 **Subtasks and dependencies are deliberately different things, and you want
 both.**
@@ -759,6 +767,8 @@ Targets, contexts, tokens and scopes are in
   the release fails after the child already ran.
 - Do not assume `claim task REF` screened the task for you. It hands out
   blocked tasks; `claim next` does not.
+- Do not write a mapping file to add a few tasks. `task add` per task, or
+  `import tasks --lines`, needs none.
 - Do not leave abandoned work in `doing`. Move it to `cancelled`, which is
   terminal, so whatever depends on it stops waiting.
 

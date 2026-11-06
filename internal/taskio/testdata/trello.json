@@ -1,0 +1,30 @@
+{
+  "id": "board1",
+  "name": "Demo board",
+  "desc": "",
+  "actions": [{"id": "a1", "type": "createCard"}],
+  "cards": [
+    {"id": "card1", "idShort": 1, "name": "Plan the launch", "desc": "Outline the steps.", "due": "2026-02-01T12:00:00.000Z", "start": null, "closed": false, "idList": "list1", "idLabels": ["lab1"], "labels": [{"id": "lab1", "name": "marketing", "color": "green"}], "idMembers": ["mem1"], "shortLink": "aB3dE5", "url": "https://trello.com/c/aB3dE5/1-plan-the-launch"},
+    {"id": "card2", "idShort": 2, "name": "Design the banner", "desc": "", "due": null, "start": "2026-01-10T09:00:00.000Z", "closed": false, "idList": "list2", "idLabels": ["lab2", "lab1"], "labels": [], "idMembers": ["mem1", "mem2"], "shortLink": "fG7hI9", "url": "https://trello.com/c/fG7hI9/2-design-the-banner"},
+    {"id": "card3", "idShort": 3, "name": "Old idea", "desc": "", "due": null, "closed": true, "idList": "list3", "idLabels": [], "idMembers": [], "shortLink": "jK1lM2", "url": "https://trello.com/c/jK1lM2/3-old-idea"}
+  ],
+  "labels": [
+    {"id": "lab1", "name": "marketing", "color": "green"},
+    {"id": "lab2", "name": "", "color": "red"}
+  ],
+  "lists": [
+    {"id": "list1", "name": "To Do", "closed": false},
+    {"id": "list2", "name": "Doing", "closed": false},
+    {"id": "list3", "name": "Done", "closed": false}
+  ],
+  "members": [
+    {"id": "mem1", "username": "pat.example", "fullName": "Pat Example"},
+    {"id": "mem2", "username": "", "fullName": "Sam Sample"}
+  ],
+  "checklists": [
+    {"id": "cl1", "idCard": "card1", "name": "Steps", "checkItems": [
+      {"name": "Pick a date", "state": "complete"},
+      {"name": "Book the venue", "state": "incomplete"}
+    ]}
+  ]
+}

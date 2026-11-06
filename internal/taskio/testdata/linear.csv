@@ -1,0 +1,4 @@
+ID,Team,Title,Description,Status,Estimate,Priority,Project ID,Project,Creator,Assignee,Labels,Cycle Number,Cycle Name,Due Date,Created,Updated,Started,Triaged,Completed,Canceled,Archived,Parent issue,Related issues
+ENG-10,Engineering,Migrate the database,Move to the new cluster.,In Progress,3,High,p-1,Platform,lee.example,lee.example,"Backend, Infra",4,Cycle 4,2026-03-15,2026-01-02T09:00:00.000Z,2026-01-09T09:00:00.000Z,2026-01-05T09:00:00.000Z,,,,,,
+ENG-11,Engineering,Write the migration script,,Todo,1,Urgent,p-1,Platform,lee.example,kim.example,Backend,4,Cycle 4,,2026-01-03T09:00:00.000Z,2026-01-03T09:00:00.000Z,,,,,,ENG-10,
+ENG-12,Engineering,Clean up old tables,,Backlog,,No priority,p-1,Platform,kim.example,,,,,,2026-01-04T09:00:00.000Z,2026-01-04T09:00:00.000Z,,,,,,ENG-10,ENG-11

@@ -16,3 +16,14 @@ the first byte.
 
 - **WHEN** a client posts an export naming an unknown column
 - **THEN** the response is 400 in the error envelope with no `Content-Disposition`
+
+### Requirement: Project task import endpoint
+
+The API SHALL expose `POST /api/v1/projects/{ref}/tasks/import` taking the import choices as JSON with the
+file as `content`, or as a multipart form with the file in a `file` part, and SHALL answer with the result,
+`committed` false when any row is in error.
+
+#### Scenario: Multipart import
+
+- **WHEN** a client posts a multipart form with a CSV in `file` and a mapping field
+- **THEN** the response is 200 with the tasks created and `committed` true

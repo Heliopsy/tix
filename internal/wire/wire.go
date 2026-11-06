@@ -125,6 +125,8 @@ const (
 
 	// RouteProjectTaskExport writes one project's tasks as a file.
 	RouteProjectTaskExport = APIPrefix + "/projects/{ref}/tasks/export"
+	// RouteProjectTaskImport reads a file of tasks into a project.
+	RouteProjectTaskImport = APIPrefix + "/projects/{ref}/tasks/import"
 
 	RouteSyncSources = APIPrefix + "/sync/sources"
 	RouteSyncSource  = APIPrefix + "/sync/sources/{id}"
@@ -248,6 +250,9 @@ const TenantSelf = "~"
 // ContentCSV is the media type a task listing is served as when a client asks
 // for CSV.
 const ContentCSV = "text/csv"
+
+// ContentMultipart is the media type of a form upload.
+const ContentMultipart = "multipart/form-data"
 
 // ContentMarkdown is the media type a task export is served as in Markdown.
 const ContentMarkdown = "text/markdown"

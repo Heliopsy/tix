@@ -44,6 +44,9 @@ func (g *generator) finish(doc map[string]any, entries []entry) {
 		}
 		if rb, ok := op["requestBody"].(map[string]any); ok {
 			rb["required"] = !e.contract.OptionalBody
+			if e.contract.BodyForm {
+				addFormBody(rb)
+			}
 		}
 		responses := obj(op, "responses")
 		shareErrors(components, responses)
@@ -151,6 +154,28 @@ func shareErrors(components, responses map[string]any) {
 		shared[name] = r
 		responses[code] = map[string]any{"$ref": "#/components/responses/" + name}
 	}
+}
+
+// addFormBody offers a JSON request body as a multipart form too: every
+// field of the JSON body as a form field, and the file as a part named file.
+func addFormBody(rb map[string]any) {
+	content, ok := rb["content"].(map[string]any)
+	if !ok {
+		return
+	}
+	js, ok := content[wire.ContentJSON].(map[string]any)
+	if !ok {
+		return
+	}
+	content[wire.ContentMultipart] = map[string]any{"schema": map[string]any{
+		"allOf": []any{js["schema"], map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"file": map[string]any{"type": "string", "format": "binary",
+					"description": "The file to read; content is used when there is no file."},
+			},
+		}},
+	}}
 }
 
 // altContent describes a further media type a route answers in. JSON is an

@@ -251,8 +251,12 @@ Two rules decide which tools a session is offered, on top of the overlay.
   startup, from `GET /api/v1/whoami`.
 - **Destructive.** A tool that deletes or cannot be undone is left out unless `--allow-destructive` is given or
   the overlay enables it. Every `DELETE` is destructive unless the overlay says otherwise, and the overlay marks
-  the few that are not deletes but lose data all the same: `task_bulk`, `claim_reclaim`, `retention_prune` and
-  `housekeeping_run`. A model that is wrong about one task should cost one task, not a project.
+  the few that are not deletes but lose data all the same: `task_bulk`, `claim_reclaim`, `retention_prune`,
+  `housekeeping_run` and `task_import`, which can create or overwrite hundreds of tasks in one call. A model
+  that is wrong about one task should cost one task, not a project.
+
+An agent adding a handful of tasks creates each one with the task create tool rather than asking for the
+import; the import's description says so.
 
 A token without `task:delete` is never offered `task_delete`, with or without the flag.
 
