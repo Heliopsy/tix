@@ -19,9 +19,13 @@ other way, a CSV out of Jira, GitHub, Trello or Linear has nowhere to go short o
 - New authority `task.export` needs the `export` scope and is confinable, so a token pinned to a project
   exports its own project and no other.
 - The MCP overlay gains a `read_only` key for an operation that only reads although it is a `POST`.
-- **Import into a project** from CSV, JSON or NDJSON, including files other trackers write, under a column
-  and value mapping, with a dry run, upsert by external id and an all-or-nothing commit. This lands in a
-  follow-up pull request stacked on the export; its requirements are added to this change there.
+- **Import into a project** (`ImportTasks`) from CSV, JSON or NDJSON, including files Jira, GitHub, Trello
+  and Linear write, or a pasted list of quick-add lines. Columns and values are mapped by a mapping file or
+  by tix's suggestion; rows match tasks imported before by external id (stored in `external_refs`) or
+  reference; a dry run previews; any row in error writes nothing. Surfaces: `POST
+  /api/v1/projects/{ref}/tasks/import` (JSON or multipart), `tix import tasks`, five import steps in the
+  browser with Back and Cancel on each, and `task_import` under MCP, destructive and so opt in.
+- New authority `task.import` on the `import` scope, confinable. One `task.import` audit entry per run.
 
 ## Impact
 

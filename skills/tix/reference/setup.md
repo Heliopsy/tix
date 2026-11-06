@@ -373,6 +373,23 @@ unless `--trashed`), and a CSV cell starting with
 pinned to a project has only for its own. To read one task, `tix task show REF
 -o json` is cheaper.
 
+A file of tasks comes into a project with `tix import tasks`, all rows or
+none. A tix export and the usual Jira, GitHub, Trello and Linear headers need
+no mapping; look first, then keep the suggestion if you will repeat it:
+
+```sh
+tix import tasks -p infra jira.csv --dry-run --save-mapping jira.yaml
+tix import tasks -p infra jira.csv --mapping jira.yaml
+tix export tasks -p infra | tix import tasks -p ops
+```
+
+A dry run prints the column mapping, the first rows as they would be written
+and every row in error by line; any row in error writes nothing and exits `2`.
+`--mode upsert` (the default) updates a row imported before, matched by its
+external id or ref, `skip` leaves it and `create` adds it again. It needs the
+`import` scope. For tasks you are inventing, `task add` per task, or `--lines`
+for a list, never a mapping.
+
 A bundle is the opposite choice: reusable configuration and **never work
 items**, so sharing a way of working cannot disclose what anyone is working
 on. Webhook endpoints travel without their signing secrets and arrive

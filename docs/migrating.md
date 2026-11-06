@@ -6,8 +6,13 @@ Four separate mechanisms, often confused:
 | --- | --- | --- |
 | `tix sync` | issues from Jira, OpenProject or a shaped file | an external tracker and tix |
 | `tix export` / `tix import` | a whole tenant, including the work | two tix installations |
-| `tix export tasks` | one project's tasks as CSV, JSON, NDJSON or Markdown, see [import-export.md](import-export.md) | tix and a spreadsheet or another tool |
+| `tix export tasks` / `tix import tasks` | one project's tasks as a file, see [import-export.md](import-export.md) | tix and a spreadsheet or another tool |
 | `tix bundle export` / `tix bundle import` | reusable configuration, never the work | two tix installations |
+
+Only a few tasks, or a single file? You do not need a sync or a mapping. Add a few tasks with quick add,
+`tix task add`, the API or MCP, or paste them as a list with `tix import tasks --lines`; bring one CSV or
+JSON file from Jira, GitHub, Trello, Linear or a spreadsheet in with `tix import tasks` or **Import** on a
+project's page, where tix suggests the mapping. A sync is for a tracker you keep pulling from.
 
 ## Importing from an external tracker
 

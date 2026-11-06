@@ -847,6 +847,19 @@ the ticked ones are written in the order shown. The download streams, so a large
 filter that does not parse brings the dialog back with your choices and the reason under the field. See
 [import-export.md](import-export.md).
 
+## Importing into a project
+
+**Import** in a project's header, for readers who may import, opens five steps, each a page of its own so
+the browser's Back walks them: **Upload** a CSV, JSON or NDJSON file or paste a list of tasks, one per line
+in quick-add syntax; **Map columns**, where every column of the file has a field chosen for it; **Map
+values**, the statuses, priorities and people of the file against this project's; **Preview**, the counts
+and the first rows as they will be written, every row in error and a CSV report of them; and **Result**.
+Every step has Back, which keeps what was chosen, and Cancel, which leaves; Escape in the form is Cancel.
+A note on the first step says what is easy to miss: a few tasks need no import at all, and the mapping is
+optional. When every column is recognised, the columns step says so and **Skip to preview** goes straight
+there. Nothing is written until **Import**, and then every row or none. See
+[import-export.md](import-export.md#importing-tasks-into-a-project).
+
 ## Task templates
 
 A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the

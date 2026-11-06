@@ -89,6 +89,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.webhookRoutes()...)
 	out = append(out, h.transferRoutes()...)
 	out = append(out, h.taskIORoutes()...)
+	out = append(out, h.importRoutes()...)
 	out = append(out, h.syncRoutes()...)
 	out = append(out, h.bundleRoutes()...)
 	out = append(out, h.paletteRoutes()...)
@@ -272,6 +273,12 @@ const (
 
 	// RouteProjectTaskExport downloads a project's tasks as a file.
 	RouteProjectTaskExport = "/projects/{key}/tasks/export"
+
+	// RouteProjectImport is the first step of an import, the upload, and
+	// takes the upload. RouteProjectImportStep is every later step of one
+	// staged upload, each at its own address so the browser's Back works.
+	RouteProjectImport     = "/projects/{key}/import"
+	RouteProjectImportStep = "/projects/{key}/import/{id}/{step}"
 	RouteSync              = "/sync"
 	RouteSyncSources       = "/sync/sources"
 	RouteSyncDelete        = "/sync/sources/delete"

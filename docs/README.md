@@ -29,7 +29,7 @@ tix.
 | [deployment.md](deployment.md#containers) | The published container image: tags, what the image already decides, verifying the signature, Kubernetes |
 | [deployment.md](deployment.md#the-terminal-interface-over-ssh) | Serving the terminal interface over SSH: enrolling keys, the username as tenant, enrolled and demo modes |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
-| [import-export.md](import-export.md) | A project's tasks as CSV, JSON, NDJSON or Markdown: columns, dates, formula guarding |
+| [import-export.md](import-export.md) | A project's tasks out as CSV, JSON, NDJSON or Markdown, and files from tix, Jira, GitHub, Trello or Linear in, with mapping |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
 | [shell-completion.md](shell-completion.md) | Installing completions for bash, zsh and fish |
 | [upgrading.md](upgrading.md) | `tix update`, what the checksum proves, and what it refuses to replace |

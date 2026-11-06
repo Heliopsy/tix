@@ -320,6 +320,8 @@ type boardView struct {
 
 	// Export is the Export dialog, nil for a reader who may not export.
 	Export *exportForm
+	// Import offers the import steps to a reader who may import.
+	Import bool
 }
 
 // projectSettingsView is what a project's settings screen renders.
@@ -447,6 +449,9 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 			return boardView{}, err
 		}
 		view.Export = newExportForm(defs)
+	}
+	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeImport) {
+		view.Import = true
 	}
 	return view, nil
 }

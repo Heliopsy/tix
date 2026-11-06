@@ -130,6 +130,9 @@ type Contract struct {
 	Body any
 	// BodyContent is the media type of a body that is not JSON, read raw.
 	BodyContent string
+	// BodyForm marks a JSON body the handler also takes as a multipart form:
+	// the same fields as form fields, and the file in a part named file.
+	BodyForm bool
 	// OptionalBody marks a body the handler tolerates being absent.
 	OptionalBody bool
 	// Resp is the response the handler writes, as a zero value.

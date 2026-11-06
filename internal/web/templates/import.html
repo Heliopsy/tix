@@ -1,0 +1,243 @@
+{{define "content"}}{{$v := .Data}}
+{{/* An import is five steps, each a page at its own address, so the
+     browser's Back walks them and a reload redraws the step it is on. Every
+     step has a Back that keeps what was chosen, because the mapping is saved
+     with the upload rather than in the page, and a Cancel that leaves. A
+     reader who got lost in a mapping screen once had no way back but the
+     address bar. */}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{t "Import tasks into %s" $v.Project.Name}}</h1>{{template "tip" (tip "Importing tasks" "Reads a CSV, JSON or NDJSON file, from tix or from Jira, GitHub, Trello, Linear or a spreadsheet, into this project. Nothing is written until the last step, and then all of it or none of it." "docs/import-export.md")}}</div>
+  </div>
+</div>
+<nav aria-label="{{t "Import steps"}}">
+  <ol class="importsteps">
+    {{range $v.Steps}}<li class="{{if .Current}}is-current{{else if .Done}}is-done{{end}}"{{if .Current}} aria-current="step"{{end}}><span class="importstep-n" aria-hidden="true">{{.Number}}</span><span class="importstep-label">{{t .Label}}</span></li>{{end}}
+  </ol>
+</nav>
+{{if $v.Error}}<p class="field-error importerror" role="alert">{{$v.Error}}</p>{{end}}
+{{if eq $v.Step "upload"}}{{template "import-upload" .}}
+{{else if eq $v.Step "columns"}}{{template "import-columns" .}}
+{{else if eq $v.Step "values"}}{{template "import-values" .}}
+{{else if eq $v.Step "preview"}}{{template "import-preview" .}}
+{{else}}{{template "import-result" .}}{{end}}
+{{end}}
+
+{{/* The foot every step ends with: Back to the step before, which saves
+     this step first, Cancel to leave, and the step's own way on. */}}
+{{define "import-back"}}<button type="submit" class="secondary" name="go" value="back" data-import-back formnovalidate>{{template "icon" "arrow-left"}}<span>{{t "Back"}}</span></button>{{end}}
+{{define "import-cancel"}}<a class="btn secondary" href="{{.}}" data-form-cancel data-import-cancel>{{t "Cancel"}}</a>{{end}}
+
+{{define "import-upload"}}{{$v := .Data}}
+<div class="note importnote">
+  <p><strong>{{t "Only a few tasks?"}}</strong> {{t "Add them directly: quick add on the task list, tix task add, the API or MCP. No mapping needed. Or paste them below, one per line."}}</p>
+  <p>{{t "The mapping is optional. tix reads its own exports and the usual headers of Jira, GitHub, Trello and Linear as they are, so you can go straight to the preview."}}</p>
+</div>
+<form method="post" enctype="multipart/form-data" class="cform importform" data-form action="/projects/{{$v.Project.Key}}/import">
+  {{template "csrf" .CSRF}}
+  {{with $v.Stage}}<input type="hidden" name="id" value="{{.ID}}">{{end}}
+  <section class="importpart">
+    <h2>{{t "A file"}}</h2>
+    <label class="file-field">
+      <input id="import-file" name="file" type="file" accept=".csv,.tsv,.txt,.json,.ndjson,.jsonl" aria-describedby="import-file-hint">
+      <span class="file-button">{{t "Choose file"}}</span>
+      <span class="file-name" data-file-name>{{with $v.Stage}}{{if .Filename}}{{.Filename}}{{else}}{{t "No file chosen"}}{{end}}{{else}}{{t "No file chosen"}}{{end}}</span>
+    </label>
+    <p class="cfield-hint" id="import-file-hint">{{t "CSV, JSON or NDJSON: a tix export, an export from Jira, GitHub, Trello or Linear, or any spreadsheet saved as CSV."}}{{with $v.Stage}}{{if .Filename}} {{t "%s is uploaded; choose another file to replace it." .Filename}}{{end}}{{end}}</p>
+  </section>
+  <section class="importpart">
+    <h2 id="import-lines-h">{{t "Or paste a list"}}</h2>
+    <textarea id="import-lines" name="lines" rows="6" class="mono" aria-labelledby="import-lines-h" aria-describedby="import-lines-hint" placeholder="{{t "Fix login due:fri #bug !high"}}">{{with $v.Stage}}{{.Lines}}{{end}}</textarea>
+    <p class="cfield-hint" id="import-lines-hint">{{t "One task per line, written the way quick add reads it: #tag, !priority, @person, due:date, ^parent. A pasted Markdown list works too. No mapping is needed."}}</p>
+  </section>
+  <section class="importpart">
+    <h2>{{t "A mapping file, if you have one"}}</h2>
+    <label class="file-field">
+      <input id="import-mapping" name="mapping_file" type="file" accept=".yaml,.yml,.json" aria-describedby="import-mapping-hint">
+      <span class="file-button">{{t "Choose file"}}</span>
+      <span class="file-name" data-file-name>{{t "No file chosen"}}</span>
+    </label>
+    <p class="cfield-hint" id="import-mapping-hint">{{t "A mapping saved from an earlier import, so a repeat import is one step. Leave it empty to start from the suggestion."}}</p>
+  </section>
+  <div class="cform-foot importfoot">
+    {{template "form-keys" (t "to go on")}}
+    <div class="cform-actions">
+      <a class="btn secondary" href="{{$v.Back}}" data-import-back>{{template "icon" "arrow-left"}}<span>{{t "Back"}}</span></a>
+      {{template "import-cancel" $v.Cancel}}
+      <button type="submit" class="secondary" name="go" value="preview">{{t "Skip to preview"}}</button>
+      <button type="submit" name="go" value="next">{{t "Next: map columns"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "import-columns"}}{{$v := .Data}}{{$r := $v.Result}}
+{{if $r.Confident}}<div class="note importnote" data-import-confident><p><strong>{{t "Every column was recognised."}}</strong> {{t "The suggested mapping works as it is, so you can go straight to the preview."}}</p></div>{{end}}
+<form method="post" class="cform importform" data-form action="{{$v.Base}}/columns">
+  {{template "csrf" .CSRF}}
+  <p class="meta">{{tn "%d row" "%d rows" $r.Rows}}{{with $r.Source}} &middot; {{t "looks like a %s export" .}}{{end}} &middot; {{t "tix chose a field for every column; change any you like."}}</p>
+  <div class="table-wrap">
+    <table class="importtable importmap">
+      <thead><tr><th scope="col">{{t "Column"}}</th><th scope="col">{{t "Sample"}}</th><th scope="col">{{t "Becomes"}}</th></tr></thead>
+      <tbody>
+        {{range $v.Columns}}<tr>
+          <td class="importkey" data-label="{{t "Column"}}"><span class="mono">{{.Header}}</span></td>
+          <td class="meta importsample" data-label="{{t "Sample"}}">{{range $i, $s := .Sample}}{{if $i}}, {{end}}{{$s}}{{end}}</td>
+          <td data-label="{{t "Becomes"}}"><select id="col-{{.Index}}" name="col_{{.Index}}" aria-label="{{t "Field for %s" .Header}}">{{range .Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}</select></td>
+        </tr>{{end}}
+      </tbody>
+    </table>
+  </div>
+  <fieldset class="cform-group importopts">
+    <legend>{{t "When a row was imported before"}}</legend>
+    {{range $v.Modes}}<label for="mode-{{.Value}}"><input id="mode-{{.Value}}" type="radio" name="mode" value="{{.Value}}"{{if .Selected}} checked{{end}}> {{t .Label}}</label>{{end}}
+    <p class="cfield-hint">{{t "A row is matched by the column mapped to External ID, or by a tix reference."}}</p>
+  </fieldset>
+  <div class="importgrid">
+    <div class="cfield">
+      <div class="cfield-label"><label for="import-source">{{t "Source name"}}</label></div>
+      <input id="import-source" name="source" value="{{$v.Source}}" placeholder="{{with $r.Source}}{{.}}{{else}}{{t "import"}}{{end}}" autocomplete="off" aria-describedby="import-source-hint">
+      <p class="cfield-hint" id="import-source-hint">{{t "Keeps the external IDs of one tool apart from another's."}}</p>
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="import-dates">{{t "Date format"}}</label></div>
+      <input id="import-dates" name="date_format" value="{{$v.DateFmt}}" placeholder="{{t "DD/MM/YYYY"}}" class="mono" autocomplete="off" aria-describedby="import-dates-hint">
+      <p class="cfield-hint" id="import-dates-hint">{{t "Empty reads ISO dates and any day that cannot be mistaken."}}</p>
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="import-delimiter">{{t "CSV separator"}}</label></div>
+      <select id="import-delimiter" name="delimiter">
+        <option value=""{{if eq $v.Delimiter ""}} selected{{end}}>{{t "Detect it"}}</option>
+        {{range $d := $v.Delimiters}}<option value="{{$d}}"{{if eq $v.Delimiter $d}} selected{{end}}>{{t (delimiterLabel $d)}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="cform-foot importfoot">
+    <a class="btn secondary" href="{{$v.Base}}/mapping.yaml" download>{{template "icon" "download"}}<span>{{t "Download the mapping"}}</span></a>
+    <div class="cform-actions">
+      {{template "import-back"}}
+      {{template "import-cancel" $v.Cancel}}
+      <button type="submit" class="secondary" name="go" value="preview">{{t "Skip to preview"}}</button>
+      <button type="submit" name="go" value="next">{{t "Next: map values"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "import-values"}}{{$v := .Data}}
+<form method="post" class="cform importform" data-form action="{{$v.Base}}/values">
+  {{template "csrf" .CSRF}}
+  <p class="meta">{{t "Each value of the file and what it becomes. A suggestion is tix's guess; change it or leave it."}}</p>
+  {{range $g := $v.Groups}}
+  <section class="importpart">
+    <h2>{{t $g.Label}}</h2>
+    {{if $g.Rows}}
+    <div class="table-wrap">
+      <table class="importtable importmap">
+        <thead><tr><th scope="col">{{t "In the file"}}</th><th scope="col" class="num">{{t "Rows"}}</th><th scope="col">{{t "Becomes"}}</th></tr></thead>
+        <tbody>
+          {{range $g.Rows}}<tr>
+            <td class="importkey" data-label="{{t "In the file"}}"><span class="mono">{{.Value}}</span>{{if .Guess}} <span class="badge">{{t "suggested"}}</span>{{end}}<input type="hidden" name="raw_{{$g.Target}}_{{.Index}}" value="{{.Value}}"></td>
+            <td class="num" data-label="{{t "Rows"}}">{{.Count}}</td>
+            <td data-label="{{t "Becomes"}}">{{if $g.Free}}<input name="val_{{$g.Target}}_{{.Index}}" value="{{.Mapped}}" placeholder="{{t "tix handle"}}" autocomplete="off" aria-label="{{t "%s becomes" .Value}}">{{else}}<select name="val_{{$g.Target}}_{{.Index}}" aria-label="{{t "%s becomes" .Value}}">{{range .Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}</select>{{end}}</td>
+          </tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}<p class="meta">{{t "No column fills this field."}}</p>{{end}}
+    <div class="cfield importpolicy">
+      <div class="cfield-label"><label for="unknown-{{$g.Target}}">{{t "A value with no mapping"}}</label></div>
+      <select id="unknown-{{$g.Target}}" name="unknown_{{$g.Target}}">{{range $g.Policies}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}</select>
+    </div>
+  </section>
+  {{end}}
+  <div class="cform-foot importfoot">
+    <a class="btn secondary" href="{{$v.Base}}/mapping.yaml" download>{{template "icon" "download"}}<span>{{t "Download the mapping"}}</span></a>
+    <div class="cform-actions">
+      {{template "import-back"}}
+      {{template "import-cancel" $v.Cancel}}
+      <button type="submit" name="go" value="next">{{t "Next: preview"}}</button>
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "import-summary"}}
+<ul class="importcounts">
+  <li><span class="figure">{{.Created}}</span> {{t "to create"}}</li>
+  <li><span class="figure">{{.Updated}}</span> {{t "to update"}}</li>
+  <li><span class="figure">{{.Skipped}}</span> {{t "to skip"}}</li>
+  <li><span class="figure{{if .Failed}} bad{{end}}">{{.Failed}}</span> {{t "in error"}}</li>
+</ul>
+{{end}}
+
+{{define "import-errors"}}{{$v := .Data}}{{$r := $v.Result}}
+{{if $r.Errors}}
+<section class="importpart" aria-labelledby="import-errors-h">
+  <h2 id="import-errors-h">{{t "Rows in error"}}</h2>
+  <ul class="importerrs">{{range $i, $e := $r.Errors}}{{if lt $i 50}}<li><span class="mono">{{t "line %d" $e.Line}}</span> {{$e.Message}}</li>{{end}}{{end}}</ul>
+  <p><a class="btn secondary" href="{{$v.Base}}/errors.csv" download>{{template "icon" "download"}}<span>{{t "Download the error report"}}</span></a></p>
+</section>
+{{end}}
+{{end}}
+
+{{define "import-preview"}}{{$v := .Data}}{{$r := $v.Result}}
+<form method="post" class="cform importform" data-form action="{{$v.Base}}/preview">
+  {{template "csrf" .CSRF}}
+  {{template "import-summary" $r}}
+  {{if $r.Failed}}<p class="note">{{t "Nothing is written while any row is in error. Go back to change the mapping, or fix the file and upload it again."}}</p>{{end}}
+  {{template "import-errors" .}}
+  <section class="importpart" aria-labelledby="import-preview-h">
+    <h2 id="import-preview-h">{{t "The first rows as tix will write them"}}</h2>
+    <div class="table-wrap">
+      <table class="importtable">
+        <thead><tr><th scope="col">{{t "Line"}}</th><th scope="col">{{t "Action"}}</th><th scope="col">{{t "Reference"}}</th><th scope="col">{{t "Title"}}</th><th scope="col">{{t "Status"}}</th><th scope="col">{{t "Priority"}}</th><th scope="col">{{t "Assignee"}}</th><th scope="col">{{t "Tags"}}</th><th scope="col">{{t "Due"}}</th><th scope="col">{{t "Parent"}}</th></tr></thead>
+        <tbody>
+          {{range $r.Preview}}<tr class="importrow-{{.Action}}">
+            <td class="num" data-label="{{t "Line"}}">{{.Line}}</td>
+            <td data-label="{{t "Action"}}"><span class="badge">{{t .Action}}</span>{{with .Reason}} <span class="meta">{{.}}</span>{{end}}{{range .Errors}}<span class="field-error">{{.}}</span>{{end}}</td>
+            <td class="mono" data-label="{{t "Reference"}}">{{if .Ref}}{{ref .Ref}}{{end}}</td>
+            <td data-label="{{t "Title"}}">{{.Title}}</td>
+            <td data-label="{{t "Status"}}">{{.Status}}</td>
+            <td data-label="{{t "Priority"}}">{{if .Priority}}{{t (prio .Priority)}}{{end}}</td>
+            <td data-label="{{t "Assignee"}}">{{.Assignee}}</td>
+            <td data-label="{{t "Tags"}}">{{range $i, $tag := .Tags}}{{if $i}}, {{end}}{{$tag}}{{end}}</td>
+            <td data-label="{{t "Due"}}">{{with .Due}}{{stamp .}}{{end}}</td>
+            <td class="mono" data-label="{{t "Parent"}}">{{.Parent}}</td>
+          </tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <div class="cform-foot importfoot">
+    {{if ne $r.Format "lines"}}<a class="btn secondary" href="{{$v.Base}}/mapping.yaml" download>{{template "icon" "download"}}<span>{{t "Download the mapping"}}</span></a>{{end}}
+    <div class="cform-actions">
+      {{template "import-back"}}
+      {{template "import-cancel" $v.Cancel}}
+      {{if $v.CanImport}}<button type="submit" name="go" value="import">{{tn "Import %d task" "Import %d tasks" (importCount $r)}}</button>
+      {{else}}<button type="button" class="secondary" disabled>{{if $r.Failed}}{{t "Fix the rows in error first"}}{{else}}{{t "Nothing to import"}}{{end}}</button>{{end}}
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "import-result"}}{{$v := .Data}}{{$r := $v.Result}}
+<form method="post" class="cform importform" data-form action="{{$v.Base}}/result">
+  {{template "csrf" .CSRF}}
+  {{if $r.Committed}}
+  <p class="note importnote" role="status"><strong>{{t "Imported."}}</strong> {{t "%d created, %d updated, %d skipped." $r.Created $r.Updated $r.Skipped}}</p>
+  {{else}}
+  <p class="note importnote" role="alert"><strong>{{t "Nothing was imported."}}</strong> {{t "Some rows are in error, so the whole file was rolled back."}}</p>
+  {{template "import-summary" $r}}
+  {{template "import-errors" .}}
+  {{end}}
+  <div class="cform-foot importfoot">
+    <a class="btn secondary" href="{{$v.Base}}/mapping.yaml" download>{{template "icon" "download"}}<span>{{t "Download the mapping"}}</span></a>
+    <div class="cform-actions">
+      {{template "import-back"}}
+      <a class="btn secondary" href="{{$v.Cancel}}" data-form-cancel data-import-cancel>{{if $r.Committed}}{{t "Open the board"}}{{else}}{{t "Cancel"}}{{end}}</a>
+      <a class="btn secondary" href="/projects/{{$v.Project.Key}}/import">{{t "Import another file"}}</a>
+    </div>
+  </div>
+</form>
+{{end}}

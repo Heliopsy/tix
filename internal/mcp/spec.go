@@ -124,13 +124,13 @@ func (d *Document) operation(method, path string, raw json.RawMessage) (Operatio
 			Description: p.Description, Schema: schema})
 	}
 	if in.RequestBody != nil {
-		for media, c := range in.RequestBody.Content {
-			if media != contentJSON {
-				op.Unsupported = "reads a " + media + " body, not JSON"
-				continue
-			}
+		if c, ok := in.RequestBody.Content[contentJSON]; ok {
 			op.Body, _ = d.resolve(c.Schema, nil).(map[string]any)
 			op.BodyRequired = in.RequestBody.Required
+		} else {
+			for media := range in.RequestBody.Content {
+				op.Unsupported = "reads a " + media + " body, not JSON"
+			}
 		}
 	}
 	if op.Unsupported == "" {
