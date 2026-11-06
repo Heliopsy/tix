@@ -26,6 +26,10 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 		"DROP TABLE user_invites",
 		"ALTER TABLE users DROP COLUMN require_password_change",
 		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 1",
+		"ALTER TABLE tenants DROP COLUMN time_format",
+		"ALTER TABLE tenants DROP COLUMN timezone",
+		"ALTER TABLE users DROP COLUMN time_format",
+		"ALTER TABLE users DROP COLUMN timezone",
 		"ALTER TABLE users DROP COLUMN global_admin",
 		"DELETE FROM schema_migrations WHERE version > 28",
 	} {

@@ -480,6 +480,29 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "date settings round-trip",
+		covers: []string{"GetTimeSettings", "SetTimePrefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			dotted, zone := "dotted", "Asia/Tokyo"
+			if _, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{TimeFormat: &dotted}); err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetTimeSettings(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			out := sig{"format": got.Effective.TimeFormat, "format_source": got.FormatSource, "personal": got.Personal}
+			set, err := tg.svc.SetTimePrefs(tg.ctx, core.TimePrefsInput{Timezone: &zone})
+			switch {
+			case err != nil:
+				out["set"] = string(core.KindOf(err))
+			default:
+				out["set"] = set.Effective.Timezone + " from " + set.TimezoneSource
+			}
+			return out, nil
+		},
+	},
+	{
 		name: "notification channel round-trip",
 		covers: []string{"CreateInboxChannel", "ListInboxChannels", "UpdateInboxChannel", "TestInboxChannel",
 			"ListChannelDeliveries", "RedeliverChannelDelivery", "DeleteInboxChannel"},
