@@ -253,9 +253,22 @@ which per browser (`tix_task_view`). The list is what an untouched install shows
 on Settings, and it is the same control: both render one partial over one resolved value, so neither
 can show a position the other denies.
 
-It is one selection drawn two ways. The filter, the deadline window, the sort, the page size, the
-page position and the project visibility choice are resolved once and apply to both, so switching
-changes the drawing and never which tasks are on screen, and one pager walks both. That is why the
+It is one selection drawn three ways. The filter, the deadline window, the project control, the sort,
+the page size, the page position and the project visibility choice are resolved once and apply to all
+of them, so switching changes the drawing and never which tasks are on screen, and one pager walks
+them all.
+
+**Filtering by project.** The filter bar's project select is the same on the list, the board and the
+lanes. It submits `project=KEY` (several keys comma separated, `project=web,ops`), which is read as
+`project:` terms ahead of whatever is in the box, the way the deadline select is read as a `due:` term,
+so `?project=web` and `?q=project:web` answer the same question. The view switch returns to the same
+address, so the choice follows you between List, Board and Lanes, and the pager, a live refresh, Export
+CSV and Save this filter keep it (a saved filter stores it as `project:` terms). It is part of the
+address rather than a cookie: a filter is what a link shares, while the View panel's project
+visibility is the remembered, per-browser choice. A screen filtered to projects listens for changes in
+those projects only. On the board, one project draws its own workflow's columns, several projects draw
+one board when their workflows agree, and projects whose workflows disagree get the explanation below
+with the list in place of the board. That is why the
 board is on this screen. The project board at `/projects/{key}` answers a different question (one
 project, no filter), and its header's **Settings** button opens the project's settings screen.
 
@@ -859,13 +872,29 @@ through another state), a priority with `tix task edit --priority`, and a soft d
 deleted. A delete with `--hard` has no way back on any surface, and neither has any delete on a tenant
 whose trash is off.
 
-**Live updates** never take the screen from you. A refresh already waited for a request in flight
-or an open menu in the region it replaces, and now also for a row drawn ahead of its answer
-(`is-pending`). When it lands it keeps the scroll position of boxes inside the region: the task list
-scrolls inside its own box, and every update put it back on its first row. Focus is put back by the
+**Live updates** never take the screen from you. A refresh waits for a request in flight, an open
+menu or a row drawn ahead of its answer (`is-pending`) in the region it redraws. When it lands it
+patches the region in place rather than replacing it (`tix.morph` in `live.js`): every row, card,
+board column, lane and scrolling box still on screen stays the same element, and only rows that are
+genuinely new are inserted. Replacing them was what made scrolling under a burst of changes snap
+back (the wheel was scrolling a box that had just been thrown away), what made every scrollbar on the
+screen blink, and what replayed every row's entrance. Each scrolled box, down and sideways, and the
+page itself stay on the row and the column you were looking at, so a task added above you does not
+push what you are reading down; instead a **N new, show** pill floats over the top of the box, and
+pressing it scrolls up to them. It goes away on its own when you scroll to the top. A listing redraws
+at most twice a second under a burst (the first change at once, the last after 500ms), a background
+refresh never shows a busy pointer, and the list frame, the board's columns and the lanes keep their
+scrollbar's room so a row that makes them scroll does not reflow the rest. Focus is put back by the
 same rule everywhere (`tix.focusMemo` in `decide.js`, used by live updates, lane cards and in-place
 actions): the nearest id and the control's `data-focus` name, and a choice made in a menu counts as
-the button that opened it.
+the button that opened it. A refresh that keeps the focused element leaves focus alone.
+
+**A pressed button** says so in the same frame: its spinner takes its icon's place and the label stays
+readable, or, on a button of text alone, takes the label's place with the label hidden but still
+holding the width, so nothing moves. Nothing about it fades in, which is what used to leave the
+spinner drawn over the words for a moment. A second press while it waits sends nothing, a button
+with its own `hx-post` is marked the same way, and the mark clears when the request ends wherever its
+answer is drawn. The pointer over a submitted form turns to progress only after 300ms.
 
 **Moving between screens.** A link into a task or a listing starts on the mouse press rather than the
 release, which takes 80 to 150ms off each one (main button, no modifiers, never touch or keyboard; the
