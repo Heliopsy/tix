@@ -167,7 +167,7 @@ func (m Model) activityLines(layout Layout) []string {
 // the two surfaces from describing the same event two different ways.
 func (m Model) eventLine(e core.Event, selected bool) string {
 	marker := SelectionMarker(selected)
-	when := output.FormatClock(e.OccurredAt)
+	when := m.timeStyle.Clock(e.OccurredAt)
 	actor := output.EventActor(e)
 	verb := output.EventVerb(e.Type)
 	ref := output.ShowRef(output.EventRef(e))

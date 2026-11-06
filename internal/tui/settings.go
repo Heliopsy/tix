@@ -253,12 +253,34 @@ func colorDescription(value string, colorAuto bool) string {
 // environment also sets, and then watching nothing change on restart, is the
 // whole reason this line exists.
 func OverrideNote(layer string) string {
+	if level, ok := strings.CutPrefix(strings.TrimSpace(layer), AccountLayer); ok {
+		return accountNote(level)
+	}
 	switch strings.TrimSpace(layer) {
 	case "", "file", "default":
 		return ""
 	default:
 		return "the " + strings.TrimSpace(layer) + " layer supplies this, and still wins after a restart"
 	}
+}
+
+// AccountLayer prefixes the source of a date preference this machine leaves
+// unset, which the account resolves instead: account:user, account:tenant or
+// account:global.
+const AccountLayer = "account:"
+
+// accountNote says where an account-resolved date preference came from, and
+// that a value picked here stays on this machine.
+func accountNote(level string) string {
+	from := map[string]string{
+		core.TimeSourceUser:   "your own choice (tix user time)",
+		core.TimeSourceTenant: "the tenant default",
+		core.TimeSourceGlobal: "the server default",
+	}[level]
+	if from == "" {
+		from = "your account"
+	}
+	return "from " + from + "; a value picked here applies to this machine only"
 }
 
 // SaveNote is what the status bar says after a preference changed.
