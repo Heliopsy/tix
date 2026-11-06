@@ -561,3 +561,27 @@ test("a refresh keeps the scroll position of a box inside the region", async () 
   assert.equal(nodes["tasks-listing"].innerHTML, "rows");
   assert.equal(after.scrollTop, 320, "the redrawn list was not scrolled back to where the reader was");
 });
+
+// A refresh asked for while the previous one is still being fetched is run
+// once that one lands. On a slow server the burst's trailing run used to
+// arrive mid-fetch and was dropped, leaving the last changes undrawn.
+test("a refresh asked for during a fetch runs when the fetch lands", async () => {
+  const c = liveContext({ fresh: { "task-pills": "drawn" } });
+  const answers = [];
+  c.ctx.fetch = () => new Promise((resolve) => answers.push(resolve));
+  c.doc.dispatch("tix:refresh", {});
+  assert.equal(answers.length, 1, "the first refresh fetched nothing");
+  c.doc.dispatch("tix:refresh", {});
+  c.clock.fire();
+  assert.equal(answers.length, 1, "a second fetch went out while the first was still on its way");
+  assert.equal(c.ctx.tix.liveSettled(), false, "the screen says it is settled with a refresh still owed");
+  answers[0]({ ok: true, text: () => Promise.resolve("first") });
+  await settle();
+  await settle();
+  assert.equal(answers.length, 2, "the refresh asked for during the fetch was dropped");
+  answers[1]({ ok: true, text: () => Promise.resolve("second") });
+  await settle();
+  await settle();
+  c.clock.fire();
+  assert.equal(c.ctx.tix.liveSettled(), true, "the screen never said it had drawn everything");
+});

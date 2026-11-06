@@ -124,7 +124,7 @@
       quiet = api.setTimeout(settle, ms);
     }
 
-    return function () {
+    var trigger = function () {
       if (quiet === null) {
         run();
         quiet = api.setTimeout(settle, ms);
@@ -137,6 +137,11 @@
         cap = api.setTimeout(settle, limit);
       }
     };
+    // queued reports a trailing run still to come.
+    trigger.queued = function () {
+      return queued;
+    };
+    return trigger;
   };
 
   // backoffDelay is how long to wait before the next attempt at a connection

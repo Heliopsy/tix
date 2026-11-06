@@ -52,11 +52,36 @@ func (b *browser) createAt(project, title, priority string) {
 func (p *cdpPage) openLive(t *testing.T, address, ready string) {
 	t.Helper()
 	p.call("Page.navigate", map[string]any{"url": address})
-	p.waitFor(t, `document.readyState === "complete" && window.htmx && window.tix && window.tix.morph &&
+	p.waitUntil(t, `location.href === `+fmt.Sprintf("%q", address)+` && document.readyState === "complete" &&
+		window.htmx && window.tix && window.tix.morph &&
 		document.getElementById('live-screen') && document.querySelector(`+fmt.Sprintf("%q", ready)+`)`,
-		"the screen never finished loading at "+address)
-	p.waitFor(t, `document.getElementById('live-stale')?.hidden === false`,
-		"the screen never said it was not live at "+address)
+		"the screen never finished loading at "+address, 30*time.Second)
+	p.waitUntil(t, `document.getElementById('live-stale')?.hidden === false`,
+		"the screen never said it was not live at "+address, 30*time.Second)
+	// A row's entrance moves it by a few pixels while it plays, so nothing is
+	// measured until the page has finished arriving.
+	p.waitUntil(t, `document.getAnimations().every(a => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity)`,
+		"the page's entrance never finished at "+address, 30*time.Second)
+}
+
+// waitUntil is waitFor with a deadline of the caller's choosing, for a
+// condition that is certain to come true but may take a loaded runner a
+// while: what is waited on is a signal from the page, never a guess at how
+// long it takes.
+func (p *cdpPage) waitUntil(t *testing.T, cond, failure string, within time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for {
+		var ok bool
+		p.eval(t, `!!(`+cond+`)`, &ok)
+		if ok {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s (waited %v)", failure, within)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // burst asks the screen for a refresh the way a run of events does, many
@@ -85,8 +110,11 @@ func (p *cdpPage) burst(t *testing.T, boxes string) {
 		const fire = () => { document.dispatchEvent(new CustomEvent('tix:refresh')); if (++n < 12) setTimeout(fire, 40); };
 		fire();
 	})()`, nil)
-	p.waitFor(t, `window.__regions >= 2`, "the burst never redrew the screen twice")
-	time.Sleep(700 * time.Millisecond)
+	// The burst is a leading refresh and a trailing one (live.js and the
+	// coalescer in decide.js), so it is drawn at least twice, and liveSettled
+	// says when nothing more is coming.
+	p.waitUntil(t, `window.__regions >= 2 && window.tix.liveSettled()`,
+		"the burst was not drawn through to its last refresh", 30*time.Second)
 	p.eval(t, `window.__frames.stop = true`, nil)
 	var frames struct {
 		Cursors []string `json:"cursors"`
@@ -193,7 +221,7 @@ func TestLiveUpdatesLeaveTheReaderWhereTheyAreInABrowser(t *testing.T) {
 		}
 		var top float64
 		page.eval(t, `(() => { document.querySelector('.livepill:not([hidden])').click(); return 0; })()`, nil)
-		page.waitFor(t, `document.querySelector('ul.tasklist').scrollTop === 0`, "pressing the pill did not go to the new rows")
+		page.waitUntil(t, `document.querySelector('ul.tasklist').scrollTop === 0`, "pressing the pill did not go to the new rows", 30*time.Second)
 		page.eval(t, `document.querySelector('ul.tasklist li.task').textContent.includes('Urgent arrival') ? 0 : 1`, &top)
 		if top != 0 {
 			t.Error("the top of the list is not the rows the pill announced")
@@ -207,15 +235,33 @@ func TestLiveUpdatesLeaveTheReaderWhereTheyAreInABrowser(t *testing.T) {
 		page.eval(t, `(() => { const m = document.querySelector('ul.tasklist li.task [popover]'); m.showPopover(); return m.id; })()`, &id)
 		page.keep(t, "menu", `document.getElementById(`+fmt.Sprintf("%q", id)+`)`)
 		b.createAt("infra", "Arrives under an open menu", "1")
-		page.eval(t, `(() => { window.__regions = 0; document.addEventListener('tix:regions', () => window.__regions++); document.dispatchEvent(new CustomEvent('tix:refresh')); })()`, nil)
-		time.Sleep(900 * time.Millisecond)
-		var open bool
-		page.eval(t, `document.getElementById(`+fmt.Sprintf("%q", id)+`).matches(':popover-open')`, &open)
-		if !open {
-			t.Fatal("a live update closed the menu the reader had open")
+		// The refresh is asked for and turned away in the same task: the
+		// coalescer runs its first call at once, and the busy check defers it
+		// without a request.
+		var held struct {
+			Fetches int  `json:"fetches"`
+			Settled bool `json:"settled"`
+			Open    bool `json:"open"`
+		}
+		page.eval(t, `(() => {
+			window.__regions = 0;
+			document.addEventListener('tix:regions', () => window.__regions++);
+			let fetches = 0;
+			const real = window.fetch;
+			window.fetch = (...a) => { fetches++; return real(...a); };
+			document.dispatchEvent(new CustomEvent('tix:refresh'));
+			window.fetch = real;
+			return {fetches, settled: window.tix.liveSettled(), open: document.getElementById(`+fmt.Sprintf("%q", id)+`).matches(':popover-open')};
+		})()`, &held)
+		if !held.Open || held.Fetches != 0 {
+			t.Fatalf("a live update went ahead under the open menu (menu open %v, %d fetches)", held.Open, held.Fetches)
+		}
+		if held.Settled {
+			t.Fatal("the held refresh was dropped rather than deferred")
 		}
 		page.eval(t, `document.getElementById(`+fmt.Sprintf("%q", id)+`).hidePopover()`, nil)
-		page.waitFor(t, `window.__regions >= 1`, "the held refresh never landed once the menu closed")
+		page.waitUntil(t, `window.__regions >= 1 && window.tix.liveSettled()`,
+			"the held refresh never landed once the menu closed", 30*time.Second)
 		if !page.same(t, "menu", `document.getElementById(`+fmt.Sprintf("%q", id)+`)`) {
 			t.Error("the menu's row was redrawn instead of kept")
 		}
@@ -238,7 +284,7 @@ func TestLiveUpdatesLeaveTheReaderWhereTheyAreInABrowser(t *testing.T) {
 				const strip = document.querySelector(`+fmt.Sprintf("%q", c.strip)+`);
 				const box = document.querySelector(`+fmt.Sprintf("%q", c.box)+`);
 				strip.scrollLeft = box.nextElementSibling.offsetLeft - strip.offsetLeft;
-				box.scrollTop = 120;
+				box.scrollTop = 1200;
 				window.__left = strip.scrollLeft;
 				const card = [...box.querySelectorAll('[id^=t-]')].find(r => r.getBoundingClientRect().top >= box.getBoundingClientRect().top);
 				window.__card = card;
@@ -252,10 +298,20 @@ func TestLiveUpdatesLeaveTheReaderWhereTheyAreInABrowser(t *testing.T) {
 			page.keep(t, "strip", `document.querySelector(`+fmt.Sprintf("%q", c.strip)+`)`)
 			page.keep(t, "box", `document.querySelector(`+fmt.Sprintf("%q", c.box)+`)`)
 
+			// The arrivals go to the first column's or lane's own project, at
+			// the top priority, so they land above the card being watched.
+			project := "infra"
+			page.eval(t, `document.querySelector(`+fmt.Sprintf("%q", c.box)+`).dataset.lane || "infra"`, &project)
 			for i := range 3 {
-				b.createAt("infra", fmt.Sprintf("%s arrival %d", c.view, i), "1")
+				b.createAt(project, fmt.Sprintf("%s arrival %d", c.view, i), "1")
 			}
 			page.burst(t, c.strip+", "+c.box)
+			var above int
+			page.eval(t, `[...document.querySelector(`+fmt.Sprintf("%q", c.box)+`).querySelectorAll('[id^=t-]')]
+				.filter(e => e.textContent.includes(`+fmt.Sprintf("%q", c.view+" arrival")+`) && e.compareDocumentPosition(window.__card) & Node.DOCUMENT_POSITION_FOLLOWING).length`, &above)
+			if above != 3 {
+				t.Fatalf("%d of the 3 arrivals landed above the card being watched, so this checks nothing", above)
+			}
 
 			if !page.same(t, "strip", `document.querySelector(`+fmt.Sprintf("%q", c.strip)+`)`) {
 				t.Errorf("the %s's sideways strip was replaced", c.view)
