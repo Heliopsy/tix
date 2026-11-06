@@ -22,6 +22,7 @@
   <dt>{{t "Created"}}</dt><dd>{{counts .Data.Result.Created}}</dd>
   <dt>{{t "Updated"}}</dt><dd>{{counts .Data.Result.Updated}}</dd>
   <dt>{{t "Skipped"}}</dt><dd>{{counts .Data.Result.Skipped}}</dd>
+  {{with .Data.Result.UnmatchedUsers}}<dt>{{t "People with no tix account"}}</dt><dd class="syncunmatched">{{join .}}<div class="meta">{{t "Map them under users in the mapping, or set users.unknown to placeholder."}}</div></dd>{{end}}
   <dt>{{t "Warnings"}}</dt><dd>{{if .Data.Result.Warnings}}{{join .Data.Result.Warnings}}{{else}}{{t "none"}}{{end}}</dd>
   {{if .Data.Result.Cursor}}<dt>{{t "Cursor now"}}</dt><dd><code>{{.Data.Result.Cursor}}</code></dd>{{end}}
 </dl>
@@ -150,6 +151,7 @@
     <label for="mapping">{{t "Mapping document"}}</label>
     {{template "field-info" "The YAML that says which tix project records land in and what each external field becomes. Paste it here or choose the file below; it is stored on the source, on the server. Use Check to validate it against the project before saving."}}
   </div>
+  <p class="meta"><a href="/sync?dialog=source-new&amp;template=openproject">{{t "Start from the OpenProject mapping"}}</a> {{t "fills this in with a mapping for OpenProject work packages: subject, description, status, priority, assignee, dates, parent and type. Replace CHANGE-ME with the key of the tix project to import into."}}</p>
   <textarea id="mapping" name="mapping" class="mono syncmapping" rows="10" spellcheck="false"{{$d.Errors.Attrs "mapping"}}>{{$d.Value "mapping"}}</textarea>
   {{with $d.Errors.On "mapping"}}{{template "field-error" .}}{{end}}
   <div class="row">

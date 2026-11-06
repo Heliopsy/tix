@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -198,4 +199,38 @@ func sourceID(t *testing.T, row string) string {
 	}
 	id, _, _ := strings.Cut(row[start+len(marker):], `"`)
 	return id
+}
+
+func TestSyncDialogStartsFromTheOpenProjectMapping(t *testing.T) {
+	t.Parallel()
+	page := newFixture(t).as("alice").page("/sync?dialog=source-new&template=openproject")
+	start := strings.Index(page, `<textarea id="mapping"`)
+	if start < 0 {
+		t.Fatalf("the dialog has no mapping textarea")
+	}
+	textarea, _, _ := strings.Cut(page[start:], "</textarea>")
+	for _, want := range []string{"project: CHANGE-ME", "_links.assignee.title: assignee", "email_field: _embedded.assignee.email"} {
+		if !strings.Contains(textarea, want) {
+			t.Errorf("the mapping textarea does not hold %q", want)
+		}
+	}
+	if !strings.Contains(page, `<option value="openproject" selected>`) {
+		t.Errorf("the dialog does not pick openproject")
+	}
+}
+
+func TestSyncRunResultNamesPeopleWithNoAccount(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	addSource(t, b, "generic", "ops")
+	resp := b.post("/sync/run", url.Values{"source_id": {"src-ops"}, "dry_run": {"1"}})
+	page := readBody(t, resp)
+	start := strings.Index(page, `class="syncunmatched"`)
+	if start < 0 {
+		t.Fatalf("the run result does not list the people with no account")
+	}
+	block, _, _ := strings.Cut(page[start:], "</dd>")
+	if !strings.Contains(block, "Nobody Known, Zed External") {
+		t.Errorf("the unmatched list = %q", block)
+	}
 }
