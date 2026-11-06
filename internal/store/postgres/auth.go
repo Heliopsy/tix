@@ -91,7 +91,7 @@ func (t *tx) ListActors(ctx context.Context, page core.Page) ([]core.Actor, erro
 
 var userColumns = []string{
 	"id", "email", "display_name", "created_at", "updated_at", "disabled_at",
-	"sso_provider", "sso_subject", "global_admin",
+	"sso_provider", "sso_subject", "global_admin", "require_password_change",
 }
 
 func scanUser(s scanner) (core.User, error) {
@@ -102,7 +102,7 @@ func scanUser(s scanner) (core.User, error) {
 		disabled sql.NullTime
 	)
 	if err := s.Scan(&u.ID, &u.Email, &u.DisplayName, &created, &updated, &disabled,
-		&u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin); err != nil {
+		&u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &u.RequirePasswordChange); err != nil {
 		return core.User{}, mapErr(err, "scanning user")
 	}
 	u.CreatedAt = scanTime(created)
@@ -131,7 +131,8 @@ func (t *tx) CreateUser(ctx context.Context, u *core.User, passwordHash string) 
 		Set("updated_at", timeArg(u.UpdatedAt)).
 		Set("disabled_at", nullTimeArg(u.DisabledAt)).
 		Set("sso_provider", u.SSOProvider).
-		Set("sso_subject", u.SSOSubject)
+		Set("sso_subject", u.SSOSubject).
+		Set("require_password_change", u.RequirePasswordChange)
 	_, err := t.execInsert(ctx, ins, "creating user %q", u.Email)
 	return err
 }
@@ -164,7 +165,7 @@ func (t *tx) GetUserByEmail(ctx context.Context, email string) (*core.User, stri
 		hash     string
 	)
 	err := t.ex.QueryRowContext(ctx, q, args...).Scan(&u.ID, &u.Email, &u.DisplayName,
-		&created, &updated, &disabled, &u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &hash)
+		&created, &updated, &disabled, &u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &u.RequirePasswordChange, &hash)
 	if err != nil {
 		if mapped := mapErr(err, "reading user %q", email); core.IsKind(mapped, core.KindNotFound) {
 			return nil, "", core.NotFound("user %q", email)
@@ -214,7 +215,8 @@ func (t *tx) UpdateUser(ctx context.Context, u *core.User, passwordHash string) 
 		Set("updated_at", timeArg(u.UpdatedAt)).
 		Set("disabled_at", nullTimeArg(u.DisabledAt)).
 		Set("sso_provider", u.SSOProvider).
-		Set("sso_subject", u.SSOSubject)
+		Set("sso_subject", u.SSOSubject).
+		Set("require_password_change", u.RequirePasswordChange)
 	if passwordHash != "" {
 		b.Set("password_hash", passwordHash)
 	}

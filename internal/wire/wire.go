@@ -38,6 +38,12 @@ const (
 	// installation's, not the caller's tenant's.
 	RouteGlobalAdmins = APIPrefix + "/global-admins"
 	RouteGlobalAdmin  = APIPrefix + "/global-admins/{email}"
+	// Invites to sign in, administered by user:admin, and the public routes
+	// the invited person previews and accepts one at.
+	RouteInvites       = APIPrefix + "/invites"
+	RouteInvite        = APIPrefix + "/invites/{id}"
+	RouteInviteReissue = APIPrefix + "/invites/{id}/reissue"
+	RouteInviteToken   = InviteTokenPrefix + "{token}"
 
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
@@ -165,6 +171,9 @@ const (
 	RouteTemplate    = APIPrefix + "/templates/{ref}"
 	RouteTemplateUse = APIPrefix + "/templates/{ref}/use"
 )
+
+// InviteTokenPrefix starts every public invite route; the secret follows it.
+const InviteTokenPrefix = APIPrefix + "/auth/invites/"
 
 // CalendarFeedPrefix starts every feed address, and CalendarFeedSuffix ends it.
 const (

@@ -1,0 +1,46 @@
+{{/*
+  The page an invite link opens, without a session. Every link that cannot be
+  used draws the same message and nothing else, whatever made it unusable, so
+  the page says nothing about any other link or account. The address carries
+  the secret, so the handler sends no referrer from here.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>
+<div class="card authcard">
+{{if $v.Dead}}
+<h1>{{t "This link does not work"}}</h1>
+<p class="lede">{{t "This invite link is not valid. It may have expired, been used already or been revoked. Ask whoever invited you for a new one."}}</p>
+<div class="actions"><a class="btn secondary" href="/login">{{t "Go to sign in"}}</a></div>
+{{else}}
+{{with $v.Preview}}
+<h1>{{t "Join %s" .TenantName}}</h1>
+{{if .ExistingAccount}}
+<p class="lede">{{t "You already have an account. Enter its password to accept; it stays as it is."}}</p>
+{{else}}
+<p class="lede">{{t "Choose a password to finish setting up your account. This link works once."}}</p>
+{{end}}
+{{end}}
+<form method="post" action="/invite/{{$v.Token}}" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <p class="muted">{{t "Signing in as"}} <strong class="mono">{{$v.Preview.Email}}</strong></p>
+  {{if $v.Preview.ExistingAccount}}
+  <label for="password">{{t "Current password"}}</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required{{$v.Errors.Attrs "password"}}>
+  {{with $v.Errors.On "password"}}{{template "field-error" .}}{{end}}
+  {{else}}
+  <label for="display_name">{{t "Display name"}}</label>
+  <input id="display_name" name="display_name" value="{{$v.DisplayName}}" autocomplete="name">
+  <label for="password">{{t "Password"}}</label>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="invite-password-help"{{$v.Errors.Attrs "password"}}>
+  <p class="muted" id="invite-password-help">{{t "At least 12 characters."}}</p>
+  {{with $v.Errors.On "password"}}{{template "field-error" .}}{{end}}
+  <label for="confirm">{{t "Password again"}}</label>
+  <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="12" required{{$v.Errors.Attrs "confirm"}}>
+  {{with $v.Errors.On "confirm"}}{{template "field-error" .}}{{end}}
+  {{end}}
+  <div class="actions"><button type="submit">{{t "Accept and sign in"}}</button></div>
+</form>
+{{end}}
+</div>
+{{end}}

@@ -61,23 +61,28 @@ func newUserCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(userCreateCmd(g), userLsCmd(g), userShowCmd(g), userEditCmd(g), userRmCmd(g),
-		newUserKeyCmd(g), newUserTOTPCmd(g))
+		newUserInviteCmd(g), newUserKeyCmd(g), newUserTOTPCmd(g))
 	return cmd
 }
 
 func userCreateCmd(g *globals) *cobra.Command {
 	var password, display, handle, role string
-	var dryRun bool
+	var dryRun, mustChange bool
 	cmd := &cobra.Command{
-		Use:     "create EMAIL",
-		Short:   "Create a user",
-		Long:    "Create a credentialed human.\n\nExit codes: 2 invalid input, 4 email already used, 5 permission denied.",
-		Example: "  tix user create ada@example.com --role admin",
-		Args:    exactArgs(1),
+		Use:   "create EMAIL",
+		Short: "Create a user",
+		Long: "Create a credentialed human.\n\n" +
+			"--require-password-change makes the first password sign-in choose a new password before " +
+			"it is let in, which is what you want when you typed the password for somebody else. It " +
+			"needs --password. To let the person choose their own password instead, use tix user invite.\n\n" +
+			"Exit codes: 2 invalid input, 4 email already used, 5 permission denied.",
+		Example: "  tix user create ada@example.com --role admin\n" +
+			"  tix user create ada@example.com --password - --require-password-change",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := core.CreateUserInput{
 				Email: args[0], Password: password, DisplayName: display,
-				Handle: handle, Role: core.Role(role),
+				Handle: handle, Role: core.Role(role), RequirePasswordChange: mustChange,
 			}
 			if err := in.Validate(); err != nil {
 				return err
@@ -101,6 +106,7 @@ func userCreateCmd(g *globals) *cobra.Command {
 	f.StringVar(&display, "display-name", "", "display name")
 	f.StringVar(&handle, "handle", "", "actor handle")
 	f.StringVar(&role, "role", "", "role in the current tenant")
+	f.BoolVar(&mustChange, "require-password-change", false, "make the first sign-in choose a new password")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }
@@ -162,13 +168,17 @@ func userShowCmd(g *globals) *cobra.Command {
 
 func userEditCmd(g *globals) *cobra.Command {
 	var display, password, role string
-	var disabled, dryRun bool
+	var disabled, dryRun, mustChange bool
 	cmd := &cobra.Command{
-		Use:     "edit ID",
-		Short:   "Change a user",
-		Long:    "Change a user's display name, password, role or disabled state.\n\nExit codes: 3 unknown user.",
-		Example: "  tix user edit 01J000000000000000000A --role viewer",
-		Args:    exactArgs(1),
+		Use:   "edit ID",
+		Short: "Change a user",
+		Long: "Change a user's display name, password, role or disabled state.\n\n" +
+			"--require-password-change asks the user to choose a new password at their next password " +
+			"sign-in; =false lifts that. Sessions already open and API tokens are not affected.\n\n" +
+			"Exit codes: 3 unknown user.",
+		Example: "  tix user edit 01J000000000000000000A --role viewer\n" +
+			"  tix user edit 01J000000000000000000A --require-password-change",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var in core.UpdateUserInput
 			if cmd.Flags().Changed("display-name") {
@@ -183,6 +193,9 @@ func userEditCmd(g *globals) *cobra.Command {
 			}
 			if cmd.Flags().Changed("disabled") {
 				in.Disabled = &disabled
+			}
+			if cmd.Flags().Changed("require-password-change") {
+				in.RequirePasswordChange = &mustChange
 			}
 			if dryRun {
 				return g.render(cmd, newPlan("user.update", args[0], nil))
@@ -203,6 +216,8 @@ func userEditCmd(g *globals) *cobra.Command {
 	f.StringVar(&password, "password", "", "new password")
 	f.StringVar(&role, "role", "", "new role")
 	f.BoolVar(&disabled, "disabled", false, "disable or re-enable the user")
+	f.BoolVar(&mustChange, "require-password-change", false,
+		"ask for a new password at the next sign-in; =false lifts it")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }
@@ -368,7 +383,11 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
 			"shell history and in the process table. An unattended caller uses an API token instead, which " +
 			"is exempt from the second factor; see tix token create.\n\n" +
-			"Exit codes: 2 missing credentials, 5 invalid credentials, 6 no terminal to prompt for a code.",
+			"An account an administrator marked to change its password is asked for a new one, twice and " +
+			"without echo, before the session is printed. Without a terminal the sign-in stops and names " +
+			"the web sign-in page, where the change can be made instead.\n\n" +
+			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials, " +
+			"6 no terminal to prompt for a code or a new password.",
 		Example: "  tix login --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --ssh-key\n" +
 			"  tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519",
@@ -393,11 +412,18 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := conn.Service.Login(ctx, core.LoginInput{
-				Email: email, Password: secret, Surface: core.SurfaceCLI,
-			})
+			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI}
+			result, err := conn.Service.Login(ctx, in)
 			if err != nil {
 				return err
+			}
+			if c := result.Challenge; c != nil && c.Kind == core.ChallengePasswordChange {
+				if in.NewPassword, err = g.askNewPassword(cmd, conn.Info.Target.URL); err != nil {
+					return err
+				}
+				if result, err = conn.Service.Login(ctx, in); err != nil {
+					return err
+				}
 			}
 			return g.finishLogin(cmd, conn.Service, ctx, result)
 		},
@@ -412,6 +438,34 @@ func newLoginCmd(g *globals) *cobra.Command {
 
 // sshKeyDiscover is what --ssh-key holds when given without a path.
 const sshKeyDiscover = "auto"
+
+// askNewPassword asks, twice and without echo, for the password an account
+// marked to change its password signs in with from now on. With no terminal it
+// refuses and names the web sign-in page instead, because a script has no one
+// to choose a password and a flag would put it in shell history.
+func (g *globals) askNewPassword(cmd *cobra.Command, server string) (string, error) {
+	if !onATerminal(cmd) {
+		where := "on the web interface"
+		if server != "" {
+			where = "on the web at " + strings.TrimRight(server, "/") + "/login"
+		}
+		return "", core.Precondition("a password change is required for this account: sign in %s to choose "+
+			"a new password, or run tix login on a terminal", where)
+	}
+	g.diag(cmd, "this account must choose a new password before it can sign in")
+	first, err := g.askSecret(cmd, "new password: ")
+	if err != nil {
+		return "", err
+	}
+	second, err := g.askSecret(cmd, "new password again: ")
+	if err != nil {
+		return "", err
+	}
+	if first != second {
+		return "", core.Invalid("the two new passwords differ; nothing was changed")
+	}
+	return first, nil
+}
 
 // finishLogin takes a first step's answer through the second factor, when
 // there is one, and prints the session.

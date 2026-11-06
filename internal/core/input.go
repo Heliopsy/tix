@@ -789,6 +789,9 @@ type CreateUserInput struct {
 	Handle string `json:"handle,omitempty" yaml:"handle,omitempty"`
 	// Role is the user's role in this tenant; empty means "viewer".
 	Role Role `json:"role,omitempty" yaml:"role,omitempty"`
+	// RequirePasswordChange makes the first password sign-in choose a new
+	// password before it is let in. It needs a password.
+	RequirePasswordChange bool `json:"require_password_change,omitempty" yaml:"require_password_change,omitempty"`
 }
 
 // Validate checks the input.
@@ -801,6 +804,10 @@ func (in CreateUserInput) Validate() error {
 	}
 	if in.Password != "" && len(in.Password) < MinPasswordLength {
 		return Invalid("password must be at least %d characters", MinPasswordLength)
+	}
+	if in.RequirePasswordChange && in.Password == "" {
+		return Invalid("a password change can only be required of an account with a password; set one, or invite the address instead").
+			WithDetail(DetailField, "require_password_change")
 	}
 	return nil
 }
@@ -819,6 +826,9 @@ type UpdateUserInput struct {
 	// Disabled true disables the user, ending their sessions and revoking
 	// their tokens at once; false enables them; omitted leaves it.
 	Disabled *bool `json:"disabled,omitempty" yaml:"disabled,omitempty"`
+	// RequirePasswordChange true makes the next password sign-in choose a new
+	// password first; false lifts that; omitted leaves it.
+	RequirePasswordChange *bool `json:"require_password_change,omitempty" yaml:"require_password_change,omitempty"`
 }
 
 // CreateTokenInput mints an API token.

@@ -1444,6 +1444,37 @@ rather than by a client-side library. Every form here is a plain form: a sign-in
 would be a sign-in some readers could not complete, and a script that drew the code would need the
 enrolment secret handed to it.
 
+## Inviting people and required password changes
+
+Create a user on the Users screen offers two ways in, as one segmented control: Set a password and Send
+an invite link. The choice is a radio pair, and the fields the other way needs are hidden by the stylesheet
+alone, so it works with scripting off. With a password, Require a password change at first sign-in is ticked
+by default: a password an administrator typed for somebody else is one they should replace.
+
+Send an invite link takes the address, a display name, a role and how long the link works (1, 3, 7, 14 or
+30 days, 7 by default). The account is created at once, without a password, and the screen comes back with
+a dialog holding the link, its expiry and a Copy button. The link is shown that once: only its hash is kept.
+tix sends no email, so the dialog says to send the link on. The link's address is built from the scheme and
+host the request reached the server at, the same way calendar feed addresses are.
+
+Pending invites lists the links issued and not used, with the address, role, who invited them and when the
+link expires, or that it has. Re-issue stops the old link and shows a new one in the same dialog. Revoke is a
+red button behind a confirm dialog; it stops the link and keeps the account, without a password.
+
+The link opens `/invite/TOKEN`, a page outside the application shell like the sign-in screen. A new account
+chooses a password, twice, and may change the display name; an account that already had a password confirms
+it instead and keeps it. Accepting signs the person in, through the second factor step when the tenant asks
+for one. Every link that cannot be used, whether unknown, expired, used or revoked, answers the same page with
+the same words and a 404, so a link says nothing about any other. These pages send `Referrer-Policy:
+no-referrer`, because the address carries the secret.
+
+The Manage dialog of each account carries Ask to change the password at next sign-in. An account with it set
+signs in to a Choose a new password page instead of a session. Nothing else is reachable from there, because
+nothing is signed in yet: the page asks for the current password again beside the new one and its
+confirmation, and its only other way out is back to sign-in. The new password must be at least 12 characters
+and differ from the current one; a refusal redraws the page with the reason beside the field. Saving clears
+the flag and signs in.
+
 ## Calendar feed
 
 Settings carries a Calendar feed section. Its first row states the feed: No feed, with a filter field and

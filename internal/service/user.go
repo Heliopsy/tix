@@ -168,7 +168,8 @@ func (l *Local) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.
 		}
 
 		id := l.ids.New()
-		u := &core.User{ID: id, Email: email, DisplayName: in.DisplayName}
+		u := &core.User{ID: id, Email: email, DisplayName: in.DisplayName,
+			RequirePasswordChange: in.RequirePasswordChange}
 		if err := m.tx.CreateUser(ctx, u, hash); err != nil {
 			return err
 		}
@@ -181,7 +182,8 @@ func (l *Local) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.
 		}
 		out = u
 		return m.Record(auditUserCreate, eventUserCreated, "user", id, "", nil, u,
-			map[string]any{"email": email, "handle": handle, "role": string(role)})
+			map[string]any{"email": email, "handle": handle, "role": string(role),
+				"require_password_change": u.RequirePasswordChange})
 	})
 	if err != nil {
 		return nil, err
@@ -262,7 +264,8 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 	return out, nextUserCursor(page, out), nil
 }
 
-// UpdateUser changes a user's display name, password, role or disabled state.
+// UpdateUser changes a user's display name, password, role, disabled state or
+// whether their next sign-in must choose a new password.
 func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInput) (*core.User, error) {
 	actor, err := l.authorize(ctx, authz.ActionUserAdmin, authz.Resource{})
 	if err != nil {
@@ -288,6 +291,9 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		before := *u
 		if in.DisplayName != nil {
 			u.DisplayName = *in.DisplayName
+		}
+		if in.RequirePasswordChange != nil {
+			u.RequirePasswordChange = *in.RequirePasswordChange
 		}
 		if in.Disabled != nil {
 			switch {
@@ -318,6 +324,9 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		payload := map[string]any{"email": u.Email, "password_changed": hash != ""}
 		if in.Role != nil {
 			payload["role"] = string(*in.Role)
+		}
+		if in.RequirePasswordChange != nil {
+			payload["require_password_change"] = u.RequirePasswordChange
 		}
 		return m.Record(auditUserUpdate, eventUserUpdated, "user", u.ID, "", before, u, payload)
 	})

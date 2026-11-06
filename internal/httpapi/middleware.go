@@ -116,11 +116,18 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 }
 
 // loggedPath is the path as the log records it. A feed address is a secret a
-// calendar app holds, and a log is read by more people than the app is, so the
-// secret is replaced before the line is written.
+// calendar app holds, and an invite link one a person holds, and a log is read
+// by more people than either, so the secret is replaced before the line is
+// written.
 func loggedPath(path string) string {
 	if isCalendarFeedPath(path) {
 		return wire.CalendarFeedPrefix + "[redacted]"
+	}
+	if isInviteTokenPath(path) {
+		return wire.InviteTokenPrefix + "[redacted]"
+	}
+	if rest, ok := strings.CutPrefix(path, core.InvitePathPrefix); ok && rest != "" {
+		return core.InvitePathPrefix + "[redacted]"
 	}
 	return path
 }
@@ -355,7 +362,8 @@ func isUnscopedPath(path string) bool {
 // IsPublicPath reports whether a route runs without a credential.
 func IsPublicPath(path string) bool {
 	return isUnscopedPath(path) || path == wire.RouteLogin ||
-		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path)
+		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path) ||
+		isInviteTokenPath(path)
 }
 
 // Context keys for the values the forwarded-header and credential middleware

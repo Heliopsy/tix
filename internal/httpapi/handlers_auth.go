@@ -18,6 +18,9 @@ type LoginRequest struct {
 	Email string `json:"email,omitempty"`
 	// Password is the user's password, in the first step.
 	Password string `json:"password,omitempty"`
+	// NewPassword replaces the password, sent with the email and password
+	// again after a password_change challenge.
+	NewPassword string `json:"new_password,omitempty"`
 	// Surface is the sign-in path the session is for, which decides whether a
 	// second factor is required.
 	Surface core.Surface `json:"surface,omitempty"`
@@ -137,11 +140,12 @@ func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := rt.cfg.Service.Login(r.Context(), core.LoginInput{
-		Email:    in.Email,
-		Password: in.Password,
-		Surface:  in.Surface,
-		Ticket:   in.Ticket,
-		Code:     in.Code,
+		Email:       in.Email,
+		Password:    in.Password,
+		NewPassword: in.NewPassword,
+		Surface:     in.Surface,
+		Ticket:      in.Ticket,
+		Code:        in.Code,
 	})
 	if err != nil {
 		WriteError(w, err)

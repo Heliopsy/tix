@@ -77,22 +77,41 @@ func (g *globals) passphrasePrompt(cmd *cobra.Command) sshlogin.Passphrase {
 		return nil
 	}
 	return func(path string) ([]byte, error) {
-		errw := cmd.ErrOrStderr()
-		_, _ = fmt.Fprint(errw, output.NewPainter(g.colorMode(), errw).Muted("passphrase for "+path+": "))
-		defer func() { _, _ = fmt.Fprintln(errw) }()
-		if f, ok := cmd.InOrStdin().(*os.File); ok {
-			phrase, err := term.ReadPassword(f.Fd())
-			if err != nil {
-				return nil, core.Internal("reading the passphrase").Wrap(err)
-			}
-			return phrase, nil
-		}
-		line, err := g.stdin(cmd).ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
+		phrase, err := g.readSecret(cmd, "passphrase for "+path+": ")
+		if err != nil {
 			return nil, core.Internal("reading the passphrase").Wrap(err)
 		}
-		return []byte(strings.TrimRight(line, "\r\n")), nil
+		return phrase, nil
 	}
+}
+
+// askSecret prompts on standard error and reads one answer without echo. An
+// empty answer is refused rather than taken as a value.
+func (g *globals) askSecret(cmd *cobra.Command, prompt string) (string, error) {
+	secret, err := g.readSecret(cmd, prompt)
+	if err != nil {
+		return "", core.Internal("reading the answer").Wrap(err)
+	}
+	if len(secret) == 0 {
+		return "", core.Invalid("no answer was given")
+	}
+	return string(secret), nil
+}
+
+// readSecret writes a prompt to standard error and reads a line without echo
+// when standard input is a real terminal.
+func (g *globals) readSecret(cmd *cobra.Command, prompt string) ([]byte, error) {
+	errw := cmd.ErrOrStderr()
+	_, _ = fmt.Fprint(errw, output.NewPainter(g.colorMode(), errw).Muted(prompt))
+	defer func() { _, _ = fmt.Fprintln(errw) }()
+	if f, ok := cmd.InOrStdin().(*os.File); ok {
+		return term.ReadPassword(f.Fd())
+	}
+	line, err := g.stdin(cmd).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return []byte(strings.TrimRight(line, "\r\n")), nil
 }
 
 // stdin returns the buffered reader every prompt shares. A fresh reader per
