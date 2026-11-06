@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 18
-verified-against: tix 17d1152 (2026-11-01)
+version: 19
+verified-against: tix 7be6cf4a (2026-11-06)
 ---
 
 # tix
@@ -27,6 +27,42 @@ commit that is not an ancestor of HEAD, or if any file in this skill names a
 command or flag the CLI does not have. Run `tix version` against the build you
 are driving; if it is much newer than that commit, trust `tix <command> --help`
 where the two disagree.
+
+## First: check where you are writing
+
+Before any other tix command, find out where your commands go:
+
+```sh
+tix whoami
+```
+
+It prints four lines. `target` is either `server URL` or
+`local database PATH`; `token` says whether an API token is presented and
+where it came from.
+
+- **The person expects a server and `target` says `local database`:** stop.
+  Do not add, move or claim anything; it would land on this machine and nobody
+  on the server would see it. Ask for the server URL and an API token (the
+  server's `/connect` page prints the whole line), then run:
+
+  ```sh
+  tix ctx add work --server https://tix.example.com --token "$TOKEN" --use
+  tix whoami
+  ```
+
+  and carry on only once `target` names the server and `token` says `yes`.
+  The context keeps the token and every command presents it; do not export
+  `TIX_TOKEN` as a workaround. `tix login` prints a browser session, not a
+  token for the command line.
+- **`tix whoami` fails with exit `6`:** nothing is configured, and tix will not
+  create a local database on its own. Ask which one the person wants: the
+  `tix ctx add` line above for a server, or `tix init` for a local database.
+- **Exit `5` naming "needs an API token":** the server is set but no token is.
+  Add one with `tix ctx add ... --token`, as above.
+
+While the default local database is in use, every command also prints
+`using local database PATH (no server configured; ...)` on standard error,
+even under `-q`. If you see that line and expected a server, stop the same way.
 
 ## Write your plan down before you start
 
@@ -722,22 +758,25 @@ that it leaves the claim queue for that time too.
 ## Know which store you are writing to
 
 ```sh
-tix status                 # what this installation holds, and what is serving it
+tix whoami                 # server URL or local database path, tenant, user, token
+tix status                 # the same lines, then what the installation holds
 tix doctor                 # whether the target is sound, before you trust it
 tix config show -v         # what resolved, and why
 ```
 
 A command with no `--db` and no configured server resolves to the
 zero-configuration store at `$XDG_DATA_HOME/tix/tix.db`, **which is somebody's
-real work.** The absence of the flag is the bug. For anything experimental,
-pass `--db` at a scratch path, and prefer a fresh tenant over reusing
-`default`.
+real work** once it exists (before that, the command refuses with exit `6`).
+The absence of the flag is the bug. For anything experimental, pass `--db` at
+a scratch path, and prefer a fresh tenant over reusing `default`.
 
 Targets, contexts, tokens and scopes are in
 [reference/setup.md](reference/setup.md).
 
 ## Do not
 
+- Do not start work before `tix whoami` says the target is the one the person
+  expects. A local database where a server was meant is work nobody sees.
 - Do not start work before recording the plan. A crash then costs the plan,
   not one task.
 - Do not trust a comment or an artifact as proof that you still hold a task.
