@@ -12,6 +12,7 @@ import (
 	stdsync "sync"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	extsync "github.com/heliopsy/tix/internal/sync"
 	"github.com/heliopsy/tix/internal/sync/openproject"
@@ -32,7 +33,11 @@ type openProjectFixture struct {
 
 func newOpenProjectFixture(t *testing.T, unknown string) *openProjectFixture {
 	t.Helper()
-	l, _, _, actor := newLocal(t)
+	key, err := auth.NewTOTPKey()
+	if err != nil {
+		t.Fatalf("minting key: %v", err)
+	}
+	l, _, _, actor := newLocalWith(t, WithTOTPKey(key))
 	ctx := core.WithActor(context.Background(), actor)
 	f := &openProjectFixture{local: l, ctx: ctx, pages: map[string]string{}}
 
@@ -60,6 +65,10 @@ func newOpenProjectFixture(t *testing.T, unknown string) *openProjectFixture {
 		f.pages[page] = string(raw)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if user, password, ok := r.BasicAuth(); !ok || user != "apikey" || password != openProjectKey {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		f.mu.Lock()
 		body, ok := f.pages[r.URL.Query().Get("offset")]
 		f.mu.Unlock()
@@ -76,21 +85,24 @@ func newOpenProjectFixture(t *testing.T, unknown string) *openProjectFixture {
 	mapping = strings.Replace(mapping, "  # map:\n  #   OpenProject Name: tix-handle-or-email\n",
 		"  map:\n    J. Smith: john\n", 1)
 	mapping = strings.Replace(mapping, "unknown: unassigned", "unknown: "+unknown, 1)
-	path := filepath.Join(t.TempDir(), "openproject.yaml")
-	if err := os.WriteFile(path, []byte(mapping), 0o600); err != nil {
-		t.Fatalf("writing mapping: %v", err)
-	}
-	t.Setenv(extsync.EnvName("op", extsync.EnvMapping), path)
-	t.Setenv(extsync.EnvName("op", extsync.EnvURL), srv.URL)
 	t.Setenv(extsync.EnvName("op", extsync.EnvPageSize), "2")
 
-	src, err := l.PutSyncSource(ctx, core.SyncSourceInput{System: core.SystemOpenProject, Name: "op"})
+	// Everything the run needs is stored on the source, as a user configuring
+	// it from their own machine would: the mapping document, the url and the
+	// API key, which the fake server insists on.
+	src, err := l.PutSyncSource(ctx, core.SyncSourceInput{System: core.SystemOpenProject, Name: "op",
+		Mapping: mapping, Config: map[string]any{core.SyncSettingURL: srv.URL},
+		User: "apikey", Password: openProjectKey})
 	if err != nil {
 		t.Fatalf("registering source: %v", err)
 	}
 	f.source = src
 	return f
 }
+
+// openProjectKey is the API key the fake OpenProject server accepts. It is
+// built at run time from a repeated letter, so it is plainly not a real key.
+var openProjectKey = "fake-" + strings.Repeat("x", 20)
 
 func (f *openProjectFixture) run(t *testing.T, dryRun bool) *core.SyncResult {
 	t.Helper()
