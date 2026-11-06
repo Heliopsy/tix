@@ -769,7 +769,9 @@ assignee, status and due date as you go; check the result with
 For a whole tracker, do not script a loop of `task add`: it loses history,
 assignees and the link back, and running it twice duplicates everything. Use
 `tix sync`, which keeps an external reference on every task so a rerun
-refreshes instead of copying again. **Sync runs on the server**: upload the
+refreshes instead of copying again, and carries assignees across by matching
+the source's people to tix users (`users` in the mapping; the dry run's
+`unmatched_users` names whoever did not match). **Sync runs on the server**: upload the
 mapping with `tix sync source set NAME --mapping-file FILE` and store the
 credentials with `--token-stdin` or `--user` plus `--password-stdin`, then
 `tix sync source ls` must show nothing missing before
