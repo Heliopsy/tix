@@ -82,9 +82,27 @@
     var poll = null;
     var deferred = null;
     var live = false;
+    var again = false;
+
+    // A refresh asked for while one is still on its way is run again when
+    // that one lands, never dropped. The coalescer's trailing run used to
+    // arrive here while the leading fetch was still out on a slow server,
+    // and the last changes of a burst were not drawn until some later event
+    // happened to come along.
+    function finished() {
+      pending = null;
+      if (again) {
+        again = false;
+        refresh();
+      }
+    }
 
     function refresh() {
-      if (pending || !bound) {
+      if (!bound) {
+        return;
+      }
+      if (pending) {
+        again = true;
         return;
       }
       if (spec.busy(bound)) {
@@ -98,7 +116,6 @@
       pending = fetch(spec.href(target), { credentials: "same-origin" })
         .then(function (resp) { return resp.ok ? resp.text() : null; })
         .then(function (html) {
-          pending = null;
           // A boosted navigation can swap the page in before htmx:load moves
           // the binding, so the element this was asked for may already be
           // gone while bound still names it. The new page was rendered after
@@ -106,17 +123,28 @@
           // over it threw away its own state: the row a just-added task was
           // marked on lost its ring.
           if (html === null || bound !== target || spec.find() !== target) {
+            finished();
             return;
           }
           if (spec.busy(target)) {
+            pending = null;
+            again = false;
             defer();
             return;
           }
           spec.apply(target, html);
+          finished();
         })
         .catch(function () {
-          pending = null;
+          finished();
         });
+    }
+
+    // settled reports that nothing this stream was asked to draw is still
+    // to come: no fetch out, none queued behind it, none waiting for the
+    // reader or for the coalescer's trailing run.
+    function settled() {
+      return !pending && !again && deferred === null && !(trigger && trigger.queued && trigger.queued());
     }
 
     function schedule() {
@@ -328,7 +356,7 @@
       schedule();
     }
 
-    return { rebind: rebind, woken: woken, poke: schedule };
+    return { rebind: rebind, woken: woken, poke: schedule, settled: settled };
   }
 
   // The activity feed. Its fragment is the row list itself, so the response
@@ -527,6 +555,13 @@
     // mark what is new (assets/inbox.js).
     document.dispatchEvent(new CustomEvent("tix:regions", { detail: ids }));
   }
+
+  // liveSettled reports that the screen and the activity feed have drawn
+  // everything they were asked to. The browser tests wait on it rather than
+  // on the clock.
+  tix.liveSettled = function () {
+    return screen.settled() && feed.settled();
+  };
 
   function rebindAll() {
     feed.rebind();
@@ -1038,6 +1073,14 @@
   // is looking at the same row and the same column as before the update, and
   // counts the new rows that landed above them for the pill.
   tix.liveHold = function (anchors, added) {
+    var page = document.scrollingElement || document.documentElement;
+    var kept = page.style.overflowAnchor;
+    page.style.overflowAnchor = "none";
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        page.style.overflowAnchor = kept;
+      });
+    });
     for (var i = 0; i < anchors.length; i++) {
       var a = anchors[i];
       var box = a.box;
