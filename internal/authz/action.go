@@ -71,6 +71,11 @@ const (
 	// to a project, because a server serves every project there is.
 	ActionServerRead Action = "server.read"
 
+	// ActionTaskExport writes one project's tasks out as a file. Unlike a
+	// snapshot it reaches a single project, so a pinned token may do it for
+	// its own.
+	ActionTaskExport Action = "task.export"
+
 	ActionExport         Action = "export"
 	ActionImport         Action = "import"
 	ActionRetentionWrite Action = "retention.write"
@@ -114,6 +119,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionSyncAdmin:    core.ScopeSyncAdmin,
 
 	ActionExport:         core.ScopeExport,
+	ActionTaskExport:     core.ScopeExport,
 	ActionImport:         core.ScopeImport,
 	ActionRetentionWrite: core.ScopeTenantAdmin,
 	// Reading the installation is administration of the installation, which is
@@ -157,6 +163,8 @@ var projectConfinable = map[Action]bool{
 	ActionFieldWrite:    true,
 	ActionCommentWrite:  true,
 	ActionArtifactWrite: true,
+
+	ActionTaskExport: true,
 }
 
 // ProjectConfinable reports whether a project-pinned token may perform the
@@ -175,7 +183,7 @@ var allActions = []Action{
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
 	ActionExport, ActionImport, ActionRetentionWrite,
-	ActionServerRead,
+	ActionServerRead, ActionTaskExport,
 }
 
 // Actions returns every known action in a stable order.

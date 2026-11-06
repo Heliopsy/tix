@@ -317,6 +317,9 @@ type boardView struct {
 	// Live is what keeps the columns current while the board is open. See
 	// live.go.
 	Live liveScreen
+
+	// Export is the Export dialog, nil for a reader who may not export.
+	Export *exportForm
 }
 
 // projectSettingsView is what a project's settings screen renders.
@@ -433,11 +436,19 @@ func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
 		return boardView{}, err
 	}
 	columns, arrange := h.arrangeProjectBoard(r, *project, workflow.Definition, buildColumns(workflow.Definition, page.Tasks))
-	return boardView{Project: *project, Workflow: *workflow,
+	view := boardView{Project: *project, Workflow: *workflow,
 		Columns: columns,
 		Arrange: arrange,
 		Live:    h.liveBoard(*project),
-	}, nil
+	}
+	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeExport) {
+		defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
+		if err != nil {
+			return boardView{}, err
+		}
+		view.Export = newExportForm(defs)
+	}
+	return view, nil
 }
 
 // workflowOf resolves the workflow a project is assigned.

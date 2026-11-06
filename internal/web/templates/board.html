@@ -9,9 +9,11 @@
     <p class="meta">{{t "Workflow %s" .Data.Workflow.Name}} &middot; <a href="/projects/{{.Data.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Data.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
   </div>
   <div class="pagehead-tools">
+    {{if .Data.Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary" .Here)}}{{end}}
     <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
   </div>
 </div>
+{{with .Data.Export}}{{template "export-dialog" (exportDlg $ .)}}{{end}}
 {{/* A screen reader user learns a drag-and-drop move happened here, since
      nothing else on the page narrates it: the move itself patches the DOM in
      place (assets/live.js) rather than navigating, which a screen reader
@@ -75,4 +77,65 @@
 {{end}}
 {{template "group-hidden" .Data.Arrange}}
 </div>
+{{end}}
+
+{{/* Export writes this project's tasks to a file. The download streams, so
+     a project of any size costs the server a page of tasks at a time. A
+     refusal, a filter that does not parse, comes back with the dialog open,
+     every choice kept and the reason under the field. */}}
+{{define "export-dialog"}}{{$p := .Page}}{{$f := .Form}}{{$d := $p.Dialog.For "export"}}{{$e := $d.Errors}}
+{{$sh := shell "export" (t "Export tasks of %s" $p.Data.Project.Name) "wide" $p.Dialog $p.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="exportform" hx-boost="false" action="/projects/{{$p.Data.Project.Key}}/tasks/export">
+  {{template "csrf" $p.CSRF}}
+  <p class="note"><strong>{{t "Looking at one task?"}}</strong> {{t "Open it, or run tix task show REF -o json. No export needed."}}</p>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="exportgrid">
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-format">{{t "Format"}}</label></div>
+      <select id="export-format" name="format"{{$e.Attrs "format"}}>
+        {{range $f.Formats}}<option value="{{.}}"{{if $d.Chose "format" (print .)}} selected{{end}}>{{t (exportFormat .)}}</option>{{end}}
+      </select>
+      {{with $e.On "format"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-dates">{{t "Dates"}}</label></div>
+      <select id="export-dates" name="dates"{{$e.Attrs "dates"}}>
+        <option value="iso"{{if $d.Chose "dates" "iso"}} selected{{end}}>{{t "ISO 8601, for programs"}}</option>
+        <option value="date"{{if $d.Chose "dates" "date"}} selected{{end}}>{{t "Day only, YYYY-MM-DD"}}</option>
+        <option value="display"{{if $d.Chose "dates" "display"}} selected{{end}}>{{t "As I read them, for a spreadsheet"}}</option>
+      </select>
+      {{with $e.On "dates"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-delimiter">{{t "CSV separator"}}</label></div>
+      <select id="export-delimiter" name="delimiter"{{$e.Attrs "delimiter"}}>
+        {{range $f.Delimiters}}<option value="{{.}}"{{if $d.Chose "delimiter" .}} selected{{end}}>{{t (delimiterLabel .)}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="cfield">
+    <div class="cfield-label"><label for="export-q">{{t "Filter"}}</label></div>
+    <input id="export-q" name="q" class="mono" value="{{$d.Value "q"}}" placeholder="{{t "tag:infra priority:high"}}" autocomplete="off" aria-describedby="export-q-hint"{{$e.Attrs "query"}}>
+    <p class="cfield-hint" id="export-q-hint">{{t "The same filter the task list takes. Empty exports every task of the project."}}</p>
+    {{with $e.On "query"}}{{template "field-error" .}}{{end}}
+  </div>
+  <fieldset class="cform-group exportwhich">
+    <legend>{{t "Include"}}</legend>
+    <label for="export-finished"><input id="export-finished" type="checkbox" name="finished" value="1"{{if $d.Checked "finished" true}} checked{{end}}> {{t "Finished tasks"}}</label>
+    <label for="export-subtasks"><input id="export-subtasks" type="checkbox" name="subtasks" value="1"{{if $d.Checked "subtasks" true}} checked{{end}}> {{t "Subtasks"}}</label>
+    <label for="export-trashed"><input id="export-trashed" type="checkbox" name="trashed" value="1"{{if $d.Checked "trashed" false}} checked{{end}}> {{t "Tasks in the trash"}}</label>
+  </fieldset>
+  <fieldset class="cform-group exportcols"{{$e.Attrs "columns"}}>
+    <legend>{{t "Columns"}}</legend>
+    <p class="cfield-hint">{{t "Ticked columns are written in this order. Move a column up or down with its arrows."}}</p>
+    <ol class="colorder" data-colorder>
+      {{range $f.Columns}}<li><label for="export-col-{{.Key}}"><input id="export-col-{{.Key}}" type="checkbox" name="column" value="{{.Key}}"{{if $d.Refused}}{{if $d.Chose "column" .Key}} checked{{end}}{{else if .Checked}} checked{{end}}> <span>{{t .Label}}</span> <code class="meta">{{.Key}}</code></label><span class="colmove" data-needs-js><button type="button" class="ghost" data-colmove="up" aria-label="{{t "Move %s up" (t .Label)}}" title="{{t "Move up"}}">{{template "icon" "arrow-up"}}</button><button type="button" class="ghost" data-colmove="down" aria-label="{{t "Move %s down" (t .Label)}}" title="{{t "Move down"}}">{{template "icon" "arrow-down"}}</button></span></li>{{end}}
+    </ol>
+    {{with $e.On "columns"}}{{template "field-error" .}}{{end}}
+  </fieldset>
+  <p class="cfield-hint">{{t "A CSV cell that starts with = + - or @ gets a leading quote, so a spreadsheet shows it as text instead of running it."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{template "icon" "download"}}<span>{{t "Download"}}</span></button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}

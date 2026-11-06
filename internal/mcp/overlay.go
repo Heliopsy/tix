@@ -32,6 +32,9 @@ type Entry struct {
 	Description string `yaml:"description,omitempty"`
 	// Destructive overrides the default, which is true for DELETE alone.
 	Destructive *bool `yaml:"destructive,omitempty"`
+	// ReadOnly marks a tool that only reads although its method is not GET,
+	// such as an export asked for with a POST body. It needs a Reason.
+	ReadOnly *bool `yaml:"read_only,omitempty"`
 	// Enable lists a destructive tool without --allow-destructive.
 	Enable *bool `yaml:"enable,omitempty"`
 	// HideParams keeps optional parameters out of the input schema.
@@ -79,6 +82,9 @@ func (o Overlay) Merge(top Overlay) Overlay {
 		if t.Description != "" {
 			e.Description = t.Description
 		}
+		if t.ReadOnly != nil {
+			e.ReadOnly = t.ReadOnly
+		}
 		if t.Destructive != nil {
 			e.Destructive = t.Destructive
 		}
@@ -114,6 +120,12 @@ func (o Overlay) Check(doc *Document) error {
 		}
 		if e.Destructive != nil && *e.Destructive != (op.Method == http.MethodDelete) && strings.TrimSpace(e.Reason) == "" {
 			errs = append(errs, fmt.Errorf("overlay overrides whether %q is destructive without a reason", id))
+		}
+		if isSet(e.ReadOnly) && strings.TrimSpace(e.Reason) == "" {
+			errs = append(errs, fmt.Errorf("overlay marks %q read-only without a reason", id))
+		}
+		if isSet(e.ReadOnly) && isSet(e.Destructive) {
+			errs = append(errs, fmt.Errorf("overlay marks %q both read-only and destructive", id))
 		}
 		for _, name := range e.HideParams {
 			if !slices.ContainsFunc(op.Params, func(p Param) bool { return p.Name == name && !p.Required }) {
