@@ -16,7 +16,7 @@
   <tbody>
   {{range $v.Runs}}
     <tr>
-      <td>{{compact .At}}</td>
+      <td>{{when .At}}</td>
       <td>{{if .Source}}{{.Source}}{{else}}<span class="muted">{{t "unknown"}}</span>{{end}}</td>
       <td>{{.System}}</td>
       <td>{{.Created}}</td>
@@ -50,7 +50,7 @@
     <tr>
       <td>{{.Name}}</td>
       <td>{{.System}}</td>
-      <td>{{stamp .LastRunAt}}</td>
+      <td>{{when .LastRunAt}}</td>
       <td>{{if .LastStatus}}{{.LastStatus}}{{else}}{{t "never run"}}{{end}}</td>
       <td>{{if .Cursor}}<code>{{.Cursor}}</code>{{else}}<span class="muted">{{t "none yet, the next run reads everything"}}</span>{{end}}</td>
     </tr>

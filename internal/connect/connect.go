@@ -345,6 +345,8 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
+		service.WithTimeDefaults(core.TimePrefs{
+			TimeFormat: cfg.Config.Output.TimeFormat, Timezone: cfg.Config.Output.Timezone}),
 	)
 	tenant, err := resolveTenant(ctx, st, local, target.Tenant)
 	if err != nil {

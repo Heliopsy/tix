@@ -16,7 +16,7 @@ import (
 func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
-			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping"),
+			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings"),
 		post(RouteTenant, h.updateTenant, "UpdateTenant"),
 		post(RouteMembers, h.addMember, "AddMember"),
 		post(RouteMemberRemove, h.removeMember, "RemoveMember"),
@@ -54,9 +54,13 @@ type tenantView struct {
 	Tenants      []core.Tenant
 	// Trash is whether deleted tasks are kept, and how many are held, so
 	// turning it off can say what stays behind.
-	Trash     core.TrashStatus
-	Members   []core.Membership
-	Retention core.RetentionPolicy
+	Trash core.TrashStatus
+	// DateFormat and DateZone are the tenant's default date format and
+	// timezone, each with the deployment value it inherits.
+	DateFormat timeLevel
+	DateZone   timeLevel
+	Members    []core.Membership
+	Retention  core.RetentionPolicy
 	// Housekeeping is the tenant's cleanup rules and what they would act on
 	// now.
 	Housekeeping *housekeepingForm
@@ -128,7 +132,9 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
 	}
+	dateFormat, dateZone := tenantTimeLevels(h.readerSettings(r))
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
+		DateFormat: dateFormat, DateZone: dateZone,
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
 		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
@@ -261,6 +267,14 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	case "off":
 		off := true
 		in.TrashOff = &off
+	}
+	if r.PostForm.Has("time_format") {
+		v := field(r, "time_format")
+		in.TimeFormat = &v
+	}
+	if r.PostForm.Has("timezone") {
+		v := field(r, "timezone")
+		in.Timezone = &v
 	}
 	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err

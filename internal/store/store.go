@@ -67,6 +67,7 @@ type Tx interface {
 	InboxChannelTx
 	TemplateTx
 	HousekeepingTx
+	TimePrefsTx
 
 	Commit() error
 	Rollback() error
@@ -449,6 +450,17 @@ type AuthTx interface {
 	// compare-and-swap that makes a sign-in challenge single use per key
 	// across every process sharing the database.
 	ClaimSSHKeyUse(ctx context.Context, id string, issued, at time.Time) (bool, error)
+}
+
+// TimePrefsTx covers a person's own date format and timezone, which sit on
+// the global users row for the reason TOTPTx gives: one person, one setting,
+// in every tenant.
+type TimePrefsTx interface {
+	// UserTimePrefs returns a user's choice; a caller with no users row is a
+	// not-found error.
+	UserTimePrefs(ctx context.Context, userID string) (core.TimePrefs, error)
+	// SetUserTimePrefs replaces a user's choice.
+	SetUserTimePrefs(ctx context.Context, userID string, p core.TimePrefs) error
 }
 
 // TOTPTx covers the enrolled second factor and its recovery codes.

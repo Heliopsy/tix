@@ -32,7 +32,7 @@
       </span>
       <span class="conn-from mono">{{.Remote}}{{if .Fingerprint}} &middot; {{.Fingerprint}}{{end}}</span>
     </span>
-    <span class="conn-since muted">{{t "since %s" (compact .Since)}}</span>
+    <span class="conn-since muted">{{tt "since %s" (when .Since)}}</span>
     <form method="post" action="/admin/connections/end" class="conn-end">
       {{template "csrf" $.CSRF}}
       <input type="hidden" name="id" value="{{.ID}}">

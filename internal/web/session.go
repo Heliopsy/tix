@@ -22,14 +22,14 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteLogin, "login.html", h.showLogin)),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		post(RouteLogout, h.doLogout, "Logout"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
-		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
+		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
 		post(RouteKeyScheme, h.setKeyScheme, "Logout"),
-		post(RouteTimeFormat, h.setTimeFormat, "Logout"),
-		post(RouteTimezone, h.setTimezone, "Logout"),
+		post(RouteTimeFormat, h.setTimeFormat, "SetTimePrefs"),
+		post(RouteTimezone, h.setTimezone, "SetTimePrefs"),
 		post(RouteColumns, h.setColumns, "Logout"),
 		post(RouteVisibility, h.setVisibility, "Logout"),
 		post(RouteTaskView, h.setTaskView, "Logout"),
@@ -141,12 +141,12 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 type settingsView struct {
 	TargetDescribe string
 	// ShowTarget draws the Database section, for a tenant administrator only.
-	ShowTarget  bool
-	Shortcuts   shortcutTable
-	TimeFormat  string
-	Timezone    string
-	TimeFormats []timeChoice
-	Timezones   []timeChoice
+	ShowTarget bool
+	Shortcuts  shortcutTable
+	// DateFormat and DateZone are the reader's own date preferences, kept
+	// with their account, each with what it inherits and what is in force.
+	DateFormat timeLevel
+	DateZone   timeLevel
 
 	// Prefs holds the three preferences whose controls also sit on the screen
 	// that uses them: the column picker of every listing, the project
@@ -185,7 +185,7 @@ func (h *handler) showSettings(w http.ResponseWriter, r *http.Request) error {
 // renderSettings draws the settings screen with the given calendar and
 // Notifications sections, which a refused form replaces with what it refused.
 func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status int, calendar calendarView, notes notificationsSection) error {
-	zone := timezoneOf(r)
+	format, zone := userTimeLevels(h.readerSettings(r))
 	// The same walk the task screen's visibility control is built from, so
 	// the two controls are offered one set of projects rather than one a page
 	// deep and one whole.
@@ -201,10 +201,8 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		TargetDescribe: h.targetDescribe,
 		ShowTarget:     tenantAdmin(r),
 		Shortcuts:      buildShortcutTable(),
-		TimeFormat:     timeFormatOf(r),
-		Timezone:       zone,
-		TimeFormats:    timeFormatChoices(zone),
-		Timezones:      timezoneChoices(),
+		DateFormat:     format,
+		DateZone:       zone,
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
 		Calendar:       calendar,
@@ -389,42 +387,39 @@ const (
 	RouteTimezone   = "/timezone"
 )
 
-// setTimeFormat records the timestamp layout this browser wants, following the
-// pattern setTheme and setKeyScheme use: a cookie, not a tenant setting,
-// because two people sharing a tenant read a date in different conventions
-// just as they type in different shortcuts. A layout this build does not
-// render is stored as the empty value, which means the deployment's own.
+// setTimeFormat saves the reader's own date format on their account, so it
+// follows them to every browser and terminal. The empty value returns it to
+// the tenant's default.
 func (h *handler) setTimeFormat(w http.ResponseWriter, r *http.Request) error {
-	h.setDisplayCookie(w, r, TimeFormatCookie, resolvedTimeFormat(field(r, "time_format")))
-	return nil
+	v := field(r, "time_format")
+	return h.saveTimePrefs(w, r, core.TimePrefsInput{TimeFormat: &v})
 }
 
-// setTimezone records the zone this browser wants. A name that is not on offer,
-// or that this system's zone database cannot load, is stored as the empty
-// value, so a timestamp is never rendered in a zone nobody chose.
+// setTimezone saves the reader's own timezone on their account.
 func (h *handler) setTimezone(w http.ResponseWriter, r *http.Request) error {
-	h.setDisplayCookie(w, r, TimezoneCookie, resolvedZone(field(r, "timezone")))
-	return nil
+	v := field(r, "timezone")
+	return h.saveTimePrefs(w, r, core.TimePrefsInput{Timezone: &v})
 }
 
-// setDisplayCookie stores one already-validated display preference and returns
-// the browser to the page the form named.
-func (h *handler) setDisplayCookie(w http.ResponseWriter, r *http.Request, name, value string) {
-	// #nosec G124 -- a display preference, readable by no script.
-	http.SetCookie(w, &http.Cookie{
-		Name: name, Value: value, Path: "/",
-		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
-		MaxAge: cookieYear,
-	})
+// saveTimePrefs writes one date preference and returns to the form's page.
+func (h *handler) saveTimePrefs(w http.ResponseWriter, r *http.Request, in core.TimePrefsInput) error {
+	if _, err := h.svc.SetTimePrefs(r.Context(), in); err != nil {
+		return err
+	}
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
 	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
 }
 
 // timeChoice is one option in a date preference select.
 type timeChoice struct {
 	Value string
 	Label string
+	// Inherits and From describe what the inherit choice would give and
+	// from which level, for that choice only.
+	Inherits string
+	From     string
 }
 
 // timeFormatNames are the words a layout is offered under, since the
@@ -444,43 +439,43 @@ var timeFormatNames = map[string]string{
 var timeFormatExample = time.Date(2026, time.September, 21, 14, 5, 9, 0, time.UTC)
 
 // timeFormatChoices offers every layout with an example rendered by the
-// renderer itself, in the zone this browser reads in, so an example can never
-// claim a layout the screens do not actually produce.
+// renderer itself, in the zone the reader reads in, so an example can never
+// claim a layout the screens do not actually produce. The first, empty,
+// choice inherits; its label is filled in by whoever knows what from.
 func timeFormatChoices(zone string) []timeChoice {
 	out := make([]timeChoice, 0, len(output.TimeFormats)+1)
-	out = append(out, timeChoice{Value: "", Label: "Server default"})
+	out = append(out, timeChoice{Value: "", Label: "Inherit"})
 	for _, name := range output.TimeFormats {
-		style, err := output.NewTimeStyle(name, zone)
-		if err != nil {
-			continue
-		}
-		sample := timeFormatExample
-		if name == output.TimeRelative {
-			sample = time.Now().Add(-18 * time.Minute)
-		}
-		out = append(out, timeChoice{Value: name,
-			Label: timeFormatNames[name] + " (" + style.Format(sample) + ")"})
+		out = append(out, timeChoice{Value: name, Label: timeFormatLabel(name, zone)})
 	}
 	return out
 }
 
-// timezoneChoices offers every zone this system can load, so a host without a
-// zone database offers only the deployment default rather than names that
-// would silently fall back to it.
-func timezoneChoices() []timeChoice {
-	out := make([]timeChoice, 0, len(Timezones))
+// timezoneChoicesWith offers every zone on the list this system can load, and
+// held as well when it is not on the list, so a zone chosen from the command
+// line is shown rather than silently replaced by the first option.
+func timezoneChoicesWith(held string) []timeChoice {
+	out := make([]timeChoice, 0, len(Timezones)+1)
+	listed := false
 	for _, zone := range Timezones {
 		if zone == "" {
-			out = append(out, timeChoice{Value: "", Label: "Server default"})
+			out = append(out, timeChoice{Value: "", Label: "Inherit"})
 			continue
 		}
 		if _, err := time.LoadLocation(zone); err != nil {
 			continue
 		}
-		out = append(out, timeChoice{Value: zone, Label: strings.ReplaceAll(zone, "_", " ")})
+		listed = listed || zone == held
+		out = append(out, timeChoice{Value: zone, Label: zoneDisplay(zone)})
+	}
+	if held != "" && !listed {
+		out = append(out, timeChoice{Value: held, Label: zoneDisplay(held)})
 	}
 	return out
 }
+
+// zoneDisplay writes a zone name the way it reads.
+func zoneDisplay(zone string) string { return strings.ReplaceAll(zone, "_", " ") }
 
 // cookieYear keeps a display preference for a year.
 const cookieYear = 365 * 24 * 60 * 60

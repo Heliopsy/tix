@@ -43,6 +43,12 @@ type Tenant struct {
 	// TrashOff makes deleting a task permanent on this tenant. False, the
 	// default, keeps deleted tasks in a trash they can be restored from.
 	TrashOff bool `json:"trash_off" yaml:"trash_off"`
+	// TimeFormat is the date format this tenant's people read unless they
+	// chose their own. Empty inherits the deployment's output.time_format.
+	TimeFormat string `json:"time_format,omitempty" yaml:"time_format,omitempty"`
+	// Timezone is the IANA zone this tenant's people read dates in unless they
+	// chose their own. Empty inherits the deployment's output.timezone.
+	Timezone string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
 
 	// CreatedAt is when the tenant was created, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`

@@ -33,13 +33,7 @@ type quickChip struct {
 // readerNow is the present in the zone this reader chose under Settings, or
 // the deployment's own, which is the calendar "tomorrow" is counted in.
 func (h *handler) readerNow(r *http.Request) time.Time {
-	loc := h.style.Location()
-	if zone := timezoneOf(r); zone != "" {
-		if chosen, err := time.LoadLocation(zone); err == nil {
-			loc = chosen
-		}
-	}
-	return time.Now().In(loc)
+	return time.Now().In(h.readerStyle(r).Location())
 }
 
 // quickInput reads the box's line into the input. The project picker beside

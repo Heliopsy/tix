@@ -231,6 +231,7 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err := l.totpRequirementIsReachable(in); err != nil {
 		return nil, err
 	}
+	core.NormalizeTimePrefs(in.TimeFormat, in.Timezone)
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
@@ -274,6 +275,12 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if in.TrashOff != nil {
 			t.TrashOff = *in.TrashOff
+		}
+		if in.TimeFormat != nil {
+			t.TimeFormat = *in.TimeFormat
+		}
+		if in.Timezone != nil {
+			t.Timezone = *in.Timezone
 		}
 		u, err := asUnscoped(m.tx)
 		if err != nil {

@@ -279,7 +279,7 @@ func TestTokenListingShowsWhenATokenWasCreated(t *testing.T) {
 	}
 	// The second cell: Name, Scopes, Created, with every column shown.
 	want := style.Format(f.clock.Now())
-	if got := tokenCellUnder(t, page, "Created"); got != want {
+	if got := tokenCellUnder(t, page, "Created"); !showsAt(got, f.clock.Now(), want) {
 		t.Errorf("the created cell reads %q, want the token's own creation time %q", got, want)
 	}
 }

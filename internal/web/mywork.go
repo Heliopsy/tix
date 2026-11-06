@@ -92,15 +92,10 @@ func (h *handler) withHeld(r *http.Request, assigned core.TaskFilter, page core.
 	return page, nil
 }
 
-// readerZone is where "today" ends for this reader: the zone they chose,
-// or the deployment's.
+// readerZone is where "today" ends for this reader: the zone they read
+// dates in.
 func (h *handler) readerZone(r *http.Request) *time.Location {
-	if zone := timezoneOf(r); zone != "" {
-		if loc, err := time.LoadLocation(zone); err == nil {
-			return loc
-		}
-	}
-	return h.style.Location()
+	return h.readerStyle(r).Location()
 }
 
 // buildDueGroups splits tasks into the deadline buckets, in bucket order,

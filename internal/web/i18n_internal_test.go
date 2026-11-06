@@ -264,7 +264,7 @@ func allKeys(t *testing.T) map[string]string {
 }
 
 // keyArgs is how many leading string arguments of each helper are keys.
-var keyArgs = map[string]int{"t": 1, "th": 1, "tn": 2, "tip": 2, "savedNext": 1}
+var keyArgs = map[string]int{"t": 1, "tt": 1, "th": 1, "tn": 2, "tip": 2, "savedNext": 1}
 
 // keyTemplates are partials that translate the string they are handed.
 var keyTemplates = map[string]bool{"field-info": true}

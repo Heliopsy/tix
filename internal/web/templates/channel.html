@@ -35,7 +35,7 @@
     <tbody>
     {{range $v.Deliveries}}
     <tr>
-      <td><time datetime="{{absolute .CreatedAt}}" title="{{absolute .CreatedAt}}">{{relativeAt .CreatedAt}}</time></td>
+      <td>{{whenRel .CreatedAt}}</td>
       <td>{{if .Test}}{{t "test"}}{{else}}{{t "inbox item"}}{{end}}</td>
       <td><span class="pill status {{if eq .Status "delivered"}}done{{else if eq .Status "failed"}}blocked{{else}}todo{{end}}">{{t (printf "%s" .Status)}}</span></td>
       <td>{{.Attempts}}</td>

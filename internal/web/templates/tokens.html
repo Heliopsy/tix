@@ -17,7 +17,7 @@
 {{end}}
 <div class="table-wrap">
 <table>
-  <thead><tr><th>{{t "Name"}}</th>{{if .Data.Owners}}<th>{{t "Owner"}}</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">{{t "Scopes"}}</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>{{t "Created"}}</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>{{t "Expires"}}</th>{{end}}<th>{{t "State"}}</th><th class="actioncell"></th></tr></thead>
+  <thead><tr><th>{{t "Name"}}</th>{{if .Data.Owners}}<th>{{t "Owner"}}</th>{{end}}{{if .Columns.Show "tokens" "scopes"}}<th class="scopecell">{{t "Scopes"}}</th>{{end}}{{if .Columns.Show "tokens" "created"}}<th>{{t "Created"}}</th>{{end}}{{if .Columns.Show "tokens" "expires"}}<th>{{t "Expires"}}</th>{{end}}{{if .Columns.Show "tokens" "used"}}<th>{{t "Last used"}}</th>{{end}}<th>{{t "State"}}</th><th class="actioncell"></th></tr></thead>
   <tbody>
   {{range .Data.Tokens}}
     <tr>
@@ -26,13 +26,14 @@
            owner column cannot be acted on: every row looks like your own. */}}
       {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "scopes"}}<td class="scopecell">{{range .Scopes}}<code class="evchip">{{.}}</code>{{end}}</td>{{end}}
-      {{if $.Columns.Show "tokens" "created"}}<td>{{compact .CreatedAt}}</td>{{end}}
+      {{if $.Columns.Show "tokens" "created"}}<td>{{when .CreatedAt}}</td>{{end}}
       {{/* A token with no expiry says so. An empty cell under a heading
            reading "Expires" is indistinguishable from an expiry the screen
            failed to render, which is exactly what this column was before the
            form could set one. */}}
-      {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{stamp .ExpiresAt}}{{else}}<span class="muted">{{t "Never"}}</span>{{end}}</td>{{end}}
-      <td><span class="badge tok-{{tokenState .APIToken}}">{{t (tokenState .APIToken)}}</span>{{if .RevokedAt}} <span class="muted">{{stamp .RevokedAt}}</span>{{end}}</td>
+      {{if $.Columns.Show "tokens" "expires"}}<td>{{if .ExpiresAt}}{{when .ExpiresAt}}{{else}}<span class="muted">{{t "Never"}}</span>{{end}}</td>{{end}}
+      {{if $.Columns.Show "tokens" "used"}}<td>{{if .LastUsedAt}}{{when .LastUsedAt}}{{else}}<span class="muted">{{t "Not yet"}}</span>{{end}}</td>{{end}}
+      <td><span class="badge tok-{{tokenState .APIToken}}">{{t (tokenState .APIToken)}}</span>{{if .RevokedAt}} <span class="muted">{{when .RevokedAt}}</span>{{end}}</td>
       <td>
         {{if not .RevokedAt}}{{template "dlg-open" ((opener (print "token-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke %s" .Name))}}{{end}}
       </td>

@@ -744,6 +744,20 @@ var registry = []Operation{
 		Exempt: []Exemption{off(SurfaceTUI, "mutes are a setting, and the terminal interface has no settings screen; set them from the browser or tix inbox prefs")},
 	},
 	{
+		Name: "time.settings", Method: "GetTimeSettings",
+		CLI:    "tix user time",
+		HTTP:   apiGet(wire.RouteTimeSettings),
+		Web:    webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{off(SurfaceTUI, "read when the interface opens to choose how it draws every date; it has no view of its own, and the settings screen shows the value in force")},
+	},
+	{
+		Name: "time.prefs.set", Method: "SetTimePrefs",
+		CLI:    "tix user time",
+		HTTP:   apiPatch(wire.RouteTimeSettings),
+		Web:    webPost(web.RouteTimeFormat),
+		Exempt: []Exemption{off(SurfaceTUI, "the terminal settings screen changes this machine's output.time_format and output.timezone, which win over the account's; set the account's own with tix user time or in the browser")},
+	},
+	{
 		Name: "inbox.channel.list", Method: "ListInboxChannels",
 		Scope:  core.ScopeTaskRead,
 		CLI:    "tix inbox channel ls",
