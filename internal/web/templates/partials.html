@@ -664,6 +664,7 @@
     <div><dt>{{t "Subject"}}</dt><dd>{{if $.SubjectHref}}<a href="{{$.SubjectHref}}">{{$.Subject}}</a>{{else}}{{$.Subject}}{{end}} <span class="mono muted">{{$h.Entry.SubjectType}} {{$h.Entry.SubjectID}}</span></dd></div>
     <div><dt>{{t "Time"}}</dt><dd><time datetime="{{$h.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{absolute $h.Entry.OccurredAt}}</time> <span class="muted">({{relativeAt $h.Entry.OccurredAt}})</span></dd></div>
     <div><dt>{{t "Source"}}</dt><dd class="mono">{{$h.Entry.Source}}</dd></div>
+    {{template "via-fields" $h.Channel}}
     <div><dt>{{t "Sequence"}}</dt><dd class="mono">{{$h.Entry.Seq}}</dd></div>
   </dl>
   {{with $h.Diff}}
