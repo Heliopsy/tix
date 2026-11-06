@@ -222,7 +222,7 @@ func assetNames(t *testing.T, ext string) []string {
 	}
 	var out []string
 	for _, e := range entries {
-		if filepath.Ext(e.Name()) == ext && e.Name() != "htmx.min.js" {
+		if filepath.Ext(e.Name()) == ext && !strings.HasSuffix(e.Name(), ".min.js") {
 			out = append(out, e.Name())
 		}
 	}

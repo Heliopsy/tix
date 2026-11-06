@@ -86,6 +86,16 @@ screenshots *ARGS: build
       || npx playwright install chromium
     node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/screenshots {{ARGS}}
 
+# After a version bump, update the versions and sha256 recorded in REUSE.toml.
+# Rebuild the description editor's Rich text library from scripts/vendor/prosemirror.
+vendor-prosemirror:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd scripts/vendor/prosemirror
+    npm ci --no-audit --no-fund
+    node build.mjs
+    sha256sum ../../../internal/web/assets/prosemirror.min.js
+
 clean:
     rm -rf bin/ dist/ coverage.out coverage.filtered.out coverage.html {{env_log}}
 
@@ -313,7 +323,7 @@ yamllint: (tool "yamllint" ".")
 # whatever length the commit footer was, so the file arrives failing and the
 # only way to make it pass is to edit a file that is regenerated on the next
 # release. Linting generated output teaches people to ignore the linter.
-mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "scripts/screenshots/node_modules" "--ignore" "openspec" "--ignore" "CHANGELOG.md" ".") \
+mdlint: (tool "markdownlint" "--ignore" "node_modules" "--ignore" "scripts/screenshots/node_modules" "--ignore" "scripts/vendor/prosemirror/node_modules" "--ignore" "openspec" "--ignore" "CHANGELOG.md" ".") \
         (tool "markdownlint" "--config" ".markdownlint-specs.yaml" "openspec")
 # A glob, not a directory: node resolves a directory argument as a module. The
 # CI image already carries node for markdownlint and openspec, so a developer

@@ -21,6 +21,34 @@ precedence = "override"
 SPDX-FileCopyrightText = "Big Sky Software"
 SPDX-License-Identifier = "0BSD"
 
+# ProseMirror and markdown-it, bundled unmodified into one script for the
+# description editor's Rich text mode (assets/richtext.js).
+#   built by : scripts/vendor/prosemirror (`just vendor-prosemirror`), esbuild 0.28.2
+#   versions : exact pins in scripts/vendor/prosemirror/package.json and
+#              package-lock.json; also listed in the file's banner comment
+#   sources  : https://github.com/ProseMirror (model 1.25.12, state 1.4.4,
+#              view 1.42.6, transform 1.12.2, commands 1.7.2, history 1.5.1,
+#              keymap 1.2.3, inputrules 1.5.1, schema-list 1.5.1, tables 1.8.5,
+#              markdown 1.13.8) and https://github.com/markdown-it/markdown-it
+#              14.3.3, with linkify-it, mdurl, uc.micro, punycode.js, entities,
+#              orderedmap, rope-sequence and w3c-keyname
+#   sha256   : 6804167a401911fc19b9a0528be77939d5769a5881ebcaa98315b072a78844da
+#   licence  : MIT, except entities, which is BSD-2-Clause
+# Do not add an SPDX line to this file: it is not ours to relicense.
+[[annotations]]
+path = "internal/web/assets/prosemirror.min.js"
+precedence = "override"
+SPDX-FileCopyrightText = ["Marijn Haverbeke and others", "Vitaly Puzrin and Alex Kocharin", "Mathias Bynens", "Felix Boehm"]
+SPDX-License-Identifier = "MIT AND BSD-2-Clause"
+
+# The vendor build's manifest and lockfile, and the rich text round-trip
+# corpus, which are JSON and cannot hold a comment.
+[[annotations]]
+path = ["scripts/vendor/prosemirror/*.json", "internal/web/jstest/testdata/*.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "tix contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
 # Binary and fixture files that cannot hold a comment.
 [[annotations]]
 path = ["screenshots/**", "tix.svg", "internal/web/assets/**.png"]
