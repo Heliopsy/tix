@@ -367,26 +367,26 @@ found when the project has no uploaded icon.
 
 ### Requirement: View arrangement endpoints
 
-The API SHALL expose, for the authenticated actor: `GET /v1/views/{view}/groups` returning the
-actor's preferences on the view; and `PATCH /v1/views/{view}/groups/{group}` taking any of `hidden`,
+The API SHALL expose, for the authenticated actor: `GET /api/v1/views/{view}/groups` returning the
+actor's preferences on the view; and `PATCH /api/v1/views/{view}/groups/{group}` taking any of `hidden`,
 `collapsed` and `starred` and returning the resulting preference. A view is `board`, `lanes` or
 `project:KEY`; anything else SHALL be refused as invalid, and a group the view cannot hold SHALL be
 refused as invalid or not found.
 
 #### Scenario: Hiding a column over HTTP
 
-- **WHEN** a client sends `PATCH /v1/views/board/groups/done` with `{"hidden": true}`
-- **THEN** the response carries `"hidden": true` and a following `GET /v1/views/board/groups` lists it
+- **WHEN** a client sends `PATCH /api/v1/views/board/groups/done` with `{"hidden": true}`
+- **THEN** the response carries `"hidden": true` and a following `GET /api/v1/views/board/groups` lists it
 
 #### Scenario: An unknown view is refused
 
-- **WHEN** a client sends `GET /v1/views/calendar/groups`
+- **WHEN** a client sends `GET /api/v1/views/calendar/groups`
 - **THEN** the response is 400
 
 ### Requirement: View arrangement order and reset endpoints
 
-The API SHALL expose, for the authenticated actor: `PUT /v1/views/{view}/order` taking `groups` and
-returning the preferences it wrote; and `DELETE /v1/views/{view}/groups` forgetting every preference
+The API SHALL expose, for the authenticated actor: `PUT /api/v1/views/{view}/order` taking `groups` and
+returning the preferences it wrote; and `DELETE /api/v1/views/{view}/groups` forgetting every preference
 on the view, or only the one named by the `group` query parameter, and answering `204 No Content`.
 
 #### Scenario: Resetting one group over HTTP
@@ -432,14 +432,14 @@ key, and the response SHALL carry the current key and reference.
 
 ### Requirement: Copy endpoint
 
-The API SHALL expose `POST /v1/tasks/{ref}/copy` taking a JSON body with optional `project_ref`,
+The API SHALL expose `POST /api/v1/tasks/{ref}/copy` taking a JSON body with optional `project_ref`,
 `title`, `keep_status`, `with_comments`, `with_subtasks`, `with_dependencies` and `link`. It
 SHALL answer `201 Created` with the root copy. A task read SHALL carry `copied_from_id` when the
 task records one.
 
 #### Scenario: Copy over HTTP
 
-- **WHEN** a client sends `POST /v1/tasks/OPS-3/copy` with `{"project_ref": "WEB", "link": true}`
+- **WHEN** a client sends `POST /api/v1/tasks/OPS-3/copy` with `{"project_ref": "WEB", "link": true}`
 - **THEN** the response is 201 and its body is a WEB task whose `copied_from_id` is OPS-3's identifier
 
 #### Scenario: Unknown target
@@ -460,14 +460,14 @@ listing only live ones. The client SHALL send the filter contract's `Trashed` fi
 
 ### Requirement: Bulk endpoint
 
-The API SHALL expose `POST /v1/tasks/bulk` taking a JSON body with `action`, `refs` and the
+The API SHALL expose `POST /api/v1/tasks/bulk` taking a JSON body with `action`, `refs` and the
 action's argument (`to`, `priority`, `tag`, `assignee_actor_id`, `project_ref`, `cascade`), and
 SHALL answer `200 OK` with the per-task outcomes and the applied and refused counts, also when
 some tasks were refused.
 
 #### Scenario: Bulk over HTTP
 
-- **WHEN** a client sends `POST /v1/tasks/bulk` with `{"action": "priority", "refs": ["OPS-1", "OPS-2"], "priority": 1}`
+- **WHEN** a client sends `POST /api/v1/tasks/bulk` with `{"action": "priority", "refs": ["OPS-1", "OPS-2"], "priority": 1}`
 - **THEN** the response is 200, both outcomes are applied, and both tasks have priority 1
 
 #### Scenario: Unknown action
@@ -477,7 +477,7 @@ some tasks were refused.
 
 ### Requirement: Task listing as CSV
 
-`GET /v1/tasks` SHALL answer with `text/csv` when the request carries `format=csv` or an
+`GET /api/v1/tasks` SHALL answer with `text/csv` when the request carries `format=csv` or an
 `Accept` header naming `text/csv`. The body SHALL hold a header row and one row per task of the
 page, in the columns `ref, project, title, status, priority, assignee, tags, due, created,
 updated`, escaped by RFC 4180, with any cell starting with `=`, `+`, `-`, `@`, a tab or a
@@ -486,7 +486,7 @@ carriage return prefixed with `'`. The next cursor, when there is one, SHALL be 
 
 #### Scenario: CSV by query parameter
 
-- **WHEN** a client requests `GET /v1/tasks?format=csv`
+- **WHEN** a client requests `GET /api/v1/tasks?format=csv`
 - **THEN** the response has content type `text/csv` and its first line is the header row
 
 #### Scenario: Formula guard
@@ -496,18 +496,18 @@ carriage return prefixed with `'`. The next cursor, when there is one, SHALL be 
 
 ### Requirement: Saved filter routes
 
-The API SHALL serve `GET /v1/filters`, `POST /v1/filters` (answering `201`), `GET /v1/filters/{filter}`,
-`PATCH /v1/filters/{filter}`, `PUT /v1/filters/order` and `DELETE /v1/filters/{filter}` (answering `204`)
+The API SHALL serve `GET /api/v1/filters`, `POST /api/v1/filters` (answering `201`), `GET /api/v1/filters/{filter}`,
+`PATCH /api/v1/filters/{filter}`, `PUT /api/v1/filters/order` and `DELETE /api/v1/filters/{filter}` (answering `204`)
 over the saved filter operations, with the filter addressed by identifier or name.
 
 #### Scenario: Save and read back
 
 - **WHEN** a client posts `{"name": "ops", "query": "tag:ops"}` to `/v1/filters`
-- **THEN** the answer is `201` with the filter, and `GET /v1/filters/ops` answers the same filter
+- **THEN** the answer is `201` with the filter, and `GET /api/v1/filters/ops` answers the same filter
 
 ### Requirement: Quick-add over HTTP
 
-`POST /v1/tasks` SHALL accept `"parse": true`, which reads `title` through the quick-add
+`POST /api/v1/tasks` SHALL accept `"parse": true`, which reads `title` through the quick-add
 parser, resolving relative dates in UTC, before the task is created. Without it the title
 SHALL be stored literally. A field in the body that the line contradicts SHALL be refused
 with 400.
@@ -579,30 +579,30 @@ answering `204`. It SHALL serve `GET /api/v1/calendar/feeds/{token}.ics` without
 
 ### Requirement: Inbox endpoints
 
-The API SHALL expose, for the authenticated actor: `GET /v1/inbox` listing items newest first with
-`limit`, `cursor` and `unread`, and a `next_cursor`; `GET /v1/inbox/count` returning `unread`;
-`PUT /v1/inbox/{id}/read` and `DELETE /v1/inbox/{id}/read` marking one item read or unread and
-returning it; `POST /v1/inbox/read-all` returning how many it marked; and `GET /v1/inbox/prefs` and
-`PUT /v1/inbox/prefs` reading and replacing the muted kinds. An unknown kind SHALL be refused as
+The API SHALL expose, for the authenticated actor: `GET /api/v1/inbox` listing items newest first with
+`limit`, `cursor` and `unread`, and a `next_cursor`; `GET /api/v1/inbox/count` returning `unread`;
+`PUT /api/v1/inbox/{id}/read` and `DELETE /api/v1/inbox/{id}/read` marking one item read or unread and
+returning it; `POST /api/v1/inbox/read-all` returning how many it marked; and `GET /api/v1/inbox/prefs` and
+`PUT /api/v1/inbox/prefs` reading and replacing the muted kinds. An unknown kind SHALL be refused as
 invalid.
 
 #### Scenario: Paging the inbox
 
 - **GIVEN** an actor with three items
-- **WHEN** a client sends `GET /v1/inbox?limit=2` and then follows `next_cursor`
+- **WHEN** a client sends `GET /api/v1/inbox?limit=2` and then follows `next_cursor`
 - **THEN** it sees the three items newest first, each once
 
 #### Scenario: Muting an unknown kind
 
-- **WHEN** a client sends `PUT /v1/inbox/prefs` with `{"muted": ["everything"]}`
+- **WHEN** a client sends `PUT /api/v1/inbox/prefs` with `{"muted": ["everything"]}`
 - **THEN** the response is 400
 
 ### Requirement: Notification channel endpoints
 
-The API SHALL expose `GET /v1/channels`, `POST /v1/channels` (answering 201 with the channel and its
-`secret`), `PATCH /v1/channels/{id}`, `DELETE /v1/channels/{id}`, `POST /v1/channels/{id}/test`,
-`GET /v1/channels/{id}/deliveries` (keyset paginated, newest first) and
-`POST /v1/channel-deliveries/{id}/redeliver`, all over the authenticated actor's own channels.
+The API SHALL expose `GET /api/v1/channels`, `POST /api/v1/channels` (answering 201 with the channel and its
+`secret`), `PATCH /api/v1/channels/{id}`, `DELETE /api/v1/channels/{id}`, `POST /api/v1/channels/{id}/test`,
+`GET /api/v1/channels/{id}/deliveries` (keyset paginated, newest first) and
+`POST /api/v1/channel-deliveries/{id}/redeliver`, all over the authenticated actor's own channels.
 
 #### Scenario: The secret is returned once
 
@@ -623,9 +623,9 @@ The API SHALL expose `GET /v1/channels`, `POST /v1/channels` (answering 201 with
 
 ### Requirement: Template endpoints
 
-The API SHALL expose `GET /v1/templates` (with `project`, `limit` and `cursor`),
-`POST /v1/templates` taking `name`, `task_ref`, `tenant_wide`, `with_subtasks` and `due_in`,
-`GET`, `PATCH` and `DELETE /v1/templates/{ref}`, and `POST /v1/templates/{ref}/use` taking
+The API SHALL expose `GET /api/v1/templates` (with `project`, `limit` and `cursor`),
+`POST /api/v1/templates` taking `name`, `task_ref`, `tenant_wide`, `with_subtasks` and `due_in`,
+`GET`, `PATCH` and `DELETE /api/v1/templates/{ref}`, and `POST /api/v1/templates/{ref}/use` taking
 `project_ref`, `title` and `due_in`, answering `201 Created` with the new root task.
 
 #### Scenario: Use over HTTP
