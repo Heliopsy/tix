@@ -342,6 +342,7 @@ type syncRun struct {
 	result    *core.SyncResult
 	warned    map[string]bool
 	processed int
+	users     syncUsers
 }
 
 // syncDecision is what an import has decided to do with one external record.
@@ -622,6 +623,7 @@ func (r *syncRun) advance(ctx context.Context, m *mutation, cursor, status strin
 
 // finish records the run's outcome and emits the completion event.
 func (r *syncRun) finish(ctx context.Context) error {
+	r.reportUnmatched()
 	if r.dryRun {
 		return nil
 	}
@@ -675,13 +677,19 @@ func (r *syncRun) planOne(ctx context.Context, tx store.Tx, rec extsync.Record) 
 	if err != nil {
 		return err
 	}
-	switch decision.action {
-	case syncCreate:
-		r.result.Created[syncEntityTask]++
-	case syncUpdate:
-		r.result.Updated[syncEntityTask]++
-	default:
+	if decision.action == syncSkip {
 		r.skip(mapped.ExternalID, decision.reason)
+		return nil
+	}
+	if mapped.Assignee != "" {
+		if _, err := r.matchAssignee(ctx, tx, mapped); err != nil {
+			return err
+		}
+	}
+	if decision.action == syncCreate {
+		r.result.Created[syncEntityTask]++
+	} else {
+		r.result.Updated[syncEntityTask]++
 	}
 	return nil
 }
@@ -705,7 +713,7 @@ func (r *syncRun) applyOne(ctx context.Context, m *mutation, rec extsync.Record)
 		return nil
 	}
 
-	fields, err := r.resolveFields(ctx, m.tx, &mapped)
+	fields, err := r.resolveFields(ctx, m, &mapped)
 	if err != nil {
 		return err
 	}
@@ -768,25 +776,23 @@ func (r *syncRun) decide(ctx context.Context, tx store.Tx, mapped extsync.Mapped
 
 // resolveFields turns external actor and parent identifiers into tix ones,
 // preserving what cannot be resolved rather than dropping it.
-func (r *syncRun) resolveFields(ctx context.Context, tx store.Tx, mapped *extsync.Mapped) (syncFields, error) {
+func (r *syncRun) resolveFields(ctx context.Context, m *mutation, mapped *extsync.Mapped) (syncFields, error) {
 	out := syncFields{custom: map[string]any{}}
 	for k, v := range mapped.CustomFields {
 		out.custom[k] = v
 	}
 	if mapped.Assignee != "" {
-		actor, err := tx.GetActorByHandle(ctx, mapped.Assignee)
-		switch {
-		case err == nil:
-			out.assignee = actor.ID
-		case core.IsKind(err, core.KindNotFound):
-			out.custom[r.mapping.Unmapped.Prefix+"assignee"] = mapped.Assignee
-			r.warn("assignee " + mapped.Assignee + " has no tix actor; preserved as a custom field")
-		default:
+		assignee, err := r.resolveAssignee(ctx, m, *mapped)
+		if err != nil {
 			return out, err
+		}
+		out.assignee = assignee
+		if assignee == "" {
+			out.custom[r.mapping.CustomPrefix()+"assignee"] = mapped.Assignee
 		}
 	}
 	if mapped.ExternalParentID != "" {
-		ref, err := tx.GetExternalRef(ctx, r.source.System, mapped.ExternalParentID, syncEntityTask)
+		ref, err := r.parentRef(ctx, m.tx, mapped.ExternalParentID)
 		switch {
 		case err == nil:
 			out.parent = ref.EntityID
@@ -797,6 +803,30 @@ func (r *syncRun) resolveFields(ctx context.Context, tx store.Tx, mapped *extsyn
 		}
 	}
 	return out, nil
+}
+
+// resolveAssignee matches a record's assignee, falling back to a placeholder
+// actor when the mapping asks for one.
+func (r *syncRun) resolveAssignee(ctx context.Context, m *mutation, mapped extsync.Mapped) (string, error) {
+	id, err := r.matchAssignee(ctx, m.tx, mapped)
+	if err != nil || id != "" || !r.mapping.Users.Placeholders() {
+		return id, err
+	}
+	return r.placeholderFor(ctx, m, mapped.Assignee)
+}
+
+// parentRef finds the imported parent, retrying a link such as
+// /api/v3/work_packages/42 by its last segment when the link itself is unknown.
+func (r *syncRun) parentRef(ctx context.Context, tx store.Tx, parent string) (*core.ExternalRef, error) {
+	ref, err := tx.GetExternalRef(ctx, r.source.System, parent, syncEntityTask)
+	if !core.IsKind(err, core.KindNotFound) {
+		return ref, err
+	}
+	tail := hrefTail(parent)
+	if tail == "" {
+		return nil, err
+	}
+	return tx.GetExternalRef(ctx, r.source.System, tail, syncEntityTask)
 }
 
 // syncFields holds the parts of a record that needed a store lookup.
