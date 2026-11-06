@@ -760,6 +760,25 @@ to come back: listings compare the wake time with the clock. Snooze a task you
 cannot move until a date instead of parking it in a fake status, and note
 that it leaves the claim queue for that time too.
 
+## Bringing tasks over from another tracker
+
+For a handful of tasks, copy them one by one with `tix task add`, setting the
+assignee, status and due date as you go; check the result with
+`tix task ls -o json`.
+
+For a whole tracker, do not script a loop of `task add`: it loses history,
+assignees and the link back, and running it twice duplicates everything. Use
+`tix sync`, which keeps an external reference on every task so a rerun
+refreshes instead of copying again. **Sync runs on the server**: upload the
+mapping with `tix sync source set NAME --mapping-file FILE` and store the
+credentials with `--token-stdin` or `--user` plus `--password-stdin`, then
+`tix sync source ls` must show nothing missing before
+`tix sync run ID --dry-run`. Details in
+[reference/setup.md](reference/setup.md). A one-off CSV or JSON export can go
+through a `generic` source, whose file has to be on the server too; when the
+build has a project import (`tix project --help` lists it), that is the
+simpler route for such a file.
+
 ## Know which store you are writing to
 
 ```sh

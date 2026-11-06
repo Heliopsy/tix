@@ -10,12 +10,40 @@ Three separate mechanisms, often confused:
 
 ## Importing from an external tracker
 
-A source is registered once, with whichever settings you want stored on it, and run as often as you like.
-Anything it does not store, credentials always among them, is read from the environment. Only records changed
-since the last successful run are fetched.
+### Sync runs on the server
+
+A sync run executes inside the tix server, whichever surface starts it: the web screen, `tix sync run` against a
+remote server, or the API. It reads the external tracker from the server, with the server's network, and it reads
+its mapping and its credentials from the server. Nothing on the machine you type the command on takes part.
+
+So everything a run needs has to end up on the server. You can put it there from wherever you are:
+
+| What | From the web | From the CLI | Kept on the server as |
+| --- | --- | --- | --- |
+| mapping document | paste or upload it in the source dialog | `tix sync source set NAME --mapping-file m.yaml` | the source's `mapping`, in the database |
+| credentials | the source dialog's credential fields | `--token-stdin`, or `--user` with `--password-stdin` | sealed with the server's key, never shown again |
+| url, project, query, page size | the source dialog | `tix sync source add` flags | the source's settings |
+
+An operator who prefers configuration on the server's disk can keep using a mapping file path and
+`TIX_SYNC_<SOURCE>_*` environment variables; see [precedence](#what-a-run-uses-and-in-what-order) for what wins.
+
+Each source tells you, as worked out on the server, which mapping and which credentials a run will use and what
+is still missing. The web screen shows it on every row, `tix sync source ls` prints it as columns and lists what
+is missing on standard error, and the API returns it as `resolved`. A run of a source that is missing anything is
+refused before a single record is read, naming every missing piece:
+
+```console
+$ tix sync run 01J0000000000000000000 --dry-run
+error: invalid: sync source "op" cannot run; sync runs on the server, and it is missing on the server: credentials
+(store them with tix sync source set op --token-stdin or in the source dialog, or set TIX_SYNC_OP_TOKEN in the
+server's environment)
+```
+
+### Setting up a source
 
 ```sh
-tix sync source add jira platform --url https://acme.atlassian.net --project PLAT --mapping /etc/tix/platform.yaml
+tix sync source add openproject op --url https://op.example.com --project website --mapping-file op.yaml
+printf %s "$OP_API_KEY" | tix sync source set op --user apikey --password-stdin
 tix sync source ls
 tix sync run 01J0000000000000000000 --dry-run
 tix sync run 01J0000000000000000000
@@ -23,54 +51,74 @@ tix sync run 01J0000000000000000000 --full     # ignore the cursor, reconsider e
 tix sync source rm 01J0000000000000000000
 ```
 
-`SYSTEM` is `generic`, `jira` or `openproject`. `NAME` selects the environment variables the source reads. Pass
-`--id` to `tix sync source add` to update an existing source rather than create one. An update replaces the stored
-settings whole, so repeat the ones you want to keep.
+`SYSTEM` is `generic`, `jira` or `openproject`. `NAME` is your label for the source, and also names the
+environment variables it falls back to. Pass `--id` to `tix sync source add` to update an existing source rather
+than create one. An update through `add` replaces the stored settings whole, so repeat the ones you want to keep.
+The stored mapping document and credentials are kept unless you send new ones or clear them.
 
-The same operations are on the web interface under **Sync**. Its Sources tab registers and runs a source, shows
-the settings each source stores, and prints the exact environment variables that source reads; its Runs tab lists
-the imports that have completed, with what each created, updated and skipped, beside the current state of every
-source.
+`tix sync source set NAME` changes only the mapping document and the credentials and leaves everything else as it
+is. Credentials are read from standard input so they stay out of your shell history. `--clear-mapping` and
+`--clear-credentials` remove what is stored. `--check`, on `add` and `set`, validates the source on the server
+against the project and workflow its mapping names and shows what a run would use, without saving anything.
 
-### Configuration and credentials
+On the web, **Sync** has the same operations. **Configure a source** opens the source dialog: paste the mapping or
+choose its file, type the credentials, fill in the settings, and press **Check** to see what the mapping does and
+what the server still lacks before saving. Each row's **Set up** reopens the dialog with that source's settings
+and mapping filled in. The Runs tab lists the imports that have completed.
 
-A source stores its non-secret settings. At run time a stored setting wins over its environment variable, and a
-setting the source leaves empty is read from the variable, so a source configured entirely from the environment
-keeps working with nothing stored. Each system takes only the settings its adapter reads; any other key is refused
-with exit 2.
+A `generic` source reads a CSV or JSON file, and that file has to be on the server too: its `file` setting is a
+path on the server's disk.
 
-| Setting | Flag | API `config` key | Systems |
-| --- | --- | --- | --- |
-| mapping file | `--mapping` | `mapping_path` (top level) | all |
-| base URL | `--url` | `url` | jira, openproject |
-| external project | `--project` | `project` | jira, openproject |
-| query, such as JQL | `--query` | `query` | jira, openproject |
-| file to read | `--file` | `file` | generic |
-| records per request | `--page-size` | `page_size` | all |
+### Credentials
 
-Credentials are read from the environment and nowhere else. A source refuses a `token`, `user`, `password` or any
-other credential-looking key with exit 2, and no credential is ever written to the store, a snapshot, an audit
-entry, an event or an error message. For a source named `platform`:
+Credentials stored on a source are sealed with AES-GCM under the server's `auth.totp_key` (`TIX_AUTH_TOTP_KEY`),
+the same key that seals second factors, and bound to the tenant, system and name of the source, so a ciphertext
+copied to another row does not open. A server without that key refuses to store a credential, with exit 6, and
+says to set the key or to use the environment variable instead.
 
-| Variable | Meaning |
+They are write-only. No response, screen, audit entry, event or log line carries one. What can be read back is
+which credentials are stored and, for a credential of 12 characters or more, its last four characters, so you can
+tell which key is in use. A credential can be replaced or cleared, never read.
+
+Credentials are never accepted inside `config`: a `token`, `user`, `password` or other credential-looking key
+there is refused with exit 2. Send them as the input's own `token`, `user` and `password` fields.
+
+| System | Credentials |
 | --- | --- |
-| `TIX_SYNC_PLATFORM_MAPPING` | path to the mapping file, unless the source stores one |
-| `TIX_SYNC_PLATFORM_URL` | base URL of the external system, unless stored |
-| `TIX_SYNC_PLATFORM_TOKEN` | bearer credential |
-| `TIX_SYNC_PLATFORM_USER` | basic auth user |
-| `TIX_SYNC_PLATFORM_PASSWORD` | basic auth password |
-| `TIX_SYNC_PLATFORM_QUERY` | query selecting the records to fetch, such as JQL, unless stored |
-| `TIX_SYNC_PLATFORM_PROJECT` | external project identifier, unless stored |
-| `TIX_SYNC_PLATFORM_FILE` | file to read instead of an HTTP endpoint, unless stored |
-| `TIX_SYNC_PLATFORM_PAGE_SIZE` | records per request, unless stored |
+| openproject | user `apikey` and an API key as the password (My account, Access tokens), or the API key as a token |
+| jira | an account email as user and an API token as the password, or a bearer token |
+| generic | none |
 
-The name is uppercased and non-alphanumeric characters become underscores, so a source named `acme-jira` reads
-`TIX_SYNC_ACME_JIRA_TOKEN`.
+### What a run uses, and in what order
+
+What is stored on the source wins, and the server's environment fills in what the source leaves empty. For a
+source named `platform`:
+
+| Setting | Stored as | Server environment fallback | Systems |
+| --- | --- | --- | --- |
+| mapping document | `mapping` (`--mapping-file`) | none | all |
+| mapping file on the server | `mapping_path` (`--mapping`) | `TIX_SYNC_PLATFORM_MAPPING` | all |
+| credentials | `token`, `user`, `password`, sealed | `TIX_SYNC_PLATFORM_TOKEN`, `_USER`, `_PASSWORD` | jira, openproject |
+| base URL | `url` (`--url`) | `TIX_SYNC_PLATFORM_URL` | jira, openproject |
+| external project | `project` (`--project`) | `TIX_SYNC_PLATFORM_PROJECT` | jira, openproject |
+| query, such as JQL | `query` (`--query`) | `TIX_SYNC_PLATFORM_QUERY` | jira, openproject |
+| file to read, on the server | `file` (`--file`) | `TIX_SYNC_PLATFORM_FILE` | generic |
+| records per request | `page_size` (`--page-size`) | `TIX_SYNC_PLATFORM_PAGE_SIZE` | all |
+
+- The mapping comes from the first of: the stored document, then `mapping_path`, then `TIX_SYNC_<SOURCE>_MAPPING`.
+  `resolved.mapping.from` is `stored`, `mapping_path`, `env` or `missing`.
+- Credentials come from the source when it stores any, as a set: a stored token is never combined with a password
+  from the environment. Otherwise they come from the environment. `resolved.credentials.from` is `stored`, `env`,
+  `none` (generic) or `missing`.
+
+The variable name is the source name uppercased, with every run of other characters turned into one underscore,
+so a source named `acme-jira` reads `TIX_SYNC_ACME_JIRA_TOKEN`.
 
 ### Mapping files
 
 A mapping is a YAML document declaring how an external record becomes a tix task. It is required; there is no
-implicit default.
+implicit default. Store it on the source (`--mapping-file`, or the source dialog) or keep it on the server's disk
+(`--mapping`); either way the server reads it.
 
 ```yaml
 version: 1
@@ -165,9 +213,9 @@ tix sync run "$ID" --dry-run
 It reports every creation, update and skip, with the reason for each skip, and writes nothing. Iterate on the
 mapping until the plan is what you expect, then drop the flag.
 
-Exit codes: 2 an unusable mapping or configuration, 3 an unknown source, 5 permission denied, 7 the
-external system could not be read. Only 7 is worth retrying on a schedule: it is an outage on their side,
-where the others need a person.
+Exit codes: 2 an unusable mapping or configuration, or something missing on the server, 3 an unknown source,
+5 permission denied, 6 a credential sent to a server with no sealing key, 7 the external system could not be
+read. Only 7 is worth retrying on a schedule: it is an outage on their side, where the others need a person.
 
 ### When a run fails partway
 
