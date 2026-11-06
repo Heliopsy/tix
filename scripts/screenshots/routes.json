@@ -18,7 +18,10 @@
     { "pattern": "/settings" },
     { "pattern": "/settings/notifications" },
     { "pattern": "/release" },
-    { "pattern": "/activity" },
+    {
+      "pattern": "/activity",
+      "states": [{ "name": "raw-entry", "click": "a.rawopen", "wait": "dialog.rawdlg[open]" }]
+    },
     { "pattern": "/activity/feed", "skip": "htmx fragment of /activity" },
     { "pattern": "/stats" },
     { "pattern": "/admin/status" },

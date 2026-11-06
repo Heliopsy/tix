@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	historyRowSeq = regexp.MustCompile(`<div id="raw-(\d+)"`)
+	historyRowSeq = regexp.MustCompile(`data-dlg-open="raw-(\d+)"`)
 	showOlder     = regexp.MustCompile(`<a class="btn secondary small" href="([^"]+)" hx-get="([^"]+)"`)
 )
 

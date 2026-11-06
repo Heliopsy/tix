@@ -33,6 +33,7 @@
 </p>
 {{end}}
 
+{{with $v.Raw}}{{template "raw-dialog" .}}{{end}}
 {{template "live-stale"}}
 <div class="card">
   {{/* data-feed carries the filter too, so a live refresh re-renders the feed
@@ -41,5 +42,7 @@
     {{template "activity-rows" .}}
   </ul>
 </div>
+{{/* Where a row's Raw control puts the dialog it fetches. */}}
+<div class="rawslot"></div>
 {{template "pager" $v.Pager}}
 {{end}}
