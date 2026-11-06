@@ -417,9 +417,13 @@
     {{end}}
   </section>
 
-  <details class="tsec tfold" id="{{.IDPrefix}}history"{{if .Data.HistoryCursor}} open{{end}}>
+  <details class="tsec tfold" id="{{.IDPrefix}}history"{{if or .Data.HistoryCursor .Data.Raw}} open{{end}}>
     <summary><h2>{{t "History"}}</h2></summary>
     <div class="body" id="task-history">{{template "task-history" .}}</div>
+    {{/* Where a row's Raw control puts the dialog it fetches, outside the
+         region a live update replaces, and where the dialog the address
+         asks for is drawn in place. */}}
+    <div class="rawslot">{{with .Data.Raw}}{{template "raw-dialog" .}}{{end}}</div>
   </details>
 
 </div>
@@ -622,7 +626,6 @@
           {{range .Data.History}}
             {{with .}}
             {{$latest := .Latest}}
-            {{$raw := printf "%sraw-%d" $.IDPrefix $latest.Entry.Seq}}
             <tr>
               <td data-label="{{t "When"}}" class="muted">
                 <time datetime="{{$latest.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute $latest.Entry.OccurredAt}}">{{relativeAt $latest.Entry.OccurredAt}}</time>
@@ -640,25 +643,12 @@
                    than done, and an action this build has no opinion on gets
                    a generic sentence that the mark is the only qualifier for.
 
-                   The raw entry is a popover rather than a disclosure per
-                   row. Four changes meant four expanders inside the History
-                   panel, which is itself a disclosure, and opening one pushed
-                   every change below it down the page. */}}
+                   Raw opens the row's entries in a dialog (raw-dialog), not
+                   a popover sized to the cell. */}}
               <td data-label="{{t "What changed"}}">
                 {{if not (or (eq .Verb "create") (eq .Verb "update") (eq .Verb "delete"))}}<span class="badge act-{{.Verb}}">{{.Verb}}</span>{{end}}
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
-                <button type="button" class="link rawopen" popovertarget="{{$raw}}">{{if gt (len .Hops) 1}}{{tn "%d step" "%d steps" (len .Hops)}}{{else}}{{t "details"}}{{end}}</button>
-                <div id="{{$raw}}" class="flowmenu rawpop" popover>
-                  <p class="flowhead">{{.Verb}} &middot; {{relativeAt $latest.Entry.OccurredAt}}</p>
-                  {{range .Hops}}
-                  <dl class="raw-fields">
-                    <div><dt>{{t "When"}}</dt><dd class="mono">{{compact .Entry.OccurredAt}}</dd></div>
-                    <div><dt>{{t "Action"}}</dt><dd class="mono">{{.Entry.Action}}</dd></div>
-                    {{if .Changed}}<div><dt>{{t "Fields"}}</dt><dd class="mono">{{join .Changed}}</dd></div>{{end}}
-                  </dl>
-                  {{end}}
-                  <button type="button" class="flowclose" popovertarget="{{$raw}}" popovertargetaction="hide">{{t "Close"}}</button>
-                </div>
+                {{template "raw-open" ($.Data.RawOpener . $.IDPrefix $.InDialog)}}
               </td>
               <td data-label="{{t "Source"}}"><span class="badge source">{{$latest.Entry.Source}}</span></td>
             </tr>
