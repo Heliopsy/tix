@@ -77,7 +77,7 @@
   {{template "csrf" .CSRF}}
   <p class="meta">{{tn "%d row" "%d rows" $r.Rows}}{{with $r.Source}} &middot; {{t "looks like a %s export" .}}{{end}} &middot; {{t "tix chose a field for every column; change any you like."}}</p>
   <div class="table-wrap">
-    <table class="importtable importmap">
+    <table class="rows importtable importmap">
       <thead><tr><th scope="col">{{t "Column"}}</th><th scope="col">{{t "Sample"}}</th><th scope="col">{{t "Becomes"}}</th></tr></thead>
       <tbody>
         {{range $v.Columns}}<tr>
@@ -133,7 +133,7 @@
     <h2>{{t $g.Label}}</h2>
     {{if $g.Rows}}
     <div class="table-wrap">
-      <table class="importtable importmap">
+      <table class="rows importtable importmap">
         <thead><tr><th scope="col">{{t "In the file"}}</th><th scope="col" class="num">{{t "Rows"}}</th><th scope="col">{{t "Becomes"}}</th></tr></thead>
         <tbody>
           {{range $g.Rows}}<tr>
@@ -190,7 +190,7 @@
   <section class="importpart" aria-labelledby="import-preview-h">
     <h2 id="import-preview-h">{{t "The first rows as tix will write them"}}</h2>
     <div class="table-wrap">
-      <table class="importtable">
+      <table class="rows importtable">
         <thead><tr><th scope="col">{{t "Line"}}</th><th scope="col">{{t "Action"}}</th><th scope="col">{{t "Reference"}}</th><th scope="col">{{t "Title"}}</th><th scope="col">{{t "Status"}}</th><th scope="col">{{t "Priority"}}</th><th scope="col">{{t "Assignee"}}</th><th scope="col">{{t "Tags"}}</th><th scope="col">{{t "Due"}}</th><th scope="col">{{t "Parent"}}</th></tr></thead>
         <tbody>
           {{range $r.Preview}}<tr class="importrow-{{.Action}}">
