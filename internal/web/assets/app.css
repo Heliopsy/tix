@@ -1480,7 +1480,7 @@ col.c-ref { width: 104px; }
 col.c-state { width: 104px; }
 col.c-tags { width: 150px; }
 col.c-when { width: 142px; }
-col.c-source { width: 116px; }
+col.c-source { width: 230px; }
 col.c-age { width: 96px; }
 
 /* The raw audit entry behind a row of history. Wide enough for a timestamp
@@ -4460,6 +4460,10 @@ li.person.is-off .avatar { background: var(--line); color: var(--muted); }
 .via-link { text-decoration: none; }
 .via-link:hover .via, .via-link:focus-visible .via { color: var(--ink); text-decoration: underline; }
 .feed .via-link { margin-left: 8px; }
+/* In a table the channel is a column of its own and may wrap under its icon
+   rather than push the table wider than the panel holding it. */
+td .via { white-space: normal; align-items: flex-start; }
+td .via .icon { margin-top: 2px; }
 
 
 /* ------------------------------------------------------------------------

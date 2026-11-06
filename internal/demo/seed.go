@@ -650,7 +650,7 @@ func (s *seeder) abandonClaims(ctx context.Context, floor time.Time) error {
 			}
 			floor = at.Add(abandonTTL + abandonSweepDelay)
 			s.clk.Set(floor)
-			if _, err := s.svc.SweepLeases(admin, core.MaxPageLimit); err != nil {
+			if _, err := s.svc.SweepLeases(core.WithVia(admin, core.Via{Kind: core.ViaSystem, Job: "lease-sweep"}), core.MaxPageLimit); err != nil {
 				return err
 			}
 		}

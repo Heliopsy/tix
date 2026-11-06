@@ -341,6 +341,8 @@ leading `-` for negation), so only the vocabulary changes.
 | `kind:TYPE` | what kind of record it happened to: `task`, `comment`, `project`, `workflow`, `user`, … |
 | `action:NAME`, `type:NAME` | the recorded action, such as `task.created` |
 | `source:NAME` | the surface it arrived through: `cli`, `web`, `api`, `tui`, `system` |
+| `via:CHANNEL` | the access channel: `web`, `api`, `cli-local`, `cli-remote`, `ssh`, `mcp`, `sync`, `import`, `system`, `unknown` |
+| `token:NAME` | the API token the change was made with, by name |
 | `text:VALUE`, `q:VALUE`, bare word | free text over the action, the kind, the source and the before and after snapshots |
 
 Every term negates with a leading `-`. Values of one term are alternatives, different terms are conjunctions,
@@ -349,6 +351,7 @@ and every free-text word must appear somewhere in the row.
 ```sh
 tix audit ls --filter "kind:task source:web -action:task.deleted"
 tix audit ls --filter "actor:01J0 certificates" -o ndjson
+tix audit ls --filter "via:ssh via:mcp -token:ci-agent"
 ```
 
 `--filter` and the `tix audit ls` flags both apply, so a filter never widens what `--subject-type`, `--actor`
@@ -359,7 +362,8 @@ stderr how much it discarded.
 In the terminal interface, `v` opens the activity view and `/` filters it with the same expression, `C` clears
 it. One term is missing there: an event carries no source, because the event log records what happened rather
 than which surface asked for it, so `source:` is refused on the live tail by name and belongs to
-`tix audit ls`.
+`tix audit ls`. `via:` and `token:` work on the tail, because every event carries its channel and token
+name; see [audit-log.md](audit-log.md).
 
 ## Related
 
