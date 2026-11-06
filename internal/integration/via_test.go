@@ -237,6 +237,25 @@ func TestAWebFormRecordsTheSessionNotTheCookie(t *testing.T) {
 			t.Error("the session cookie reached the audit or event tables")
 		}
 	}
+	body, _ := json.Marshal(core.CreateProjectInput{Key: "fromjs", Name: "fromjs"})
+	apiReq, err := http.NewRequest(http.MethodPost, h.baseURL+wire.RouteProjects, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	apiReq.Header.Set(wire.HeaderContentType, wire.ContentJSON)
+	apiReq.Header.Set(wire.HeaderClient, "cli")
+	apiRes, err := browser.Do(apiReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if apiRes.StatusCode != http.StatusCreated && apiRes.StatusCode != http.StatusOK {
+		t.Fatalf("the browser's API call = %d: %s", apiRes.StatusCode, readAll(t, apiRes))
+	}
+	_ = apiRes.Body.Close()
+	if fromJS := h.latestVia(t, "project.create"); fromJS.Kind != core.ViaWeb || fromJS.Session != got.Session {
+		t.Errorf("the session's API call claiming the CLI recorded %+v, want web on the same session", fromJS)
+	}
+
 	signedIn := h.latestVia(t, "user.login")
 	if signedIn.Kind != core.ViaWeb || signedIn.Session != "" {
 		t.Errorf("the sign-in itself recorded %+v, want web before any session existed", signedIn)
