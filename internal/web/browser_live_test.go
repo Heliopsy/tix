@@ -330,6 +330,8 @@ func TestPendingButtonsInABrowser(t *testing.T) {
 
 	var icon struct {
 		Overlap bool    `json:"overlap"`
+		Spinner string  `json:"spinner"`
+		Text    string  `json:"text"`
 		Label   string  `json:"label"`
 		Width   float64 `json:"width"`
 		Before  float64 `json:"before"`
@@ -347,17 +349,25 @@ func TestPendingButtonsInABrowser(t *testing.T) {
 		form.requestSubmit(btn);
 		const box = btn.getBoundingClientRect();
 		const after = getComputedStyle(btn, '::after');
-		const s = {left: box.left + btn.clientLeft + parseFloat(after.left), top: box.top + btn.clientTop + parseFloat(after.top)};
-		s.right = s.left + parseFloat(after.width);
-		s.bottom = s.top + parseFloat(after.height);
+		const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+		const w = num(after.width), h = num(after.height);
+		const x = num(after.left) ?? (btn.clientWidth - num(after.right) - w - (num(after.marginRight) ?? 0));
+		const y = num(after.top) ?? (btn.clientHeight - num(after.bottom) - h - (num(after.marginBottom) ?? 0));
+		const s = {left: box.left + btn.clientLeft + x + (num(after.marginLeft) ?? 0), top: box.top + btn.clientTop + y + (num(after.marginTop) ?? 0)};
+		s.right = s.left + w;
+		s.bottom = s.top + h;
 		const range = document.createRange();
 		range.selectNodeContents(btn.lastChild);
 		const text = range.getBoundingClientRect();
 		const overlap = s.left < text.right && text.left < s.right && s.top < text.bottom && text.top < s.bottom;
-		return {overlap, label: getComputedStyle(btn).color, width: btn.getBoundingClientRect().width, before};
+		return {overlap, label: getComputedStyle(btn).color, width: btn.getBoundingClientRect().width, before,
+			spinner: [s.left, s.top, s.right, s.bottom].map(Math.round).join(), text: [text.left, text.top, text.right, text.bottom].map(Math.round).join()};
 	})()`, &icon)
+	if icon.Spinner == "" || strings.Contains(icon.Spinner, "NaN") {
+		t.Fatalf("could not place the spinner (%q), so the overlap check measures nothing", icon.Spinner)
+	}
 	if icon.Overlap {
-		t.Error("the spinner on a button with an icon is drawn over its label")
+		t.Errorf("the spinner on a button with an icon (%s) is drawn over its label (%s)", icon.Spinner, icon.Text)
 	}
 	if strings.HasSuffix(strings.ReplaceAll(icon.Label, " ", ""), ",0)") {
 		t.Error("the label of a button with an icon was hidden; the spinner should take the icon's place")
