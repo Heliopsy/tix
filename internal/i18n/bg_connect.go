@@ -99,9 +99,10 @@ func init() {
 		"Issue and revoke API tokens.":                  "Издаване и отменяне на API токени.",
 		"Manage outgoing webhooks.":                     "Управление на изходящите уебкуки.",
 		"Manage the tenant, its members and domains.":   "Управление на тенанта, членовете и домейните му.",
-		"Manage and run imports from other trackers.":   "Управление и изпълнение на импортиране от други тракери.",
-		"Read the audit log.":                           "Четене на журнала за одит.",
-		"Export a snapshot of the whole tenant.":        "Експортиране на моментна снимка на целия тенант.",
-		"Import a snapshot into the tenant.":            "Импортиране на моментна снимка в тенанта.",
+		"Administer every tenant on this server. Only a global admin's token can carry it.": "Администриране на всички тенанти на този сървър. Само токен на глобален администратор може да го носи.",
+		"Manage and run imports from other trackers.":                                       "Управление и изпълнение на импортиране от други тракери.",
+		"Read the audit log.":                    "Четене на журнала за одит.",
+		"Export a snapshot of the whole tenant.": "Експортиране на моментна снимка на целия тенант.",
+		"Import a snapshot into the tenant.":     "Импортиране на моментна снимка в тенанта.",
 	})
 }
