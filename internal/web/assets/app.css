@@ -7624,6 +7624,7 @@ ul.tasklist, .board, .column, .lanes, .lane { overflow-anchor: none; }
 }
 @media (pointer: coarse) {
   .handoff-tab { min-height: 40px; }
+}
 
 /* A project's Export dialog: format, dates and separator side by side, then
    the filter, what to include, and the columns as an ordered list whose
