@@ -1093,7 +1093,7 @@ func TestRunSyncResolvesAssigneesParentsAndTags(t *testing.T) {
 	if child.ParentID != parent.ID {
 		t.Errorf("parent = %q, want the already-imported task %q", child.ParentID, parent.ID)
 	}
-	if child.CustomFields["assignee"] == nil {
+	if child.CustomFields["ext_assignee"] != "nobody-here" {
 		t.Errorf("an unresolvable assignee was dropped: %v", child.CustomFields)
 	}
 	if !anyContains(res.Warnings, "has no tix actor") {
