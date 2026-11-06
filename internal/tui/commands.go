@@ -862,15 +862,15 @@ func (m Model) snooze(task core.Task, when string) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
-	until, err := query.ParseUntil(when, m.now(), time.Local)
+	svc, ctx, ref, label, style := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), m.timeStyle
+	until, err := query.ParseUntil(when, m.now(), style.Location())
 	return func() tea.Msg {
 		if err != nil {
 			return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err}
 		}
 		_, err := svc.SnoozeTask(ctx, ref, core.SnoozeInput{Until: until})
 		return actionMsg{kind: actionSnooze, ref: ref, label: label, err: err,
-			sentence: "snoozed " + label + " until " + until.Local().Format("Mon 2 Jan 15:04")}
+			sentence: "snoozed " + label + " until " + style.Format(until)}
 	}
 }
 

@@ -151,7 +151,7 @@ func (s *Server) stream(sess ssh.Session, actor *core.Actor, req watchRequest) {
 		go interrupts(sess, cancel)
 	}
 	go s.watch(sess, cancel, nil)
-	follow(ctx, events, req, newEventWriter(stdout, color, req.ndjson, s.opts.TimeStyle))
+	follow(ctx, events, req, newEventWriter(stdout, color, req.ndjson, output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle)))
 	_ = sess.Exit(0)
 }
 
