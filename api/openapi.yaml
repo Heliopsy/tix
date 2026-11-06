@@ -4773,7 +4773,7 @@ paths:
   /api/v1/sync/run:
     post:
       description: |-
-        RunSync imports from a configured source, creating what is new, updating what changed and skipping the rest. A rerun refreshes rather than duplicating, and a dry run writes nothing.
+        RunSync imports from a configured source, creating what is new, updating what changed and skipping the rest. A rerun refreshes rather than duplicating, and a dry run writes nothing. The run executes on the server and is refused, naming what is missing there, before anything is read.
 
         Command line: `tix sync run`.
       operationId: sync.run
@@ -4825,7 +4825,7 @@ paths:
   /api/v1/sync/sources:
     get:
       description: |-
-        ListSyncSources lists this tenant's external import sources.
+        ListSyncSources lists this tenant's external import sources, each with where its mapping, credentials and settings come from on the server and what a run would still lack.
 
         Command line: `tix sync source ls`.
       operationId: sync.source.list
@@ -4872,12 +4872,14 @@ paths:
             - sync:admin
         - session:
             - sync:admin
-      summary: ListSyncSources lists this tenant's external import sources
+      summary: ListSyncSources lists this tenant's external import sources, each with
+        where its mapping, credentials and settings come from on the server and what
+        a run would still lack
       tags:
         - sync
     put:
       description: |-
-        PutSyncSource registers an external system to import from, or updates one in place. Credentials are never stored: they are read from the environment when the sync runs.
+        PutSyncSource registers an external system to import from, or updates one in place. Sync runs on the server, so everything a run needs can be stored here: the mapping document itself and the credentials, which are sealed with the server's key and never returned. Anything not stored is read from TIX_SYNC_<SOURCE>_* in the server's environment. With check set it validates and describes the source and writes nothing.
 
         Command line: `tix sync source add`.
       operationId: sync.source.put
@@ -12634,6 +12636,78 @@ components:
           description: Swept is how many expired leases were cleared.
           type: integer
       type: object
+    SyncCredentialHint:
+      description: SyncCredentialHint describes one credential stored on a sync source
+        without disclosing it.
+      properties:
+        hint:
+          description: Hint is the last four characters of a long credential, empty
+            otherwise.
+          type: string
+        name:
+          description: Name is "token", "user" or "password".
+          type: string
+      type: object
+    SyncMappingSummary:
+      description: SyncMappingSummary describes a mapping document as a run would
+        apply it.
+      properties:
+        fields:
+          description: Fields lists each mapped external field as "external -> tix".
+          items:
+            type: string
+          type: array
+        identity:
+          description: Identity is the external field that identifies a record.
+          type: string
+        project:
+          description: Project is the tix project records land in.
+          type: string
+        statuses:
+          description: Statuses lists each mapped external status as "external ->
+            state".
+          items:
+            type: string
+          type: array
+      type: object
+    SyncOrigin:
+      description: SyncOrigin says where one part of a source's configuration comes
+        from.
+      properties:
+        detail:
+          description: Detail names the file, the variables or the stored credentials
+            used.
+          type: string
+        from:
+          description: From is "stored", "mapping_path", "env", "none" or "missing".
+          type: string
+      type: object
+    SyncResolution:
+      description: SyncResolution is what a sync run would use on the server, and
+        what it lacks.
+      properties:
+        credentials:
+          $ref: '#/components/schemas/SyncOrigin'
+          description: Credentials says which credentials a run authenticates with.
+        mapping:
+          $ref: '#/components/schemas/SyncOrigin'
+          description: Mapping says which mapping document a run reads.
+        missing:
+          description: Missing lists what the server lacks, each with how to supply
+            it. A run is refused while it is not empty.
+          items:
+            type: string
+          type: array
+        settings:
+          description: Settings lists every setting the source's system takes.
+          items:
+            $ref: '#/components/schemas/SyncSettingOrigin'
+          type: array
+        summary:
+          $ref: '#/components/schemas/SyncMappingSummary'
+          description: Summary describes the mapping, filled in only when a source
+            is checked.
+      type: object
     SyncResult:
       description: SyncResult reports what an external import did, or would do under
         a dry run.
@@ -12682,6 +12756,24 @@ components:
             type: string
           type: array
       type: object
+    SyncSettingOrigin:
+      description: SyncSettingOrigin is one non-secret setting as a run would read
+        it.
+      properties:
+        from:
+          description: From is "stored", "env" or "missing".
+          type: string
+        key:
+          description: Key is the setting, such as "url".
+          type: string
+        value:
+          description: Value is the value a run would use.
+          type: string
+        variable:
+          description: Variable is the environment variable the setting falls back
+            to.
+          type: string
+      type: object
     SyncSource:
       description: SyncSource records an import source and its cursor.
       properties:
@@ -12695,6 +12787,12 @@ components:
           description: CreatedAt is when the source was added, RFC 3339.
           format: date-time
           type: string
+        credentials:
+          description: Credentials names the credentials stored on the source, each
+            with a hint at most. A stored credential is never returned.
+          items:
+            $ref: '#/components/schemas/SyncCredentialHint'
+          type: array
         cursor:
           description: Cursor is how far the import has read, opaque and owned by
             the system's importer.
@@ -12711,6 +12809,10 @@ components:
         last_status:
           description: 'LastStatus is how the last run went: "running", "ok" or "failed".'
           type: string
+        mapping:
+          description: Mapping is the mapping document stored on the source itself.
+            When set it wins over MappingPath and over TIX_SYNC_<SOURCE>_MAPPING.
+          type: string
         mapping_path:
           description: MappingPath is the stored mapping file, empty when the environment
             names it.
@@ -12718,6 +12820,10 @@ components:
         name:
           description: Name identifies the source within its system.
           type: string
+        resolved:
+          $ref: '#/components/schemas/SyncResolution'
+          description: Resolved is what a run started now would use and what it lacks,
+            worked out on the server that runs it. It is not stored.
         system:
           description: System names the external system imported from.
           type: string
@@ -12728,6 +12834,16 @@ components:
     SyncSourceInput:
       description: SyncSourceInput registers an external import source.
       properties:
+        check:
+          description: Check validates the source as it would be saved, describes
+            its mapping and what a run would use, and writes nothing.
+          type: boolean
+        clear_credentials:
+          description: ClearCredentials removes the stored credentials.
+          type: boolean
+        clear_mapping:
+          description: ClearMapping removes the stored mapping document.
+          type: boolean
         config:
           additionalProperties: {}
           description: 'Config holds the source''s non-secret settings, stored and
@@ -12738,15 +12854,35 @@ components:
         id:
           description: ID names the source to update; empty registers a new one.
           type: string
+        keep_settings:
+          description: KeepSettings leaves the stored Config and MappingPath as they
+            are, for an update that only sets the mapping document or the credentials.
+          type: boolean
+        mapping:
+          description: Mapping is the mapping document itself, YAML, stored on the
+            source. It wins over MappingPath. Left empty, the stored document is kept.
+          type: string
         mapping_path:
-          description: MappingPath is the mapping file, stored and preferred over
-            TIX_SYNC_<SOURCE>_MAPPING at run time.
+          description: MappingPath is a mapping file on the server, stored and preferred
+            over TIX_SYNC_<SOURCE>_MAPPING at run time.
           type: string
         name:
           description: Name labels the source. Required.
           type: string
+        password:
+          description: Password is a basic auth password or API key to store on the
+            server, sealed. Write-only. Any of Token, User or Password replaces the
+            stored set whole; with none of them the stored set is kept.
+          type: string
         system:
           description: 'System is the external system: "generic", "jira" or "openproject".'
+          type: string
+        token:
+          description: Token is a bearer credential to store on the server, sealed.
+            Write-only.
+          type: string
+        user:
+          description: User is a basic auth user to store on the server, sealed. Write-only.
           type: string
       type: object
     TOTPChallenge:

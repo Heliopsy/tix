@@ -13,18 +13,20 @@ import (
 
 var syncSourceColumns = []string{
 	"id", "tenant_id", "system", "name", "config", "mapping_path", "cursor", "last_run_at", "last_status",
-	"created_at",
+	"created_at", "mapping", "credentials_sealed", "credentials_nonce", "credential_hints",
 }
 
 func scanSyncSource(s scanner) (core.SyncSource, error) {
 	var (
 		src     core.SyncSource
 		config  string
+		hints   string
 		lastRun sql.NullString
 		created sql.NullString
 	)
 	if err := s.Scan(&src.ID, &src.TenantID, &src.System, &src.Name, &config, &src.MappingPath,
-		&src.Cursor, &lastRun, &src.LastStatus, &created); err != nil {
+		&src.Cursor, &lastRun, &src.LastStatus, &created, &src.Mapping, &src.SealedCredentials,
+		&src.CredentialsNonce, &hints); err != nil {
 		return core.SyncSource{}, mapErr(err, "scanning sync source")
 	}
 	if err := sqlb.ParseJSON(config, &src.Config); err != nil {
@@ -32,6 +34,12 @@ func scanSyncSource(s scanner) (core.SyncSource, error) {
 	}
 	if len(src.Config) == 0 {
 		src.Config = nil
+	}
+	if err := sqlb.ParseJSON(hints, &src.Credentials); err != nil {
+		return core.SyncSource{}, core.Internal("decoding credential hints of sync source %q", src.ID).Wrap(err)
+	}
+	if len(src.Credentials) == 0 {
+		src.Credentials = nil
 	}
 	var err error
 	if src.LastRunAt, err = sqlb.ScanNullTime(lastRun); err != nil {
@@ -50,11 +58,19 @@ func (t *tx) PutSyncSource(ctx context.Context, s *core.SyncSource) error {
 	if err != nil {
 		return core.Internal("encoding settings of sync source %q", s.Name).Wrap(err)
 	}
+	hints, err := sqlb.JSONText(s.Credentials, "[]")
+	if err != nil {
+		return core.Internal("encoding credential hints of sync source %q", s.Name).Wrap(err)
+	}
 	upd := t.builder("sync_sources").
 		Where("system = ?", s.System).
 		Where("name = ?", s.Name).
 		Set("config", config).
 		Set("mapping_path", s.MappingPath).
+		Set("mapping", s.Mapping).
+		Set("credentials_sealed", s.SealedCredentials).
+		Set("credentials_nonce", s.CredentialsNonce).
+		Set("credential_hints", hints).
 		Set("cursor", s.Cursor).
 		Set("last_run_at", sqlb.NullTimeText(s.LastRunAt)).
 		Set("last_status", s.LastStatus)
@@ -86,6 +102,10 @@ func (t *tx) PutSyncSource(ctx context.Context, s *core.SyncSource) error {
 		Set("name", s.Name).
 		Set("config", config).
 		Set("mapping_path", s.MappingPath).
+		Set("mapping", s.Mapping).
+		Set("credentials_sealed", s.SealedCredentials).
+		Set("credentials_nonce", s.CredentialsNonce).
+		Set("credential_hints", hints).
 		Set("cursor", s.Cursor).
 		Set("last_run_at", sqlb.NullTimeText(s.LastRunAt)).
 		Set("last_status", s.LastStatus).

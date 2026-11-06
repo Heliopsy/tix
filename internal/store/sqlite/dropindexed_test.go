@@ -37,6 +37,10 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 		"ALTER TABLE users DROP COLUMN time_format",
 		"ALTER TABLE users DROP COLUMN timezone",
 		"ALTER TABLE users DROP COLUMN global_admin",
+		"ALTER TABLE sync_sources DROP COLUMN mapping",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_sealed",
+		"ALTER TABLE sync_sources DROP COLUMN credentials_nonce",
+		"ALTER TABLE sync_sources DROP COLUMN credential_hints",
 		"DELETE FROM schema_migrations WHERE version > 28",
 	} {
 		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {

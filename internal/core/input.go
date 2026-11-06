@@ -945,9 +945,35 @@ type SyncSourceInput struct {
 	// "url", "project", "query" and "page_size" for jira and openproject. A
 	// credential key or any other key is refused. Updating replaces them whole.
 	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
-	// MappingPath is the mapping file, stored and preferred over
+	// MappingPath is a mapping file on the server, stored and preferred over
 	// TIX_SYNC_<SOURCE>_MAPPING at run time.
 	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
+	// Mapping is the mapping document itself, YAML, stored on the source. It
+	// wins over MappingPath. Left empty, the stored document is kept.
+	Mapping string `json:"mapping,omitempty" yaml:"mapping,omitempty"`
+	// ClearMapping removes the stored mapping document.
+	ClearMapping bool `json:"clear_mapping,omitempty" yaml:"clear_mapping,omitempty"`
+	// Token is a bearer credential to store on the server, sealed. Write-only.
+	Token string `json:"token,omitempty" yaml:"token,omitempty"`
+	// User is a basic auth user to store on the server, sealed. Write-only.
+	User string `json:"user,omitempty" yaml:"user,omitempty"`
+	// Password is a basic auth password or API key to store on the server,
+	// sealed. Write-only. Any of Token, User or Password replaces the stored
+	// set whole; with none of them the stored set is kept.
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	// ClearCredentials removes the stored credentials.
+	ClearCredentials bool `json:"clear_credentials,omitempty" yaml:"clear_credentials,omitempty"`
+	// KeepSettings leaves the stored Config and MappingPath as they are, for an
+	// update that only sets the mapping document or the credentials.
+	KeepSettings bool `json:"keep_settings,omitempty" yaml:"keep_settings,omitempty"`
+	// Check validates the source as it would be saved, describes its mapping
+	// and what a run would use, and writes nothing.
+	Check bool `json:"check,omitempty" yaml:"check,omitempty"`
+}
+
+// HasCredentials reports whether the input carries any credential to store.
+func (in SyncSourceInput) HasCredentials() bool {
+	return in.Token != "" || in.User != "" || in.Password != ""
 }
 
 // Sync source settings a source may store in its Config.
