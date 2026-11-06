@@ -68,6 +68,7 @@ type rawHop struct {
 	Before    string
 	After     string
 	Diff      []rawDiff
+	Channel   viaView
 }
 
 // rawDiff is one field an entry changed: added, removed or changed, with its
@@ -118,7 +119,7 @@ func newRawEntry(id, here string, g historyGroup, names actorNames, subject, sub
 			Entry: e, ID: id + "-" + strconv.Itoa(i+1), Step: i + 1,
 			Actor: names.Label(e.ActorID), ActorHref: actorFeedHref(e.ActorID),
 			Before: prettyJSON(e.Before), After: prettyJSON(e.After),
-			Diff: diffSnapshots(e.Before, e.After),
+			Diff: diffSnapshots(e.Before, e.After), Channel: hop.Channel(),
 		}
 	}
 	var all any = entries
