@@ -606,7 +606,7 @@ func (h *handler) writeImportMapping(w http.ResponseWriter, r *http.Request, pro
 	}
 	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.ToLower(project.Key)+`-mapping.yaml"`)
-	_, err := w.Write([]byte(mapping))
+	_, err := w.Write([]byte(mapping)) // #nosec G705 -- an attachment served as YAML, never rendered
 	return err
 }
 
