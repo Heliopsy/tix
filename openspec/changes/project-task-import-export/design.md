@@ -22,7 +22,7 @@ dialog drawn again with the reason.
 Columns are named once in `core` and are the same names in every format and on every surface, so a file
 written by one surface can be named by another and read back by the import. Custom fields are `custom:KEY`.
 JSON keeps the requested order by writing each record as an ordered object. Lists are arrays in JSON and
-joined with `, ` in CSV and Markdown.
+joined with a comma and a space in CSV and Markdown.
 
 ## Dates
 

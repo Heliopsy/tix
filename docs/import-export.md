@@ -51,7 +51,7 @@ field of the project, in that order.
   identifier.
 - `parent` and `depends_on` are task references. A dependency on a task that has since been deleted for
   good is left out.
-- In CSV and Markdown a list, tags or dependencies, is joined with `, `. In JSON and NDJSON it is an array.
+- In CSV and Markdown a list, tags or dependencies, is joined with a comma and a space. In JSON and NDJSON it is an array.
 - `comments` is every live comment, oldest first. `history` is the task's audit trail, up to 500 entries,
   and is off unless you name it, since it is the largest column by far.
 - In JSON and NDJSON every record has the columns as its keys, in the order asked for, and a custom field

@@ -2032,6 +2032,24 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a project's tasks export as the same rows",
+		covers: []string{"CreateProject", "CreateTask", "ExportTasks"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			for _, title := range []string{"first exported", "second exported"} {
+				_, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: title})
+				mustf(t, tg, err, "creating a task")
+			}
+			var buf bytes.Buffer
+			if err := tg.svc.ExportTasks(tg.ctx, core.TaskExportInput{
+				ProjectRef: p.Key, Format: core.TaskFormatNDJSON, Columns: []string{"title", "status", "priority"},
+			}, &buf); err != nil {
+				return nil, err
+			}
+			return sig{"rows": strings.TrimSpace(buf.String())}, nil
+		},
+	},
+	{
 		name:   "a snapshot imports back into the same tenant",
 		covers: []string{"CreateProject", "CreateTask", "ExportTo", "ImportFrom", "ListTasks"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
