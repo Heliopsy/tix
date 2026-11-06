@@ -27,3 +27,6 @@ demo/out/
 # just screenshots: its output and its own node_modules.
 out/
 scripts/screenshots/node_modules/
+
+# The rich text editor's library build: its own node_modules.
+scripts/vendor/prosemirror/node_modules/

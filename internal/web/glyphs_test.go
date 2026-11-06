@@ -90,7 +90,7 @@ func glyphSources(t *testing.T) []string {
 	}
 	var out []string
 	for _, f := range files {
-		if filepath.Base(f) != "htmx.min.js" {
+		if !strings.HasSuffix(filepath.Base(f), ".min.js") {
 			out = append(out, f)
 		}
 	}

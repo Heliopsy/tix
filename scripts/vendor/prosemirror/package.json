@@ -1,0 +1,25 @@
+{
+  "name": "tix-vendor-prosemirror",
+  "private": true,
+  "description": "Builds internal/web/assets/prosemirror.min.js, the rich text description editor's library, from pinned npm releases",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "markdown-it": "14.3.3",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-history": "1.5.1",
+    "prosemirror-inputrules": "1.5.1",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-markdown": "1.13.8",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-schema-list": "1.5.1",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-tables": "1.8.5",
+    "prosemirror-transform": "1.12.2",
+    "prosemirror-view": "1.42.6"
+  }
+}
