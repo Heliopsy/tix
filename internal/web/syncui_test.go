@@ -60,8 +60,8 @@ func TestSyncScreenSaysWhatItImportsAndWhatARunDoes(t *testing.T) {
 	for _, want := range []string{
 		"never writes anything back",
 		"CSV or JSON file on the machine running tix",
-		"environment variables on the machine running tix",
-		"mapping file",
+		"Sync runs on the tix server, not on your machine.",
+		"Mapping document",
 		"external reference",
 		"refresh instead of a second copy",
 		"nothing at all: no tasks",
