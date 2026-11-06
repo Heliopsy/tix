@@ -14,6 +14,7 @@
 - [x] 2.4 TUI and `tix task add --parse` read a quick-add date in the configured order
 - [x] 2.5 CLI `--due` and `--repeat` help gives examples; `--due` stays ISO and RFC 3339
 - [x] 2.6 Bulgarian catalog entries
+- [x] 2.7 Web: calendar button beside each due text field (`assets/datepick.js`), placeholder with examples
 
 ## 3. Docs
 

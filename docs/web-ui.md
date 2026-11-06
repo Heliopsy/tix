@@ -153,7 +153,10 @@ zone chosen under Settings. With scripting off the add still parses; only the pr
 Add with details has a field per attribute and stores its title as typed. Its Due date field, like the
 task screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`),
 `YYYY-MM-DD`, or a date in the order the reader's date format writes one (`06.11.2026` under Dotted); its
-(i) tip shows those examples before anything is typed, the date among them in the reader's format. Its More options fold holds
+(i) tip shows those examples before anything is typed, the date among them in the reader's format, and
+the placeholder shows three of them. The calendar button beside the field opens the browser's date picker
+and writes the picked day into the field in the reader's format (YYYY-MM-DD for a format that writes the
+month as a word); without scripting the button is not drawn and the field still takes a typed date. Its More options fold holds
 the repeat rule, parent, dependencies and the task's lease length, blank to inherit; a lease above the
 maximum is refused on that field and nothing is created.
 

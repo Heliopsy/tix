@@ -1095,6 +1095,17 @@ input[readonly] {
    as one piece, and still wraps inside itself on a screen too narrow for it. */
 .tip-examples { display: block; margin-top: 4px; }
 .tip-examples code { display: inline-block; margin: 2px 4px 2px 0; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: 4px; }
+/* A typed due date and the calendar button beside it share one row, the
+   field taking the room; the native date input under the button is only a
+   target for showPicker, so it takes no space and is never tabbed to. */
+.datefield { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.datefield > input { flex: 1 1 auto; min-width: 0; }
+.datepick { position: relative; display: inline-flex; flex: 0 0 auto; }
+.datepick[hidden] { display: none; }
+.datepick-open { display: inline-flex; align-items: center; justify-content: center; padding: 0 var(--space-2); }
+.propform .datepick-open { height: var(--control-h-sm); min-height: var(--control-h-sm); }
+.datepick > .datepick-native { position: absolute; bottom: 0; right: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
 /* The quick-add tip sits part way along its row, so a note anchored to it ran
    off a phone's right edge. It is anchored to the whole row instead. */
 .quickadd { position: relative; }

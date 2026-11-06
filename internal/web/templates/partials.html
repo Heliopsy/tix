@@ -304,6 +304,16 @@
   <p>{{t .Text}}{{with .Examples}} <span class="tip-examples">{{t "For example:"}} {{range .}}<code>{{.}}</code> {{end}}</span>{{end}}{{if .Doc}} <span class="tip-doc">{{t "More in"}} <code>{{.Doc}}</code>.</span>{{end}}</p>
 </details>{{end}}
 
+{{/* date-pick is the calendar button beside a typed due date field. It
+     stays hidden without scripting, where the field still takes a typed
+     date; assets/datepick.js shows it, opens the native picker on the
+     hidden date input, and writes the picked day into the field named by
+     data-datepick in the pattern the field's data-date-pattern carries. */}}
+{{define "date-pick"}}<span class="datepick" data-datepick="{{.}}" hidden>
+  <button type="button" class="secondary datepick-open" aria-label="{{t "Pick the due date from a calendar"}}" title="{{t "Pick the due date from a calendar"}}">{{template "icon" "calendar"}}</button>
+  <input type="date" class="datepick-native" tabindex="-1" aria-hidden="true">
+</span>{{end}}
+
 {{/* colour-field is every colour control on the site: the predefined
      swatches, none or the default where the colour is optional, and a custom
      colour. Built by projectColours or themeColours in colour.go. The custom
