@@ -78,5 +78,5 @@ func build() ([]byte, error) {
 	if info, err := os.Stat(src + "-wal"); err == nil && info.Size() > 0 {
 		return nil, fmt.Errorf("%s-wal survived closing the store with %d bytes", src, info.Size())
 	}
-	return os.ReadFile(src)
+	return os.ReadFile(src) // #nosec G304 -- a file this function just created in its own temp directory
 }
