@@ -199,12 +199,13 @@ Rules for a batch of agents working at once, each learned the slow way.
   by nearly every web feature. Ten agents all touching them meant every merge
   forced nine rebases and nine fresh CI runs. Group features that share these
   files under one agent, or run them one after another.
-- **Migrations merge in version order.** The runner applies only versions above
-  the highest one applied, so a lower number merged later is silently skipped
-  on every database already past it. `internal/store/migrations/gaps_test.go`
-  fails on an unlisted gap. Reserve numbers up front, merge strictly ascending,
-  and keep a PR whose lower numbers are not on `main` yet as a draft instead of
-  letting it sit red.
+- **Migrations are named by time, not reserved numbers.** `just migration NAME`
+  writes `internal/store/migrations/<UTC YYYYMMDDHHMMSS>_NAME.sql`, one portable
+  file for both engines. Parallel branches no longer queue on a number, and no
+  test keeps a per-migration list to extend. A branch whose migration sorts
+  before a newer one on `main` fails `TestNewMigrationsSortAfterTheBase`: rebase
+  and rename the file to a current timestamp. Never rename or edit a migration
+  that has merged. See [docs/development.md](docs/development.md#migrations).
 - **Verify lightly per change, fully once per batch.** Locally: `just lint`,
   `go test` for the packages you touched, the node suite if you changed
   JavaScript, `just spec`, `just docs-check`, and screenshots of the pages you

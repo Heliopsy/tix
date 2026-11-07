@@ -9,6 +9,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,11 +19,61 @@ import (
 //go:embed *.sql
 var files embed.FS
 
-// Migration is one numbered schema step.
+// LastNumbered is the highest four-digit version. Every later migration is
+// named by the UTC time it was created, which sorts after all of them, so a
+// branch never has to reserve a number another branch might also take.
+const LastNumbered = 34
+
+// TimestampLayout is the version format of every migration after LastNumbered.
+const TimestampLayout = "20060102150405"
+
+var fileName = regexp.MustCompile(`^([0-9]+)_([a-z0-9_]+)\.sql$`)
+
+// Migration is one schema step, identified by its version.
 type Migration struct {
 	Version int
 	Name    string
 	SQL     string
+}
+
+// Created returns the UTC time a timestamped migration was created, and false
+// for one of the numbered migrations that predate timestamps.
+func (m Migration) Created() (time.Time, bool) {
+	if m.Version <= LastNumbered {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(TimestampLayout, strconv.Itoa(m.Version))
+	return t, err == nil
+}
+
+// ParseName reads the version and name out of a migration's file name. A
+// numbered version is accepted only up to LastNumbered; anything newer must
+// be a valid UTC timestamp in TimestampLayout.
+func ParseName(file string) (int, string, error) {
+	m := fileName.FindStringSubmatch(file)
+	if m == nil {
+		return 0, "", fmt.Errorf("migration %q must be named YYYYMMDDHHMMSS_name.sql in lowercase", file)
+	}
+	digits, name := m[1], m[2]
+	switch len(digits) {
+	case 4:
+		v, _ := strconv.Atoi(digits)
+		if v > LastNumbered {
+			return 0, "", fmt.Errorf("migration %q: numbered migrations end at %04d, name it by its UTC creation time "+
+				"(just migration %s)", file, LastNumbered, name)
+		}
+		return v, name, nil
+	case len(TimestampLayout):
+		if _, err := time.Parse(TimestampLayout, digits); err != nil {
+			return 0, "", fmt.Errorf("migration %q: %s is not a UTC time in the form YYYYMMDDHHMMSS", file, digits)
+		}
+		v, err := strconv.Atoi(digits)
+		if err != nil {
+			return 0, "", fmt.Errorf("migration %q: %w", file, err)
+		}
+		return v, name, nil
+	}
+	return 0, "", fmt.Errorf("migration %q must be named YYYYMMDDHHMMSS_name.sql", file)
 }
 
 // All returns every migration in version order.
@@ -41,13 +92,9 @@ func allFrom(fsys fs.FS) ([]Migration, error) {
 		if !strings.HasSuffix(name, ".sql") {
 			continue
 		}
-		numPart, rest, ok := strings.Cut(strings.TrimSuffix(name, ".sql"), "_")
-		if !ok {
-			return nil, fmt.Errorf("migration %q must be named NNNN_name.sql", name)
-		}
-		v, err := strconv.Atoi(numPart)
+		v, rest, err := ParseName(name)
 		if err != nil {
-			return nil, fmt.Errorf("migration %q has a non-numeric version: %w", name, err)
+			return nil, err
 		}
 		if prev, dup := seen[v]; dup {
 			return nil, fmt.Errorf("migrations %q and %q share version %d", prev, name, v)
@@ -94,22 +141,71 @@ func Current(ctx context.Context, db *sql.DB) (int, error) {
 	return int(v.Int64), nil
 }
 
-// Run applies every migration above the current version, each in its own
-// transaction. Migrations are forward-only; there is no down path.
-func Run(ctx context.Context, db *sql.DB) (applied int, err error) {
-	current, err := Current(ctx, db)
-	if err != nil {
-		return 0, err
+// Applied returns every version the database has recorded.
+func Applied(ctx context.Context, db *sql.DB) (map[int]bool, error) {
+	if _, err := db.ExecContext(ctx, createVersionTable); err != nil {
+		return nil, fmt.Errorf("creating schema_migrations: %w", err)
 	}
+	rows, err := db.QueryContext(ctx, `SELECT version FROM schema_migrations`)
+	if err != nil {
+		return nil, fmt.Errorf("reading applied migrations: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[int]bool{}
+	for rows.Next() {
+		var v int64
+		if err := rows.Scan(&v); err != nil {
+			return nil, fmt.Errorf("reading applied migrations: %w", err)
+		}
+		out[int(v)] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading applied migrations: %w", err)
+	}
+	return out, nil
+}
+
+// Pending returns every migration the database has not recorded, in version
+// order. It looks at each version rather than at the highest, so a migration
+// that merged with an earlier timestamp than one already applied still runs.
+func Pending(ctx context.Context, db *sql.DB) ([]Migration, error) {
+	all, err := All()
+	if err != nil {
+		return nil, err
+	}
+	return pendingOf(ctx, db, all)
+}
+
+func pendingOf(ctx context.Context, db *sql.DB, all []Migration) ([]Migration, error) {
+	applied, err := Applied(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	var out []Migration
+	for _, m := range all {
+		if !applied[m.Version] {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
+// Run applies every pending migration, each in its own transaction.
+// Migrations are forward-only; there is no down path.
+func Run(ctx context.Context, db *sql.DB) (applied int, err error) {
 	all, err := All()
 	if err != nil {
 		return 0, err
 	}
+	return run(ctx, db, all)
+}
 
-	for _, m := range all {
-		if m.Version <= current {
-			continue
-		}
+func run(ctx context.Context, db *sql.DB, all []Migration) (applied int, err error) {
+	pending, err := pendingOf(ctx, db, all)
+	if err != nil {
+		return 0, err
+	}
+	for _, m := range pending {
 		if err := apply(ctx, db, m); err != nil {
 			return applied, err
 		}

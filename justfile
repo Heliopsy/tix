@@ -575,6 +575,18 @@ docs-check:
     go test ./internal/openapi -run '^TestTheCommittedDocumentIsGenerated$' -count=1 || { echo "run: just openapi"; rc=1; }
     exit $rc
 
+# Create a migration named by the current UTC time, so two branches never
+# collide on a number. There is one portable file: the PostgreSQL engine
+# translates it on the way in. See docs/development.md#migrations.
+migration NAME:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "{{NAME}}" =~ ^[a-z0-9_]+$ ]] || { echo "NAME must be lowercase letters, digits and underscores" >&2; exit 1; }
+    f="internal/store/migrations/$(date -u +%Y%m%d%H%M%S)_{{NAME}}.sql"
+    [ ! -e "$f" ] || { echo "$f already exists" >&2; exit 1; }
+    printf -- '-- SPDX-License-Identifier: AGPL-3.0-or-later\n\n-- What this changes and why.\n\n' > "$f"
+    echo "$f"
+
 # Never edit either file by hand; docs-check and the tests fail while the
 # committed files differ from what this writes.
 # Regenerate api/openapi.yaml and the docs/api.md routes table from the registry.
