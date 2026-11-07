@@ -6,11 +6,11 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 ## 1. Account to actor link, no behaviour change (PR 1, M+L)
 
 - [ ] 1.1 Link migration: backfill `actors.user_id`, partial unique `(tenant_id, user_id)`, index on
-  `user_id`, `sessions.second_factor` and `sessions.method` (S)
+  `user_id` (S)
 - [ ] 1.2 Both stores write `actors.user_id` on every user actor created (`CreateUser`, tenant bootstrap,
   invites) and read it back on the actor (S)
-- [ ] 1.3 `UserOfActor` / `ActorOfUser` store methods; unscoped `ListMemberships(userID)` on the allow-list
-  with its isolation guard, both engines (M)
+- [ ] 1.3 `GetActorByUser` store method (scoped, both engines) and the service's `accountOf`, which reads
+  the account through `actors.user_id` (S)
 - [ ] 1.4 Replace every `GetUser(ctx, actor.ID)` and `GetActor(ctx, user.ID)`: `session.go`, `user.go`,
   `globaladmin.go`, `totp.go`, `sshlogin.go`, `token.go`, invites (M)
 - [ ] 1.5 Guard: a person whose actor ID differs from the user ID signs in, passes a second factor, signs in
@@ -18,6 +18,8 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 2. Membership and account rules (PR 2, L)
 
+- [ ] 2.0 Unscoped `ListMemberships(userID)` on the allow-list with its isolation guard, both engines; the
+  first reader is the sole-tenant rule (M)
 - [ ] 2.1 `AddTenantMember` for global admins, no acceptance (service, registry, HTTP, CLI
   `tix tenant user add`, web Global admin area); tenant bootstrap accepts an existing account as first
   admin (M)
@@ -43,6 +45,7 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 - [ ] 4.1 `whoami` memberships, `account_id`, `account:read` scope (registry, OpenAPI, client) (S)
 - [ ] 4.2 `resolveTenant`: credential and `X-Tix-Tenant` on the shared host, refusal on a bound host (M)
+- [ ] 4.0 Migration: `sessions.second_factor` and `sessions.method`, written at every session mint (S)
 - [ ] 4.3 Same-host switch: `POST /switch`, factor challenge, new session, old one ended, audit (M)
 - [ ] 4.4 Web header switcher dialog, `?dialog=tenants` fallback, a tenant on its own domain listed as a
   link to its sign-in page, Bulgarian strings, screenshots (M)
