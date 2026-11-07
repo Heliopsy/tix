@@ -20,11 +20,11 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			dlg := `document.getElementById(` + btn + `.dataset.dlgOpen)`
 			page.load(t, f.server.URL+path, btn)
 			// The fixture serves no event stream, so live.js gives up on its
-			// socket and says so in a notice. On /activity that notice sits
-			// above the feed, and it arrives whenever the socket's failure
-			// does: on a macOS runner that was after the control had been
-			// measured, so the whole feed moved down under a press already
-			// aimed at Raw. Wait until it is up, as open() does for the board.
+			// socket and says so in a notice. That notice once sat above the
+			// feed and moved it down under a press already aimed at Raw; it is
+			// a bar at the foot of the window now, which a press at the centre
+			// of a control can still land on. Wait until it is up, as open()
+			// does for the board, so press() measures what is really there.
 			page.waitFor(t, `(() => { const s = document.getElementById("live-stale"); return !s || !s.hidden || !document.querySelector("[data-events]"); })()`,
 				"the screen never said it was not live")
 			if path != "/activity" {
