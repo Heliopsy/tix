@@ -22,6 +22,7 @@ local and CI results cannot drift apart.
 | `just spec` | `openspec validate --strict` |
 | `just pg-up` / `just test-postgres` | PostgreSQL in a container, and the suite against it |
 | `just cover-check` | The coverage floor, the headroom above it, and what the run skipped |
+| `just test-shard SHARD` | One of the shards CI runs side by side; see [testing.md](testing.md#how-ci-runs-the-suite) |
 | `just ci` | Everything CI runs, locally |
 
 [testing.md](testing.md) covers the suite itself: what a partial run announces, the coverage floors,

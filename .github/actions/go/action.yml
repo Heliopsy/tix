@@ -1,0 +1,61 @@
+name: Go
+description: >-
+  Install the Go version go.mod names and restore the module and build caches.
+  Restoring is all this does: a job saves with actions/cache/save, and only on
+  a push to main, so a pull request reads the cache main built and never
+  writes one of its own.
+
+inputs:
+  job:
+    description: >-
+      What the job builds, as part of the cache key. Jobs that compile
+      different things (a race build, a cross-compile, a linter) keep separate
+      caches rather than overwriting one another's.
+    required: true
+
+outputs:
+  key:
+    description: The exact cache key, for the save step at the end of the job.
+    value: ${{ steps.key.outputs.key }}
+  paths:
+    description: The directories the cache holds, for the save step.
+    value: ${{ steps.key.outputs.paths }}
+  cache-hit:
+    description: Whether the exact key was restored, in which case there is nothing to save.
+    value: ${{ steps.restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    # cache: false because setup-go's own cache saves from every run that
+    # misses, pull requests included. A pull request's cache is visible only to
+    # that pull request, so each one paid for an upload nobody else could use,
+    # and the entries crowded main's out of the repository's quota.
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    - id: key
+      shell: bash
+      env:
+        JOB: ${{ inputs.job }}
+        SUM: ${{ hashFiles('go.sum') }}
+      run: |
+        set -euo pipefail
+        prefix="go-${RUNNER_OS}-${RUNNER_ARCH}-$(go env GOVERSION)-${JOB}-"
+        {
+          echo "prefix=${prefix}"
+          echo "key=${prefix}${SUM}"
+          echo "paths<<EOF"
+          go env GOMODCACHE
+          go env GOCACHE
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ steps.key.outputs.paths }}
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: ${{ steps.key.outputs.prefix }}

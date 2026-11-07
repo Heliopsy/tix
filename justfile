@@ -141,7 +141,7 @@ test:
     # answer depends on what else the machine is doing is worse than a slow
     # one, so the limit is raised to something no healthy run approaches while
     # still ending a genuine deadlock.
-    go test ./... -race -shuffle=on -timeout 40m
+    go test ./... -count=1 -race -shuffle=on -timeout 40m
     rc=$?
     set -e
     just _env-summary "$TIX_TEST_ENV_LOG"
@@ -153,7 +153,7 @@ test-short:
     set -euo pipefail
     export TIX_TEST_ENV_LOG=$(mktemp); trap 'rm -f "$TIX_TEST_ENV_LOG"' EXIT
     set +e
-    go test ./... -short -race -shuffle=on
+    go test ./... -count=1 -short -race -shuffle=on
     rc=$?
     set -e
     just _env-summary "$TIX_TEST_ENV_LOG"
@@ -204,7 +204,7 @@ cover:
     # so internal/service passes go test's 10 minute default under load and the
     # gate reports a panic that says nothing about the code. This recipe was the
     # last full-suite run still on the default.
-    go test ./... -race -shuffle=on -timeout 40m -coverprofile=coverage.out -covermode=atomic
+    go test ./... -count=1 -race -shuffle=on -timeout 40m -coverprofile=coverage.out -covermode=atomic
     rc=$?
     set -e
     [ $rc -eq 0 ] || exit $rc
@@ -213,10 +213,16 @@ cover:
     echo "report: coverage.html"
     just _env-summary {{env_log}}
 
+# Enforce the coverage floor and name the headroom left above it.
+cover-check: cover cover-floor
+
+# The floor against whatever coverage.out and the env log already hold, so CI
+# can apply it to the profile it merged from the shards without running the
+# suite again. `cover-check` is the same with a fresh run in front.
+#
 # List the packages nearest the bottom too, so a decline is visible while it is
 # still small rather than on the day it turns CI red.
-# Enforce the coverage floor and name the headroom left above it.
-cover-check: cover
+cover-floor:
     #!/usr/bin/env bash
     set -euo pipefail
     total=$(go tool cover -func=coverage.out | awk '/^total:/ {print $3}' | tr -d '%')
@@ -237,6 +243,103 @@ cover-check: cover
     echo "floor: ${floor}%, headroom: ${headroom} points"
     awk "BEGIN {exit !(${total} < ${floor})}" && { echo "FAIL: below the ${floor}% floor"; exit 1; } || true
     awk "BEGIN {exit !(${headroom} < 1.5)}" && echo "WARNING: under 1.5 points of headroom, raise coverage before it turns CI red" || true
+
+# ---------------------------------------------------------------- shards
+#
+# CI runs the suite as parallel shards, one runner each, and merges their
+# coverage before applying the floor. scripts/test-shards.sh says which package
+# goes where; these recipes are the same steps locally.
+
+# Fail unless every package is in exactly one shard and CI runs every shard.
+shards-check:
+    scripts/test-shards.sh check .github/workflows/ci.yaml
+
+# One shard of the suite, with coverage, under the race detector and a shuffled
+# order like the whole suite. Leaves out/coverage/SHARD.out and SHARD.env.log.
+test-shard SHARD:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # An already-exported DSN wins: CI sets one and starts no container here.
+    if [ -z "${TIX_TEST_POSTGRES_DSN:-}" ] && {{engine}} exec {{pg_name}} pg_isready -U tix -q 2>/dev/null; then
+      export TIX_TEST_POSTGRES_DSN='{{pg_dsn}}'
+    fi
+    pkgs=$(scripts/test-shards.sh list '{{SHARD}}')
+    [ -n "$pkgs" ] || { echo "shard {{SHARD}} has no packages"; exit 1; }
+    mkdir -p out/coverage
+    rm -f 'out/coverage/{{SHARD}}.out' 'out/coverage/{{SHARD}}.env.log'
+    export TIX_TEST_ENV_LOG="$PWD/out/coverage/{{SHARD}}.env.log"
+    touch "$TIX_TEST_ENV_LOG"
+    if [ -n "${TIX_TEST_POSTGRES_DSN:-}" ]; then pg=included; else pg="NOT available, its tests will skip"; fi
+    echo "shard {{SHARD}}: $(echo "$pkgs" | wc -l | tr -d ' ') packages, postgres: $pg"
+    set +e
+    # -timeout 40m, as `cover` carries it: atomic counters on every block make
+    # a coverage run slower than a plain one, and a loaded machine slower still.
+    # -count=1 so a cached result never stands in for a run: these tests read
+    # databases, clocks and browsers that go test cannot see change.
+    # shellcheck disable=SC2086 # one import path per word, none has a space
+    go test $pkgs -count=1 -race -shuffle=on -timeout 40m \
+      -coverprofile='out/coverage/{{SHARD}}.out' -covermode=atomic
+    rc=$?
+    set -e
+    just _env-summary "$TIX_TEST_ENV_LOG"
+    exit $rc
+
+# Print "full" when the change between BASE and HEAD can behave differently on
+# another operating system, "quick" otherwise. CI's macOS job runs the whole
+# suite on "full" and the rest and store shards on "quick": everything that
+# touches the operating system lives there, while the four heavy packages are
+# database logic that Linux already runs under both engines.
+#
+# Errs towards "full": a file it cannot read, a build constraint, a syscall or
+# terminal import, or anything under the packages that own SSH, terminals,
+# paths and filesystems.
+os-scope BASE="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    changed=$(git diff --name-only "{{BASE}}" HEAD) || { echo full; exit 0; }
+    os_paths='^(go\.(mod|sum)|justfile|scripts/test-shards\.sh|\.github/workflows/ci\.yaml|\.github/actions/|internal/(sshd|sshlogin|storeloc|tui|smoke|selfupdate|config|connect|logging)/)'
+    os_files='_(darwin|linux|unix|windows|bsd|freebsd|openbsd|netbsd|other|posix|amd64|arm64)(_test)?\.go$'
+    os_code='^//go:build|"(syscall|os/signal|os/exec|os/user|golang\.org/x/sys/[a-z]+|golang\.org/x/term|github\.com/creack/pty|github\.com/charmbracelet/x/term)"'
+    while read -r f; do
+      [ -n "$f" ] || continue
+      if grep -qE "$os_paths" <<<"$f" || grep -qE "$os_files" <<<"$f"; then
+        echo "full: $f" >&2; echo full; exit 0
+      fi
+      if [[ "$f" == *.go ]] && [ -f "$f" ] && grep -qE "$os_code" "$f"; then
+        echo "full: $f" >&2; echo full; exit 0
+      fi
+    done <<<"$changed"
+    echo quick
+
+# Every shard one after another, merged, which is the CI suite on one machine.
+test-shards:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf out/coverage
+    for shard in $(scripts/test-shards.sh names); do just test-shard "$shard"; done
+    just cover-merge
+
+# Merge the shard profiles in out/coverage into coverage.out, and their env logs
+# into the one cover-floor reads. Refuses unless every shard left a profile, so
+# a shard that never ran cannot pass for one that covered nothing.
+cover-merge DIR="out/coverage":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for shard in $(scripts/test-shards.sh names); do
+      [ -s "{{DIR}}/$shard.out" ] || { echo "no coverage profile for shard $shard in {{DIR}}"; exit 1; }
+    done
+    # Blocks are keyed by position and statement count. The shards hold
+    # disjoint packages, so a block should appear once; if one ever appears
+    # twice its counts add up, which is what atomic mode means, rather than
+    # the block being counted twice in the total.
+    awk 'FNR==1 { if (!mode) { mode=$0 } else if ($0 != mode) { print "mixed modes: " $0 > "/dev/stderr"; exit 1 }; next }
+         !($1 SUBSEP $2 in count) { order[++n]=$1 SUBSEP $2 }
+         { count[$1 SUBSEP $2]+=$3 }
+         END { print mode; for (i=1; i<=n; i++) { split(order[i], k, SUBSEP); print k[1], k[2], count[order[i]] } }' \
+      "{{DIR}}"/*.out > coverage.out
+    cat "{{DIR}}"/*.env.log > {{env_log}} 2>/dev/null || : > {{env_log}}
+    echo "merged $(ls "{{DIR}}"/*.out | wc -l) profiles into coverage.out"
+    go tool cover -func=coverage.out | tail -1
 
 # Smoke: build the real binary and drive it as a subprocess. It is a sanity
 # pass over the shipped artifact, not a second test suite, so it covers the
@@ -330,7 +433,7 @@ actionlint: (tool "actionlint")
 # info on made the gate depend on which shellcheck release the runner had,
 # which is how it failed on a machine where it had just passed. SC2189 is an
 # error and is still caught, verified against the commit that motivated this.
-shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh")
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # The jq filter that renders the agent panes, which is the only thing between a
 # lease token and a published video. shellcheck cannot read it and bash -n
@@ -683,7 +786,7 @@ test-postgres: pg-up
     # -timeout 40m for the same reason `just test` carries it: under load
     # internal/service, cmd and internal/demo each run past go test's 10 minute
     # default and the gate reports a panic that says nothing about the code.
-    TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -race -shuffle=on -timeout 40m
+    TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' go test ./... -count=1 -race -shuffle=on -timeout 40m
     rc=$?
     set -e
     just _env-summary "$TIX_TEST_ENV_LOG"
@@ -984,7 +1087,7 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck streamtest scenecheck test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
-ci: tidy-check fmt-check vet lint build test-postgres cover-check smoke jstest streamtest scenecheck sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
+ci: tidy-check fmt-check vet shards-check lint build pg-up test-shards cover-floor smoke jstest streamtest scenecheck sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
     @echo ""
     @echo "all CI gates passed"
 
