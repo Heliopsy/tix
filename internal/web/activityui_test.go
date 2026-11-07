@@ -56,12 +56,12 @@ func TestALinkedRecordIsAddressableOnItsOwnScreen(t *testing.T) {
 	if !strings.Contains(detail, `<li class="comment" id="comment-`) {
 		t.Errorf("a comment carries no anchor for a link to land on:\n%s", detail)
 	}
-	if !strings.Contains(detail, `data-open-for="artifact"`) {
-		t.Errorf("the artifacts disclosure cannot be opened by a link addressing one")
+	if !strings.Contains(detail, `data-tab-panel="artifacts">`) || !strings.Contains(detail, `<ul class="rellist rows" id="task-artifacts">`) {
+		t.Errorf("the artifacts panel cannot be shown by a link addressing one")
 	}
 
 	script := body(t, b.get("/assets/copy.js"))
-	for _, want := range []string{"targetKind", "data-open-for", "is-target", "htmx:load"} {
+	for _, want := range []string{"targetKind", "revealTab", "is-target", "htmx:load"} {
 		if !strings.Contains(script, want) {
 			t.Errorf("the script that reveals a linked record is missing %q", want)
 		}

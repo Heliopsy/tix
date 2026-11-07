@@ -25,7 +25,6 @@ var expanderAllowed = map[string]string{
 	"tasks.html cform-more":        "the rarely used fields inside Add with details, a part of a form already open",
 	"task.html titleedit":          "Rename, an edit switch on the title it edits",
 	"task.html descedit":           "Edit, an edit switch on the description it edits",
-	"task.html tsec tfold":         "Artifacts and History: sections of a task folded by their own heading",
 	"release.html relentry":        "one version's notes in the release history",
 	"syncruns.html note":           "one run's warnings, a detail of its table row",
 }

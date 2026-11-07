@@ -7026,8 +7026,7 @@ details[open] > .editswitch .when-open { display: inline; }
 .taskmain > .tsec + .tsec { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--line); }
 .tsec { position: relative; margin: 0; }
 .tsec-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h-sm); margin: 0 0 var(--space-2); }
-.tsec-head > h2,
-.tfold > summary > h2 { margin: 0; font-size: var(--text-md); font-weight: 600; }
+.tsec-head > h2 { margin: 0; font-size: var(--text-md); font-weight: 600; }
 .tsec-count {
   padding: 0 var(--space-2);
   border-radius: var(--radius-pill);
@@ -7072,22 +7071,28 @@ details[open] > .editswitch .when-open { display: inline; }
 .reldrop { display: inline-flex; margin: 0; }
 .reladd { display: flex; gap: var(--space-2); margin: var(--space-2) 0 0; }
 .reladd input { flex: 1 1 auto; min-width: 0; }
-.tfold > summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h-sm); list-style: none; cursor: pointer; }
-.tfold > summary::-webkit-details-marker { display: none; }
-.tfold > summary::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--muted);
-  transition: transform 120ms ease;
-}
-.tfold[open] > summary::before { transform: rotate(90deg); }
-.tfold > summary:hover > h2 { color: var(--accent); }
-.tfold[open] > summary { margin-bottom: var(--space-2); }
-.tfold .table-wrap { margin: 0; }
+.ttab-panel .table-wrap { margin: 0; }
+
+/* Comments, History and Artifacts (task.html, assets/tasktabs.js). With
+   scripting a tab strip picks one panel and the panel's own heading, which
+   the tab already says, is not drawn; the Artifacts heading keeps its (i).
+   data-tab on the box hides the others from the first frame, before the
+   script has set hidden. Without scripting the strip is not drawn and the
+   three panels stand one under another, divided like any other section. */
+.ttabs-list { margin-bottom: var(--space-3); }
+.ttabs-list [role="tab"] { display: inline-flex; align-items: center; gap: var(--space-2); transition: none; }
+.ttabs-list [role="tab"] .tsec-count { font-weight: 400; }
+.tsec-count.is-zero { opacity: 0.7; }
+.tsec-count:empty { display: none; }
+:root.js .taskmain > .ttabs { padding-top: var(--space-3); }
+:root.js .ttab-head > h2,
+:root.js .ttab-head > .tsec-count { display: none; }
+:root.js .ttab-head:not(:has(.tip)) { display: none; }
+:root.js .ttab-head:has(.tip) { min-height: 0; margin-bottom: var(--space-1); }
+:root.js .ttabs[data-tab="comments"] > [data-tab-panel]:not([data-tab-panel="comments"]),
+:root.js .ttabs[data-tab="history"] > [data-tab-panel]:not([data-tab-panel="history"]),
+:root.js .ttabs[data-tab="artifacts"] > [data-tab-panel]:not([data-tab-panel="artifacts"]) { display: none; }
+:root:not(.js) .ttab-panel + .ttab-panel { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--line); }
 /* An older page of history reached without JavaScript leads back to the newest. */
 .histnewest { margin: 0 0 var(--space-2); }
 

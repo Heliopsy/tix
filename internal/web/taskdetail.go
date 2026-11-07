@@ -634,6 +634,19 @@ func (v *taskView) attachRaw(r *http.Request) {
 	}
 }
 
+// TabForced reports whether the address names something only the History tab
+// shows, an older page of it or a raw entry, so that tab opens whatever the
+// browser last chose.
+func (v taskView) TabForced() bool { return v.HistoryCursor != "" || v.Raw != nil }
+
+// InitialTab is the activity tab drawn selected before any script runs.
+func (v taskView) InitialTab() string {
+	if v.TabForced() {
+		return "history"
+	}
+	return "comments"
+}
+
 // HistoryNewestHref is the task screen drawing the newest changes again.
 func (v taskView) HistoryNewestHref() string { return v.taskHref() + "#history" }
 
