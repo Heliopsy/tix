@@ -193,7 +193,7 @@
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}due" name="due_at" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{t "tomorrow, +3d or %s" dueDate}}" data-date-pattern="{{datePattern}}">
+          <input id="{{.IDPrefix}}due" name="due_at" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
           {{template "date-pick" (print .IDPrefix "due")}}
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>

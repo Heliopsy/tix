@@ -119,7 +119,9 @@ func TestAPickedDayReadsBackAsTheSameDay(t *testing.T) {
 
 // A due field shows what it takes before anything is typed: the placeholder
 // is drawn from the same examples as the tip, its date in the reader's format,
-// and every value in it is one the field accepts.
+// and every value in it is one the field accepts. The task panel's column is
+// too narrow for "tomorrow, +3d or" and a date, which was cut off mid-date,
+// so there it is the date alone and the tip carries the rest.
 func TestTheDuePlaceholderIsAcceptedExamples(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -131,10 +133,13 @@ func TestTheDuePlaceholderIsAcceptedExamples(t *testing.T) {
 			t.Fatal(err)
 		}
 		examples := quickadd.DueExamples(style.Date(quickadd.ExampleDay))
-		for _, at := range []struct{ path, id string }{{"/tasks", "new-due"}, {"/tasks/" + ref, "due"}} {
+		for _, at := range []struct {
+			path, id string
+			n        int
+		}{{"/tasks", "new-due", 3}, {"/tasks/" + ref, "due", 1}} {
 			ph := attrOf(t, b.page(at.path), at.id, "placeholder")
 			values := strings.Split(strings.Replace(ph, " or ", ", ", 1), ", ")
-			if len(values) != 3 || values[2] != style.Date(quickadd.ExampleDay) {
+			if len(values) != at.n || values[at.n-1] != style.Date(quickadd.ExampleDay) {
 				t.Errorf("%s %s: placeholder %q does not end with the date in the reader's format", format, at.path, ph)
 			}
 			for _, v := range values {
