@@ -4788,14 +4788,30 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    design: it says the view may have moved on, which is worth knowing and is
    not an error, so it reads as a line of small print rather than as an alert
    competing with the page. It carries the warning colour because "you may be
-   looking at something stale" is exactly what that colour is for here. */
+   looking at something stale" is exactly what that colour is for here.
+
+   It is out of the flow, a bar fixed to the foot of the window. It appears
+   seconds after the page, when the socket gives up, and as a block above the
+   list it pushed every row down under a pointer already on its way to one.
+   The page's own 64px of padding at its foot is the room that lets the last
+   row scroll clear of it, so showing it changes no box on the page: adding
+   room only while it shows grew the page, which brought a scrollbar in and
+   narrowed everything. */
 .livestale {
+  position: fixed;
+  bottom: var(--gutter);
+  left: 50%;
+  z-index: 19;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(560px, calc(100vw - 2 * var(--gutter)));
+  margin: 0;
   background: var(--warn-soft);
   border: 1px solid var(--warn);
   border-radius: 6px;
+  box-shadow: var(--shadow-strong);
   color: var(--warn);
   font-size: var(--text-sm);
-  margin: 12px 0;
   padding: 6px 10px;
 }
 
