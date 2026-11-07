@@ -11,6 +11,9 @@ What a green run proves, what it does not, and how to tell the two apart.
 | `just test-postgres` | Starts PostgreSQL and runs the suite against both engines |
 | `just cover` | Coverage profile plus `coverage.html` |
 | `just cover-check` | The coverage floor, the headroom left above it, and the packages nearest the bottom |
+| `just test-shard SHARD` | One CI shard with coverage into `out/coverage/`; `scripts/test-shards.sh names` lists them |
+| `just test-shards` | Every shard in turn, merged into `coverage.out`; then `just cover-floor` applies the floor |
+| `just shards-check` | Fails unless every package is in exactly one shard and CI runs every shard |
 | `just jstest` | The web assets' JavaScript suite, on node's own runner |
 | `just check` | The pre-push gate set |
 | `just ci` | Every CI gate, locally, in containers |
@@ -94,6 +97,31 @@ headroom it warns rather than failing, which is the moment to raise coverage rat
 No package is excluded from the total. `internal/tui` used to be, as untestable `View()` rendering;
 it is now covered like every other package, and excluding it only hid a covered package from the
 number. Its current figure comes from `go tool cover`, like any other package.
+
+## How CI runs the suite
+
+CI splits the Go suite by package across parallel runners: `service`, `cmd`, `web`, `api`
+(`httpapi`, `integration`, `demo`), `store` (the engines, `connect`, `bench`) and `rest`, which takes
+every package no named shard claims. `scripts/test-shards.sh` owns the split. Every shard runs with
+`-race -shuffle=on -count=1` and coverage, against PostgreSQL as well as SQLite. The Coverage job
+merges the six profiles and applies the 85% floor to the total, and fails rather than skipping when a
+shard failed. The Gate job runs tidy, gofmt, vet, the build, `just shards-check` and `just smoke` in a
+couple of minutes, so a slip shows before the suite finishes.
+
+macOS runs the whole suite on main, nightly, and on a pull request that `just os-scope` says touches
+something an operating system can tell apart: build constraints, syscall or terminal imports, SSH,
+paths, filesystems. Other pull requests run the `rest` and `store` shards there, which hold every
+package that reaches the operating system.
+
+Two things keep the slow packages fast, and both are for tests only:
+
+- `sqlitetest.Path(t)` hands a test a copy of a database migrated once per test binary. Migrating a
+  fresh file costs seconds under the race detector, and the migration path itself is still covered
+  from an empty file by `internal/store/sqlite` and `internal/store/migrations`.
+- `service.UseCheapHashingInTests()` in a `TestMain` drops argon2id to `auth.TestParams` for services
+  built through wiring a test cannot pass a hasher to. `internal/service` never calls it and asserts
+  `New` hashes at production cost, and `internal/architecture` fails if anything but a `_test.go`
+  file calls it.
 
 ## Mutation testing
 
