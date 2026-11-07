@@ -90,3 +90,66 @@ func TestTaskImportTakesJSONOrAMultipartUpload(t *testing.T) {
 		t.Errorf("multipart import = %+v", done)
 	}
 }
+
+// postForm sends a multipart import built by fill to the project's route.
+func postForm(t *testing.T, f *apiFixture, fill func(*multipart.Writer)) *http.Response {
+	t.Helper()
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	fill(form)
+	_ = form.Close()
+	route := strings.Replace(wire.RouteProjectTaskImport, "{ref}", "infra", 1)
+	req, err := http.NewRequest(http.MethodPost, f.server.URL+route, &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = f.hostA
+	req.Header.Set(wire.HeaderContentType, form.FormDataContentType())
+	req.Header.Set(wire.HeaderAuth, "Bearer "+f.tokenA)
+	resp, err := f.server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+// A form may carry the mapping as a file part and the tasks as a content
+// field; its choices are read from fields, and a bad one names itself.
+func TestTaskImportReadsEveryPartOfAForm(t *testing.T) {
+	f := newFixture(t)
+	resp := postForm(t, f, func(form *multipart.Writer) {
+		mapping, _ := form.CreateFormFile("mapping", "map.yaml")
+		_, _ = mapping.Write([]byte("columns: {Name: title}\n"))
+		_ = form.WriteField("content", "Name\nfrom content\n")
+		_ = form.WriteField("dry_run", "on")
+		_ = form.WriteField("preview", "5")
+		_ = form.WriteField("mode", "create")
+	})
+	mustStatus(t, resp, http.StatusOK)
+	var dry core.TaskImportResult
+	decodeBody(t, resp, &dry)
+	if !dry.DryRun || dry.Committed || dry.Mode != core.TaskImportCreate || len(dry.Preview) != 1 ||
+		dry.Preview[0].Title != "from content" {
+		t.Errorf("form dry run = %+v", dry)
+	}
+
+	resp = postForm(t, f, func(form *multipart.Writer) { _ = form.WriteField("preview", "many") })
+	mustStatus(t, resp, http.StatusBadRequest)
+	if body := readBody(t, resp); !strings.Contains(body, "preview") {
+		t.Errorf("a bad preview answered %s", body)
+	}
+
+	route := strings.Replace(wire.RouteProjectTaskImport, "{ref}", "infra", 1)
+	req, _ := http.NewRequest(http.MethodPost, f.server.URL+route, strings.NewReader("not a form"))
+	req.Host = f.hostA
+	req.Header.Set(wire.HeaderContentType, "multipart/form-data; boundary=x")
+	req.Header.Set(wire.HeaderAuth, "Bearer "+f.tokenA)
+	resp, err := f.server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustStatus(t, resp, http.StatusBadRequest)
+	if body := readBody(t, resp); !strings.Contains(body, "reading the upload") {
+		t.Errorf("a broken form answered %s", body)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
@@ -78,4 +79,53 @@ func TestInviteAdministrationNeedsACredential(t *testing.T) {
 	resp := f.do(http.MethodPost, wire.RouteInvites, f.hostA, "", core.CreateInviteInput{Email: "ada@example.com"})
 	mustStatus(t, resp, http.StatusUnauthorized)
 	_ = resp.Body.Close()
+}
+
+// A reissued link replaces the old one, which stops at once; a revoked link
+// stops too, and both refuse an unknown invite.
+func TestInviteReissueAndRevokeOverHTTP(t *testing.T) {
+	f := newFixture(t)
+	resp := f.call(http.MethodPost, wire.RouteInvites, core.CreateInviteInput{Email: "ada@example.com", Role: core.RoleMember})
+	mustStatus(t, resp, http.StatusCreated)
+	var first core.IssuedInvite
+	decodeBody(t, resp, &first)
+
+	reissue := strings.Replace(wire.RouteInviteReissue, "{id}", first.ID, 1)
+	resp = f.call(http.MethodPost, reissue, core.ReissueInviteInput{ExpiresIn: core.Duration(48 * time.Hour)})
+	mustStatus(t, resp, http.StatusOK)
+	var second core.IssuedInvite
+	decodeBody(t, resp, &second)
+	if second.Token == "" || second.Token == first.Token || !strings.HasSuffix(second.URL, "/invite/"+second.Token) {
+		t.Fatalf("reissued %+v", second)
+	}
+	old := inviteRequest(f, http.MethodGet, first.Token, nil)
+	mustStatus(t, old, http.StatusNotFound)
+	_ = old.Body.Close()
+	live := inviteRequest(f, http.MethodGet, second.Token, nil)
+	mustStatus(t, live, http.StatusOK)
+	_ = live.Body.Close()
+
+	bad := f.call(http.MethodPost, reissue, core.ReissueInviteInput{ExpiresIn: core.Duration(time.Minute)})
+	mustStatus(t, bad, http.StatusBadRequest)
+	_ = bad.Body.Close()
+
+	// The replaced invite is finished, so revoking it is refused.
+	stale := f.call(http.MethodDelete, strings.Replace(wire.RouteInvite, "{id}", first.ID, 1), nil)
+	mustStatus(t, stale, http.StatusNotFound)
+	_ = stale.Body.Close()
+	resp = f.call(http.MethodDelete, strings.Replace(wire.RouteInvite, "{id}", second.ID, 1), nil)
+	mustStatus(t, resp, http.StatusNoContent)
+	_ = resp.Body.Close()
+	gone := inviteRequest(f, http.MethodGet, second.Token, nil)
+	mustStatus(t, gone, http.StatusNotFound)
+	_ = gone.Body.Close()
+
+	for _, req := range []struct{ method, route string }{
+		{http.MethodDelete, strings.Replace(wire.RouteInvite, "{id}", "nope", 1)},
+		{http.MethodPost, strings.Replace(wire.RouteInviteReissue, "{id}", "nope", 1)},
+	} {
+		resp := f.call(req.method, req.route, nil)
+		mustStatus(t, resp, http.StatusNotFound)
+		_ = resp.Body.Close()
+	}
 }
