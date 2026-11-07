@@ -1,0 +1,10 @@
+name: tix CodeQL config
+
+query-filters:
+  # Every cookie tix sets takes its Secure flag from server.cookie_security
+  # (auto follows the effective request scheme, honouring trusted proxies), so
+  # a plain-HTTP deployment behind a TLS proxy keeps working. CodeQL only
+  # accepts a constant `Secure: true`, so it flags every cookie. The behaviour
+  # is covered by the web and httpapi cookie tests instead.
+  - exclude:
+      id: go/cookie-secure-not-set
