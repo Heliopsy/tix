@@ -23,9 +23,9 @@
       <a href="https://pkg.go.dev/github.com/heliopsy/tix"><img src="https://pkg.go.dev/badge/github.com/heliopsy/tix.svg" alt="Go Reference"></a>
     </td>
     <td>
-      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_specs.svg" alt="Specs"></a><br>
-      <a href="openspec/changes/tix-v1/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_requirements.svg" alt="Requirements"></a><br>
-      <a href="openspec/changes/tix-v1/tasks.md"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/tasks_status.svg" alt="Tasks"></a><br>
+      <a href="openspec/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_specs.svg" alt="Specs"></a><br>
+      <a href="openspec/specs/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/number_of_requirements.svg" alt="Requirements"></a><br>
+      <a href="openspec/changes/archive/2026-10-10-tix-v1/tasks.md"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/tasks_status.svg" alt="Tasks"></a><br>
       <a href="openspec/changes/"><img src="https://raw.githubusercontent.com/heliopsy/tix/gh-pages/badges/open_changes.svg" alt="Open Changes"></a>
     </td>
     <td>
@@ -43,9 +43,9 @@ Agents get an atomic queue pop, a lease that returns work when a worker dies, ma
 everywhere, and a durable event stream. Both work the same tasks in the same store.
 
 > **Status: early.** Every capability described below is built and tested, and the behaviour contract
-> in [`openspec/changes/tix-v1/`](openspec/changes/tix-v1/) is validated against it. It has not been
+> in [`openspec/specs/`](openspec/specs/) is validated against it. It has not been
 > run by anyone but its author, so expect the rough edges of a first release. The
-> [task list](openspec/changes/tix-v1/tasks.md) says what is done and what is not.
+> [v1 task list](openspec/changes/archive/2026-10-10-tix-v1/tasks.md) says what is done and what is not.
 
 ## How it works
 

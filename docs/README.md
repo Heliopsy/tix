@@ -57,7 +57,7 @@ tix.
 
 | Document | Contents |
 | --- | --- |
-| [openspec/changes/tix-v1/specs/](../openspec/changes/tix-v1/specs/) | The normative behaviour contract |
+| [openspec/specs/](../openspec/specs/) | The normative behaviour contract |
 | [AGENTS.md](../AGENTS.md) | Coding standards and architecture invariants |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Build, test and pull request process |
 | [SECURITY.md](../SECURITY.md) | Reporting a vulnerability, and deployment notes |
