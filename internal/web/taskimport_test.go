@@ -178,3 +178,28 @@ func TestImportErrorsDownloadAsCSV(t *testing.T) {
 		t.Errorf("error report = %q", report)
 	}
 }
+
+// TestImportFilesDownloadAsAttachmentsTheBrowserWillNotDraw holds the two
+// files an import offers to the headers that keep a mapping or a report, both
+// text the uploader wrote, from being read as a page.
+func TestImportFilesDownloadAsAttachmentsTheBrowserWillNotDraw(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	preview := followTo(t, b.uploadImport(map[string]string{"go": "preview"}, "t.csv", "Title,Due\n<script>x</script>,not a date\n"), "preview")
+	base := strings.TrimSuffix(preview, "/preview")
+	for _, tc := range []struct{ file, contentType, disposition string }{
+		{"errors.csv", "text/csv; charset=utf-8", `attachment; filename="import-errors.csv"`},
+		{"mapping.yaml", "application/yaml; charset=utf-8", `attachment; filename="infra-mapping.yaml"`},
+	} {
+		resp := b.get(base + "/" + tc.file)
+		_ = body(t, resp)
+		h := resp.Header
+		if h.Get("Content-Type") != tc.contentType || h.Get("Content-Disposition") != tc.disposition ||
+			h.Get("X-Content-Type-Options") != "nosniff" || !strings.Contains(h.Get("Content-Security-Policy"), "sandbox") {
+			t.Errorf("%s: Content-Type %q, Content-Disposition %q, X-Content-Type-Options %q, CSP %q", tc.file,
+				h.Get("Content-Type"), h.Get("Content-Disposition"), h.Get("X-Content-Type-Options"),
+				h.Get("Content-Security-Policy"))
+		}
+	}
+}

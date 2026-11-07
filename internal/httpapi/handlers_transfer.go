@@ -14,6 +14,10 @@ import (
 	"github.com/heliopsy/tix/internal/wire"
 )
 
+// importFormMemory is how much of a multipart import is held in memory; the
+// rest of a large file waits in a temporary file.
+const importFormMemory = 8 << 20
+
 // registerTransferRoutes binds snapshot transfer and external sync.
 func (rt *Router) registerTransferRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteExport, rt.handleExport)
@@ -156,7 +160,7 @@ func (rt *Router) handleTaskImport(w http.ResponseWriter, r *http.Request) {
 	var in core.TaskImportInput
 	var body io.Reader
 	if mediaType(r) == wire.ContentMultipart {
-		file, err := readImportForm(r, &in)
+		file, err := readImportForm(w, r, &in, rt.cfg.MaxBodyBytes)
 		if err != nil {
 			WriteError(w, err)
 			return
@@ -183,36 +187,51 @@ func mediaType(r *http.Request) string {
 	return strings.ToLower(strings.TrimSpace(ct))
 }
 
-// readImportForm reads a multipart import: the choices from its fields, the
-// mapping from a mapping part or field, and the file part it returns open.
-func readImportForm(r *http.Request, in *core.TaskImportInput) (multipart.File, error) {
-	if err := r.ParseMultipartForm(8 << 20); err != nil { // #nosec G120 -- the body is capped by the MaxBytesReader in middleware
+// readImportForm reads a multipart import of at most limit bytes: the
+// choices from its fields, the mapping from a mapping part or field, and the
+// file part it returns open. Parts past the in-memory share spill to
+// temporary files, which the server removes with the request.
+func readImportForm(w http.ResponseWriter, r *http.Request, in *core.TaskImportInput, limit int64) (multipart.File, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	mr, err := r.MultipartReader()
+	if err != nil {
+		return nil, core.Invalid("reading the upload: %v", err)
+	}
+	form, err := mr.ReadForm(importFormMemory)
+	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
 			return nil, core.Invalid("request body exceeds the configured limit")
 		}
 		return nil, core.Invalid("reading the upload: %v", err)
 	}
-	in.Format = core.TaskFormat(r.FormValue("format"))
-	in.Mode = core.TaskImportMode(r.FormValue("mode"))
-	in.Mapping = r.FormValue("mapping")
-	in.Content = r.FormValue("content")
-	in.DryRun = checkedForm(r.FormValue("dry_run"))
-	if p := r.FormValue("preview"); p != "" {
+	r.MultipartForm = form
+	value := func(name string) string {
+		if v := form.Value[name]; len(v) > 0 {
+			return v[0]
+		}
+		return ""
+	}
+	in.Format = core.TaskFormat(value("format"))
+	in.Mode = core.TaskImportMode(value("mode"))
+	in.Mapping = value("mapping")
+	in.Content = value("content")
+	in.DryRun = checkedForm(value("dry_run"))
+	if p := value("preview"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
 			return nil, core.Invalid("preview %q is not a number", p).WithDetail(core.DetailField, "preview")
 		}
 		in.Preview = n
 	}
-	if parts := r.MultipartForm.File["mapping"]; len(parts) > 0 {
+	if parts := form.File["mapping"]; len(parts) > 0 {
 		raw, err := readPart(parts[0])
 		if err != nil {
 			return nil, err
 		}
 		in.Mapping = raw
 	}
-	parts := r.MultipartForm.File["file"]
+	parts := form.File["file"]
 	if len(parts) == 0 {
 		return nil, nil
 	}
