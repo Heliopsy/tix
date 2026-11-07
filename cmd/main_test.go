@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/testenv"
 )
 
@@ -24,7 +25,13 @@ import (
 // Registering a channel here disables the default action for the lifetime of
 // the binary. The signal is still delivered to every other registered channel,
 // so the command's own handler sees it exactly as before.
+//
+// It also drops password hashing to test cost: the command tree builds its
+// service through the same wiring a release does, with no way to pass a
+// hasher. Production cost is asserted in internal/service, where nothing
+// lowers it.
 func TestMain(m *testing.M) {
+	service.UseCheapHashingInTests()
 	stray := make(chan os.Signal, 1)
 	signal.Notify(stray, syscall.SIGINT)
 	code := m.Run()

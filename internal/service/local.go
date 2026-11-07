@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
@@ -128,6 +129,24 @@ func WithLeaseDefaults(p lease.Policy) Option {
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
 
+// cheapHashing makes New start every service with auth.TestParams. Only
+// UseCheapHashingInTests sets it, and TestNewHashesAtProductionCost and the
+// architecture guard keep it out of anything but a test binary.
+var cheapHashing atomic.Bool
+
+// UseCheapHashingInTests makes every Local built afterwards in this process
+// hash passwords with auth.TestParams unless WithHasher says otherwise. It is
+// for a TestMain whose tests reach New through wiring they cannot pass options
+// to, such as the command tree. Never call it outside a _test.go file.
+func UseCheapHashingInTests() { cheapHashing.Store(true) }
+
+func defaultHasher() *auth.Hasher {
+	if cheapHashing.Load() {
+		return auth.NewHasherWithParams(auth.TestParams())
+	}
+	return auth.NewHasher()
+}
+
 // WithTOTPKey supplies the key second factors are sealed under, in the base64
 // form configuration carries. An unparseable key leaves the service with none,
 // which refuses enrolment; config validation rejects one at start-up so this
@@ -179,7 +198,7 @@ func New(st store.Store, opts ...Option) *Local {
 		clock:  clock.New(),
 		ids:    id.Default,
 		hooks:  HookInline,
-		hasher: auth.NewHasher(),
+		hasher: defaultHasher(),
 		conns:  connections.Default,
 	}
 	for _, opt := range opts {
