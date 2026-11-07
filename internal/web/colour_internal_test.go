@@ -3,10 +3,10 @@
 package web
 
 import (
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -44,7 +44,11 @@ func cssHex(t *testing.T, block, name string) core.RGB {
 // stylesheet's. Read them out of it, so a retuned scheme cannot leave the
 // shading aiming at a page that no longer exists.
 func TestColourSchemesMatchTheStylesheet(t *testing.T) {
-	raw, err := os.ReadFile("assets/app.css")
+	sub, err := fs.Sub(assetFS, "assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := bundleStylesheet(sub)
 	if err != nil {
 		t.Fatal(err)
 	}

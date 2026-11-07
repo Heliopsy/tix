@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The tenant shape. A list drawn as a tree: the indent carries the nesting
+   that the markup already states, so nothing here is load bearing for meaning
+   and a reader with styles off still gets the hierarchy. */
+/* Wide enough that the two rows carrying a phrase where the others carry a
+   figure still fit on one line. At 60ch they wrapped, and a row twice the
+   height of the six above it reads as a fault in the row. */
+ul.shape { list-style: none; margin: 0 0 2rem; padding: 0; max-width: 76ch; }
+ul.shape li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line-faint, var(--line));
+}
+ul.shape li.depth-1 { padding-left: 1.5rem; }
+ul.shape li.depth-2 { padding-left: 3rem; }
+ul.shape li.depth-1::before,
+ul.shape li.depth-2::before {
+  content: "";
+  flex: none;
+  align-self: flex-start;
+  width: 0.55rem;
+  height: 0.7rem;
+  margin-left: -1rem;
+  border-left: 1px solid var(--muted);
+  border-bottom: 1px solid var(--muted);
+}
+ul.shape .name { font-weight: 600; }
+ul.shape .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+/* A row with no figure says so in the figure's place. It is prose, not a
+   number, so it is set as prose. The list is widened above rather than held
+   on one line here: the stylesheet reflows at every width by policy, and
+   TestStylesheetEmitsNoHorizontalScrollLayout enforces it. */
+ul.shape .count.uncounted { font-variant-numeric: normal; font-style: italic; }
+/* The gloss beside a row of the tenant tree is a phrase, not a note block.
+   It carried the class, so it inherited the bordered, tinted, left-edged box
+   above and the tree became eight outlined rectangles ragged down the page.
+   Here it is what it reads as: a few quiet words at the end of the row. */
+ul.shape .note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-left: auto;
+  text-align: right;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* An environment variable name is one token to a reader, and td's
+   overflow-wrap: anywhere was splitting it mid-word (TIX_SYNC_OPS_EXPO /
+   RT_*), which reads as two variables rather than one. The name is rendered
+   with a break opportunity after each underscore instead (see envName in
+   sync.go), so this only has to stop the automatic break; the wbr elements
+   keep a long name from overflowing a narrow cell. */
+.envname {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}

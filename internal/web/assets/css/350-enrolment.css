@@ -1,0 +1,33 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The enrolment code, drawn as SVG by the server. It keeps its own white
+   field in every scheme: a scanner reads dark modules on a light ground, and
+   a dark palette that inverted it would produce a code nothing can read. */
+.qr {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 12px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+.totp-enrol code { word-break: break-all; }
+
+/* Six characters, in a box sized for six characters. A field drawn 510px
+   wide for a code that is never longer than a word says nothing about what
+   belongs in it, and on the one screen standing between a reader and
+   everything else the field should look like what it wants. The tracking and
+   the mono face are there so a reader checking what they typed against the
+   phone in their other hand can read it a digit at a time. */
+input#code {
+  display: block;
+  /* Centred on the sign-in card, where everything else is; left where it
+     falls inside the application shell, where the labels above it are. */
+  margin-inline: 0;
+  max-width: 11rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-lg);
+  letter-spacing: 0.22em;
+  text-align: center;
+}

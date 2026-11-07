@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Controls that need a script, and the sidebar's foldable groups
+   (templates/partials.html "navgroup-head", assets/sidebar.js).
+
+   A control that does nothing without scripting used to be rendered hidden
+   and revealed by its script. A boosted navigation swaps the whole body, so
+   every navigation drew the Search button, the rail toggle and the shortcuts
+   hint missing for a frame and every entry below them jumped up and back.
+   sidebar.js puts "js" on the root from the head instead, before the body
+   paints, and the root survives a swap, so these are drawn in the first frame
+   or not at all. */
+:root:not(.js) [data-needs-js] { display: none !important; }
+:root.js .navgroup-name { display: none; }
+
+.navgroup-head { display: flex; align-items: center; }
+.navgroup-toggle {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.navgroup-toggle:hover { background: none; color: var(--ink); }
+.navgroup-toggle:active { transform: none; }
+.navgroup-chev {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+.navgroup-toggle[aria-expanded="true"] .navgroup-chev { transform: translateY(-2px) rotate(45deg); }
+
+/* A folded group keeps the entry for the page being read, so the sidebar
+   never denies where the reader is. The rail draws every entry as an icon
+   whatever is folded, which is why the first rule stops at the rail and the
+   second repeats it for a phone, where the rail does not apply. */
+:root:not(.side-collapsed) .navgroup.is-folded > .navgroup-body > :not([aria-current="page"], .is-current, :has([aria-current="page"])) { display: none; }
+@media (max-width: 899px) {
+  .navgroup.is-folded > .navgroup-body > :not([aria-current="page"], .is-current, :has([aria-current="page"])) { display: none; }
+}

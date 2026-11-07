@@ -1,0 +1,208 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The project board: one column per workflow state, side by side wherever
+   there is room for more than one. The phone-width rule below stacks them. */
+/* The board is as tall as the screen, and each column scrolls inside it.
+ *
+ * align-items: start gave every column its own height, so a column holding
+ * twenty cards stood 1,400px tall beside one holding two, the page grew to
+ * the tallest, and the headings -- the only thing saying which column you are
+ * reading -- scrolled off the top. A board is a fixed frame you look into,
+ * not a page that grows: the columns share one height, each scrolls its own
+ * cards, and every heading stays where it was put.
+ *
+ * The height is the viewport minus what sits above the board. svh rather than
+ * vh so a phone's collapsing address bar does not leave the last column
+ * unreachable under it. */
+/* A strip of columns that scrolls sideways, not a grid that wraps.
+ *
+ * auto-fit wrapped. A five state workflow on a 1440px screen fitted four
+ * tracks and put Cancelled on a second row underneath, where it read as a
+ * separate thing rather than as the end of the same board; the second row
+ * then escaped the fixed height above and, on a phone -- where the whole
+ * grid collapsed to display: block -- the columns ran straight through the
+ * panels below them and drew on top of the project settings.
+ *
+ * A board is one row of columns. If they do not fit, it scrolls, which is
+ * what every board anybody has used does and what makes a nine state
+ * workflow possible at all. The columns share the strip's height, each
+ * scrolls its own cards, and nothing wraps at any width.
+ *
+ * The height is the viewport minus what sits above the board. svh rather
+ * than vh so a phone's collapsing address bar does not leave the last card
+ * unreachable under it. */
+.board {
+  display: flex;
+  gap: var(--space-3);
+  align-items: stretch;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  height: calc(100svh - 200px);
+  min-height: 320px;
+  margin-bottom: var(--space-2);
+  /* Room for the horizontal scrollbar, so it does not sit over the last row
+     of cards on a platform that draws one in the content box. */
+  padding-bottom: var(--space-1);
+}
+
+/* A column grows to share the strip while there is room and stops at a
+   measure: past about 400px a card's title is a short line in a wide box and
+   the reader's eye has further to travel between columns, so extra width is
+   better spent showing another column than inflating these. Below the basis
+   they hold their width and the strip scrolls. */
+.column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 240px;
+  min-width: 224px;
+  max-width: 420px;
+  min-height: 0;
+  scroll-snap-align: start;
+  overflow-y: auto;
+  /* The column is the recessed thing and the cards sit on top of it. It was
+     the same colour as the page with the same hairline round it as the cards
+     inside, so every card was drawn inside a second identical frame and the
+     board read as a grid of boxes in boxes. Tinting the column and leaving
+     the cards the page's own colour says which is the container in the one
+     way that needs no line at all. */
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+/* A merged board carries one column per state of the workflow its projects
+   share, and can therefore have many more of them. They are narrower, so
+   more of the workflow is in view before the strip has to be scrolled. */
+.board.is-merged > .column { flex-basis: 232px; min-width: 232px; max-width: 360px; }
+
+/* Sticky, because the one thing a reader needs while scrolling a column is
+   which column it is. The negative margins and matching padding let the
+   heading's background span the column's full width as it passes under the
+   cards, instead of leaving a strip of them showing either side. */
+.column > .grouphead {
+  position: sticky;
+  top: calc(-1 * var(--space-3));
+  z-index: 1;
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-3);
+  background: var(--surface);
+}
+.grouphead > h2 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* A column with more cards than fit says so at its edge rather than simply
+   ending: without this the last visible card looks like the last card. */
+.column::after { content: ""; display: block; min-height: var(--space-1); }
+/* A board card is a glance, not a page: a reference, a title and whatever
+   marks the task carries. It was drawn with the same 16px padding as a
+   settings card and an underlined link for a title, so eight cards filled a
+   column that should have held fifteen and every title on the board was
+   underscored. The whole card is already a link target by way of its title
+   and its keyboard row handler, so the underline was telling the reader
+   something the shape of the card had told them already. */
+.column .card {
+  background: var(--bg);
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+.column .card:last-child { margin-bottom: 0; }
+.column .card a[href^="/tasks/"] {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.column .card a[href^="/tasks/"]:hover { color: var(--accent); text-decoration: underline; }
+.column .card .card-meta { margin-top: var(--space-1); }
+.column .ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: var(--text-xs); }
+
+/* An empty column still names itself, but does not spend a heading's worth
+   of space saying so. */
+.column-empty { margin: 0; padding: 4px 2px; }
+
+/* Drag-and-drop (assets/live.js): an addition to the Move disclosure above,
+   never a replacement for it, so a dragged card keeps its normal look apart
+   from a faded, slightly scaled cue that it is the one moving, and a column
+   is marked a legal drop target only while a card that may actually move
+   there is over it -- an illegal column never lights up, which is the
+   dragover handler's legality check made visible. */
+.card[draggable="true"] { cursor: grab; }
+.card.is-dragging { opacity: 0.5; transform: scale(0.98); }
+.column.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Visually hidden but still present for assistive technology: the board's
+   live region (templates/board.html) that narrates a drag-and-drop move,
+   and any future use that needs the same. Unlike .file-field's hidden input,
+   this is never meant to be reachable by tab, so it takes no size at all
+   rather than the 1px real inputs need to stay clickable. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.card-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-width: 0; }
+/* A tag longer than its card ends in an ellipsis inside it, as it does in
+   the list's tag cell; its title carries the whole name. */
+.card-meta > .tagref {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 899px) { .card-meta > .tagref { line-height: 26px; } }
+
+/* The move form is the one action every card offers, but it does not need to
+   be on screen for every card at once: a disclosure keeps the board scannable
+   while leaving the form itself a plain, scriptless post. */
+details.card-move {
+  margin: var(--space-1) 0 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+details.card-move > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent);
+}
+
+details.card-move > summary::-webkit-details-marker { display: none; }
+details.card-move > summary::before { --mark: var(--mark-chevron-right); }
+details.card-move[open] > summary::before { --mark: var(--mark-chevron-down); }
+
+details.card-move > .body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+details.card-move select { width: auto; flex: 1 1 120px; padding: 6px 8px; font-size: var(--text-sm); }
+details.card-move button { padding: 6px 10px; font-size: var(--text-sm); flex: 0 0 auto; }

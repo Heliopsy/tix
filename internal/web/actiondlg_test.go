@@ -59,12 +59,9 @@ func TestNoPageActionOrSectionSitsInAnExpander(t *testing.T) {
 			t.Errorf("the allowlist names %q, which no template holds any more", key)
 		}
 	}
-	sheet, err := os.ReadFile("assets/app.css")
-	if err != nil {
-		t.Fatal(err)
-	}
+	sheet := readSheet(t)
 	for _, gone := range []string{"details.panel.addmore", `content: "+"`, `content: "\00d7"`} {
-		if strings.Contains(string(sheet), gone) {
+		if strings.Contains(sheet, gone) {
 			t.Errorf("the stylesheet still carries %s, the drawing of the add disclosure", gone)
 		}
 	}

@@ -1,0 +1,33 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The columns menu.
+
+   Was a full width disclosure between the heading and the listing: a strip of
+   chrome that pushed every row down, and that grew the page by its own height
+   when opened, so choosing a column shoved the listing you were choosing it
+   for off the screen. It is a menu now, in the page header beside the title,
+   and it costs the listing no height at all when shut.
+   ------------------------------------------------------------------------ */
+.colmenu { display: inline-block; }
+.colmenu-open { gap: var(--space-2); }
+
+.colpop { padding: var(--space-3); }
+.colpop .columnform .choices { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.colpop .columnform .actions { margin-top: var(--space-3); }
+
+/* The variables a sync source reads. Wider than the column picker because
+   the content is a definition list of environment variable names, and a
+   name like TIX_SYNC_NIGHT_SYNC_MAPPING broke mid-word at the picker's
+   width. Capped against the viewport so it still fits a phone. */
+.envpop { max-width: min(34rem, calc(100vw - 24px)); }
+.envpop .fields { margin: 0; }
+.envpop .fields dd { margin: 0 0 var(--space-2); }
+.envpop .fields dd:last-child { margin-bottom: 0; }
+
+/* The three systems, under the select that picks one. Small and quiet: it
+   is reference beside a control, not a section of its own. */
+.choosehelp { margin: var(--space-2) 0 0; font-size: var(--text-sm); }
+.choosehelp dt { font-weight: 600; color: var(--ink); }
+.choosehelp dd { margin: 0 0 var(--space-2); color: var(--muted); line-height: 1.5; }
+.choosehelp dd:last-child { margin-bottom: 0; }

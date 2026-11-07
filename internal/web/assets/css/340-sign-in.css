@@ -1,0 +1,157 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* ===== Sign-in screen redesign (templates/login.html) =============== */
+/* Appended as one block on purpose: app.css is edited by more than one change
+   at a time, and a hunk in the middle of the file costs a conflict for a
+   tidiness nobody reads. Everything below resolves tokens only, so a tenant
+   accent and the dark and dim schemes carry through unchanged.
+
+   Every rule hangs off .authcard rather than off .auth. The shell-less .auth
+   layout also renders error.html, which carries no card: scoping to the card
+   keeps the refusal screen's own measure and heading size out of this. */
+
+/* The group is centred in the viewport, biased a little above centre: the
+   uneven block padding is what does the biasing, and it leaves the room a
+   refusal needs without the card moving when one appears.
+
+   min-height, never height: the disclosure open at a 600px-tall window is
+   taller than the viewport, and a fixed height would put the bottom of it
+   somewhere the page cannot scroll to. With min-height the column simply
+   grows past the fold. */
+.auth:has(.authcard) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 510px;
+  min-height: 100vh;
+  padding: 40px var(--gutter) 88px;
+}
+
+/* The lockup above the card. The reference leaves roughly 50px between the
+   wordmark and the card, which is what carries the page's vertical rhythm. */
+.authbrand {
+  align-items: center;
+  color: var(--ink);
+  display: flex;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  gap: 10px;
+  justify-content: center;
+  letter-spacing: -0.01em;
+  margin: 0 0 50px;
+  text-decoration: none;
+}
+
+.authbrand .logo { border-radius: 10px; height: 40px; width: 40px; }
+
+.auth .authcard {
+  /* The circle is 749px wherever there is room for it, and never wider than
+     the window: an absolutely positioned child that overhangs the viewport
+     adds to the scrollable width, and body's overflow-x: hidden does not stop
+     it, so a phone got a page that scrolled sideways onto empty background. */
+  --auth-glow: min(749px, calc(100vw - var(--gutter) * 2));
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px rgba(16, 24, 40, 0.08);
+  padding: 32px;
+  position: relative;
+}
+
+/* The glow: one soft circle centred on the card, in whatever accent the tenant
+   resolves to. The gradient stops do the softening, so there is no
+   filter: blur() to paint, and z-index: -1 puts it under the card's own
+   surface. Its size is capped above, for the reason recorded there. */
+.auth .authcard::before {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 12%, transparent) 42%,
+    transparent 64%
+  );
+  content: "";
+  height: var(--auth-glow);
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--auth-glow);
+  z-index: -1;
+}
+
+/* The dark schemes take the same circle at lower alpha. Their accents are the
+   bright end of the ramp, and at the light scheme's opacity the glow reads as
+   a lamp pointed at the reader rather than as a wash behind the card. */
+:root[data-theme="dark"] .auth .authcard::before,
+:root[data-theme="dim"] .auth .authcard::before {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 34%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 50%,
+    transparent 68%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .auth .authcard::before {
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--accent) 34%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 50%,
+      transparent 68%
+    );
+  }
+}
+
+.auth .authcard h1 {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0 0 22px;
+  text-align: center;
+}
+
+/* The field label is the one piece of bold type inside the card, so the form
+   reads as a sequence of named fields rather than as a stack of boxes. */
+.authcard form label {
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  margin: 16px 0 6px;
+}
+
+.authcard form label:first-of-type { margin-top: 0; }
+
+.authcard form input {
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+
+.authcard form .actions { display: block; margin-top: 22px; }
+.authcard input#code { margin-inline: auto; }
+
+/* The submit is the page's one strong mark: the ink colour filled, carrying
+   the surface colour as its text. Both tokens flip with the scheme, so the
+   button stays the inverse of the card it sits in rather than a fixed black. */
+/* The full-width inverse of the card: ink on light, light on ink, so it
+   flips with the scheme. 44px rather than 40, which is the smallest target a
+   thumb hits reliably and this is the one control on the screen. */
+.authcard form .actions button {
+  background: var(--ink);
+  border-color: var(--ink);
+  border-radius: var(--radius-md);
+  color: var(--surface);
+  font-size: var(--text-base);
+  font-weight: 500;
+  height: 44px;
+  padding: 0 var(--space-4);
+  width: 100%;
+}
+
+
+@media (max-width: 560px) {
+  .auth:has(.authcard) { padding: 24px var(--gutter) 48px; }
+  .auth .authcard { padding: 22px; }
+  .authbrand { margin-bottom: 34px; }
+}
+
+/* ===== end Sign-in screen redesign ================================== */

@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Lists */
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain > li { padding: 9px 0; border-bottom: 1px solid var(--line); }
+ul.plain > li:last-child { border-bottom: 0; }
+
+.comment { padding: var(--space-3) 0; border-top: 1px solid var(--line); }
+.comment:first-child { border-top: 0; padding-top: 0; }
+.comment .byline { font-size: var(--text-xs); color: var(--muted); margin: 0 0 var(--space-1); }
+.comment-body { white-space: pre-wrap; }
+
+/* The edit controls are a footnote to the comment, not a panel under it. */
+.comment-edit { margin: var(--space-1) 0 0; border: 0; background: none; }
+.comment-edit > summary {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.comment-edit > summary:hover { color: var(--ink); }
+.comment-edit[open] > .body { padding: var(--space-3) 0 0; border: 0; background: none; }
+
+/* The composer is one line until it is used, and field-sizing grows it as the
+   comment is typed. */
+.composer {
+  min-height: var(--control-h);
+  field-sizing: content;
+  max-height: 40vh;
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.5;
+}
+
+/* Except where field-sizing does not exist, which in 2026 is Firefox and
+   Safari: there nothing grows, and rows=1 leaves a single scrolling line to
+   write a paragraph into, with the first sentence scrolled out of sight by
+   the third. One line is a nice default only when the browser can undo it,
+   so where it cannot, start at three. */
+@supports not (field-sizing: content) {
+  .composer { min-height: 5rem; }
+}
+
+/* The per-comment edit popover. Wider than the column picker because what
+   is in it is prose being rewritten, and a comment is not written at the
+   width of a checkbox grid. */
+.commentpop { max-width: min(42rem, calc(100vw - 24px)); }
+.commentpop textarea {
+  width: 100%;
+  min-height: 7rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+/* The Edit control sits on the byline row rather than under the body, so a
+   thread reads as comments and not as a column of buttons. */
+.comment-editopen { margin-left: var(--space-2); font-size: var(--text-sm); }
+
+.empty { color: var(--muted); font-size: var(--text-md); padding: 10px 0; }

@@ -77,12 +77,8 @@ func lastCompound(sel string) string {
 // is given a pointer cursor.
 func TestRowsTakeOnlyTheStandardStates(t *testing.T) {
 	t.Parallel()
-	src, err := os.ReadFile("assets/app.css")
-	if err != nil {
-		t.Fatal(err)
-	}
 	seen := map[string]bool{}
-	for _, rule := range cssRules(string(src)) {
+	for _, rule := range cssRules(readSheet(t)) {
 		if strings.HasPrefix(rule.media, "@keyframes") {
 			continue
 		}

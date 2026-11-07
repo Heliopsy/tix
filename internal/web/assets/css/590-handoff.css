@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Hand to an agent (templates/partials.html, "handoff-dlg"). The tab strip
+   wraps rather than scrolling sideways, so every client is in view on a
+   phone. With scripting only the current client's block is drawn and its
+   heading gives way to the tab that names it; without, every block is drawn
+   under its own heading. */
+.handoff .handoff-h { margin: var(--space-4) 0 var(--space-1); font-size: var(--text-sm); }
+.handoff > p:first-child { margin-top: 0; }
+.handoff-name { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); }
+.handoff-panel > p { margin: 0; font-size: var(--text-sm); }
+.handoff-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0 0 var(--space-2); }
+.handoff-tab {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.handoff-tab:hover { border-color: var(--line-strong); color: var(--ink); filter: none; }
+.handoff-tab[aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); color: var(--ink); font-weight: 600; }
+:root.js .handoff-panel:not(.is-current) { display: none; }
+:root.js .handoff-name { display: none; }
+@media (max-width: 599px) {
+  .handoff-open .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+@media (pointer: coarse) {
+  .handoff-tab { min-height: 40px; }
+}

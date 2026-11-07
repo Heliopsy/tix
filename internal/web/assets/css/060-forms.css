@@ -1,0 +1,393 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Forms */
+form { margin: 0; }
+
+label {
+  display: block;
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* A field reads as somewhere to type because of its fill, not because of a
+   box drawn round it. The 1px strong border on every input, select and
+   textarea put a hard rectangle round each one, and a form of six fields came
+   out as six rectangles before a word of it was read. */
+input, select, textarea {
+  width: 100%;
+  max-width: 100%;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0 var(--space-3);
+  min-height: var(--control-h);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: inherit;
+  transition: box-shadow 120ms ease, background 120ms ease;
+}
+input:hover, select:hover, textarea:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+textarea { padding: var(--space-3); line-height: 1.5; }
+
+/* Left to the browser, a placeholder is its light-scheme grey whatever the
+   theme, which on the dark and dim surfaces is near-black on near-black. It
+   takes the muted token instead, so it reads as a hint in every scheme. The
+   opacity resets Firefox, which fades placeholders on top of their colour.
+   Italic and in the body font, so an example in it cannot be taken for a
+   value already saved, and a monospace field's hint reads like every other
+   field's: the muted token alone is near enough to the ink to be mistaken. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+  font-style: italic;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* A field is as wide as the thing it holds, not as wide as the page.
+
+   Every form on every configuration screen was a stack of identical bars
+   running the full content column: a tenant name, a retention count and a
+   webhook URL were drawn 1065px wide on a 1440px screen and 1770px wide on
+   a 4K one. Width is information -- it is the first thing that says whether
+   a field wants a word, a sentence or a document -- and spending it all on
+   every field says nothing about any of them. A textarea gets the prose
+   measure instead, because what goes in one is prose. */
+input:not([type="checkbox"]):not([type="radio"]),
+select { max-width: var(--measure-field); }
+textarea { max-width: var(--measure-text); }
+
+/* Opt out wherever the control is one cell of a layout that has already
+   decided how wide it should be: a toolbar, a grid of fields, a settings
+   row, the comment composer. Listed here rather than set on each of those
+   rules so the exceptions to the measure are readable as one list. */
+.quickadd > input, .quickadd > select,
+.filterbar > input, .filterbar > select,
+.tagadd input,
+.cform input, .cform select, .cform textarea,
+.setrow input, .setrow select, .setrow textarea,
+.composer textarea,
+.commentpop textarea,
+.copyline input,
+.taskmain textarea, .taskprops input, .taskprops select, .titleform input, .reladd input,
+.statsfilter select { max-width: 100%; }
+
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The keyboard shortcut layer (assets/shortcuts.js) moves real focus onto a
+   row rather than only toggling a class, so these need the same visible ring
+   as every other focusable element; a screen reader already follows the
+   focus move, this is only what a sighted keyboard user sees. */
+.board .card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: var(--accent-soft);
+}
+
+/* A checkbox or radio is a glyph, not a field: full width stretches it across
+   the row and strands its label. accent-color themes the native control --
+   box, radio dot and the checkmark glyph inside it -- in every current
+   browser, keeping its real focus ring, keyboard handling and hit target for
+   free. The checkmark itself is a shape change, not only a colour change, so
+   a checked box does not rely on colour alone to read as checked. */
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+  /* The field rule above gives every input a 36px floor, a filled background
+     and an inset hairline. On a checkbox that drew a 13 wide, 36 tall box
+     with the control at the top of it and an empty framed rectangle below,
+     once per row. Same shape as the check circle that came out an ellipse:
+     a glyph wearing a text field's clothes. */
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+/* 16px rather than whatever the platform draws, which was 13 on this one.
+   A 13px square is below every target-size floor there is and is the hardest
+   control in the interface to hit with a thumb; the label beside it carries
+   the rest of the target (below). */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; flex: 0 0 auto; }
+input[type="checkbox"]:hover, input[type="radio"]:hover { box-shadow: none; }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: none;
+  box-shadow: none;
+}
+
+label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 8px 0;
+}
+
+/* A textarea is as tall as what is in it, up to most of the window, and
+   never shorter than four lines. The workflow editor holds a six line state
+   table and an eight line transition table in two 92px boxes, so editing a
+   workflow meant scrolling inside a box to see the thing being edited while
+   two thirds of the page stood empty. field-sizing does it in the browsers
+   that have it; the min-height below is what the others keep, which is what
+   every textarea had before. */
+textarea {
+  field-sizing: content;
+  min-height: 92px;
+  max-height: 60svh;
+  resize: vertical;
+}
+
+/* A value the screen shows but no form can change, such as the tenant key.
+   It keeps a field's frame and its label so it reads as part of the form,
+   and drops the editable surface so nobody types into it and waits for a
+   Save that was never going to carry it. Selectable, because the reason it
+   is on screen is that somebody needs to paste it into a shell. */
+input[readonly] {
+  background: var(--bg);
+  color: var(--muted);
+  border-style: dashed;
+  cursor: default;
+}
+
+/* field-label pairs a <label> with an optional field-info disclosure, so the
+   "i" sits on the label's own line instead of falling below it -- label is
+   display:block on its own. */
+.field-label { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; }
+.field-label > label { margin: 0; }
+
+/* The small "i" affordance itself: a disclosure, not a hover tooltip, so it
+   works for touch and keyboard alike. Closed, it is a plain circular button
+   that never competes with the label for attention; open, it drops a short
+   explanation in its own bordered line rather than floating over other
+   content, which would need JavaScript to position and dismiss. */
+.field-info { position: relative; }
+.field-info > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+}
+.field-info > summary::-webkit-details-marker { display: none; }
+.field-info > summary:hover,
+.field-info > summary:focus-visible { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.field-info[open] > summary { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.field-info > p {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* tip is field-info beside a heading or a control rather than a label: the
+   same circle, drawn round an icon instead of a letter, and inline so it sits
+   on its heading's line. The body is a little wider, for a sentence or two. */
+.tip { display: inline-block; vertical-align: middle; margin-inline-start: 6px; font-size: var(--text-sm); }
+.tip > summary svg { display: block; }
+.tip > p { max-width: min(360px, 80vw); line-height: 1.45; text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; }
+.tip-doc { display: block; margin-top: 4px; }
+/* A docs path is one long word; it breaks rather than widen a phone's page. */
+.tip-doc code { overflow-wrap: anywhere; }
+/* Set by assets/tipplace.js when an open note would run past the window. */
+.field-info > p { translate: var(--tip-shift, 0) 0; }
+.field-info > p[style*="--tip-width"] { max-width: var(--tip-width); }
+/* Values to type, each kept whole where it fits: "every 2 weeks" broken
+   after "every" reads as two examples. An inline block moves to the next line
+   as one piece, and still wraps inside itself on a screen too narrow for it. */
+.tip-examples { display: block; margin-top: 4px; }
+.tip-examples code { display: inline-block; margin: 2px 4px 2px 0; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: 4px; }
+/* A typed due date and the calendar button beside it share one row, the
+   field taking the room; the native date input under the button is only a
+   target for showPicker, so it takes no space and is never tabbed to. */
+.datefield { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.datefield > input { flex: 1 1 auto; min-width: 0; }
+.datepick { position: relative; display: inline-flex; flex: 0 0 auto; }
+.datepick[hidden] { display: none; }
+.datepick-open { display: inline-flex; align-items: center; justify-content: center; padding: 0 var(--space-2); }
+.propform .datepick-open { height: var(--control-h-sm); min-height: var(--control-h-sm); }
+.datepick > .datepick-native { position: absolute; bottom: 0; right: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+/* The quick-add tip sits part way along its row, so a note anchored to it ran
+   off a phone's right edge. It is anchored to the whole row instead. */
+.quickadd { position: relative; }
+.quickadd > .tip { position: static; }
+.quickadd > .tip > p { left: 0; right: 0; width: auto; max-width: none; }
+/* A tip near the page's right edge opens leftwards, so its note stays on
+   screen: the view switch sits at the end of the task screen's header. */
+.viewswitch .tip > p, .pagehead-actions .tip > p, .lanesbar .tip > p { left: auto; right: 0; }
+/* On a phone or a tablet a floating note covered the listing under the
+   toolbar and ran off the screen's edge, so there a toolbar's note opens the
+   way a heading's does: the disclosure gives its box away and the note is a
+   full row of the toolbar, pushing the listing down. */
+@media (max-width: 899px), (hover: none) and (pointer: coarse) {
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip { display: contents; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip::details-content { flex: 1 0 100%; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip > summary { flex: 0 0 auto; }
+  :is(.viewswitch, .pagehead-tools, .lanesbar) > .tip > p {
+    position: static;
+    flex: 1 0 100%;
+    width: auto;
+    max-width: var(--measure-text);
+    margin: var(--space-1) 0;
+    box-shadow: none;
+  }
+  .lanesbar { flex-wrap: wrap; align-items: center; }
+}
+.headtip > h1, .headtip > h2, .headtip > h3 { margin-inline-end: 0; }
+.headtip:first-child > :is(h1, h2, h3) { margin-top: 0; }
+
+/* A line holding an (i): a heading, a label or a setting's name. Its note
+   opens under the line and pushes what follows down, rather than floating
+   over it: on a phone, floating covered the next setting's name.
+
+   A setting's name and a field's label are a block whose children are
+   inline, and the disclosure itself is inline, so its note, a block, is laid
+   out as a full-width block after the line. A heading or a create form's
+   label, whose line also carries a large heading or a "required" mark, stays
+   a wrapping flex line and the disclosure gives its box away
+   (display: contents), so the note is a flex item of its own that wraps to a
+   full row under the line. Either way no script positions anything. */
+:is(.setname-line, .field-label) { display: block; }
+:is(.setname-line, .field-label) > :not(.field-info) { display: inline-block; vertical-align: middle; }
+:is(.setname-line, .field-label) > .field-info { display: inline; position: static; }
+:is(.setname-line, .field-label) > .field-info > summary { vertical-align: middle; margin-inline-start: 6px; }
+/* A checkbox's label stays a centred flex row: as an inline block, the 44px
+   a phone gives it left the box and its word at the top and the (i) below. */
+:is(.setname-line, .field-label) > label:has(> input[type="checkbox"]) { display: inline-flex; }
+.headtip, .cfield-label { display: flex; flex-wrap: wrap; align-items: center; }
+/* Centred, the (i) sat on the middle of the heading's margin box, which an
+   h1's bottom margin pulled below the middle of its text. On the baseline its
+   circle stands on the heading's line, level with its capitals at any size. */
+.headtip { align-items: baseline; }
+:is(.headtip, .cfield-label) > .field-info { display: contents; }
+:is(.headtip, .cfield-label) > .field-info > summary { margin-inline-start: 6px; }
+:is(.headtip, .cfield-label) > .field-info::details-content { flex: 1 0 100%; }
+:is(.setname-line, .field-label, .cfield-label, .headtip) > .field-info > p {
+  position: static;
+  flex: 1 0 100%;
+  width: auto;
+  max-width: var(--measure-text);
+  margin: var(--space-2) 0 var(--space-1);
+  box-shadow: none;
+}
+
+/* A single-choice <select> gets the same border, background and padding
+   every other field already has from the shared rule above; what is left of
+   its own browser chrome is the dropdown arrow, replaced here with one drawn
+   from the same --muted token everything else uses, so it stops looking like
+   the one native control left on the page. A multi-select listbox (the
+   token scopes picker) keeps its native rendering: it is not a dropdown, and
+   there is no arrow to replace. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+select[multiple] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  background-image: none;
+  padding-right: 10px;
+}
+
+/* File inputs: the native "Choose file" button cannot be restyled directly
+   in any browser, so the real <input type="file"> is visually hidden --
+   never display:none or visibility:hidden, either of which would also drop
+   it from the tab order -- behind a label styled like the rest of this
+   form language. The label carries the input inside it, so activating the
+   label (a click, or Tab then Space/Enter) opens the file picker through
+   the browser's own native behaviour, with no script involved and nothing
+   that breaks if JavaScript is off. */
+.file-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 10px 0 4px;
+  cursor: pointer;
+}
+
+/* The second selector outranks the .cform rule that stretches every input to
+   width: 100%; a stretched hidden input in a form scrolled the import screen
+   sideways by its full width. */
+.file-field input[type="file"],
+.cform label.file-field input[type="file"] {
+  position: absolute;
+  width: 1px;
+  max-width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.file-field .file-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.file-field input[type="file"]:focus-visible ~ .file-button {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.file-field .file-name {
+  color: var(--muted);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}

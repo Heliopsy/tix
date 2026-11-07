@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Flashes */
+/* A confirmation used to sit in the flow and shove the page down as it
+   appeared, so the row you just ticked moved out from under the pointer. It
+   floats over the content instead and takes no space. */
+/* The task the toast is about, offered rather than only named. */
+.flash .flashref {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+.flash .flashref:hover { background: currentcolor; color: var(--surface); }
+
+.flash {
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 20;
+  max-width: min(420px, calc(100vw - 2 * var(--gutter)));
+  margin: 0;
+  padding: 11px 15px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-md);
+  box-shadow: var(--shadow-strong);
+  animation: flash-in 160ms ease both;
+}
+
+@keyframes flash-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash { animation: none; }
+}
+
+.flash.error { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }

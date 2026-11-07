@@ -81,7 +81,7 @@ func decodeEscapes(name, line string) string {
 func glyphSources(t *testing.T) []string {
 	t.Helper()
 	var files []string
-	for _, pattern := range []string{"templates/*.html", "assets/*.js", "assets/*.css"} {
+	for _, pattern := range []string{"templates/*.html", "assets/*.js", "assets/css/*.css"} {
 		found, err := filepath.Glob(pattern)
 		if err != nil {
 			t.Fatal(err)

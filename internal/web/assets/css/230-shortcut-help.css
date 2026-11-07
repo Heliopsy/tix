@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Keyboard shortcut help overlay (assets/shortcuts.js). Hidden by the native
+   [hidden] behaviour until the script clears the attribute; the rule below is
+   explicit anyway so the show/hide state never depends on cascade order. */
+.shortcuts-help[hidden] { display: none; }
+
+.shortcuts-help:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+}
+
+.shortcuts-help-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+
+.shortcuts-help-dialog {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-strong);
+  padding: 20px;
+}
+
+.shortcuts-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.shortcuts-help-head h2 { margin: 0; }
+
+.shortcuts-help-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  max-width: 100%;
+}
+
+.shortcuts-help-list dt { min-width: 0; }
+.shortcuts-help-list dd { margin: 0; min-width: 0; color: var(--muted); }
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}

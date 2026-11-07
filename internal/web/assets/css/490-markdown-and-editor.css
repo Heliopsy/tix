@@ -1,0 +1,196 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Markdown: descriptions and comments drawn from their text. The renderer
+   writes no style attribute, so everything a rendering looks like is here. */
+.md { overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md blockquote, .md pre, .md table { margin: 0 0 var(--space-2); }
+.md ul, .md ol { padding-left: 1.4em; }
+.md li > ul, .md li > ol { margin: 2px 0 0; }
+.md h3, .md h4, .md h5, .md h6 { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-md); }
+.md h3 { font-size: var(--text-lg); }
+.md blockquote { padding-left: var(--space-2); border-left: 3px solid var(--line-strong); color: var(--muted); }
+.md code {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+}
+.md pre { padding: var(--space-2); overflow-x: auto; border-radius: var(--radius-sm); background: var(--surface); }
+.md pre code { padding: 0; background: none; }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; }
+.md th, .md td { padding: 4px 8px; border: 1px solid var(--line); text-align: left; }
+/* A header names its column, so it keeps its words whole; a long cell wraps
+   or the table scrolls sideways instead. A 120 character cell beside it
+   used to break "another" across two lines. */
+.md th { overflow-wrap: normal; word-break: keep-all; }
+.md th[align="right"], .md td[align="right"] { text-align: right; }
+.md th[align="center"], .md td[align="center"] { text-align: center; }
+.md hr { border: 0; border-top: 1px solid var(--line); }
+.md a { overflow-wrap: anywhere; }
+.md a.taskref { font-family: ui-monospace, monospace; }
+.md .md-html { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: var(--text-sm); }
+.md li.task-item { list-style: none; }
+.md ul:has(> li.task-item), .md ol:has(> li.task-item) { padding-left: 0.1em; }
+.md li > ul:has(> li.task-item), .md li > ol:has(> li.task-item) { padding-left: 1.6em; }
+.md li.task-item > input[type="checkbox"] { margin: 0 4px 0 0; vertical-align: -2px; }
+.comment-body.md { white-space: normal; }
+
+/* A checklist item the reader may tick: a submit button that is a checkbox to
+   assistive technology and looks like one. */
+.md button.check {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0 4px 0 0;
+  padding: 0;
+  vertical-align: middle;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.md button.check:hover { border-color: var(--accent); }
+.md button.check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.md button.check[aria-checked="true"] { border-color: var(--accent); background: var(--accent); }
+.md button.check[aria-checked="true"]::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.md li.task-item:has(> button.check[aria-checked="true"]) { color: var(--muted); }
+@media (pointer: coarse) {
+  .md button.check { width: 24px; height: 24px; position: relative; }
+  .md button.check::before { content: ""; position: absolute; inset: -8px; }
+}
+
+/* The checklist count on a card, a row and the task screen. */
+.checkmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.checkmark.is-done { color: var(--ok, var(--accent)); }
+.headtip .checkmark { font-size: var(--text-xs); }
+.checkbar {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: var(--space-1);
+  border: 0;
+  border-radius: 2px;
+  background: var(--line);
+  color: var(--accent);
+  appearance: none;
+}
+.checkbar::-webkit-progress-bar { background: var(--line); border-radius: 2px; }
+.checkbar::-webkit-progress-value { background: var(--accent); border-radius: 2px; }
+.checkbar::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
+
+/* Preview beside a Markdown textarea. */
+.mdtoggle { margin-left: auto; font-size: var(--text-xs); }
+.actions .mdtoggle { margin: 0 auto 0 0; }
+.mdpreview { min-height: 4.5em; padding: var(--space-2); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+
+/* The description editor's Rich text and Markdown modes (assets/richtext.js).
+   The switch sits at the end of the field's label row; the rich view is drawn
+   as a field, with its toolbar inside the frame, so it reads as the same box
+   the textarea was rather than a second widget beside it. */
+.segmented.is-small .segment { min-height: 0; padding: 5px 10px; font-size: var(--text-xs); }
+.has-modes > .rt-modes { margin-left: auto; }
+.has-modes > .mdtoggle:not([hidden]) + .rt-modes { margin-left: var(--space-2); }
+.rt {
+  max-width: var(--measure-text);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.cform .rt, .taskmain .rt { max-width: 100%; }
+.rt:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.rt:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.rt-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-bottom: 1px solid var(--line); }
+.rt-toolbar .rt-btn {
+  min-height: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+}
+.rt-toolbar .rt-btn:hover { background: var(--surface); color: var(--ink); filter: none; }
+.rt-toolbar .rt-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+.rt-toolbar .rt-btn:disabled { opacity: 0.35; cursor: default; }
+@media (pointer: coarse) {
+  .rt-toolbar .rt-btn { width: 40px; height: 40px; }
+}
+.rt-subbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: 4px var(--space-2);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-xs);
+}
+.rt-subbar .rt-textbtn { min-height: 28px; font-size: var(--text-xs); }
+.rt-subbar button.rt-textbtn:not(.link) { padding: 0 var(--space-3); }
+.rt-linkinput { flex: 1 1 12rem; min-width: 0; min-height: 28px; }
+.rt-editor {
+  position: relative;
+  min-height: 14rem;
+  max-height: 60svh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  line-height: 1.5;
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  outline: none;
+}
+.cform .rt-editor { min-height: 9rem; }
+.rt-editor.is-empty::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: var(--muted);
+  font-style: italic;
+  pointer-events: none;
+}
+.rt-editor pre { white-space: pre-wrap; }
+.rt-editor li.rt-task { display: flex; align-items: baseline; gap: 6px; }
+.rt-editor li.rt-task > input[type="checkbox"] { flex: none; margin: 0; }
+.rt-editor .rt-taskbody { flex: 1; min-width: 0; }
+.rt-editor td, .rt-editor th { min-width: 4em; }
+.rt-editor .selectedCell { background: var(--accent-soft); }
+.rt-editor .rt-image { padding: 0 4px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); color: var(--muted); }
+.rt-editor .ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.rt-editor a { color: var(--accent); }
+.rt-note { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--muted); }
+/* A table someone typed keeps its rows and columns on a phone, scrolling
+   sideways, rather than becoming the card per row the app's own tables turn
+   into: its header is the only thing saying what a cell means. */
+@media (max-width: 639px) {
+  .md table { display: block; }
+  .md thead { display: table-header-group; }
+  .md tbody { display: table-row-group; }
+  .md tr { display: table-row; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .md th, .md td { display: table-cell; width: auto; padding: 4px 8px; border: 1px solid var(--line); }
+}

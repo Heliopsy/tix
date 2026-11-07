@@ -1,0 +1,268 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Settings: one row per preference.
+
+   This screen used to be a stack of bare forms, each under its own paragraph
+   of justification, each with its own Apply button at the end of a line of its
+   own. Nothing grouped them, so twelve unrelated controls read as one long
+   document, and finding the one you came for meant reading all of it.
+
+   A row says three things in fixed places: what it is, what it does, and what
+   it is set to. The reasoning that used to be on screen is in the template's
+   comments, where it is still true and no longer in the way.
+   ------------------------------------------------------------------------ */
+/* The settings block is a size container, so whether the section
+   navigation fits beside the sections is decided by the room the block has,
+   not by the window: the sidebar is resizable and collapsible, and a 1440px
+   window with a 480px sidebar has less room than a 1280px one with a rail. */
+.settings { container: settings / inline-size; }
+.settings-grid { display: block; }
+
+/* The section navigation. Above the sections it is a wrapped row of links,
+   never a sideways scroller, so a phone sees every section at once. */
+.setnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-5);
+}
+.setnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+/* The section last jumped to, or returned to after a save, is marked without
+   a script: the section is the :target, and the link naming it is found
+   from the block that holds both. */
+.settings:has(#appearance:target) .setnav a[href="#appearance"],
+.settings:has(#listings:target) .setnav a[href="#listings"],
+.settings:has(#keyboard:target) .setnav a[href="#keyboard"],
+.settings:has(#dates:target) .setnav a[href="#dates"],
+.settings:has(#second-factor:target) .setnav a[href="#second-factor"],
+.settings:has(#database:target) .setnav a[href="#database"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+@container settings (min-width: 1000px) {
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, var(--measure-form));
+    gap: var(--space-6);
+    align-items: start;
+  }
+  /* A column that stays in view while the sections scroll past it. */
+  .setnav {
+    position: sticky;
+    top: var(--space-5);
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: 0;
+  }
+  .setnav a {
+    border-color: transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    min-height: var(--control-h);
+  }
+}
+
+.setgroup { margin: 0 0 var(--space-6); scroll-margin-top: var(--space-5); }
+/* Under the phone bar, a section jumped to would otherwise start behind it. */
+@media (max-width: 899px) { .setgroup { scroll-margin-top: 72px; } }
+
+/* The name of a group of settings, set the way every other quiet label in
+   this interface is set: in its own words, at the sidebar group's size and
+   colour. APPEARANCE in tracked capitals is the loudest kind of type there
+   is, spent on a word whose job is to be skimmed past. */
+.setgroup > h2,
+.setgroup > .headtip > h2 {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  margin: 0 0 var(--space-2);
+}
+/* A group heading carrying an (i) tip keeps the tip on the heading's line. */
+.setgroup > .headtip { margin: 0 0 var(--space-2); }
+.setgroup > .headtip > h2 { margin: 0; }
+
+/* A setting is a sentence on the left and the control that changes it on the
+   right, and the two have to be read together. Unbounded, the row grew with
+   the window: on a 2560px screen "Version" and "dev" were eleven hundred
+   pixels apart, and on the settings screen the switch for a preference was
+   at the far edge of the page from the text explaining it. */
+.setlist {
+  max-width: var(--measure-form);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+/* Not clipped: an (i) note opened in the last row hangs below the list, and
+   a clipping list cut it off at its own border. The rows round their own
+   outer corners instead, so a hover tint does not square them off. */
+.setlist > .setrow:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.setlist > .setrow:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.setlist > .setrow:only-child { border-radius: var(--radius-lg); }
+
+/* The control column is one width for every row, so the selects are one
+   width and the switches sit in one vertical line. Sized by the widest thing
+   it holds, the list groups' three segments, each on one line. */
+.setrow {
+  --setctl-w: 20rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--setctl-w);
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4);
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.setrow:first-child { border-top: 0; }
+
+/* A control that is a grid of checkboxes, or a fourteen row table, has no
+   business being squeezed into the right-hand column. It gets the full width
+   under its own description instead. */
+.setrow.stacked { grid-template-columns: minmax(0, 1fr); }
+
+.setrow-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.setname { font-size: var(--text-md); font-weight: 600; color: var(--ink); margin: 0; }
+.sethelp { font-size: var(--text-sm); color: var(--muted); line-height: 1.5; max-width: 68ch; }
+.sethelp a { color: var(--accent); }
+
+/* The name and its (i). The note is anchored to this line rather than to the
+   icon, and capped at its width, so it opens under the name and can never
+   run past the right edge of the row. */
+.setname-line { min-width: 0; }
+
+.setrow-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* Block, not flex: what goes in a stacked row is a grid of checkboxes or a
+   table, and as a flex item each of those shrank to its content and drew
+   itself one column wide in a container with room for three. */
+.setrow.stacked > .setrow-ctl { display: block; }
+.setrow.stacked > .setrow-ctl > form { width: 100%; }
+
+/* What it is set to, stated before the control that changes it, because the
+   answer is what a reader came for and the control is what they do about it. */
+.setvalue {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.setrow-ctl > select { width: 100%; height: var(--control-h); }
+.setrow-ctl .viewswitch { justify-content: flex-end; }
+/* "View as" says what the row's own name already says; it stays for the
+   group's accessible name and leaves the screen. */
+.setrow-ctl .viewswitch-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* A path or a redacted DSN, which has no break opportunity of its own: body
+   text that breaks anywhere, not a code block in a larger face. */
+.settarget { display: block; font-size: var(--text-sm); color: var(--ink); overflow-wrap: anywhere; }
+
+/* A section's one-line description, as the first row of its card rather than
+   loose above it, so every section is a heading and then a card. */
+.setrow.setlead { display: block; font-size: var(--text-sm); color: var(--muted); line-height: 1.5; }
+
+/* Existing channels are rows of the Notifications card. */
+.setlist > .channels { margin: 0; padding: 0; }
+ul.plain.channels > li.setrow { padding: var(--space-4); border-bottom: 0; }
+.setlist > .channels > .setrow:first-child { border-top: 1px solid var(--line); }
+.setlist > .channels:last-child > .setrow:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+a.setname { color: var(--ink); text-decoration: none; }
+a.setname:hover { text-decoration: underline; }
+
+/* What only a hovering pointer, a keyboard or a dragging pointer can use is
+   not drawn on a device whose main input is a finger: a phone or a tablet. A
+   touch laptop's main input is its trackpad, so it keeps them. A card keeps
+   its draggable attribute, drawn from the setting, but a long press no longer
+   lifts it; its Move menu is how a finger moves it. */
+@media (hover: none) and (pointer: coarse) {
+  .needs-hover, .needs-keys, .needs-drag { display: none !important; }
+  .card[draggable="true"] { -webkit-user-drag: none; cursor: auto; }
+}
+
+/* An on/off preference. Still a submit button, so it works with no script;
+   role="switch" and aria-checked say what it is and which way it is set.
+   The state word sits before the track so the tracks line up on the right. */
+button.switch {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+button.switch:hover { background: none; filter: none; }
+.switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+}
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+button.switch[aria-checked="true"] .switch-track { background: var(--accent); }
+button.switch[aria-checked="true"] .switch-track::after { transform: translateX(16px); background: var(--on-accent); }
+
+/* Scripting hides these: the select applies itself on change. Without
+   scripting they are the only way to commit the choice, so they ship visible
+   and are removed by the script that replaces them, never the other way
+   round. */
+
+/* buttons are inline-flex, which outranks the user agent's rule for the
+   hidden attribute, so a button the script had hidden stayed on screen. */
+[hidden] { display: none !important; }
+
+.pickers { display: flex; flex-wrap: wrap; gap: var(--space-2); width: 100%; }
+
+/* At 900px and below a row stacks: the control under its description, from
+   the left, and a select as wide as a field rather than as the row. */
+@media (max-width: 900px) {
+  .setrow { grid-template-columns: minmax(0, 1fr); }
+  .setrow-ctl { justify-content: flex-start; }
+  .setrow-ctl .viewswitch { justify-content: flex-start; }
+  .setrow-ctl > select { max-width: var(--measure-field); }
+}

@@ -3,10 +3,11 @@
 package web_test
 
 import (
-	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // controlSelectors are the controls and control-like marks whose label is one
@@ -20,11 +21,11 @@ var controlSelectors = []string{
 
 func readSheet(t *testing.T) string {
 	t.Helper()
-	raw, err := os.ReadFile("assets/app.css")
+	sheet, err := web.Stylesheet()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(raw)
+	return sheet
 }
 
 // declared reports whether body sets property to value.

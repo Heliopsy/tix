@@ -59,7 +59,7 @@ type branding struct {
 
 // defaultAccent and defaultAccentSoft are the brand colour shown before any
 // tenant has been resolved (the sign-in screen, most of all). They must stay
-// equal to assets/app.css's :root --accent and --accent-soft: the inline
+// equal to assets/css/010-tokens.css's :root --accent and --accent-soft: the inline
 // style block below always overrides those tokens with one of these two
 // values, so if they drifted apart the stylesheet's own default would never
 // actually be seen by anyone.

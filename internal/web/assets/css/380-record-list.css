@@ -1,0 +1,121 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   A record list: one row per record, the way the task list and the project
+   list already read.
+
+   These screens were tables whose columns were an identifier, a one word
+   state repeated down the whole column, and a cell whose entire content was
+   the word Delete. A table earns its grid when values line up and get
+   compared down a column; none of that was happening, and the width went to
+   whichever row held the longest identifier.
+   ------------------------------------------------------------------------ */
+ul.reclist {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+li.recrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+li.recrow:first-child { border-top: 0; }
+li.recrow.is-off { color: var(--muted); }
+
+.recrow-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.recrow-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recrow-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  min-width: 0;
+}
+.recrow-act { flex: 0 0 auto; margin: 0; }
+
+ul.reclist li.empty { padding: var(--space-6) var(--space-4); text-align: center; border-top: 0; }
+
+/* The event types an endpoint is subscribed to. A comma joined run in a table
+   cell was one unbreakable string; each type is its own thing, so each is its
+   own chip. */
+.evchip {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  background: var(--surface);
+}
+
+li.recrow.server.is-stale .recrow-title code { color: var(--muted); }
+.server-addr { font-weight: 400; font-size: var(--text-sm); }
+
+/* A figure that is reporting something wrong says so where it is read, rather
+   than leaving the reader to notice a number is not zero. */
+.figure.warn { color: var(--warn); }
+.figure.bad { color: var(--danger); }
+
+/* The sentence about what a destructive control does not do. It was set as a
+   lede, which is the style of an introduction, at the foot of the page. */
+.note {
+  margin: 0 0 var(--space-5);
+  /* It is a sentence, so it is set to a sentence's measure. Run the width of
+     a 4K page it stops being a sentence and becomes a band of colour. */
+  max-width: var(--measure-text);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  /* A quiet edge, not an amber one. Every .note in this interface explains
+     something -- what a control applies to, what a count is counting, what a
+     deletion does not touch -- and none of them is a warning. Painted in the
+     warning colour they were the most urgent looking objects on screens with
+     nothing urgent on them. A note that really is a warning says so by
+     living inside a .danger panel, which is already coloured. */
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.55;
+}
+.note strong { color: var(--ink); }
+.note a { color: var(--accent); }
+
+/* The scopes cell. A token's scopes are a set of short names, and as a comma
+   joined run they were one long string the table squeezed into a quarter of
+   the width and wrapped to ten lines, making every row 230px tall. */
+th.scopecell { width: 40%; }
+th.actioncell { width: 150px; }
+td.scopecell .evchip { display: inline-block; margin: 1px 2px 1px 0; font-size: var(--text-2xs); }
+
+/* The View menu holds two sections side by side, so it needs more room than a
+   status menu's list of one-line choices. */
+.viewpop { max-width: min(46rem, calc(100vw - 24px)); }
+.viewpop .viewgrid { padding: 0; }
+
+/* A count beside the heading it counts, rather than a figure of its own: the
+   number of servers registered is about the list under it. */
+.counthint {
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
+}
+

@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The version sits under the navigation rather than in it: it is a fact about
+   the server, not a place to go. The upgrade note only renders when there is
+   one, so it never occupies space saying everything is fine. */
+.side-account .version {
+  margin: var(--space-2) 0 0;
+  padding: 0 8px;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.side-account .version .upgrade {
+  display: block;
+  color: var(--accent);
+  font-weight: 600;
+}
+.side-account .version .running { color: inherit; text-decoration: none; }
+.side-account .version .running:hover,
+.side-account .version .running:focus-visible { color: var(--ink); text-decoration: underline; }
+
+/* Preformatted text, which had no rule anywhere in this sheet. A <pre> with
+   browser defaults keeps its own monospace size and, more to the point,
+   never wraps: release notes and a read-only task description both became a
+   single line as wide as their longest one, taking the whole page sideways
+   with them. Wrapping is the fix, and the frame makes it read as a quoted
+   block rather than as loose text that lost its styling. */
+pre.notes,
+pre.prose {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,165 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The identifier, with a way to take it. */
+.idline { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.idline > code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* One line, by clamping rather than by forbidding the wrap: a rule that
+     says text may never wrap is a rule that overflows a narrow viewport,
+     which is what layout_test.go watches the whole sheet for. */
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  font-size: var(--text-2xs);
+}
+
+/* The project list.
+   A row is the project: its mark, its name, the key it is known by, and the
+   line somebody wrote about it. The three links are tools, so they are set
+   as tools and only come forward when the row is under the pointer. */
+.projlist { list-style: none; margin: 0 0 var(--space-5); padding: 0; }
+
+/* Projects wrap into columns once a row would be mostly empty.
+ *
+ * A project row is a mark, a name, a key and one line of description: about
+ * 420px of content. Drawn as a full-width row on a 2560px screen that is six
+ * entries each carrying two thousand pixels of nothing, and the reader's eye
+ * travelling the whole width to find a Manage link at the far end of it.
+ *
+ * auto-fill rather than a column count, so the number of columns follows the
+ * window instead of a list of breakpoints, and each row keeps its own border
+ * because a column of entries separated only by a shared underline stops
+ * reading as separate entries once there are two columns of them.
+ *
+ * The screen keeps the prose measure rather than the listing one. Past about
+ * two columns the descriptions -- the one field on this screen a person
+ * wrote -- get clipped to make room for more columns of clipped
+ * descriptions. A short list, centred, is the honest answer to a wall of a
+ * monitor; a short list stretched across one is not. */
+@media (min-width: 1200px) {
+  .projlist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: var(--space-2);
+  }
+  .projrow { border-color: var(--line); }
+}
+
+.projrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  border-radius: var(--radius-md);
+}
+.projrow.is-archived { opacity: 0.6; }
+
+.projrow-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* The project's colour, carrying its icon or the first letter of its key. */
+.projrow-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--proj, var(--muted)) 14%, transparent);
+  color: var(--proj, var(--muted));
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.projrow-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* The name wraps, and breaks inside a word longer than the row, rather than
+   run under the row's links or past the window. */
+.projrow-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  color: var(--ink);
+}
+.projrow-key { font-size: var(--text-2xs); font-weight: 400; color: var(--muted); }
+.projrow-desc {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  /* Two lines. At one, every description on the demo tenant ended in an
+     ellipsis halfway through its first sentence, so the one field on this
+     screen somebody wrote was the one field nobody could read. */
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.projrow-tools { display: flex; gap: var(--space-1); flex: 0 0 auto; opacity: 0; transition: opacity 120ms ease; }
+.projrow:hover .projrow-tools, .projrow:focus-within .projrow-tools { opacity: 1; }
+@media (hover: none) { .projrow-tools { opacity: 1; } }
+.projpin { margin: 0; display: inline-flex; }
+/* A phone has no room for the name beside four links, so they take their own
+   line under it, lined up with the name. */
+@media (max-width: 639px) {
+  .projrow { flex-wrap: wrap; row-gap: var(--space-1); }
+  .projrow-tools { flex: 1 1 100%; flex-wrap: wrap; padding-inline-start: calc(34px + var(--space-3) - var(--space-2)); }
+}
+
+.ghostlink {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-decoration: none;
+}
+.ghostlink:hover { background: var(--bg); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+
+.tagchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+.tagchips > li { display: inline-flex; align-items: center; gap: 2px; }
+.tagchips form { display: inline-flex; }
+.tagdrop {
+  min-height: 0;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+.tagdrop:hover { background: none; color: var(--danger); }
+.tagadd { display: flex; gap: var(--space-2); }
+.tagadd input { flex: 1 1 auto; min-width: 0; }
+
+.pagehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--head-gap);
+}

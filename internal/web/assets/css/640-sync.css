@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* External sync: where a run executes, and what each source uses there.
+   The note sits above the sources because the most common mistake was
+   configuring a source as if it ran on the reader's own machine. */
+.syncwhere {
+  max-width: var(--measure-text);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+}
+.syncuses { overflow-wrap: anywhere; }
+.syncuses-k { font-weight: 600; color: var(--ink); }
+.syncmissing-word { color: var(--warn); font-weight: 600; }
+.syncmissing {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--warn-soft);
+  color: var(--ink);
+  border-left: 3px solid var(--warn);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.syncmissing-h { font-weight: 600; color: var(--warn); }
+.syncmissing ul { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+.syncform-h { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-md); }
+.syncmapping { width: 100%; box-sizing: border-box; min-height: 10rem; }
+.syncclear { display: flex; align-items: flex-end; }
+.syncpreview {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+.syncpreview h3 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
+.syncpreview dd { overflow-wrap: anywhere; }

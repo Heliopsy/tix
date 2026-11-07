@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ------------------------------------------------------------------------
+   The activity filter. Its state lives in the query string, so each active
+   term is shown as its own removable chip: a reader can see exactly what is
+   narrowing the feed and drop one part of it without retyping the rest.
+   ------------------------------------------------------------------------ */
+
+.activityfilter { flex-wrap: wrap; }
+.activechips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -8px 0 16px; }
+
+.activechips .chip.removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.activechips .chip.removable:hover { border-color: var(--accent); }
+.activechips .clear { font-size: var(--text-sm); color: var(--muted); }
+.feed .who-name { text-decoration: none; }
+.feed .who-name:hover, .feed .who-link:hover { text-decoration: underline; }
+
+
+/* The feed row lost the duplicated actor name that used to sit at its end,
+   so the timestamp takes over that job of pushing to the right, and the Raw
+   control follows it on the same line. */
+.feed .muted.when { margin-left: auto; font-size: var(--text-sm); }
+
+/* The access channel of a recorded change: an icon and a few words, small and
+   muted so it qualifies the row rather than competing with the sentence. The
+   details are in its title, and in the raw view. In the feed it is a link to
+   the feed narrowed to that channel. */
+.via {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.via .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.via-link { text-decoration: none; }
+.via-link:hover .via, .via-link:focus-visible .via { color: var(--ink); text-decoration: underline; }
+.feed .via-link { margin-left: 8px; }
+

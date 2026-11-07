@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Hover effects.
+
+   What is under the pointer says it can be used: a row tints, a card lifts
+   and gains a shadow, a navigation link and a button brighten, a link in
+   running text thickens its underline. All of it is written once, under
+   :root:not([data-hover="off"]), so the Hover effects preference on the
+   settings screen is one attribute on <html> rather than a second set of
+   rules, and inside (hover: hover), so a touch screen, which has no hover
+   and keeps the last tap's as a sticky highlight, never gets any of it.
+
+   Movement is declared only under prefers-reduced-motion: no-preference. A
+   reader who asked the system for less motion gets the colour and the
+   shadow, never the lift or the transition, whatever this preference says.
+   ------------------------------------------------------------------------ */
+:root { --shadow-hover: 0 2px 8px rgba(16, 24, 40, 0.10); }
+:root[data-theme="dark"], :root[data-theme="dim"] { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
+}
+
+@media (hover: hover) {
+  :root:not([data-hover="off"]) .rows > tbody > tr:hover,
+  :root:not([data-hover="off"]) .rows > li:hover { background-color: var(--row-hover); }
+
+  :root:not([data-hover="off"]) .column .card:hover,
+  :root:not([data-hover="off"]) .lane .lane-card:hover {
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-hover);
+  }
+  :root:not([data-hover="off"]) .lane:hover { border-color: var(--line-strong); }
+  :root:not([data-hover="off"]) a[data-edit-title]:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  :root:not([data-hover="off"]) a.title-open:hover { opacity: 1; color: var(--accent); background: var(--accent-soft); }
+
+  :root:not([data-hover="off"]) nav.main a:hover .nav-icon { color: var(--accent); }
+  :root:not([data-hover="off"]) .setnav a:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
+
+  :root:not([data-hover="off"]) button:not(.link):not(.switch):not(.segment):not(.check):not(.star):not(.statuspill):not(.priobtn):hover { box-shadow: var(--shadow-hover); }
+  :root:not([data-hover="off"]) button.switch:hover .switch-track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  :root:not([data-hover="off"]) .lede a:hover,
+  :root:not([data-hover="off"]) .sethelp a:hover,
+  :root:not([data-hover="off"]) .note a:hover,
+  :root:not([data-hover="off"]) .wrap p a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-hover="off"]) .column .card,
+  :root:not([data-hover="off"]) .lane .lane-card,
+  :root:not([data-hover="off"]) .rows > tbody > tr,
+  :root:not([data-hover="off"]) .rows > li,
+  :root:not([data-hover="off"]) .setnav a,
+  :root:not([data-hover="off"]) nav.main a,
+  :root:not([data-hover="off"]) .switch-track {
+    transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, color 140ms ease;
+  }
+  :root:not([data-hover="off"]) .switch-track::after { transition: transform 140ms ease; }
+  :root:not([data-hover="off"]) .column .card:hover,
+  :root:not([data-hover="off"]) .lane .lane-card:hover { transform: translateY(-1px); }
+  :root:not([data-hover="off"]) nav.main a:hover .nav-icon { transform: translateX(1px); }
+}
+
+/* Off. The hover tints that predate the preference are put back to their
+   resting look here, rather than each being rewritten under the attribute,
+   so turning it off means what it says. Focus rings are not hover effects and
+   are untouched. */
+:root[data-hover="off"] li.task:hover .task-meta .ref { color: inherit; }
+:root[data-hover="off"] nav.main a:not([aria-current="page"]):hover { background: transparent; color: var(--muted); }
+:root[data-hover="off"] nav.main a:not([aria-current="page"]):hover .nav-icon { color: inherit; }
+:root[data-hover="off"] .account-open:hover { background: transparent; }
+:root[data-hover="off"] button.check:hover { transform: none; }
+:root[data-hover="off"] .projrow-tools { opacity: 1; }

@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The (?) at the right end of a screen's header row, opening the docs for
+   the screen. No taller than the heading's line, so a header carrying one is
+   as deep as one without. Beside a header's tools it follows them; alone it
+   takes the free space and sits at the far end. */
+.helplink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  align-self: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  margin-inline-start: auto;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  text-decoration: none;
+  order: 1;
+}
+.helplink:hover, .helplink:focus-visible { color: var(--accent); background: var(--accent-soft); }
+/* In a .pagehead it is pinned to the heading's line and the header keeps its
+   width clear, so the tools wrap under the title on a phone and the (?)
+   stays at the end of the title's row rather than trailing them. */
+.pagehead:has(> .helplink) {
+  position: relative;
+  padding-inline-end: calc(var(--control-h-sm) + var(--space-2));
+}
+.pagehead > .helplink {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc((1.2 * var(--text-2xl) - var(--control-h-sm)) / 2);
+}
+.cform-head-tools ~ .helplink, .taskhead-tools > .helplink { margin-inline-start: 0; }
+.headtip:has(> .helplink) > .field-info > p,
+.headtip:has(> .helplink) > .field-info::details-content { order: 2; }

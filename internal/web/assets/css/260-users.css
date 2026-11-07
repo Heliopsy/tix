@@ -1,0 +1,131 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ------------------------------------------------------------------------
+   The user administration list. One block per account rather than a table
+   of cells: an account has an identity, an authority and a state, and those
+   are three different kinds of thing that a row of equal columns flattened.
+   ------------------------------------------------------------------------ */
+
+ul.peoplelist {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* The role and the account's state sit beside the name, not at the far edge
+   of the window. Pinning them right put 900px of nothing between "Tom Okafor"
+   and the word that says what Tom may do, and on a 4K screen a reader had to
+   track across most of a metre of empty row to pair a name with its role.
+   The identity column is capped and the marks follow it; the spare width
+   becomes an empty fourth column rather than a gap inside the row. */
+li.person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 28rem) auto minmax(0, 1fr);
+  grid-template-areas: "avatar id marks edit";
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+
+li.person:last-child { border-bottom: 0; }
+li.person.is-off { background: repeating-linear-gradient(
+  135deg, transparent, transparent 7px, var(--bg) 7px, var(--bg) 14px); }
+
+.avatar {
+  grid-area: avatar;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+li.person.is-off .avatar { background: var(--line); color: var(--muted); }
+
+.person-id { grid-area: id; display: flex; flex-direction: column; min-width: 0; }
+.person-name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.person-mail { color: var(--muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+
+.person-marks { grid-area: marks; display: flex; align-items: center; gap: 8px; }
+
+/* A role is authority, so it reads as a solid badge; a state is a condition,
+   so it reads as a dot and a word. Two different kinds of fact, two shapes. */
+/* Lower case, at the weight of the other marks on the row. ADMIN set in
+   700 weight capitals with extra tracking made the least urgent fact about a
+   person the loudest word on their row, and disagreed with every other mark
+   in the interface -- a status pill, a priority, a tag -- which are all set
+   in the words they actually are. */
+.role {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.role-admin { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.role-member { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.role-viewer { background: var(--bg); color: var(--muted); }
+.role-none { border-style: dashed; font-style: italic; text-transform: none; }
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.state::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.state.on { color: var(--ok); }
+.state.off { color: var(--muted); }
+.state.off::before { background: transparent; border: 2px solid currentColor; width: 5px; height: 5px; }
+
+/* "you", in the words it is. Set in filled accent capitals it was a brighter
+   mark than anything else on the list, for the one fact the reader already
+   knows. --on-accent rather than --surface, which is a background colour and
+   happened to be light enough to read in one scheme out of four. */
+.chip.you {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+  vertical-align: 1px;
+}
+
+.person-act { grid-area: edit; justify-self: end; }
+.person-delete { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.check-inline { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (max-width: 559px) {
+  li.person {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "avatar id id" ". marks marks" ". edit edit";
+  }
+  .person-marks { margin-top: 4px; }
+}
