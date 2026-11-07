@@ -54,3 +54,16 @@ func TestAnImportStageIsItsUploadersAloneAndExpires(t *testing.T) {
 		t.Error("an expired stage's file is still on disk")
 	}
 }
+
+func TestAnImportStageOpensNothingOutsideItsDirectory(t *testing.T) {
+	s := newImportStages()
+	if _, err := s.put(&core.Actor{ID: "a", TenantID: "t"}, "infra", "f.csv", strings.NewReader("x")); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"../../../../etc/passwd", "/etc/passwd"} {
+		if f, err := s.open(&importStage{ID: id}); err == nil {
+			_ = f.Close()
+			t.Errorf("a stage named %q opened a file outside the staging directory", id)
+		}
+	}
+}

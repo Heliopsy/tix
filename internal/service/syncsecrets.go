@@ -29,6 +29,19 @@ type syncCredentials struct {
 	Password string `json:"password,omitempty"`
 }
 
+// sealable is the credential set as the document sealed onto a source: the
+// same keys the struct reads back, with an empty one left out. It is a map so
+// that nothing about the type invites encoding it anywhere but the sealer.
+func (c syncCredentials) sealable() map[string]string {
+	out := map[string]string{}
+	for k, v := range map[string]string{"token": c.Token, "user": c.User, "password": c.Password} {
+		if v != "" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 // checkSyncSourceInput refuses mapping and credential input that cannot be
 // stored as given.
 func checkSyncSourceInput(in core.SyncSourceInput) error {
@@ -76,7 +89,7 @@ func (l *Local) sealSyncCredentials(tenantID string, src *core.SyncSource, in co
 		User:     strings.TrimSpace(in.User),
 		Password: strings.TrimSpace(in.Password),
 	}
-	plain, err := json.Marshal(creds) // #nosec G117 -- marshaled only to be sealed, never sent
+	plain, err := json.Marshal(creds.sealable())
 	if err != nil {
 		return core.Internal("encoding sync credentials")
 	}

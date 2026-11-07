@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -37,15 +36,15 @@ type importStage struct {
 	Lines    string
 	Result   *core.TaskImportResult
 	created  time.Time
-	path     string
 }
 
 // importStages holds the uploads of imports in progress. The files live in a
 // temporary directory of this process, so the steps of one import are served
-// by the server that took the upload.
+// by the server that took the upload. Every file is reached through root,
+// which cannot resolve a name outside that directory.
 type importStages struct {
 	mu    sync.Mutex
-	dir   string
+	root  *os.Root
 	items map[string]*importStage
 	now   func() time.Time
 }
@@ -62,12 +61,16 @@ func (s *importStages) put(actor *core.Actor, project, filename string, r io.Rea
 	if len(s.items) >= maxImportStages {
 		return nil, core.Invalid("too many imports are in progress on this server; try again in a while")
 	}
-	if s.dir == "" {
+	if s.root == nil {
 		dir, err := os.MkdirTemp("", "tix-import-")
 		if err != nil {
 			return nil, core.Internal("staging the upload: %v", err)
 		}
-		s.dir = dir
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			return nil, core.Internal("staging the upload: %v", err)
+		}
+		s.root = root
 	}
 	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {
@@ -75,18 +78,17 @@ func (s *importStages) put(actor *core.Actor, project, filename string, r io.Rea
 	}
 	st := &importStage{ID: hex.EncodeToString(raw), TenantID: actor.TenantID, ActorID: actor.ID,
 		Project: project, Filename: filename, created: s.now()}
-	st.path = filepath.Join(s.dir, st.ID)
-	f, err := os.OpenFile(st.path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := s.root.OpenFile(st.ID, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, core.Internal("staging the upload: %v", err)
 	}
 	if _, err := io.Copy(f, r); err != nil {
 		_ = f.Close()
-		_ = os.Remove(st.path)
+		_ = s.root.Remove(st.ID)
 		return nil, core.Invalid("reading the upload: %v", err)
 	}
 	if err := f.Close(); err != nil {
-		_ = os.Remove(st.path)
+		_ = s.root.Remove(st.ID)
 		return nil, core.Internal("staging the upload: %v", err)
 	}
 	s.items[st.ID] = st
@@ -108,7 +110,13 @@ func (s *importStages) get(actor *core.Actor, project, id string) (*importStage,
 
 // open reads a stage's file.
 func (s *importStages) open(st *importStage) (io.ReadCloser, error) {
-	f, err := os.Open(st.path) // #nosec G703 G304 -- the stage's own temp file, named by the server
+	s.mu.Lock()
+	root := s.root
+	s.mu.Unlock()
+	if root == nil {
+		return nil, core.NotFound("this import has expired; upload the file again")
+	}
+	f, err := root.Open(st.ID)
 	if err != nil {
 		return nil, core.NotFound("this import has expired; upload the file again")
 	}
@@ -119,8 +127,8 @@ func (s *importStages) open(st *importStage) (io.ReadCloser, error) {
 func (s *importStages) drop(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if st, ok := s.items[id]; ok {
-		_ = os.Remove(st.path)
+	if _, ok := s.items[id]; ok {
+		_ = s.root.Remove(id)
 		delete(s.items, id)
 	}
 }
@@ -130,7 +138,7 @@ func (s *importStages) expire() {
 	now := s.now()
 	for id, st := range s.items {
 		if now.Sub(st.created) > importStageTTL {
-			_ = os.Remove(st.path)
+			_ = s.root.Remove(id)
 			delete(s.items, id)
 		}
 	}

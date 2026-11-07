@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/csv"
 	"errors"
+	"io"
+	"mime"
 	"net/http"
 	"slices"
 	"strconv"
@@ -590,10 +592,7 @@ func writeImportErrors(w http.ResponseWriter, st *importStage) error {
 		}
 	}
 	out.Flush()
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="import-errors.csv"`)
-	_, err := w.Write(buf.Bytes())
-	return err
+	return writeAttachment(w, "text/csv; charset=utf-8", "import-errors.csv", &buf)
 }
 
 // writeImportMapping answers the mapping in force as a file to keep.
@@ -604,9 +603,33 @@ func (h *handler) writeImportMapping(w http.ResponseWriter, r *http.Request, pro
 	} else if result, err := h.dryRun(r, project, st, false); err == nil {
 		mapping = result.Mapping
 	}
-	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.ToLower(project.Key)+`-mapping.yaml"`)
-	_, err := w.Write([]byte(mapping)) // #nosec G705 -- an attachment served as YAML, never rendered
+	return writeAttachment(w, "application/yaml; charset=utf-8", strings.ToLower(project.Key)+"-mapping.yaml",
+		strings.NewReader(mapping))
+}
+
+// attachmentDisposition is the Content-Disposition of a download named
+// filename: quoted as every other download here is, and encoded by mime when
+// the name holds anything a quoted string cannot carry as it is.
+func attachmentDisposition(filename string) string {
+	for _, r := range filename {
+		if r < 0x20 || r > 0x7e || r == '"' || r == '\\' {
+			return mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+		}
+	}
+	return `attachment; filename="` + filename + `"`
+}
+
+// writeAttachment answers body as a file to save rather than a page to draw:
+// a download the browser neither sniffs into markup nor runs, with its name
+// quoted the way Content-Disposition wants.
+func writeAttachment(w http.ResponseWriter, contentType, filename string, body io.Reader) error {
+	h := w.Header()
+	h.Set("Content-Type", contentType)
+	h.Set("Content-Disposition", attachmentDisposition(filename))
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	h.Set("Cache-Control", "no-store")
+	_, err := io.Copy(w, body)
 	return err
 }
 
