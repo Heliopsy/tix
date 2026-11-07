@@ -1,0 +1,39 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Narrow viewports: tighter gutters and no side-by-side detail rail. */
+@media (max-width: 639px) {
+  :root { --gutter: 12px; --head-gap: var(--space-3); }
+  .wrap { padding-top: 16px; }
+  h1 { font-size: var(--text-xl); }
+  .card, details.panel > .body { padding: 12px; }
+  details.panel > summary { padding: 10px 12px; }
+
+  /* Three controls side by side do not fit a phone, so the pager stacks and
+     each slot takes the single column. */
+  .pager { grid-template-columns: 1fr; justify-items: center; gap: 8px; }
+  .pager-prev, .pager-at, .pager-next { grid-column: 1; justify-self: center; }
+
+  /* The board keeps being a board. It used to collapse to display: block at
+     this width, which turned five columns into one 2,800px page nobody could
+     hold the shape of, and -- because the strip keeps a fixed height -- drew
+     the overflowing columns straight over the panels underneath. One column
+     at a time, snapped, swiped sideways: the same gesture the reader already
+     uses to move between screens. */
+  .board { height: calc(100svh - 168px); scroll-snap-type: x mandatory; }
+  .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+  .board.is-merged > .column { flex: 0 0 82vw; min-width: 0; max-width: none; }
+
+  /* A table becomes one card per row: the header cannot help at this width. */
+  thead { display: none; }
+  table, tbody, tr, td { display: block; width: 100%; }
+  tr { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  td { border-bottom: 0; padding: 3px 0; }
+  td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}

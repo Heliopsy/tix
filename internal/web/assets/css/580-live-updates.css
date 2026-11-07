@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ===== Live updates ===================================================== */
+/* The board's columns and the lanes keep their scrollbar's room too, for the
+   same reason as the task list's frame. */
+.column, .lane { scrollbar-gutter: stable; }
+/* live.js holds each of these boxes to the row the reader was on when an
+   update lands, so the browser's own scroll anchoring is off on them: one
+   owner for the adjustment, and the same answer in a browser that has no
+   scroll anchoring at all. */
+ul.tasklist, .board, .column, .lanes, .lane { overflow-anchor: none; }
+
+/* "N new, show": rows a live update put above where the reader is reading
+   (assets/live.js livePill). It floats over the top edge of the box those
+   rows are in rather than pushing anything down, and goes away when pressed
+   or when the reader scrolls back to the top on their own. */
+.livepill {
+  position: fixed;
+  z-index: 30;
+  transform: translateX(-50%);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-strong, 0 4px 12px rgb(0 0 0 / 0.18));
+}
+.livepill[hidden] { display: none; }
+/* ===== end Live updates ================================================= */

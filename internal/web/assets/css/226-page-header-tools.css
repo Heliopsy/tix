@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* In the header the panel is a control, not a section: it gets the height of
+   the controls beside it and opens over the page instead of pushing it down. */
+.pagehead-tools .listprefs { margin: 0; }
+.pagehead-tools details.panel.viewprefs { margin: 0; position: relative; }
+.pagehead-tools details.panel.viewprefs > summary {
+  min-height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+.pagehead-tools details.panel.viewprefs[open] > .body {
+  position: absolute;
+  right: 0;
+  top: calc(var(--control-h) + var(--space-1));
+  z-index: 40;
+  width: min(560px, 86vw);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+  padding: var(--space-4);
+}
+/* The view switch loses its "VIEW AS" label here: it is two buttons marked
+   List and Board at the end of the header, which does not need announcing. */
+.pagehead-tools .viewswitch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.pagehead-tools .viewswitch { margin: 0; }
+
+.listprefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  max-width: 100%;
+}
+
+.listprefs > details.panel { flex: 1 1 260px; margin-bottom: 0; }
+
+.visibilityform .choices .projectchoice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-md);
+  color: var(--ink);
+  margin: 0;
+}
+
+/* Both halves of the pair are allowed to break. A key is short in practice,
+   but nothing bounds it to the width of a grid cell, and the sheet forbids
+   nowrap outright (TestStylesheetEmitsNoHorizontalScrollLayout): one
+   unbreakable run is what puts a horizontal scrollbar on a phone. */
+.visibilityform .projectchoice-name,
+.visibilityform .projectchoice code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.visibilityform .projectchoice code {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* The sentence naming hidden keys no project answers to. Full width under the
+   grid rather than a cell in it: it is about the choice as a whole, not about
+   any one checkbox, and it has to be allowed to run to several lines. */
+.visibilityform .stale-projects {
+  margin: 10px 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.visibilityform .actions { margin-top: 12px; }

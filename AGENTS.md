@@ -136,6 +136,13 @@ A list the code already holds is asserted rather than maintained: see
 - `TestNoPageActionOrSectionSitsInAnExpander` lists the few toggles allowed to
   stay `<details>` (a row's Move menu, the (i) tips, a task's Rename), each with
   its reason. Adding to it needs the same kind of reason.
+- The stylesheet is split into parts under `internal/web/assets/css/`, named
+  `NNN-feature.css`, and served joined in name order as `/assets/app.css`
+  (`internal/web/stylesheet.go`). New styles go in their feature's css file;
+  add a new numbered file for a new feature, never append to a shared one.
+  The number is the part's place in the cascade, so pick one after anything
+  it has to override. Every part opens with the SPDX line and closes its own
+  blocks (`TestEveryStylesheetPartClosesItsOwnBlocks`).
 
 ## Never touch a real store
 
@@ -193,7 +200,7 @@ Rules for a batch of agents working at once, each learned the slow way.
   gets a port checked free first: one run once reached an unrelated database
   that happened to hold the port it picked.
 - **Split by file set, not by feature count.** `layout.html`, `tasks.html`,
-  `app.css`, `internal/web/i18n.go`, the README feature line,
+  the shared stylesheet parts, `internal/web/i18n.go`, the README feature line,
   `capability/registry.go`, `api/openapi.yaml` and the operation count in
   `docs/tui.md` are shared
   by nearly every web feature. Ten agents all touching them meant every merge

@@ -1,0 +1,294 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Layout: a fixed sidebar beside the content, stacking on narrow screens. */
+/* minmax(0, 1fr), never a bare 1fr. A grid track sized 1fr takes auto as its
+   minimum, which is the largest min-content width anywhere inside it, so one
+   wide descendant -- a board strip, a long reference, a table -- made the
+   single column of a phone layout wider than the phone and the whole page
+   scrolled sideways under overflow-x: hidden. The desktop rule below has
+   always said minmax(0, 1fr); this one said 1fr, and every narrow-screen
+   overflow in the interface came through it. */
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100vh; }
+
+/* The same guard one level in: the content column may be narrower than the
+   widest thing it contains, and whatever that thing is scrolls or wraps
+   inside it rather than pushing the page out. */
+.wrap, .side { min-width: 0; }
+
+@media (min-width: 900px) {
+  .shell { grid-template-columns: var(--side-w) minmax(0, 1fr); }
+}
+
+.side {
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: 14px var(--gutter);
+}
+
+@media (min-width: 900px) {
+  .side {
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    padding: 20px 14px;
+  }
+
+  /* The aside is a grid item and already stretches to the row, which is as
+     tall as the content beside it, so its background covers the whole page.
+     Giving the aside itself a viewport height instead made it stop painting
+     partway down any page taller than the window and leave a bare strip
+     beside the lower rows. Only the contents need to stay in view, so the
+     sticky box is inside it and the grid keeps deciding the height. */
+  .side-inner {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  margin-bottom: 4px;
+}
+
+.logo { width: 28px; height: 28px; border-radius: 8px; display: block; }
+
+nav.main { display: flex; flex-wrap: wrap; gap: 2px; }
+
+@media (min-width: 900px) { nav.main { display: block; } }
+
+nav.main a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+}
+
+nav.main a:hover { background: var(--surface); color: var(--ink); }
+
+/* The current screen is marked by weight and ink, not by a filled block of
+   accent: a solid coloured rectangle behind one of fourteen rows made the
+   navigation the most saturated thing on the screen, on every page. */
+nav.main a[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+nav.main a[aria-current="page"] .nav-icon { color: var(--accent); }
+
+.nav-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+}
+nav.main a:hover .nav-icon { color: var(--ink); }
+
+/* A quiet divider with a name on it, not a shouted heading.
+   ALL CAPS at 0.07em tracking is a 2010 sidebar: it makes a label that is
+   there to be ignored the loudest text in the column. */
+nav .group {
+  margin: var(--space-5) 0 var(--space-1) var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+/* The group headings used to be hidden here, which took the navigation's
+   only structure away at exactly the width where sixteen undifferentiated
+   links need it most. They live inside the More popover now, where there is
+   room for them, so they stay. */
+
+/* Below 900px the admin links are behind one control; above it the button
+   goes away and display:contents dissolves the wrapper so the links sit in
+   the sidebar exactly as they did before. */
+/* The tasks screen on a phone.
+
+   521px of an 844px screen stood between the top and the first task: a
+   heading and a summary stacked, a quick-add whose second row used 147px of
+   351, a filter form whose second row used 310, and a pager above the list
+   that announced "Page 1 of 25 tasks" before a single task had been seen.
+   Each piece was defensible on a desktop and none of them were together on a
+   phone, where the screen's whole subject is the list.
+
+   The heading and its summary share a line, the filter form moves behind the
+   button beside View, the quick-add field stops being 49px tall when every
+   other control is 36, and the pager goes under the rows it describes. The
+   pager was put above deliberately, because on a wide screen the list is a
+   frame that scrolls its own contents and a pager below it sat in a dead
+   strip; a phone scrolls the page itself, so that reason does not hold here
+   and the cost is 34px of the fold. */
+@media (max-width: 899px) {
+  .pagehead-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .pagehead-title .summary {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+  .pagehead { gap: var(--space-2); }
+
+  /* The listing's own box becomes a column so the pager can be ordered under
+     the rows without moving it in the markup, where a wide screen wants it
+     exactly where it is. */
+  #tasks-listing { display: flex; flex-direction: column; }
+  #tasks-listing > nav.pager { order: 2; margin-top: var(--space-3); }
+
+  .filterpop {
+    max-width: min(26rem, calc(100vw - 24px));
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+  }
+  .filterpop .filterbar { flex-wrap: wrap; }
+  .filterclose { width: 100%; margin-top: var(--space-3); }
+}
+
+@media (min-width: 900px) {
+  .filterbtn,
+  .filterclose { display: none; }
+  /* Not a popover on a wide screen: the form sits inline where it always has. */
+  .filterpop {
+    display: contents;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
+/* The bar a phone gets: brand on the left, the menu button on the right. */
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
+.burger {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 0;
+  width: 44px;
+  min-height: 44px;
+}
+.burger:hover { background: var(--surface); }
+.burger-icon { width: 24px; height: 24px; flex: 0 0 auto; }
+
+/* A sheet down the side, not a dropdown hanging off a button. It is the
+   whole sidebar, so it gets the sidebar's width and the full height, and it
+   scrolls when the links outrun the screen. */
+.sidemenu {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(20rem, 86vw);
+  max-height: 100dvh;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-5) var(--space-4);
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 0 0 40px rgb(0 0 0 / 0.25);
+}
+.sidemenu::backdrop { background: rgb(0 0 0 / 0.45); }
+.sidemenu .group { margin: var(--space-4) 0 var(--space-1); }
+.menuclose { width: 100%; margin-top: var(--space-5); }
+
+/* A phone is touched, not clicked. 44px is the smallest target iOS calls
+   reliable, and these were 32.
+
+   Everything here is a control that stands on its own, with room around it,
+   so growing its hit area cannot put it on top of the control next to it.
+   The chips inside a dense task row are the exception and are handled
+   separately, under .task-meta: four of them share a 22px line, so a 44px
+   box round each would overlap both its neighbours and the row above. */
+@media (max-width: 899px) {
+  nav.main { display: block; }
+  nav.main a { min-height: 44px; }
+  .sidemenu .account-open,
+  .accountmenu .flowgo { min-height: 44px; align-items: center; }
+  /* The one control on a task screen somebody presses every time. */
+  .backlink a { min-height: 44px; }
+
+  /* A checkbox's label is its target, and the components that size
+     themselves are gathered at the foot of this file under "Touch targets",
+     after the rules they have to beat. */
+}
+
+@media (min-width: 900px) {
+  .burger,
+  .menuclose { display: none; }
+  /* Overrides the user agent's [popover]:not(:popover-open){display:none},
+     so on a desktop this is not a popover at all, just a wrapper that is not
+     there and the sidebar is the column it has always been. */
+  .sidemenu {
+    display: contents;
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
+/* The content column, anchored to the sidebar. Its left inset is the gutter
+   and nothing else, on every screen.
+
+   It used to be centred in the space the sidebar leaves, under a max-width
+   the :has() rules below change per screen. Centring a box whose width
+   depends on the screen put its left edge somewhere different on every screen
+   that picked a different measure: at 1920px the task list started 32px from
+   the sidebar and the projects screen 276px, and even the vertical scrollbar
+   moved it by half its width. Switching screens made the page jump sideways.
+   The measure caps how wide the column grows and it is the same on every
+   screen, so the column ends where it starts: in the same place whichever
+   screen is open. Per-screen :has() rules used to pick a narrower measure for
+   screens of forms, which moved the right edge instead of the left.
+   TestTheContentInsetIsOneRule and TestThePageMeasureIsOneRule hold this. */
+.wrap {
+  padding: 22px var(--gutter) 64px;
+  max-width: var(--measure-page);
+  width: 100%;
+  margin: 0;
+}
+
+/* What a very wide screen does.
+
+   Three things, and all three are decisions rather than the absence of one.
+
+   The gutter grows, so the content is not stuck to a 16px margin on a wall
+   of a monitor. The sidebar grows, because at 224px "Import and export" and
+   "Connections" sit hard against the edge of a column that has room to
+   spare. And the page measure grows, so the extra width buys more of the
+   thing the reader came for -- a wider title before it wraps, attributes
+   that stop colliding, another board column in view -- rather than a wider
+   nothing. It stops at 2160px: past that the eye has to travel the desk to
+   get from a task's title to its reference, and a 4K screen is better served
+   by a centred page with real margins than by one row three feet long. */
+@media (min-width: 1600px) {
+  :root { --gutter: 32px; --side-w: 252px; --measure-page: 1800px; }
+}
+
+@media (min-width: 2200px) {
+  :root { --gutter: 48px; --measure-page: 2160px; }
+}

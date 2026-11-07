@@ -1,0 +1,73 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ------------------------------------------------------------------------
+   Live connections. Counts first, because "how many and where" is the
+   question, then one block per connection with the one action it has.
+   ------------------------------------------------------------------------ */
+
+.statrow { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stat-n { font-size: var(--text-xl); font-weight: 700; color: var(--ink); line-height: 1.2; }
+.stat-l { font-size: var(--text-xs); color: var(--muted); }
+
+ul.connlist {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+li.conn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+}
+
+li.conn:last-child { border-bottom: 0; }
+li.conn.is-mine { border-left-color: var(--accent); background: var(--accent-soft); }
+ul.connlist li.empty { padding: 26px 14px; text-align: center; }
+
+/* The surface a connection arrived on is a kind, so it reads as a square
+   tag, never as the round status pill a task carries. */
+.surface {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.surface.s-ssh { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.surface.s-events { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+.conn-id { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; }
+.conn-who { display: flex; align-items: center; gap: 6px; }
+.conn-actor { font-weight: 600; color: var(--ink); text-decoration: none; }
+.conn-actor:hover { text-decoration: underline; }
+.conn-from { color: var(--muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.conn-since { font-size: var(--text-sm); }
+.conn-end { flex: 0 0 auto; }

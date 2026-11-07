@@ -1,0 +1,189 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ===== Action buttons and dialogs (actiondlg.go) =====================
+ *
+ * What a screen offers to do -- make a record, a step that cannot be undone,
+ * the reference one question needs -- is a button, and what it opens is a
+ * dialog over the screen. These used to be folds at the foot of the page:
+ * a "+" and a word behind a disclosure, under the list, a screen's scroll
+ * away from the heading of the thing they added to.
+ *
+ * a.btn is a link drawn as the button it becomes when scripting runs, with
+ * the same metrics as <button>: default is the one action, .secondary
+ * everything else, .danger the step that cannot be undone. */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+a.btn:hover { background: color-mix(in srgb, var(--accent) 86%, white); color: var(--on-accent); }
+a.btn.secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+a.btn.secondary:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
+a.btn.danger { background: var(--danger); color: var(--on-accent); }
+a.btn.danger:hover { background: color-mix(in srgb, var(--danger) 86%, white); }
+a.btn.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: underline;
+}
+a.btn.link:hover { background: none; color: var(--ink); }
+a.btn.small { min-height: var(--control-h-sm); padding: 0 var(--space-3); font-size: var(--text-xs); }
+/* A small red button on a row is a quieter red: the outline, filled on
+   hover, so a table of live tokens is not a column of alarms. */
+a.btn.danger.small { background: transparent; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
+a.btn.danger.small:hover { background: var(--danger); color: var(--on-accent); border-color: var(--danger); }
+/* A label is a word or three, so it does not inherit a table cell's licence
+   to break anywhere. */
+.btn-label { overflow-wrap: normal; word-break: keep-all; }
+
+/* A section heading with the button that adds to the section on its right,
+   as the page header carries the screen's own action. */
+.sechead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-6, 32px) 0 var(--space-3);
+}
+.sechead > h2, .sechead > .headtip > h2 { margin: 0; }
+.setgroup > .sechead { margin-top: 0; }
+
+/* An empty list says so and offers the same button the header does. */
+.empty-action { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.empty-action > span { color: var(--muted); }
+.peoplelist .empty > .btn, .reclist .empty > .btn { margin-top: var(--space-2); }
+
+/* The dialog. Centred over a scrim, as wide as a form wants and never wider
+   than the screen less a gutter; its body scrolls and its foot stays put. */
+dialog.actiondlg {
+  width: min(36rem, calc(100vw - 2 * var(--space-3)));
+  max-height: calc(100dvh - 2 * var(--space-4));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.22);
+}
+dialog.actiondlg.wide { width: min(52rem, calc(100vw - 2 * var(--space-3))); }
+dialog.actiondlg.handoffdlg { width: min(44rem, calc(100vw - 2 * var(--space-3))); }
+dialog.actiondlg::backdrop { background: var(--scrim); }
+dialog.actiondlg > * { margin-inline: var(--space-5); }
+dialog.actiondlg > form, dialog.actiondlg > p, dialog.actiondlg > .table-wrap { margin-block: 0 var(--space-4); }
+dialog.actiondlg > :last-child { margin-bottom: var(--space-5); }
+.actiondlg-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  margin-inline: 0 !important;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.actiondlg-head > h2 { margin: 0; font-size: var(--text-lg, 1.125rem); overflow-wrap: anywhere; }
+.actiondlg-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+}
+.actiondlg-x:hover { background: var(--surface); color: var(--ink); }
+.actiondlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+dialog.actiondlg > .actiondlg-foot { margin-bottom: var(--space-5); }
+.actiondlg .cform-actions { display: flex; gap: var(--space-2); }
+.actiondlg .row { flex-wrap: wrap; }
+.actiondlg-part { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line); }
+.actiondlg-part > p { margin-top: 0; }
+.actiondlg-part .actions { display: flex; justify-content: flex-end; }
+/* Drawn in place: without scripting, or for the moment before it runs, the
+   dialog is a panel at the top of the screen it belongs to. */
+dialog.actiondlg.is-inplace {
+  position: static;
+  width: auto;
+  max-width: var(--measure-form, 48rem);
+  max-height: none;
+  margin: 0 0 var(--space-5);
+  overflow: visible;
+  box-shadow: var(--shadow);
+}
+/* On a phone the dialog is a sheet across the bottom of the screen, its
+   buttons in reach of the thumb however far the fields scroll. */
+@media (max-width: 639px) {
+  dialog.actiondlg:modal, dialog.actiondlg.wide:modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: 0;
+  }
+  dialog.actiondlg > * { margin-inline: var(--space-4); }
+  .actiondlg-head { padding-inline: var(--space-4); }
+  .actiondlg-foot { padding-top: var(--space-3); border-top: 1px solid var(--line); }
+  dialog.actiondlg > :is(form, .actiondlg-foot):last-child { margin-bottom: 0; }
+  dialog.actiondlg > form:last-child > .actiondlg-foot,
+  dialog.actiondlg > .actiondlg-foot:last-child { position: sticky; bottom: 0; padding-bottom: var(--space-4); background: var(--bg); }
+  .actiondlg-foot > .btn, .actiondlg-foot > button { flex: 1 1 0; }
+}
+
+/* A button beside a title takes its own width and moves under the title
+   when the line is too short for both, rather than breaking its label. */
+.cform-head:has(> .cform-head-tools) { flex-wrap: wrap; }
+.cform-head-tools { flex: 0 0 auto; margin-inline-start: auto; }
+.pagehead-tools > a.btn, .sechead > a.btn, .dangerrow > a.btn, .person-act > a.btn { flex-shrink: 0; }
+
+/* Reference text that used to be folded: drawn, quietly, at the measure of
+   prose. */
+.helptext { max-width: var(--measure-text); color: var(--muted); font-size: var(--text-sm); }
+.helptext > p { margin: 0 0 var(--space-2); }
+
+/* A project's settings screen: headed sections, the danger zone last. */
+.projset { max-width: var(--measure-form); margin: 0 0 var(--space-6, 32px); }
+.projset .cfield-hint { margin: 0 0 var(--space-3); }
+.projset > h2 { margin: 0 0 var(--space-3); }
+.projset-run { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.projset-run .cfield-hint { margin: 0; }
+.projset.danger {
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line));
+  border-radius: var(--radius-lg);
+}
+.projset.danger > h2 { color: var(--danger); }
+.dangerrow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) 0; }
+.dangerrow + .dangerrow { border-top: 1px solid var(--line); }
+.dangerrow-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 16rem; }
+/* ===== end Action buttons and dialogs ================================ */

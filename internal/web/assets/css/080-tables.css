@@ -1,0 +1,111 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Tables */
+/* Fixed layout divides the width evenly between however many columns a table
+   happens to have, which is the right answer only when somebody has said what
+   the columns are worth. On the token list -- seven columns, one of them a
+   set of nine chips and two of them timestamps -- it gave "Created" 165px, so
+   every date wrapped onto two lines while the chips wrapped onto three, and
+   every row stood 90px tall to hold values that fit on one line each.
+   A table that declares a colgroup has had its columns thought about and
+   keeps fixed layout; one that has not lets the browser size them from what
+   is in them. td carries overflow-wrap: anywhere either way, so nothing can
+   force the table wider than the page. */
+table { width: 100%; border-collapse: collapse; font-size: var(--text-md); table-layout: auto; }
+table:has(colgroup) { table-layout: fixed; }
+
+th {
+  text-align: left;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+/* On the 4px grid, and middle aligned. Top alignment is right when a cell
+   holds a paragraph and wrong when it holds a word beside a badge, which is
+   what nearly every cell in this product holds: a one line row read as a
+   row of things sitting at slightly different heights because one cell
+   happened to wrap. */
+td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+tbody tr:last-child td { border-bottom: 0; }
+
+/* A cell may break a long value anywhere, because a ULID or a URL has no
+   break opportunity of its own and would otherwise push the table wider than
+   the page. A badge is a word, and inheriting that rule it came out as
+   "acti / ve" down two lines whenever its column was squeezed; a Save button
+   came out as "Sav / e". Controls, badges and chips say their own wrapping in
+   the one rule under the button, so nothing in a cell inherits this. */
+td a { font-weight: 500; text-decoration: none; }
+td a:hover { text-decoration: underline; }
+
+/* Row states. Every table and every list read as a table carries the class
+   rows, and its rows take their states from here and nowhere else: the
+   same tint under the pointer, the same tint while a control in the row
+   has keyboard focus, one colour for a picked row and one short flash for
+   the row a link or an action just landed on. Seven lists used to carry
+   seven hovers between them (two greys, an accent bar on the first cell,
+   a border and a shadow), and a deep link left a ring on its row that
+   nothing ever took away.
+ *
+ * The tint mixes the ink into whatever the row sits on, so it reads on
+ * every surface and in every scheme without a value per theme. Only the
+ * background changes, so nothing moves and no border appears. The focus
+ * tint follows :focus-visible, not :focus-within: a click that leaves focus
+ * on a row's button must not leave the row lit. The focus ring itself stays
+ * on the control. No row gets a pointer cursor; where a row leads
+ * somewhere, its link says so. The pointer tint is in the hover layer,
+ * because the Hover effects preference governs it. */
+:root {
+  --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
+  --row-selected: var(--accent-soft);
+  --row-target: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.rows > tbody > tr:has(:focus-visible),
+.rows > li:has(:focus-visible) { background-color: var(--row-hover); }
+/* A row the keyboard cursor sits on is itself the focused control, so it
+   takes the picked colour and the ring, drawn inside so nothing moves. */
+.rows > li:focus-visible,
+.rows > tbody > tr:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background-color: var(--row-selected);
+}
+.rows > tbody > tr:has([data-pick]:checked),
+.rows > li:has([data-pick]:checked),
+.rows > li.is-selected,
+.rows > tbody > tr.is-selected { background-color: var(--row-selected); }
+
+/* A row a fragment names, or the one the toast is about, lights and then
+   lets go. Without scripting :target starts it; copy.js marks the row on a
+   boosted navigation and takes the mark off when the flash ends. Only the
+   colour changes, so a reader who asked for less motion sees it too. */
+.is-target,
+.is-flashed,
+.rows > tbody > tr:is(:target, .is-target, .is-flashed),
+.rows > li:is(:target, .is-target, .is-flashed) { animation: row-flash 1.6s ease-out; }
+@keyframes row-flash {
+  from { background-color: var(--row-target); }
+}
+
+.table-wrap { overflow-x: auto; }
+
+/* Fixed layout spreads columns evenly, which starves a title beside short
+   status cells, so the columns that hold short values are sized down. */
+col.c-ref { width: 104px; }
+col.c-state { width: 104px; }
+col.c-tags { width: 150px; }
+col.c-when { width: 142px; }
+col.c-source { width: 230px; }
+col.c-age { width: 96px; }
+
+
+@media (max-width: 639px) { colgroup { display: none; } }

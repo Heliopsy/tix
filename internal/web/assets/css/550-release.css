@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The release screen. One column at --measure-form, so the status card, the
+   upgrade commands and the notes share a left edge and a right one instead of
+   three widths stacked under each other. The status card is the answer the
+   page is opened for: its tint follows the answer, and the answers that are
+   not news (failed, not checked, not comparable) stay on the quiet surface. */
+.relpage { display: grid; gap: var(--space-6); max-width: var(--measure-form); }
+.relstatus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.relstatus[data-status="newer"] { background: var(--accent-soft); border-color: var(--accent); }
+.relstatus[data-status="current"] { background: var(--ok-soft); border-color: transparent; }
+.relstatus-text { display: grid; gap: var(--space-2); justify-items: start; min-width: 0; }
+.relstatus-text h2 { margin: 0; font-size: var(--text-xl); }
+.relstatus-text .meta { margin: 0; }
+.badge.rel-newer { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.badge.rel-current { background: var(--bg); color: var(--ok); border-color: transparent; }
+.relversions { display: flex; gap: var(--space-5); margin: 0; }
+.relversions dt { font-size: var(--text-xs); color: var(--muted); }
+.relversions dd { margin: var(--space-1) 0 0; font-size: var(--text-md); }
+.relversions dd.ver {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.relstatus-foot {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.relsec > h2 { margin: 0 0 var(--space-2); }
+.relsec > .meta { margin: 0 0 var(--space-4); }
+.relsec > .meta:last-child { margin: var(--space-3) 0 0; font-size: var(--text-xs); }
+/* One row per install method: what it is on the left, its command on the
+   right, so a long command keeps its Copy button on its own line. */
+.relmethods { border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.relmethod {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--space-1) var(--space-5);
+  align-items: center;
+  padding: var(--space-4);
+}
+.relmethod + .relmethod { border-top: 1px solid var(--line); }
+.relmethod h3 { margin: 0; font-size: var(--text-md); }
+.relmethod .meta { grid-column: 1; margin: 0; font-size: var(--text-sm); }
+.relmethod .copyline { grid-column: 2; grid-row: 1 / span 2; margin: 0; flex-wrap: nowrap; }
+.relnotes { max-width: var(--measure-text); line-height: 1.6; }
+.relnotes h5 { margin: var(--space-5) 0 var(--space-2); font-size: var(--text-md); }
+.relnotes h5:first-child { margin-top: 0; }
+.relnotes li + li { margin-top: var(--space-1); }
+/* What's new: the running entry is a card in the "current" tint with its
+   badge beside the version; the earlier ones fold, one line each until
+   opened, so ten releases do not bury the one being read. */
+.relentry .reldate { margin-left: var(--space-2); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }
+.relentry .ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+.relentry-running {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--ok);
+  border-radius: var(--radius-lg);
+  background: var(--ok-soft);
+}
+.relentry-running header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+.relentry-running h3 { margin: 0; font-size: var(--text-lg); }
+.badge.rel-running { background: var(--bg); color: var(--ok); border-color: transparent; }
+.relentries { margin-top: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+details.relentry + details.relentry { border-top: 1px solid var(--line); }
+details.relentry > summary { padding: var(--space-3) var(--space-4); cursor: pointer; }
+details.relentry > .relnotes { padding: 0 var(--space-4) var(--space-4); }
+@media (max-width: 639px) {
+  .relentry-running { padding: var(--space-3) var(--space-4); }
+  .relpage { gap: var(--space-5); }
+  .relstatus { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); }
+  .relversions { gap: var(--space-4); flex-wrap: wrap; }
+  .relmethod { grid-template-columns: minmax(0, 1fr); }
+  .relmethod .copyline { grid-column: 1; grid-row: auto; margin-top: var(--space-2); }
+}

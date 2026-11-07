@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Cards */
+/* A surface, not a panel.
+ *
+ * Border plus drop shadow plus a filled background is three ways of saying
+ * the same thing, and saying it three times is what makes a page read as a
+ * stack of boxes rather than as content with some grouping. One hairline and
+ * a larger radius does the grouping; the shadow is kept for things that
+ * genuinely float, which is the toast and the popovers. */
+.card {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: 0 0 var(--space-3);
+}
+
+.card > h2:first-child, .card > h3:first-child { margin-top: 0; }

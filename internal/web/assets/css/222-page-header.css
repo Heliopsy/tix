@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The title and its summary are spaced by the gap alone. Their own margins
+   were the h1's and the lede's, written for a page with no header, and inside
+   a flex item they no longer collapse: the summary sat 4px into the heading
+   and the header ended 18px below its last line before its own margin began. */
+.pagehead-title { min-width: 0; }
+.pagehead-title > *, .pagehead-title .lede { margin: 0; }
+.pagehead-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  /* It may wrap, and it may be narrower than its three controls want to be.
+     flex: 0 0 auto held it at its content width, so on a 320px screen the
+     strip was 323px wide and the whole page scrolled sideways by three
+     pixels to accommodate it. */
+  flex-wrap: wrap;
+  min-width: 0;
+}
+/* The controls are taller than the heading's line, so beside it they made
+   the header 7px deeper on the screens that have them than on the ones that
+   do not. Centred on the heading's line and allowed to overhang it, they no
+   longer decide where the page under them starts. */
+@media (min-width: 900px) {
+  .pagehead-title { display: flex; flex-direction: column; gap: var(--head-sub); }
+  .pagehead-tools { margin-block: calc((1.2 * var(--text-2xl) - var(--control-h)) / 2); }
+}

@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Configure screens between a phone and a desktop.
+
+   Between 900px and about 1200px the sidebar is a column and the content
+   beside it is narrow, and that is where these screens broke: the token
+   table squeezed its Revoke disclosure to one letter per line and, opened,
+   grew wider than the page; an (i) note hung from its icon and ran off the
+   right edge of any form whose field sat in the last column of a row.
+   ------------------------------------------------------------------------ */
+
+.table-wrap > table td:first-child { min-width: 7rem; }
+
+/* The (i) note hangs from the label's line rather than from the icon, and is
+   no wider than that line, so it cannot leave the viewport whichever column
+   the field is in. */
+

@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -225,21 +226,28 @@ func TestTheDueDateEditsFromTheSidebar(t *testing.T) {
 func TestTheStylesheetClosesEveryBlock(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	sheet := body(t, f.as("alice").get("/assets/app.css"))
+	if err := unclosedBlock(body(t, f.as("alice").get("/assets/app.css"))); err != nil {
+		t.Fatalf("the stylesheet: %v", err)
+	}
+}
+
+// unclosedBlock reports the first block sheet leaves open or closes without
+// opening, and any comment or string that never ends.
+func unclosedBlock(sheet string) error {
 	depth, line := 0, 1
 	for i := 0; i < len(sheet); i++ {
 		switch {
 		case strings.HasPrefix(sheet[i:], "/*"):
 			end := strings.Index(sheet[i+2:], "*/")
 			if end < 0 {
-				t.Fatalf("a comment opened on line %d never closes", line)
+				return fmt.Errorf("a comment opened on line %d never closes", line)
 			}
 			line += strings.Count(sheet[i:i+2+end], "\n")
 			i += end + 3
 		case sheet[i] == '"':
 			end := strings.IndexByte(sheet[i+1:], '"')
 			if end < 0 {
-				t.Fatalf("a string opened on line %d never closes", line)
+				return fmt.Errorf("a string opened on line %d never closes", line)
 			}
 			i += end + 1
 		case sheet[i] == '\n':
@@ -249,11 +257,12 @@ func TestTheStylesheetClosesEveryBlock(t *testing.T) {
 		case sheet[i] == '}':
 			depth--
 			if depth < 0 {
-				t.Fatalf("line %d closes a block that was never opened", line)
+				return fmt.Errorf("line %d closes a block that was never opened", line)
 			}
 		}
 	}
 	if depth != 0 {
-		t.Fatalf("the stylesheet ends with %d blocks still open", depth)
+		return fmt.Errorf("it ends with %d blocks still open", depth)
 	}
+	return nil
 }

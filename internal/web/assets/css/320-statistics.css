@@ -1,0 +1,91 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The statistics screen.
+ *
+ * The bars are div widths rather than a chart library: six numbers do not
+ * justify the largest dependency in the project, and a static export has no
+ * build step to feed one. Every colour here is a token, so the accent follows
+ * whatever theme the tenant resolved and the whole screen follows light, dark
+ * and dim without a second rule set. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.cards .card { margin: 0; }
+
+.figure {
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.caption {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: 4px 0 0;
+}
+
+.bars { list-style: none; margin: 0 0 24px; padding: 0; }
+
+.bars li {
+  display: grid;
+  /* The label and the value are fixed columns so the tracks all start and end
+     in the same place: bars that begin at different offsets cannot be
+     compared by eye, which is the only thing a bar chart is for. */
+  grid-template-columns: 6.5rem 1fr 3rem;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.bar-label, .bar-value {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-value { text-align: right; }
+
+.bar-track {
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  height: 14px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  background: var(--accent);
+  border-radius: var(--radius);
+  display: block;
+  height: 100%;
+}
+
+/* Numbers right-align so columns of them can be scanned. */
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* The statistics filter is a .filterbar like every other filter row. It used
+   to be its own .filters rule whose children were the labels and the selects
+   themselves, and a select inherits width: 100% from the form-control rule,
+   so each one measured the whole content column and wrapped onto a line of
+   its own: two dropdowns a thousand pixels wide holding "14 days" and "Every
+   project", stacked above the figures they filter. .filterbar select already
+   sizes a select to its content, so the row only has to pair each label with
+   the control it names. */
+.statsfilter { flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+
+.statsfilter .field {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.statsfilter label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: 0;
+}

@@ -1,0 +1,98 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ===== Connect an agent (templates/connect.html) ======================
+   A stepped page of commands. Each step is a card with its number in the
+   margin; the commands wrap rather than scroll, because a command half off
+   screen is one a reader copies by hand wrongly. */
+.connect-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: 0 0 var(--space-5); }
+.connect-facts > div { display: flex; gap: var(--space-2); align-items: baseline; min-width: 0; }
+.connect-facts dt { color: var(--muted); font-size: var(--text-sm); }
+.connect-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.connect-steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: var(--space-4); max-width: 60rem; }
+.connect-step {
+  counter-increment: step;
+  position: relative;
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-3) calc(var(--space-4) + 2.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.connect-step::before {
+  content: counter(step);
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.connect-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.connect-head h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.connect-docs { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-1); font-size: var(--text-sm); }
+.connect-step .meta { max-width: var(--measure-text); }
+.snippet-title, .tabpanel-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); font-weight: 600; }
+.snippet .copyline { align-items: flex-start; flex-wrap: nowrap; }
+.snippet .copyline pre { flex: 1 1 auto; line-height: 1.5; }
+/* break-spaces, not pre-wrap: under pre-wrap the space a line breaks after
+   hangs past the right edge, so "install.sh | sh" wrapping before "sh" drew
+   a character's width outside the box. break-spaces wraps that space with
+   the line instead, and still keeps the JSON snippets' indentation. */
+.snippet .copyline pre.wraps > code { white-space: break-spaces; overflow-wrap: anywhere; }
+.tokslot { color: var(--accent); font-weight: 600; }
+.connect-tokenform { max-width: 46rem; }
+.connect-tokenrow { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.connect-tokenrow > div { flex: 1 1 14rem; min-width: 0; }
+.secret-scopes { margin-top: var(--space-2) !important; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+
+/* Tab sets. Buttons in a strip that wraps to a second row rather than
+   scrolling, each label on one line. Without scripting the strip is not
+   drawn and every panel shows under its own heading. */
+.tabset { margin: var(--space-2) 0; }
+.tabset-list { display: flex; flex-wrap: wrap; gap: 2px var(--space-1); border-bottom: 1px solid var(--line); margin-bottom: var(--space-2); }
+.tabset-list [role="tab"] {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  flex: 0 0 auto;
+}
+.tabset-list [role="tab"]:hover { color: var(--ink); background: none; }
+.tabset-list [role="tab"][aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+:root.js .tabpanel > .tabpanel-title { display: none; }
+:root.js .tabset:not(.is-ready) [data-tabpanel] ~ [data-tabpanel] { display: none; }
+
+/* The scope picker (partials.html "scope-picker"), on every token form. */
+.scopepick { border: 0; padding: 0; margin: var(--space-3) 0; min-width: 0; }
+.scopepick > legend { font-weight: 600; padding: 0; margin-bottom: var(--space-1); }
+.scopepick-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0; }
+.scopepick-tools button { flex: 0 0 auto; }
+.scopepick-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--space-3); }
+.scopegroup { border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); margin: 0; min-width: 0; }
+.scopegroup > legend { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-1); font-weight: 600; font-size: var(--text-sm); }
+.scopeopt { display: flex; align-items: flex-start; gap: var(--space-2); padding: 3px 0; font-weight: 400; cursor: pointer; }
+.scopeopt input { margin-top: 3px; flex: 0 0 auto; }
+.scopeopt-text { min-width: 0; font-size: var(--text-sm); }
+.scopeopt-text code { font-size: 0.95em; }
+.scopeopt-note { color: var(--muted); }
+.scopeopt.is-unheld { cursor: not-allowed; opacity: 0.7; }
+.scopeopt-star { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--warn); border-radius: var(--radius-md); background: var(--warn-soft); }
+.scopepick-summary { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--muted); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .connect-step { padding: var(--space-3); padding-top: calc(var(--space-3) + 2rem); }
+  .connect-step::before { top: var(--space-3); left: var(--space-3); }
+  .snippet .copyline { flex-wrap: wrap; }
+  .scopepick-groups { grid-template-columns: 1fr; }
+}
+/* ===== end Connect an agent ========================================== */

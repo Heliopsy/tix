@@ -64,28 +64,43 @@ func buildAssetHandler() http.Handler {
 	}
 	set := &assetSet{files: make(map[string]asset)}
 	err = fs.WalkDir(sub, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
 			return err
+		}
+		if d.IsDir() {
+			if name == stylesheetDir {
+				return fs.SkipDir
+			}
+			return nil
 		}
 		body, err := fs.ReadFile(sub, name)
 		if err != nil {
 			return err
 		}
-		set.files[name] = asset{
-			body:        body,
-			etag:        assetETag(body),
-			contentType: assetContentType(name),
-		}
-		a := set.files[name]
-		a.gzipped = gzipBytes(body)
-		a.gzipEtag = assetETag(a.gzipped)
-		set.files[name] = a
+		set.add(name, body)
 		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
+	sheet, err := bundleStylesheet(sub)
+	if err != nil {
+		panic(err)
+	}
+	set.add(stylesheetName, sheet)
 	return http.StripPrefix("/assets/", set)
+}
+
+// add holds one asset with its validators and compressed copy.
+func (s *assetSet) add(name string, body []byte) {
+	gzipped := gzipBytes(body)
+	s.files[name] = asset{
+		body:        body,
+		etag:        assetETag(body),
+		contentType: assetContentType(name),
+		gzipped:     gzipped,
+		gzipEtag:    assetETag(gzipped),
+	}
 }
 
 // assetETag fingerprints one asset as a strong entity tag.

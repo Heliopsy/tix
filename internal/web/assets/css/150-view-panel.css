@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Columns and projects, one panel because they are one decision: what is on
+   screen. The two halves are not peers and were given equal fractions anyway.
+   The column list is fixed by the build and short; the project list grows with
+   the tenant and has no ceiling. Equal fractions cramped the projects into
+   three ragged rows while the columns sat in half a panel of slack, so the
+   columns now take the width their labels need and the projects take the
+   rest. */
+.viewgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+/* Named in its own words, like the settings group headings and the sidebar
+   group labels. Tracked capitals are the loudest kind of type there is, and
+   these two words exist to be skimmed past on the way to the checkboxes. */
+.viewgrid .viewhead {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+/* One column, so what separates the sections is a rule above the second. */
+.viewgrid section + section { border-top: 1px solid var(--line); padding-top: 18px; }
+
+/* Two columns, so the rule turns through ninety degrees.
+   The separator follows the track count rather than a guess about it. Under
+   repeat(auto-fit, ...) the sections could wrap onto their own rows at any
+   width, while the border was only unset under a width breakpoint, so a
+   wrapped section kept a left border that separated nothing. An explicit
+   template at each width is what lets the decoration know the arrangement. */
+@media (min-width: 720px) {
+  .viewgrid { grid-template-columns: minmax(190px, 0.55fr) minmax(0, 1fr); gap: 24px; }
+  .viewgrid section + section {
+    border-top: 0;
+    padding-top: 0;
+    border-left: 1px solid var(--line);
+    padding-left: 24px;
+  }
+}

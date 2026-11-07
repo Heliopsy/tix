@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.badge.todo { background: var(--bg); color: var(--muted); }
+.badge.doing { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.badge.blocked { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.badge.done { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.badge.p-highest, .badge.p-high { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.badge.p-low, .badge.p-lowest { background: var(--bg); color: var(--muted); }
+
+.badge.act-create { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.badge.act-update { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.badge.act-delete { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.badge.act-other { background: var(--bg); color: var(--muted); }
+
+/* A lease running out is the one entry in a history that nobody performed,
+   and the only one that says work was dropped. Marked like the listing's own
+   expired badge rather than lumped in with "other", which is where it sat
+   while create and update each got a colour of their own. */
+.badge.act-expire { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+
+/* An actor reads as a name, not as a serial number; the identifier it stands
+   for is on the element's title. */
+.who-name { color: var(--ink); font-weight: 600; }
+
+/* The activity feed. One row wraps rather than scrolling sideways. The left
+   border is always reserved, even on a row with no project, so an accented
+   row does not shift its neighbours when the stripe appears. */
+.feed > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  max-width: 100%;
+  padding-left: 11px;
+  border-left: 3px solid transparent;
+}
+
+.feed .subject { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.feed .muted, .feed .who-name { font-size: var(--text-sm); }
+.feed .who-name { margin-left: auto; }
+
+.tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+.tag {
+  font-size: var(--text-xs);
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+dd.id { font-size: var(--text-xs); overflow-wrap: anywhere; user-select: all; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }

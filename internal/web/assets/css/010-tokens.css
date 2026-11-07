@@ -1,0 +1,283 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Design tokens. Accent is overridden per tenant by the layout. */
+:root {
+  color-scheme: light;
+
+  /* Type scale. Nine steps, and nothing between them. app.css declared 26
+     distinct font sizes, thirteen under 16px and ten of those within 4px of
+     each other: /tasks rendered 13 sizes on one screen, nine inside a single
+     task row. Differences of a third of a pixel are not a hierarchy.
+     em is left alone: .mono and the disclosure markers use em because a
+     monospace glyph at the same pixel size reads larger than the text beside
+     it. rem is the scale; em is an optical correction. */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+
+  /* Spacing, on a 4px grid. The file used 20+ raw pixel values including
+     7.5px, 9px and 11px, so nothing lined up between adjacent components. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  /* The page heading's rhythm, the same on every screen. A heading block
+     (an h1, a .pagehead, a task's title bar) ends --head-gap above the first
+     thing under it, and the line that qualifies the heading sits --head-sub
+     under it. Each screen used to get there its own way, an h1 margin here, a
+     negative lede margin there, a header taller than its heading by the
+     button beside it, so the same distance came out as 8, 14, 16, 18, 23, 24,
+     34 or 42px depending on the screen. TestThePageHeadingKeepsOneRhythm. */
+  --head-gap: var(--space-4);
+  --head-sub: var(--space-1);
+
+  /* Corners and control heights. The file used seven radii (3, 4, 6, 8, 10,
+     50, 999) and every control picked its own: buttons, inputs and selects sat
+     at different heights in the same row, which is why a toolbar never looked
+     like one row of one thing. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --control-h: 36px;
+  --control-h-sm: 28px;
+  --accent: #0f766e;
+  --accent-soft: #e6f4f1;
+  /* The page is the white surface and the recessed things are tinted, which
+     is the inverse of what this was: a grey page carrying white cards. That
+     one swap is most of the "2010 app" look, because it is what forces every
+     region to draw itself as a filled rectangle to be seen at all. */
+  --bg: #ffffff;
+  --surface: #f6f7f9;
+  /* Text is darker and the lines are lighter than they were. The old pair
+     put a 1.9:1 hairline round every card, field and row while the words
+     inside sat at #16191d: the chrome was competing with the content for
+     the reader's attention and the chrome was winning. Lines are structure,
+     and structure should be felt rather than read. */
+  --ink: #0f1319;
+  /* Measured against --surface, not against the page.
+     #697586 cleared 4.68:1 on white and 4.35:1 on the tinted surface, and
+     almost every muted word in the interface is on the tinted surface: a
+     settings help line, a scope chip, an email under a name, a column
+     heading, a tag on a task row. So the light scheme was below the floor
+     nearly everywhere it used this token and above it almost nowhere. This
+     clears 5.0:1 on the surface and 5.4:1 on the page. */
+  --muted: #5f6b7a;
+  --line: #ebedf1;
+  --line-strong: #d6dae1;
+  --danger: #b42318;
+  --danger-soft: #fef3f2;
+  --warn: #b54708;
+  --warn-soft: #fffaeb;
+  --ok: #067647;
+  --on-ok: #ffffff;
+  --ok-soft: #ecfdf3;
+  /* Text painted on top of --accent (buttons, filled badges). Kept as its
+     own token rather than reusing --on-ok, because the two backgrounds
+     happen to track each other by luminance in every scope below but are
+     conceptually different colours; a future accent change should not have
+     to remember that on-ok also depends on it. */
+  --on-accent: #ffffff;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  /* A stronger shadow for content that floats above the page itself (a
+     toast, a modal), not just above the background the way a card does. */
+  --shadow-strong: 0 6px 18px rgba(16, 24, 40, 0.12);
+  /* The dimming layer behind a modal dialog. Deliberately the same in every
+     scope: it dims whatever is behind it, light or dark, rather than being a
+     themed surface colour itself. */
+  --scrim: rgba(16, 24, 40, 0.45);
+  --gutter: 16px;
+
+  /* How wide the page is allowed to get, and how wide the column of running
+     prose inside it is allowed to get.
+
+     These are two different questions and the file used to answer only the
+     first. A paragraph, a help sentence under a setting, a release note: all
+     of those stop being readable somewhere past 80 characters, and capping
+     the whole page at a prose measure was the only tool available, which is
+     why a 4K screen showed an 1100px ribbon with two thousand pixels of
+     empty page beside it. The page measure is now generous and the prose
+     measure is carried by the text itself (--measure-text, applied to the
+     paragraphs and help lines that need it), so a wide screen can be filled
+     with rows without a sentence running the width of a wall.
+
+     --measure-page is how wide any screen's column may grow, and it is one
+     value for every screen. A screen of forms used to get a narrower one than
+     a listing, which left its right edge 36px further in at 1440px and 520px
+     further in at 1920px, so the controls at the end of a header jumped
+     sideways between screens. What is inside the column carries its own
+     measure: prose, fields, forms and charts below. */
+  --measure-page: 1560px;
+  --measure-text: 76ch;
+  /* The widest a single-line form control should ever be. A tenant name
+     input stretched to 1065px on a 1440px screen: a field whose content is
+     eight characters, drawn a thousand pixels wide, tells the reader nothing
+     about what belongs in it and makes the form a stack of identical bars. */
+  --measure-field: 32rem;
+  /* How wide a form is allowed to get. A form is a column of related
+     controls, and once the row holding Mode, Preview only and Run import is
+     a thousand pixels across, the button is no longer visibly part of the
+     thing it submits. Shared by the field rows and the settings lists. */
+  --measure-form: 920px;
+  /* What a chart is allowed to grow to. A proportion bar and a column chart
+     are read by comparing lengths, and a track that follows the window makes
+     the same two numbers look further apart on a wide screen than on a
+     narrow one. Shared by every drawing on the statistics screen, so they
+     form one column of charts rather than three unrelated widths. */
+  --measure-chart: 760px;
+  /* The sidebar. Wider on a large screen, where 224px was forcing
+     "Import and export" to the edge of its row for no reason. */
+  --side-w: 224px;
+
+  /* Project palette. A project stores a token, not a colour, so each scheme
+     renders its own shade; every one of these clears 4.5:1 against both the
+     surface and the page background. Slate was 4.44 on the surface, which is
+     where a project key is nearly always drawn -- a task row, a board card,
+     a project list entry -- so one of the eight sat under the floor on every
+     screen that used it. */
+  --proj-slate: #5e6e85;
+  --proj-red: #dc2626;
+  --proj-amber: #b45309;
+  --proj-green: #15803d;
+  --proj-teal: #0f766e;
+  --proj-blue: #2563eb;
+  --proj-violet: #7c3aed;
+  --proj-pink: #be185d;
+
+  /* The one category hue the semantic tokens do not already carry. It is
+     declared once and resolves against whichever --proj-violet the winning
+     theme scope sets, so every scheme gets its own tuned violet without a
+     fifth copy of this line. */
+  --cat-waiting: var(--proj-violet);
+}
+
+/* Low contrast: the same layout with the extremes taken out. Text stops being
+   black on white, borders stop competing with content, and the accent is
+   muted, for anyone who finds the default harsh to sit in front of all day. */
+:root[data-theme="dim"] {
+  color-scheme: dark;
+  --bg: #1d2126;
+  --surface: #23282e;
+  --ink: #c7ccd3;
+  --muted: #8a929c;
+  --line: #2e343b;
+  --line-strong: #3b434c;
+  --accent: #5eb3ab;
+  --accent-soft: #24322f;
+  --danger: #d98b83;
+  --danger-soft: #2e2220;
+  --warn: #d0a06a;
+  --warn-soft: #2d2620;
+  --ok: #7fbf9a;
+  --on-ok: #10201a;
+  --ok-soft: #1f2c25;
+  --on-accent: #10201a;
+  --shadow: none;
+  --shadow-strong: none;
+  --proj-slate: #8b95a3;
+  --proj-red: #cf8d86;
+  --proj-amber: #c2a15f;
+  --proj-green: #84bd91;
+  --proj-teal: #6fb8ae;
+  --proj-blue: #85a9d9;
+  --proj-violet: #a695d1;
+  --proj-pink: #cd90b0;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14171b;
+  --surface: #1b1f24;
+  --ink: #e7eaee;
+  --muted: #98a2b3;
+  --line: #2b3138;
+  --line-strong: #3a424b;
+  --accent-soft: #123b36;
+  --danger-soft: #341c1c;
+  --warn-soft: #33270f;
+  --ok-soft: #102e23;
+  --accent: #2dd4bf;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #34d399;
+  --on-ok: #08231a;
+  --on-accent: #08231a;
+  --shadow: none;
+  --shadow-strong: none;
+  --proj-slate: #94a3b8;
+  --proj-red: #f87171;
+  --proj-amber: #fbbf24;
+  --proj-green: #4ade80;
+  --proj-teal: #2dd4bf;
+  --proj-blue: #60a5fa;
+  --proj-violet: #a78bfa;
+  --proj-pink: #f472b6;
+}
+
+/* Mirrors :root[data-theme="dark"] above for a browser that has never been
+   told to use it explicitly: the OS preference alone should not read as a
+   half-applied theme. This used to redefine only the background/surface/soft
+   tokens and leave --accent, --danger, --warn, --ok, --on-ok (and now
+   --on-accent) at their light-mode values, which put light-mode link and
+   badge colours on a dark background -- several of them below the 4.5:1
+   floor. Keep this block's non-soft values identical to the explicit dark
+   theme's. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dim"]) {
+    color-scheme: dark;
+    --bg: #14171b;
+    --surface: #1b1f24;
+    --ink: #e7eaee;
+    --muted: #98a2b3;
+    --line: #2b3138;
+    --line-strong: #3a424b;
+    --accent-soft: #14312d;
+    --danger-soft: #2a1613;
+    --warn-soft: #2a1f10;
+    --ok-soft: #10261c;
+    --accent: #2dd4bf;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --ok: #34d399;
+    --on-ok: #08231a;
+    --on-accent: #08231a;
+    --shadow: none;
+    --shadow-strong: none;
+    --proj-slate: #94a3b8;
+    --proj-red: #f87171;
+    --proj-amber: #fbbf24;
+    --proj-green: #4ade80;
+    --proj-teal: #2dd4bf;
+    --proj-blue: #60a5fa;
+    --proj-violet: #a78bfa;
+    --proj-pink: #f472b6;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* The system UI stack renders flat without these: contextual alternates and
+     kerning are what make ui-sans-serif look like the typeface the operating
+     system uses in its own interface rather than a web page's fallback. */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "calt" 1;
+}

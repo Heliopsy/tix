@@ -1,0 +1,91 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The reader at the foot of the sidebar (templates/partials.html "account"):
+   one row, avatar and handle, opening a menu that holds Settings, the colour
+   scheme, the shortcuts overlay and Sign out. They were four blocks stacked
+   under the navigation, the tallest strip of the column for the things in it
+   used least. The version sits under the row, a fact about the server. */
+.side-account { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.account-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-align: left;
+}
+.account-open:hover { background: var(--bg); filter: none; }
+.account-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+.account-handle { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.account-chev {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-top: 1.5px solid currentcolor;
+  border-right: 1.5px solid currentcolor;
+  transform: rotate(-45deg);
+  color: var(--muted);
+}
+.accountmenu { min-width: 14rem; }
+.accountlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.accountmenu .flowgo { align-items: center; text-decoration: none; }
+.accountmenu .flowgo[aria-current="page"] { font-weight: 600; }
+.accountmenu .themer, .accountmenu .actions { margin: 0; }
+.accountmenu .theme-switch { width: 100%; padding: var(--space-2) var(--space-3); background: transparent; border-color: transparent; color: var(--ink); }
+.accountmenu .theme-switch:hover { background: var(--accent-soft); }
+.accountmenu .kbdhint { gap: var(--space-2); }
+.accountmenu button.flowgo, .accountmenu .theme-switch { justify-content: flex-start; }
+/* Above the button rather than under it: the button is the last thing in
+   the column, so under it is usually off the screen. */
+@supports (position-area: bottom) {
+  .accountmenu:popover-open {
+    position-area: top span-right;
+    position-try-fallbacks: flip-block;
+    margin: 0 0 4px;
+  }
+}
+
+/* Recessed rather than accented: --bg is a shade under --surface in all
+   three schemes, so the chip reads as sidebar furniture in each, while the
+   accent is reserved for the current page. */
+.theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--bg);
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* filter: none because the shared button:hover brightens the accent, which
+   on this one does nothing visible in light and washes it out in dim. */
+.theme-switch:hover {
+  filter: none;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.theme-ico { display: block; flex: 0 0 auto; }

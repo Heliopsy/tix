@@ -1,0 +1,198 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* One button, four intents, two sizes.
+ *
+ * There were four variants with no shared metric, no size scale and no rule
+ * about which to reach for, so every screen invented its own: 14 buttons on
+ * the task screen, 8 on settings, none of them agreeing about height, padding
+ * or corner. A control system is not a look, it is the promise that the same
+ * thing looks the same everywhere, and that is what was missing.
+ *
+ * The intents: default is the one action the screen is for, .secondary is
+ * everything else, .ghost is an action that should not draw the eye at all,
+ * and .danger is the one you cannot undo. Nothing else. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+/* A control's label is one unit and stays on one line.
+ *
+ * Table cells and a dozen other containers break text anywhere, because an
+ * id or a URL has no break opportunity of its own. Nothing stopped a button
+ * inheriting that, so a squeezed column drew "Save" as "Sav" over "e". Every
+ * control states its own wrapping instead of taking its container's: no break
+ * inside the label, none inside a word, and it does not shrink below its
+ * label in a flex row. The row it sits in wraps whole controls onto the next
+ * line instead (TestControlsKeepTheirLabelOnOneLine). */
+button,
+.backlink a,
+.failure .actions a,
+.pager-step,
+.flowgo,
+.ghostlink,
+.file-button,
+.segmented .segment,
+nav.tabs a,
+.badge,
+.pill,
+.role,
+.state,
+.evchip,
+.chip,
+.qchip,
+.statuspill,
+.navbadge,
+.heldswitch,
+a.btn,
+.comment-edit > summary,
+kbd {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  flex-shrink: 0;
+}
+
+/* An icon from the sprite beside a label: the label's colour, never squeezed
+   by the label, centred on its line whatever the row aligns on. */
+.icon { flex: none; align-self: center; vertical-align: -0.2em; }
+.tagdrop .icon, .chip.removable .icon { width: 12px; height: 12px; }
+.key-examples .icon { color: var(--muted); }
+
+/* The same drawings for a pseudo-element, which cannot reach into the sprite:
+   a mask cut from the path, painted in the text colour. These were the
+   triangles, the plus and the cross of the font in use, at its weight. */
+:root {
+  --mark-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
+  --mark-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --mark-square: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3C/svg%3E");
+  --mark-square-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3Cpath d='M8 12l3 3 5-6'/%3E%3C/svg%3E");
+}
+details.card-move > summary::before,
+details.panel > summary::before,
+.cform-more > summary::before,
+details.note > summary::before,
+a.heldswitch::before {
+  content: "";
+  flex: none;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
+/* Hover was a brightness filter, which lightens a dark button and a light one
+   alike and washes the label out with it. A colour step reads as a state
+   change rather than as the screen dimming. */
+button:hover { background: color-mix(in srgb, var(--accent) 86%, white); }
+button:active { transform: translateY(0.5px); }
+
+button.small { min-height: var(--control-h-sm); padding: 0 var(--space-3); font-size: var(--text-xs); }
+
+/* The submitting button, while the round trip is in flight. assets/busy.js
+ * adds the class in the click's own frame; with JavaScript off nothing here
+ * applies and every form still posts.
+ *
+ * Nothing about it is animated in. The label used to fade out over the
+ * button's 120ms colour transition while the spinner was already drawn, so
+ * for a moment the spinner sat on top of the words. Now the change is
+ * immediate, and the spinner never shares a box with visible text: on a
+ * button with an icon it takes the icon's place and the label stays; on a
+ * button of text alone the label is hidden (not removed, so the button keeps
+ * its width and nothing shifts) and the spinner takes its place. */
+button.is-busy, button:disabled { cursor: default; filter: none; }
+button.is-busy { position: relative; transition: none; }
+button.is-busy:not(.has-busy-slot) { color: transparent; }
+button.is-busy:not(.has-busy-slot) > *,
+button.is-busy.has-busy-slot > svg:first-child { visibility: hidden; }
+button.is-busy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid currentcolor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  color: var(--on-accent);
+  animation: tix-spin 620ms linear infinite;
+}
+button.is-busy.secondary::after, button.is-busy.ghost::after { color: var(--ink); }
+button.is-busy.has-busy-slot::after {
+  inset: auto;
+  left: var(--busy-x, var(--space-4));
+  top: var(--busy-y, 50%);
+  margin: 0;
+  color: inherit;
+}
+@keyframes tix-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  button.is-busy::after { animation: none; border-top-color: currentcolor; opacity: 0.55; }
+}
+/* The pointer says "working" only once a request has taken long enough to be
+   noticed. Set at once, it flashed on every quick save. */
+form[aria-busy="true"].is-slow { cursor: progress; }
+
+button.secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+button.secondary:hover { background: var(--bg); border-color: var(--ink); color: var(--ink); }
+
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+button.ghost:hover { background: var(--surface); color: var(--ink); }
+
+button.danger { background: var(--danger); color: var(--on-accent); }
+button.danger:hover { background: color-mix(in srgb, var(--danger) 86%, white); }
+
+button.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  padding: 0;
+  font-weight: 400;
+  text-decoration: underline;
+}
+button.link:hover { background: none; color: var(--accent); filter: none; }
+
+/* A row of fields, aligned on their controls: a labelled select, a bare
+   checkbox and a button sit on one line because their bottoms agree, which
+   is what end alignment buys and why it is kept. The price is that one tall
+   cell drags the short ones down with it, so anything that is about the row
+   rather than about one cell of it -- a glossary, a note -- goes under the
+   row instead of inside a cell. See the sync screen, where a three entry
+   glossary inside the system cell pushed the name box beside it a quarter
+   of a screen down the page. */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0 12px;
+  align-items: end;
+  max-width: var(--measure-form);
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
