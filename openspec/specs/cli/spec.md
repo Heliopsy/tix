@@ -1429,3 +1429,53 @@ server and the `tix ctx add ... --token` command that supplies one.
 
 - **WHEN** `tix --server URL task show REF` runs with no token anywhere
 - **THEN** it exits 5 with a message naming URL and `tix ctx add`
+
+### Requirement: Password change and invite commands
+
+`tix user create` and `tix user edit` SHALL take `--require-password-change`. `tix user invite
+EMAIL [--role R] [--expires D]` SHALL print the link, and `tix user invite ls`, `revoke ID` and
+`reissue ID` SHALL manage pending invites. `tix login` on a flagged account SHALL ask for the new
+password twice on a terminal, and without one SHALL fail naming the web sign-in page.
+
+#### Scenario: Login with no terminal
+
+- **GIVEN** a flagged account
+- **WHEN** `tix login --password -` runs with the password piped in
+- **THEN** it fails saying a password change is required and where to make it, and prints no session
+
+### Requirement: tix user time
+
+`tix user time` SHALL show each level of the caller's date format and timezone with the values in force,
+and `--format` and `--timezone` SHALL set the caller's own, `""` returning a field to the tenant default.
+`tix tenant edit` SHALL take `--time-format` and `--timezone` for the tenant default.
+
+#### Scenario: Set and inherit
+
+- **WHEN** a person runs `tix user time --timezone Asia/Tokyo` and then `tix user time --timezone ""`
+- **THEN** the second run shows the zone in use coming from the tenant or the deployment
+
+### Requirement: Command line tables follow the account
+
+Table output SHALL write timestamps in the caller's resolved format and zone. A format or zone set on the
+machine (a flag, `TIX_OUTPUT_*`, or the configuration file) SHALL win for that field on that machine. A
+struct a table has no layout for SHALL write its instants through the same style, never Go's default.
+
+#### Scenario: Unset on the machine, set on the account
+
+- **GIVEN** no `output.time_format` on the machine and an account format of `dotted`
+- **WHEN** the person runs `tix task ls`
+- **THEN** UPDATED reads like `06.11.2026 14:05`
+
+### Requirement: tix audit ls shows and filters the channel
+
+tix audit ls SHALL take repeatable --via and --token flags, SHALL accept via: and token: in --filter, SHALL exit with the usage code for an unknown channel, and its table SHALL carry a VIA column.
+
+#### Scenario: Filtering by channel
+
+- **WHEN** tix audit ls --via ssh runs on a store where nothing was done over SSH
+- **THEN** it prints no entries
+
+#### Scenario: The table names the channel
+
+- **WHEN** tix audit ls prints a table
+- **THEN** each row's VIA column names its channel and token or job
