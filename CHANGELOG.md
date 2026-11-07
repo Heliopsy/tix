@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/Heliopsy/tix/compare/v0.46.0...v0.46.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **cli:** exit 4 on tenant create and user invite says what it means now ([854abc0](https://github.com/Heliopsy/tix/commit/854abc0b43adb816501e7a95d9e59152fcf2a7da))
+
 ## [0.46.0](https://github.com/Heliopsy/tix/compare/v0.45.0...v0.46.0) (2026-11-07)
 
 
