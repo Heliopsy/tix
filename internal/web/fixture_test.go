@@ -257,7 +257,10 @@ const testTOTPKey = "dGl4LXdlYi10ZXN0LXNlY29uZC1mYWN0b3Ita2V5ISE="
 const actorHeader = "X-Test-Actor"
 
 // newFixture builds two tenants, each with a project, behind the web handler.
-func newFixture(t *testing.T) *fixture {
+func newFixture(t *testing.T) *fixture { t.Helper(); return newFixtureWith(t) }
+
+// newFixtureWith is newFixture with further options on the web handler.
+func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
@@ -283,7 +286,7 @@ func newFixture(t *testing.T) *fixture {
 	f.project = seedProject(t, st, f.tenantA.ID, "infra")
 	seedProject(t, st, f.tenantB.ID, "other")
 
-	handler := web.Handler(f.svc, web.WithEventsPath("/api/v1/events"))
+	handler := web.Handler(f.svc, append([]web.Option{web.WithEventsPath("/api/v1/events")}, opts...)...)
 	f.server = httptest.NewServer(f.authenticate(handler))
 	t.Cleanup(f.server.Close)
 	return f

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/output"
@@ -140,6 +141,20 @@ func WithTimeStyle(style output.TimeStyle) Option {
 	return func(h *handler) { h.style = style }
 }
 
+// WithImportLimit sets how large a task import the upload step takes, in
+// place of the limit every other form answers to.
+func WithImportLimit(limit int64) Option {
+	return func(h *handler) {
+		if limit > 0 {
+			h.importLimit = limit
+		}
+	}
+}
+
+// ImportRoutes are the mux patterns of the routes that take the import limit,
+// so the server's body limit gives them the import limit too.
+func ImportRoutes() []string { return []string{http.MethodPost + " " + RouteProjectImport} }
+
 // WithPageSize sets how many rows one page of a listing carries. A value
 // outside 1..core.MaxPageLimit is ignored, leaving the shipped default: this
 // option is reached from configuration, which refuses such a value with the
@@ -176,19 +191,21 @@ type handler struct {
 	sshListen      string
 	sshPublic      string
 	imports        *importStages
+	importLimit    int64
 }
 
 // Handler returns an http.Handler serving the browser interface.
 func Handler(svc core.Service, opts ...Option) http.Handler {
 	h := &handler{
-		releases:   newReleaseWatch(),
-		svc:        svc,
-		mux:        http.NewServeMux(),
-		logger:     slog.New(slog.NewTextHandler(discard{}, nil)),
-		eventsPath: DefaultEventsPath,
-		pageSize:   core.DefaultDisplayLimit,
-		leases:     lease.DefaultPolicy(),
-		imports:    newImportStages(),
+		releases:    newReleaseWatch(),
+		svc:         svc,
+		mux:         http.NewServeMux(),
+		logger:      slog.New(slog.NewTextHandler(discard{}, nil)),
+		eventsPath:  DefaultEventsPath,
+		pageSize:    core.DefaultDisplayLimit,
+		leases:      lease.DefaultPolicy(),
+		imports:     newImportStages(),
+		importLimit: config.DefaultMaxImportBytes,
 	}
 	for _, opt := range opts {
 		opt(h)

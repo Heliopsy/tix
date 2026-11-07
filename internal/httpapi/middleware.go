@@ -190,21 +190,43 @@ func (rt *Router) envelopeMuxErrors(next http.Handler) http.Handler {
 	})
 }
 
-// limitBody caps how much of a request body a handler can read.
+// limitBody caps how much of a request body a handler can read: the import
+// limit on an import route, the body limit on every other.
 func (rt *Router) limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == wire.RouteEvents || r.Body == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.ContentLength > rt.cfg.MaxBodyBytes {
-			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid,
-				"request body exceeds the configured limit")
+		limit := rt.cfg.MaxBodyBytes
+		if _, pattern := rt.imports.Handler(r); pattern != "" {
+			limit = rt.cfg.MaxImportBytes
+			r = withTooLargeMessage(r, config.ImportLimitRefusal(limit))
+		}
+		if r.ContentLength > limit {
+			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid, tooLargeMessage(r))
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, rt.cfg.MaxBodyBytes)
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// tooLargeKey carries the refusal a request over its body limit is answered
+// with, when its route's limit is not the general one.
+type tooLargeKey struct{}
+
+// withTooLargeMessage sets the refusal for a body over the limit.
+func withTooLargeMessage(r *http.Request, message string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), tooLargeKey{}, message))
+}
+
+// tooLargeMessage is the refusal for this request's body over its limit.
+func tooLargeMessage(r *http.Request) string {
+	if m, ok := r.Context().Value(tooLargeKey{}).(string); ok {
+		return m
+	}
+	return "request body exceeds the configured limit"
 }
 
 // timeoutWriter answers with the timeout envelope once the request deadline

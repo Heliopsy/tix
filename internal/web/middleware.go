@@ -25,7 +25,7 @@ func (h *handler) wrap(rt route) http.Handler {
 			return
 		}
 		if r.Method == http.MethodPost {
-			if err := h.checkCSRF(r); err != nil {
+			if err := h.checkCSRF(r, rt.Binding); err != nil {
 				h.fail(w, r, err)
 				return
 			}

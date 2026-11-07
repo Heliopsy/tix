@@ -131,8 +131,9 @@ tix export tasks -p infra | tix import tasks -p ops                # copy a proj
 The file is CSV (any separator, detected), a JSON array, an object holding `tasks`, `issues` or `cards`,
 NDJSON, or a Trello board export. `--format` names it when the extension and the content do not. A file
 over 64 MiB, 50000 rows, 500 columns or a 1 MiB cell is refused with a message naming the limit; split it.
-Over HTTP and in the browser the server's body limit applies first: `tix serve --max-body-bytes`, 1 MiB by
-default.
+Over HTTP and in the browser the server's import limit applies first: `server.max_import_bytes`
+(`TIX_SERVER_MAX_IMPORT_BYTES`), 32 MiB by default. It covers only the import, so `tix serve --max-body-bytes`
+still caps everything else. A file over it is refused with 413 and a message naming the limit and the key.
 
 Nothing is written unless every row can be. A row in error, a title missing, a date that does not parse, a
 status the workflow does not have under the `error` policy, a parent that names nothing, rolls the whole

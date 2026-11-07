@@ -185,6 +185,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 				WithDetail("reason", "a page size must be between 1 and "+strconv.Itoa(core.MaxPageLimit))
 		}
 	}
+	if cfg.Server.MaxImportBytes < 1 {
+		return invalidKey("server.max_import_bytes", sources).
+			WithDetail("value", strconv.FormatInt(cfg.Server.MaxImportBytes, 10)).
+			WithDetail("reason", "an import limit must be a positive number of bytes")
+	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {
 			return err

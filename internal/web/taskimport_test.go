@@ -4,12 +4,17 @@ package web_test
 
 import (
 	"bytes"
+	"html"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/config"
+	"github.com/heliopsy/tix/internal/web"
 )
 
 // uploadImport starts an import of the infra project with a file or a list.
@@ -201,5 +206,42 @@ func TestImportFilesDownloadAsAttachmentsTheBrowserWillNotDraw(t *testing.T) {
 				h.Get("Content-Type"), h.Get("Content-Disposition"), h.Get("X-Content-Type-Options"),
 				h.Get("Content-Security-Policy"))
 		}
+	}
+}
+
+// bigCSV is a CSV of tasks with long descriptions, of about size bytes.
+func bigCSV(size int) string {
+	var b strings.Builder
+	b.WriteString("Title,Description\n")
+	row := strings.Repeat("x", 100<<10)
+	for i := 0; b.Len() < size; i++ {
+		b.WriteString("task " + strconv.Itoa(i) + "," + row + "\n")
+	}
+	return b.String()
+}
+
+// TestTheImportUploadTakesTheImportLimitAndNoOtherFormDoes uploads a 5 MiB
+// file, which every other form's 1 MiB would refuse, then one over a lowered
+// import limit, and a form elsewhere over its own limit.
+func TestTheImportUploadTakesTheImportLimitAndNoOtherFormDoes(t *testing.T) {
+	t.Parallel()
+	b := newFixture(t).as("alice")
+	preview := followTo(t, b.uploadImport(map[string]string{"go": "preview"}, "big.csv", bigCSV(5<<20)), "preview")
+	if page := b.page(preview); !strings.Contains(page, "task 49") {
+		t.Errorf("the preview of a 5 MiB upload does not show its rows")
+	}
+
+	small := newFixtureWith(t, web.WithImportLimit(256<<10)).as("alice")
+	resp := small.uploadImport(map[string]string{}, "big.csv", bigCSV(512<<10))
+	page := body(t, resp)
+	if resp.StatusCode != http.StatusRequestEntityTooLarge ||
+		!strings.Contains(html.UnescapeString(page), config.ImportLimitRefusal(256<<10)) {
+		t.Errorf("an upload over the import limit answered %d without naming the limit and its key", resp.StatusCode)
+	}
+
+	resp = b.post("/timeformat", url.Values{"time_format": {strings.Repeat("x", 2<<20)}, "next": {"/tasks"}})
+	page = body(t, resp)
+	if resp.StatusCode != http.StatusRequestEntityTooLarge || !strings.Contains(page, "larger than 1 MiB") {
+		t.Errorf("a 2 MiB form elsewhere answered %d", resp.StatusCode)
 	}
 }

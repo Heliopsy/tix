@@ -114,6 +114,12 @@ type Server struct {
 	// The default derives it from the scheme the client used, which behind a
 	// TLS-terminating proxy is the proxy's, not this process's.
 	CookieSecurity string `yaml:"cookie_security"`
+
+	// MaxImportBytes caps the body of a project task import, over the API and
+	// in the browser. It is its own key because an import is a file and
+	// --max-body-bytes, which every other request answers to, is sized for a
+	// form.
+	MaxImportBytes int64 `yaml:"max_import_bytes"`
 }
 
 // SSH holds the settings of the listener `tix ssh` runs: where it binds, the
@@ -408,6 +414,9 @@ const (
 	// otherwise. Fifty filled more than three screens of a browser window,
 	// which is more rows than anybody reads before paging.
 	DefaultPageSize = core.DefaultDisplayLimit
+	// DefaultMaxImportBytes is how large a task import a server takes. It is
+	// half the import's own 64 MiB, which is the most a file can usefully be.
+	DefaultMaxImportBytes = 32 << 20
 	// DefaultTUIKeymap names the keybinding scheme every install starts on.
 	DefaultTUIKeymap = "default"
 	// DefaultTUIMotion pulses the selected row. The animation is one frame
@@ -517,7 +526,7 @@ func Defaults() Config {
 		Target:   TargetAuto,
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
-		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity},
+		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity, MaxImportBytes: DefaultMaxImportBytes},
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},

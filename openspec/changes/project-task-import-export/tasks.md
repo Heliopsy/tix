@@ -23,3 +23,4 @@
 - [x] 3.4 Surfaces: CLI, API (JSON or multipart), MCP (destructive, opt in), the import steps in the browser
 - [x] 3.5 Pasted lists, notes that a few tasks need no import, Skip to preview, Back and Cancel on every step
 - [x] 3.6 Docs (import-export.md, agents.md, migrating.md, web-ui.md, mcp.md), skill, Bulgarian strings
+- [x] 3.7 Import routes take their own body limit, `server.max_import_bytes`, refused with 413 naming it
