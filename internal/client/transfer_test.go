@@ -184,3 +184,84 @@ func TestTransferTransportFailures(t *testing.T) {
 		t.Fatalf("import kind = %q", core.KindOf(err))
 	}
 }
+
+// A task export posts its choices to the project's route and copies the
+// server's file through untouched.
+func TestExportTasksPostsTheChoicesAndCopiesTheFile(t *testing.T) {
+	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(wire.HeaderContentType, wire.ContentCSV)
+		_, _ = io.WriteString(w, "title\nFix login\n")
+	})
+	var out bytes.Buffer
+	in := core.TaskExportInput{ProjectRef: "infra", Columns: []string{"title"}}
+	if err := c.ExportTasks(context.Background(), in, &out); err != nil {
+		t.Fatalf("ExportTasks: %v", err)
+	}
+	if out.String() != "title\nFix login\n" {
+		t.Errorf("body = %q", out.String())
+	}
+	if got.method != http.MethodPost || got.path != strings.Replace(wire.RouteProjectTaskExport, "{ref}", "infra", 1) {
+		t.Errorf("%s %s", got.method, got.path)
+	}
+	var sent core.TaskExportInput
+	if err := json.Unmarshal([]byte(got.body), &sent); err != nil || len(sent.Columns) != 1 || sent.Columns[0] != "title" {
+		t.Errorf("sent %q (%v)", got.body, err)
+	}
+
+	refused, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		httpapi.WriteError(w, core.NotFound("project %q", "ghost"))
+	})
+	if err := refused.ExportTasks(context.Background(), core.TaskExportInput{ProjectRef: "ghost"}, io.Discard); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("a refused export answered %v", err)
+	}
+}
+
+// A task import is a multipart form carrying every choice as a field and the
+// file as its part; the content of the input stands in for a missing reader.
+func TestImportTasksUploadsAMultipartForm(t *testing.T) {
+	// newClient records the raw body before the handler runs, so the form is
+	// checked from that copy.
+	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(core.TaskImportResult{DryRun: true, Created: 1})
+	})
+
+	in := core.TaskImportInput{ProjectRef: "infra", Format: core.TaskFormatCSV, Mode: core.TaskImportSkip,
+		Mapping: "columns: {Name: title}", DryRun: true, Preview: 5, Filename: "jira.csv"}
+	res, err := c.ImportTasks(context.Background(), strings.NewReader("Name\nFix login\n"), in)
+	if err != nil {
+		t.Fatalf("ImportTasks: %v", err)
+	}
+	if !res.DryRun || res.Created != 1 {
+		t.Errorf("result = %+v", res)
+	}
+	if !strings.Contains(got.body, `name="mapping"`) || !strings.Contains(got.body, "columns: {Name: title}") ||
+		!strings.Contains(got.body, `filename="jira.csv"`) || !strings.Contains(got.body, "Name\nFix login\n") {
+		t.Errorf("the form lacks a field or the file:\n%s", got.body)
+	}
+	for _, want := range []string{"csv", "skip", "5", "true"} {
+		if !strings.Contains(got.body, "\r\n\r\n"+want+"\r\n") {
+			t.Errorf("the form carries no field %q:\n%s", want, got.body)
+		}
+	}
+	if !strings.HasPrefix(got.header.Get(wire.HeaderContentType), "multipart/form-data; boundary=") {
+		t.Errorf("content type = %q", got.header.Get(wire.HeaderContentType))
+	}
+
+	if _, err := c.ImportTasks(context.Background(), nil, core.TaskImportInput{ProjectRef: "infra", Content: "from content"}); err != nil {
+		t.Fatalf("ImportTasks from content: %v", err)
+	}
+	if !strings.Contains(got.body, `filename="tasks"`) || !strings.Contains(got.body, "from content") {
+		t.Errorf("the content did not stand in for the file:\n%s", got.body)
+	}
+
+	garbled, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "not json") })
+	if _, err := garbled.ImportTasks(context.Background(), nil, core.TaskImportInput{ProjectRef: "p"}); !core.IsKind(err, core.KindInternal) {
+		t.Errorf("an unreadable report answered %v", err)
+	}
+	refused, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		httpapi.WriteError(w, core.Forbidden("no import scope"))
+	})
+	if _, err := refused.ImportTasks(context.Background(), nil, core.TaskImportInput{ProjectRef: "p"}); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("a refused import answered %v", err)
+	}
+}
