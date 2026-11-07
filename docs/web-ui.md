@@ -743,16 +743,16 @@ beside it, your star, and one actions menu behind the three dots: **Copy link**,
 **Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
 a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
 
-On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip
-for the task's activity, and the column on the right holds the properties: status and priority, which
-open the same menus a list row does, the snooze and claim state when there is one, assignee, due date, project, tags, repeat rule
-and each custom field. Each is a label and a value, and a writer changes it where it is read: point at or
-focus the value, type, and press Enter or the Save that appears. Each row posts only its own field, so a
-save never touches anything else, and with scripting off it is a plain form post. An enum field is a
-dropdown that saves when chosen. The record's facts follow in small type: who created the task, when it was
-created and last changed, when it started and finished, its version and its identifier with a Copy button.
-On a phone the properties come first, straight under the title, and the facts come last. The task dialog a
-listing can open draws the same screen.
+On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
+task's activity, and the column on the right holds the properties: status and priority, which open the same
+menus a list row does, the snooze and claim state when there is one, assignee, due date, project, tags, repeat
+rule and each custom field. Each is a label and a value, and a writer changes it where it is read: point at or
+focus the value, type, and press Enter or the Save that appears. Each row posts only its own field, so a save
+never touches anything else, and with scripting off it is a plain form post. An enum field is a dropdown that
+saves when chosen. The record's facts follow in small type: who created the task, when it was created and last
+changed, when it started and finished, its version and its identifier with a Copy button. On a phone the
+properties come first, straight under the title, and the facts come last. The task dialog a listing can open
+draws the same screen.
 
 **Comments, History and Artifacts** are tabs under the dependencies, each with its count; a zero count is
 drawn muted, and History's count is its newest page, with a plus when older changes exist. Click a tab,
