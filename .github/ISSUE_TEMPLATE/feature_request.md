@@ -14,7 +14,7 @@ What should happen instead. Behaviour, not implementation.
 
 ## Which capability does this touch
 
-See `openspec/changes/tix-v1/specs/` for the list. New behaviour needs a spec change
+See `openspec/specs/` for the list. New behaviour needs a spec change
 before code.
 
 ## Alternatives considered

@@ -6,31 +6,32 @@ documentation explains how to use tix, these say what it must do.
 
 | Document | Contents |
 | --- | --- |
-| [openspec/changes/tix-v1/](../openspec/changes/tix-v1/) | The v1 behaviour contract |
-| [proposal.md](../openspec/changes/tix-v1/proposal.md) | Why tix exists and what it does |
-| [design.md](../openspec/changes/tix-v1/design.md) | Technical decisions and their trade-offs |
-| [tasks.md](../openspec/changes/tix-v1/tasks.md) | Implementation checklist by work package |
-| [specs/](../openspec/changes/tix-v1/specs/) | 23 capabilities, 355 requirements, 1171 scenarios |
+| [openspec/specs/](../openspec/specs/) | The behaviour contract as it stands, one directory per capability |
+| [openspec/changes/archive/2026-10-10-tix-v1/](../openspec/changes/archive/2026-10-10-tix-v1/) | The archived v1 change the contract started from |
+| [proposal.md](../openspec/changes/archive/2026-10-10-tix-v1/proposal.md) | Why tix exists and what it does |
+| [design.md](../openspec/changes/archive/2026-10-10-tix-v1/design.md) | Technical decisions and their trade-offs |
+| [tasks.md](../openspec/changes/archive/2026-10-10-tix-v1/tasks.md) | The v1 implementation checklist by work package |
+| [specs/](../openspec/changes/archive/2026-10-10-tix-v1/specs/) | The v1 deltas, 23 capabilities, as they were archived |
 
 ## Capabilities
 
-Each links to its normative specification. The first table is the v1 contract; the second is what has
-been specified since, which lives with the change that introduced it.
+Each links to its normative specification. The first table is the v1 contract and the second is what has
+been specified since. Both point at `openspec/specs/`, where an archived change's requirements land.
 
 <!-- markdownlint-disable MD013 -->
 | | | |
 | --- | --- | --- |
-| [data-model](../openspec/changes/tix-v1/specs/data-model/spec.md) | [multi-tenancy](../openspec/changes/tix-v1/specs/multi-tenancy/spec.md) | [domains](../openspec/changes/tix-v1/specs/domains/spec.md) |
-| [storage-engines](../openspec/changes/tix-v1/specs/storage-engines/spec.md) | [configuration](../openspec/changes/tix-v1/specs/configuration/spec.md) | [service-layer](../openspec/changes/tix-v1/specs/service-layer/spec.md) |
-| [transports](../openspec/changes/tix-v1/specs/transports/spec.md) | [workflows](../openspec/changes/tix-v1/specs/workflows/spec.md) | [task-management](../openspec/changes/tix-v1/specs/task-management/spec.md) |
-| [claim-lease](../openspec/changes/tix-v1/specs/claim-lease/spec.md) | [auth](../openspec/changes/tix-v1/specs/auth/spec.md) | [cli](../openspec/changes/tix-v1/specs/cli/spec.md) |
-| [http-api](../openspec/changes/tix-v1/specs/http-api/spec.md) | [event-stream](../openspec/changes/tix-v1/specs/event-stream/spec.md) | [webhooks](../openspec/changes/tix-v1/specs/webhooks/spec.md) |
-| [audit-log](../openspec/changes/tix-v1/specs/audit-log/spec.md) | [retention](../openspec/changes/tix-v1/specs/retention/spec.md) | [import-export](../openspec/changes/tix-v1/specs/import-export/spec.md) |
-| [external-sync](../openspec/changes/tix-v1/specs/external-sync/spec.md) | [web-ui](../openspec/changes/tix-v1/specs/web-ui/spec.md) | [tui](../openspec/changes/tix-v1/specs/tui/spec.md) |
-| [server](../openspec/changes/tix-v1/specs/server/spec.md) | [component-sharing](../openspec/changes/tix-v1/specs/component-sharing/spec.md) | |
+| [data-model](../openspec/specs/data-model/spec.md) | [multi-tenancy](../openspec/specs/multi-tenancy/spec.md) | [domains](../openspec/specs/domains/spec.md) |
+| [storage-engines](../openspec/specs/storage-engines/spec.md) | [configuration](../openspec/specs/configuration/spec.md) | [service-layer](../openspec/specs/service-layer/spec.md) |
+| [transports](../openspec/specs/transports/spec.md) | [workflows](../openspec/specs/workflows/spec.md) | [task-management](../openspec/specs/task-management/spec.md) |
+| [claim-lease](../openspec/specs/claim-lease/spec.md) | [auth](../openspec/specs/auth/spec.md) | [cli](../openspec/specs/cli/spec.md) |
+| [http-api](../openspec/specs/http-api/spec.md) | [event-stream](../openspec/specs/event-stream/spec.md) | [webhooks](../openspec/specs/webhooks/spec.md) |
+| [audit-log](../openspec/specs/audit-log/spec.md) | [retention](../openspec/specs/retention/spec.md) | [import-export](../openspec/specs/import-export/spec.md) |
+| [external-sync](../openspec/specs/external-sync/spec.md) | [web-ui](../openspec/specs/web-ui/spec.md) | [tui](../openspec/specs/tui/spec.md) |
+| [server](../openspec/specs/server/spec.md) | [component-sharing](../openspec/specs/component-sharing/spec.md) | |
 
 | | | |
 | --- | --- | --- |
-| [theming](../openspec/changes/archive/2026-09-24-themes-and-completion/specs/theming/spec.md) | [stats](../openspec/changes/archive/2026-09-24-themes-and-completion/specs/stats/spec.md) | [ssh-access](../openspec/changes/archive/2026-09-22-ssh-terminal-access/specs/ssh-access/spec.md) |
-| [live-connections](../openspec/changes/archive/2026-09-27-live-connections/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/v0-5-0-polish/specs/) | |
+| [theming](../openspec/specs/theming/spec.md) | [stats](../openspec/specs/stats/spec.md) | [ssh-access](../openspec/specs/ssh-access/spec.md) |
+| [live-connections](../openspec/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/v0-5-0-polish/specs/) | |
 <!-- markdownlint-enable MD013 -->

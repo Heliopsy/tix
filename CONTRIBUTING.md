@@ -57,7 +57,7 @@ OpenSpec is the normative contract. A change to behaviour updates `openspec/` be
 code:
 
 ```sh
-openspec validate tix-v1 --strict
+just spec
 ```
 
 Requirements use SHALL and every requirement carries at least one scenario. Tick tasks in
