@@ -70,24 +70,23 @@
     }, 1500);
   }
 
-  // A deep link from the activity feed can name a record that sits inside a
-  // closed disclosure (a task's Artifacts panel), which the browser will not
-  // scroll to and nobody would find. Opening the disclosure the fragment's
-  // own prefix names, and marking the row, is what makes such a link land
-  // somewhere visible. Re-run on every boosted navigation, because the
-  // layout swaps the page without a document load.
+  // A deep link from the activity feed can name a record that sits on a tab
+  // not shown (a task's Artifacts), which the browser will not scroll to and
+  // nobody would find. Showing the tab the row sits on (assets/tasktabs.js),
+  // and marking the row, is what makes such a link land somewhere visible.
+  // Re-run on every boosted navigation, because the layout swaps the page
+  // without a document load.
   function revealTarget() {
     var kind = tix.targetKind(window.location.hash);
     if (!kind) {
       return;
     }
-    var panel = document.querySelector('[data-open-for="' + kind + '"]');
-    if (panel) {
-      panel.setAttribute("open", "");
-    }
     var row = document.getElementById(window.location.hash.slice(1));
     if (!row) {
       return;
+    }
+    if (tix.revealTab) {
+      tix.revealTab(row);
     }
     var marked = document.querySelectorAll(".is-target");
     for (var i = 0; i < marked.length; i++) {

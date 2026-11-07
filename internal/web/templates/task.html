@@ -369,62 +369,69 @@
     {{end}}
   </section>
 
-  {{/* Open when the address bar names an artifact, so a link from the
-       activity feed lands on a visible record. Shown only when there is
-       something to show or something the reader may attach. */}}
-  {{if or .Data.Artifacts .Data.CanComment}}
-  <details class="tsec tfold" id="artifacts" data-open-for="artifact">
-    <summary><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}</summary>
-    {{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}
-    <ul class="rellist rows">
-      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
-    </ul>
-    {{if .Data.CanComment}}
-    <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
-      {{template "csrf" .CSRF}}
-      <div class="row">
-        <div>
-          <label for="{{.IDPrefix}}artifact-kind">{{t "Kind"}}</label>
-          <select id="{{.IDPrefix}}artifact-kind" name="kind">
-            {{range .Data.ArtifactKinds}}<option value="{{.}}">{{t (print .)}}</option>{{end}}
-          </select>
+  {{/* Comments, History and Artifacts: a tab strip under the description,
+       each tab with its count, so all three are one click away and none is
+       folded behind its heading. Without scripting the strip is not drawn
+       and the three panels stand one under the other with their headings.
+       data-tab is the panel shown before assets/tasktabs.js runs, so the
+       first frame already draws one; an older page of history or a raw
+       entry the address names forces History over the remembered tab. */}}
+  {{$tab := .Data.InitialTab}}
+  <div class="tsec ttabs" data-task-tabs data-tab="{{$tab}}"{{if .Data.TabForced}} data-tab-forced{{end}}>
+    <div class="tabset-list ttabs-list" role="tablist" aria-label="{{t "Activity"}}" data-needs-js>
+      <button type="button" role="tab" id="{{.IDPrefix}}tab-comments" aria-controls="{{.IDPrefix}}comments" data-tab-for="comments" aria-selected="{{if eq $tab "comments"}}true{{else}}false{{end}}"{{if ne $tab "comments"}} tabindex="-1"{{end}}><span class="ttab-name">{{t "Comments"}}</span>{{template "task-count-comments" .}}</button>
+      <button type="button" role="tab" id="{{.IDPrefix}}tab-history" aria-controls="{{.IDPrefix}}history" data-tab-for="history" aria-selected="{{if eq $tab "history"}}true{{else}}false{{end}}"{{if ne $tab "history"}} tabindex="-1"{{end}}><span class="ttab-name">{{t "History"}}</span>{{template "task-count-history" .}}</button>
+      <button type="button" role="tab" id="{{.IDPrefix}}tab-artifacts" aria-controls="{{.IDPrefix}}artifacts" data-tab-for="artifacts" aria-selected="{{if eq $tab "artifacts"}}true{{else}}false{{end}}"{{if ne $tab "artifacts"}} tabindex="-1"{{end}}><span class="ttab-name">{{t "Artifacts"}}</span>{{template "task-count-artifacts" .}}</button>
+    </div>
+
+    <section class="ttab-panel" role="tabpanel" id="{{.IDPrefix}}comments" aria-labelledby="{{.IDPrefix}}tab-comments" data-tab-panel="comments">
+      <div class="tsec-head ttab-head"><h2>{{t "Comments"}}</h2>{{with .Data.Comments}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
+      <ul class="plain commentlist" id="task-comments">{{template "task-comments" .}}</ul>
+      {{if .Data.CanComment}}
+      <form method="post" class="composerform" action="/tasks/{{$t.Ref}}/comments">
+        {{template "csrf" .CSRF}}
+        {{/* One row that grows when it is typed into, with Preview and
+             Comment on one line under it. */}}
+        <textarea id="{{.IDPrefix}}comment-body" name="body" rows="1" class="composer" data-mention="actor-handles"
+                  placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
+                  data-shortcut-target="comment" required></textarea>
+        <div class="md mdpreview" id="{{.IDPrefix}}comment-body-preview" aria-live="polite" hidden></div>
+        <div class="actions">{{template "md-preview" (print .IDPrefix "comment-body")}}<button type="submit">{{t "Comment"}}</button></div>
+      </form>
+      {{end}}
+    </section>
+
+    <section class="ttab-panel" role="tabpanel" id="{{.IDPrefix}}history" aria-labelledby="{{.IDPrefix}}tab-history" data-tab-panel="history">
+      <div class="tsec-head ttab-head"><h2>{{t "History"}}</h2></div>
+      <div class="body" id="task-history">{{template "task-history" .}}</div>
+      {{/* Where a row's Raw control puts the dialog it fetches, outside the
+           region a live update replaces, and where the dialog the address
+           asks for is drawn in place. */}}
+      <div class="rawslot">{{with .Data.Raw}}{{template "raw-dialog" .}}{{end}}</div>
+    </section>
+
+    <section class="ttab-panel" role="tabpanel" id="{{.IDPrefix}}artifacts" aria-labelledby="{{.IDPrefix}}tab-artifacts" data-tab-panel="artifacts">
+      <div class="tsec-head ttab-head"><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}</div>
+      <ul class="rellist rows" id="task-artifacts">{{template "task-artifacts" .}}</ul>
+      {{if .Data.CanComment}}
+      <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
+        {{template "csrf" .CSRF}}
+        <div class="row">
+          <div>
+            <label for="{{.IDPrefix}}artifact-kind">{{t "Kind"}}</label>
+            <select id="{{.IDPrefix}}artifact-kind" name="kind">
+              {{range .Data.ArtifactKinds}}<option value="{{.}}">{{t (print .)}}</option>{{end}}
+            </select>
+          </div>
+          <div><label for="{{.IDPrefix}}artifact-name">{{t "Name"}}</label><input id="{{.IDPrefix}}artifact-name" name="name"></div>
         </div>
-        <div><label for="{{.IDPrefix}}artifact-name">{{t "Name"}}</label><input id="{{.IDPrefix}}artifact-name" name="name"></div>
-      </div>
-      <label for="{{.IDPrefix}}artifact-payload">{{t "Payload, one key=value per line"}}</label>
-      <textarea id="{{.IDPrefix}}artifact-payload" name="payload"></textarea>
-      <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
-    </form>
-    {{end}}
-  </details>
-  {{end}}
-
-  {{/* Activity: what has been said, then what has been done. */}}
-  <section class="tsec tactivity">
-    <div class="tsec-head"><h2>{{t "Comments"}}</h2>{{with .Data.Comments}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
-    <ul class="plain commentlist" id="task-comments">{{template "task-comments" .}}</ul>
-    {{if .Data.CanComment}}
-    <form method="post" class="composerform" action="/tasks/{{$t.Ref}}/comments">
-      {{template "csrf" .CSRF}}
-      {{/* One row that grows when it is typed into, with Preview and
-           Comment on one line under it. */}}
-      <textarea id="{{.IDPrefix}}comment-body" name="body" rows="1" class="composer" data-mention="actor-handles"
-                placeholder="{{t "Add a comment"}}" aria-label="{{t "Add a comment"}}"
-                data-shortcut-target="comment" required></textarea>
-      <div class="md mdpreview" id="{{.IDPrefix}}comment-body-preview" aria-live="polite" hidden></div>
-      <div class="actions">{{template "md-preview" (print .IDPrefix "comment-body")}}<button type="submit">{{t "Comment"}}</button></div>
-    </form>
-    {{end}}
-  </section>
-
-  <details class="tsec tfold" id="{{.IDPrefix}}history"{{if or .Data.HistoryCursor .Data.Raw}} open{{end}}>
-    <summary><h2>{{t "History"}}</h2></summary>
-    <div class="body" id="task-history">{{template "task-history" .}}</div>
-    {{/* Where a row's Raw control puts the dialog it fetches, outside the
-         region a live update replaces, and where the dialog the address
-         asks for is drawn in place. */}}
-    <div class="rawslot">{{with .Data.Raw}}{{template "raw-dialog" .}}{{end}}</div>
-  </details>
+        <label for="{{.IDPrefix}}artifact-payload">{{t "Payload, one key=value per line"}}</label>
+        <textarea id="{{.IDPrefix}}artifact-payload" name="payload"></textarea>
+        <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
+      </form>
+      {{end}}
+    </section>
+  </div>
 
 </div>
 
@@ -461,8 +468,10 @@
 </div>
 {{end}}
 
-{{/* The three regions a live update replaces: what the task is, what has been
-     said about it, and what has been done to it. The edit forms, the move
+{{/* The regions a live update replaces: what the task is, what has been said
+     about it, what has been done to it, what has been attached to it, and the
+     counts on the activity tabs. The tab strip and the panels around them are
+     not, so a refresh keeps the tab the reader chose. The edit forms, the move
      control and the comment box are deliberately not among them -- see
      showTaskLive for why a form is never swapped under the reader. */}}
 {{define "task-live"}}
@@ -470,6 +479,19 @@
 <dl id="task-pills" class="props taskpills">{{template "task-pills" .}}</dl>
 <ul class="plain commentlist" id="task-comments">{{template "task-comments" .}}</ul>
 <div class="body" id="task-history">{{template "task-history" .}}</div>
+<ul class="rellist rows" id="task-artifacts">{{template "task-artifacts" .}}</ul>
+{{template "task-count-comments" .}}{{template "task-count-history" .}}{{template "task-count-artifacts" .}}
+{{end}}
+
+{{/* The counts on the activity tabs, each a live region of its own so a
+     comment or a change arriving updates the number on a tab not shown. The
+     history count is the newest page's, with a plus when older ones exist. */}}
+{{define "task-count-comments"}}<span class="tsec-count{{if not .Data.Comments}} is-zero{{end}}" id="task-count-comments">{{len .Data.Comments}}</span>{{end}}
+{{define "task-count-history"}}<span class="tsec-count{{if not .Data.History}} is-zero{{end}}" id="task-count-history">{{if .Data.CanAudit}}{{len .Data.History}}{{if .Data.HistoryNext}}+{{end}}{{end}}</span>{{end}}
+{{define "task-count-artifacts"}}<span class="tsec-count{{if not .Data.Artifacts}} is-zero{{end}}" id="task-count-artifacts">{{len .Data.Artifacts}}</span>{{end}}
+
+{{define "task-artifacts"}}
+      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
 {{end}}
 
 {{/* task-pills is the top of the properties: status, priority and the state

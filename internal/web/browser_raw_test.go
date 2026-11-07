@@ -20,7 +20,7 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			dlg := `document.getElementById(` + btn + `.dataset.dlgOpen)`
 			page.load(t, f.server.URL+path, btn)
 			if path != "/activity" {
-				page.eval(t, `document.getElementById("history").open = true`, nil)
+				page.eval(t, `document.getElementById("tab-history").click()`, nil)
 			}
 			// The press waits on explicit signals, not the clock: the live
 			// feed has drawn everything it was asked to (a refresh landing
