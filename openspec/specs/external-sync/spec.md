@@ -231,7 +231,10 @@ Import operations SHALL emit audit entries and outbox events for the entities th
 
 ### Requirement: Credentials are supplied externally and never persisted in outputs
 
-Credentials for external systems SHALL be supplied through configuration or environment. They SHALL NOT appear in exported snapshots, audit entries, event payloads, or logs, including error output.
+Credentials for external systems SHALL be supplied through the server's environment or stored on the source,
+sealed with the server's key. They SHALL NOT appear in exported snapshots, audit entries, event payloads, API
+responses, screens, or logs, including error output. A response MAY name which credentials are stored and the
+last four characters of one at least 12 characters long.
 
 #### Scenario: Credentials absent from a snapshot
 
@@ -247,6 +250,11 @@ Credentials for external systems SHALL be supplied through configuration or envi
 
 - **WHEN** an import fails because the external system rejected authentication
 - **THEN** the error reports the rejection without including the credential
+
+#### Scenario: Stored credentials are write-only
+
+- **WHEN** a source is saved with an API key and then listed over the API, the CLI and the web screen
+- **THEN** each shows that a password is stored and its last four characters, and none shows the key
 
 ### Requirement: Seam for bidirectional sync
 
@@ -398,3 +406,163 @@ a setting the source does not store SHALL be read from that variable as before.
 
 - **WHEN** a source stores no mapping path and `TIX_SYNC_<SOURCE>_MAPPING` names one
 - **THEN** the run uses the mapping the variable names
+
+### Requirement: Stored credentials are sealed
+
+A credential stored on a source SHALL be encrypted with the server's sealing key, bound to its tenant, system and
+source name. Without a key the server SHALL refuse to store one, naming the key and the environment variable to
+use instead.
+
+#### Scenario: No sealing key
+
+- **WHEN** a credential is sent to a server with no `auth.totp_key`
+- **THEN** it is refused with exit 6, naming `auth.totp_key` and `TIX_SYNC_<SOURCE>_TOKEN`, and nothing is stored
+
+### Requirement: Stored values win over the environment
+
+At run time a value stored on the source SHALL win over its `TIX_SYNC_<SOURCE>_*` variable. Stored credentials
+SHALL win as a set, never mixed with credentials from the environment. A stored mapping document SHALL win over
+`mapping_path`, which SHALL win over `TIX_SYNC_<SOURCE>_MAPPING`.
+
+#### Scenario: Stored token and environment token
+
+- **WHEN** a source stores a token and the server's environment also sets one
+- **THEN** a run authenticates with the stored token
+
+#### Scenario: Nothing stored
+
+- **WHEN** a source stores no credentials and the environment sets a token
+- **THEN** a run authenticates with the environment's token
+
+### Requirement: Mapping document stored on the source
+
+A source SHALL accept its mapping document itself, from the web dialog, the API or `tix sync source set
+--mapping-file`, validate it when saved, and keep it across updates that do not send one until it is cleared.
+
+#### Scenario: Uploaded mapping used by a run
+
+- **WHEN** a mapping document is uploaded to a source whose mapping file is not readable on the server
+- **THEN** a run reads the uploaded document and imports through it
+
+#### Scenario: Invalid mapping refused at save
+
+- **WHEN** a mapping document that names no project is uploaded
+- **THEN** it is refused on the mapping field and nothing is stored
+
+### Requirement: The server says what a source will use and lacks
+
+Every listed source SHALL carry where its mapping, credentials and settings come from on the server, and what is
+missing there. A run of a source missing anything SHALL be refused before any record is read, with one message
+naming every missing piece and how to supply it.
+
+#### Scenario: Nothing configured on the server
+
+- **WHEN** an OpenProject source with no url, mapping or credentials is run
+- **THEN** it is refused with exit 2, the message says it is missing on the server and names the mapping, the credentials and the url, and no adapter is built
+
+### Requirement: Checking a source writes nothing
+
+A source submitted with `check` SHALL be validated against the project and workflow its mapping names and
+described, and nothing SHALL be stored.
+
+#### Scenario: Check in the web dialog
+
+- **WHEN** the source dialog is submitted with Check and an uploaded mapping
+- **THEN** the dialog shows the target project, the mapped fields and statuses and what is missing, keeps the mapping in the form, and no source is saved
+
+### Requirement: Imported assignees match tix actors
+
+A mapping SHALL resolve the source value of its `assignee` target through `users.map`, an explicit table from
+the source value to a tix handle or email, then through the `users.match` strategies in order, `email`,
+`handle` and `name` by default. `match: []` SHALL turn the strategies off. Lookups SHALL stay in the tenant.
+
+#### Scenario: Matched by an explicit entry
+
+- **WHEN** `users.map` maps `J. Smith` to handle `john` and a record's assignee is `J. Smith`
+- **THEN** the imported task is assigned to `john`
+
+#### Scenario: Strategies turned off
+
+- **WHEN** `users.match` is `[]` and a record's assignee is the handle of a tix actor not named in `users.map`
+- **THEN** the task is left unassigned and the value is reported unmatched
+
+### Requirement: Automatic assignee match strategies
+
+The `email` strategy SHALL match a user of the tenant whose email equals the value, or the value at
+`users.email_field`, ignoring case. The `handle` strategy SHALL match an actor handle ignoring case. The
+`name` strategy SHALL match a display name ignoring case only when exactly one actor carries it.
+
+#### Scenario: Matched by email from another field
+
+- **WHEN** the assignee value is `Jane Doe`, `email_field` holds `JANE@corp.test`, and a tix user has email `jane@corp.test`
+- **THEN** the task is assigned to that user's actor
+
+#### Scenario: An ambiguous name does not match
+
+- **WHEN** two actors share the display name `Alex` and the assignee value is `alex`
+- **THEN** the name strategy matches neither and the value is reported unmatched
+
+### Requirement: Unmatched assignees are left unassigned and reported
+
+Under `users.unknown: unassigned`, the default, an assignee nothing matches SHALL leave the task unassigned
+and SHALL keep the value in the custom field `<prefix>assignee`, `<prefix>` being the mapping's unmapped
+prefix. The result's `unmatched_users` SHALL list each such value once, sorted, and one warning SHALL list them.
+
+#### Scenario: An unknown person
+
+- **WHEN** a record's assignee is `Nobody Known` and no actor matches
+- **THEN** the task has no assignee, `ext_assignee` holds `Nobody Known`, and `unmatched_users` is `["Nobody Known"]`
+
+### Requirement: Placeholder actors for unmatched assignees
+
+Under `users.unknown: placeholder` an unmatched assignee SHALL be assigned to a placeholder actor with no
+account, membership or scopes, named by the value. A later run SHALL reuse it, and an actor that holds an
+account SHALL never be taken as a placeholder. The value SHALL still be listed in `unmatched_users`.
+
+#### Scenario: The assignment is carried and reused
+
+- **WHEN** two runs import records assigned to the unknown `Jane Roe` under the placeholder policy
+- **THEN** both tasks are assigned to one placeholder actor that cannot sign in, and the second run creates no actor
+
+### Requirement: Dry runs resolve assignees
+
+A dry run SHALL resolve assignees exactly as the real run would, write nothing, create no placeholder, and
+report the same `unmatched_users` and summary warning, worded as what would happen.
+
+#### Scenario: Unmatched users before the import
+
+- **WHEN** a dry run meets an assignee nothing matches under the placeholder policy
+- **THEN** `unmatched_users` lists it, the warning says it would get a placeholder, and no actor or task is created
+
+### Requirement: The users section is validated
+
+A mapping SHALL be refused before any record is read when `users.match` names a strategy other than `email`,
+`handle` or `name`, repeats one, when `users.unknown` is not `unassigned` or `placeholder`, or when a
+`users.map` entry has an empty side. The error SHALL name the entry.
+
+#### Scenario: An unknown strategy
+
+- **WHEN** a mapping sets `users.match: [email, phone]`
+- **THEN** the run is refused as invalid naming `users.match` and `phone`, and nothing is written
+
+### Requirement: A parent given as a link matches its imported record
+
+When a record's parent value finds no imported record and is an absolute path or an http(s) url, the import
+SHALL look the parent up again by the last segment of its path, so `/api/v3/work_packages/42` links to the
+record imported with identity `42`.
+
+#### Scenario: OpenProject parent link
+
+- **WHEN** work package 42 was imported and work package 43 names `_links.parent.href` `/api/v3/work_packages/42`
+- **THEN** the task imported from 43 is a child of the task imported from 42
+
+### Requirement: The OpenProject adapter ships a default mapping
+
+The OpenProject adapter SHALL ship a default mapping covering subject, description, the stock statuses onto
+the built-in workflow, priorities, type, assignee with its email, due and start dates, parent and project,
+which SHALL validate once its `project` names a tix project and SHALL NOT preserve unnamed HAL links.
+
+#### Scenario: The default mapping imports work packages
+
+- **WHEN** the default mapping, with `project` filled in, drives an import of OpenProject work packages
+- **THEN** titles, statuses, priorities, assignees and parents arrive without any other mapping edits

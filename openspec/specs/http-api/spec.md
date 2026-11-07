@@ -582,15 +582,18 @@ answering `204`. It SHALL serve `GET /api/v1/calendar/feeds/{token}.ics` without
 The API SHALL expose, for the authenticated actor: `GET /api/v1/inbox` listing items newest first with
 `limit`, `cursor` and `unread`, and a `next_cursor`; `GET /api/v1/inbox/count` returning `unread`;
 `PUT /api/v1/inbox/{id}/read` and `DELETE /api/v1/inbox/{id}/read` marking one item read or unread and
-returning it; `POST /api/v1/inbox/read-all` returning how many it marked; and `GET /api/v1/inbox/prefs` and
-`PUT /api/v1/inbox/prefs` reading and replacing the muted kinds. An unknown kind SHALL be refused as
-invalid.
+returning it; and `POST /api/v1/inbox/read-all` returning how many it marked.
 
 #### Scenario: Paging the inbox
 
 - **GIVEN** an actor with three items
 - **WHEN** a client sends `GET /api/v1/inbox?limit=2` and then follows `next_cursor`
 - **THEN** it sees the three items newest first, each once
+
+### Requirement: Inbox preference endpoints
+
+The API SHALL expose, for the authenticated actor, `GET /api/v1/inbox/prefs` and `PUT /api/v1/inbox/prefs`
+reading and replacing the muted kinds. An unknown kind SHALL be refused as invalid.
 
 #### Scenario: Muting an unknown kind
 
@@ -840,3 +843,109 @@ all for a global admin only.
 
 - **WHEN** a token holding `*` but not `global:admin` lists `/api/v1/tenants/other/users`
 - **THEN** the answer is 403
+
+### Requirement: Invite and password change endpoints
+
+The API SHALL accept `require_password_change` on `POST /api/v1/users` and `PATCH
+/api/v1/users/{id}`, and `new_password` on `POST /api/v1/auth/login`. It SHALL serve `POST|GET
+/api/v1/invites`, `DELETE /api/v1/invites/{id}` and `POST /api/v1/invites/{id}/reissue` with
+`user:admin`, and `GET|POST /api/v1/auth/invites/{token}` without a credential. An issued invite
+SHALL carry its absolute `url`.
+
+#### Scenario: Creating an invite over HTTP
+
+- **WHEN** an administrator sends `POST /api/v1/invites` with `{"email": "ada@example.com"}`
+- **THEN** the answer is 201 with a `url` built from the request's own scheme and host
+
+### Requirement: The caller's date settings over HTTP
+
+`GET /api/v1/me/time` SHALL return the deployment, tenant and personal levels, the values in force and the
+level each came from. `PATCH /api/v1/me/time` SHALL set the caller's own `time_format` and `timezone`,
+where `""` inherits and an absent field is left alone. A caller with no user record SHALL be refused
+`invalid` by the `PATCH`.
+
+#### Scenario: An agent cannot hold a preference
+
+- **GIVEN** a token held by an agent
+- **WHEN** it sends `PATCH /api/v1/me/time` with `{"time_format": "us"}`
+- **THEN** the response is `invalid` and nothing is stored
+
+#### Scenario: Unknown values are refused
+
+- **WHEN** a person sends `{"timezone": "Mars/Olympus"}` or `{"timezone": "local"}`
+- **THEN** the response is `invalid`
+
+### Requirement: A tenant's default date settings over HTTP
+
+`PATCH /api/v1/tenants/REF` SHALL accept `time_format` and `timezone`, where `""` returns the field to the
+deployment default.
+
+#### Scenario: Tenant default set
+
+- **WHEN** an administrator sends `{"time_format": "dotted"}`
+- **THEN** members who chose nothing read dotted timestamps
+
+### Requirement: Audit routes filter by via and token
+
+GET /api/v1/audit and the task audit route SHALL accept repeatable via and token query parameters, and every audit entry they return SHALL carry via.
+
+#### Scenario: Filtering by channel
+
+- **WHEN** GET /api/v1/audit?via=mcp is requested
+- **THEN** only entries recorded over MCP are returned, each with its via
+
+### Requirement: Clients name themselves in X-Tix-Client
+
+The tix client SHALL send X-Tix-Client: cli on every request, and tix mcp SHALL send X-Tix-Client: mcp. The server SHALL read the header only to refine the channel of a token request.
+
+#### Scenario: tix mcp is told apart
+
+- **WHEN** tix mcp creates a task with a token the CLI also uses
+- **THEN** the MCP change records mcp and the CLI change records cli-remote
+
+### Requirement: Project task export endpoint
+
+The API SHALL expose `POST /api/v1/projects/{ref}/tasks/export` taking the export choices as a JSON body,
+and SHALL answer with the file as `text/csv`, `application/json`, `application/x-ndjson` or
+`text/markdown` with a `Content-Disposition` naming it, or with the error envelope when refused before
+the first byte.
+
+#### Scenario: JSON export over HTTP
+
+- **WHEN** a client posts `{"format":"json","columns":["title"]}` to the export route of INFRA
+- **THEN** the response is 200 `application/json`, an array of objects with a `title` key, named `infra-tasks.json`
+
+#### Scenario: Refused export
+
+- **WHEN** a client posts an export naming an unknown column
+- **THEN** the response is 400 in the error envelope with no `Content-Disposition`
+
+### Requirement: Project task import endpoint
+
+The API SHALL expose `POST /api/v1/projects/{ref}/tasks/import` taking the import choices as JSON with the
+file as `content`, or as a multipart form with the file in a `file` part, and SHALL answer with the result,
+`committed` false when any row is in error.
+
+#### Scenario: Multipart import
+
+- **WHEN** a client posts a multipart form with a CSV in `file` and a mapping field
+- **THEN** the response is 200 with the tasks created and `committed` true
+
+### Requirement: Import upload limit
+
+The server SHALL cap the body of a project task import, over the API and in the browser's upload step, at `server.max_import_bytes`, 32 MiB by default, in place of the general body limit, which SHALL still cap every other request. A larger import SHALL be answered with 413 and a message naming the limit and the key.
+
+#### Scenario: An import larger than the general limit
+
+- **WHEN** a client uploads a 5 MiB file to the import endpoint of a server with a 1 MiB body limit
+- **THEN** the import is read and answered with 200
+
+#### Scenario: An import over its own limit
+
+- **WHEN** a client uploads a file larger than `server.max_import_bytes`
+- **THEN** the response is 413 with a message naming the limit and `server.max_import_bytes`
+
+#### Scenario: Other routes keep the general limit
+
+- **WHEN** a client posts a body larger than the general limit to any route that is not an import
+- **THEN** the response is 413

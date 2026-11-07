@@ -5247,3 +5247,197 @@ holding it. The issued token's confirmation SHALL list the scopes it was granted
 - **GIVEN** a reader holding `token:admin` and `task:read` only
 - **WHEN** they open the token form and submit `task:write` anyway
 - **THEN** the `task:write` box is disabled with its reason, and the submission is refused with 403
+
+### Requirement: Create a user by password or by invite link
+
+The Users screen's create dialog SHALL offer a choice between Set a password and Send an invite
+link, both visible controls rather than a fold. With a password, a Require a password change at
+first sign-in checkbox SHALL be ticked by default. An invite SHALL answer with a dialog showing the
+link once with a Copy button and the words send this link to them.
+
+#### Scenario: Inviting from the browser
+
+- **WHEN** an administrator chooses Send an invite link and submits an email
+- **THEN** a dialog shows the link with a Copy button, and the Pending invites section lists the address
+
+### Requirement: Pending invites on the Users screen
+
+The Users screen SHALL list pending invites with their address, role, inviter and expiry, each with
+a Re-issue button and a red Revoke button opening a confirm dialog. The Manage dialog SHALL carry the
+require password change checkbox.
+
+#### Scenario: Revoking from the list
+
+- **WHEN** an administrator confirms Revoke on a pending invite
+- **THEN** the invite leaves the list and its link stops working
+
+### Requirement: Invite and password change pages
+
+`/invite/TOKEN` SHALL show a form to choose a password and a display name, or to confirm an existing
+password, and sign the person in. A flagged sign-in SHALL show a Choose a new password page whose
+only other action returns to sign-in; nothing else is reachable because no session exists.
+
+#### Scenario: Forced change in the browser
+
+- **GIVEN** a flagged account
+- **WHEN** its owner signs in on the web
+- **THEN** the Choose a new password page is shown, and opening the projects list sends them to sign-in
+
+### Requirement: Date preferences are kept with the account
+
+The settings screen SHALL save the date format and timezone on the person's account, offer Inherit for each,
+and say what is in use and where it came from. The Tenant screen SHALL offer the tenant default the same way,
+its Inherit naming the deployment's value.
+
+#### Scenario: Another browser reads the choice
+
+- **GIVEN** a person who chose `us` in one browser
+- **WHEN** they open the settings screen in another browser
+- **THEN** `us` is selected there and their timestamps read `us`
+
+### Requirement: Legacy date cookies move onto the account
+
+A request carrying the `tix_time_format` or `tix_timezone` cookie SHALL move each valid value onto the
+account when the account holds none for that field, and SHALL expire both cookies.
+
+#### Scenario: The account wins over a cookie
+
+- **GIVEN** an account format of `long` and a cookie format of `us` with a cookie zone of `Asia/Tokyo`
+- **WHEN** the browser opens any screen
+- **THEN** the account keeps `long`, gains `Asia/Tokyo`, and both cookies are gone
+
+### Requirement: Every timestamp carries its full instant
+
+Every timestamp a screen shows as text SHALL be a `<time>` whose `datetime` is RFC 3339, whose text is in the
+reader's style, and whose title, accessible label and focus tip carry the instant with seconds, zone name
+and offset, plus the relative form when the text is absolute. It SHALL take focus, so a tap or Tab shows it.
+
+#### Scenario: Activity row
+
+- **WHEN** a reader in `dotted`, `Europe/Sofia` focuses "2 hours ago" in the activity feed
+- **THEN** a tip reads like `06.11.2026 14:05:32 EET (UTC+02:00)`
+
+### Requirement: A guard holds every screen to the reader's format
+
+A test SHALL render every screen in the screenshot manifest on a seeded database as a reader in `dotted`
+and `Asia/Tokyo`, and fail on a timestamp in another layout, a timestamp written as text outside `<time>`,
+or a `<time>` missing part of its tooltip.
+
+#### Scenario: A raw field fails the guard
+
+- **WHEN** a template prints `{{.CreatedAt}}` or `{{compact .CreatedAt}}` as text
+- **THEN** the guard fails naming the screen and the value
+
+### Requirement: Activity and History show the channel
+
+Each Activity row and each task History row SHALL show its access channel as an icon and words such as via SSH, via token ci-agent or via MCP (token scout-runner), with every recorded detail in its hover and its raw view.
+
+#### Scenario: A token's row
+
+- **WHEN** the feed shows a change made with the ci-agent token
+- **THEN** the row reads via token ci-agent and its hover names the client address
+
+#### Scenario: A task's history
+
+- **WHEN** a task's History is shown
+- **THEN** its Channel column shows each change's channel
+
+### Requirement: Activity filters by channel and token
+
+The Activity filter SHALL offer a channel control and a token box carried in the query string as via and token, each shown back as a removable chip, and each row's channel SHALL link to the feed narrowed to that channel and token.
+
+#### Scenario: Narrowing to SSH
+
+- **WHEN** the reader picks SSH in the channel control
+- **THEN** only changes made over SSH are listed and a via SSH chip clears it
+
+### Requirement: Project export dialog
+
+A project's page SHALL offer an Export button in its header to readers holding the export scope, opening a
+dialog with the format, date style, CSV separator, filter, inclusion switches and an ordered list of
+columns, each column with a move up and a move down button, and SHALL download the file on submit.
+
+#### Scenario: Exporting from the board
+
+- **WHEN** a member opens Export on a project, ticks title and ref, and submits
+- **THEN** the browser downloads the project's tasks with those columns
+
+#### Scenario: Viewer
+
+- **WHEN** a viewer opens a project's page
+- **THEN** there is no Export button
+
+### Requirement: Refused export keeps the dialog
+
+A refused export from the dialog SHALL draw the project again with the dialog open, every choice as
+submitted, and the reason beside the field it concerns.
+
+#### Scenario: Filter that does not parse
+
+- **WHEN** a reader submits the export dialog with a filter that does not parse
+- **THEN** the dialog is open again holding that filter and the refusal
+
+### Requirement: Import steps
+
+A project's page SHALL offer Import to readers holding the import scope, leading through upload, column
+mapping, value mapping, preview and result, each step at its own address with a Back that keeps what was
+chosen and a Cancel that leaves the import.
+
+#### Scenario: Back keeps the mapping
+
+- **WHEN** a reader changes a column's field, goes on to the values and presses Back
+- **THEN** the columns step shows the field they chose
+
+### Requirement: The simple paths are offered first
+
+The first import step SHALL say that a few tasks need no import and that the mapping is optional, SHALL
+take a pasted list of quick-add lines, and the steps SHALL offer Skip to preview, said outright when every
+column was recognised.
+
+#### Scenario: Every column recognised
+
+- **WHEN** a file whose every header is recognised is uploaded
+- **THEN** the columns step says so and offers Skip to preview
+
+### Requirement: A history row's raw entry opens in a dialog
+
+The Raw control on an activity row and on a task's History row SHALL open a modal dialog titled Raw entry,
+naming the entry's action, subject and time, with a close control. Escape SHALL close it and return focus to
+the control. It SHALL NOT open a disclosure or popover inside the row.
+
+#### Scenario: Raw opens a dialog
+
+- **WHEN** a reader presses Raw on an activity row
+- **THEN** a modal Raw entry dialog opens at least as wide as the window allows up to 56rem
+- **AND** Escape closes it and focus is back on Raw
+
+### Requirement: The raw entry dialog shows the recorded entry readably
+
+The dialog SHALL show each entry's actor, action, subject, full timestamp, source and sequence, and each
+recorded snapshot as indented JSON with markup shown as text, each with a Copy button and one Copy all as
+JSON button. Long values SHALL wrap inside the dialog.
+
+#### Scenario: A hostile title reads as text
+
+- **WHEN** a task titled with a script tag and a long unbroken word is retitled and its raw entry opened
+- **THEN** the before snapshot shows the tag as text, indented, with nothing scrolling sideways
+
+### Requirement: The raw entry dialog sets changed fields side by side
+
+When an entry has both a before and an after snapshot, the dialog SHALL list the top-level fields that were
+added, removed or changed, each marked with which, with its value on each side.
+
+#### Scenario: A retitle lists the title
+
+- **WHEN** a task's title and priority are changed and the entry's raw view opened
+- **THEN** title and priority are listed as changed with the old and new values
+
+### Requirement: The raw entry dialog works without scripting
+
+Without scripting the Raw control SHALL be a link to the same screen with the dialog drawn open in place,
+whose close control leads back to the screen without it.
+
+#### Scenario: The fallback address draws the dialog
+
+- **WHEN** the activity feed is read at `?dialog=raw-SEQ` for a row on it
+- **THEN** that row's Raw entry dialog is drawn open, with a Close link back to `/activity`

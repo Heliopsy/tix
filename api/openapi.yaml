@@ -190,6 +190,8 @@ paths:
         ListAudit lists audit entries matching the filter, one keyset-paginated page at a time, with the cursor for the next page.
 
         Command line: `tix audit ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: audit.list
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -335,6 +337,8 @@ paths:
         page at a time, with the cursor for the next page
       tags:
         - audit
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/invites/{token}:
     get:
       description: PreviewInvite describes the invite an invite token accepts, without
@@ -380,10 +384,10 @@ paths:
       tags:
         - invite
     post:
-      description: 'AcceptInvite sets the invited account''s password and display
-        name, or confirms an existing account''s password, marks the invite used and
-        signs the person in. It answers as Login does: a session, or the second factor
-        challenge the tenant requires.'
+      description: |-
+        AcceptInvite sets the invited account's password and display name, or confirms an existing account's password, marks the invite used and signs the person in. It answers as Login does: a session, or the second factor challenge the tenant requires.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: invite.accept
       parameters:
         - description: The invite secret, starting tix_inv_, as the invite link ends.
@@ -434,6 +438,8 @@ paths:
         the person in
       tags:
         - invite
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/login:
     post:
       description: |-
@@ -533,6 +539,8 @@ paths:
         SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in, bound to this tenant and to the host the request was made to. Nothing is stored.
 
         Command line: `tix login`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: session.ssh_challenge
       responses:
         "200":
@@ -571,12 +579,16 @@ paths:
         bound to this tenant and to the host the request was made to
       tags:
         - session
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/ssh/verify:
     post:
       description: |-
         SSHLogin is the first step of a sign-in that proves an enrolled key instead of a password. It answers as Login does: a session, or the second-factor challenge the password step would have returned.
 
         Command line: `tix login`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: session.ssh_login
       requestBody:
         content:
@@ -619,6 +631,8 @@ paths:
         instead of a password
       tags:
         - session
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/totp:
     delete:
       description: |-
@@ -1013,6 +1027,8 @@ paths:
         RevokeCalendarFeed stops the caller's feed, so its address answers not_found from then on.
 
         Command line: `tix calendar revoke`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: calendar.revoke
       responses:
         "204":
@@ -1044,11 +1060,15 @@ paths:
         not_found from then on
       tags:
         - calendar
+      x-tix-openspec:
+        - http-api
     get:
       description: |-
         GetCalendarFeed returns the caller's live feed, without its secret. It is not_found when the caller has none.
 
         Command line: `tix calendar show`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: calendar.show
       responses:
         "200":
@@ -1085,11 +1105,15 @@ paths:
       summary: GetCalendarFeed returns the caller's live feed, without its secret
       tags:
         - calendar
+      x-tix-openspec:
+        - http-api
     patch:
       description: |-
         SetCalendarFeedFilter changes the caller's feed filter, keeping its URL.
 
         Command line: `tix calendar filter`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: calendar.filter
       requestBody:
         content:
@@ -1137,11 +1161,15 @@ paths:
         URL
       tags:
         - calendar
+      x-tix-openspec:
+        - http-api
     post:
       description: |-
         CreateCalendarFeed issues the caller a feed. One that is live already is a conflict.
 
         Command line: `tix calendar create`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: calendar.create
       requestBody:
         content:
@@ -1189,11 +1217,14 @@ paths:
       summary: CreateCalendarFeed issues the caller a feed
       tags:
         - calendar
+      x-tix-openspec:
+        - http-api
   /api/v1/calendar/feeds/{file}:
     get:
-      description: ReadCalendarFeed answers the feed a secret addresses, reading as
-        its owner. It needs a tenant in the context and no actor, and every failure
-        to find a live feed is the same not found.
+      description: |-
+        ReadCalendarFeed answers the feed a secret addresses, reading as its owner. It needs a tenant in the context and no actor, and every failure to find a live feed is the same not found.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: calendar.read
       parameters:
         - description: 'Feed file name: the feed''s secret followed by .ics, as the
@@ -1235,6 +1266,8 @@ paths:
         owner
       tags:
         - calendar
+      x-tix-openspec:
+        - http-api
   /api/v1/calendar/rotate:
     post:
       description: |-
@@ -1288,6 +1321,8 @@ paths:
         RedeliverChannelDelivery queues another attempt of one of the caller's deliveries, made on the next drain. Another person's is not_found.
 
         Command line: `tix inbox channel redeliver`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.redeliver
       parameters:
         - description: Channel delivery ID.
@@ -1330,12 +1365,16 @@ paths:
         deliveries, made on the next drain
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/channels:
     get:
       description: |-
         ListInboxChannels returns the caller's channels.
 
         Command line: `tix inbox channel ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.list
       responses:
         "200":
@@ -1383,11 +1422,15 @@ paths:
       summary: ListInboxChannels returns the caller's channels
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
     post:
       description: |-
         CreateInboxChannel adds a channel and returns its secret, once.
 
         Command line: `tix inbox channel add`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.add
       requestBody:
         content:
@@ -1433,12 +1476,16 @@ paths:
       summary: CreateInboxChannel adds a channel and returns its secret, once
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/channels/{id}:
     delete:
       description: |-
         DeleteInboxChannel removes one of the caller's channels and its deliveries.
 
         Command line: `tix inbox channel rm`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.rm
       parameters:
         - description: Notification channel ID.
@@ -1476,11 +1523,15 @@ paths:
       summary: DeleteInboxChannel removes one of the caller's channels and its deliveries
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
     patch:
       description: |-
         UpdateInboxChannel changes one of the caller's channels.
 
         Command line: `tix inbox channel edit`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.edit
       parameters:
         - description: Notification channel ID.
@@ -1535,12 +1586,16 @@ paths:
       summary: UpdateInboxChannel changes one of the caller's channels
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/channels/{id}/deliveries:
     get:
       description: |-
         ListChannelDeliveries returns a page of one channel's deliveries.
 
         Command line: `tix inbox channel deliveries`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.deliveries
       parameters:
         - description: Notification channel ID.
@@ -1621,12 +1676,16 @@ paths:
       summary: ListChannelDeliveries returns a page of one channel's deliveries
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/channels/{id}/test:
     post:
       description: |-
         TestInboxChannel queues a test message to one of the caller's channels and returns the delivery, attempted when this process drains inline.
 
         Command line: `tix inbox channel test`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.channel.test
       parameters:
         - description: Notification channel ID.
@@ -1674,6 +1733,8 @@ paths:
         and returns the delivery, attempted when this process drains inline
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/claims/next:
     post:
       description: |-
@@ -2251,6 +2312,8 @@ paths:
         ListSavedFilters returns the caller's own filters in their order, then the filters others shared with the tenant, by name.
 
         Command line: `tix filter ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.list
       responses:
         "200":
@@ -2299,11 +2362,15 @@ paths:
         the filters others shared with the tenant, by name
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
     post:
       description: |-
         CreateSavedFilter saves a new filter for the caller. A name the caller already uses is a conflict, and one reader keeps at most 100 filters.
 
         Command line: `tix filter save`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.save
       requestBody:
         content:
@@ -2350,12 +2417,16 @@ paths:
       summary: CreateSavedFilter saves a new filter for the caller
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
   /api/v1/filters/order:
     put:
       description: |-
         OrderSavedFilters puts the caller's named filters first, in that order.
 
         Command line: `tix filter order`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.order
       requestBody:
         content:
@@ -2413,12 +2484,16 @@ paths:
       summary: OrderSavedFilters puts the caller's named filters first, in that order
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
   /api/v1/filters/{filter}:
     delete:
       description: |-
         DeleteSavedFilter removes a filter, which only its owner or an administrator may do.
 
         Command line: `tix filter rm`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.delete
       parameters:
         - description: Saved filter ID, or its name, not case sensitive. The caller's
@@ -2458,11 +2533,15 @@ paths:
         may do
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
     get:
       description: |-
         GetSavedFilter returns one filter the caller can see, by id or name, preferring the caller's own on a shared name; not_found otherwise.
 
         Command line: `tix filter show`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.show
       parameters:
         - description: Saved filter ID, or its name, not case sensitive. The caller's
@@ -2508,11 +2587,15 @@ paths:
         preferring the caller's own on a shared name; not_found otherwise
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
     patch:
       description: |-
         UpdateSavedFilter renames, edits or shares a filter. Only its owner or an administrator may change it, and a clashing name is a conflict.
 
         Command line: `tix filter set`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: filter.update
       parameters:
         - description: Saved filter ID, or its name, not case sensitive. The caller's
@@ -2567,6 +2650,8 @@ paths:
       summary: UpdateSavedFilter renames, edits or shares a filter
       tags:
         - filter
+      x-tix-openspec:
+        - http-api
   /api/v1/global-admins:
     get:
       description: |-
@@ -2625,6 +2710,8 @@ paths:
         GrantGlobalAdmin makes the user with this email a global admin, who administers every tenant. Only a global admin may call it; the first one is granted from a shell holding the database.
 
         Command line: `tix global-admin grant`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: global_admin.grant
       requestBody:
         content:
@@ -2670,12 +2757,16 @@ paths:
         administers every tenant
       tags:
         - global_admin
+      x-tix-openspec:
+        - http-api
   /api/v1/global-admins/{email}:
     delete:
       description: |-
         RevokeGlobalAdmin takes global admin away from the user with this email. Revoking the last global admin is refused.
 
         Command line: `tix global-admin revoke`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: global_admin.revoke
       parameters:
         - description: Sign-in email of the global admin.
@@ -2713,12 +2804,16 @@ paths:
       summary: RevokeGlobalAdmin takes global admin away from the user with this email
       tags:
         - global_admin
+      x-tix-openspec:
+        - http-api
   /api/v1/housekeeping:
     get:
       description: |-
         GetHousekeeping returns the housekeeping policy, for one project when project is set, and how many tasks it would act on now.
 
         Command line: `tix cleanup show`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: housekeeping.get
       parameters:
         - description: Project is the key or ID of the project whose policy to show;
@@ -2763,11 +2858,15 @@ paths:
         project is set, and how many tasks it would act on now
       tags:
         - housekeeping
+      x-tix-openspec:
+        - http-api
     put:
       description: |-
         PutHousekeeping changes the tenant default or one project's override.
 
         Command line: `tix cleanup set`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: housekeeping.put
       requestBody:
         content:
@@ -2814,12 +2913,16 @@ paths:
       summary: PutHousekeeping changes the tenant default or one project's override
       tags:
         - housekeeping
+      x-tix-openspec:
+        - http-api
   /api/v1/housekeeping/run:
     post:
       description: |-
         RunHousekeeping applies the policy once, in bounded batches, or previews it.
 
         Command line: `tix cleanup run`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: housekeeping.run
       requestBody:
         content:
@@ -2865,6 +2968,8 @@ paths:
         it
       tags:
         - housekeeping
+      x-tix-openspec:
+        - http-api
   /api/v1/import:
     post:
       description: |-
@@ -2937,6 +3042,8 @@ paths:
         ListInbox returns one page of the caller's items, newest first, and the cursor for the next.
 
         Command line: `tix inbox ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.list
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -3017,12 +3124,16 @@ paths:
         the cursor for the next
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/inbox/count:
     get:
       description: |-
         CountInbox counts the caller's unread items.
 
         Command line: `tix inbox count`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.count
       responses:
         "200":
@@ -3057,12 +3168,16 @@ paths:
       summary: CountInbox counts the caller's unread items
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/inbox/prefs:
     get:
       description: |-
         GetInboxPrefs returns the kinds the caller muted.
 
         Command line: `tix inbox prefs`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.prefs
       responses:
         "200":
@@ -3098,11 +3213,15 @@ paths:
       summary: GetInboxPrefs returns the kinds the caller muted
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
     put:
       description: |-
         PutInboxPrefs replaces the kinds the caller muted.
 
         Command line: `tix inbox prefs`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.prefs.set
       requestBody:
         content:
@@ -3148,12 +3267,16 @@ paths:
       summary: PutInboxPrefs replaces the kinds the caller muted
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/inbox/read-all:
     post:
       description: |-
         ReadAllInbox marks every one of the caller's items read.
 
         Command line: `tix inbox read-all`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.read_all
       responses:
         "200":
@@ -3193,12 +3316,16 @@ paths:
       summary: ReadAllInbox marks every one of the caller's items read
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/inbox/{id}/read:
     delete:
       description: |-
         UnreadInboxItem marks one of the caller's items unread.
 
         Command line: `tix inbox unread`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.unread
       parameters:
         - description: Inbox item ID.
@@ -3241,11 +3368,15 @@ paths:
       summary: UnreadInboxItem marks one of the caller's items unread
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
     put:
       description: |-
         ReadInboxItem marks one of the caller's items read and returns it.
 
         Command line: `tix inbox read`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: inbox.read
       parameters:
         - description: Inbox item ID.
@@ -3292,6 +3423,8 @@ paths:
       summary: ReadInboxItem marks one of the caller's items read and returns it
       tags:
         - inbox
+      x-tix-openspec:
+        - http-api
   /api/v1/invites:
     get:
       description: |-
@@ -3351,6 +3484,8 @@ paths:
         CreateInvite invites an email address to this tenant and returns a single-use link, once. A new address gets an account with no password; an account of this tenant without a membership is granted one. An address of a member who has a password, or of another tenant's user, is a conflict.
 
         Command line: `tix user invite`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: invite.create
       requestBody:
         content:
@@ -3399,12 +3534,16 @@ paths:
         single-use link, once
       tags:
         - invite
+      x-tix-openspec:
+        - http-api
   /api/v1/invites/{id}:
     delete:
       description: |-
         RevokeInvite stops a pending invite's link at once. The account it created stays, without a password.
 
         Command line: `tix user invite revoke`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: invite.revoke
       parameters:
         - description: Invite ID, as the invite listing gives it.
@@ -3442,12 +3581,16 @@ paths:
       summary: RevokeInvite stops a pending invite's link at once
       tags:
         - invite
+      x-tix-openspec:
+        - http-api
   /api/v1/invites/{id}/reissue:
     post:
       description: |-
         ReissueInvite replaces a pending or expired invite's link with a new one carrying a fresh expiry, and returns it once. The old link stops.
 
         Command line: `tix user invite reissue`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: invite.reissue
       parameters:
         - description: Invite ID, as the invite listing gives it.
@@ -3503,12 +3646,16 @@ paths:
         one carrying a fresh expiry, and returns it once
       tags:
         - invite
+      x-tix-openspec:
+        - http-api
   /api/v1/me/time:
     get:
       description: |-
         GetTimeSettings returns the caller's date format and timezone at each level (deployment, tenant, their own) and the values in force. JSON output stays RFC 3339 whatever these say; they govern what a person reads.
 
         Command line: `tix user time`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: time.settings
       responses:
         "200":
@@ -3543,11 +3690,15 @@ paths:
         level (deployment, tenant, their own) and the values in force
       tags:
         - time
+      x-tix-openspec:
+        - http-api
     patch:
       description: |-
         SetTimePrefs changes the caller's own date format and timezone, which follow them to every browser and terminal. An empty value returns the field to the tenant's default. Only a person may hold one.
 
         Command line: `tix user time`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: time.prefs.set
       requestBody:
         content:
@@ -3592,6 +3743,8 @@ paths:
         follow them to every browser and terminal
       tags:
         - time
+      x-tix-openspec:
+        - http-api
   /api/v1/members:
     get:
       description: |-
@@ -3740,7 +3893,10 @@ paths:
         - member
   /api/v1/openapi.json:
     get:
-      description: This OpenAPI document, generated from the capability registry.
+      description: |-
+        This OpenAPI document, generated from the capability registry.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: api.spec
       responses:
         "200":
@@ -3772,12 +3928,16 @@ paths:
       summary: This OpenAPI document, generated from the capability registry
       tags:
         - api
+      x-tix-openspec:
+        - http-api
   /api/v1/projects:
     get:
       description: |-
         ListProjects lists projects matching the filter, keyset paginated, with the cursor for the next page. A token pinned to one project sees only that project.
 
         Command line: `tix project ls`.
+
+        Specified in [`web-ui`](openspec/specs/web-ui/spec.md).
       operationId: project.list
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -3865,6 +4025,8 @@ paths:
         with the cursor for the next page
       tags:
         - project
+      x-tix-openspec:
+        - web-ui
     post:
       description: |-
         CreateProject creates a project with a unique key, on the named workflow or the builtin one. A key in use, or kept as an old key of another project, is a conflict.
@@ -3923,6 +4085,8 @@ paths:
         Command line: `tix project rm`.
 
         With `?archive=true` this route is `project.archive`: ArchiveProject hides a project from default listings without destroying its tasks or history. Archiving an archived project is a conflict.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: project.delete
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -3987,6 +4151,8 @@ paths:
         tasks as the input says; a project holding tasks needs a choice
       tags:
         - project
+      x-tix-openspec:
+        - http-api
     get:
       description: |-
         GetProject returns a project by identifier, key, or one of its old keys.
@@ -4040,6 +4206,8 @@ paths:
         UpdateProject changes a project's name, key, description, colour, icon, workflow or lease bounds; fields left out are unchanged. A new key keeps the old one as an alias, and a workflow that lacks a state some task is in is a conflict.
 
         Command line: `tix project edit`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: project.update
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -4093,12 +4261,16 @@ paths:
         workflow or lease bounds; fields left out are unchanged
       tags:
         - project
+      x-tix-openspec:
+        - http-api
   /api/v1/projects/{ref}/deletion:
     get:
       description: |-
         PlanProjectDeletion reports what DeleteProject would do, writing nothing.
 
         Command line: `tix project rm`.
+
+        Specified in [`capability`](openspec/specs/capability/spec.md), [`http-api`](openspec/specs/http-api/spec.md).
       operationId: project.delete-plan
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -4153,6 +4325,9 @@ paths:
       summary: PlanProjectDeletion reports what DeleteProject would do, writing nothing
       tags:
         - project
+      x-tix-openspec:
+        - capability
+        - http-api
   /api/v1/projects/{ref}/fields:
     get:
       description: |-
@@ -4329,6 +4504,8 @@ paths:
         GetProjectIcon returns a project's uploaded icon image. A project without an uploaded image is not_found.
 
         Command line: `tix project icon`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: project.icon
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -4373,12 +4550,16 @@ paths:
       summary: GetProjectIcon returns a project's uploaded icon image
       tags:
         - project
+      x-tix-openspec:
+        - http-api
   /api/v1/projects/{ref}/tasks/export:
     post:
       description: |-
         ExportTasks writes one project's tasks as CSV, JSON, NDJSON or a Markdown table, as it walks them. The selection takes the task list's query language, and the columns, their order, the date style and the CSV delimiter are the caller's to choose. A CSV or Markdown cell that a spreadsheet would read as a formula starts with a quote.
 
         Command line: `tix export tasks`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.export
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -4444,12 +4625,16 @@ paths:
         table, as it walks them
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/projects/{ref}/tasks/import:
     post:
       description: |-
         ImportTasks reads a file of tasks into one project: CSV, JSON or NDJSON, including files Jira, GitHub, Trello and Linear write, or a list of quick-add lines. Columns and values are mapped by the mapping file the input carries, or by tix's own suggestion, which reads a tix export and the common headers as they are. A row matched by external id or reference is updated, skipped or created again as the mode says. A dry run reports what would happen and writes nothing, and so does an import with any row in error: the import is all or nothing. To add a handful of tasks, creating each one is simpler.
 
         Command line: `tix import tasks`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.import
       parameters:
         - description: Project key, such as infra, not case sensitive, or the project's
@@ -4516,6 +4701,8 @@ paths:
         lines'
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/prune:
     post:
       description: |-
@@ -4674,6 +4861,8 @@ paths:
         WakeSnoozed clears up to limit snoozes whose wake time has passed, emitting a task.woke event for each, and reports how many it cleared.
 
         Command line: `tix task wake`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.wake
       requestBody:
         content:
@@ -4719,6 +4908,8 @@ paths:
         emitting a task.woke event for each, and reports how many it cleared
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/ssh-keys:
     get:
       description: |-
@@ -5060,6 +5251,8 @@ paths:
         ListSyncSources lists this tenant's external import sources, each with where its mapping, credentials and settings come from on the server and what a run would still lack.
 
         Command line: `tix sync source ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: sync.source.list
       responses:
         "200":
@@ -5109,11 +5302,15 @@ paths:
         a run would still lack
       tags:
         - sync
+      x-tix-openspec:
+        - http-api
     put:
       description: |-
         PutSyncSource registers an external system to import from, or updates one in place. Sync runs on the server, so everything a run needs can be stored here: the mapping document itself and the credentials, which are sealed with the server's key and never returned. Anything not stored is read from TIX_SYNC_<SOURCE>_* in the server's environment. With check set it validates and describes the source and writes nothing.
 
         Command line: `tix sync source add`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: sync.source.put
       requestBody:
         content:
@@ -5159,6 +5356,8 @@ paths:
         one in place
       tags:
         - sync
+      x-tix-openspec:
+        - http-api
   /api/v1/sync/sources/{id}:
     delete:
       description: |-
@@ -5261,6 +5460,8 @@ paths:
         ListTasks lists tasks matching the filter, one keyset-paginated page at a time, with the cursor for the next page. Snoozed tasks are left out unless the filter asks for them.
 
         Command line: `tix task ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md), [`web-ui`](openspec/specs/web-ui/spec.md).
       operationId: task.list
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -5568,6 +5769,9 @@ paths:
         at a time, with the cursor for the next page
       tags:
         - task
+      x-tix-openspec:
+        - http-api
+        - web-ui
       x-tix-query-prefix-descriptions:
         field.: FieldFilterPrefix starts a parameter field.KEY that keeps tasks whose
           custom field KEY holds the value, as in field.severity=high. A value that
@@ -5579,6 +5783,8 @@ paths:
         CreateTask creates a task in a project and returns it. Only the title is required: status defaults to the workflow's initial state, and the project may be left out when the tenant has exactly one.
 
         Command line: `tix task add`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.create
       requestBody:
         content:
@@ -5623,12 +5829,16 @@ paths:
       summary: CreateTask creates a task in a project and returns it
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/bulk:
     post:
       description: |-
         BulkTasks applies one action to many tasks, each in its own transaction, and reports an outcome per task rather than failing on the first refusal.
 
         Command line: `tix task bulk`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.bulk
       requestBody:
         content:
@@ -5673,6 +5883,8 @@ paths:
         and reports an outcome per task rather than failing on the first refusal
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}:
     delete:
       description: |-
@@ -5736,7 +5948,7 @@ paths:
 
         Command line: `tix task show`.
 
-        Specified in [`http-api`](openspec/specs/http-api/spec.md).
+        Specified in [`http-api`](openspec/specs/http-api/spec.md), [`web-ui`](openspec/specs/web-ui/spec.md).
       operationId: task.show
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -5781,11 +5993,14 @@ paths:
         - task
       x-tix-openspec:
         - http-api
+        - web-ui
     patch:
       description: |-
         UpdateTask changes only the task attributes the input supplies and returns the task. With a version set, a task that has changed since is a conflict carrying the current version.
 
         Command line: `tix task edit`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.update
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -5839,6 +6054,8 @@ paths:
         returns the task
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}/artifacts:
     get:
       description: |-
@@ -6112,6 +6329,8 @@ paths:
         CheckTaskItem ticks or clears one checklist item of a task's description.
 
         Command line: `tix task check`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.check
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -6164,6 +6383,8 @@ paths:
       summary: CheckTaskItem ticks or clears one checklist item of a task's description
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}/claim:
     post:
       description: |-
@@ -6524,6 +6745,8 @@ paths:
         CopyTask creates a copy of a task, in its own project or another one, and returns the copy. See CopyTaskInput for what travels.
 
         Command line: `tix task copy`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.copy
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -6577,6 +6800,8 @@ paths:
         and returns the copy
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}/deps:
     get:
       description: |-
@@ -6749,6 +6974,8 @@ paths:
         TaskLease reports the lease a claim on the task naming no ttl would be granted now, and which level decides it.
 
         Command line: `tix task show`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.lease
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -6794,6 +7021,8 @@ paths:
         be granted now, and which level decides it
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}/restore:
     post:
       description: |-
@@ -6921,6 +7150,8 @@ paths:
         UnsnoozeTask clears a task's snooze and returns the task. A task that is not snoozed is returned as it is, with nothing written.
 
         Command line: `tix task unsnooze`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.unsnooze
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -6963,11 +7194,15 @@ paths:
       summary: UnsnoozeTask clears a task's snooze and returns the task
       tags:
         - task
+      x-tix-openspec:
+        - http-api
     put:
       description: |-
         SnoozeTask hides a task from default listings, for every reader, until a future time. Snoozing a snoozed task moves its wake time, and a snoozed task cannot be claimed.
 
         Command line: `tix task snooze`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: task.snooze
       parameters:
         - description: 'Task reference: the project key and number, such as INFRA-42,
@@ -7021,6 +7256,8 @@ paths:
         a future time
       tags:
         - task
+      x-tix-openspec:
+        - http-api
   /api/v1/tasks/{ref}/star:
     delete:
       description: |-
@@ -7419,6 +7656,8 @@ paths:
         ListTemplates lists the templates the caller can read, by name.
 
         Command line: `tix template ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: template.list
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -7499,11 +7738,15 @@ paths:
       summary: ListTemplates lists the templates the caller can read, by name
       tags:
         - template
+      x-tix-openspec:
+        - http-api
     post:
       description: |-
         SaveTemplate keeps a task, and its subtasks when asked, as a template. A name already taken in the tenant is a conflict.
 
         Command line: `tix template save`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: template.save
       requestBody:
         content:
@@ -7549,12 +7792,16 @@ paths:
       summary: SaveTemplate keeps a task, and its subtasks when asked, as a template
       tags:
         - template
+      x-tix-openspec:
+        - http-api
   /api/v1/templates/{ref}:
     delete:
       description: |-
         DeleteTemplate removes a template; tasks made from it stay.
 
         Command line: `tix template rm`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: template.delete
       parameters:
         - description: Template name, not case sensitive, or the template's ID.
@@ -7592,6 +7839,8 @@ paths:
       summary: DeleteTemplate removes a template; tasks made from it stay
       tags:
         - template
+      x-tix-openspec:
+        - http-api
     get:
       description: |-
         GetTemplate reads one template by name or identifier. A template in a project the caller cannot read is not_found.
@@ -7702,6 +7951,8 @@ paths:
         UseTemplate creates a task, with the template's subtasks, and returns it. Everything is written in one transaction and the use count goes up by one.
 
         Command line: `tix template use`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: template.use
       parameters:
         - description: Template name, not case sensitive, or the template's ID.
@@ -7754,6 +8005,8 @@ paths:
         it
       tags:
         - template
+      x-tix-openspec:
+        - http-api
   /api/v1/tenants:
     get:
       description: |-
@@ -7841,6 +8094,8 @@ paths:
         CreateTenant creates a tenant with the given key and name, seeds it with the builtin workflow, and creates the admins it names as users holding the admin role in the new tenant only. A password left out is generated and returned once in initial_credentials. Only a global admin may call it. A key already in use, or an admin email that already belongs to a user, is a conflict, and nothing is created.
 
         Command line: `tix tenant create`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: tenant.create
       requestBody:
         content:
@@ -7888,6 +8143,8 @@ paths:
         the admin role in the new tenant only
       tags:
         - tenant
+      x-tix-openspec:
+        - http-api
   /api/v1/tenants/{ref}:
     delete:
       description: |-
@@ -7986,6 +8243,8 @@ paths:
         UpdateTenant changes the caller's tenant, or for a global admin any tenant: its name, theme, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
 
         Command line: `tix tenant edit`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: tenant.update
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
@@ -8040,6 +8299,8 @@ paths:
         setting'
       tags:
         - tenant
+      x-tix-openspec:
+        - http-api
   /api/v1/tenants/{ref}/users:
     get:
       description: |-
@@ -8133,6 +8394,8 @@ paths:
         CreateTenantUser creates a user, its actor and its membership in any tenant, as CreateUser does in the caller's own. Global admin only.
 
         Command line: `tix tenant user create`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: tenant.user.create
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
@@ -8186,12 +8449,16 @@ paths:
         tenant, as CreateUser does in the caller's own
       tags:
         - tenant
+      x-tix-openspec:
+        - http-api
   /api/v1/tenants/{ref}/users/{id}:
     delete:
       description: |-
         DeleteTenantUser deletes a user of any tenant and revokes its membership there, as DeleteUser does. Global admin only.
 
         Command line: `tix tenant user rm`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: tenant.user.delete
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
@@ -8237,6 +8504,8 @@ paths:
         there, as DeleteUser does
       tags:
         - tenant
+      x-tix-openspec:
+        - http-api
     patch:
       description: |-
         UpdateTenantUser changes a user of any tenant: display name, password, role or disabled state, as UpdateUser does. Global admin only.
@@ -8461,6 +8730,8 @@ paths:
         TrashStatus reports whether the tenant keeps deleted tasks in a trash, and how many it holds.
 
         Command line: `tix task trash`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: trash.status
       responses:
         "200":
@@ -8498,6 +8769,8 @@ paths:
         and how many it holds
       tags:
         - trash
+      x-tix-openspec:
+        - http-api
   /api/v1/users:
     get:
       description: |-
@@ -8584,6 +8857,8 @@ paths:
         CreateUser creates a user, its actor in this tenant and a membership with the given role. A handle already in use is a conflict.
 
         Command line: `tix user create`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: user.create
       requestBody:
         content:
@@ -8629,6 +8904,8 @@ paths:
         with the given role
       tags:
         - user
+      x-tix-openspec:
+        - http-api
   /api/v1/users/{id}:
     delete:
       description: |-
@@ -8829,6 +9106,8 @@ paths:
         ResetGroupPrefs forgets the caller's preference on one group, or on every group of the view when group is empty.
 
         Command line: `tix view reset`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: view.reset
       parameters:
         - description: 'View: board, lanes, mine, or project:KEY for one project''s
@@ -8874,11 +9153,15 @@ paths:
         every group of the view when group is empty
       tags:
         - view
+      x-tix-openspec:
+        - http-api
     get:
       description: |-
         ListGroupPrefs returns the caller's own preferences on one view.
 
         Command line: `tix view ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: view.groups
       parameters:
         - description: 'View: board, lanes, mine, or project:KEY for one project''s
@@ -8934,12 +9217,16 @@ paths:
       summary: ListGroupPrefs returns the caller's own preferences on one view
       tags:
         - view
+      x-tix-openspec:
+        - http-api
   /api/v1/views/{view}/groups/{group}:
     patch:
       description: |-
         SetGroupPref hides, collapses or stars one group for the caller.
 
         Command line: `tix view set`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: view.group.set
       parameters:
         - description: 'View: board, lanes, mine, or project:KEY for one project''s
@@ -9003,12 +9290,16 @@ paths:
       summary: SetGroupPref hides, collapses or stars one group for the caller
       tags:
         - view
+      x-tix-openspec:
+        - http-api
   /api/v1/views/{view}/order:
     put:
       description: |-
         OrderGroups puts the named groups first, in the order given.
 
         Command line: `tix view order`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: view.order
       parameters:
         - description: 'View: board, lanes, mine, or project:KEY for one project''s
@@ -9074,6 +9365,8 @@ paths:
       summary: OrderGroups puts the named groups first, in the order given
       tags:
         - view
+      x-tix-openspec:
+        - http-api
   /api/v1/webhooks:
     get:
       description: |-

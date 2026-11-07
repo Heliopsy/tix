@@ -669,3 +669,24 @@ delete its templates.
 
 - **WHEN** a database at migration 0020 is opened by this build
 - **THEN** `task_templates` exists and no task row changed
+
+### Requirement: Invites and the password change flag are stored
+
+`users` SHALL carry `require_password_change`, false by default. Invites SHALL live in
+`user_invites`, scoped to a tenant, holding the user, email, role, inviter, token hash, creation,
+expiry, acceptance and revocation instants, with at most one unaccepted, unrevoked invite per user.
+Removing the user's actor or the tenant SHALL remove its invites.
+
+#### Scenario: One pending invite per user
+
+- **WHEN** two unaccepted, unrevoked invites are written for one user
+- **THEN** the second write fails
+
+### Requirement: The channel is stored in columns and JSON
+
+Migration 0033 SHALL add via_kind defaulting to unknown, via_token and via_detail to audit_entries, and via_kind and via_detail to events, with an index on audit_entries over tenant, via_kind and seq, on both engines.
+
+#### Scenario: Upgrading a database
+
+- **WHEN** a database holding audit entries migrates to 0033
+- **THEN** every existing entry reads as unknown and new entries carry their channel
