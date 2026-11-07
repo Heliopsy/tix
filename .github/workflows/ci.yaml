@@ -73,9 +73,11 @@ jobs:
         run: just shards-check
 
       - name: Release files match the newest release
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           git fetch --no-tags --depth=1 origin '+refs/tags/v*:refs/tags/v*'
-          just release-files-check "${{ github.head_ref }}"
+          just release-files-check "$HEAD_REF"
 
       # The runner carries an SSH client and pseudo-terminals, so the whole
       # suite runs here rather than announcing a skipped capability.
