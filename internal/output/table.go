@@ -97,6 +97,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, userHeader, v, p.userRow)
 	case []core.TenantUser:
 		return renderRows(w, p, tenantUserHeader, v, p.tenantUserRow)
+	case []core.AccountLogEntry:
+		return renderRows(w, p, accountLogHeader, v, p.accountLogRow)
 	case core.User:
 		return renderRows(w, p, userHeader, []core.User{v}, p.userRow)
 	case *core.User:
@@ -195,6 +197,7 @@ var (
 	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
 	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
 	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "CREATED", "DISABLED"}
+	accountLogHeader      = table.Row{"WHEN", "ACTION", "TENANT", "BY", "VIA", "DETAIL"}
 	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
 	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
@@ -297,6 +300,32 @@ func (p Painter) userRow(u core.User) table.Row {
 func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
 	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), string(u.Role), yesNo(u.GlobalAdmin),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
+}
+
+func (p Painter) accountLogRow(e core.AccountLogEntry) table.Row {
+	by := e.ByEmail
+	if by == "" {
+		by = "system"
+	}
+	if e.ByGlobalAdmin {
+		by += " (global admin)"
+	}
+	return table.Row{p.style.Format(e.OccurredAt), string(e.Action), e.TenantKey, by, string(e.Via),
+		accountLogDetail(e.Detail)}
+}
+
+// accountLogDetail renders an entry's detail as key=value pairs in key order.
+func accountLogDetail(d map[string]any) string {
+	keys := make([]string, 0, len(d))
+	for k := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%v", k, d[k]))
+	}
+	return strings.Join(parts, " ")
 }
 
 func (p Painter) issuedRow(t core.IssuedToken) table.Row {

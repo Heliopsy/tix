@@ -44,7 +44,7 @@ The API SHALL serve `POST /auth/switch`, taking a target tenant key and answerin
 
 ### Requirement: Account log routes
 
-The API SHALL serve `GET /account/log` for the caller's own account and `GET /admin/accounts/{email}/log` for a global admin, both keyset paginated.
+The API SHALL serve `GET /account/log` for the caller's own account and `GET /accounts/{email}/log` for a global admin, both keyset paginated.
 
 #### Scenario: Global admin reads a person's log
 

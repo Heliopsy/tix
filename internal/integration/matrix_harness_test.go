@@ -107,7 +107,8 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 		t.Fatalf("granting global admin: %v", err)
 	}
 	issued, err := svc.CreateToken(bootstrapCtx, core.CreateTokenInput{
-		Name: "matrix-admin", ActorID: user.ID, Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin},
+		Name: "matrix-admin", ActorID: user.ID,
+		Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin, core.ScopeAccountRead},
 	})
 	if err != nil {
 		t.Fatalf("minting the admin token: %v", err)
@@ -115,7 +116,8 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 
 	adminActor := &core.Actor{
 		ID: user.ID, TenantID: tenant.ID, Kind: core.ActorUser,
-		Handle: "matrix", Role: core.RoleAdmin, Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin},
+		Handle: "matrix", Role: core.RoleAdmin,
+		Scopes: []core.Scope{core.ScopeAll, core.ScopeGlobalAdmin, core.ScopeAccountRead},
 	}
 	adminCtx := core.WithSource(core.WithActor(ctx, adminActor), core.SourceCLI)
 

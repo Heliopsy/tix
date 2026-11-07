@@ -98,6 +98,16 @@ func (c *Client) CreateTenantUser(ctx context.Context, tenant string, in core.Cr
 	return call[core.User](ctx, c, http.MethodPost, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), nil, in)
 }
 
+// GetAccountLog returns one page of the caller's account log.
+func (c *Client) GetAccountLog(ctx context.Context, page core.Page) ([]core.AccountLogEntry, string, error) {
+	return list[core.AccountLogEntry](ctx, c, wire.RouteAccountLog, pageQuery(page))
+}
+
+// GetAccountLogFor returns one page of an account's log, for a global admin.
+func (c *Client) GetAccountLogFor(ctx context.Context, email string, page core.Page) ([]core.AccountLogEntry, string, error) {
+	return list[core.AccountLogEntry](ctx, c, routePath(wire.RouteAccountLogFor, "email", email), pageQuery(page))
+}
+
 // AddTenantMember adds an existing account to a tenant.
 func (c *Client) AddTenantMember(ctx context.Context, tenant string, in core.AddTenantMemberInput) (*core.User, error) {
 	return call[core.User](ctx, c, http.MethodPost, routePath(wire.RouteTenantMembers, "ref", tenantRef(tenant)), nil, in)

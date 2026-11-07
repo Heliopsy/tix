@@ -206,6 +206,20 @@ SSH keys here stop at once, and their other tenants are untouched. Removing a pe
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
 
+### Account history
+
+Every change to an account is recorded in its own history, in the same transaction as the change: password
+set, password change required or lifted, second factor enrolled or cleared, recovery codes issued or used,
+account disabled or enabled (for the account, or in one tenant), global admin granted or revoked, and
+memberships added, changed or removed. Each entry names the tenant it was made from, who made it, whether as
+a global admin, and the access channel. It never holds a password, hash, code or token.
+
+The person reads it on the Your account's history screen linked from Settings (`/account`), with
+`tix account log`, or `GET /api/v1/account/log`; a token needs the `account:read` scope, which `*` does not
+carry and which a person can only mint for themselves. A global admin reads anybody's from the Global admin
+area, with `tix global-admin account-log EMAIL`, or `GET /api/v1/accounts/{email}/log`. A tenant admin never
+reads it, because it names the person's other tenants. A deleted account's history is kept.
+
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.
 

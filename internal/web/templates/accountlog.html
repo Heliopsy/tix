@@ -1,0 +1,36 @@
+{{/*
+  An account's log: every change to the account, from whichever tenant it was
+  made. The reader's own at /account, any account's for a global admin. A
+  tenant admin never reaches it, because it names the person's other tenants.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    {{if $v.Email}}
+    <h1>{{t "History of %s" $v.Email}}</h1>
+    <p class="lede summary"><a href="/admin/global">{{t "Global admin"}}</a></p>
+    {{else}}
+    <h1>{{t "Your account"}}</h1>
+    <p class="lede summary">{{t "Every change to your password, second factor and memberships, in every tenant you belong to. Only you and global admins can read this."}}</p>
+    {{end}}
+  </div>
+  {{template "help" $}}
+</div>
+
+<ul class="rows accountlog">
+{{range $v.Entries}}
+  <li class="accountlog-row">
+    {{when .OccurredAt}}
+    <span class="accountlog-action">{{.Action}}</span>
+    {{if .TenantKey}}<span class="mono">{{.TenantKey}}</span>{{end}}
+    <span class="muted">{{if .ByEmail}}{{t "by %s" .ByEmail}}{{else}}{{t "by the system"}}{{end}}{{if .ByGlobalAdmin}} &middot; {{t "global admin"}}{{end}} &middot; {{.Via}}</span>
+    {{range $k, $val := .Detail}}<span class="chip">{{$k}}: {{$val}}</span>{{end}}
+  </li>
+{{else}}
+  <li class="empty"><p class="empty-title">{{t "Nothing has changed yet"}}</p></li>
+{{end}}
+</ul>
+
+{{template "pager" $v.Pager}}
+{{end}}

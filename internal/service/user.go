@@ -218,6 +218,9 @@ func (l *Local) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.
 			return err
 		}
 		out = u
+		if err := m.logAccount(ctx, id, core.AccountCreated, map[string]any{"role": string(role)}); err != nil {
+			return err
+		}
 		return m.Record(auditUserCreate, eventUserCreated, "user", id, "", nil, u,
 			map[string]any{"email": email, "handle": handle, "role": string(role),
 				"require_password_change": u.RequirePasswordChange})
@@ -347,6 +350,11 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 			return err
 		}
 		before := *asMember(u, subject)
+		prior, priorOff := *u, subject.DisabledAt != nil
+		priorRole, err := userRole(ctx, m.tx, subject.ID)
+		if err != nil {
+			return err
+		}
 		if in.RequirePasswordChange != nil {
 			u.RequirePasswordChange = *in.RequirePasswordChange
 		}
@@ -362,6 +370,10 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 			}
 		}
 		out = asMember(u, subject)
+		if err := logUserUpdate(ctx, m, prior, u, priorOff, subject.DisabledAt != nil, hash != "",
+			priorRole, in.Role); err != nil {
+			return err
+		}
 		payload := map[string]any{"email": u.Email, "password_changed": hash != ""}
 		if in.Role != nil {
 			payload["role"] = string(*in.Role)
@@ -375,6 +387,51 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		return nil, err
 	}
 	return out, nil
+}
+
+// accountChange is one entry an update adds to the account's log.
+type accountChange struct {
+	action core.AccountAction
+	detail map[string]any
+}
+
+// logUserUpdate records in the account's log what an update changed about
+// the account or the person's standing in this tenant.
+func logUserUpdate(ctx context.Context, m *mutation, prior core.User, u *core.User, priorOff, off, password bool,
+	priorRole core.Role, role *core.Role,
+) error {
+	var entries []accountChange
+	add := func(a core.AccountAction, d map[string]any) { entries = append(entries, accountChange{a, d}) }
+	if password {
+		add(core.AccountPasswordSet, nil)
+	}
+	switch {
+	case !prior.RequirePasswordChange && u.RequirePasswordChange:
+		add(core.AccountPasswordChangeSet, nil)
+	case prior.RequirePasswordChange && !u.RequirePasswordChange:
+		add(core.AccountPasswordChangeLift, nil)
+	}
+	switch {
+	case prior.DisabledAt == nil && u.DisabledAt != nil:
+		add(core.AccountDisabled, map[string]any{"scope": "account"})
+	case prior.DisabledAt != nil && u.DisabledAt == nil:
+		add(core.AccountEnabled, map[string]any{"scope": "account"})
+	}
+	switch {
+	case !priorOff && off:
+		add(core.AccountDisabled, map[string]any{"scope": "tenant"})
+	case priorOff && !off:
+		add(core.AccountEnabled, map[string]any{"scope": "tenant"})
+	}
+	if role != nil && *role != priorRole {
+		add(core.AccountMemberRole, map[string]any{"role": string(*role), "was": string(priorRole)})
+	}
+	for _, e := range entries {
+		if err := m.logAccount(ctx, u.ID, e.action, e.detail); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // applyStanding applies the display name and disabled state of an update. A
@@ -492,8 +549,14 @@ func (l *Local) DeleteUser(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
+		if err := m.logAccount(ctx, u.ID, core.AccountMemberRemoved, nil); err != nil {
+			return err
+		}
 		if !elsewhere {
 			if err := m.tx.DeleteUser(ctx, u.ID); err != nil {
+				return err
+			}
+			if err := m.logAccount(ctx, u.ID, core.AccountDeleted, nil); err != nil {
 				return err
 			}
 		}

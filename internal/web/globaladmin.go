@@ -31,6 +31,7 @@ func (h *handler) globalRoutes() []route {
 		post(RouteGlobalMembers, h.addGlobalMember, "AddTenantMember"),
 		post(RouteGlobalUserUpdate, h.updateGlobalUser, "UpdateTenantUser"),
 		post(RouteGlobalUserDelete, h.deleteGlobalUser, "DeleteTenantUser"),
+		get(RouteGlobalAccount, accountLogTemplate, h.showGlobalAccountLog, "GetAccountLogFor"),
 	}
 }
 

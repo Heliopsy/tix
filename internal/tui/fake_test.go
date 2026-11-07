@@ -698,6 +698,12 @@ func (f *fakeService) ListTenantUsers(context.Context, string, core.Page) ([]cor
 func (f *fakeService) CreateTenantUser(context.Context, string, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }
+func (f *fakeService) GetAccountLog(context.Context, core.Page) ([]core.AccountLogEntry, string, error) {
+	return nil, "", nil
+}
+func (f *fakeService) GetAccountLogFor(context.Context, string, core.Page) ([]core.AccountLogEntry, string, error) {
+	return nil, "", nil
+}
 func (f *fakeService) AddTenantMember(context.Context, string, core.AddTenantMemberInput) (*core.User, error) {
 	return nil, nil
 }

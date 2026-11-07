@@ -242,8 +242,8 @@ reads it, since it names the person's other tenants.
 - Keyset paginated on `seq`. Retention follows the installation's audit retention.
 - Surfaces: `GetAccountLog` (self) and `GetAccountLogFor(email)` (global admin), with registry entries;
   `tix account log`, `tix global-admin account-log EMAIL`; `GET /account/log`,
-  `GET /admin/accounts/{email}/log`; a web Account screen reached from the header's tenant dialog, and a
-  link from each user in the Global admin area.
+  `GET /accounts/{email}/log`; a web Account screen reached from Settings (and from the header's tenant dialog once
+  that exists), and a link from each user in the Global admin area.
 
 ## CLI
 
@@ -323,6 +323,17 @@ link from the dialog to the Global admin area; tenants they are not a member of 
 - Removing a person revokes their SSH keys here too, not only sessions and tokens.
 - Global disable needs no sweep across tenants: the session and token lookups read the account's and the
   actor's disabled state on every request.
+
+## Implementation notes (PR 3)
+
+- `account:read` arrives with the account log rather than with whoami: a token reading its owner's log needs
+  it. It is not implied by `*`, a person mints it only for their own actor, a token without it cannot mint
+  one with it, and a shell holding the database may mint it for anybody.
+- The log lists oldest first by default, like every other listing; the browser screen and the CLI ask for
+  newest first.
+- Writing the log needs the account behind the acting actor. A global admin acting through `inTenant` is not
+  an actor of the target tenant, so the standing marker now carries the global admin's account; tenant
+  creation carries it into the setup transaction, which runs as the system actor.
 
 ## Decisions
 

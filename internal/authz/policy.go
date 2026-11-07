@@ -25,6 +25,9 @@ func (p Policy) Can(actor *core.Actor, action Action, res Resource) error {
 	if action == ActionGlobalAdmin {
 		return p.deny(action, res, "global admin is decided by CanGlobal, not by a scope")
 	}
+	if action == ActionAccountRead {
+		return p.deny(action, res, "reading an account is decided by CanReadAccount, not by a role")
+	}
 	if res.TenantID != "" && res.TenantID != actor.TenantID {
 		return core.NotFound("resource not found")
 	}
@@ -78,6 +81,28 @@ func (p Policy) CanGlobal(actor *core.Actor, standing GlobalStanding) error {
 	}
 	if actor.TokenID != "" && !actor.HasScope(core.ScopeGlobalAdmin) {
 		return p.deny(ActionGlobalAdmin, Resource{}, "the token does not carry the global:admin scope")
+	}
+	return nil
+}
+
+// CanReadAccount decides whether the caller may read their own account. A
+// browser session is the person and may. A token needs account:read named
+// among its scopes, because "*" does not carry it: an agent's token in one
+// tenant must learn nothing about the person's other tenants. A token pinned
+// to a project is confined to it and never reads the account.
+func (p Policy) CanReadAccount(actor *core.Actor) error {
+	if actor == nil {
+		return core.Unauthenticated("no authenticated actor")
+	}
+	if actor.TokenID == "" {
+		return nil
+	}
+	if actor.ScopedToProject() {
+		return p.deny(ActionAccountRead, Resource{}, "token is pinned to a project and this action is not confined to one")
+	}
+	if !actor.HasScope(core.ScopeAccountRead) {
+		return p.deny(ActionAccountRead, Resource{},
+			"reading your account log with a token needs the account:read scope")
 	}
 	return nil
 }

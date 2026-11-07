@@ -19,7 +19,7 @@ func newGlobalAdminCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(globalAdminGrantCmd(g), globalAdminRevokeCmd(g), globalAdminLsCmd(g))
+	cmd.AddCommand(globalAdminGrantCmd(g), globalAdminRevokeCmd(g), globalAdminLsCmd(g), globalAdminAccountLogCmd(g))
 	return cmd
 }
 

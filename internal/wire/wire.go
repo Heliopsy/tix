@@ -68,6 +68,10 @@ const (
 	// The users of a named tenant, which only a global admin reaches.
 	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
 	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
+	// RouteAccountLog is the caller's own account log.
+	RouteAccountLog = APIPrefix + "/account/log"
+	// RouteAccountLogFor is any account's log, for a global admin.
+	RouteAccountLogFor = APIPrefix + "/accounts/{email}/log"
 	// RouteTenantMembers adds an existing account to a tenant.
 	RouteTenantMembers = APIPrefix + "/tenants/{ref}/members"
 	RouteMembers       = APIPrefix + "/members"

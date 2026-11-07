@@ -434,13 +434,14 @@ two apart by filtering on the action. The entry names the token and the actor it
 | `webhook:admin` | manage webhooks |
 | `tenant:admin` | manage the tenant, its members and its domains |
 | `global:admin` | act as a global admin: create tenants, reach every tenant. Not carried by `*`; see [tenancy.md](tenancy.md#global-admins) |
+| `account:read` | read the token owner's own account history, which names every tenant they belong to. Not carried by `*`; minted only for the owner's own actor; see [tenancy.md](tenancy.md#account-history) |
 | `sync:admin` | manage and run import sources |
 | `audit:read` | read the audit log |
 | `export` / `import` | stream a tenant snapshot out or in |
 
-`*` grants everything but `global:admin` and is what the `admin` role carries. Human roles map to scope sets:
-`viewer` gets the read scopes plus `event:subscribe` and `audit:read`; `member` adds task write, transition,
-claim, comments, artifacts and `export`; `admin` gets `*`.
+`*` grants everything but `global:admin` and `account:read` and is what the `admin` role carries. Human roles
+map to scope sets: `viewer` gets the read scopes plus `event:subscribe` and `audit:read`; `member` adds task
+write, transition, claim, comments, artifacts and `export`; `admin` gets `*`.
 
 `--project` on a token pins it to one project. A project-scoped credential subscribing to the event stream has
 its subscription narrowed to that project, and naming a different project is refused.

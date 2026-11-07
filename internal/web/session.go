@@ -24,6 +24,7 @@ func (h *handler) sessionRoutes() []route {
 		public(get(RouteInviteAccept, inviteTemplate, h.showInvite, "PreviewInvite")),
 		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
 		post(RouteLogout, h.doLogout, "Logout"),
+		get(RouteAccount, accountLogTemplate, h.showAccountLog, "GetAccountLog"),
 		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
 		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),

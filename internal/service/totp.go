@@ -227,6 +227,9 @@ func (l *Local) ConfirmTOTPEnrolment(ctx context.Context, code string) (*core.TO
 		if err := m.tx.ConfirmUserTOTP(ctx, user.ID, m.now); err != nil {
 			return err
 		}
+		if err := m.logAccount(ctx, user.ID, core.AccountFactorEnrolled, nil); err != nil {
+			return err
+		}
 		return m.Record(auditTOTPConfirm, eventTOTPConfirmed, subjectTOTP, user.ID, "",
 			map[string]any{"user_id": user.ID, "confirmed": false},
 			map[string]any{"user_id": user.ID, "confirmed": true},
@@ -306,6 +309,9 @@ func (l *Local) verifyWithRecoveryCode(ctx context.Context, actor *core.Actor, u
 		// A code that worked clears the failure the TOTP attempt just
 		// recorded: the limit exists to stop guessing, and this was not one.
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, core.UserTOTP{}); err != nil {
+			return err
+		}
+		if err := m.logAccount(ctx, user.ID, core.AccountRecoveryUsed, map[string]any{"recovery_code_id": id}); err != nil {
 			return err
 		}
 		return m.Record(auditTOTPRecoverySpent, eventTOTPRecoverySpent, subjectTOTP, user.ID, "",
@@ -417,6 +423,9 @@ func (l *Local) clearEnrolment(ctx context.Context, actor *core.Actor, userID, a
 		if _, err := m.tx.DeleteRecoveryCodes(ctx, userID); err != nil {
 			return err
 		}
+		if err := m.logAccount(ctx, userID, core.AccountFactorCleared, map[string]any{"by_owner": action == auditTOTPRemove}); err != nil {
+			return err
+		}
 		return m.Record(action, event, subjectTOTP, userID, "",
 			map[string]any{"user_id": userID, "enrolled": true},
 			nil,
@@ -467,6 +476,9 @@ func (l *Local) issueRecoveryCodes(ctx context.Context, actor *core.Actor, user 
 			}
 		}
 		if err := m.tx.ReplaceRecoveryCodes(ctx, user.ID, rows); err != nil {
+			return err
+		}
+		if err := m.logAccount(ctx, user.ID, core.AccountRecoveryIssued, map[string]any{"codes": len(rows)}); err != nil {
 			return err
 		}
 		return m.Record(auditTOTPCodesIssued, eventTOTPCodesIssued, subjectTOTP, user.ID, "", nil,

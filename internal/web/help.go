@@ -55,6 +55,8 @@ var helpDocs = map[string]helpDoc{
 	"/admin/ssh-keys":                    {"deployment.md", "enrolling-a-key"},
 	"/admin/global":                      {"tenancy.md", "global-admins"},
 	"/admin/global/tenants/{key}":        {"tenancy.md", "global-admins"},
+	"/admin/global/accounts/{email}":     {"tenancy.md", "account-history"},
+	"/account":                           {"tenancy.md", "account-history"},
 	"/admin/connections":                 {"web-ui.md", "server-administration"},
 	"/admin/webhooks":                    {"api.md", "webhooks"},
 	"/transfer":                          {"migrating.md", "moving-a-whole-tenant"},

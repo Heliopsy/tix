@@ -250,3 +250,31 @@ func TestTheGlobalAdminAddsAnExistingPersonToATenant(t *testing.T) {
 		t.Errorf("the refusal does not say the address has no account:\n%s", page)
 	}
 }
+
+// The reader's own account log is a screen of its own, linked from settings,
+// and a global admin reaches anybody's from the Global admin area.
+func TestAccountHistoryIsReadableByThePersonAndAGlobalAdmin(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	f.makeGlobalAdmin()
+	b := f.as("alice")
+	added := b.post("/admin/global/members", url.Values{"target": {"other"}, "email": {"alice@acme.test"},
+		"role": {"viewer"}})
+	wantStatus(t, added, http.StatusSeeOther)
+	_ = added.Body.Close()
+	if settings := b.page("/settings"); !strings.Contains(settings, `href="/account"`) {
+		t.Error("the settings screen does not link to the account's history")
+	}
+	own := b.page("/account")
+	if !strings.Contains(own, "account.membership_added") || !strings.Contains(own, "other") {
+		t.Errorf("alice's history does not show her membership of the other tenant:\n%s", own)
+	}
+	global := b.page("/admin/global")
+	if !strings.Contains(global, `href="/admin/global/accounts/alice@acme.test"`) {
+		t.Error("the Global admin area does not link to a global admin's history")
+	}
+	theirs := b.page("/admin/global/accounts/alice@acme.test")
+	if !strings.Contains(theirs, "alice@acme.test") || !strings.Contains(theirs, "account.membership_added") {
+		t.Errorf("the global admin's view of alice's history is wrong:\n%s", theirs)
+	}
+}

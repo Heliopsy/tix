@@ -184,6 +184,10 @@ func (l *Local) prepareInvitee(ctx context.Context, m *mutation, found invitee, 
 		if err := setUserRole(ctx, m.tx, member.ID, role); err != nil {
 			return invited{}, err
 		}
+		if err := m.logAccount(ctx, found.user.ID, core.AccountMemberAdded,
+			map[string]any{"role": string(role), "invited": true}); err != nil {
+			return invited{}, err
+		}
 	}
 	return invited{actorID: member.ID, existing: existing, role: role}, nil
 }
@@ -228,6 +232,10 @@ func (l *Local) createInvitedUser(ctx context.Context, m *mutation, email string
 		return "", err
 	}
 	if err := setUserRole(ctx, m.tx, userID, role); err != nil {
+		return "", err
+	}
+	if err := m.logAccount(ctx, userID, core.AccountCreated,
+		map[string]any{"role": string(role), "invited": true}); err != nil {
 		return "", err
 	}
 	return userID, m.Record(auditUserCreate, eventUserCreated, "user", userID, "", nil, u,
@@ -509,6 +517,10 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 			if err != nil {
 				return err
 			}
+			if err := m.logAccount(ctx, live.user.ID, core.AccountPasswordSet,
+				map[string]any{"invite": live.invite.ID}); err != nil {
+				return err
+			}
 		}
 		after := *live.invite
 		after.AcceptedAt = &m.now
@@ -579,6 +591,10 @@ func (l *Local) acceptMembership(ctx context.Context, live liveInvite, surface c
 		after.AcceptedAt = &m.now
 		trail := inviteTrail(after)
 		trail["membership"] = string(live.role)
+		if err := m.logAccount(ctx, live.user.ID, core.AccountMemberAdded,
+			map[string]any{"role": string(live.role), "invite": live.invite.ID}); err != nil {
+			return err
+		}
 		return m.Record(auditInviteAccept, eventInviteAccepted, subjectInvite, live.invite.ID, "",
 			*live.invite, after, trail)
 	}
