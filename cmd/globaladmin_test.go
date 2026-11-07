@@ -208,3 +208,25 @@ func assertTenantUserTable(t *testing.T, out, id string) {
 		t.Errorf("the table prints a struct:\n%s", out)
 	}
 }
+
+func TestTenantUserAddPutsAnExistingAccountInAnotherTenant(t *testing.T) {
+	c := newCLI(t)
+	db := filepath.Join(t.TempDir(), "tix.db")
+	c.mustRun("--db", db, "user", "create", "villy@ho.test", "--role", "member", "--password", "correct-horse-battery")
+	c.mustRun("--db", db, "tenant", "create", "test", "Test")
+
+	c.mustRun("--db", db, "tenant", "user", "add", "test", "villy@ho.test", "--dry-run")
+	c.mustRun("--db", db, "tenant", "user", "add", "test", "villy@ho.test", "--role", "admin")
+	listed := c.mustRun("--db", db, "tenant", "user", "ls", "test", "-o", "json")
+	var users []core.TenantUser
+	if err := json.Unmarshal([]byte(listed.out), &users); err != nil || len(users) != 1 ||
+		users[0].Email != "villy@ho.test" || users[0].Role != core.RoleAdmin {
+		t.Fatalf("tix tenant user ls test = %s (%v), want villy as admin", listed.out, err)
+	}
+	if got := c.run("--db", db, "tenant", "user", "add", "test", "villy@ho.test"); got.code != core.ExitConflict {
+		t.Errorf("adding villy twice exited %d, want %d", got.code, core.ExitConflict)
+	}
+	if got := c.run("--db", db, "tenant", "user", "add", "test", "nobody@ho.test"); got.code != core.ExitNotFound {
+		t.Errorf("adding an address with no account exited %d, want %d", got.code, core.ExitNotFound)
+	}
+}

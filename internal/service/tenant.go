@@ -113,11 +113,12 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 		return nil, err
 	}
 	key := strings.ToLower(strings.TrimSpace(in.Key))
-	admins, err := l.prepareAdmins(in.Admins)
+	accounts, err := l.existingAccounts(ctx, in.Admins)
 	if err != nil {
 		return nil, err
 	}
-	if err := l.adminEmailsFree(ctx, admins); err != nil {
+	admins, err := l.prepareAdmins(in.Admins, accounts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -144,21 +145,58 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 
 // pendingAdmin is one admin of a tenant being created, resolved and hashed
 // before any transaction opens. Password is set only when it was generated.
+// Account is set when the address already has one, which is then made an
+// admin of the new tenant with its password and second factor untouched.
 type pendingAdmin struct {
 	email, handle, displayName string
 	hash, generated            string
+	account                    *core.User
 }
 
-// prepareAdmins normalises the admins and hashes their passwords, generating
-// one where none was given. Hashing happens here, outside any transaction,
-// because it is deliberately slow.
-func (l *Local) prepareAdmins(in []core.TenantAdminInput) ([]pendingAdmin, error) {
+// existingAccounts finds the admins whose addresses already have an account.
+// Only a global admin creates a tenant, and a global admin can already set any
+// account's password, so making an existing account an admin of the new
+// tenant asks nothing of its owner.
+func (l *Local) existingAccounts(ctx context.Context, in []core.TenantAdminInput) (map[string]*core.User, error) {
+	out := map[string]*core.User{}
+	if len(in) == 0 {
+		return out, nil
+	}
+	err := l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+		for _, a := range in {
+			email := core.NormalEmail(a.Email)
+			switch found, _, err := u.GetUserByEmail(ctx, email); {
+			case err == nil:
+				out[email] = found
+			case !core.IsKind(err, core.KindNotFound):
+				return err
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+// prepareAdmins normalises the admins and hashes the passwords of new ones,
+// generating one where none was given. Hashing happens here, outside any
+// transaction, because it is deliberately slow. An existing account keeps its
+// password, so supplying one for it is refused rather than ignored.
+func (l *Local) prepareAdmins(in []core.TenantAdminInput, accounts map[string]*core.User) ([]pendingAdmin, error) {
 	out := make([]pendingAdmin, 0, len(in))
 	for _, a := range in {
 		p := pendingAdmin{
 			email:       core.NormalEmail(a.Email),
 			handle:      a.HandleOrDefault(),
 			displayName: strings.TrimSpace(a.DisplayName),
+		}
+		if acct := accounts[p.email]; acct != nil {
+			if a.Password != "" {
+				return nil, core.Invalid("%s already has an account, which keeps its own password; leave the "+
+					"password out", p.email).WithDetail(core.DetailField, "admins")
+			}
+			p.account = acct
+			out = append(out, p)
+			continue
 		}
 		password := a.Password
 		if password == "" {
@@ -187,24 +225,6 @@ func adminEmails(admins []pendingAdmin) []string {
 	return out
 }
 
-// adminEmailsFree refuses an admin whose email already belongs to a user,
-// before anything is written. A user row is bound to the one tenant its actor
-// lives in, so an existing user cannot be made an admin of a second tenant;
-// see openspec/changes/global-admins-and-tenant-bootstrap/design.md.
-func (l *Local) adminEmailsFree(ctx context.Context, admins []pendingAdmin) error {
-	if len(admins) == 0 {
-		return nil
-	}
-	return l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
-		for _, a := range admins {
-			if err := emailFree(ctx, u, a.email); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 // emailFree reports a conflict when a user already holds the address.
 func emailFree(ctx context.Context, u store.UnscopedTx, email string) error {
 	switch _, _, err := u.GetUserByEmail(ctx, email); {
@@ -230,6 +250,14 @@ func (l *Local) seedTenant(ctx context.Context, tenant *core.Tenant, admins []pe
 			return err
 		}
 		for _, a := range admins {
+			if a.account != nil {
+				created, err := addAccountAdmin(ctx, m, a)
+				if err != nil {
+					return err
+				}
+				out.Admins = append(out.Admins, created)
+				continue
+			}
 			if err := emailFree(ctx, u, a.email); err != nil {
 				return err
 			}
@@ -281,6 +309,25 @@ func createAdmin(ctx context.Context, m *mutation, id string, a pendingAdmin) (c
 		return core.CreatedAdmin{}, err
 	}
 	return core.CreatedAdmin{UserID: id, Email: a.email, Handle: a.handle, PasswordGenerated: a.generated != ""}, nil
+}
+
+// addAccountAdmin makes an existing account an admin of the new tenant: an
+// actor linked to it and an admin membership, recorded as a membership added
+// by the global admin who created the tenant.
+func addAccountAdmin(ctx context.Context, m *mutation, a pendingAdmin) (core.CreatedAdmin, error) {
+	actor, err := createMemberActor(ctx, m, a.account, a.email, a.handle)
+	if err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	if err := m.tx.AddMember(ctx, &core.Membership{ActorID: actor.ID, Role: core.RoleAdmin}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	if err := m.Record(auditMemberAdd, eventMemberAdded, "user", actor.ID, "", nil, asMember(a.account, actor),
+		map[string]any{"email": a.email, "handle": actor.Handle, "role": string(core.RoleAdmin),
+			"with_tenant": true, "existing_account": true}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	return core.CreatedAdmin{UserID: actor.ID, Email: a.email, Handle: actor.Handle}, nil
 }
 
 // unwindTenant removes a tenant whose setup failed, and records the removal

@@ -19,7 +19,8 @@ func newTenantUserCmd(g *globals) *cobra.Command {
 		Args: noArgs,
 		RunE: helpRunner,
 	}
-	cmd.AddCommand(tenantUserLsCmd(g), tenantUserCreateCmd(g), tenantUserEditCmd(g), tenantUserRmCmd(g))
+	cmd.AddCommand(tenantUserLsCmd(g), tenantUserCreateCmd(g), tenantUserAddCmd(g), tenantUserEditCmd(g),
+		tenantUserRmCmd(g))
 	return cmd
 }
 
@@ -97,6 +98,45 @@ func tenantUserCreateCmd(g *globals) *cobra.Command {
 	f.StringVar(&role, "role", "", "role in that tenant")
 	f.BoolVar(&mustChange, "require-password-change", false, "make the first sign-in choose a new password")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
+	return cmd
+}
+
+func tenantUserAddCmd(g *globals) *cobra.Command {
+	var handle, role string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "add KEY EMAIL",
+		Short: "Add an existing account to a tenant",
+		Long: "Add the account that signs in as EMAIL to the tenant named by KEY, with a role. The person keeps " +
+			"one password and one second factor and signs in to either tenant with them; they are not asked to " +
+			"accept. A tenant admin cannot do this: tix user invite sends them a link they accept themselves.\n\n" +
+			"Exit codes: 2 invalid input, 3 unknown tenant or no such account, 4 already a member or handle taken, " +
+			"5 not a global admin.",
+		Example: "  tix tenant user add test villy@example.com --role admin",
+		Args:    exactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in := core.AddTenantMemberInput{Email: args[1], Handle: handle, Role: core.Role(role)}
+			if err := in.Validate(); err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("tenant.member.add", args[0]+"/"+in.Email, nil))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			user, err := conn.Service.AddTenantMember(ctx, args[0], in)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, user)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&handle, "handle", "", "the person's handle in that tenant; default the part of EMAIL before @")
+	f.StringVar(&role, "role", "", "role in that tenant; default viewer")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be added without writing")
 	return cmd
 }
 

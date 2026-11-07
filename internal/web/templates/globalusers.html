@@ -5,7 +5,7 @@
     <h1>{{t "Users of %s" $v.Tenant.Name}}</h1>
     <p class="lede summary"><a href="/admin/global">{{t "Global admin"}}</a> &middot; <span class="mono">{{$v.Tenant.Key}}</span></p>
   </div>
-  <div class="pagehead-tools">{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "member-add" (t "Add an existing person") "plus" "secondary" .Here)}}{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
   {{template "help" $}}
 </div>
 
@@ -102,6 +102,28 @@
       <input id="password" name="password" type="password" autocomplete="new-password"{{$d.Errors.Attrs "password"}}>
       {{with $d.Errors.On "password"}}{{template "field-error" .}}{{end}}
       <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create user"}}</button></div>
+    </form>
+{{template "dlg-end"}}
+{{$m := .Dialog.For "member-add"}}
+{{$ms := shell "member-add" (t "Add an existing person") "" .Dialog .Here}}
+{{template "dlg-start" $ms}}
+    <form method="post" action="/admin/global/members">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="target" value="{{$v.Tenant.Key}}">
+      <p class="muted">{{t "Someone who already has an account in another tenant signs in here with the same password and second factor. They are not asked to accept."}}</p>
+      {{with $m.Errors.On ""}}{{template "field-error" .}}{{end}}
+      <div class="row">
+        <div><label for="member-email">{{t "Email"}}</label><input id="member-email" name="email" type="email" value="{{$m.Value "email"}}" required{{$m.Errors.Attrs "email"}}>{{with $m.Errors.On "email"}}{{template "field-error" .}}{{end}}</div>
+        <div><label for="member-handle">{{t "Handle"}}</label><input id="member-handle" name="handle" value="{{$m.Value "handle"}}"{{$m.Errors.Attrs "handle"}}>{{with $m.Errors.On "handle"}}{{template "field-error" .}}{{end}}</div>
+        <div>
+          <label for="member-role">{{t "Role"}}</label>
+          <select id="member-role" name="role"{{$m.Errors.Attrs "role"}}>
+            {{range $v.Roles}}<option value="{{.}}"{{if $m.Chose "role" (print .)}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+          {{with $m.Errors.On "role"}}{{template "field-error" .}}{{end}}
+        </div>
+      </div>
+      <div class="actiondlg-foot">{{template "dlg-cancel" $ms.Back}}<button type="submit">{{t "Add person"}}</button></div>
     </form>
 {{template "dlg-end"}}
 {{end}}

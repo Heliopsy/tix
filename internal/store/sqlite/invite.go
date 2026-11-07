@@ -13,7 +13,7 @@ import (
 )
 
 var inviteColumns = []string{
-	"id", "tenant_id", "user_id", "email", "role", "invited_by", "existing_account",
+	"id", "tenant_id", "user_id", "email", "role", "invited_by", "existing_account", "grants_membership",
 	"created_at", "expires_at", "accepted_at", "revoked_at",
 }
 
@@ -21,13 +21,14 @@ func scanInvite(s scanner, extra ...any) (*core.Invite, error) {
 	var (
 		inv      core.Invite
 		existing int64
+		grants   int64
 		created  sql.NullString
 		expires  sql.NullString
 		accepted sql.NullString
 		revoked  sql.NullString
 	)
 	dest := append([]any{&inv.ID, &inv.TenantID, &inv.UserID, &inv.Email, &inv.Role, &inv.InvitedBy,
-		&existing, &created, &expires, &accepted, &revoked}, extra...)
+		&existing, &grants, &created, &expires, &accepted, &revoked}, extra...)
 	if err := s.Scan(dest...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, core.NotFound("invite not found")
@@ -35,6 +36,7 @@ func scanInvite(s scanner, extra ...any) (*core.Invite, error) {
 		return nil, mapErr(err, "scanning invite")
 	}
 	inv.ExistingAccount = sqlb.Bool(existing)
+	inv.GrantsMembership = sqlb.Bool(grants)
 	var err error
 	if inv.CreatedAt, err = sqlb.ScanTime(created); err != nil {
 		return nil, err
@@ -61,6 +63,7 @@ func (t *tx) CreateInvite(ctx context.Context, inv *core.Invite, tokenHash strin
 		Set("role", string(inv.Role)).
 		Set("invited_by", inv.InvitedBy).
 		Set("existing_account", sqlb.BoolInt(inv.ExistingAccount)).
+		Set("grants_membership", sqlb.BoolInt(inv.GrantsMembership)).
 		Set("token_hash", tokenHash).
 		Set("created_at", sqlb.TimeText(inv.CreatedAt)).
 		Set("expires_at", sqlb.TimeText(inv.ExpiresAt))

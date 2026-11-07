@@ -128,8 +128,17 @@ func (l *Local) findCandidate(ctx context.Context, scope core.TenantScope, email
 }
 
 // usable reports whether the candidate may be logged in with password.
+//
+// A person with an actor here but no membership, removed from this tenant or
+// invited and not yet accepted, is no candidate: absence of a membership is
+// absence of access.
 func (c candidate) usable() bool {
-	return c.user != nil && c.actor != nil && c.user.DisabledAt == nil && c.hash != ""
+	return c.user != nil && c.actor != nil && c.user.DisabledAt == nil && c.hash != "" && c.member()
+}
+
+// member reports whether the candidate holds a live membership of this tenant.
+func (c candidate) member() bool {
+	return c.role != "" && c.actor != nil && c.actor.DisabledAt == nil
 }
 
 // Login is one step of an interactive sign-in.
@@ -359,7 +368,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		}
 		return nil, err
 	}
-	if user.DisabledAt != nil {
+	if user.DisabledAt != nil || !cand.member() {
 		return nil, errInvalidCredentials()
 	}
 	sessionActor := cand.sessionActor(scope)

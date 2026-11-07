@@ -309,18 +309,41 @@ func TestInvitingAnExistingAccountKeepsItsPassword(t *testing.T) {
 	}
 }
 
-func TestAnAddressOfAnotherTenantIsRefused(t *testing.T) {
-	l, _, _, admin := newLocal(t)
+// An address of another tenant is invited, not added: the invite names a new
+// actor here, and the person holds no membership and cannot sign in here until
+// they accept with their own password.
+func TestAnAddressOfAnotherTenantIsInvitedNotAdded(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
 	other := otherTenantActor(t, l)
 	if _, err := l.CreateUser(authContext(other), core.CreateUserInput{Email: "carol@example.com", Password: testPassword}); err != nil {
 		t.Fatalf("CreateUser in the other tenant: %v", err)
 	}
-	_, err := l.CreateInvite(authContext(admin), core.CreateInviteInput{Email: "carol@example.com"})
-	if !core.IsKind(err, core.KindConflict) {
-		t.Fatalf("err = %v, want conflict", err)
+	issued := invite(t, l, admin, core.CreateInviteInput{Email: "carol@example.com", Role: core.RoleMember})
+	if !issued.GrantsMembership || !issued.ExistingAccount {
+		t.Fatalf("issued = %+v, want an invite that grants its membership on acceptance", issued.Invite)
+	}
+	if _, err := signIn(l, scope, "carol@example.com", testPassword); err == nil {
+		t.Fatal("carol signs in to a tenant she has only been invited to")
+	}
+
+	ctx := loginContext(scope)
+	if _, err := l.AcceptInvite(ctx, issued.Token, core.AcceptInviteInput{Password: "not-her-password-at-all"}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Fatalf("accepting with the wrong password = %v, want unauthenticated", err)
+	}
+	if _, err := signIn(l, scope, "carol@example.com", testPassword); err == nil {
+		t.Fatal("a refused acceptance granted the membership")
+	}
+	result, err := l.AcceptInvite(ctx, issued.Token, core.AcceptInviteInput{Password: testPassword})
+	if err != nil || result.Session == nil {
+		t.Fatalf("accepting with her password = %+v, %v; want a session", result, err)
+	}
+	if result.Session.ActorID != issued.UserID || result.Session.TenantID != scope.TenantID {
+		t.Fatalf("session = %+v, want her new actor %q in this tenant", result.Session, issued.UserID)
+	}
+	if _, err := signIn(l, scope, "carol@example.com", testPassword); err != nil {
+		t.Fatalf("signing in after accepting = %v", err)
 	}
 }
-
 func TestInvitesNeedUserAdmin(t *testing.T) {
 	l, _, scope, _ := newLocal(t)
 	viewer := &core.Actor{ID: "viewer", TenantID: scope.TenantID, Kind: core.ActorUser, Role: core.RoleViewer}

@@ -172,6 +172,11 @@ type Actor struct {
 	// resolves to: the account is found through the store, never assumed to
 	// share the actor's identifier.
 	UserID string `json:"-" yaml:"-"`
+	// DisabledAt is when the actor was disabled in its tenant, as the store
+	// holds it. A disabled actor's credentials stop working in that tenant
+	// alone; the account and its other tenants are untouched. Never
+	// serialised.
+	DisabledAt *time.Time `json:"-" yaml:"-"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
@@ -324,6 +329,23 @@ func SourceFrom(ctx context.Context) Source {
 		return s
 	}
 	return SourceSystem
+}
+
+// AccountMembership is one tenant an account belongs to: its actor there and
+// the role its membership grants.
+type AccountMembership struct {
+	// TenantID is the tenant.
+	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// TenantKey is the tenant's key.
+	TenantKey string `json:"tenant_key" yaml:"tenant_key"`
+	// TenantName is the tenant's name.
+	TenantName string `json:"tenant_name" yaml:"tenant_name"`
+	// ActorID is the account's actor in the tenant.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Handle is that actor's handle.
+	Handle string `json:"handle" yaml:"handle"`
+	// Role is the role the membership grants.
+	Role Role `json:"role" yaml:"role"`
 }
 
 // Membership grants a human a role within one tenant.

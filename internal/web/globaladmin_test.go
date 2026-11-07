@@ -217,3 +217,36 @@ func TestCredentialSecretsIgnoreAMangledCookie(t *testing.T) {
 		}
 	}
 }
+
+// A global admin adds a person who already has an account to another tenant
+// from the tenant's users screen, and an address with no account is refused
+// in the dialog.
+func TestTheGlobalAdminAddsAnExistingPersonToATenant(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	f.makeGlobalAdmin()
+	b := f.as("alice")
+	form := formAt(t, b.page("/admin/global/tenants/other"), "/admin/global/members")
+	for _, name := range []string{`name="email"`, `name="handle"`, `name="role"`, `name="target" value="other"`} {
+		if !strings.Contains(form, name) {
+			t.Errorf("the add-a-person form lacks %s:\n%s", name, form)
+		}
+	}
+
+	added := b.post("/admin/global/members", url.Values{"target": {"other"}, "email": {"alice@acme.test"},
+		"handle": {"alice"}, "role": {"admin"}})
+	wantStatus(t, added, http.StatusSeeOther)
+	_ = added.Body.Close()
+	id := userIDFor(t, b.page("/admin/global/tenants/other"), "alice@acme.test")
+	if id == f.actorA.ID {
+		t.Errorf("alice's actor in the other tenant is her home actor %q; want one of its own", id)
+	}
+
+	refused := b.post("/admin/global/members", url.Values{"target": {"other"}, "email": {"nobody@acme.test"}})
+	if refused.StatusCode == http.StatusSeeOther {
+		t.Fatal("an address with no account was added")
+	}
+	if page := readAll(t, refused); !strings.Contains(page, "no account has the address") {
+		t.Errorf("the refusal does not say the address has no account:\n%s", page)
+	}
+}

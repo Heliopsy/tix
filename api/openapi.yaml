@@ -8301,6 +8301,66 @@ paths:
         - tenant
       x-tix-openspec:
         - http-api
+  /api/v1/tenants/{ref}/members:
+    post:
+      description: |-
+        AddTenantMember adds an existing account, found by email, to any tenant with a role: a new actor there and its membership, with no acceptance asked of the person. An account that already has an actor there without a membership gets the membership back. Global admin only; a tenant admin invites instead, and the person accepts.
+
+        Command line: `tix tenant user add`.
+      operationId: tenant.member.add
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTenantMemberInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: User is a credentialed human.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: 'AddTenantMember adds an existing account, found by email, to any tenant
+        with a role: a new actor there and its membership, with no acceptance asked
+        of the person'
+      tags:
+        - tenant
   /api/v1/tenants/{ref}/users:
     get:
       description: |-
@@ -10152,6 +10212,11 @@ components:
     AcceptInviteInput:
       description: AcceptInviteInput accepts an invite.
       properties:
+        code:
+          description: 'Code is a code from the account''s second factor, required
+            when the preview says so: accepting an invite to an account of another
+            tenant asks for everything signing in to it would.'
+          type: string
         display_name:
           description: DisplayName replaces the account's display name when set; ignored
             for an existing account.
@@ -10242,6 +10307,20 @@ components:
         role:
           $ref: '#/components/schemas/Role'
           description: Role is the role to grant, which decides the member's scopes.
+      type: object
+    AddTenantMemberInput:
+      description: AddTenantMemberInput adds an existing account to a tenant.
+      properties:
+        email:
+          description: Email is the account's sign-in address. Required.
+          type: string
+        handle:
+          description: Handle is the person's short name in the tenant; empty uses
+            the part of the email before the "@".
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role granted in the tenant; empty means "viewer".
       type: object
     Artifact:
       description: Artifact is structured output attached to a task by a worker.
@@ -11904,6 +11983,10 @@ components:
           description: ExpiresAt is when the link stops working, RFC 3339.
           format: date-time
           type: string
+        grants_membership:
+          description: GrantsMembership reports that the invited account belongs to
+            another tenant and holds no membership here until its owner accepts.
+          type: boolean
         id:
           description: ID identifies the invite, for listing, revoking and re-issuing
             it.
@@ -11938,6 +12021,11 @@ components:
         shown before accepting it. It names the account and nothing about who else
         exists.
       properties:
+        code_required:
+          description: 'CodeRequired reports that accepting needs a code from the
+            account''s second factor: the account belongs to another tenant and holds
+            one.'
+          type: boolean
         display_name:
           description: DisplayName is the account's current display name.
           type: string
@@ -12067,6 +12155,10 @@ components:
           description: ExpiresAt is when the link stops working, RFC 3339.
           format: date-time
           type: string
+        grants_membership:
+          description: GrantsMembership reports that the invited account belongs to
+            another tenant and holds no membership here until its owner accepts.
+          type: boolean
         id:
           description: ID identifies the invite, for listing, revoking and re-issuing
             it.

@@ -95,9 +95,15 @@ func accountOfActor(ctx context.Context, tx store.Tx, actorID string) (*core.Use
 // asMember presents an account as a user of this tenant, whose identifier is
 // the tenant's actor. For every account created before actors carried a link
 // the two are equal; for a person in several tenants they are not.
+//
+// A person disabled in this tenant alone reads as disabled here, whatever the
+// account's own state.
 func asMember(u *core.User, a *core.Actor) *core.User {
 	out := *u
 	out.ID = a.ID
+	if out.DisabledAt == nil && a.DisabledAt != nil {
+		out.DisabledAt = a.DisabledAt
+	}
 	return &out
 }
 
@@ -302,6 +308,11 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 
 // UpdateUser changes a user's display name, password, role, disabled state or
 // whether their next sign-in must choose a new password.
+//
+// For a person who also belongs to another tenant, a tenant administrator who
+// is not a global admin may change only their standing here: the role, the
+// display name in this tenant, and whether they are disabled in this tenant.
+// Their password and the forced password change are refused.
 func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInput) (*core.User, error) {
 	actor, err := l.authorize(ctx, authz.ActionUserAdmin, authz.Resource{})
 	if err != nil {
@@ -309,6 +320,17 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 	}
 	if in.Role != nil && !in.Role.Valid() {
 		return nil, core.Invalid("role %q is not recognised", *in.Role)
+	}
+	account, err := l.accountForUser(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	reach, err := l.reachOver(ctx, account, actor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !reach.account && (in.Password != nil || in.RequirePasswordChange != nil) {
+		return nil, errAccountInOtherTenants()
 	}
 
 	hash := ""
@@ -324,29 +346,12 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		if err != nil {
 			return err
 		}
-		before := *u
-		if in.DisplayName != nil {
-			u.DisplayName = *in.DisplayName
-		}
+		before := *asMember(u, subject)
 		if in.RequirePasswordChange != nil {
 			u.RequirePasswordChange = *in.RequirePasswordChange
 		}
-		if in.Disabled != nil {
-			switch {
-			case *in.Disabled && u.DisabledAt == nil:
-				now := m.now
-				u.DisabledAt = &now
-				// Disabling must take effect now, not when the credential
-				// happens to expire.
-				if _, err := m.tx.DeleteActorSessions(ctx, subject.ID); err != nil {
-					return err
-				}
-				if _, err := m.tx.RevokeActorTokens(ctx, subject.ID, m.now); err != nil {
-					return err
-				}
-			case !*in.Disabled:
-				u.DisabledAt = nil
-			}
+		if err := applyStanding(ctx, m, u, subject, in, reach); err != nil {
+			return err
 		}
 		if err := m.tx.UpdateUser(ctx, u, hash); err != nil {
 			return err
@@ -364,8 +369,7 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		if in.RequirePasswordChange != nil {
 			payload["require_password_change"] = u.RequirePasswordChange
 		}
-		return m.Record(auditUserUpdate, eventUserUpdated, "user", subject.ID, "",
-			asMember(&before, subject), out, payload)
+		return m.Record(auditUserUpdate, eventUserUpdated, "user", subject.ID, "", before, out, payload)
 	})
 	if err != nil {
 		return nil, err
@@ -373,10 +377,101 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 	return out, nil
 }
 
-// DeleteUser removes a user and revokes its membership of this tenant, which is
-// what stops its actor from acting once the account is gone.
+// applyStanding applies the display name and disabled state of an update. A
+// caller whose reach is the account changes the account, as before; one whose
+// reach is this tenant changes the person's actor here, which leaves their
+// other tenants as they were.
+func applyStanding(ctx context.Context, m *mutation, u *core.User, subject *core.Actor,
+	in core.UpdateUserInput, reach accountReach,
+) error {
+	actorChanged := false
+	if in.DisplayName != nil {
+		if reach.account {
+			u.DisplayName = *in.DisplayName
+		} else {
+			subject.DisplayName = *in.DisplayName
+			actorChanged = true
+		}
+	}
+	if in.Disabled != nil {
+		switch {
+		case *in.Disabled && reach.account && u.DisabledAt == nil:
+			now := m.now
+			u.DisabledAt = &now
+		case *in.Disabled && !reach.account && subject.DisabledAt == nil:
+			now := m.now
+			subject.DisabledAt = &now
+			actorChanged = true
+		case !*in.Disabled:
+			if reach.account {
+				u.DisabledAt = nil
+			}
+			if subject.DisabledAt != nil {
+				subject.DisabledAt = nil
+				actorChanged = true
+			}
+		}
+		if *in.Disabled {
+			// Disabling must take effect now, not when the credential
+			// happens to expire.
+			if _, err := revokeStanding(ctx, m, subject.ID); err != nil {
+				return err
+			}
+		}
+	}
+	if actorChanged {
+		return m.tx.UpdateActor(ctx, subject)
+	}
+	return nil
+}
+
+// revoked counts the credentials revokeStanding ended.
+type revoked struct {
+	sessions, tokens, keys int64
+}
+
+// revokeStanding ends every session, token and SSH key an actor holds in this
+// tenant, in the caller's transaction.
+func revokeStanding(ctx context.Context, m *mutation, actorID string) (revoked, error) {
+	var out revoked
+	var err error
+	if out.sessions, err = m.tx.DeleteActorSessions(ctx, actorID); err != nil {
+		return out, err
+	}
+	if out.tokens, err = m.tx.RevokeActorTokens(ctx, actorID, m.now); err != nil {
+		return out, err
+	}
+	keys, err := m.tx.ListSSHKeys(ctx, actorID)
+	if err != nil {
+		return out, err
+	}
+	for _, k := range keys {
+		if !k.Active() {
+			continue
+		}
+		if err := m.tx.RevokeSSHKey(ctx, k.ID, m.now); err != nil {
+			return out, err
+		}
+		out.keys++
+	}
+	return out, nil
+}
+
+// DeleteUser removes a user from this tenant: its membership goes, and its
+// sessions, tokens and SSH keys here stop working in the same transaction.
+// The account itself is deleted only when this was its last tenant; a person
+// who also belongs to another tenant keeps the account and every other
+// membership, whoever asks. The answer is the same either way.
 func (l *Local) DeleteUser(ctx context.Context, id string) error {
 	actor, err := l.authorize(ctx, authz.ActionUserAdmin, authz.Resource{})
+	if err != nil {
+		return err
+	}
+	account, err := l.accountForUser(ctx, actor, id)
+	if err != nil {
+		return err
+	}
+	elsewhere, err := l.memberElsewhere(ctx, account.ID, actor.TenantID)
 	if err != nil {
 		return err
 	}
@@ -393,24 +488,19 @@ func (l *Local) DeleteUser(ctx context.Context, id string) error {
 		case !core.IsKind(err, core.KindNotFound):
 			return err
 		}
-		// Removing the row is not enough: a live session or token would keep
-		// working until it expired, so the credentials go in the same
-		// transaction as the deletion.
-		sessions, err := m.tx.DeleteActorSessions(ctx, a.ID)
+		ended, err := revokeStanding(ctx, m, a.ID)
 		if err != nil {
 			return err
 		}
-		tokens, err := m.tx.RevokeActorTokens(ctx, a.ID, m.now)
-		if err != nil {
-			return err
-		}
-		if err := m.tx.DeleteUser(ctx, u.ID); err != nil {
-			return err
+		if !elsewhere {
+			if err := m.tx.DeleteUser(ctx, u.ID); err != nil {
+				return err
+			}
 		}
 		return m.Record(auditUserDelete, eventUserDeleted, "user", a.ID, "", asMember(u, a), nil,
 			map[string]any{
 				"email": u.Email, "handle": a.Handle,
-				"sessions_ended": sessions, "tokens_revoked": tokens,
+				"sessions_ended": ended.sessions, "tokens_revoked": ended.tokens, "keys_revoked": ended.keys,
 			})
 	})
 }

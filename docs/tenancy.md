@@ -41,10 +41,9 @@ A lost one is replaced by setting a new password (`tix tenant user edit KEY ID -
 
 The handle comes from the part of the address before `@` unless one is given over the API. An address named twice,
 two admins that would share a handle, a supplied password under 12 characters, or more than 10 admins are refused
-before anything is written. So is an address that already belongs to a user: a user and its actor share one
-identifier, and an actor lives in one tenant, so in this version a user cannot also administer a second tenant.
-The answer is a conflict naming the address, exit 4, and nothing is created. The caller is never added to the new
-tenant for the same reason.
+before anything is written. An address that already has an account becomes an admin of the new tenant with the
+password and second factor it has: nothing is generated for it, and supplying a password for it is refused.
+See [One person in several tenants](#one-person-in-several-tenants).
 
 The tenant and the record of its creation are written in the caller's tenant; the builtin workflow and the admins
 in one transaction in the new tenant. If that second transaction fails, the tenant is removed again, with a
@@ -131,11 +130,11 @@ tix member rm 01J0000000000000000000
 | `member` | viewer, plus task write, transition, claim, `comment:write`, `artifact:write`, `export` |
 | `admin` | `*` |
 
-User accounts are the one exception to "belongs to exactly one tenant": a user row is global, and it is the actor
-row sharing its identifier that binds it to one tenant. An email address is unique across the installation, so in
-this version an address signs in to exactly one tenant. Listing users therefore filters by actor rather than by a
-`tenant_id` column. The listing pages the global ordering until this tenant's page is full, so the cursor it hands
-back always names a user the caller can see; a cursor is base64 of a sort key and an identifier, not a secret, and
+User accounts are the one exception to "belongs to exactly one tenant": an account is global, with one email,
+one password and one second factor, and a person has an actor in each tenant they belong to, linked to the
+account. Listing users therefore filters by actor rather than by a `tenant_id` column. The listing pages the
+global ordering until this tenant's page is full, so the cursor it hands back always names a user the caller
+can see; a cursor is base64 of a sort key and an identifier, not a secret, and
 one taken from the unfiltered page would have named another tenant's user and their email address.
 
 ### Invites and first passwords
@@ -166,7 +165,7 @@ shown once. It expires after 7 days unless `--expires` says otherwise, between o
 Opening it shows a page to choose a password and a display name, and accepting signs the person in,
 second factor rules included. An address of this tenant's user who holds no membership is granted one and
 keeps their password, which they confirm on the page instead. An address that belongs to a member who can
-already sign in, or to a user of another tenant, is refused.
+already sign in is refused. An address of a person in another tenant gets an invite too; see below.
 
 tix sends no email: copy the link and send it yourself. It is built from the scheme and host the request
 reached tix at, as calendar feed addresses are, so create it through the address people use. Run against a
@@ -176,6 +175,36 @@ Only the SHA-256 hash of the secret is stored, it never appears in the audit log
 and an unknown, expired, used or revoked link all answer the same "this invite link is not valid" message.
 Re-issuing stops the old link at once; revoking stops it and leaves the account without a password until
 somebody re-issues it or deletes the account.
+
+### One person in several tenants
+
+One person, with one email, one password and one second factor, can belong to several tenants, with a role in
+each. They sign in to each tenant at its address with the same credentials, and act there as their actor in
+that tenant, which has its own handle.
+
+A global admin adds an existing account to a tenant directly, without asking the person:
+
+```sh
+tix tenant user add test villy@example.com --role admin
+```
+
+The browser offers the same as Add an existing person on a tenant's users screen in the Global admin area,
+and `POST /api/v1/tenants/{ref}/members` on the API.
+
+A tenant admin cannot add somebody else's account to their tenant. `tix user create` with such an address is
+refused as a conflict. `tix user invite` sends an invite instead, and the person holds no membership here
+until they accept it with their own password, and with a code when their account has a second factor. An
+account of another tenant that has no password yet cannot be invited, because accepting would set its
+password and whoever holds the link would then hold the account everywhere; a global admin adds it instead.
+
+An administrator of one tenant must not be able to take over a person who also works in another, so for such
+a person a tenant admin who is not a global admin cannot set the password, require a password change or clear
+the second factor; the answer is forbidden with reason `account_in_other_tenants`, naming no other tenant.
+Only the person or a global admin can. A tenant admin keeps those powers over people who are members of
+their tenant only. Disabling and removing such a person work in this tenant alone: their sessions, tokens and
+SSH keys here stop at once, and their other tenants are untouched. Removing a person from their last tenant
+deletes the account, as before. A disabled account stops working in every tenant at once, because each
+request checks it.
 
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.

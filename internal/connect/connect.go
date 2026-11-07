@@ -550,8 +550,15 @@ func (l tokenLookup) TokenByHash(ctx context.Context, hash string) (*core.APITok
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
 		}
+		if err != nil {
+			return err
+		}
+		withdrawn, err := service.StandingWithdrawn(ctx, tx, t.ActorID)
+		if err != nil || withdrawn {
+			return err
+		}
 		out = t
-		return err
+		return nil
 	})
 	if err != nil {
 		return nil, err

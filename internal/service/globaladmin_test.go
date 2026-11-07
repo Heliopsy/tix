@@ -166,36 +166,44 @@ func TestCreateTenantWithoutAdminsStillWorks(t *testing.T) {
 	}
 }
 
-// A user row belongs to the one tenant its actor lives in, so an address
-// already in use is refused before anything is written, rather than leaving a
-// tenant behind with some of its admins.
-func TestCreateTenantRefusesAnExistingUserAndCreatesNothing(t *testing.T) {
+// An address that already has an account becomes an admin of the new tenant
+// with the password it has: nothing is generated for it, and its other tenant
+// is untouched.
+func TestCreateTenantMakesAnExistingAccountAnAdmin(t *testing.T) {
 	l, _, scope, actor := newLocal(t)
 	ctx, _ := globalAdmin(t, l, actor, "root@acme.test")
-	_, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "test", Name: "Test", Admins: []core.TenantAdminInput{
+	created, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "test", Name: "Test", Admins: []core.TenantAdminInput{
 		{Email: "new@z09.test"}, {Email: "ROOT@acme.test"},
 	}})
-	if !core.IsKind(err, core.KindConflict) {
-		t.Fatalf("CreateTenant naming an existing user = %v, want conflict", err)
+	if err != nil {
+		t.Fatalf("CreateTenant naming an existing account = %v, want it made an admin", err)
 	}
-	if !strings.Contains(err.Error(), "root@acme.test") {
-		t.Errorf("the refusal %q does not name the address", err)
+	if len(created.Admins) != 2 || len(created.InitialCredentials) != 1 ||
+		created.InitialCredentials[0].Email != "new@z09.test" {
+		t.Fatalf("created = %+v, want two admins and a credential for the new address alone", created)
 	}
-	assertNoTenant(t, l, "test")
-	assertNoUser(t, l, "new@z09.test")
-	if err := l.store.View(context.Background(), scope, func(tx store.Tx) error {
-		entries, err := tx.ListAudit(context.Background(), core.AuditFilter{Page: core.Page{Limit: 1000}})
-		for _, e := range entries {
-			if e.Action == auditTenantCreate {
-				t.Errorf("the refused creation was recorded as %s; it should be refused before anything is written", e.Action)
-			}
-		}
-		return err
-	}); err != nil {
-		t.Fatal(err)
+	if _, err := signInAt(t, l, created.ID, "root@acme.test", "correct-horse-battery"); err != nil {
+		t.Fatalf("the existing account signing in to the new tenant with its own password = %v", err)
+	}
+	if _, err := signInAt(t, l, scope.TenantID, "root@acme.test", "correct-horse-battery"); err != nil {
+		t.Fatalf("the existing account signing in to its first tenant = %v, want it unchanged", err)
 	}
 }
 
+// A password supplied for an address that already has an account is refused
+// rather than ignored, and nothing is created.
+func TestCreateTenantRefusesAPasswordForAnExistingAccount(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx, _ := globalAdmin(t, l, actor, "root@acme.test")
+	_, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "test", Name: "Test", Admins: []core.TenantAdminInput{
+		{Email: "new@z09.test"}, {Email: "root@acme.test", Password: "another-password-entirely"},
+	}})
+	if !core.IsKind(err, core.KindInvalid) || !strings.Contains(err.Error(), "root@acme.test") {
+		t.Fatalf("CreateTenant with a password for an existing account = %v, want invalid naming it", err)
+	}
+	assertNoTenant(t, l, "test")
+	assertNoUser(t, l, "new@z09.test")
+}
 func TestCreateTenantAdminValidation(t *testing.T) {
 	l, _, _, actor := newLocal(t)
 	ctx, _ := globalAdmin(t, l, actor, "root@acme.test")

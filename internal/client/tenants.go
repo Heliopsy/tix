@@ -98,6 +98,11 @@ func (c *Client) CreateTenantUser(ctx context.Context, tenant string, in core.Cr
 	return call[core.User](ctx, c, http.MethodPost, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), nil, in)
 }
 
+// AddTenantMember adds an existing account to a tenant.
+func (c *Client) AddTenantMember(ctx context.Context, tenant string, in core.AddTenantMemberInput) (*core.User, error) {
+	return call[core.User](ctx, c, http.MethodPost, routePath(wire.RouteTenantMembers, "ref", tenantRef(tenant)), nil, in)
+}
+
 // UpdateTenantUser changes a user of a tenant.
 func (c *Client) UpdateTenantUser(ctx context.Context, tenant, id string, in core.UpdateUserInput) (*core.User, error) {
 	return call[core.User](ctx, c, http.MethodPatch,

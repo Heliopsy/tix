@@ -173,6 +173,7 @@ func init() {
 		"domain added":                 "домейнът е добавен",
 		"domain removed":               "домейнът е премахнат",
 		"user created":                 "потребителят е създаден",
+		"person added":                 "човекът е добавен",
 		"user updated":                 "потребителят е обновен",
 		"user deleted":                 "потребителят е изтрит",
 		"token issued":                 "токенът е издаден",

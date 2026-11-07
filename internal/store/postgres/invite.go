@@ -12,7 +12,7 @@ import (
 )
 
 var inviteColumns = []string{
-	"id", "tenant_id", "user_id", "email", "role", "invited_by", "existing_account",
+	"id", "tenant_id", "user_id", "email", "role", "invited_by", "existing_account", "grants_membership",
 	"created_at", "expires_at", "accepted_at", "revoked_at",
 }
 
@@ -25,7 +25,7 @@ func scanInvite(s scanner, extra ...any) (*core.Invite, error) {
 		revoked  sql.NullTime
 	)
 	dest := append([]any{&inv.ID, &inv.TenantID, &inv.UserID, &inv.Email, &inv.Role, &inv.InvitedBy,
-		&inv.ExistingAccount, &created, &expires, &accepted, &revoked}, extra...)
+		&inv.ExistingAccount, &inv.GrantsMembership, &created, &expires, &accepted, &revoked}, extra...)
 	if err := s.Scan(dest...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, core.NotFound("invite not found")
@@ -49,6 +49,7 @@ func (t *tx) CreateInvite(ctx context.Context, inv *core.Invite, tokenHash strin
 		Set("role", string(inv.Role)).
 		Set("invited_by", inv.InvitedBy).
 		Set("existing_account", inv.ExistingAccount).
+		Set("grants_membership", inv.GrantsMembership).
 		Set("token_hash", tokenHash).
 		Set("created_at", timeArg(inv.CreatedAt)).
 		Set("expires_at", timeArg(inv.ExpiresAt))

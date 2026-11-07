@@ -168,6 +168,28 @@ type GlobalAdminInput struct {
 	Email string `json:"email" yaml:"email"`
 }
 
+// AddTenantMemberInput adds an existing account to a tenant.
+type AddTenantMemberInput struct {
+	// Email is the account's sign-in address. Required.
+	Email string `json:"email" yaml:"email"`
+	// Role is the role granted in the tenant; empty means "viewer".
+	Role Role `json:"role,omitempty" yaml:"role,omitempty"`
+	// Handle is the person's short name in the tenant; empty uses the part of
+	// the email before the "@".
+	Handle string `json:"handle,omitempty" yaml:"handle,omitempty"`
+}
+
+// Validate checks the input.
+func (in AddTenantMemberInput) Validate() error {
+	if err := ValidateEmail(in.Email); err != nil {
+		return err
+	}
+	if in.Role != "" && !in.Role.Valid() {
+		return Invalid("role %q is not recognised", in.Role).WithDetail(DetailField, "role")
+	}
+	return nil
+}
+
 // UpdateTenantInput changes a tenant.
 type UpdateTenantInput struct {
 	// Name renames the tenant; it must not be blank, and omitted leaves it.
