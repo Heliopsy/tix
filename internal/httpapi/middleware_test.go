@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -276,7 +277,8 @@ func TestPanicIsRecovered(t *testing.T) {
 
 func TestReadinessFailsWhenMigrationsAreBehind(t *testing.T) {
 	f := newFixtureWith(t, func(_ *apiFixture, cfg *httpapi.Config) {
-		cfg.ExpectedSchema = 9999
+		// Above any version a migration can carry, numbered or timestamped.
+		cfg.ExpectedSchema = math.MaxInt
 	})
 
 	resp := f.do(http.MethodGet, wire.RouteReady, f.hostA, "", nil)

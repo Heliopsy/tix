@@ -167,6 +167,11 @@ type Actor struct {
 	// global admin right now. It is a report for interfaces deciding what to
 	// offer; authorization never reads it, and asks the store instead.
 	GlobalAdmin bool `json:"global_admin,omitempty" yaml:"global_admin,omitempty"`
+	// UserID is the account a user actor belongs to, as the store holds it.
+	// It is never serialised, and it is not set on the actor a credential
+	// resolves to: the account is found through the store, never assumed to
+	// share the actor's identifier.
+	UserID string `json:"-" yaml:"-"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.

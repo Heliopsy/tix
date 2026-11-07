@@ -46,11 +46,12 @@ func userHandle(handle, email string) string {
 	return local
 }
 
-// ownUser resolves a user that has an actor in the caller's tenant. A user of
-// another tenant is reported missing, so no caller can confirm it exists.
+// ownUser resolves a user of the caller's tenant by its actor identifier and
+// returns the account behind it. A user of another tenant is reported missing,
+// so no caller can confirm it exists.
 //
-// A user and its actor share one identifier; that is what binds a global user
-// row to exactly one tenant.
+// The account returned carries its own identifier, which writes to the users
+// row need; asMember gives the identifier callers of this tenant see.
 func ownUser(ctx context.Context, tx store.Tx, id string) (*core.User, *core.Actor, error) {
 	if strings.TrimSpace(id) == "" {
 		return nil, nil, core.Invalid("user identifier is required")
@@ -62,7 +63,7 @@ func ownUser(ctx context.Context, tx store.Tx, id string) (*core.User, *core.Act
 		}
 		return nil, nil, err
 	}
-	u, err := tx.GetUser(ctx, id)
+	u, err := accountOf(ctx, tx, a)
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return nil, nil, core.NotFound("user %q", id)
@@ -70,6 +71,34 @@ func ownUser(ctx context.Context, tx store.Tx, id string) (*core.User, *core.Act
 		return nil, nil, err
 	}
 	return u, a, nil
+}
+
+// accountOf returns the account an actor belongs to, through the actor's link
+// and never by assuming the two share an identifier. An actor with no account,
+// an agent or the local actor, reads as not found.
+func accountOf(ctx context.Context, tx store.Tx, a *core.Actor) (*core.User, error) {
+	if a.UserID == "" {
+		return nil, core.NotFound("user for actor %q", a.ID)
+	}
+	return tx.GetUser(ctx, a.UserID)
+}
+
+// accountOfActor is accountOf for an actor known only by identifier.
+func accountOfActor(ctx context.Context, tx store.Tx, actorID string) (*core.User, error) {
+	a, err := tx.GetActor(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	return accountOf(ctx, tx, a)
+}
+
+// asMember presents an account as a user of this tenant, whose identifier is
+// the tenant's actor. For every account created before actors carried a link
+// the two are equal; for a person in several tenants they are not.
+func asMember(u *core.User, a *core.Actor) *core.User {
+	out := *u
+	out.ID = a.ID
+	return &out
 }
 
 // userRole returns an actor's role in this tenant, or the empty role when the
@@ -115,18 +144,20 @@ func userCursor(page core.Page, u core.User) core.Cursor {
 	}
 }
 
-// nextUserCursor returns the cursor for the page after these users.
+// nextUserCursor returns the cursor for the page after n users, the last of
+// which is the account last.
 //
 // A cursor is an opaque token only by convention: it is base64 of the sort key
 // and the identifier, so it must never describe a record the caller may not
-// read. It is therefore built from the users being returned, never from the
-// unfiltered page underneath them, and a short page ends the listing rather
-// than handing back a position in rows the caller cannot see.
-func nextUserCursor(page core.Page, items []core.User) string {
-	if len(items) == 0 || len(items) < page.Limit {
+// read. It is therefore built from the last user being returned, never from
+// the unfiltered page underneath them, and a short page ends the listing
+// rather than handing back a position in rows the caller cannot see. It holds
+// the account's identifier, because the walk it resumes is over accounts.
+func nextUserCursor(page core.Page, n int, last core.User) string {
+	if n == 0 || n < page.Limit {
 		return ""
 	}
-	return userCursor(page, items[len(items)-1]).Encode()
+	return userCursor(page, last).Encode()
 }
 
 // CreateUser creates a user, its actor in this tenant, and its membership.
@@ -173,7 +204,7 @@ func (l *Local) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.
 		if err := m.tx.CreateUser(ctx, u, hash); err != nil {
 			return err
 		}
-		a := &core.Actor{ID: id, Kind: core.ActorUser, Handle: handle, DisplayName: in.DisplayName}
+		a := &core.Actor{ID: id, UserID: id, Kind: core.ActorUser, Handle: handle, DisplayName: in.DisplayName}
 		if err := m.tx.CreateActor(ctx, a); err != nil {
 			return err
 		}
@@ -199,9 +230,12 @@ func (l *Local) GetUser(ctx context.Context, id string) (*core.User, error) {
 	}
 	var out *core.User
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		u, _, err := ownUser(ctx, tx, id)
-		out = u
-		return err
+		u, a, err := ownUser(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		out = asMember(u, a)
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -223,6 +257,7 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 	}
 
 	out := []core.User{}
+	var last core.User
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		// The users table is global: it carries no tenant_id, so the scoped
 		// builder cannot constrain it and membership of this tenant is decided
@@ -238,14 +273,15 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 				return err
 			}
 			for _, u := range found {
-				switch _, err := tx.GetActor(ctx, u.ID); {
+				switch a, err := tx.GetActorByUser(ctx, u.ID); {
 				case err == nil:
 					enrolled, err := totpEnrolled(ctx, tx, u.ID)
 					if err != nil {
 						return err
 					}
 					u.TOTPEnrolled = enrolled
-					out = append(out, u)
+					last = u
+					out = append(out, *asMember(&u, a))
 					if len(out) == page.Limit {
 						return nil
 					}
@@ -261,7 +297,7 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 	}); err != nil {
 		return nil, "", err
 	}
-	return out, nextUserCursor(page, out), nil
+	return out, nextUserCursor(page, len(out), last), nil
 }
 
 // UpdateUser changes a user's display name, password, role, disabled state or
@@ -316,11 +352,11 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 			return err
 		}
 		if in.Role != nil {
-			if err := setUserRole(ctx, m.tx, u.ID, *in.Role); err != nil {
+			if err := setUserRole(ctx, m.tx, subject.ID, *in.Role); err != nil {
 				return err
 			}
 		}
-		out = u
+		out = asMember(u, subject)
 		payload := map[string]any{"email": u.Email, "password_changed": hash != ""}
 		if in.Role != nil {
 			payload["role"] = string(*in.Role)
@@ -328,7 +364,8 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 		if in.RequirePasswordChange != nil {
 			payload["require_password_change"] = u.RequirePasswordChange
 		}
-		return m.Record(auditUserUpdate, eventUserUpdated, "user", u.ID, "", before, u, payload)
+		return m.Record(auditUserUpdate, eventUserUpdated, "user", subject.ID, "",
+			asMember(&before, subject), out, payload)
 	})
 	if err != nil {
 		return nil, err
@@ -370,7 +407,7 @@ func (l *Local) DeleteUser(ctx context.Context, id string) error {
 		if err := m.tx.DeleteUser(ctx, u.ID); err != nil {
 			return err
 		}
-		return m.Record(auditUserDelete, eventUserDeleted, "user", u.ID, "", u, nil,
+		return m.Record(auditUserDelete, eventUserDeleted, "user", a.ID, "", asMember(u, a), nil,
 			map[string]any{
 				"email": u.Email, "handle": a.Handle,
 				"sessions_ended": sessions, "tokens_revoked": tokens,

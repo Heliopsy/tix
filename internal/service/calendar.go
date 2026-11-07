@@ -335,7 +335,7 @@ func feedReader(ctx context.Context, tx store.Tx, tenantID, actorID string) (*co
 	if role == "" || !role.Valid() {
 		return nil, core.NotFound("calendar feed not found")
 	}
-	user, err := tx.GetUser(ctx, actorID)
+	user, err := accountOfActor(ctx, tx, actorID)
 	switch {
 	case err == nil && user.DisabledAt != nil:
 		return nil, core.NotFound("calendar feed not found")

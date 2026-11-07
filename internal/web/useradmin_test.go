@@ -225,7 +225,7 @@ func TestTheUserListingCountsActiveAndDisabledAccounts(t *testing.T) {
 	wantStatus(t, disabled, http.StatusSeeOther)
 
 	summary := between(t, b.page("/admin/users"), `<p class="lede summary">`, "</p>")
-	if !strings.Contains(summary, "<strong>2</strong> active") {
+	if !strings.Contains(summary, "<strong>3</strong> active") {
 		t.Errorf("the listing does not count the accounts still in use:\n%s", summary)
 	}
 	// Read the whole figure, not its last digit: a count of -1 renders, and

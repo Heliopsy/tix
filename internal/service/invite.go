@@ -109,14 +109,15 @@ func (l *Local) prepareInvitee(ctx context.Context, m *mutation, found invitee, 
 		userID, err := l.createInvitedUser(ctx, m, email, in, role)
 		return userID, false, role, err
 	}
-	userID := found.user.ID
-	if _, err := m.tx.GetActor(ctx, userID); err != nil {
+	member, err := m.tx.GetActorByUser(ctx, found.user.ID)
+	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return "", false, "", core.Conflict("%s already belongs to a user, and a user belongs to one tenant; "+
 				"invite another address", email).WithDetail(core.DetailField, "email")
 		}
 		return "", false, "", err
 	}
+	userID := member.ID
 	current, err := userRole(ctx, m.tx, userID)
 	if err != nil {
 		return "", false, "", err
@@ -170,7 +171,8 @@ func (l *Local) createInvitedUser(ctx context.Context, m *mutation, email string
 	if err := m.tx.CreateUser(ctx, u, ""); err != nil {
 		return "", err
 	}
-	if err := m.tx.CreateActor(ctx, &core.Actor{ID: userID, Kind: core.ActorUser, Handle: handle, DisplayName: display}); err != nil {
+	actor := &core.Actor{ID: userID, UserID: userID, Kind: core.ActorUser, Handle: handle, DisplayName: display}
+	if err := m.tx.CreateActor(ctx, actor); err != nil {
 		return "", err
 	}
 	if err := setUserRole(ctx, m.tx, userID, role); err != nil {
@@ -336,10 +338,10 @@ func (l *Local) resolveInvite(ctx context.Context, token string) (liveInvite, er
 		if !auth.EqualHash(stored, presented) || !inv.Pending(l.clock.Now()) {
 			return auth.ErrNoInvite()
 		}
-		if out.user, err = tx.GetUser(ctx, inv.UserID); err != nil {
+		if out.actor, err = tx.GetActor(ctx, inv.UserID); err != nil {
 			return err
 		}
-		if out.actor, err = tx.GetActor(ctx, inv.UserID); err != nil {
+		if out.user, err = accountOf(ctx, tx, out.actor); err != nil {
 			return err
 		}
 		if out.role, err = userRole(ctx, tx, inv.UserID); err != nil {
@@ -418,7 +420,9 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 			if err := m.tx.UpdateUser(ctx, live.user, hash); err != nil {
 				return err
 			}
-			if err := m.Audit(auditUserUpdate, "user", live.user.ID, before, live.user); err != nil {
+			err := m.Audit(auditUserUpdate, "user", live.actor.ID,
+				asMember(&before, live.actor), asMember(live.user, live.actor))
+			if err != nil {
 				return err
 			}
 		}

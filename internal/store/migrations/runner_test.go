@@ -18,6 +18,23 @@ var (
 		SQL: "ALTER TABLE widgets ADD COLUMN colour TEXT NOT NULL DEFAULT '';"}
 )
 
+// realStamped counts the timestamped migrations the package ships, which the
+// tests below run ahead of their synthetic ones.
+func realStamped(t *testing.T) int {
+	t.Helper()
+	all, err := All()
+	if err != nil {
+		t.Fatalf("All() error = %v", err)
+	}
+	n := 0
+	for _, m := range all {
+		if m.Version > LastNumbered {
+			n++
+		}
+	}
+	return n
+}
+
 func withStamped(t *testing.T, extra ...Migration) []Migration {
 	t.Helper()
 	all, err := All()
@@ -81,8 +98,9 @@ func TestNumberedThenStampedOnAFreshDatabase(t *testing.T) {
 	if want := versions(all); !slices.Equal(got, want) {
 		t.Fatalf("applied %v, want %v", got, want)
 	}
-	if got[len(got)-3] != LastNumbered {
-		t.Fatalf("the migration before the stamped ones is %d, want %d", got[len(got)-3], LastNumbered)
+	last := len(got) - 3 - realStamped(t)
+	if got[last] != LastNumbered {
+		t.Fatalf("the migration before the stamped ones is %d, want %d", got[last], LastNumbered)
 	}
 }
 
@@ -99,8 +117,8 @@ func TestStampedOnADatabaseAtTheLastNumbered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
-	if applied != 2 {
-		t.Fatalf("applied %d migrations to a database at %04d, want the 2 stamped ones", applied, LastNumbered)
+	if want := 2 + realStamped(t); applied != want {
+		t.Fatalf("applied %d migrations to a database at %04d, want the %d stamped ones", applied, LastNumbered, want)
 	}
 	var n int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenants`).Scan(&n); err != nil || n != 1 {

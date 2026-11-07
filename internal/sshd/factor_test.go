@@ -182,10 +182,12 @@ func seedPerson(t *testing.T, st store.Store, tenantKey, handle, email string) p
 	scope := core.TenantScope{TenantID: tenant.ID}
 	actor := &core.Actor{TenantID: tenant.ID, Kind: core.ActorUser, Handle: handle, DisplayName: handle}
 	if err := st.Update(ctx, scope, func(tx store.Tx) error {
-		if err := tx.CreateActor(ctx, actor); err != nil {
+		user := &core.User{Email: email}
+		if err := tx.CreateUser(ctx, user, "x"); err != nil {
 			return err
 		}
-		if err := tx.CreateUser(ctx, &core.User{ID: actor.ID, Email: email}, "x"); err != nil {
+		actor.UserID = user.ID
+		if err := tx.CreateActor(ctx, actor); err != nil {
 			return err
 		}
 		if err := tx.AddMember(ctx, &core.Membership{
@@ -203,7 +205,7 @@ func seedPerson(t *testing.T, st store.Store, tenantKey, handle, email string) p
 		t.Fatalf("seeding %q in %q: %v", handle, tenantKey, err)
 	}
 	actor.Role = core.RoleAdmin
-	return person{tenantID: tenant.ID, userID: actor.ID, actor: actor, signer: signer}
+	return person{tenantID: tenant.ID, userID: actor.UserID, actor: actor, signer: signer}
 }
 
 // seedBoard gives the tenant its default state machine and one project, which

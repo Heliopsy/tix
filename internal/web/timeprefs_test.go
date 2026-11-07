@@ -20,25 +20,37 @@ import (
 	"github.com/heliopsy/tix/internal/web"
 )
 
-// makePerson gives an actor of the fixture tenant the users row a person has,
-// which is where their own date preference is kept. The fixture's actors have
-// none, the way an agent has none.
+// makePerson makes actorID a person of the fixture tenant: an account, which
+// is where their own date preference is kept, and an actor with that ID
+// linked to it. The fixture's alice is one already; its other actors have no
+// account, the way an agent has none.
 func makePerson(t *testing.T, f *fixture, actorID, email string) {
 	t.Helper()
 	ctx := context.Background()
 	if err := f.store.Update(ctx, core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
-		return tx.CreateUser(ctx, &core.User{ID: actorID, Email: email}, "unused-hash")
+		switch a, err := tx.GetActor(ctx, actorID); {
+		case err == nil && a.UserID != "":
+			return nil
+		case err == nil:
+			t.Fatalf("actor %q exists with no account; seed it with seedPerson", actorID)
+		case !core.IsKind(err, core.KindNotFound):
+			return err
+		}
+		user := &core.User{Email: email}
+		if err := tx.CreateUser(ctx, user, "unused-hash"); err != nil {
+			return err
+		}
+		return tx.CreateActor(ctx, &core.Actor{ID: actorID, UserID: user.ID, Kind: core.ActorUser, Handle: actorID})
 	}); err != nil {
 		t.Fatalf("creating user %q: %v", email, err)
 	}
 }
 
-// personFixture is a fixture whose alice is a person.
+// personFixture is a fixture whose alice is a person, which every fixture's
+// alice now is.
 func personFixture(t *testing.T) *fixture {
 	t.Helper()
-	f := newFixture(t)
-	makePerson(t, f, f.actorA.ID, "alice@example.com")
-	return f
+	return newFixture(t)
 }
 
 // setTenantTime sets the tenant's default date format and timezone through
@@ -406,8 +418,7 @@ var readers atomic.Int64
 func (f *fixture) reader(t *testing.T, format, zone string) *browser {
 	t.Helper()
 	handle := "reader" + strconv.FormatInt(readers.Add(1), 10)
-	actor := seedActor(t, f.store, f.tenantA.ID, handle, core.RoleAdmin)
-	makePerson(t, f, actor.ID, handle+"@example.com")
+	actor := seedPerson(t, f.store, f.tenantA.ID, handle, handle+"@example.com", core.RoleAdmin)
 	b := f.asActor(actor.ID)
 	for _, set := range []struct{ route, field, value string }{
 		{"/timeformat", "time_format", format}, {"/timezone", "timezone", zone},

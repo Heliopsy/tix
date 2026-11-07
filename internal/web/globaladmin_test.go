@@ -14,16 +14,13 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 )
 
-// makeGlobalAdmin gives alice a user row that is a global admin, so the
-// fixture's "alice" reads as one.
+// makeGlobalAdmin makes the account behind the fixture's "alice" a global
+// admin.
 func (f *fixture) makeGlobalAdmin() {
 	f.t.Helper()
 	ctx := context.Background()
 	if err := f.store.Update(ctx, core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
-		if err := tx.CreateUser(ctx, &core.User{ID: f.actorA.ID, Email: "alice@acme.test"}, ""); err != nil {
-			return err
-		}
-		return tx.SetUserGlobalAdmin(ctx, f.actorA.ID, true)
+		return tx.SetUserGlobalAdmin(ctx, f.actorA.UserID, true)
 	}); err != nil {
 		f.t.Fatalf("making alice a global admin: %v", err)
 	}

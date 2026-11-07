@@ -171,7 +171,7 @@ func (l *Local) enrolledPerson(ctx context.Context, scope core.TenantScope, fing
 			cand.actor = actor
 			return nil
 		}
-		user, err := tx.GetUser(ctx, actor.ID)
+		user, err := accountOf(ctx, tx, actor)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
 		}

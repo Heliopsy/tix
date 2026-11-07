@@ -59,7 +59,7 @@ func (l *Local) globalAllowed(ctx context.Context) (bool, error) {
 func (l *Local) isGlobalAdmin(ctx context.Context, actor *core.Actor) (bool, error) {
 	var out bool
 	err := l.read(ctx, actor, func(tx store.Tx) error {
-		u, err := tx.GetUser(ctx, actor.ID)
+		u, err := accountOfActor(ctx, tx, actor.ID)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
 		}
