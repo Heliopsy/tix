@@ -18,6 +18,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -115,7 +116,7 @@ func factorListener(t *testing.T, idle time.Duration) (*Server, *watchedService,
 	ctx := context.Background()
 	clk := clock.New()
 
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "hosted.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

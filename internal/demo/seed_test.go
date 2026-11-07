@@ -5,7 +5,6 @@ package demo
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // seedEnd is the instant the seeded history ends at under test, so every
@@ -32,7 +32,7 @@ type target struct {
 func newTarget(t *testing.T) *target {
 	t.Helper()
 	clk := clock.NewFake(seedEnd)
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

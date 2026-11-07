@@ -20,6 +20,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -34,7 +35,7 @@ type enrolment struct {
 func newEnrolled(t *testing.T) (*enrolled, *clock.Fake, store.Store) {
 	t.Helper()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "hosted.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

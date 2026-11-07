@@ -5,7 +5,6 @@ package service
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/auth"
@@ -14,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 func newLocal(t *testing.T) (*Local, *clock.Fake, core.TenantScope, *core.Actor) {
@@ -29,7 +29,7 @@ func newLocalWith(t *testing.T, opts ...Option) (*Local, *clock.Fake, core.Tenan
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

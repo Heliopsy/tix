@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
-	"path/filepath"
 	"slices"
 	"testing"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // tokens resolves the tokens a test minted.
@@ -46,7 +46,7 @@ func newLiveAPI(t *testing.T) *liveAPI {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

@@ -5,7 +5,6 @@ package capability_test
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	"github.com/heliopsy/tix/internal/web"
 )
 
@@ -161,7 +161,7 @@ func refusedScope(t *testing.T, method string) (core.Scope, error) {
 func scopelessService(t *testing.T) core.Service {
 	t.Helper()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "authority.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}
