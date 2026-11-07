@@ -83,6 +83,16 @@ type TenantService interface {
 	// CreateTenantUser creates a user, its actor and its membership in any
 	// tenant, as CreateUser does in the caller's own. Global admin only.
 	CreateTenantUser(ctx context.Context, tenant string, in CreateUserInput) (*User, error)
+	// GetAccountLog returns the caller's own account log, oldest first unless
+	// the page asks for desc: every
+	// change to their password, second factor, disabled state, global admin
+	// standing and memberships, in every tenant they belong to, with who made
+	// it and from which tenant. A token needs the account:read scope, which
+	// "*" does not carry.
+	GetAccountLog(ctx context.Context, page Page) ([]AccountLogEntry, string, error)
+	// GetAccountLogFor returns the log of the account with this email, for a
+	// global admin. Anybody else is refused.
+	GetAccountLogFor(ctx context.Context, email string, page Page) ([]AccountLogEntry, string, error)
 	// AddTenantMember adds an existing account, found by email, to any tenant
 	// with a role: a new actor there and its membership, with no acceptance
 	// asked of the person. An account that already has an actor there without

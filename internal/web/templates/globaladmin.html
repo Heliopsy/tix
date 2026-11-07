@@ -58,6 +58,7 @@
     <span class="person-id">
       <span class="person-name">{{or .DisplayName .Email}}</span>
       <span class="person-mail mono">{{.Email}}</span>
+      <a class="small" href="/admin/global/accounts/{{.Email}}">{{t "History"}}</a>
     </span>
     <span class="person-act">{{template "dlg-open" ((opener (print "global-revoke-" .ID) (t "Revoke") "x" "secondary small" $.Here).Named (t "Revoke global admin from %s" .Email))}}</span>
   </li>

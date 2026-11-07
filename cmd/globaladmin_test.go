@@ -230,3 +230,29 @@ func TestTenantUserAddPutsAnExistingAccountInAnotherTenant(t *testing.T) {
 		t.Errorf("adding an address with no account exited %d, want %d", got.code, core.ExitNotFound)
 	}
 }
+
+func TestAccountLogCommands(t *testing.T) {
+	c := newCLI(t)
+	db := filepath.Join(t.TempDir(), "tix.db")
+	c.mustRun("--db", db, "user", "create", "villy@ho.test", "--role", "member", "--password", "correct-horse-battery")
+	c.mustRun("--db", db, "global-admin", "grant", "villy@ho.test")
+
+	listed := c.mustRun("--db", db, "global-admin", "account-log", "villy@ho.test", "-o", "json")
+	var entries []core.AccountLogEntry
+	if err := json.Unmarshal([]byte(listed.out), &entries); err != nil || len(entries) != 2 {
+		t.Fatalf("tix global-admin account-log = %s (%v), want two entries", listed.out, err)
+	}
+	if entries[0].Action != core.AccountGlobalAdminGranted || entries[1].Action != core.AccountCreated {
+		t.Errorf("entries = %v, %v; want the grant first, newest first", entries[0].Action, entries[1].Action)
+	}
+	table := c.mustRun("--db", db, "global-admin", "account-log", "villy@ho.test")
+	if !strings.Contains(table.out, "ACTION") || !strings.Contains(table.out, "account.created") {
+		t.Errorf("the table = %s, want columns with the actions", table.out)
+	}
+	if got := c.run("--db", db, "global-admin", "account-log", "nobody@ho.test"); got.code != core.ExitNotFound {
+		t.Errorf("an unknown address exited %d, want %d", got.code, core.ExitNotFound)
+	}
+	if got := c.run("--db", db, "account", "log"); got.code != core.ExitUsage {
+		t.Errorf("tix account log from a shell, which is nobody's account, exited %d, want %d", got.code, core.ExitUsage)
+	}
+}

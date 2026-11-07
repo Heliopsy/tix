@@ -28,12 +28,16 @@ func (l *Local) inTenant(ctx context.Context, ref string) (context.Context, erro
 	}); err != nil {
 		return nil, err
 	}
+	by, err := l.actingAs(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
 	stand := *actor
 	stand.TenantID = target.ID
 	stand.Role = core.RoleAdmin
 	stand.Scopes = []core.Scope{core.ScopeAll}
 	stand.ProjectID = ""
-	return withGlobalStanding(core.WithActor(ctx, &stand)), nil
+	return withGlobalStanding(core.WithActor(ctx, &stand), by), nil
 }
 
 // ListTenantUsers lists the users of any tenant with their role there.
@@ -144,6 +148,10 @@ func (l *Local) AddTenantMember(ctx context.Context, tenant string, in core.AddT
 			return err
 		}
 		out = asMember(found.user, member)
+		if err := m.logAccount(inner, found.user.ID, core.AccountMemberAdded,
+			map[string]any{"role": string(role)}); err != nil {
+			return err
+		}
 		return m.Record(auditMemberAdd, eventMemberAdded, "user", member.ID, "", nil, out,
 			map[string]any{"email": email, "handle": member.Handle, "role": string(role), "global_admin": true})
 	})

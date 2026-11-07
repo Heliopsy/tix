@@ -18,15 +18,17 @@ const ReasonAccountInOtherTenants = "account_in_other_tenants"
 // there to confirm the standing again.
 type globalStandingKey struct{}
 
-// withGlobalStanding returns a context marked as a global admin's standing.
-func withGlobalStanding(ctx context.Context) context.Context {
-	return context.WithValue(ctx, globalStandingKey{}, true)
+// withGlobalStanding returns a context marked as a global admin's standing,
+// carrying the global admin's account so a change it makes can name them.
+func withGlobalStanding(ctx context.Context, by actingAccount) context.Context {
+	by.global = true
+	return context.WithValue(ctx, globalStandingKey{}, by)
 }
 
 // globalStanding reports whether inTenant marked ctx.
 func globalStanding(ctx context.Context) bool {
-	v, _ := ctx.Value(globalStandingKey{}).(bool)
-	return v
+	_, ok := ctx.Value(globalStandingKey{}).(actingAccount)
+	return ok
 }
 
 // membershipsOf lists every tenant an account holds a membership in.

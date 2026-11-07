@@ -2333,6 +2333,35 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "reading account logs",
+		covers: []string{"GetAccountLog", "GetAccountLogFor"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			email := "l" + randSuffix() + "@log.test"
+			u, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{Email: email, Role: core.RoleViewer})
+			if err != nil {
+				return nil, err
+			}
+			role := core.RoleMember
+			if _, err := tg.svc.UpdateUser(tg.ctx, u.ID, core.UpdateUserInput{Role: &role}); err != nil {
+				return nil, err
+			}
+			theirs, _, err := tg.svc.GetAccountLogFor(tg.ctx, email, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			own, _, err := tg.svc.GetAccountLog(tg.ctx, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			actions := []string{}
+			for _, e := range theirs {
+				actions = append(actions, string(e.Action))
+			}
+			return sig{"actions": actions, "by_matrix": theirs[0].ByEmail == "matrix@example.test",
+				"own_is_list": own != nil}, nil
+		},
+	},
+	{
 		name:   "granting and revoking global admin",
 		covers: []string{"GrantGlobalAdmin", "ListGlobalAdmins", "RevokeGlobalAdmin"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

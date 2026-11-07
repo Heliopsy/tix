@@ -79,6 +79,7 @@ const (
 	tplTemplate  = "template.html"
 	tplGlobal    = "globaladmin.html"
 	tplGlobalUsr = "globalusers.html"
+	tplAcctLog   = "accountlog.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -1126,6 +1127,25 @@ var registry = []Operation{
 		CLI:   "tix tenant user create",
 		HTTP:  apiPost(wire.RouteTenantUsers),
 		Web:   webPost(web.RouteGlobalUsers),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "account.log", Method: "GetAccountLog",
+		CLI:  "tix account log",
+		HTTP: apiGet(wire.RouteAccountLog),
+		Web:  webGet(web.RouteAccount, tplAcctLog),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "an account spans every tenant it belongs to, and a terminal session is pinned to one"),
+		},
+	},
+	{
+		Name: "account.log.any", Method: "GetAccountLogFor",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix global-admin account-log",
+		HTTP:  apiGet(wire.RouteAccountLogFor),
+		Web:   webGet(web.RouteGlobalAccount, tplAcctLog),
 		Exempt: []Exemption{
 			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
 		},

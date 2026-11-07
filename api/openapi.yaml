@@ -10,6 +10,7 @@ info:
   title: tix
   version: "1"
 tags:
+  - name: account
   - name: actor
   - name: api
   - name: artifact
@@ -52,6 +53,174 @@ tags:
   - name: webhook
   - name: workflow
 paths:
+  /api/v1/account/log:
+    get:
+      description: |-
+        GetAccountLog returns the caller's own account log, oldest first unless the page asks for desc: every change to their password, second factor, disabled state, global admin standing and memberships, in every tenant they belong to, with who made it and from which tenant. A token needs the account:read scope, which "*" does not carry.
+
+        Command line: `tix account log`.
+      operationId: account.log
+      parameters:
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
+          name: sort
+          schema:
+            type: string
+        - description: Direction is asc or desc, default asc.
+          in: query
+          name: direction
+          schema:
+            enum:
+              - asc
+              - desc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/AccountLogEntry'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/AccountLogEntry'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: 'GetAccountLog returns the caller''s own account log, oldest first
+        unless the page asks for desc: every change to their password, second factor,
+        disabled state, global admin standing and memberships, in every tenant they
+        belong to, with who made it and from which tenant'
+      tags:
+        - account
+  /api/v1/accounts/{email}/log:
+    get:
+      description: |-
+        GetAccountLogFor returns the log of the account with this email, for a global admin. Anybody else is refused.
+
+        Command line: `tix global-admin account-log`.
+      operationId: account.log.any
+      parameters:
+        - description: Sign-in email of the account.
+          in: path
+          name: email
+          required: true
+          schema:
+            type: string
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
+          name: sort
+          schema:
+            type: string
+        - description: Direction is asc or desc, default asc.
+          in: query
+          name: direction
+          schema:
+            enum:
+              - asc
+              - desc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/AccountLogEntry'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/AccountLogEntry'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: GetAccountLogFor returns the log of the account with this email, for
+        a global admin
+      tags:
+        - account
   /api/v1/actors:
     get:
       description: |-
@@ -10230,6 +10399,51 @@ components:
           description: Surface is the sign-in path the session is for, which decides
             whether a second factor is required; omitted means the command line.
       type: object
+    AccountLogEntry:
+      description: 'AccountLogEntry is one change to an account, recorded in the same
+        transaction as the change. It holds no secret: no password, hash, code or
+        token, only what changed, where, by whom and through which channel.'
+      properties:
+        action:
+          description: AccountAction names a change recorded in an account's log.
+          type: string
+        by_email:
+          description: ByEmail is that account's address when the change was made.
+          type: string
+        by_global_admin:
+          description: ByGlobalAdmin reports that a global admin made the change as
+            one.
+          type: boolean
+        by_user_id:
+          description: ByUserID is the account of whoever made the change; empty for
+            the system or a shell holding the database.
+          type: string
+        detail:
+          additionalProperties: {}
+          description: Detail carries what changed, such as a role; never a secret.
+          type: object
+        occurred_at:
+          description: OccurredAt is when the change was made, RFC 3339.
+          format: date-time
+          type: string
+        seq:
+          description: Seq orders the account's entries; a later change has a larger
+            number.
+          format: int64
+          type: integer
+        tenant_key:
+          description: TenantKey is the tenant the change was made from, or that a
+            membership change concerns.
+          type: string
+        user_id:
+          description: UserID is the account the entry is about.
+          type: string
+        via:
+          description: 'ViaKind names the access channel a change arrived through.
+            It is finer than Source: Source says which surface, ViaKind says how the
+            caller reached it.'
+          type: string
+      type: object
     Actor:
       description: Actor is the authenticated identity performing an operation.
       properties:
@@ -12923,6 +13137,7 @@ components:
         - sync:admin
         - global:admin
         - audit:read
+        - account:read
         - export
         - import
       type: string
@@ -15091,7 +15306,7 @@ components:
         `task:delete`, `task:reclaim`, `project:read`, `project:write`, `workflow:read`,
         `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`, `user:admin`,
         `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`, `sync:admin`,
-        `audit:read`, `export`, `import`, `global:admin`.'
+        `audit:read`, `export`, `import`, `global:admin`, `account:read`.'
       scheme: bearer
       type: http
     session:
@@ -15101,7 +15316,7 @@ components:
         `task:claim`, `task:delete`, `task:reclaim`, `project:read`, `project:write`,
         `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
         `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
-        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`.
+        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`.
       in: cookie
       name: tix_session
       type: apiKey

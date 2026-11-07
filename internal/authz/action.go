@@ -69,6 +69,10 @@ const (
 	// tenants and granting global admin. It is decided by Policy.CanGlobal,
 	// never by Can, because a scope alone does not carry it.
 	ActionGlobalAdmin Action = "global.admin"
+	// ActionAccountRead reads the caller's own account log, which names every
+	// tenant the person belongs to. It is decided by Policy.CanReadAccount,
+	// never by Can, because a browser session carries no scope for it.
+	ActionAccountRead Action = "account.read"
 
 	// ActionServerRead reads the installation: which servers are registered,
 	// what the store is, and how big the tenant's work is. It is not confinable
@@ -125,6 +129,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionTenantAdmin:  core.ScopeTenantAdmin,
 	ActionSyncAdmin:    core.ScopeSyncAdmin,
 	ActionGlobalAdmin:  core.ScopeGlobalAdmin,
+	ActionAccountRead:  core.ScopeAccountRead,
 
 	ActionExport:         core.ScopeExport,
 	ActionTaskExport:     core.ScopeExport,
@@ -192,7 +197,7 @@ var allActions = []Action{
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
-	ActionGlobalAdmin,
+	ActionGlobalAdmin, ActionAccountRead,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead, ActionTaskExport, ActionTaskImport,
 }

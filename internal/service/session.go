@@ -261,6 +261,9 @@ func recordPasswordChange(ctx context.Context, m *mutation, user *core.User, has
 	if err := m.tx.UpdateUser(ctx, user, hash); err != nil {
 		return err
 	}
+	if err := m.logAccount(ctx, user.ID, core.AccountPasswordSet, map[string]any{"required_change": true}); err != nil {
+		return err
+	}
 	return m.Record(auditUserPasswordChange, eventUserPasswordChanged, "user", m.actor.ID, "",
 		map[string]any{"user_id": user.ID, "require_password_change": true},
 		map[string]any{"user_id": user.ID, "require_password_change": false},
@@ -413,6 +416,9 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		if err := m.tx.ConfirmUserTOTP(ctx, user.ID, m.now); err != nil {
 			return err
 		}
+		if err := m.logAccount(ctx, user.ID, core.AccountFactorEnrolled, nil); err != nil {
+			return err
+		}
 		if err := m.Record(auditTOTPConfirm, eventTOTPConfirmed, subjectTOTP, user.ID, "",
 			map[string]any{"user_id": user.ID, "confirmed": false},
 			map[string]any{"user_id": user.ID, "confirmed": true},
@@ -420,6 +426,9 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 			return err
 		}
 		if err := m.tx.ReplaceRecoveryCodes(ctx, user.ID, rows); err != nil {
+			return err
+		}
+		if err := m.logAccount(ctx, user.ID, core.AccountRecoveryIssued, map[string]any{"codes": len(rows)}); err != nil {
 			return err
 		}
 		return m.Record(auditTOTPCodesIssued, eventTOTPCodesIssued, subjectTOTP, user.ID, "", nil,
@@ -450,6 +459,9 @@ func (l *Local) loginWithRecoveryCode(ctx context.Context, scope core.TenantScop
 		// A code that worked clears the failure the TOTP attempt just
 		// recorded: the limit exists to stop guessing, and this was not one.
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, core.UserTOTP{}); err != nil {
+			return false, err
+		}
+		if err := m.logAccount(ctx, user.ID, core.AccountRecoveryUsed, map[string]any{"recovery_code_id": id}); err != nil {
 			return false, err
 		}
 		return true, m.Record(auditTOTPRecoverySpent, eventTOTPRecoverySpent, subjectTOTP, user.ID, "",

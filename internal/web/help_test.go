@@ -103,7 +103,7 @@ func TestEveryScreenHasAHelpButtonInItsHeader(t *testing.T) {
 	channel, _ := addChannel(t, f, b, url.Values{"name": {"phone"}, "url": {"https://ntfy.invalid/alice-tix"},
 		"format": {"ntfy"}, "kinds": {"mention"}, "active": {"on"}})
 	values := map[string]string{
-		"project": "infra", "workflow": "default", "task": ref, "tenant": "acme",
+		"project": "infra", "workflow": "default", "task": ref, "tenant": "acme", "account": "alice@acme.test",
 		"template": templateID(t, f, "daily"),
 		"channel":  strings.TrimPrefix(channel, "/settings/notifications/"),
 		"filter":   saveFilter(t, b, url.Values{"name": {"Mine"}, "q": {"tag:ops"}}),

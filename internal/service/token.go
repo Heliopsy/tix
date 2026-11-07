@@ -57,6 +57,26 @@ func withoutScope(scopes []core.Scope, drop core.Scope) []core.Scope {
 	return out
 }
 
+// targetIsOwnPerson refuses an account:read token for anybody but the caller's
+// own actor, and for an actor that is not a person. An administrator minting
+// tokens for other actors would otherwise read their accounts. A shell holding
+// the database already holds every account, so it may mint one for anybody.
+func targetIsOwnPerson(ctx context.Context, tx store.Tx, caller, target *core.Actor, shell bool) error {
+	refused := core.Forbidden("a token carries %s only for its owner's own account", core.ScopeAccountRead).
+		WithDetail("scope", string(core.ScopeAccountRead))
+	if target.ID != caller.ID && !shell {
+		return refused
+	}
+	switch _, err := accountOfActor(ctx, tx, target.ID); {
+	case err == nil:
+		return nil
+	case core.IsKind(err, core.KindNotFound):
+		return refused
+	default:
+		return err
+	}
+}
+
 // targetIsGlobalAdmin refuses a global:admin token for an actor whose user is
 // not a global admin. The scope is checked again on every call, but a token
 // that could never use it should not be minted to look as if it could.
@@ -101,7 +121,13 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 			return nil, err
 		}
 	}
-	if err := checkScopeGrant(actor, withoutScope(in.Scopes, core.ScopeGlobalAdmin)); err != nil {
+	accountRead := slices.Contains(in.Scopes, core.ScopeAccountRead)
+	if accountRead && actor.TokenID != "" && !actor.HasScope(core.ScopeAccountRead) {
+		return nil, core.Forbidden("a token without %s cannot mint one with it", core.ScopeAccountRead).
+			WithDetail("scope", string(core.ScopeAccountRead))
+	}
+	if err := checkScopeGrant(actor, withoutScope(withoutScope(in.Scopes, core.ScopeGlobalAdmin),
+		core.ScopeAccountRead)); err != nil {
 		return nil, err
 	}
 
@@ -113,6 +139,11 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 		}
 		if global {
 			if err := targetIsGlobalAdmin(ctx, m.tx, target); err != nil {
+				return err
+			}
+		}
+		if accountRead {
+			if err := targetIsOwnPerson(ctx, m.tx, actor, target, core.DirectStoreFrom(ctx)); err != nil {
 				return err
 			}
 		}

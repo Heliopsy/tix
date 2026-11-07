@@ -431,6 +431,11 @@ type WorkflowTerminal struct {
 type AuthTx interface {
 	CreateActor(ctx context.Context, a *core.Actor) error
 	GetActor(ctx context.Context, id string) (*core.Actor, error)
+	// AppendAccountLog records one change to an account, in the transaction
+	// that makes the change. The table is global, like users.
+	AppendAccountLog(ctx context.Context, e *core.AccountLogEntry) error
+	// ListAccountLog returns one account's log, keyset paginated on seq.
+	ListAccountLog(ctx context.Context, userID string, page core.Page) ([]core.AccountLogEntry, error)
 	// UpdateActor writes an actor's display name and disabled state.
 	UpdateActor(ctx context.Context, a *core.Actor) error
 	// GetActorByUser returns this tenant's actor for an account.

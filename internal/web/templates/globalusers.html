@@ -16,6 +16,7 @@
     <span class="person-id">
       <span class="person-name">{{.Label}}</span>
       <span class="person-mail mono">{{.User.Email}}</span>
+      <a class="small" href="/admin/global/accounts/{{.User.Email}}">{{t "History"}}</a>
     </span>
     <span class="person-marks">
       {{if .Role}}<span class="role role-{{slug .Role}}">{{.Role}}</span>

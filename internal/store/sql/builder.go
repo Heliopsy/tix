@@ -38,6 +38,9 @@ var unscoped = map[string]string{
 	// no tenant column to scope by and no isolation policy to write.
 	"user_totp":           "a second factor belongs to the global user it authenticates, like the password beside it",
 	"user_recovery_codes": "a recovery code substitutes for the global user's second factor, so it is scoped the same way",
+	// The account log follows the account across every tenant it belongs to,
+	// which is the point of it: per-tenant audit already covers one tenant.
+	"account_log": "an account's history spans every tenant it belongs to, like the account itself",
 }
 
 // UnscopedTables returns the exemption list with its reasons, for the guards

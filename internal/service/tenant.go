@@ -132,7 +132,11 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 		return nil, err
 	}
 
-	out, err := l.seedTenant(ctx, tenant, admins)
+	by, err := l.actingAs(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	out, err := l.seedTenant(withGlobalStanding(ctx, by), tenant, admins)
 	if err != nil {
 		if undoErr := l.unwindTenant(ctx, actor, tenant); undoErr != nil {
 			return nil, core.Internal("setting up tenant %q failed and removing it failed too; "+
@@ -298,6 +302,11 @@ func createAdmin(ctx context.Context, m *mutation, id string, a pendingAdmin) (c
 	if err := m.tx.AddMember(ctx, &core.Membership{ActorID: id, Role: core.RoleAdmin}); err != nil {
 		return core.CreatedAdmin{}, err
 	}
+	if err := m.logAccount(ctx, id, core.AccountCreated, map[string]any{
+		"role": string(core.RoleAdmin), "password_generated": a.generated != "",
+	}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
 	credential := "supplied"
 	if a.generated != "" {
 		credential = "generated"
@@ -320,6 +329,10 @@ func addAccountAdmin(ctx context.Context, m *mutation, a pendingAdmin) (core.Cre
 		return core.CreatedAdmin{}, err
 	}
 	if err := m.tx.AddMember(ctx, &core.Membership{ActorID: actor.ID, Role: core.RoleAdmin}); err != nil {
+		return core.CreatedAdmin{}, err
+	}
+	if err := m.logAccount(ctx, a.account.ID, core.AccountMemberAdded,
+		map[string]any{"role": string(core.RoleAdmin)}); err != nil {
 		return core.CreatedAdmin{}, err
 	}
 	if err := m.Record(auditMemberAdd, eventMemberAdded, "user", actor.ID, "", nil, asMember(a.account, actor),
@@ -638,7 +651,8 @@ func (l *Local) AddMember(ctx context.Context, actorID string, role core.Role) (
 
 	var out *core.Membership
 	err = l.write(ctx, actor, func(m *mutation) error {
-		if _, err := m.tx.GetActor(ctx, actorID); err != nil {
+		target, err := m.tx.GetActor(ctx, actorID)
+		if err != nil {
 			return err
 		}
 		switch _, err := m.tx.GetMember(ctx, actorID); {
@@ -652,6 +666,10 @@ func (l *Local) AddMember(ctx context.Context, actorID string, role core.Role) (
 			return err
 		}
 		out = mem
+		if err := m.logAccount(ctx, target.UserID, core.AccountMemberAdded,
+			map[string]any{"role": string(role)}); err != nil {
+			return err
+		}
 		return m.Record(auditMemberAdd, eventMemberAdded, "membership", actorID, "", nil, mem,
 			map[string]any{"role": string(role)})
 	})
@@ -690,6 +708,13 @@ func (l *Local) RemoveMember(ctx context.Context, actorID string) error {
 			return err
 		}
 		if err := m.tx.RemoveMember(ctx, actorID); err != nil {
+			return err
+		}
+		if target, err := m.tx.GetActor(ctx, actorID); err == nil {
+			if err := m.logAccount(ctx, target.UserID, core.AccountMemberRemoved, nil); err != nil {
+				return err
+			}
+		} else if !core.IsKind(err, core.KindNotFound) {
 			return err
 		}
 		return m.Record(auditMemberRemove, eventMemberRemoved, "membership", actorID, "", before, nil,

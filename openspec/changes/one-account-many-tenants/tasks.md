@@ -39,15 +39,16 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 3. Account log (PR 3, M)
 
-- [ ] 3.1 Account log migration, both stores, unscoped allow-list entry and isolation guard (S)
-- [ ] 3.2 Every account change from PR 2, the second factor, global admin grant and revoke, and invite
+- [x] 3.1 Account log migration, both stores, unscoped allow-list entry and isolation guard (S)
+- [x] 3.2 Every account change from PR 2, the second factor, global admin grant and revoke, and invite
   acceptance writes its row in the same transaction (M)
-- [ ] 3.3 `GetAccountLog` and `GetAccountLogFor`, registry, HTTP, `tix account log`,
+- [x] 3.3 `GetAccountLog` and `GetAccountLogFor`, registry, HTTP, `tix account log`,
   `tix global-admin account-log`, web Account screen, Bulgarian strings (M)
 
 ## 4. Shared host, switching, whoami (PR 4, L)
 
-- [ ] 4.1 `whoami` memberships, `account_id`, `account:read` scope (registry, OpenAPI, client) (S)
+- [ ] 4.1 `whoami` memberships and `account_id` (registry, OpenAPI, client); `account:read` arrived with
+  the account log (S)
 - [ ] 4.2 `resolveTenant`: credential and `X-Tix-Tenant` on the shared host, refusal on a bound host (M)
 - [ ] 4.0 Migration: `sessions.second_factor` and `sessions.method`, written at every session mint (S)
 - [ ] 4.3 Same-host switch: `POST /switch`, factor challenge, new session, old one ended, audit (M)

@@ -21,7 +21,7 @@ func TestActorHasScopeExplicit(t *testing.T) {
 func TestActorHasScopeWildcard(t *testing.T) {
 	a := &Actor{Scopes: []Scope{ScopeAll}}
 	for _, s := range AllScopes {
-		if s == ScopeGlobalAdmin {
+		if s == ScopeGlobalAdmin || s == ScopeAccountRead {
 			continue
 		}
 		if !a.HasScope(s) {
@@ -30,20 +30,23 @@ func TestActorHasScopeWildcard(t *testing.T) {
 	}
 }
 
-// global:admin is carried only when named, so no token or role minted before
-// global admins existed gained authority over other tenants.
-func TestGlobalAdminScopeIsOnlyHeldWhenNamed(t *testing.T) {
-	for name, a := range map[string]*Actor{
-		"wildcard":   {Scopes: []Scope{ScopeAll}},
-		"admin role": {Role: RoleAdmin},
-		"both":       {Scopes: []Scope{ScopeAll}, Role: RoleAdmin},
-	} {
-		if a.HasScope(ScopeGlobalAdmin) {
-			t.Errorf("%s actor holds %q without naming it", name, ScopeGlobalAdmin)
+// global:admin and account:read are carried only when named, so no token or
+// role minted before they existed gained authority over other tenants or
+// learned about them.
+func TestNamedOnlyScopesAreOnlyHeldWhenNamed(t *testing.T) {
+	for _, scope := range []Scope{ScopeGlobalAdmin, ScopeAccountRead} {
+		for name, a := range map[string]*Actor{
+			"wildcard":   {Scopes: []Scope{ScopeAll}},
+			"admin role": {Role: RoleAdmin},
+			"both":       {Scopes: []Scope{ScopeAll}, Role: RoleAdmin},
+		} {
+			if a.HasScope(scope) {
+				t.Errorf("%s actor holds %q without naming it", name, scope)
+			}
 		}
-	}
-	if !(&Actor{Scopes: []Scope{ScopeGlobalAdmin}}).HasScope(ScopeGlobalAdmin) {
-		t.Errorf("an actor naming %q does not hold it", ScopeGlobalAdmin)
+		if !(&Actor{Scopes: []Scope{scope}}).HasScope(scope) {
+			t.Errorf("an actor naming %q does not hold it", scope)
+		}
 	}
 }
 
@@ -58,7 +61,7 @@ func TestActorHasScopeFromRole(t *testing.T) {
 
 	admin := &Actor{Role: RoleAdmin}
 	for _, s := range AllScopes {
-		if s == ScopeGlobalAdmin {
+		if s == ScopeGlobalAdmin || s == ScopeAccountRead {
 			continue
 		}
 		if !admin.HasScope(s) {

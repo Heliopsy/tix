@@ -39,7 +39,7 @@ A pending invite addressed to an existing account SHALL appear on the inviting t
 
 ### Requirement: An Account screen shows the reader's account log
 
-The web UI SHALL offer an Account screen, reached from the header's tenant dialog, listing the reader's account log. The Global admin area SHALL link each user to their account log.
+The web UI SHALL offer an Account screen, reached from the settings screen, listing the reader's account log. The Global admin area SHALL link each user to their account log.
 
 #### Scenario: Reader opens Account
 

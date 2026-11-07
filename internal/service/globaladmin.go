@@ -180,6 +180,9 @@ func setGlobalAdmin(ctx context.Context, m *mutation, u *core.User, on bool, act
 		return err
 	}
 	u.GlobalAdmin = on
+	if err := m.logAccount(ctx, u.ID, globalAdminAction(on), nil); err != nil {
+		return err
+	}
 	return m.Record(action, typ, "user", u.ID, "", before, u, map[string]any{"email": u.Email})
 }
 
@@ -208,4 +211,12 @@ func globalAdmins(ctx context.Context, tx store.Tx) ([]core.User, error) {
 		}
 		page.Cursor = userCursor(page, found[len(found)-1]).Encode()
 	}
+}
+
+// globalAdminAction names a grant or revoke in the account's log.
+func globalAdminAction(on bool) core.AccountAction {
+	if on {
+		return core.AccountGlobalAdminGranted
+	}
+	return core.AccountGlobalAdminRevoked
 }

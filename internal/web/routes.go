@@ -127,6 +127,7 @@ const (
 	RouteLogin        = "/login"
 	RouteLogout       = "/logout"
 	RouteSettings     = "/settings"
+	RouteAccount      = "/account"
 	RouteRelease      = "/release"
 	RouteAdvanced     = "/advanced"
 	RouteTheme        = "/theme"
@@ -244,6 +245,7 @@ const (
 	RouteGlobalTenant       = "/admin/global/tenants/{key}"
 	RouteGlobalUsers        = "/admin/global/users"
 	RouteGlobalMembers      = "/admin/global/members"
+	RouteGlobalAccount      = "/admin/global/accounts/{email}"
 	RouteGlobalUserUpdate   = "/admin/global/users/update"
 	RouteGlobalUserDelete   = "/admin/global/users/delete"
 

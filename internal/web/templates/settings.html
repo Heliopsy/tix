@@ -411,6 +411,7 @@
   <div class="setlist">
   {{if .Data.TOTP.Available}}
   {{$totp := .Data.TOTP.Status}}
+    <p class="muted"><a href="/account">{{t "Your account's history"}}</a> {{t "lists every change to your password, second factor and memberships."}}</p>
 
     {{if $totp.Enrolled}}
     <div class="setrow">

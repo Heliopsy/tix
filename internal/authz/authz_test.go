@@ -436,7 +436,7 @@ func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
 // CanGlobal and Can refuses it outright, which TestCanNeverGrantGlobalAdmin
 // pins.
 func scopedActions() []Action {
-	return slices.DeleteFunc(Actions(), func(a Action) bool { return a == ActionGlobalAdmin })
+	return slices.DeleteFunc(Actions(), func(a Action) bool { return a == ActionGlobalAdmin || a == ActionAccountRead })
 }
 
 func TestCanNeverGrantGlobalAdmin(t *testing.T) {
@@ -489,5 +489,35 @@ func TestCanGlobal(t *testing.T) {
 	}
 	if err := p.CanGlobal(nil, GlobalStanding{DirectStore: true}); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("CanGlobal(nil) = %v, want unauthenticated", err)
+	}
+}
+
+// Reading one's own account is the person's in the browser, and a token's
+// only when it names account:read: "*" does not carry it.
+func TestCanReadAccount(t *testing.T) {
+	p := New()
+	token := func(scopes ...core.Scope) *core.Actor {
+		a := scopeActor(scopes...)
+		a.TokenID = "tok"
+		return a
+	}
+	pinned := token(core.ScopeAccountRead)
+	pinned.ProjectID = "p1"
+	for _, tc := range []struct {
+		name  string
+		actor *core.Actor
+		want  bool
+	}{
+		{"browser session", roleActor(core.RoleViewer), true},
+		{"token naming account:read", token(core.ScopeAccountRead), true},
+		{"token with *", token(core.ScopeAll), false},
+		{"token pinned to a project", pinned, false},
+	} {
+		if err := p.CanReadAccount(tc.actor); (err == nil) != tc.want {
+			t.Errorf("%s: CanReadAccount = %v, want allowed=%v", tc.name, err, tc.want)
+		}
+	}
+	if err := p.Can(token(core.ScopeAccountRead), ActionAccountRead, resource()); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("Can deciding account.read = %v, want it refused to the dedicated check", err)
 	}
 }

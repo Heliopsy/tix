@@ -18,6 +18,9 @@ func (rt *Router) registerGlobalAdminRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTenantUsers, rt.handleListTenantUsers)
 	rt.mux.HandleFunc("POST "+wire.RouteTenantUsers, rt.handleCreateTenantUser)
 	rt.mux.HandleFunc("POST "+wire.RouteTenantMembers, rt.handleAddTenantMember)
+
+	rt.mux.HandleFunc("GET "+wire.RouteAccountLog, rt.handleAccountLog)
+	rt.mux.HandleFunc("GET "+wire.RouteAccountLogFor, rt.handleAccountLogFor)
 	rt.mux.HandleFunc("PATCH "+wire.RouteTenantUser, rt.handleUpdateTenantUser)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTenantUser, rt.handleDeleteTenantUser)
 }
@@ -49,6 +52,36 @@ func (rt *Router) handleCreateTenantUser(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	WriteJSON(w, http.StatusCreated, user)
+}
+
+// handleAccountLog returns a page of the caller's account log.
+func (rt *Router) handleAccountLog(w http.ResponseWriter, r *http.Request) {
+	page, err := pageFrom(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	entries, next, err := rt.cfg.Service.GetAccountLog(r.Context(), page)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, entries, next)
+}
+
+// handleAccountLogFor returns a page of any account's log, for a global admin.
+func (rt *Router) handleAccountLogFor(w http.ResponseWriter, r *http.Request) {
+	page, err := pageFrom(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	entries, next, err := rt.cfg.Service.GetAccountLogFor(r.Context(), r.PathValue("email"), page)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, entries, next)
 }
 
 // handleAddTenantMember adds an existing account to a tenant.

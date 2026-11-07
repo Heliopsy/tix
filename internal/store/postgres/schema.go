@@ -83,6 +83,7 @@ var boolColumns = map[string]bool{
 	"users.require_password_change":  true,
 	"user_invites.existing_account":  true,
 	"user_invites.grants_membership": true,
+	"account_log.by_global_admin":    true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

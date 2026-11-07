@@ -80,8 +80,15 @@ const (
 	ScopeGlobalAdmin Scope = "global:admin"
 
 	ScopeAuditRead Scope = "audit:read"
-	ScopeExport    Scope = "export"
-	ScopeImport    Scope = "import"
+
+	// ScopeAccountRead lets a token read its owner's account: the log of
+	// changes to it, which names every tenant the person belongs to. "*" does
+	// not imply it, so an agent's token in one tenant learns nothing about the
+	// others; it is carried only when named, and only by a token minted for
+	// its owner's own actor.
+	ScopeAccountRead Scope = "account:read"
+	ScopeExport      Scope = "export"
+	ScopeImport      Scope = "import"
 )
 
 // AllScopes is the complete vocabulary, excluding ScopeAll.
@@ -94,7 +101,7 @@ var AllScopes = []Scope{
 	ScopeEventSubscribe,
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
-	ScopeGlobalAdmin,
+	ScopeGlobalAdmin, ScopeAccountRead,
 }
 
 // Role is a named bundle of scopes granted to a human within one tenant.
@@ -184,8 +191,8 @@ func (a *Actor) HasScope(s Scope) bool {
 	if a == nil {
 		return false
 	}
-	if s == ScopeGlobalAdmin {
-		return slices.Contains(a.Scopes, ScopeGlobalAdmin)
+	if s == ScopeGlobalAdmin || s == ScopeAccountRead {
+		return slices.Contains(a.Scopes, s)
 	}
 	if slices.Contains(a.Scopes, ScopeAll) {
 		return true
@@ -358,4 +365,55 @@ type Membership struct {
 	Role Role `json:"role" yaml:"role"`
 	// CreatedAt is when the membership was granted, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+}
+
+// AccountAction names a change recorded in an account's log.
+type AccountAction string
+
+// Account actions.
+const (
+	AccountCreated            AccountAction = "account.created"
+	AccountDeleted            AccountAction = "account.deleted"
+	AccountPasswordSet        AccountAction = "account.password_set"
+	AccountPasswordChangeSet  AccountAction = "account.password_change_required"
+	AccountPasswordChangeLift AccountAction = "account.password_change_lifted"
+	AccountDisabled           AccountAction = "account.disabled"
+	AccountEnabled            AccountAction = "account.enabled"
+	AccountFactorEnrolled     AccountAction = "account.second_factor_enrolled"
+	AccountFactorCleared      AccountAction = "account.second_factor_cleared"
+	AccountRecoveryIssued     AccountAction = "account.recovery_codes_issued"
+	AccountRecoveryUsed       AccountAction = "account.recovery_code_used"
+	AccountGlobalAdminGranted AccountAction = "account.global_admin_granted"
+	AccountGlobalAdminRevoked AccountAction = "account.global_admin_revoked"
+	AccountMemberAdded        AccountAction = "account.membership_added"
+	AccountMemberRole         AccountAction = "account.membership_role_changed"
+	AccountMemberRemoved      AccountAction = "account.membership_removed"
+)
+
+// AccountLogEntry is one change to an account, recorded in the same
+// transaction as the change. It holds no secret: no password, hash, code or
+// token, only what changed, where, by whom and through which channel.
+type AccountLogEntry struct {
+	// Seq orders the account's entries; a later change has a larger number.
+	Seq int64 `json:"seq" yaml:"seq"`
+	// UserID is the account the entry is about.
+	UserID string `json:"user_id" yaml:"user_id"`
+	// Action is what changed.
+	Action AccountAction `json:"action" yaml:"action"`
+	// TenantKey is the tenant the change was made from, or that a membership
+	// change concerns.
+	TenantKey string `json:"tenant_key,omitempty" yaml:"tenant_key,omitempty"`
+	// ByUserID is the account of whoever made the change; empty for the
+	// system or a shell holding the database.
+	ByUserID string `json:"by_user_id,omitempty" yaml:"by_user_id,omitempty"`
+	// ByEmail is that account's address when the change was made.
+	ByEmail string `json:"by_email,omitempty" yaml:"by_email,omitempty"`
+	// ByGlobalAdmin reports that a global admin made the change as one.
+	ByGlobalAdmin bool `json:"by_global_admin,omitempty" yaml:"by_global_admin,omitempty"`
+	// Via is the access channel the change arrived through.
+	Via ViaKind `json:"via" yaml:"via"`
+	// Detail carries what changed, such as a role; never a secret.
+	Detail map[string]any `json:"detail,omitempty" yaml:"detail,omitempty"`
+	// OccurredAt is when the change was made, RFC 3339.
+	OccurredAt time.Time `json:"occurred_at" yaml:"occurred_at"`
 }
