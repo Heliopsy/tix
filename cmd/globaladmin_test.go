@@ -90,6 +90,7 @@ func TestTenantUserCommandsManageAnotherTenant(t *testing.T) {
 		t.Fatalf("tix tenant user ls acme = %s (%v), want carol", listed.out, err)
 	}
 	id := users[0].ID
+	assertTenantUserTable(t, c.mustRun("--db", db, "tenant", "user", "ls", "acme").out, id)
 
 	c.mustRun("--db", db, "tenant", "user", "edit", "acme", id, "--role", "admin",
 		"--display-name", "Carol A", "--password", "another-long-password", "--disabled=false")
@@ -175,5 +176,35 @@ func TestTheShellAdministersAnyTenant(t *testing.T) {
 		if got := c.run(append([]string{"--db", db}, args...)...); got.code != core.ExitNotFound {
 			t.Errorf("tix %s exited %d, want %d\nstderr: %s", strings.Join(args, " "), got.code, core.ExitNotFound, got.err)
 		}
+	}
+}
+
+// assertTenantUserTable checks tix tenant user ls draws one column per field,
+// carol's row reading as her address, name and role, and never the struct.
+func assertTenantUserTable(t *testing.T, out, id string) {
+	t.Helper()
+	var rows [][]string
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.HasPrefix(line, "│") {
+			continue
+		}
+		var cells []string
+		for _, c := range strings.Split(strings.Trim(line, "│"), "│") {
+			cells = append(cells, strings.TrimSpace(c))
+		}
+		rows = append(rows, cells)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("tix tenant user ls acme =\n%s\nwant a header and one row", out)
+	}
+	if got := strings.Join(rows[0], ","); got != "ID,EMAIL,NAME,ROLE,GLOBAL ADMIN,CREATED,DISABLED" {
+		t.Errorf("header = %q", got)
+	}
+	row := rows[1]
+	if len(row) != 7 || row[0] != id || row[1] != "carol@acme.test" || row[2] != "Carol" || row[3] != "viewer" || row[4] != "no" || row[6] != "" {
+		t.Errorf("carol's row = %q, want id, address, name, role viewer, global admin no, not disabled", row)
+	}
+	if strings.ContainsAny(out, "{}") {
+		t.Errorf("the table prints a struct:\n%s", out)
 	}
 }

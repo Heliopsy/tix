@@ -95,6 +95,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, tenantHeader, deref(v), p.tenantRow)
 	case []core.User:
 		return renderRows(w, p, userHeader, v, p.userRow)
+	case []core.TenantUser:
+		return renderRows(w, p, tenantUserHeader, v, p.tenantUserRow)
 	case core.User:
 		return renderRows(w, p, userHeader, []core.User{v}, p.userRow)
 	case *core.User:
@@ -192,6 +194,7 @@ var (
 	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
 	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
 	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
+	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "CREATED", "DISABLED"}
 	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
 	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
@@ -288,6 +291,11 @@ func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) erro
 
 func (p Painter) userRow(u core.User) table.Row {
 	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
+		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
+}
+
+func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), string(u.Role), yesNo(u.GlobalAdmin),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
