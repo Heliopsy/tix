@@ -188,7 +188,10 @@ func (l *Local) readSecondFactor(ctx context.Context, tx store.Tx, tenant *core.
 			}
 			return err
 		}
-		enrolled, err := totpEnrolled(ctx, tx, actor.ID)
+		if actor.UserID == "" {
+			continue
+		}
+		enrolled, err := totpEnrolled(ctx, tx, actor.UserID)
 		if err != nil {
 			return err
 		}

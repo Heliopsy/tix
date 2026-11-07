@@ -76,7 +76,7 @@ func (l *Local) totpSelf(ctx context.Context) (*core.Actor, *core.User, error) {
 	var user *core.User
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		var err error
-		user, err = tx.GetUser(ctx, actor.ID)
+		user, err = accountOfActor(ctx, tx, actor.ID)
 		return err
 	}); err != nil {
 		if core.IsKind(err, core.KindNotFound) {
@@ -375,11 +375,16 @@ func (l *Local) ClearUserTOTP(ctx context.Context, userID string) error {
 	if userID == "" {
 		return core.Invalid("a user identifier is required")
 	}
-	// An actor of this tenant carries the user's identifier, so resolving one
-	// is what keeps an administrator of one tenant from clearing the factor
-	// of somebody who belongs only to another.
+	// The identifier names an actor of this tenant, and the factor belongs to
+	// the account behind it. Resolving the actor here is what keeps an
+	// administrator of one tenant from clearing the factor of somebody who
+	// belongs only to another.
+	var account string
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		_, err := tx.GetActor(ctx, userID)
+		u, err := accountOfActor(ctx, tx, userID)
+		if err == nil {
+			account = u.ID
+		}
 		return err
 	}); err != nil {
 		if core.IsKind(err, core.KindNotFound) {
@@ -387,7 +392,7 @@ func (l *Local) ClearUserTOTP(ctx context.Context, userID string) error {
 		}
 		return err
 	}
-	return l.clearEnrolment(ctx, actor, userID, auditTOTPClear, eventTOTPCleared)
+	return l.clearEnrolment(ctx, actor, account, auditTOTPClear, eventTOTPCleared)
 }
 
 // clearEnrolment removes one user's enrolment and recovery codes together.

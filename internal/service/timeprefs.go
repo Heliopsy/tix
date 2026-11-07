@@ -48,7 +48,7 @@ func (l *Local) SetTimePrefs(ctx context.Context, in core.TimePrefsInput) (*core
 	}
 	var out core.TimeSettings
 	err = l.write(ctx, actor, func(m *mutation) error {
-		before, err := userTimePrefs(ctx, m.tx, actor)
+		account, before, err := userTimePrefs(ctx, m.tx, actor)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func (l *Local) SetTimePrefs(ctx context.Context, in core.TimePrefsInput) (*core
 			after.Timezone = *in.Timezone
 		}
 		if after != before {
-			if err := m.tx.SetUserTimePrefs(ctx, actor.ID, after); err != nil {
+			if err := m.tx.SetUserTimePrefs(ctx, account, after); err != nil {
 				return err
 			}
 			if err := m.Record(auditUserTimePrefs, eventUserUpdated, "user", actor.ID, "", before, after,
@@ -84,9 +84,9 @@ func (l *Local) timeSettings(ctx context.Context, tx store.Tx, actor *core.Actor
 	if err != nil {
 		return core.TimeSettings{}, err
 	}
-	user, err := tx.UserTimePrefs(ctx, actor.ID)
+	_, user, err := userTimePrefs(ctx, tx, actor)
 	personal := err == nil
-	if err != nil && !core.IsKind(err, core.KindNotFound) {
+	if err != nil && !core.IsKind(err, core.KindInvalid) {
 		return core.TimeSettings{}, err
 	}
 	out := core.ResolveTimePrefs(l.timeDefaults,
@@ -95,12 +95,20 @@ func (l *Local) timeSettings(ctx context.Context, tx store.Tx, actor *core.Actor
 	return out, nil
 }
 
-// userTimePrefs reads the caller's own choice, refusing a caller who is not a
-// person.
-func userTimePrefs(ctx context.Context, tx store.Tx, actor *core.Actor) (core.TimePrefs, error) {
-	p, err := tx.UserTimePrefs(ctx, actor.ID)
+// userTimePrefs reads the caller's own choice and the account it belongs to,
+// refusing a caller who is not a person.
+func userTimePrefs(ctx context.Context, tx store.Tx, actor *core.Actor) (string, core.TimePrefs, error) {
+	notPerson := core.Invalid("a date preference belongs to a person, and this caller is not one; a tenant administrator sets the tenant's default with tix tenant edit")
+	user, err := accountOfActor(ctx, tx, actor.ID)
 	if core.IsKind(err, core.KindNotFound) {
-		return core.TimePrefs{}, core.Invalid("a date preference belongs to a person, and this caller is not one; a tenant administrator sets the tenant's default with tix tenant edit")
+		return "", core.TimePrefs{}, notPerson
 	}
-	return p, err
+	if err != nil {
+		return "", core.TimePrefs{}, err
+	}
+	p, err := tx.UserTimePrefs(ctx, user.ID)
+	if core.IsKind(err, core.KindNotFound) {
+		return "", core.TimePrefs{}, notPerson
+	}
+	return user.ID, p, err
 }

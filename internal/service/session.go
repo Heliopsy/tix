@@ -104,7 +104,7 @@ func (l *Local) findCandidate(ctx context.Context, scope core.TenantScope, email
 
 	system := core.SystemActor(scope.TenantID)
 	if err := l.read(ctx, system, func(tx store.Tx) error {
-		a, err := tx.GetActor(ctx, user.ID)
+		a, err := tx.GetActorByUser(ctx, user.ID)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
 		}
@@ -252,7 +252,7 @@ func recordPasswordChange(ctx context.Context, m *mutation, user *core.User, has
 	if err := m.tx.UpdateUser(ctx, user, hash); err != nil {
 		return err
 	}
-	return m.Record(auditUserPasswordChange, eventUserPasswordChanged, "user", user.ID, "",
+	return m.Record(auditUserPasswordChange, eventUserPasswordChanged, "user", m.actor.ID, "",
 		map[string]any{"user_id": user.ID, "require_password_change": true},
 		map[string]any{"user_id": user.ID, "require_password_change": false},
 		map[string]any{"user_id": user.ID, "email": user.Email})
@@ -342,7 +342,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		if user, err = tx.GetUser(ctx, ticket.UserID); err != nil {
 			return err
 		}
-		actor, err := tx.GetActor(ctx, ticket.UserID)
+		actor, err := tx.GetActorByUser(ctx, ticket.UserID)
 		if err != nil {
 			return err
 		}

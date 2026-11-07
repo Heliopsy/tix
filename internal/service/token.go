@@ -61,7 +61,7 @@ func withoutScope(scopes []core.Scope, drop core.Scope) []core.Scope {
 // not a global admin. The scope is checked again on every call, but a token
 // that could never use it should not be minted to look as if it could.
 func targetIsGlobalAdmin(ctx context.Context, tx store.Tx, target *core.Actor) error {
-	u, err := tx.GetUser(ctx, target.ID)
+	u, err := accountOfActor(ctx, tx, target.ID)
 	if err == nil && u.GlobalAdmin && u.DisabledAt == nil {
 		return nil
 	}

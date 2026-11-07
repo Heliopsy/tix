@@ -426,6 +426,8 @@ type WorkflowTerminal struct {
 type AuthTx interface {
 	CreateActor(ctx context.Context, a *core.Actor) error
 	GetActor(ctx context.Context, id string) (*core.Actor, error)
+	// GetActorByUser returns this tenant's actor for an account.
+	GetActorByUser(ctx context.Context, userID string) (*core.Actor, error)
 	GetActorByHandle(ctx context.Context, handle string) (*core.Actor, error)
 	ListActors(ctx context.Context, page core.Page) ([]core.Actor, error)
 

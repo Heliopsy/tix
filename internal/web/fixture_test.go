@@ -281,7 +281,7 @@ func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
 		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey))
 	f.svc = newWebService(local, clk)
-	f.actorA = seedActor(t, st, f.tenantA.ID, "alice", core.RoleAdmin)
+	f.actorA = seedPerson(t, st, f.tenantA.ID, "alice", "alice@acme.test", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)
 	f.project = seedProject(t, st, f.tenantA.ID, "infra")
 	seedProject(t, st, f.tenantB.ID, "other")
@@ -379,6 +379,27 @@ func seedActor(t *testing.T, st *sqlite.Store, tenantID, handle string, role cor
 		return tx.CreateActor(ctx, &actor)
 	}); err != nil {
 		t.Fatalf("creating actor %q: %v", handle, err)
+	}
+	actor.TenantID = tenantID
+	return actor
+}
+
+// seedPerson is seedActor for a person: an account with no password, and an
+// actor linked to it, as user administration writes them.
+func seedPerson(t *testing.T, st *sqlite.Store, tenantID, handle, email string, role core.Role) core.Actor {
+	t.Helper()
+	ctx := context.Background()
+	user := core.User{Email: email}
+	actor := core.Actor{Kind: core.ActorUser, Handle: handle, Role: role,
+		Scopes: []core.Scope{core.ScopeAll}}
+	if err := st.Update(ctx, core.TenantScope{TenantID: tenantID}, func(tx store.Tx) error {
+		if err := tx.CreateUser(ctx, &user, ""); err != nil {
+			return err
+		}
+		actor.UserID = user.ID
+		return tx.CreateActor(ctx, &actor)
+	}); err != nil {
+		t.Fatalf("creating person %q: %v", handle, err)
 	}
 	actor.TenantID = tenantID
 	return actor

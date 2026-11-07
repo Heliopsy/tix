@@ -80,7 +80,7 @@ func (u *syncUsers) add(ctx context.Context, tx store.Tx, a core.Actor) error {
 	u.handles[handle] = a.ID
 	var account *core.User
 	if a.Kind == core.ActorUser {
-		found, err := tx.GetUser(ctx, a.ID)
+		found, err := accountOf(ctx, tx, &a)
 		switch {
 		case err == nil:
 			account = found

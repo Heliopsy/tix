@@ -46,6 +46,8 @@ type apiFixture struct {
 	live     *connections.Registry
 	logs     *bytes.Buffer
 	lookup   mapTokens
+	// globalA is tenant A's global admin, created on first use.
+	globalA core.Actor
 }
 
 // apiService completes core.Service with in-memory stand-ins for the groups

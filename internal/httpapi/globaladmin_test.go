@@ -11,26 +11,45 @@ import (
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/sqlite"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
-// globalAdminToken gives alice, the actor of tenant A, a user row that is a
-// global admin, and mints a token for her naming global:admin.
+// globalAdminToken gives tenant A a global admin, an account linked to an
+// admin actor of its own, and mints a token for that actor naming
+// global:admin.
 func (f *apiFixture) globalAdminToken() string {
 	f.t.Helper()
+	if f.globalA.ID == "" {
+		f.globalA = seedLinkedActor(f.t, f.store, f.tenantA.ID, "root", "root@acme.test", true)
+	}
+	return f.mintScoped(f.tenantA.ID, f.globalA.ID, core.ScopeAll, core.ScopeGlobalAdmin)
+}
+
+// seedLinkedActor writes an account and an admin actor of tenantID linked to
+// it, as user administration does.
+func seedLinkedActor(t *testing.T, st *sqlite.Store, tenantID, handle, email string, global bool) core.Actor {
+	t.Helper()
 	ctx := context.Background()
-	if err := f.store.Update(ctx, core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
-		if _, err := tx.GetUser(ctx, f.actorA.ID); err == nil {
-			return nil
-		}
-		if err := tx.CreateUser(ctx, &core.User{ID: f.actorA.ID, Email: "alice@acme.test"}, ""); err != nil {
+	user := core.User{Email: email}
+	actor := core.Actor{Kind: core.ActorUser, Handle: handle, Role: core.RoleAdmin}
+	if err := st.Update(ctx, core.TenantScope{TenantID: tenantID}, func(tx store.Tx) error {
+		if err := tx.CreateUser(ctx, &user, ""); err != nil {
 			return err
 		}
-		return tx.SetUserGlobalAdmin(ctx, f.actorA.ID, true)
+		actor.UserID = user.ID
+		if err := tx.CreateActor(ctx, &actor); err != nil {
+			return err
+		}
+		if err := tx.AddMember(ctx, &core.Membership{ActorID: actor.ID, Role: core.RoleAdmin}); err != nil {
+			return err
+		}
+		return tx.SetUserGlobalAdmin(ctx, user.ID, global)
 	}); err != nil {
-		f.t.Fatalf("making alice a global admin: %v", err)
+		t.Fatalf("creating account %q: %v", email, err)
 	}
-	return f.mintScoped(f.tenantA.ID, f.actorA.ID, core.ScopeAll, core.ScopeGlobalAdmin)
+	actor.TenantID = tenantID
+	return actor
 }
 
 // mintScoped mints a token with exactly these scopes.
@@ -163,7 +182,7 @@ func TestGlobalAdminRoutesGrantListAndRevoke(t *testing.T) {
 	revoked := f.do(http.MethodDelete, "/api/v1/global-admins/bob@other.test", f.hostA, token, nil)
 	mustStatus(t, revoked, http.StatusNoContent)
 	_ = revoked.Body.Close()
-	last := f.do(http.MethodDelete, "/api/v1/global-admins/alice@acme.test", f.hostA, token, nil)
+	last := f.do(http.MethodDelete, "/api/v1/global-admins/root@acme.test", f.hostA, token, nil)
 	mustStatus(t, last, http.StatusUnprocessableEntity)
 	_ = last.Body.Close()
 

@@ -263,7 +263,7 @@ func createAdmin(ctx context.Context, m *mutation, id string, a pendingAdmin) (c
 	if err := m.tx.CreateUser(ctx, u, a.hash); err != nil {
 		return core.CreatedAdmin{}, err
 	}
-	actor := &core.Actor{ID: id, Kind: core.ActorUser, Handle: a.handle, DisplayName: a.displayName}
+	actor := &core.Actor{ID: id, UserID: id, Kind: core.ActorUser, Handle: a.handle, DisplayName: a.displayName}
 	if err := m.tx.CreateActor(ctx, actor); err != nil {
 		return core.CreatedAdmin{}, err
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/demo"
 	"github.com/heliopsy/tix/internal/output"
-	"github.com/heliopsy/tix/internal/store"
 )
 
 // guardFormat and guardZone are the reader's preference every screen is
@@ -79,12 +78,7 @@ func guardExamples() []string {
 func TestEveryScreenWritesDatesInTheReadersFormat(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	makePerson(t, f, f.actorA.ID, "alice@example.com")
-	if err := f.store.Update(context.Background(), core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
-		return tx.SetUserGlobalAdmin(context.Background(), f.actorA.ID, true)
-	}); err != nil {
-		t.Fatalf("making alice a global admin: %v", err)
-	}
+	f.makeGlobalAdmin()
 	seedGuardData(t, f)
 
 	b := f.as("alice")

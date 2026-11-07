@@ -13,13 +13,17 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var actorColumns = []string{"id", "tenant_id", "kind", "handle", "display_name"}
+var actorColumns = []string{"id", "tenant_id", "kind", "handle", "display_name", "user_id"}
 
 func scanActor(s scanner) (core.Actor, error) {
-	var a core.Actor
-	if err := s.Scan(&a.ID, &a.TenantID, &a.Kind, &a.Handle, &a.DisplayName); err != nil {
+	var (
+		a      core.Actor
+		userID sql.NullString
+	)
+	if err := s.Scan(&a.ID, &a.TenantID, &a.Kind, &a.Handle, &a.DisplayName, &userID); err != nil {
 		return core.Actor{}, mapErr(err, "scanning actor")
 	}
+	a.UserID = userID.String
 	return a, nil
 }
 
@@ -34,6 +38,7 @@ func (t *tx) CreateActor(ctx context.Context, a *core.Actor) error {
 		Set("kind", string(a.Kind)).
 		Set("handle", a.Handle).
 		Set("display_name", a.DisplayName).
+		Set("user_id", sqlb.NullText(a.UserID)).
 		Set("created_at", t.now())
 	_, err := t.execInsert(ctx, ins, "creating actor %q", a.Handle)
 	return err
@@ -42,6 +47,11 @@ func (t *tx) CreateActor(ctx context.Context, a *core.Actor) error {
 // GetActor returns an actor by identifier.
 func (t *tx) GetActor(ctx context.Context, actorID string) (*core.Actor, error) {
 	return t.actorWhere(ctx, "id = ?", actorID, "actor %q", actorID)
+}
+
+// GetActorByUser returns this tenant's actor for an account.
+func (t *tx) GetActorByUser(ctx context.Context, userID string) (*core.Actor, error) {
+	return t.actorWhere(ctx, "user_id = ?", userID, "actor for user %q", userID)
 }
 
 // GetActorByHandle returns an actor by its tenant-unique handle.
