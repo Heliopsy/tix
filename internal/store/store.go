@@ -85,6 +85,11 @@ type UnscopedTx interface {
 	UpdateTenant(ctx context.Context, t *core.Tenant) error
 	DeleteTenant(ctx context.Context, id string) error
 	GetUserByEmail(ctx context.Context, email string) (*core.User, string, error)
+	// ListMemberships returns every tenant an account holds a membership in.
+	// An account is global, so deciding whether a change to it reaches past
+	// the caller's tenant needs all of them; it reads the account's actors
+	// and memberships and nothing they own.
+	ListMemberships(ctx context.Context, userID string) ([]core.AccountMembership, error)
 	// FindSSHKeysByFingerprint returns every live enrolment of a fingerprint,
 	// across tenants. An SSH client proves a key before any tenant is known, so
 	// this is the one lookup that cannot be scoped; the caller narrows to a
@@ -426,6 +431,8 @@ type WorkflowTerminal struct {
 type AuthTx interface {
 	CreateActor(ctx context.Context, a *core.Actor) error
 	GetActor(ctx context.Context, id string) (*core.Actor, error)
+	// UpdateActor writes an actor's display name and disabled state.
+	UpdateActor(ctx context.Context, a *core.Actor) error
 	// GetActorByUser returns this tenant's actor for an account.
 	GetActorByUser(ctx context.Context, userID string) (*core.Actor, error)
 	GetActorByHandle(ctx context.Context, handle string) (*core.Actor, error)

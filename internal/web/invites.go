@@ -188,13 +188,17 @@ func (h *handler) acceptInvite(w http.ResponseWriter, r *http.Request) error {
 		return h.renderInvite(w, r, http.StatusUnprocessableEntity, view)
 	}
 	result, err := h.svc.AcceptInvite(r.Context(), token, core.AcceptInviteInput{
-		Password: password, DisplayName: view.DisplayName, Surface: core.SurfaceWeb,
+		Password: password, DisplayName: view.DisplayName, Surface: core.SurfaceWeb, Code: field(r, "code"),
 	})
 	switch {
 	case core.IsKind(err, core.KindNotFound):
 		return h.deadInvite(w, r, err)
 	case err != nil && (correctable(err) || core.IsKind(err, core.KindUnauthenticated)):
-		view.Errors = fieldErrors{"password": safeMessage(err, core.KindOf(err))}
+		on := "password"
+		if core.FieldOf(err) == "code" {
+			on = "code"
+		}
+		view.Errors = fieldErrors{on: safeMessage(err, core.KindOf(err))}
 		return h.renderInvite(w, r, core.KindOf(err).HTTPStatus(), view)
 	case err != nil:
 		return err

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -303,5 +304,59 @@ func TestTheManageDialogSetsThePasswordChange(t *testing.T) {
 		if got.RequirePasswordChange != want || strings.Contains(box(), "checked") != want {
 			t.Errorf("after saving %v the flag is %v and the box %q", want, got.RequirePasswordChange, box())
 		}
+	}
+}
+
+// An invite to a person of another tenant who holds a second factor asks for
+// a code on the invite page, and the password alone does not sign them in.
+func TestAnInviteToAnAccountWithASecondFactorAsksForItsCode(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	bob := core.WithTenant(core.WithActor(context.Background(),
+		copyActor(f.actorB, []core.Scope{core.ScopeAll}, core.RoleAdmin)),
+		core.TenantScope{TenantID: f.tenantB.ID})
+	pat, err := f.svc.CreateUser(bob, core.CreateUserInput{Email: "pat@other.test", Password: newPassword})
+	if err != nil {
+		t.Fatalf("creating pat in the other tenant: %v", err)
+	}
+	patCtx := core.WithActor(context.Background(), &core.Actor{ID: pat.ID, TenantID: f.tenantB.ID,
+		Kind: core.ActorUser, Role: core.RoleMember})
+	enrolment, err := f.svc.BeginTOTPEnrolment(patCtx)
+	if err != nil {
+		t.Fatalf("beginning pat's enrolment: %v", err)
+	}
+	code := func() string {
+		c, err := auth.TOTPCode(enrolment.Secret, auth.TOTPStep(f.clock.Now()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	if _, err := f.svc.ConfirmTOTPEnrolment(patCtx, code()); err != nil {
+		t.Fatalf("confirming pat's enrolment: %v", err)
+	}
+
+	_, page := issueInvite(t, f.as("alice"), "pat@other.test")
+	path := strings.TrimPrefix(inviteLinkOn(t, page), f.server.URL)
+	visitor := f.as("")
+	form := totpForm(t, body(t, visitor.get(path)), path)
+	if !strings.Contains(form, `name="code"`) || strings.Contains(form, `name="confirm"`) {
+		t.Fatalf("the invite page for pat does not ask for her password and a code:\n%s", form)
+	}
+
+	bare := visitor.post(path, url.Values{"password": {newPassword}})
+	if bare.StatusCode == http.StatusSeeOther || strings.Contains(bare.Header.Get("Set-Cookie"), auth.SessionCookieName) {
+		t.Fatalf("the password alone accepted the invite: %d", bare.StatusCode)
+	}
+	if refusal := body(t, bare); !strings.Contains(refusal, "needs a code") {
+		t.Errorf("the refusal does not ask for the code:\n%s", refusal)
+	}
+
+	f.clock.Advance(30 * time.Second)
+	accepted := visitor.post(path, url.Values{"password": {newPassword}, "code": {code()}})
+	_ = accepted.Body.Close()
+	wantStatus(t, accepted, http.StatusSeeOther)
+	if !strings.Contains(accepted.Header.Get("Set-Cookie"), auth.SessionCookieName) {
+		t.Fatal("accepting with the password and a code issued no session cookie")
 	}
 }

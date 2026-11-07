@@ -5,31 +5,35 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 1. Account to actor link, no behaviour change (PR 1, M+L)
 
-- [ ] 1.1 Link migration: backfill `actors.user_id`, partial unique `(tenant_id, user_id)`, index on
+- [x] 1.1 Link migration: backfill `actors.user_id`, partial unique `(tenant_id, user_id)`, index on
   `user_id` (S)
-- [ ] 1.2 Both stores write `actors.user_id` on every user actor created (`CreateUser`, tenant bootstrap,
+- [x] 1.2 Both stores write `actors.user_id` on every user actor created (`CreateUser`, tenant bootstrap,
   invites) and read it back on the actor (S)
-- [ ] 1.3 `GetActorByUser` store method (scoped, both engines) and the service's `accountOf`, which reads
+- [x] 1.3 `GetActorByUser` store method (scoped, both engines) and the service's `accountOf`, which reads
   the account through `actors.user_id` (S)
-- [ ] 1.4 Replace every `GetUser(ctx, actor.ID)` and `GetActor(ctx, user.ID)`: `session.go`, `user.go`,
+- [x] 1.4 Replace every `GetUser(ctx, actor.ID)` and `GetActor(ctx, user.ID)`: `session.go`, `user.go`,
   `globaladmin.go`, `totp.go`, `sshlogin.go`, `token.go`, invites (M)
-- [ ] 1.5 Guard: a person whose actor ID differs from the user ID signs in, passes a second factor, signs in
+- [x] 1.5 Guard: a person whose actor ID differs from the user ID signs in, passes a second factor, signs in
   over SSH, mints a token, is a global admin and is administered; watched failing on the old code (M)
 
 ## 2. Membership and account rules (PR 2, L)
 
-- [ ] 2.0 Unscoped `ListMemberships(userID)` on the allow-list with its isolation guard, both engines; the
+- [x] 2.0 Unscoped `ListMemberships(userID)` on the allow-list with its isolation guard, both engines; the
   first reader is the sole-tenant rule (M)
-- [ ] 2.1 `AddTenantMember` for global admins, no acceptance (service, registry, HTTP, CLI
+- [x] 2.1 `AddTenantMember` for global admins, no acceptance (service, registry, HTTP, CLI
   `tix tenant user add`, web Global admin area); tenant bootstrap accepts an existing account as first
   admin (M)
-- [ ] 2.2 Invites for an existing account: actor at issue, membership at acceptance, acceptance requires
-  password and enrolled factor, pending row on the Users screen, not assignable until accepted (M)
-- [ ] 2.3 Sole-tenant rule on password, email, require-password-change, factor reset, disable and delete,
-  with `account_in_other_tenants`; per-tenant disable and removal for everyone else (M)
-- [ ] 2.4 Removal revokes that actor's sessions, tokens and keys in the same transaction; removing the last
+- [x] 2.2 Invites for an existing account: actor at issue, membership at acceptance, acceptance requires
+  password and enrolled factor, pending row on the Users screen (M)
+- [ ] 2.2a A pending invitee is not assignable until accepted. Assignees are not membership-checked for any
+  actor today, so this is a new rule for every actor rather than part of the invite (S)
+- [x] 2.3 Sole-tenant rule on password, require-password-change, factor reset, disable and delete, with
+  `account_in_other_tenants`; per-tenant disable and removal for everyone else. Email has no update path
+  today, so there is nothing to guard (M)
+- [x] 2.4 Removal revokes that actor's sessions, tokens and keys in the same transaction; removing the last
   membership deletes the account (S)
-- [ ] 2.5 Verifiers read account and actor disabled state per request; global disable sweeps tenants (M)
+- [x] 2.5 Verifiers read account and actor disabled state per request, which stops a disabled account in
+  every tenant at once; the per-tenant sweep this replaced is not needed (M)
 - [ ] 2.6 Tenant deletion deletes accounts left with no actor; `tix doctor` lists orphans (S)
 - [ ] 2.7 Snapshot import maps an existing email only for a global admin (S)
 

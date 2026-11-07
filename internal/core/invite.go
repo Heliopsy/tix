@@ -44,6 +44,9 @@ type Invite struct {
 	// ExistingAccount reports that the account already had a password when it
 	// was invited, so accepting confirms that password instead of setting one.
 	ExistingAccount bool `json:"existing_account" yaml:"existing_account"`
+	// GrantsMembership reports that the invited account belongs to another
+	// tenant and holds no membership here until its owner accepts.
+	GrantsMembership bool `json:"grants_membership" yaml:"grants_membership"`
 	// CreatedAt is when the invite was issued, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// ExpiresAt is when the link stops working, RFC 3339.
@@ -137,6 +140,9 @@ type InvitePreview struct {
 	// ExistingAccount reports that the account already has a password, which
 	// accepting confirms rather than replaces.
 	ExistingAccount bool `json:"existing_account" yaml:"existing_account"`
+	// CodeRequired reports that accepting needs a code from the account's
+	// second factor: the account belongs to another tenant and holds one.
+	CodeRequired bool `json:"code_required,omitempty" yaml:"code_required,omitempty"`
 	// ExpiresAt is when the link stops working, RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
 }
@@ -152,6 +158,10 @@ type AcceptInviteInput struct {
 	// Surface is the sign-in path the session is for, which decides whether a
 	// second factor is required; omitted means the command line.
 	Surface Surface `json:"surface,omitempty" yaml:"surface,omitempty"`
+	// Code is a code from the account's second factor, required when the
+	// preview says so: accepting an invite to an account of another tenant
+	// asks for everything signing in to it would.
+	Code string `json:"code,omitempty" yaml:"code,omitempty"`
 }
 
 // InviteService issues, lists and accepts invite links.

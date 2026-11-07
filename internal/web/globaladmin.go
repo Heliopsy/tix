@@ -28,6 +28,7 @@ func (h *handler) globalRoutes() []route {
 		post(RouteGlobalAdminRevoke, h.revokeGlobalAdmin, "RevokeGlobalAdmin"),
 		get(RouteGlobalTenant, "globalusers.html", h.showGlobalUsers, "ListTenantUsers", "GetTenant"),
 		post(RouteGlobalUsers, h.createGlobalUser, "CreateTenantUser"),
+		post(RouteGlobalMembers, h.addGlobalMember, "AddTenantMember"),
 		post(RouteGlobalUserUpdate, h.updateGlobalUser, "UpdateTenantUser"),
 		post(RouteGlobalUserDelete, h.deleteGlobalUser, "DeleteTenantUser"),
 	}
@@ -248,6 +249,21 @@ func (h *handler) createGlobalUser(w http.ResponseWriter, r *http.Request) error
 		return h.refuseIn(w, r, "user-new", globalUsersPath(key), err, h.showGlobalUsersFor(key))
 	}
 	redirect(w, r, globalUsersPath(key), "user created")
+	return nil
+}
+
+// addGlobalMember adds an existing account to the named tenant.
+func (h *handler) addGlobalMember(w http.ResponseWriter, r *http.Request) error {
+	key := field(r, "target")
+	in := core.AddTenantMemberInput{
+		Email:  field(r, "email"),
+		Handle: field(r, "handle"),
+		Role:   core.Role(field(r, "role")),
+	}
+	if _, err := h.svc.AddTenantMember(r.Context(), key, in); err != nil {
+		return h.refuseIn(w, r, "member-add", globalUsersPath(key), err, h.showGlobalUsersFor(key))
+	}
+	redirect(w, r, globalUsersPath(key), "person added")
 	return nil
 }
 

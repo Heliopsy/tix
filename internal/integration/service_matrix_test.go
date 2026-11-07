@@ -2307,6 +2307,32 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a global admin adds an existing account to another tenant",
+		covers: []string{"AddTenantMember"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "m" + randSuffix()
+			email := key + "@home.test"
+			if _, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{Email: email, Role: core.RoleViewer}); err != nil {
+				return nil, err
+			}
+			if _, err := tg.svc.CreateTenant(tg.ctx, core.CreateTenantInput{Key: key, Name: "Other"}); err != nil {
+				return nil, err
+			}
+			added, err := tg.svc.AddTenantMember(tg.ctx, key, core.AddTenantMemberInput{
+				Email: email, Role: core.RoleAdmin, Handle: "guest"})
+			if err != nil {
+				return nil, err
+			}
+			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.AddTenantMember(tg.ctx, key, core.AddTenantMemberInput{Email: email})
+			return sig{"email": added.Email == email, "listed": len(listed), "role": string(listed[0].Role),
+				"again": string(core.KindOf(again))}, nil
+		},
+	},
+	{
 		name:   "granting and revoking global admin",
 		covers: []string{"GrantGlobalAdmin", "ListGlobalAdmins", "RevokeGlobalAdmin"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

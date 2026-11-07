@@ -17,6 +17,7 @@ func (rt *Router) registerGlobalAdminRoutes() {
 
 	rt.mux.HandleFunc("GET "+wire.RouteTenantUsers, rt.handleListTenantUsers)
 	rt.mux.HandleFunc("POST "+wire.RouteTenantUsers, rt.handleCreateTenantUser)
+	rt.mux.HandleFunc("POST "+wire.RouteTenantMembers, rt.handleAddTenantMember)
 	rt.mux.HandleFunc("PATCH "+wire.RouteTenantUser, rt.handleUpdateTenantUser)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTenantUser, rt.handleDeleteTenantUser)
 }
@@ -43,6 +44,20 @@ func (rt *Router) handleCreateTenantUser(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	user, err := rt.cfg.Service.CreateTenantUser(r.Context(), tenantRef(r), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, user)
+}
+
+// handleAddTenantMember adds an existing account to a tenant.
+func (rt *Router) handleAddTenantMember(w http.ResponseWriter, r *http.Request) {
+	var in core.AddTenantMemberInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	user, err := rt.cfg.Service.AddTenantMember(r.Context(), tenantRef(r), in)
 	if err != nil {
 		WriteError(w, err)
 		return

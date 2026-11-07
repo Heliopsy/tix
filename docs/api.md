@@ -101,7 +101,7 @@ the routes the server registers. The areas are the first segment of each operati
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
 | task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
-| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
+| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
 | token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
@@ -380,12 +380,13 @@ Authorization: Bearer tix_pat_...
 }
 ```
 
-The answer is 201. A tenant admin is 403. An admin email that already belongs to a user is 409 naming the
-address, and nothing is created. A bad email, an address named twice, two admins sharing a handle, a password
-under 12 characters or more than 10 admins is 400.
+The answer is 201. A tenant admin is 403. An admin email that already has an account makes that account an admin
+of the new tenant with its own password; supplying a password for it is 400. A bad email, an address named
+twice, two admins sharing a handle, a password under 12 characters or more than 10 admins is 400.
 
 A global admin also reaches `GET`, `PATCH` and `DELETE /tenants/{ref}` for any tenant, lists every tenant on
-`GET /tenants`, manages any tenant's users on `/tenants/{ref}/users`, and grants global admin on
+`GET /tenants`, manages any tenant's users on `/tenants/{ref}/users`, adds an existing account to one on
+`POST /tenants/{ref}/members` with `email`, `role` and `handle`, and grants global admin on
 `/global-admins`. Anybody else gets 403 on the global routes whatever tenant they name, and `not_found` for
 another tenant on the others.
 

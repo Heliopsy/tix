@@ -9,6 +9,7 @@ import (
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 )
 
@@ -35,8 +36,15 @@ func (c *StoreCredentials) TokenByHash(ctx context.Context, hash string) (*core.
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
 		}
+		if err != nil {
+			return err
+		}
+		withdrawn, err := service.StandingWithdrawn(ctx, tx, token.ActorID)
+		if err != nil || withdrawn {
+			return err
+		}
 		out = token
-		return err
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -68,6 +76,9 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 			return nil
 		}
 		if err != nil {
+			return err
+		}
+		if withdrawn, err := service.StandingWithdrawn(ctx, tx, actorID); err != nil || withdrawn {
 			return err
 		}
 		session := auth.StoredSession{

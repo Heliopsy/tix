@@ -27,12 +27,28 @@ const (
 	auditInviteAccept  = "user_invite.accept"
 
 	subjectInvite = "user_invite"
+
+	// auditActorCreate records the actor an invite writes for an account of
+	// another tenant, which holds no membership until accepted.
+	auditActorCreate = "actor.create"
 )
 
 // invitee is the account an address resolves to before an invite is written.
 type invitee struct {
 	user *core.User
 	hash string
+	// elsewhere is whether the account holds a membership in another tenant.
+	elsewhere bool
+}
+
+// invited is what preparing an invitee settled: the actor the invite names,
+// whether the account already had a password, the role, and whether the
+// membership waits for the person to accept.
+type invited struct {
+	actorID  string
+	existing bool
+	role     core.Role
+	grants   bool
 }
 
 // CreateInvite invites an address and returns its link, once.
@@ -53,17 +69,22 @@ func (l *Local) CreateInvite(ctx context.Context, in core.CreateInviteInput) (*c
 	if err != nil {
 		return nil, err
 	}
+	if found.user != nil {
+		if found.elsewhere, err = l.memberElsewhere(ctx, found.user.ID, actor.TenantID); err != nil {
+			return nil, err
+		}
+	}
 
 	var out *core.IssuedInvite
 	err = l.write(ctx, actor, func(m *mutation) error {
-		userID, existing, role, err := l.prepareInvitee(ctx, m, found, email, in)
+		got, err := l.prepareInvitee(ctx, m, found, email, in)
 		if err != nil {
 			return err
 		}
 		inv := core.Invite{
-			ID: id.NewAt(m.now), UserID: userID, Email: email, Role: role,
-			InvitedBy: actor.ID, InvitedByHandle: actor.Handle, ExistingAccount: existing,
-			CreatedAt: m.now, ExpiresAt: m.now.Add(ttl),
+			ID: id.NewAt(m.now), UserID: got.actorID, Email: email, Role: got.role,
+			InvitedBy: actor.ID, InvitedByHandle: actor.Handle, ExistingAccount: got.existing,
+			GrantsMembership: got.grants, CreatedAt: m.now, ExpiresAt: m.now.Add(ttl),
 		}
 		if out, err = issueInvite(ctx, m, inv); err != nil {
 			return err
@@ -96,57 +117,88 @@ func (l *Local) inviteeByEmail(ctx context.Context, email string) (invitee, erro
 	return out, err
 }
 
-// prepareInvitee creates the invited account, or grants an existing account of
-// this tenant the membership it lacks, and reports which.
+// prepareInvitee creates the invited account, or readies an existing one, and
+// reports what it settled.
+//
+// An account that belongs to another tenant is never given a membership here
+// by an administrator of this tenant: its actor is written so the invite has
+// something to name, and the membership waits for its owner to accept with
+// their own password and second factor. Such an account must already have a
+// password, because accepting an invite to an account without one sets it, and
+// the administrator holding the link would then hold the account in every
+// tenant it belongs to.
 func (l *Local) prepareInvitee(ctx context.Context, m *mutation, found invitee, email string,
 	in core.CreateInviteInput,
-) (string, bool, core.Role, error) {
+) (invited, error) {
+	role := in.Role
 	if found.user == nil {
-		role := in.Role
 		if role == "" {
 			role = defaultUserRole
 		}
-		userID, err := l.createInvitedUser(ctx, m, email, in, role)
-		return userID, false, role, err
-	}
-	member, err := m.tx.GetActorByUser(ctx, found.user.ID)
-	if err != nil {
-		if core.IsKind(err, core.KindNotFound) {
-			return "", false, "", core.Conflict("%s already belongs to a user, and a user belongs to one tenant; "+
-				"invite another address", email).WithDetail(core.DetailField, "email")
-		}
-		return "", false, "", err
-	}
-	userID := member.ID
-	current, err := userRole(ctx, m.tx, userID)
-	if err != nil {
-		return "", false, "", err
+		actorID, err := l.createInvitedUser(ctx, m, email, in, role)
+		return invited{actorID: actorID, role: role}, err
 	}
 	existing := found.hash != ""
-	if existing && current != "" {
-		return "", false, "", core.Conflict("%s is already a member of this tenant and can sign in", email).
+	if found.elsewhere && !existing {
+		return invited{}, core.Conflict("%s belongs to an account in another tenant that has no password yet, "+
+			"so it cannot confirm an invite; ask a global admin to add it", email).
 			WithDetail(core.DetailField, "email")
 	}
-	switch _, err := m.tx.PendingInviteFor(ctx, userID); {
+	member, err := m.tx.GetActorByUser(ctx, found.user.ID)
+	switch {
+	case core.IsKind(err, core.KindNotFound) && found.elsewhere:
+		if member, err = createInvitedActor(ctx, m, found.user, email, in.Handle); err != nil {
+			return invited{}, err
+		}
+	case core.IsKind(err, core.KindNotFound):
+		return invited{}, core.Conflict("%s belongs to an account with no tenant; ask a global admin to add it",
+			email).WithDetail(core.DetailField, "email")
+	case err != nil:
+		return invited{}, err
+	}
+	current, err := userRole(ctx, m.tx, member.ID)
+	if err != nil {
+		return invited{}, err
+	}
+	if existing && current != "" {
+		return invited{}, core.Conflict("%s is already a member of this tenant and can sign in", email).
+			WithDetail(core.DetailField, "email")
+	}
+	switch _, err := m.tx.PendingInviteFor(ctx, member.ID); {
 	case err == nil:
-		return "", false, "", core.Conflict("%s already has a pending invite; re-issue it for a new link", email).
+		return invited{}, core.Conflict("%s already has a pending invite; re-issue it for a new link", email).
 			WithDetail(core.DetailField, "email")
 	case !core.IsKind(err, core.KindNotFound):
-		return "", false, "", err
+		return invited{}, err
 	}
-	role := in.Role
 	switch {
 	case role == "" && current != "":
 		role = current
 	case role == "":
 		role = defaultUserRole
 	}
+	if found.elsewhere {
+		return invited{actorID: member.ID, existing: existing, role: role, grants: true}, nil
+	}
 	if role != current {
-		if err := setUserRole(ctx, m.tx, userID, role); err != nil {
-			return "", false, "", err
+		if err := setUserRole(ctx, m.tx, member.ID, role); err != nil {
+			return invited{}, err
 		}
 	}
-	return userID, existing, role, nil
+	return invited{actorID: member.ID, existing: existing, role: role}, nil
+}
+
+// createInvitedActor writes the actor an account of another tenant will act
+// as here, with no membership until its owner accepts.
+func createInvitedActor(ctx context.Context, m *mutation, account *core.User, email, handle string,
+) (*core.Actor, error) {
+	actor, err := createMemberActor(ctx, m, account, email, handle)
+	if err != nil {
+		return nil, err
+	}
+	return actor, m.Audit(auditActorCreate, "actor", actor.ID, nil, map[string]any{
+		"handle": actor.Handle, "invited": true,
+	})
 }
 
 // createInvitedUser writes a new account with no password, its actor and its
@@ -359,7 +411,10 @@ func (l *Local) resolveInvite(ctx context.Context, token string) (liveInvite, er
 	if err != nil {
 		return out, err
 	}
-	if out.user.DisabledAt != nil || out.role == "" {
+	if out.role == "" && out.invite.GrantsMembership {
+		out.role = out.invite.Role
+	}
+	if out.user.DisabledAt != nil || out.actor.DisabledAt != nil || out.role == "" {
 		return out, auth.ErrNoInvite()
 	}
 	found, err := l.inviteeByEmail(ctx, out.user.Email)
@@ -376,10 +431,36 @@ func (l *Local) PreviewInvite(ctx context.Context, token string) (*core.InvitePr
 	if err != nil {
 		return nil, err
 	}
-	return &core.InvitePreview{
+	out := &core.InvitePreview{
 		Email: live.user.Email, DisplayName: live.user.DisplayName, TenantName: live.tenant.Name,
 		ExistingAccount: live.hash != "", ExpiresAt: live.invite.ExpiresAt,
-	}, nil
+	}
+	if live.invite.GrantsMembership {
+		enrolment, err := l.enrolmentOf(ctx, live)
+		if err != nil {
+			return nil, err
+		}
+		out.CodeRequired = enrolment.Confirmed()
+	}
+	return out, nil
+}
+
+// enrolmentOf reads the invited account's second factor, an empty one when it
+// has none.
+func (l *Local) enrolmentOf(ctx context.Context, live liveInvite) (*core.UserTOTP, error) {
+	out := &core.UserTOTP{}
+	err := l.read(ctx, core.SystemActor(live.tenant.ID), func(tx store.Tx) error {
+		found, err := tx.GetUserTOTP(ctx, live.user.ID)
+		switch {
+		case core.IsKind(err, core.KindNotFound):
+			return nil
+		case err != nil:
+			return err
+		}
+		out = found
+		return nil
+	})
+	return out, err
 }
 
 // AcceptInvite sets or confirms the invited account's password, uses up the
@@ -395,6 +476,9 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 	live, err := l.resolveInvite(ctx, token)
 	if err != nil {
 		return nil, err
+	}
+	if live.invite.GrantsMembership {
+		return l.acceptMembership(ctx, live, surface, in)
 	}
 	hash, err := l.inviteePassword(live, in.Password)
 	if err != nil {
@@ -432,6 +516,75 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 			*live.invite, after, inviteTrail(after))
 	}
 
+	challenge, err := l.secondFactorFor(ctx, scope, surface, sessionActor, live.user, core.LoginMethodPassword)
+	if err != nil {
+		return nil, err
+	}
+	if challenge == nil {
+		return l.mintSession(ctx, scope, sessionActor, live.user, "", core.LoginMethodPassword, accept)
+	}
+	if err := l.write(ctx, sessionActor, accept); err != nil {
+		return nil, err
+	}
+	return &core.LoginResult{Challenge: challenge}, nil
+}
+
+// acceptMembership accepts an invite that admits an account of another tenant.
+// The password, and a code when the account holds a second factor, are checked
+// before anything is written, so the membership exists only once its owner has
+// proved everything signing in would ask for. Holding the link proves nothing:
+// the administrator who issued it holds it too.
+func (l *Local) acceptMembership(ctx context.Context, live liveInvite, surface core.Surface,
+	in core.AcceptInviteInput,
+) (*core.LoginResult, error) {
+	if live.hash == "" || auth.Verify(live.hash, in.Password) != nil {
+		return nil, errInvalidCredentials()
+	}
+	scope := core.TenantScope{TenantID: live.tenant.ID}
+	cand := candidate{user: live.user, actor: live.actor, role: live.role, tenant: scope.TenantID}
+	sessionActor := cand.sessionActor(scope)
+	enrolment, err := l.enrolmentOf(ctx, live)
+	if err != nil {
+		return nil, err
+	}
+	var attempt *core.UserTOTP
+	if enrolment.Confirmed() {
+		if strings.TrimSpace(in.Code) == "" {
+			return nil, core.Invalid("this account has a second factor; accepting needs a code from it").
+				WithDetail(core.DetailField, "code")
+		}
+		state, err := l.verifyCode(ctx, sessionActor, live.user, enrolment, in.Code)
+		if err != nil {
+			return nil, err
+		}
+		attempt = &state
+	}
+
+	accept := func(m *mutation) error {
+		if !live.invite.Pending(m.now) {
+			return auth.ErrNoInvite()
+		}
+		if err := m.tx.AcceptInvite(ctx, live.invite.ID, m.now); err != nil {
+			return auth.ErrNoInvite()
+		}
+		if err := setUserRole(ctx, m.tx, live.actor.ID, live.role); err != nil {
+			return err
+		}
+		if attempt != nil {
+			if err := m.tx.SaveUserTOTPAttempt(ctx, live.user.ID, *attempt); err != nil {
+				return err
+			}
+		}
+		after := *live.invite
+		after.AcceptedAt = &m.now
+		trail := inviteTrail(after)
+		trail["membership"] = string(live.role)
+		return m.Record(auditInviteAccept, eventInviteAccepted, subjectInvite, live.invite.ID, "",
+			*live.invite, after, trail)
+	}
+	if attempt != nil {
+		return l.mintSession(ctx, scope, sessionActor, live.user, "", core.LoginMethodPassword, accept)
+	}
 	challenge, err := l.secondFactorFor(ctx, scope, surface, sessionActor, live.user, core.LoginMethodPassword)
 	if err != nil {
 		return nil, err

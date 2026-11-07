@@ -1131,6 +1131,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "tenant.member.add", Method: "AddTenantMember", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant user add",
+		HTTP:  apiPost(wire.RouteTenantMembers),
+		Web:   webPost(web.RouteGlobalMembers),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
 		Name: "tenant.user.update", Method: "UpdateTenantUser",
 		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix tenant user edit",

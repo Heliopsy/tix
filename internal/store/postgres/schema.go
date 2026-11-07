@@ -47,6 +47,19 @@ const (
 	domainAuthPolicy  = "tix_domain_resolve_lookup"
 )
 
+// accountLookupSetting is the per-transaction flag that admits listing an
+// account's memberships across tenants: an account is global, and whether a
+// change to it reaches past the caller's tenant depends on all of them.
+// accountLookupPolicy grants it on actors and tenant_members alone, for SELECT
+// alone, on the same terms as the SSH and domain ones.
+const (
+	accountLookupSetting = "tix.account_lookup"
+	accountLookupOn      = "on"
+	accountLookupPolicy  = "tix_account_lookup"
+	// accountLookupMigration names the migration the policy arrives with.
+	accountLookupMigration = "account_memberships"
+)
+
 // partitionMonthsBack and partitionMonthsAhead bound the partitions created up
 // front, so writes never wait on partition creation.
 const (
@@ -58,17 +71,18 @@ const (
 // field_defs.indexed stays listed because 0001 still creates it on a fresh
 // database, before 0029 drops it.
 var boolColumns = map[string]bool{
-	"workflows.builtin":             true,
-	"field_defs.required":           true,
-	"field_defs.indexed":            true,
-	"webhook_endpoints.active":      true,
-	"tenants.require_totp_web":      true,
-	"tenants.require_totp_cli":      true,
-	"tenants.require_totp_ssh":      true,
-	"tenants.trash_off":             true,
-	"users.global_admin":            true,
-	"users.require_password_change": true,
-	"user_invites.existing_account": true,
+	"workflows.builtin":              true,
+	"field_defs.required":            true,
+	"field_defs.indexed":             true,
+	"webhook_endpoints.active":       true,
+	"tenants.require_totp_web":       true,
+	"tenants.require_totp_cli":       true,
+	"tenants.require_totp_ssh":       true,
+	"tenants.trash_off":              true,
+	"users.global_admin":             true,
+	"users.require_password_change":  true,
+	"user_invites.existing_account":  true,
+	"user_invites.grants_membership": true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.
@@ -416,7 +430,42 @@ func adjustmentsFor(version int, now time.Time) []string {
 	}
 	out = append(out, rowLevelSecurity(version)...)
 	out = append(out, sshAuthLookup(version)...)
-	return append(out, domainResolveLookup(version)...)
+	out = append(out, domainResolveLookup(version)...)
+	return append(out, accountMembershipLookup(version)...)
+}
+
+// accountMembershipLookup returns the policies that let the membership listing
+// read an account's actors and memberships across tenants in one statement.
+//
+// Both tables predate the migration this arrives with, so a test that rewinds
+// past it and migrates again meets the policies already there; each is dropped
+// first rather than failing on the second run.
+func accountMembershipLookup(version int) []string {
+	if versionNamed(accountLookupMigration) != version {
+		return nil
+	}
+	var out []string
+	for _, table := range []string{"actors", "tenant_members"} {
+		out = append(out,
+			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s", accountLookupPolicy, table),
+			fmt.Sprintf("CREATE POLICY %s ON %s FOR SELECT USING (current_setting('%s', true) = '%s')",
+				accountLookupPolicy, table, accountLookupSetting, accountLookupOn))
+	}
+	return out
+}
+
+// versionNamed returns the version of the migration with this name, or 0.
+func versionNamed(name string) int {
+	all, err := migrations.All()
+	if err != nil {
+		return 0
+	}
+	for _, m := range all {
+		if m.Name == name {
+			return m.Version
+		}
+	}
+	return 0
 }
 
 // sshAuthLookup returns the policy that lets the authentication path read

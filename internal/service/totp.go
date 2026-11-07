@@ -392,6 +392,13 @@ func (l *Local) ClearUserTOTP(ctx context.Context, userID string) error {
 		}
 		return err
 	}
+	reach, err := l.reachOver(ctx, &core.User{ID: account}, actor.TenantID)
+	if err != nil {
+		return err
+	}
+	if !reach.account {
+		return errAccountInOtherTenants()
+	}
 	return l.clearEnrolment(ctx, actor, account, auditTOTPClear, eventTOTPCleared)
 }
 

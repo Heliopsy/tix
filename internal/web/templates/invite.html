@@ -28,6 +28,12 @@
   <label for="password">{{t "Current password"}}</label>
   <input id="password" name="password" type="password" autocomplete="current-password" required{{$v.Errors.Attrs "password"}}>
   {{with $v.Errors.On "password"}}{{template "field-error" .}}{{end}}
+  {{if $v.Preview.CodeRequired}}
+  <label for="code">{{t "Code from your authenticator"}}</label>
+  <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required aria-describedby="invite-code-help"{{$v.Errors.Attrs "code"}}>
+  <p class="muted" id="invite-code-help">{{t "Your account has a second factor, so joining another tenant asks for a code from it too."}}</p>
+  {{with $v.Errors.On "code"}}{{template "field-error" .}}{{end}}
+  {{end}}
   {{else}}
   <label for="display_name">{{t "Display name"}}</label>
   <input id="display_name" name="display_name" value="{{$v.DisplayName}}" autocomplete="name">

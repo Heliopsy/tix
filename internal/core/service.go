@@ -83,6 +83,12 @@ type TenantService interface {
 	// CreateTenantUser creates a user, its actor and its membership in any
 	// tenant, as CreateUser does in the caller's own. Global admin only.
 	CreateTenantUser(ctx context.Context, tenant string, in CreateUserInput) (*User, error)
+	// AddTenantMember adds an existing account, found by email, to any tenant
+	// with a role: a new actor there and its membership, with no acceptance
+	// asked of the person. An account that already has an actor there without
+	// a membership gets the membership back. Global admin only; a tenant admin
+	// invites instead, and the person accepts.
+	AddTenantMember(ctx context.Context, tenant string, in AddTenantMemberInput) (*User, error)
 	// UpdateTenantUser changes a user of any tenant: display name, password,
 	// role or disabled state, as UpdateUser does. Global admin only.
 	UpdateTenantUser(ctx context.Context, tenant, id string, in UpdateUserInput) (*User, error)

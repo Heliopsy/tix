@@ -199,7 +199,7 @@ func (l *Local) enrolledPerson(ctx context.Context, scope core.TenantScope, fing
 	case cand.actor != nil && cand.user == nil:
 		return nil, cand, core.Unauthenticated(
 			"this key belongs to an agent; an agent authenticates with an API token, see tix token create")
-	case cand.user == nil || cand.user.DisabledAt != nil:
+	case cand.user == nil || cand.user.DisabledAt != nil || !cand.member():
 		return nil, cand, errInvalidCredentials()
 	}
 	return key, cand, nil

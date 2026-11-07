@@ -243,6 +243,7 @@ const (
 	RouteGlobalAdminRevoke  = "/admin/global/admins/revoke"
 	RouteGlobalTenant       = "/admin/global/tenants/{key}"
 	RouteGlobalUsers        = "/admin/global/users"
+	RouteGlobalMembers      = "/admin/global/members"
 	RouteGlobalUserUpdate   = "/admin/global/users/update"
 	RouteGlobalUserDelete   = "/admin/global/users/delete"
 

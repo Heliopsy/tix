@@ -305,6 +305,25 @@ link from the dialog to the Global admin area; tenants they are not a member of 
 | global admin adds themselves anywhere | silent self-grant | allowed (they can already act in any tenant), audited in the target and in the account log |
 | account log read by a tenant admin | learning the person's other tenants | readable only by the person and global admins |
 
+## Implementation notes (PR 2)
+
+- The cross-tenant check behind `account_in_other_tenants` reads the membership listing before the write
+  that acts on it, not inside it: the listing crosses tenants and the write is bound to one. A membership
+  granted between the two is granted by a global admin or by the person, and neither is the threat.
+- On PostgreSQL the listing reads through SELECT-only policies on `actors` and `tenant_members`, raised by
+  a transaction-local flag (`tix.account_lookup`), on the same terms as the SSH and domain lookups. Only
+  `membershipsOf` in the service calls it, which a test enforces.
+- A global admin reaching into a tenant through `inTenant` stands there without being a member, so the
+  context carries a marker that the standing was checked; the reach decision reads it.
+- An invite to an account of another tenant that holds a confirmed second factor asks for the code on the
+  invite page itself, checked before anything is written, rather than through a second-step ticket after
+  the membership exists. An account of another tenant with no password cannot be invited at all, because
+  accepting would set its password.
+- A tenant admin renaming a person who is also elsewhere renames their actor in this tenant only.
+- Removing a person revokes their SSH keys here too, not only sessions and tokens.
+- Global disable needs no sweep across tenants: the session and token lookups read the account's and the
+  actor's disabled state on every request.
+
 ## Decisions
 
 The owner answered the open questions of the first draft:

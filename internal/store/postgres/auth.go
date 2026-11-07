@@ -13,17 +13,19 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-var actorColumns = []string{"id", "tenant_id", "kind", "handle", "display_name", "user_id"}
+var actorColumns = []string{"id", "tenant_id", "kind", "handle", "display_name", "user_id", "disabled_at"}
 
 func scanActor(s scanner) (core.Actor, error) {
 	var (
-		a      core.Actor
-		userID sql.NullString
+		a        core.Actor
+		userID   sql.NullString
+		disabled sql.NullTime
 	)
-	if err := s.Scan(&a.ID, &a.TenantID, &a.Kind, &a.Handle, &a.DisplayName, &userID); err != nil {
+	if err := s.Scan(&a.ID, &a.TenantID, &a.Kind, &a.Handle, &a.DisplayName, &userID, &disabled); err != nil {
 		return core.Actor{}, mapErr(err, "scanning actor")
 	}
 	a.UserID = userID.String
+	a.DisabledAt = scanNullTime(disabled)
 	return a, nil
 }
 
@@ -47,6 +49,22 @@ func (t *tx) CreateActor(ctx context.Context, a *core.Actor) error {
 // GetActor returns an actor by identifier.
 func (t *tx) GetActor(ctx context.Context, actorID string) (*core.Actor, error) {
 	return t.actorWhere(ctx, "id = ?", actorID, "actor %q", actorID)
+}
+
+// UpdateActor writes an actor's display name and disabled state.
+func (t *tx) UpdateActor(ctx context.Context, a *core.Actor) error {
+	b := t.builder("actors").
+		Where("id = ?", a.ID).
+		Set("display_name", a.DisplayName).
+		Set("disabled_at", nullTimeArg(a.DisabledAt))
+	n, err := t.execUpdate(ctx, b, "updating actor %q", a.ID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("actor %q", a.ID)
+	}
+	return nil
 }
 
 // GetActorByUser returns this tenant's actor for an account.

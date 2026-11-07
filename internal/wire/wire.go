@@ -68,10 +68,12 @@ const (
 	// The users of a named tenant, which only a global admin reaches.
 	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
 	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
-	RouteMembers     = APIPrefix + "/members"
-	RouteMember      = APIPrefix + "/members/{actorID}"
-	RouteDomains     = APIPrefix + "/domains"
-	RouteDomain      = APIPrefix + "/domains/{hostname}"
+	// RouteTenantMembers adds an existing account to a tenant.
+	RouteTenantMembers = APIPrefix + "/tenants/{ref}/members"
+	RouteMembers       = APIPrefix + "/members"
+	RouteMember        = APIPrefix + "/members/{actorID}"
+	RouteDomains       = APIPrefix + "/domains"
+	RouteDomain        = APIPrefix + "/domains/{hostname}"
 
 	RouteProjects      = APIPrefix + "/projects"
 	RouteProject       = APIPrefix + "/projects/{ref}"
