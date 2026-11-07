@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // loginContext returns the unauthenticated, tenant-pinned context a login
@@ -373,4 +376,18 @@ func (c *sessionCredentials) SessionByHash(ctx context.Context, hash string) (*a
 		return nil
 	})
 	return out, err
+}
+
+// Every test here passes a cheap hasher explicitly, so this is the one place
+// that sees what New starts with when nobody says: the cost a stolen hash is
+// meant to carry. This test binary never calls UseCheapHashingInTests.
+func TestNewHashesAtProductionCost(t *testing.T) {
+	st, err := sqlite.Open(sqlitetest.Path(t), clock.NewFakeAt())
+	if err != nil {
+		t.Fatalf("opening store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if got := New(st).hasher.Params(); got != auth.DefaultParams() {
+		t.Errorf("New hashes with %+v, want the production %+v", got, auth.DefaultParams())
+	}
 }
