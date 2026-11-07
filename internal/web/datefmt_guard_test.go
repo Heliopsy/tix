@@ -108,6 +108,33 @@ func TestEveryScreenWritesDatesInTheReadersFormat(t *testing.T) {
 	if checked < 30 {
 		t.Fatalf("only %d screens were rendered; the route list did not resolve", checked)
 	}
+	for _, problem := range rawDialogDateProblems(t, b, style) {
+		t.Errorf("raw dialog: %s", problem)
+	}
+}
+
+var (
+	rawOpenRe   = regexp.MustCompile(`<a class="[^"]*\brawopen\b[^"]*" href="([^"]+)"`)
+	rawDialogRe = regexp.MustCompile(`(?s)<dialog [^>]*class="[^"]*\brawdlg\b[^"]*"[^>]*>.*?</dialog>`)
+)
+
+// rawDialogDateProblems opens the first Raw dialog on the activity feed, as
+// its no-script link draws it open, and checks the dialog alone. The manifest
+// reaches it only by a click, so the route walk above never renders it.
+func rawDialogDateProblems(t *testing.T, b *browser, style output.TimeStyle) []string {
+	t.Helper()
+	open := rawOpenRe.FindStringSubmatch(b.page("/activity"))
+	if open == nil {
+		t.Fatal("the activity feed has no Raw control to open")
+	}
+	dlg := rawDialogRe.FindString(guardPage(t, b, html.UnescapeString(open[1])))
+	if dlg == "" {
+		t.Fatalf("%s drew no raw dialog", open[1])
+	}
+	if n := len(timeElementRe.FindAllString(dlg, -1)); n < 2 {
+		t.Fatalf("the raw dialog has %d <time> elements, want its heading's and each entry's", n)
+	}
+	return dateProblems(dlg, style)
 }
 
 // dateProblems lists every timestamp on a page that is not in the reader's

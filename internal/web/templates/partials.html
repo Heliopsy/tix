@@ -653,7 +653,7 @@
      is drawn in place, open, with Close leading back. Takes rawEntry. */}}
 {{define "raw-dialog"}}<div class="rawwrap"><dialog id="{{.ID}}" class="actiondlg wide rawdlg{{if .Open}} is-inplace{{end}}" aria-labelledby="{{.ID}}-title" data-dlg{{if .Open}} open{{end}}>
 <div class="actiondlg-head"><div class="rawdlg-title"><h2 id="{{.ID}}-title">{{t "Raw entry"}}</h2>
-<p class="rawdlg-sub"><span class="mono">{{.Action}}</span> &middot; {{if .SubjectHref}}<a href="{{.SubjectHref}}">{{.Subject}}</a>{{else}}{{.Subject}}{{end}} &middot; <time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}" title="{{absolute .At}}">{{relativeAt .At}}</time></p></div>
+<p class="rawdlg-sub"><span class="mono">{{.Action}}</span> &middot; {{if .SubjectHref}}<a href="{{.SubjectHref}}">{{.Subject}}</a>{{else}}{{.Subject}}{{end}} &middot; {{whenRel .At}}</p></div>
 <a class="actiondlg-x" href="{{.Back}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</a></div>
 {{range $h := .Hops}}
 <section class="rawhop" aria-labelledby="{{$h.ID}}-head">
@@ -662,7 +662,7 @@
     <div><dt>{{t "Actor"}}</dt><dd>{{if $h.ActorHref}}<a href="{{$h.ActorHref}}">{{$h.Actor}}</a>{{else}}{{t "system"}}{{end}}</dd></div>
     <div><dt>{{t "Action"}}</dt><dd class="mono">{{$h.Entry.Action}}</dd></div>
     <div><dt>{{t "Subject"}}</dt><dd>{{if $.SubjectHref}}<a href="{{$.SubjectHref}}">{{$.Subject}}</a>{{else}}{{$.Subject}}{{end}} <span class="mono muted">{{$h.Entry.SubjectType}} {{$h.Entry.SubjectID}}</span></dd></div>
-    <div><dt>{{t "Time"}}</dt><dd><time datetime="{{$h.Entry.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{absolute $h.Entry.OccurredAt}}</time> <span class="muted">({{relativeAt $h.Entry.OccurredAt}})</span></dd></div>
+    <div><dt>{{t "Time"}}</dt><dd>{{when $h.Entry.OccurredAt}}</dd></div>
     <div><dt>{{t "Source"}}</dt><dd class="mono">{{$h.Entry.Source}}</dd></div>
     {{template "via-fields" $h.Channel}}
     <div><dt>{{t "Sequence"}}</dt><dd class="mono">{{$h.Entry.Seq}}</dd></div>
