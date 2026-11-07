@@ -98,8 +98,8 @@ func TestARawDialogIsAPageWithAWayBack(t *testing.T) {
 				t.Errorf("%s: the dialog lacks %s:\n%s", tc.name, want, dlg)
 			}
 		}
-		if tc.name == "task history" && !strings.Contains(page, `id="history" open>`) {
-			t.Errorf("the History fold holding the dialog is closed")
+		if tc.name == "task history" && !strings.Contains(page, `data-tab="history" data-tab-forced>`) {
+			t.Errorf("the History tab holding the dialog is not the one shown")
 		}
 	}
 }

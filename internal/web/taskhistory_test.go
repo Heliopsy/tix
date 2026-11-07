@@ -158,8 +158,8 @@ func TestTaskHistoryPagesBackToTheOldestChange(t *testing.T) {
 				t.Fatalf("Show older links to %q", next)
 			}
 			page := b.page(next)
-			if !strings.Contains(page, `id="history" open`) {
-				t.Errorf("an older page of history arrives folded away")
+			if !strings.Contains(page, `data-tab="history" data-tab-forced>`) {
+				t.Errorf("an older page of history arrives on another tab")
 			}
 			rows = historyRegion(t, page)
 			if !strings.Contains(rows, `href="/tasks/`+ref+`#history">Newest changes</a>`) {

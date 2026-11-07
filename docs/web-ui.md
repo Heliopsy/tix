@@ -743,8 +743,8 @@ beside it, your star, and one actions menu behind the three dots: **Copy link**,
 **Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
 a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
 
-On a wide screen the main column holds the description, subtasks, dependencies, artifacts, comments and
-history, and the column on the right holds the properties: status and priority, which open the same menus a
+On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip
+for the task's activity, and the column on the right holds the properties: status and priority, which open the same menus a
 list row does, the snooze and claim state when there is one, assignee, due date, project, tags, repeat rule
 and each custom field. Each is a label and a value, and a writer changes it where it is read: point at or
 focus the value, type, and press Enter or the Save that appears. Each row posts only its own field, so a
@@ -753,6 +753,15 @@ dropdown that saves when chosen. The record's facts follow in small type: who cr
 created and last changed, when it started and finished, its version and its identifier with a Copy button.
 On a phone the properties come first, straight under the title, and the facts come last. The task dialog a
 listing can open draws the same screen.
+
+**Comments, History and Artifacts** are tabs under the dependencies, each with its count; a zero count is
+drawn muted, and History's count is its newest page, with a plus when older changes exist. Click a tab,
+or focus one and use the arrow keys, Home and End. The browser remembers the tab you last chose, in
+`localStorage` under `tix.taskTab`. The address wins over that: `#comments`, `#history` or
+`#artifacts`, a link to one comment or artifact, an older page of history (`?history=CURSOR#history`)
+and a raw entry the address names each open the tab holding it. A live update redraws the lists and the
+counts but never the tabs, so the one you are reading stays. With scripting off there is no strip:
+the three panels stand one under another, each under its own heading.
 
 The star is a shape in the header; its name says whether you starred the task (Star or Unstar). A subtask
 names its parent beside its reference and in a Subtask of row.

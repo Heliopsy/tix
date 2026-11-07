@@ -28,7 +28,7 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			page.waitFor(t, `(() => { const s = document.getElementById("live-stale"); return !s || !s.hidden || !document.querySelector("[data-events]"); })()`,
 				"the screen never said it was not live")
 			if path != "/activity" {
-				page.eval(t, `document.getElementById("history").open = true`, nil)
+				page.eval(t, `document.getElementById("tab-history").click()`, nil)
 			}
 			// What a press reached, recorded in the capture phase before any
 			// handler can stop it, and the requests Raw itself made. Any other
