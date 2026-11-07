@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"slices"
 	"strconv"
@@ -227,14 +228,17 @@ func (h *handler) stageImport(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	lines := strings.TrimSpace(r.PostFormValue("lines"))
-	filename, body, err := uploadedImport(r)
+	filename, file, err := uploadedImport(r)
 	if err != nil {
 		return h.refuseImportUpload(w, r, project, err)
 	}
+	if file != nil {
+		defer func() { _ = file.Close() }()
+	}
 	var st *importStage
 	switch {
-	case body != nil:
-		st, err = h.imports.put(actor, project.Key, filename, bytes.NewReader(body))
+	case file != nil:
+		st, err = h.imports.put(actor, project.Key, filename, file)
 	case lines != "":
 		st, err = h.imports.put(actor, project.Key, "", strings.NewReader(lines))
 		if st != nil {
@@ -286,8 +290,9 @@ func errText(err error) string {
 	return err.Error()
 }
 
-// uploadedImport is the file part of the upload step, if one was chosen.
-func uploadedImport(r *http.Request) (string, []byte, error) {
+// uploadedImport opens the file part of the upload step, if one was chosen,
+// for the stage to copy without holding it in memory.
+func uploadedImport(r *http.Request) (string, multipart.File, error) {
 	if r.MultipartForm == nil {
 		return "", nil, nil
 	}
@@ -299,12 +304,7 @@ func uploadedImport(r *http.Request) (string, []byte, error) {
 	if err != nil {
 		return "", nil, core.Invalid("the uploaded file could not be read").WithDetail(core.DetailField, "file")
 	}
-	defer func() { _ = f.Close() }()
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(f); err != nil {
-		return "", nil, core.Invalid("the uploaded file could not be read").WithDetail(core.DetailField, "file")
-	}
-	return files[0].Filename, buf.Bytes(), nil
+	return files[0].Filename, f, nil
 }
 
 // stagedImport resolves the project and the reader's own stage a step names.

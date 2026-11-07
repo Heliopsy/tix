@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -159,8 +160,14 @@ func (d *lazyDownload) Write(p []byte) (int, error) {
 func (rt *Router) handleTaskImport(w http.ResponseWriter, r *http.Request) {
 	var in core.TaskImportInput
 	var body io.Reader
+	r = withTooLargeMessage(r, config.ImportLimitRefusal(rt.cfg.MaxImportBytes))
+	r.Body = http.MaxBytesReader(w, r.Body, rt.cfg.MaxImportBytes)
 	if mediaType(r) == wire.ContentMultipart {
-		file, err := readImportForm(w, r, &in, rt.cfg.MaxBodyBytes)
+		file, err := readImportForm(r, &in)
+		if errors.Is(err, errBodyTooLarge) {
+			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid, tooLargeMessage(r))
+			return
+		}
 		if err != nil {
 			WriteError(w, err)
 			return
@@ -187,12 +194,14 @@ func mediaType(r *http.Request) string {
 	return strings.ToLower(strings.TrimSpace(ct))
 }
 
-// readImportForm reads a multipart import of at most limit bytes: the
-// choices from its fields, the mapping from a mapping part or field, and the
-// file part it returns open. Parts past the in-memory share spill to
+// errBodyTooLarge reports a multipart import that ran past its body limit.
+var errBodyTooLarge = errors.New("request body too large")
+
+// readImportForm reads a multipart import, whose body the caller has capped:
+// the choices from its fields, the mapping from a mapping part or field, and
+// the file part it returns open. Parts past the in-memory share spill to
 // temporary files, which the server removes with the request.
-func readImportForm(w http.ResponseWriter, r *http.Request, in *core.TaskImportInput, limit int64) (multipart.File, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, limit)
+func readImportForm(r *http.Request, in *core.TaskImportInput) (multipart.File, error) {
 	mr, err := r.MultipartReader()
 	if err != nil {
 		return nil, core.Invalid("reading the upload: %v", err)
@@ -201,7 +210,7 @@ func readImportForm(w http.ResponseWriter, r *http.Request, in *core.TaskImportI
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			return nil, core.Invalid("request body exceeds the configured limit")
+			return nil, errBodyTooLarge
 		}
 		return nil, core.Invalid("reading the upload: %v", err)
 	}

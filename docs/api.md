@@ -848,7 +848,9 @@ An empty claim queue is a `no_task_available` error rather than an empty success
 Every response carries `X-Request-Id`, which also appears in the server log line for that request.
 
 Request bodies must be `application/json` (`415` otherwise) and are capped at 1 MiB by default (`413` beyond it,
-adjustable with `--max-body-bytes`). Each request has a 30 second timeout by default (`--request-timeout`).
+adjustable with `--max-body-bytes`). A project task import is the exception: it takes a file, and is capped by
+`server.max_import_bytes` instead, 32 MiB by default. Each request has a 30 second timeout by default
+(`--request-timeout`).
 
 ## The event stream
 

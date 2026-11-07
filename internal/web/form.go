@@ -3,6 +3,7 @@
 package web
 
 import (
+	"errors"
 	"html/template"
 	"mime"
 	"strconv"
@@ -13,27 +14,51 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// maxUploadBytes bounds the part of a multipart submission kept in memory.
+// maxUploadBytes bounds a form submission, and the part of a multipart one
+// kept in memory.
 const maxUploadBytes = 1 << 20
 
-// ensureForm parses a submission, whether it is url encoded or multipart.
+// ensureForm parses a submission of at most limit bytes, whether it is url
+// encoded or multipart. A file part past the in-memory share spills to disk.
 //
 // The body is bounded here as well as by the server's limit middleware, so the
 // property holds even if this handler is mounted somewhere that lacks it.
-func ensureForm(r *http.Request) error {
-	r.Body = http.MaxBytesReader(nil, r.Body, maxUploadBytes)
+func ensureForm(r *http.Request, limit int64, refusal string) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, limit)
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err == nil && media == "multipart/form-data" {
 		if err := r.ParseMultipartForm(maxUploadBytes); err != nil { // #nosec G120 -- bounded above and by the limit
+			if overLimit(err) {
+				return &tooLarge{core.Invalid("%s", refusal)}
+			}
 			return core.Invalid("this submission could not be read: %v", err)
 		}
 		return nil
 	}
 	if err := r.ParseForm(); err != nil { // #nosec G120 -- body bounded by MaxBytesReader above
+		if overLimit(err) {
+			return &tooLarge{core.Invalid("%s", refusal)}
+		}
 		return core.Invalid("this submission could not be read")
 	}
 	return nil
 }
+
+// overLimit reports a parse that stopped at the body limit.
+func overLimit(err error) bool {
+	var over *http.MaxBytesError
+	return errors.As(err, &over)
+}
+
+// tooLarge is a submission refused for its size rather than its content,
+// which the error page answers with 413.
+type tooLarge struct{ err error }
+
+func (e *tooLarge) Error() string { return e.err.Error() }
+func (e *tooLarge) Unwrap() error { return e.err }
+
+// formRefusal is what a form over maxUploadBytes is answered with.
+const formRefusal = "this submission is larger than 1 MiB, the most a form here may send"
 
 // field returns one trimmed form value.
 func field(r *http.Request, name string) string {

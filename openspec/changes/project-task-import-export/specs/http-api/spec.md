@@ -27,3 +27,22 @@ file as `content`, or as a multipart form with the file in a `file` part, and SH
 
 - **WHEN** a client posts a multipart form with a CSV in `file` and a mapping field
 - **THEN** the response is 200 with the tasks created and `committed` true
+
+### Requirement: Import upload limit
+
+The server SHALL cap the body of a project task import, over the API and in the browser's upload step, at `server.max_import_bytes`, 32 MiB by default, in place of the general body limit, which SHALL still cap every other request. A larger import SHALL be answered with 413 and a message naming the limit and the key.
+
+#### Scenario: An import larger than the general limit
+
+- **WHEN** a client uploads a 5 MiB file to the import endpoint of a server with a 1 MiB body limit
+- **THEN** the import is read and answered with 200
+
+#### Scenario: An import over its own limit
+
+- **WHEN** a client uploads a file larger than `server.max_import_bytes`
+- **THEN** the response is 413 with a message naming the limit and `server.max_import_bytes`
+
+#### Scenario: Other routes keep the general limit
+
+- **WHEN** a client posts a body larger than the general limit to any route that is not an import
+- **THEN** the response is 413

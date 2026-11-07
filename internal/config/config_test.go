@@ -713,6 +713,8 @@ func TestValidationErrors(t *testing.T) {
 		{"zero web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "0"}, "web.page_size"},
 		{"negative web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "-5"}, "web.page_size"},
 		{"absurd web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "100000"}, "web.page_size"},
+		{"zero import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "0"}, "server.max_import_bytes"},
+		{"negative import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "-1"}, "server.max_import_bytes"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

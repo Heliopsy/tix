@@ -62,8 +62,12 @@ type Options struct {
 
 	AllowInsecure bool
 
-	MaxBodyBytes    int64
-	RequestTimeout  time.Duration
+	MaxBodyBytes   int64
+	RequestTimeout time.Duration
+	// MaxImportBytes caps a task import in place of MaxBodyBytes, on the API's
+	// import route and on ImportRoutes, the web handler's own.
+	MaxImportBytes  int64
+	ImportRoutes    []string
 	ShutdownTimeout time.Duration
 
 	SweepInterval    time.Duration
@@ -119,6 +123,8 @@ func Assemble(opts Options) (*Server, error) {
 		Logger:          opts.Logger,
 		DefaultTenantID: opts.TenantID,
 		MaxBodyBytes:    opts.MaxBodyBytes,
+		MaxImportBytes:  opts.MaxImportBytes,
+		ImportRoutes:    opts.ImportRoutes,
 		RequestTimeout:  opts.RequestTimeout,
 		SecureCookies:   opts.CertFile != "",
 		TrustedProxies:  opts.TrustedProxies,

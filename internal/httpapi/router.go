@@ -52,6 +52,12 @@ type Config struct {
 	MaxBodyBytes   int64
 	RequestTimeout time.Duration
 
+	// MaxImportBytes caps a project task import, which carries a file, in
+	// place of MaxBodyBytes. ImportRoutes are further mux patterns that take
+	// it, the browser's import upload among them.
+	MaxImportBytes int64
+	ImportRoutes   []string
+
 	// SecureCookies forces the session and CSRF cookies Secure regardless of
 	// the scheme a request arrived on. It is the floor, not the ceiling: a
 	// request whose effective scheme is https gets a Secure cookie anyway.
@@ -86,6 +92,8 @@ type Router struct {
 	proxies *auth.ProxyPolicy
 	mux     *routeMux
 	handler http.Handler
+	// imports matches the routes that take MaxImportBytes; it serves nothing.
+	imports *http.ServeMux
 }
 
 // routeMux is a ServeMux that remembers every pattern registered on it, so
@@ -127,6 +135,9 @@ func New(cfg Config) (*Router, error) {
 	if cfg.MaxBodyBytes <= 0 {
 		cfg.MaxBodyBytes = DefaultMaxBodyBytes
 	}
+	if cfg.MaxImportBytes <= 0 {
+		cfg.MaxImportBytes = config.DefaultMaxImportBytes
+	}
 	if cfg.RequestTimeout <= 0 {
 		cfg.RequestTimeout = DefaultRequestTimeout
 	}
@@ -143,7 +154,10 @@ func New(cfg Config) (*Router, error) {
 		return nil, err
 	}
 
-	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}}
+	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux()}
+	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
+		rt.imports.Handle(pattern, http.NotFoundHandler())
+	}
 	rt.register()
 	rt.handler = chain(rt.mux,
 		rt.authenticate,
@@ -220,8 +234,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := dec.Decode(v); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid,
-				"request body exceeds the configured limit")
+			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid, tooLargeMessage(r))
 			return false
 		}
 		if errors.Is(err, io.EOF) {

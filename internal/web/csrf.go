@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -105,12 +106,16 @@ func newCSRFToken() string {
 // checkCSRF refuses a submission whose form value does not match the cookie the
 // browser was issued, which is what stops another origin posting on the
 // session's behalf.
-func (h *handler) checkCSRF(r *http.Request) error {
+func (h *handler) checkCSRF(r *http.Request, b Binding) error {
 	cookie, err := r.Cookie(CSRFCookieName)
 	if err != nil || cookie.Value == "" {
 		return core.Forbidden("this form has no csrf token; reload the page and try again")
 	}
-	if err := ensureForm(r); err != nil {
+	limit, refusal := int64(maxUploadBytes), formRefusal
+	if b.Method == http.MethodPost && b.Pattern == RouteProjectImport {
+		limit, refusal = h.importLimit, config.ImportLimitRefusal(h.importLimit)
+	}
+	if err := ensureForm(r, limit, refusal); err != nil {
 		return err
 	}
 	submitted := strings.TrimSpace(r.PostFormValue(CSRFFieldName))

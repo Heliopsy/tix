@@ -17,7 +17,7 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--listen` | `127.0.0.1:8080` | address to bind |
 | `--tls-cert, --tls-key` | (none) | serve HTTPS |
 | `--insecure-no-tls` | off | allow a non-loopback bind without TLS |
-| `--max-body-bytes` | 1 MiB | request body cap |
+| `--max-body-bytes` | 1 MiB | request body cap, except a task import, which `server.max_import_bytes` caps (32 MiB) |
 | `--request-timeout` | 30s | per-request timeout |
 | `--shutdown-timeout` | | how long shutdown waits for in-flight requests |
 | `--sweep-interval` | `1m` | how often expired leases are swept |

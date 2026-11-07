@@ -49,6 +49,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
 | `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
 | `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
+| `server.max_import_bytes` | `TIX_SERVER_MAX_IMPORT_BYTES` | `33554432` (32 MiB) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `auth.totp_key` | `TIX_AUTH_TOTP_KEY` | (unset) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
@@ -320,6 +321,12 @@ peer is on the list, the effective scheme comes from `X-Forwarded-Proto` and the
 scheme of each request, so a deployment behind a TLS-terminating proxy gets `Secure` once that proxy is listed in
 `server.trusted_proxies`. `always` sets it unconditionally; `never` never sets it, which is only correct on a
 network that is deliberately plaintext. Serving TLS from tix itself sets it regardless of this key.
+
+`server.max_import_bytes` caps the body of a project task import, `POST /v1/projects/{ref}/tasks/import` and the
+upload step of the browser's import, in bytes. Every other request answers to `tix serve --max-body-bytes`, 1 MiB
+by default, which is sized for a form rather than a file. A larger import is refused with 413 and a message naming
+both the limit and this key. The import also has limits of its own, 64 MiB among them, so raising this key past
+that gains nothing. `tix serve` reads it and has no flag for it.
 
 `auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
 and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and

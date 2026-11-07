@@ -1025,7 +1025,11 @@ func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	data := errorView{Heading: headingFor(kind), Message: message,
 		Hint: hintFor(kind), Back: h.wayBack(r)}
-	if renderErr := h.renderStatus(w, r, kind.HTTPStatus(), "error.html", headingFor(kind), data); renderErr != nil {
+	status := kind.HTTPStatus()
+	if over := (*tooLarge)(nil); errors.As(err, &over) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	if renderErr := h.renderStatus(w, r, status, "error.html", headingFor(kind), data); renderErr != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
 }
