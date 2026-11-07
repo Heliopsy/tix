@@ -293,6 +293,31 @@ test-shard SHARD:
 # Errs towards "full": a file it cannot read, a build constraint, a syscall or
 # terminal import, or anything under the packages that own SSH, terminals,
 # paths and filesystems.
+# Ordinary PRs must leave the release files alone. A rebase once carried a
+# stale CHANGELOG.md and manifest back onto main, release-please read that as
+# "0.45.0 never shipped" and opened a second 0.45.0 release. The manifest must
+# name the newest tag and the changelog's top section must be that tag's own,
+# except on release-please's branch, which is where they legitimately move.
+release-files-check HEAD_REF="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{HEAD_REF}}" in release-please--*) echo "release-please branch, skipped"; exit 0;; esac
+    tag=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1)
+    [ -n "$tag" ] || { echo "no release tag fetched; run git fetch --tags" >&2; exit 1; }
+    want=${tag#v}
+    got=$(sed -nE 's/.*"\.": *"([^"]+)".*/\1/p' .release-please-manifest.json)
+    if [ "$got" != "$want" ]; then
+      echo ".release-please-manifest.json says $got but the newest release is $tag; do not change release files outside release-please" >&2
+      exit 1
+    fi
+    top() { awk '/^## \[/{n++} n==1' ; }
+    if ! diff -q <(top < CHANGELOG.md) <(git show "$tag:CHANGELOG.md" | top) >/dev/null; then
+      echo "CHANGELOG.md's top section differs from $tag's; do not change release files outside release-please" >&2
+      diff <(top < CHANGELOG.md) <(git show "$tag:CHANGELOG.md" | top) | head -20 >&2
+      exit 1
+    fi
+    echo "release files match $tag"
+
 os-scope BASE="origin/main":
     #!/usr/bin/env bash
     set -euo pipefail
