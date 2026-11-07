@@ -19,30 +19,25 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			btn := `document.querySelector("a.rawopen")`
 			dlg := `document.getElementById(` + btn + `.dataset.dlgOpen)`
 			page.load(t, f.server.URL+path, btn)
+			// The fixture serves no event stream, so live.js gives up on its
+			// socket and says so in a notice. On /activity that notice sits
+			// above the feed, and it arrives whenever the socket's failure
+			// does: on a macOS runner that was after the control had been
+			// measured, so the whole feed moved down under a press already
+			// aimed at Raw. Wait until it is up, as open() does for the board.
+			page.waitFor(t, `(() => { const s = document.getElementById("live-stale"); return !s || !s.hidden || !document.querySelector("[data-events]"); })()`,
+				"the screen never said it was not live")
 			if path != "/activity" {
 				page.eval(t, `document.getElementById("history").open = true`, nil)
 			}
-			// The press waits on explicit signals, not the clock: the live
-			// feed has drawn everything it was asked to (a refresh landing
-			// between measuring and pressing moves the row, and the press
-			// hits whatever slid under it), htmx has wired the control, and
-			// the point about to be pressed is the control itself. Without
-			// them a slow runner pressed empty space and waited for a dialog
-			// that was never asked for.
-			ready := `(() => { const b = ` + btn + `; if (!b || !window.tix.liveSettled() || !b["htmx-internal-data"]) return false;
-				b.scrollIntoView({block: "center"});
-				const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-				return !!hit && hit.closest("a.rawopen") === b; })()`
-			click := func() {
-				page.waitFor(t, ready, "Raw never settled under the pointer, wired by htmx")
-				x, y := page.point(t, `(() => { const r = `+btn+`.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`)
-				page.mouse("mouseMoved", x, y)
-				page.mouse("mousePressed", x, y)
-				page.mouse("mouseReleased", x, y)
-			}
-			page.eval(t, `window.__rawFetched = 0; document.addEventListener("htmx:afterRequest", () => { window.__rawFetched++; })`, nil)
-			click()
-			page.waitFor(t, `window.__rawFetched > 0 || `+dlg+`?.open`, "pressing Raw neither fetched its dialog nor opened one")
+			// What a press reached, recorded in the capture phase before any
+			// handler can stop it, and the requests Raw itself made. Any other
+			// htmx request, a live refresh say, is not Raw's.
+			page.eval(t, `window.__rawHits = []; window.__rawFetched = 0;
+				document.addEventListener("click", (e) => { window.__rawHits.push(e.target.closest("a.rawopen") === `+btn+` ? "raw" : (e.target.outerHTML || "").slice(0, 120)); }, true);
+				document.addEventListener("htmx:beforeRequest", (e) => { if (e.detail.elt === `+btn+`) window.__rawFetched++; })`, nil)
+			press(t, page, btn)
+			page.waitFor(t, `window.__rawFetched > 0 || `+dlg+`?.open`, "Raw took the press but neither fetched its dialog nor opened one")
 			page.waitFor(t, dlg+`?.matches(":modal")`, "Raw did not open its dialog as a modal one")
 			var address string
 			page.eval(t, `location.pathname + location.search`, &address)
@@ -64,7 +59,7 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			page.escape()
 			page.waitFor(t, `!`+dlg+`.open`, "Escape did not close the dialog")
 			page.waitFor(t, `document.activeElement === `+btn, "focus did not go back to Raw")
-			click()
+			press(t, page, btn)
 			page.waitFor(t, dlg+`?.matches(":modal")`, "Raw did not open its dialog a second time")
 			var fetched int
 			page.eval(t, `document.querySelectorAll(".rawwrap").length`, &fetched)
@@ -74,5 +69,42 @@ func TestRawOpensAWideDialogInABrowser(t *testing.T) {
 			page.eval(t, dlg+`.querySelector(".actiondlg-x").click()`, nil)
 			page.waitFor(t, `!`+dlg+`.open`, "the close button did not close the dialog")
 		})
+	}
+}
+
+// press clicks the control btn names the way a reader would: a real mouse
+// press at its centre, once it has stopped moving. The live feed has drawn
+// everything it was asked to, htmx has wired the control, it is scrolled to
+// the middle of the window and nothing covers its centre. elementFromPoint
+// and Input.dispatchMouseEvent both work in CSS pixels of the viewport, so
+// the point measured is the point pressed. The press must reach the control:
+// one that lands on something else means the page moved between measuring
+// and pressing, so it is aimed again, and the test fails only if it never
+// lands.
+func press(t *testing.T, page *cdpPage, btn string) {
+	t.Helper()
+	ready := `(() => { const b = ` + btn + `; if (!b || !window.tix.liveSettled() || !b["htmx-internal-data"]) return false;
+		b.scrollIntoView({block: "center", behavior: "instant"});
+		const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+		if (r.width === 0 || x < 0 || y < 0 || x > innerWidth || y > innerHeight) return false;
+		const hit = document.elementFromPoint(x, y);
+		return !!hit && hit.closest("a.rawopen") === b; })()`
+	for attempt := 1; ; attempt++ {
+		page.eval(t, `window.__rawHits.length = 0`, nil)
+		page.waitFor(t, ready, "Raw never settled under the pointer, wired by htmx")
+		x, y := page.point(t, `(() => { const r = `+btn+`.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`)
+		page.mouse("mouseMoved", x, y)
+		page.mouse("mousePressed", x, y)
+		page.mouse("mouseReleased", x, y)
+		page.waitFor(t, `window.__rawHits.length > 0`, "pressing Raw delivered no click at all")
+		var hits []string
+		page.eval(t, `window.__rawHits`, &hits)
+		if len(hits) > 0 && hits[0] == "raw" {
+			return
+		}
+		if attempt == 3 {
+			t.Fatalf("three presses aimed at Raw landed elsewhere: %q", hits)
+		}
+		t.Logf("a press aimed at Raw at (%.0f, %.0f) landed on %q; aiming again", x, y, hits)
 	}
 }
