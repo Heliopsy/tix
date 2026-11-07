@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.46.0](https://github.com/Heliopsy/tix/compare/v0.45.0...v0.46.0) (2026-11-07)
+
+
+### Features
+
+* keep a history of every change to an account ([b289280](https://github.com/Heliopsy/tix/commit/b2892804a20b0c069c55ba91f74b022a7fa1079f))
+* one account in several tenants, with the account kept by its owner ([2371c6b](https://github.com/Heliopsy/tix/commit/2371c6bfd19dc2cf8e523b299c7188ebd806fcb0))
+* **server:** give task imports their own body limit, server.max_import_bytes ([5f94ccb](https://github.com/Heliopsy/tix/commit/5f94ccb0f32f78ebce897e42c1a612f519538579))
+* **store:** link each user actor to its account ([b1781a2](https://github.com/Heliopsy/tix/commit/b1781a297791076de3ea9c00a708895492a7b49f))
+* **store:** name new migrations by UTC timestamp ([72cb2b5](https://github.com/Heliopsy/tix/commit/72cb2b55d1a1d6404503c01f4ea42cd2cbcb9290))
+* **web:** a help button on every screen that opens its docs section ([ef1b59b](https://github.com/Heliopsy/tix/commit/ef1b59b06f66cad5aa27970ad3d7370b3b170078))
+* **web:** put a task's comments, history and artifacts on tabs ([5f1df95](https://github.com/Heliopsy/tix/commit/5f1df957007ad943b61725b94a33bca2b11dda9c))
+
+
+### Bug Fixes
+
+* clear four gosec findings in the import and sync code instead of suppressing them ([13a340b](https://github.com/Heliopsy/tix/commit/13a340bd7d3c8e07edf1487873509e706715a3cd))
+* **cmd:** draw tix tenant user ls as columns, not the user struct ([b5f89fa](https://github.com/Heliopsy/tix/commit/b5f89fa32c7e7d423f3730153e7cb2980099e858))
+* **release:** restore the 0.45.0 changelog and refuse release file edits outside release-please ([c8faaad](https://github.com/Heliopsy/tix/commit/c8faaad4435b7884afe21c231db8222d3a52cb74))
+* **web:** keep the not-live notice from pushing the page down when it appears ([1375815](https://github.com/Heliopsy/tix/commit/137581562b3169c2ac0799857a6bec802472fa7b))
+* **web:** keep the task panel's due hint whole in its narrow column ([fc31108](https://github.com/Heliopsy/tix/commit/fc311087ae7ed5fbdbf8bf34a468af7b09f66ecb))
+* **web:** write the Raw dialog's times in the reader's date format ([69fd6a5](https://github.com/Heliopsy/tix/commit/69fd6a533f1d71184e559ddc0ba5797c0824b3a2))
+
 ## [0.45.0](https://github.com/Heliopsy/tix/compare/v0.44.0...v0.45.0) (2026-11-07)
 
 
