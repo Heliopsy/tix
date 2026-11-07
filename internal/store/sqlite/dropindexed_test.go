@@ -22,30 +22,9 @@ func TestMigrationDropsTheIndexedColumnAndKeepsTheField(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for _, stmt := range []string{
-		"DROP TABLE user_invites",
-		"ALTER TABLE users DROP COLUMN require_password_change",
-		"DROP INDEX idx_audit_via",
-		"ALTER TABLE audit_entries DROP COLUMN via_kind",
-		"ALTER TABLE audit_entries DROP COLUMN via_token",
-		"ALTER TABLE audit_entries DROP COLUMN via_detail",
-		"ALTER TABLE events DROP COLUMN via_kind",
-		"ALTER TABLE events DROP COLUMN via_detail",
-		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 1",
-		"ALTER TABLE tenants DROP COLUMN time_format",
-		"ALTER TABLE tenants DROP COLUMN timezone",
-		"ALTER TABLE users DROP COLUMN time_format",
-		"ALTER TABLE users DROP COLUMN timezone",
-		"ALTER TABLE users DROP COLUMN global_admin",
-		"ALTER TABLE sync_sources DROP COLUMN mapping",
-		"ALTER TABLE sync_sources DROP COLUMN credentials_sealed",
-		"ALTER TABLE sync_sources DROP COLUMN credentials_nonce",
-		"ALTER TABLE sync_sources DROP COLUMN credential_hints",
-		"DELETE FROM schema_migrations WHERE version > 28",
-	} {
-		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {
-			t.Fatalf("rewinding to 0028 (%s): %v", stmt, err)
-		}
+	rewindTo(t, s, 28)
+	if _, err := s.writer.ExecContext(ctx, "UPDATE field_defs SET indexed = 1"); err != nil {
+		t.Fatalf("marking the field indexed: %v", err)
 	}
 
 	if err := s.Migrate(ctx); err != nil {

@@ -14,7 +14,7 @@ reached through `sql.Conn.Raw`, which is what `LISTEN`/`NOTIFY` needs.
 ## Schema
 
 `internal/store/migrations/0001_init.sql` is authored for SQLite and is never
-edited here. `schema.go` translates it on the way in, within the same numbered
+edited here. `schema.go` translates it on the way in, within the same
 migration step, so both engines record the same migration identifiers:
 
 | Portable schema | PostgreSQL |

@@ -69,7 +69,7 @@ What the engine adds beyond concurrency:
 - **`FOR UPDATE SKIP LOCKED`** in `ClaimNextTask`, so a second worker takes the next row rather than queueing
   behind the first. This is the difference that matters for a large agent fleet.
 
-The migration translates the portable SQLite schema on the way in, within the same numbered migration step, so
+The migration translates the portable SQLite schema on the way in, within the same migration step, so
 both engines record the same migration identifiers:
 
 | Portable schema | PostgreSQL |

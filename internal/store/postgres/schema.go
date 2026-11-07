@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
@@ -97,7 +98,7 @@ var constraintKeywords = map[string]bool{
 	"PRIMARY": true, "UNIQUE": true, "CHECK": true, "FOREIGN": true, "CONSTRAINT": true,
 }
 
-// runMigrations applies every migration above the current version, translating
+// runMigrations applies every migration the database has not recorded, translating
 // the portable schema to PostgreSQL types and adding the engine-specific
 // partitioning, search vector and row-level security within the same step.
 //
@@ -108,21 +109,42 @@ var constraintKeywords = map[string]bool{
 // run outside the policies they create", has the reproduction and why the fix
 // belongs here rather than in the SQL.
 func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
-	current, err := migrations.Current(ctx, db)
-	if err != nil {
-		return core.Internal("reading schema version").Wrap(err)
+	if err := ensureVersionTable(ctx, db); err != nil {
+		return err
 	}
-	all, err := migrations.All()
+	pending, err := migrations.Pending(ctx, db)
 	if err != nil {
 		return core.Internal("reading migrations").Wrap(err)
 	}
-	for _, m := range all {
-		if m.Version <= current {
-			continue
-		}
+	for _, m := range pending {
 		if err := applyMigration(ctx, db, m, clk); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// ensureVersionTable creates schema_migrations with a BIGINT version, and
+// widens one created as INTEGER before timestamped versions existed: here
+// INTEGER is 32 bits, and a version such as 20261107153000 does not fit.
+func ensureVersionTable(ctx context.Context, db *sql.DB) error {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+  version    BIGINT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+)`); err != nil {
+		return core.Internal("creating schema_migrations").Wrap(err)
+	}
+	var kind string
+	if err := db.QueryRowContext(ctx, `SELECT data_type FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'schema_migrations' AND column_name = 'version'`,
+	).Scan(&kind); err != nil {
+		return core.Internal("reading the schema_migrations version type").Wrap(err)
+	}
+	if kind == "bigint" {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE schema_migrations ALTER COLUMN version TYPE BIGINT`); err != nil {
+		return core.Internal("widening schema_migrations.version").Wrap(err)
 	}
 	return nil
 }
@@ -131,39 +153,39 @@ func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
 // Postgres-only adjustments over it are layered on with that migration.
 const firstMigration = 1
 
-// tableIntroducedIn records the migration that creates a tenant-scoped table,
-// for the tables that arrived after the initial schema. Anything absent was
-// created by firstMigration.
+// introducedIn returns the migration that creates a table, or zero when none
+// does. It is read from the migrations themselves rather than kept as a list,
+// so a migration adding a table needs no entry here and cannot get one wrong.
 //
 // This exists because the row-level security policies are not idempotent and so
 // run exactly once. Bundling them all into migration 1 would give a fresh
 // database policies on every table and an existing database no policy at all on
 // a table added later: the isolation would hold on a developer's laptop and
-// fail on the deployment that has been running for months. Recording the
-// version here keeps the two paths identical.
-var tableIntroducedIn = map[string]int{
-	"ssh_keys":              5,
-	"task_stars":            14,
-	"project_icons":         16,
-	"group_prefs":           18,
-	"project_key_aliases":   19,
-	"saved_filters":         21,
-	"calendar_feeds":        22,
-	"inbox_items":           24,
-	"inbox_mutes":           24,
-	"inbox_channels":        24,
-	"inbox_deliveries":      24,
-	"task_templates":        25,
-	"housekeeping_policies": 27,
-	"user_invites":          31,
+// fail on the deployment that has been running for months. Attaching each
+// policy to the migration that creates its table keeps the two paths identical.
+func introducedIn(table string) int {
+	return tableIntroductions()[table]
 }
 
-func introducedIn(table string) int {
-	if v, ok := tableIntroducedIn[table]; ok {
-		return v
+var createTable = regexp.MustCompile(`(?is)^\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)`)
+
+var tableIntroductions = sync.OnceValue(func() map[string]int {
+	out := map[string]int{}
+	all, err := migrations.All()
+	if err != nil {
+		return out
 	}
-	return firstMigration
-}
+	for _, m := range all {
+		for _, stmt := range migrations.Split(m.SQL) {
+			if c := createTable.FindStringSubmatch(stmt); c != nil {
+				if _, seen := out[c[1]]; !seen {
+					out[c[1]] = m.Version
+				}
+			}
+		}
+	}
+	return out
+})
 
 func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk clock.Clock) error {
 	tx, err := db.BeginTx(ctx, nil)

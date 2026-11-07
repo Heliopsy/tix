@@ -59,65 +59,7 @@ func TestUpgradeKeepsDuplicateTokensWorkingAndTellsThemApart(t *testing.T) {
 	s, clk := newStore(t)
 	f := seed(t, s, clk, "acme")
 
-	for _, stmt := range []string{
-		"DROP INDEX idx_tokens_name_live",
-		"DROP TABLE user_totp",
-		"DROP TABLE user_recovery_codes",
-		"ALTER TABLE tenants DROP COLUMN require_totp_web",
-		"ALTER TABLE tenants DROP COLUMN require_totp_cli",
-		"ALTER TABLE tenants DROP COLUMN require_totp_ssh",
-		"ALTER TABLE tenants DROP COLUMN lease_default",
-		"ALTER TABLE tenants DROP COLUMN lease_max",
-		"DROP TABLE task_stars",
-		"DROP TABLE group_prefs",
-		"DROP TABLE inbox_deliveries",
-		"DROP TABLE inbox_channels",
-		"DROP TABLE inbox_items",
-		"DROP TABLE inbox_mutes",
-		"ALTER TABLE tasks DROP COLUMN recurrence",
-		"ALTER TABLE tasks DROP COLUMN recurrence_next_id",
-		"DROP INDEX idx_task_tags_task",
-		"DROP INDEX idx_task_deps_task",
-		"DROP TABLE project_icons",
-		"ALTER TABLE projects DROP COLUMN icon_name",
-		"ALTER TABLE projects DROP COLUMN icon_image",
-		"DROP TABLE project_key_aliases",
-		"ALTER TABLE tasks DROP COLUMN copied_from_id",
-		"DROP TABLE saved_filters",
-		"DROP TABLE calendar_feeds",
-		"DROP INDEX idx_tasks_snoozed",
-		"ALTER TABLE tasks DROP COLUMN snoozed_until",
-		"ALTER TABLE tasks DROP COLUMN snoozed_by",
-		"DROP TABLE task_templates",
-		"ALTER TABLE tenants DROP COLUMN trash_off",
-		"DROP TABLE housekeeping_policies",
-		"ALTER TABLE projects DROP COLUMN lease_default",
-		"ALTER TABLE projects DROP COLUMN lease_max",
-		"ALTER TABLE tasks DROP COLUMN lease",
-		"DROP TABLE user_invites",
-		"ALTER TABLE users DROP COLUMN require_password_change",
-		"DROP INDEX idx_audit_via",
-		"ALTER TABLE audit_entries DROP COLUMN via_kind",
-		"ALTER TABLE audit_entries DROP COLUMN via_token",
-		"ALTER TABLE audit_entries DROP COLUMN via_detail",
-		"ALTER TABLE events DROP COLUMN via_kind",
-		"ALTER TABLE events DROP COLUMN via_detail",
-		"ALTER TABLE field_defs ADD COLUMN indexed INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE tenants DROP COLUMN time_format",
-		"ALTER TABLE tenants DROP COLUMN timezone",
-		"ALTER TABLE users DROP COLUMN time_format",
-		"ALTER TABLE users DROP COLUMN timezone",
-		"ALTER TABLE users DROP COLUMN global_admin",
-		"ALTER TABLE sync_sources DROP COLUMN mapping",
-		"ALTER TABLE sync_sources DROP COLUMN credentials_sealed",
-		"ALTER TABLE sync_sources DROP COLUMN credentials_nonce",
-		"ALTER TABLE sync_sources DROP COLUMN credential_hints",
-		"DELETE FROM schema_migrations WHERE version > 9",
-	} {
-		if _, err := s.writer.ExecContext(ctx, stmt); err != nil {
-			t.Fatalf("rewinding below the index (%s): %v", stmt, err)
-		}
-	}
+	rewindTo(t, s, 9)
 	insertToken(t, s, f, "01AAAAAAAAAAAAAAAAAAAAAAAA", "ci")
 	insertToken(t, s, f, "01BBBBBBBBBBBBBBBBBBBBBBBB", "ci")
 	insertToken(t, s, f, "01CCCCCCCCCCCCCCCCCCCCCCCC", "release")
