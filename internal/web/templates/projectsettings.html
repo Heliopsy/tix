@@ -11,6 +11,7 @@
   <div class="pagehead-title">
     <div class="headtip"><h1>{{t "Settings for %s" $p.Name}}</h1>{{template "tip" (tip "Project settings" "What this project is called and how it looks, how long a claim on its tasks holds, how it cleans up its finished tasks and the trash, and archiving or deleting it." "docs/workflows.md")}}</div>
   </div>
+  {{template "help" $}}
 </div>
 
 {{$e := .Data.Errors}}{{$f := .Data.Form}}

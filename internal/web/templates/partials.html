@@ -702,6 +702,12 @@
      the words beside it already say what it means. The sprite holds the
      arrows and marks that were text characters, so they sit on the label's
      line at the icon set's weight in both themes. */}}
+{{/* help is the screen's (?) button, at the right end of its header row.
+     It opens the documentation section about the screen, for the release
+     this server runs, through /docs; help.go maps routes to sections. Not in
+     the task dialog, whose listing under it has its own. */}}
+{{define "help"}}{{if and .Help (not .InDialog)}}<a class="helplink" href="{{.Help}}" target="_blank" rel="noopener" aria-label="{{t "Help: %s" (t .Title)}}" title="{{t "Help: %s" (t .Title)}}" data-help><svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#help"/></svg></a>{{end}}{{end}}
+
 {{define "icon"}}<svg class="icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{.}}"/></svg>{{end}}
 
 {{/* The position control every keyset listing renders. It was six hand-rolled

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Import and export"}}</h1>{{template "tip" (tip "Snapshot or components" "A snapshot moves work: projects, tasks and their history. A components bundle moves configuration: workflows, fields, tags, project templates and webhooks. Use a snapshot to move a tenant, a bundle to share a way of working." "docs/migrating.md")}}</div>
+<div class="headtip"><h1>{{t "Import and export"}}</h1>{{template "tip" (tip "Snapshot or components" "A snapshot moves work: projects, tasks and their history. A components bundle moves configuration: workflows, fields, tags, project templates and webhooks. Use a snapshot to move a tenant, a bundle to share a way of working." "docs/migrating.md")}}{{template "help" $}}</div>
 {{template "datatabs" .}}
 
 <p>{{th "A snapshot carries this tenant's <strong>work</strong>: its projects, tasks and their history. Configuration travels separately, under Components."}}</p>

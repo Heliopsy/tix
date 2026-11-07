@@ -5,6 +5,7 @@
     <p class="lede">{{th "Where tix posts events as they commit. Each delivery carries an <code>X-Tix-Signature</code> header your receiver checks against the endpoint's signing secret."}}</p>
   </div>
   <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "webhook-new" (t "Register an endpoint") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 

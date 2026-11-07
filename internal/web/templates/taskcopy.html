@@ -16,6 +16,7 @@
   <div class="cform-head">
     <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Copy to another project"}} <span class="ref mono">{{ref $t.Ref}}</span></h1>
     {{template "tip" (tip "Copying a task" "The copy is a new task with its own reference. Its title, description, priority, tags, assignee, due date and repeat rule travel with it, and so do the custom fields the target project defines. Stars, claims, history and artifacts stay behind. Comments, subtasks and dependencies come along only when ticked." "docs/web-ui.md")}}
+    {{template "help" $}}
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">

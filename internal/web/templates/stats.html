@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Statistics"}}</h1>{{template "tip" (tip "Statistics" "Completed counts tasks that reached a terminal state in the window, cancelled ones included; created counts tasks made in it. Lead time runs from a task's creation to its terminal state; slowest is the longest of those. The window always ends now." "docs/statistics.md")}}</div>
+<div class="headtip"><h1>{{t "Statistics"}}</h1>{{template "tip" (tip "Statistics" "Completed counts tasks that reached a terminal state in the window, cancelled ones included; created counts tasks made in it. Lead time runs from a task's creation to its terminal state; slowest is the longest of those. The window always ends now." "docs/statistics.md")}}{{template "help" $}}</div>
 
 {{/* The window and the project are a GET form, so every view of this screen
      has a URL someone can send. A POST here would make "show me the last 90

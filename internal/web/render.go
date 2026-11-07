@@ -123,6 +123,8 @@ func builtInDefault() core.Theme {
 type view struct {
 	Title string
 	Path  string
+	// Help is the screen's help button target; see help.go.
+	Help string
 	// InTrash is set on the task list while it shows the trash, so the
 	// sidebar marks Trash current rather than Tasks.
 	InTrash bool
@@ -447,6 +449,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Lang:            langOf(r),
 		JSText:          jsMessagesFor(langOf(r)),
 		Path:            r.URL.Path,
+		Help:            h.helpFor(r),
 		Dialog:          dialogOf(r),
 		InTrash:         inTrash(r),
 		TrashOff:        h.trashOff(r),

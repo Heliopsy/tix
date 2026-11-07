@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Workflows"}}</h1>{{template "tip" (tip "Workflows" "A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup." "docs/workflows.md")}}</div>
+<div class="headtip"><h1>{{t "Workflows"}}</h1>{{template "tip" (tip "Workflows" "A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup." "docs/workflows.md")}}{{template "help" $}}</div>
 <table class="rows">
   <thead><tr><th>{{t "Key"}}</th><th>{{t "Name"}}</th><th>{{t "States"}}</th><th>{{t "Builtin"}}</th></tr></thead>
   <tbody>

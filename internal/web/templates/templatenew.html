@@ -3,7 +3,7 @@
 {{$back := "/tasks"}}{{if $f.Next}}{{$back = $f.Next}}{{end}}
 <p class="backlink"><a href="{{$back}}">{{template "icon" "arrow-left"}}<span>{{t "Back to tasks"}}</span></a></p>
 {{if not .Data.Templates}}
-<div class="headtip"><h1>{{t "New from template"}}</h1></div>
+<div class="headtip"><h1>{{t "New from template"}}</h1>{{template "help" $}}</div>
 <p>{{t "No templates yet. Open a task and pick Save as template."}}</p>
 {{else}}
 <form method="post" class="cform" data-form action="/templates/new">
@@ -12,6 +12,7 @@
   <div class="cform-head">
     <h1 class="cform-title">{{t "New from template"}}</h1>
     {{template "tip" (tip "Task templates" "Creates a task, and a subtask for each one the template holds. It starts in the project's first state and keeps the custom fields that project defines." "docs/web-ui.md")}}
+    {{template "help" $}}
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">

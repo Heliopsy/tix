@@ -42,6 +42,7 @@
 {{$v := .Data}}
 <div class="pagehead">
   <div class="pagehead-title"><div class="headtip"><h1>{{t "Connect an agent"}}</h1>{{template "tip" (tip "Connect an agent" "Every command here is filled in for this server and for you. Copy them in order, or skip to the part you need." "docs/agents.md")}}</div></div>
+  {{template "help" $}}
 </div>
 <dl class="connect-facts">
   <div><dt>{{t "Server"}}</dt><dd><code>{{$v.URL}}</code></dd></div>

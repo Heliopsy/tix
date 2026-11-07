@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Workflow %s" .Data.Workflow.Key}}</h1>{{template "tip" (tip "State categories" "Every state also belongs to one of six fixed categories: to do, in progress, blocked, waiting, done or cancelled. Colours, board grouping, filters and statistics read the category, so workflows stay comparable. Set it with tix workflow put; this form keeps it as it is." "docs/workflows.md")}}</div>
+<div class="headtip"><h1>{{t "Workflow %s" .Data.Workflow.Key}}</h1>{{template "tip" (tip "State categories" "Every state also belongs to one of six fixed categories: to do, in progress, blocked, waiting, done or cancelled. Colours, board grouping, filters and statistics read the category, so workflows stay comparable. Set it with tix workflow put; this form keeps it as it is." "docs/workflows.md")}}{{template "help" $}}</div>
 <form method="post" action="/workflows">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="key" value="{{.Data.Workflow.Key}}">

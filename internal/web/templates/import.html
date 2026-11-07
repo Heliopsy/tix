@@ -9,6 +9,7 @@
   <div class="pagehead-title">
     <div class="headtip"><h1>{{t "Import tasks into %s" $v.Project.Name}}</h1>{{template "tip" (tip "Importing tasks" "Reads a CSV, JSON or NDJSON file, from tix or from Jira, GitHub, Trello, Linear or a spreadsheet, into this project. Nothing is written until the last step, and then all of it or none of it." "docs/import-export.md")}}</div>
   </div>
+  {{template "help" $}}
 </div>
 <nav aria-label="{{t "Import steps"}}">
   <ol class="importsteps">

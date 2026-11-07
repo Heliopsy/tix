@@ -8,7 +8,7 @@
      way. The sidebar's badge follows over the event stream. */}}
 {{define "content"}}
 {{$v := .Data}}
-<div class="headtip"><h1>{{t "Inbox"}}</h1>{{template "tip" (tip "Inbox" "What concerns you: somebody mentions you as @handle in a comment or a description, assigns you a task, comments on a task you are assigned to or starred, or moves a task assigned to you. Your own changes never appear here. Turn kinds off under Settings, Inbox." "docs/web-ui.md")}}</div>
+<div class="headtip"><h1>{{t "Inbox"}}</h1>{{template "tip" (tip "Inbox" "What concerns you: somebody mentions you as @handle in a comment or a description, assigns you a task, comments on a task you are assigned to or starred, or moves a task assigned to you. Your own changes never appear here. Turn kinds off under Settings, Inbox." "docs/web-ui.md")}}{{template "help" $}}</div>
 <p class="lede">{{t "Mentions, assignments, comments and status changes that concern you, newest first."}}</p>
 
 {{/* The list redraws in place on every inbox.updated (assets/live.js, the

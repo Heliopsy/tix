@@ -11,6 +11,7 @@
     <h1 class="cform-title">{{t "Template"}} <span class="mono">{{$tpl.Name}}</span></h1>
     {{template "tip" (tip "Task templates" "Changes apply to tasks made from now on; tasks already made from the template keep what they were made with. Subtasks change only by saving a task as a template again." "docs/web-ui.md")}}
     <span class="cform-head-tools">{{template "dlg-open" (opener "template-delete" (t "Delete template") "trash" "danger" $.Here)}}</span>
+    {{template "help" $}}
   </div>
   {{with $e.On ""}}{{template "field-error" .}}{{end}}
   <div class="cform-grid">

@@ -204,7 +204,8 @@ const docsRepo = "https://github.com/heliopsy/tix/blob/"
 
 // redirectDocs sends the reader to one documentation page. Rendered pages
 // link here rather than off the server, which keeps every page free of an
-// external origin; only a page in docPages is redirected.
+// external origin; only a page in docPages is redirected. A section names
+// the heading to land on, carried through as the target's fragment.
 func (h *handler) redirectDocs(w http.ResponseWriter, r *http.Request) error {
 	page := r.PathValue("page")
 	if page == "" {
@@ -217,8 +218,12 @@ func (h *handler) redirectDocs(w http.ResponseWriter, r *http.Request) error {
 	if v := h.releases.state().Running; semverTag(v) {
 		ref = "v" + strings.TrimPrefix(v, "v")
 	}
-	// #nosec G710 -- the target is a constant origin and a page from a fixed list.
-	http.Redirect(w, r, docsRepo+ref+"/docs/"+page, http.StatusFound)
+	target := docsRepo + ref + "/docs/" + page
+	if s := r.URL.Query().Get(docsSectionParam); docsSection.MatchString(s) {
+		target += "#" + s
+	}
+	// #nosec G710 -- the target is a constant origin, a page from a fixed list and a checked anchor.
+	http.Redirect(w, r, target, http.StatusFound)
 	return nil
 }
 
