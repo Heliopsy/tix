@@ -5,7 +5,6 @@ package presence_test
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/heliopsy/tix/internal/presence"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // fixture is a real temporary database, because the whole behaviour under test
@@ -27,7 +27,7 @@ type fixture struct {
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	clk := clock.NewFakeAt()
-	s, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	s, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

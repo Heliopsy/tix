@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +22,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
@@ -103,7 +103,7 @@ var _ = core.Event{}
 // testStore opens a migrated database for the event tests.
 func testStore(t *testing.T) store.Store {
 	t.Helper()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clock.New())
+	st, err := sqlite.Open(sqlitetest.Path(t), clock.New())
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

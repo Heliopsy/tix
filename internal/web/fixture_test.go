@@ -12,7 +12,6 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -24,6 +23,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	"github.com/heliopsy/tix/internal/web"
 )
 
@@ -258,7 +258,7 @@ func newFixture(t *testing.T) *fixture {
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

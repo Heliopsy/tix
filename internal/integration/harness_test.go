@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	"github.com/heliopsy/tix/internal/web"
 	"github.com/heliopsy/tix/internal/webhook"
 	"github.com/heliopsy/tix/internal/wire"
@@ -99,7 +99,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	ctx := context.Background()
 	clk := clock.New()
 	logs := &serverLog{}
-	path := filepath.Join(t.TempDir(), "tix.db")
+	path := sqlitetest.Path(t)
 
 	serverStore := openStore(t, path, clk)
 	serverSvc := service.New(serverStore,

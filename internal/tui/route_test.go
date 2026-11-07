@@ -5,7 +5,6 @@ package tui
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // liveBoard is a board over a real service on a temporary database, so a
@@ -32,7 +32,7 @@ func newLiveBoard(t *testing.T) *liveBoard {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/heliopsy/tix/internal/sshd"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // sshWait bounds every read from a live SSH session. It is a failure timeout
@@ -62,7 +63,7 @@ func newSSHHarness(t *testing.T, demo bool) *sshHarness {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.New()
-	path := filepath.Join(t.TempDir(), "tix.db")
+	path := sqlitetest.Path(t)
 
 	st, err := sqlite.Open(path, clk)
 	if err != nil {

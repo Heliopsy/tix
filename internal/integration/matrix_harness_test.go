@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 	"github.com/heliopsy/tix/internal/web"
 )
 
@@ -62,7 +62,7 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 	// anchored in the past makes every session cookie look already expired to
 	// the browser client the web-transport scenarios drive.
 	clk := clock.NewFake(time.Now())
-	path := filepath.Join(t.TempDir(), "tix.db")
+	path := sqlitetest.Path(t)
 
 	st, err := sqlite.Open(path, clk)
 	if err != nil {

@@ -4,13 +4,13 @@ package webhook
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 type fixture struct {
@@ -23,7 +23,7 @@ func newFixture(t *testing.T) fixture {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
-	s, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	s, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

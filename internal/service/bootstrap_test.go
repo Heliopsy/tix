@@ -4,12 +4,12 @@ package service
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store/sqlite"
+	"github.com/heliopsy/tix/internal/store/sqlite/sqlitetest"
 )
 
 // newEmpty returns a service over a migrated but otherwise empty database, so
@@ -17,7 +17,7 @@ import (
 func newEmpty(t *testing.T) *Local {
 	t.Helper()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestEnsureDefaultsLeavesAnExistingTenantAlone(t *testing.T) {
 func TestStarterListsAreSuppressible(t *testing.T) {
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
-	st, err := sqlite.Open(filepath.Join(t.TempDir(), "tix.db"), clk)
+	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}
