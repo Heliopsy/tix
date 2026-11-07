@@ -72,6 +72,11 @@ jobs:
       - name: Test shards cover every package
         run: just shards-check
 
+      - name: Release files match the newest release
+        run: |
+          git fetch --no-tags --depth=1 origin '+refs/tags/v*:refs/tags/v*'
+          just release-files-check "${{ github.head_ref }}"
+
       # The runner carries an SSH client and pseudo-terminals, so the whole
       # suite runs here rather than announcing a skipped capability.
       - name: Smoke the built binary
