@@ -36,3 +36,12 @@ A pending invite addressed to an existing account SHALL appear on the inviting t
 
 - **WHEN** a tenant admin has invited an address that has an account and it is not accepted yet
 - **THEN** the Users screen lists the address as pending and the assignee choices do not include it
+
+### Requirement: An Account screen shows the reader's account log
+
+The web UI SHALL offer an Account screen, reached from the header's tenant dialog, listing the reader's account log. The Global admin area SHALL link each user to their account log.
+
+#### Scenario: Reader opens Account
+
+- **WHEN** a signed-in person opens the Account screen
+- **THEN** it lists the changes to their account with who made each and the tenant it came from

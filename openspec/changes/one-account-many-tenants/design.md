@@ -51,9 +51,12 @@ unique per tenant, not globally), and a link lets one sign-in reach the linked a
 - `tenant_members` unchanged.
 - `sessions` gains `second_factor` (whether the sign-in that minted it passed one) and `method`
   (`password`, `ssh`, `switch`), so a switch can be checked against the target's policy.
-- New `switch_tickets`: `id`, `user_id`, `target_tenant_id`, `audience`, `token_hash`, `second_factor`,
-  `created_at`, `expires_at`, `used_at`. Unscoped table on the allow-list, like `user_totp`, because it is
-  written in one tenant and redeemed in another.
+- New `account_log`: `seq`, `user_id`, `action`, `tenant_key` (the tenant the change was made from, or
+  that a membership change concerns), `by_user_id`, `by_global_admin`, `via_kind`, `detail` (JSON, never a
+  secret), `occurred_at`. Unscoped, on the allow-list, keyed on the account. See "Account log".
+- Later phase: `switch_tickets`: `id`, `user_id`, `target_tenant_id`, `audience`, `token_hash`,
+  `second_factor`, `created_at`, `expires_at`, `used_at`. Unscoped, on the allow-list, like `user_totp`,
+  because it is written in one tenant and redeemed in another.
 - `user_invites` from #216 is reused. For an address that already has an account, issuing creates the actor
   (so the row's `user_id` foreign key holds) but no membership; acceptance adds the membership. #216
   already distinguishes `existing_account`.
@@ -71,17 +74,22 @@ A store helper `UserOfActor(actorID)` and `ActorOfUser(userID)` (the latter scop
 second factor, SSH, token minting, global admin and user admin through it; that is the guard that the
 coincidence is gone, and it must be watched failing against today's code.
 
-### Migration (0035, 0036; strictly after #216's 0034)
+### Migrations
 
-- 0035: `UPDATE actors SET user_id = id WHERE kind = 'user' AND user_id IS NULL AND id IN (SELECT id FROM
+Numbered after the highest on `main` once #216 has merged (0031 to 0034 are #216's). If the switch to
+timestamp-named migrations lands first, they are made with `just migration NAME` instead. Below they are
+called by what they do.
+
+- link: `UPDATE actors SET user_id = id WHERE kind = 'user' AND user_id IS NULL AND id IN (SELECT id FROM
   users)`; the partial unique index; the `user_id` index; `sessions.second_factor` (default 0) and
   `sessions.method` (default `password`).
-- 0036: `switch_tickets`.
+- account log: `account_log` and its index on `(user_id, seq)`.
+- later phase: `switch_tickets`.
 - Users with no actor (orphans left by tenant deletion before this change) are left alone and listed by
   `tix doctor`; a global admin can delete them. Not deleting them silently keeps the migration pure.
-- Postgres RLS: the cross-tenant membership listing and `switch_tickets` go through `Unscoped`, named on
+- Postgres RLS: the cross-tenant membership listing, `account_log` and `switch_tickets` go through `Unscoped`, named on
   the allow-list in `internal/store/sql`, and the isolation guard is extended for them.
-- No down migration, as with every other one here. Rolling back the binary after 0035 is safe as long as no
+- No down migration, as with every other one here. Rolling back the binary after the link migration is safe as long as no
   second actor was created: older code ignores `actors.user_id`. Once a person has two actors, an older
   binary finds them only in the tenant whose actor ID equals the user ID. The release notes say so.
 
@@ -108,7 +116,7 @@ person's actor in that tenant through `actors.user_id`. No actor or no membershi
    person is challenged for a code before anything is minted, the same challenge sign-in uses.
 3. Target served on the same host (the shared host): mint a session for the target actor, set the cookie,
    end the old session. Recorded in the target as `user.login` with method `switch`.
-4. Target has its own verified domain: mint a switch ticket (32 random bytes, stored hashed, 60 seconds,
+4. Later phase, not in the first PRs: target has its own verified domain: mint a switch ticket (32 random bytes, stored hashed, 60 seconds,
    single use, bound to the account, the target tenant and the target host) and answer with a page whose
    one form POSTs it to `https://TARGET/switch/redeem`. Redeeming re-checks step 1, mints the session there
    and marks the ticket used in the same transaction. The source session is left alone, because it lives
@@ -210,10 +218,32 @@ token in tenant A should not tell its holder which other tenants its owner is in
 - Membership added: `member.add` in the target, by the global admin (standing in it through `inTenant`, as
   today) or `invite.issue` by the tenant admin followed by `invite.accept` by the person.
 - Account changes (password, email, second factor) are recorded in the tenant the change was made from, as
-  today. No fan-out to the person's other tenants, which would need a write in each tenant per change and
-  would tell each of them the person is elsewhere. Asked below whether an account log, readable by the
-  person and global admins, is wanted.
+  today, and in the account log. No fan-out to the person's other tenants, which would need a write in each
+  tenant per change and would tell each of them the person is elsewhere.
 - A global admin acting in another tenant keeps the via detail #216 records, plus `global_admin: true`.
+
+## Account log
+
+Per-tenant audit cannot answer "what happened to my account", because the changes are spread over the
+tenants they were made from and the person may not read audit in all of them. The account log is one
+list per account, readable by the person and by global admins, and by nobody else: a tenant admin never
+reads it, since it names the person's other tenants.
+
+- Written in the same transaction as the change it records. The `users` row is unscoped and already
+  written inside a tenant transaction, so the log row goes in that same transaction, which keeps the
+  "rows, audit, event in one transaction" rule.
+- Recorded: password set or changed, required password change set or cleared, email changed, second factor
+  enrolled, cleared or recovery codes regenerated, account disabled or enabled, global admin granted or
+  revoked, membership added (direct or invite accepted), role changed, membership removed, account deleted
+  (kept for global admins, the person can no longer read it). Sign-ins and switches are not recorded: they
+  are per-tenant events already and would drown the rest.
+- Each row names who acted (the person, a tenant admin by email, or a global admin), the tenant key it came
+  from or concerns, and the via kind from #216. Never a password, hash, code or token.
+- Keyset paginated on `seq`. Retention follows the installation's audit retention.
+- Surfaces: `GetAccountLog` (self) and `GetAccountLogFor(email)` (global admin), with registry entries;
+  `tix account log`, `tix global-admin account-log EMAIL`; `GET /account/log`,
+  `GET /admin/accounts/{email}/log`; a web Account screen reached from the header's tenant dialog, and a
+  link from each user in the Global admin area.
 
 ## CLI
 
@@ -272,21 +302,17 @@ link from the dialog to the Global admin area; tenants they are not a member of 
 | `X-Tix-Tenant` on a bound host | host isolation bypass | must match the host's tenant or be absent |
 | token with `*` | reaching other tenants or listing them | tokens stay per tenant; memberships need `account:read`; `global:admin` unchanged |
 | SSH key enrolled by a tenant admin on a person's actor | cross-tenant SSH | enrolment is per tenant; username picks the tenant; a key in B never opens A |
-| global admin adds themselves anywhere | silent self-grant | allowed (they can already act in any tenant) and audited in the target |
+| global admin adds themselves anywhere | silent self-grant | allowed (they can already act in any tenant), audited in the target and in the account log |
+| account log read by a tenant admin | learning the person's other tenants | readable only by the person and global admins |
 
-## Open questions
+## Decisions
 
-1. **Strict or sole-tenant rule for tenant admins and credentials?** Recommended: a tenant admin may still
-   reset the password or factor of a person who is in their tenant only (today's behaviour for everyone),
-   and never for a person who is also elsewhere. Strict means no tenant admin ever resets a password, only
-   global admins.
-2. **Does `test` have its own domain, or share HO's hostname?** If it shares, the shared-host resolution is
-   needed in the first slice; if each tenant has its own domain, the cross-host ticket is.
-3. **Should a global admin's direct add notify the person or need acceptance too?** Recommended: no
-   acceptance; it is audited in the target and the person sees it in the switcher.
-4. **Account log** readable by the person and global admins, recording account changes and which tenant
-   they came from? Recommended: later, not in this change.
-5. **`account:read` scope**, or never list memberships to a token? Recommended: the scope, so `tix tenant
-   ls` works from a CLI token.
-6. **Removing the last membership deletes the account** (today's single-tenant behaviour), or leaves an
-   account with no tenants for a global admin to clean up? Recommended: delete, as today.
+The owner answered the open questions of the first draft:
+
+1. Tenant admins keep password and second factor reset for people who are members of their tenant only.
+2. Tenant `test` shares HO's hostname for now. Shared-host resolution and the same-host switch come first;
+   the cross-host switch ticket is a later phase, outside the first four pull requests.
+3. A global admin's direct add needs no acceptance; it is audited.
+4. The per-account change log is part of this change, readable by the person and global admins.
+5. Tokens list memberships only with `account:read`, which `*` does not imply.
+6. Removing the last membership deletes the account.

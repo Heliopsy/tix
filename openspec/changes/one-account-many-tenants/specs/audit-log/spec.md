@@ -26,3 +26,31 @@ Adding an account to a tenant SHALL be recorded in that tenant naming who added 
 
 - **WHEN** a global admin adds villy@ to `test`
 - **THEN** `test` records the addition naming the global admin and marking that a global admin acted
+
+### Requirement: Each account has its own change log
+
+Every change to an account SHALL be recorded in that account's log in the same transaction as the change: credentials, email, second factor, disable, global admin, and memberships added, changed or removed. Each row SHALL name who acted, the tenant involved and the access channel, and SHALL hold no secret.
+
+#### Scenario: Password changed by a global admin
+
+- **WHEN** a global admin acting in HO sets the password of a person who is a member of HO and `test`
+- **THEN** the person's account log records a password change by that global admin from HO, without the password or its hash
+
+#### Scenario: Membership added
+
+- **WHEN** a global admin adds the person to `test`
+- **THEN** the account log records the membership in `test` with its role and who added it
+
+### Requirement: Only the person and global admins read the account log
+
+The account log SHALL be readable by the account's own person and by global admins, and by nobody else. A tenant admin SHALL be refused, whatever the person's memberships.
+
+#### Scenario: Person reads their log
+
+- **WHEN** a person reads their account log
+- **THEN** it lists the changes to their account, newest first, keyset paginated
+
+#### Scenario: Tenant admin asks for it
+
+- **WHEN** a tenant admin who is not a global admin asks for another person's account log
+- **THEN** it is refused as not found and nothing is disclosed

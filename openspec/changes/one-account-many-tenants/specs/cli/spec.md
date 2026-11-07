@@ -36,3 +36,12 @@ A context SHALL keep one server, one tenant and one credential for that tenant's
 
 - **WHEN** a global admin runs `tix tenant user add test villy@example.com --role admin`
 - **THEN** the account becomes an admin of `test` and the command prints the new actor's handle
+
+### Requirement: The account log is reachable from the command line
+
+`tix account log` SHALL print the caller's account log, and `tix global-admin account-log EMAIL` SHALL print another account's log for a global admin.
+
+#### Scenario: Own log
+
+- **WHEN** a person runs `tix account log`
+- **THEN** their account's changes are printed, newest first

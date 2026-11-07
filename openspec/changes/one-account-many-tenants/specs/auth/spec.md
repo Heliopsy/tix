@@ -49,7 +49,7 @@ A tenant switch SHALL require a second factor code when the target tenant requir
 
 ### Requirement: A cross-host switch uses a single-use ticket
 
-A switch to a tenant served on another host SHALL hand over a ticket that is single use, expires within 60 seconds, is stored only as a hash, and is bound to the account, the target tenant and the target host. It SHALL be carried in a request body, never a URL.
+In the later phase that adds it, a switch to a tenant served on another host SHALL hand over a ticket that is single use, expires within 60 seconds, is stored only as a hash, and is bound to the account, the target tenant and the target host. It SHALL be carried in a request body, never a URL.
 
 #### Scenario: Ticket replayed
 
