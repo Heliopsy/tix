@@ -229,12 +229,13 @@ func adminEmails(admins []pendingAdmin) []string {
 	return out
 }
 
-// emailFree reports a conflict when a user already holds the address.
+// emailFree reports a conflict when an account was created for the address
+// after the admins were resolved, which only a concurrent request can do.
 func emailFree(ctx context.Context, u store.UnscopedTx, email string) error {
 	switch _, _, err := u.GetUserByEmail(ctx, email); {
 	case err == nil:
-		return core.Conflict("%s already belongs to a user, and a user belongs to one tenant; "+
-			"name another address for this tenant", email).WithDetail(core.DetailField, "admins")
+		return core.Conflict("an account for %s was created while this tenant was being set up; "+
+			"try again", email).WithDetail(core.DetailField, "admins")
 	case !core.IsKind(err, core.KindNotFound):
 		return err
 	}

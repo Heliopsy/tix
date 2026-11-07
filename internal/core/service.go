@@ -51,11 +51,12 @@ type Service interface {
 // TenantService covers tenants, their domains, and membership.
 type TenantService interface {
 	// CreateTenant creates a tenant with the given key and name, seeds it with
-	// the builtin workflow, and creates the admins it names as users holding
-	// the admin role in the new tenant only. A password left out is generated
-	// and returned once in initial_credentials. Only a global admin may call
-	// it. A key already in use, or an admin email that already belongs to a
-	// user, is a conflict, and nothing is created.
+	// the builtin workflow, and makes the admins it names admins of the new
+	// tenant. A new address becomes a user whose password, when left out, is
+	// generated and returned once in initial_credentials. An address that
+	// already has an account keeps its own password and second factor, and
+	// supplying a password for it is refused. Only a global admin may call
+	// it. A key already in use is a conflict, and nothing is created.
 	CreateTenant(ctx context.Context, in CreateTenantInput) (*CreatedTenant, error)
 	// GetTenant returns the caller's own tenant by identifier or key; an empty
 	// reference means the caller's tenant. Any other tenant reads as not_found,

@@ -169,8 +169,10 @@ type InviteService interface {
 	// CreateInvite invites an email address to this tenant and returns a
 	// single-use link, once. A new address gets an account with no password;
 	// an account of this tenant without a membership is granted one. An
-	// address of a member who has a password, or of another tenant's user, is
-	// a conflict.
+	// account of another tenant is invited, and gains the membership only when
+	// its owner accepts with their own password and second factor. An address
+	// of a member who has a password, of an account with a pending invite, or
+	// of another tenant's account that has no password yet is a conflict.
 	CreateInvite(ctx context.Context, in CreateInviteInput) (*IssuedInvite, error)
 	// ListInvites lists this tenant's invites that are neither accepted nor
 	// revoked, expired ones included, oldest first. No secret is returned.

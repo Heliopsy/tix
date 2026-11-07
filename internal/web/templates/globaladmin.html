@@ -130,7 +130,7 @@
   <label for="tenant-admins">{{t "First admins"}}</label>
   <textarea id="tenant-admins" name="admins" rows="3" autocapitalize="none" spellcheck="false"{{$d.Errors.Attrs "admins"}}>{{$d.Value "admins"}}</textarea>
   {{with $d.Errors.On "admins"}}{{template "field-error" .}}{{end}}
-  <p class="muted">{{t "One email per line. Each becomes an admin of the new tenant only, with a password generated and shown to you once."}}</p>
+  <p class="muted">{{t "One email per line. Each becomes an admin of the new tenant. A new address gets a password generated and shown to you once; an address that already has an account keeps its own password and second factor."}}</p>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create tenant"}}</button></div>
 </form>
 {{template "dlg-end"}}

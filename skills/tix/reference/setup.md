@@ -139,8 +139,10 @@ passwords print once:
 tix tenant create acme --name "Acme" --admin ada@example.com -o json
 ```
 
-A tenant admin is refused with exit `5`. An admin email that already belongs
-to a user is exit `4`, and nothing is created.
+A tenant admin is refused with exit `5`. A key already in use is exit `4`, and
+nothing is created. An admin email that already has an account becomes an admin
+of the new tenant with its own password and second factor, so no password is
+printed for it.
 
 `--project` on `token create` takes either the project's key or its id, same
 as `-p`/`--project` everywhere else (`--project infra` works); an unknown key
@@ -181,9 +183,11 @@ Bring a person in without choosing their password: `tix user invite EMAIL
 --role member` creates the account with no password and prints a single-use
 link (`/invite/tix_inv_...`, 7 days unless `--expires` says 1h to 30d). tix
 sends no email, so you pass the link on. `tix user invite ls`, `revoke ID` and
-`reissue ID` manage pending ones. If you set a password for someone with `tix
-user create --password`, add `--require-password-change` so their first sign-in
-replaces it. A flagged account's `tix login` asks for the new password on a
+`reissue ID` manage pending ones. An address of a person in another tenant gets
+an invite too, which they accept with their own password and second factor; one
+whose account there has no password yet is exit `4`. If you set a password for
+someone with `tix user create --password`, add `--require-password-change` so
+their first sign-in replaces it. A flagged account's `tix login` asks for the new password on a
 terminal and exits `6` without one; API tokens are not affected. `tix user
 edit --disabled` locks an account out instead, ending its sessions and tokens.
 

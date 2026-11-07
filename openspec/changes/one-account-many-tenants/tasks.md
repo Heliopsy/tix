@@ -61,7 +61,7 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 - [ ] 5.2 TUI tenant view lists memberships and switches where a credential exists (S)
 - [ ] 5.3 `tix ssh key add --all-tenants` (S)
 - [ ] 5.4 `docs/tenancy.md`, `docs/web-ui.md`, `docs/api.md`, skill, release note on rollback (S)
-- [ ] 5.5 Retire `global-admins-and-tenant-bootstrap`'s "Existing users" limitation (S)
+- [x] 5.5 Retire `global-admins-and-tenant-bootstrap`'s "Existing users" limitation (S)
 
 ## 6. Later phase: cross-host switch (PR 6, M)
 

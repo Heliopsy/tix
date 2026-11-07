@@ -17,7 +17,7 @@ func init() {
 		"Rename %s":         "Преименуване на %s",
 		"Users of %s":       "Потребители на %s",
 		"Users of a tenant": "Потребители на тенант",
-		"One email per line. Each becomes an admin of the new tenant only, with a password generated and shown to you once.": "По един имейл на ред. Всеки става администратор само на новия тенант, с генерирана парола, която ви се показва веднъж.",
+		"One email per line. Each becomes an admin of the new tenant. A new address gets a password generated and shown to you once; an address that already has an account keeps its own password and second factor.": "По един имейл на ред. Всеки става администратор на новия тенант. Нов адрес получава генерирана парола, която ви се показва веднъж; адрес, който вече има акаунт, запазва своята парола и втори фактор.",
 		"Copy these passwords now": "Копирайте тези пароли сега",
 		"They are shown once and cannot be retrieved again. If one is lost, set a new password from the tenant's users.":                                          "Показват се веднъж и не могат да бъдат получени отново. Ако някоя бъде загубена, задайте нова парола от потребителите на тенанта.",
 		"Its people can no longer sign in, its data stops being reachable and its domains stop resolving. Nothing is destroyed, but nothing here brings it back.": "Хората в него вече не могат да влизат, данните му стават недостъпни и домейните му спират да се разрешават. Нищо не се унищожава, но нищо тук не го връща обратно.",

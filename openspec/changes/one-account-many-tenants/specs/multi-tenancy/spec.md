@@ -42,6 +42,20 @@ A tenant admin SHALL NOT attach an existing account to their tenant without the 
 - **WHEN** a tenant admin invites an address that has an account and the person has not accepted
 - **THEN** the person holds no membership in that tenant and cannot be assigned work there
 
+#### Scenario: Invite to an account with no password
+
+- **WHEN** a tenant admin invites an address whose account belongs to another tenant and has no password yet
+- **THEN** it is refused as a conflict and nothing is written
+
+### Requirement: A first admin of a new tenant may be an existing account
+
+An admin email of a tenant being created that already has an account SHALL make that account an admin of the new tenant, with its own password and second factor. No password SHALL be generated or returned for it, and supplying one for it SHALL be refused as invalid. A key already in use SHALL be refused as a conflict, and nothing SHALL be created.
+
+#### Scenario: Naming somebody who already exists
+
+- **WHEN** a global admin creates a tenant naming as admin an address that has an account in another tenant
+- **THEN** the account becomes an admin of the new tenant, keeps its other memberships, and no initial credential is returned for it
+
 ### Requirement: Removing a person from a tenant leaves their other tenants alone
 
 Removing or disabling a person in a tenant SHALL affect only that tenant's actor, membership and credentials, unless the person holds no membership elsewhere, in which case the account is removed or disabled as before. The answer SHALL NOT say which case applied.
@@ -69,6 +83,15 @@ A session SHALL belong to one tenant and one actor. Moving to another tenant SHA
 
 - **WHEN** a person switches to a tenant where they hold no membership
 - **THEN** it is refused as not found, the same answer as for a tenant that does not exist
+
+## REMOVED Requirements
+
+### Requirement: An existing user is not made an admin of another tenant
+
+**Reason**: An account may now belong to several tenants, so an existing address no longer blocks tenant
+creation.
+
+**Migration**: See "A first admin of a new tenant may be an existing account".
 
 ## MODIFIED Requirements
 
