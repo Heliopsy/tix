@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$v := .Data}}
-<div class="headtip"><h1>{{t "Activity"}}</h1>{{template "tip" (tip "Activity" "Every change recorded in this tenant's audit log: what changed, who changed it and from which surface. Entries older than the audit retention window are pruned, and then they are gone from here too." "docs/configuration.md")}}</div>
+<div class="headtip"><h1>{{t "Activity"}}</h1>{{template "tip" (tip "Activity" "Every change recorded in this tenant's audit log: what changed, who changed it and from which surface. Entries older than the audit retention window are pruned, and then they are gone from here too." "docs/configuration.md")}}{{template "help" $}}</div>
 <p class="lede">{{t "Recent changes for this tenant, newest first."}}{{if eq $v.Cursor ""}} {{t "With JavaScript the list updates as events arrive."}}{{end}}</p>
 
 {{/* The whole filter lives in the query string, so a narrowed feed is a link

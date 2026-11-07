@@ -13,6 +13,7 @@
     {{if .Data.Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary" .Here)}}{{end}}
     <a class="btn secondary" href="/projects/{{.Data.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
   </div>
+  {{template "help" $}}
 </div>
 {{with .Data.Export}}{{template "export-dialog" (exportDlg $ .)}}{{end}}
 {{/* A screen reader user learns a drag-and-drop move happened here, since

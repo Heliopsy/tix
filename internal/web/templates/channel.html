@@ -10,6 +10,7 @@
     <p class="lede">{{t $v.Format}} &middot; {{if $c.Active}}{{t "on"}}{{else}}{{t "off"}}{{end}}</p>
   </div>
   <div class="pagehead-tools">{{template "dlg-open" (opener "channel-remove" (t "Remove channel") "trash" "danger" .Here)}}</div>
+  {{template "help" $}}
 </div>
 
 {{with $v.Secret}}{{template "secret" .}}{{end}}

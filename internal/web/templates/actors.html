@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Directory"}}</h1>{{template "tip" (tip "Directory" "Every person and agent in this tenant that work can be assigned to. Use the handle or the id after assignee: in a filter to find their tasks." "docs/filtering.md")}}</div>
+<div class="headtip"><h1>{{t "Directory"}}</h1>{{template "tip" (tip "Directory" "Every person and agent in this tenant that work can be assigned to. Use the handle or the id after assignee: in a filter to find their tasks." "docs/filtering.md")}}{{template "help" $}}</div>
 {{/* Kind is on every row because it is the one thing the identifier does not
      say: work is assigned to agents as often as to people, and a handle
      alone does not tell the two apart. */}}

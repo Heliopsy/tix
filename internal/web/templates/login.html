@@ -1,7 +1,7 @@
 {{define "content"}}
 <a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>
 <div class="card authcard">
-<h1>{{t "Sign in"}}</h1>
+<div class="headtip"><h1>{{t "Sign in"}}</h1>{{template "help" $}}</div>
 <form method="post" action="/login">
   {{template "csrf" .CSRF}}
   {{/* Where the visitor was going before they were bounced here. It rides

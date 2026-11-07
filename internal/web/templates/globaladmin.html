@@ -6,6 +6,7 @@
     <p class="lede summary">{{t "Every tenant of this installation, and who may administer all of them."}}</p>
   </div>
   <div class="pagehead-tools">{{template "dlg-open" (opener "tenant-new" (t "Create a tenant") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 
 {{/* The passwords a tenant creation generated, shown once. They arrive in a

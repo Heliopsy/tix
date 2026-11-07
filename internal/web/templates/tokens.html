@@ -2,6 +2,7 @@
 <div class="pagehead">
   <div class="pagehead-title"><div class="headtip"><h1>{{t "API tokens"}}</h1>{{template "tip" (tip "API tokens" "A token is the credential a script, the CLI or an agent presents to the HTTP API instead of signing in. It carries its own list of scopes rather than a role, and its value is shown once, when it is issued." "docs/api.md")}}</div></div>
   <div class="pagehead-tools"><a class="btn secondary" href="/connect">{{template "icon" "connect"}}<span class="btn-label">{{t "Connect an agent"}}</span></a>{{template "column-menu" .}}{{template "dlg-open" (opener "token-new" (t "Issue a token") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
 {{if .Data.Owners}}

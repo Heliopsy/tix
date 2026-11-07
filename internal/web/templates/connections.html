@@ -5,6 +5,7 @@
     <div class="headtip"><h1>{{t "Connections"}}</h1>{{template "tip" (tip "Connections" "Each row is one live session this server holds: a browser or API client following the event stream, or a terminal session over SSH. End closes it at once, but revokes nothing, so the holder can reconnect." "docs/deployment.md")}}</div>
     <p class="lede">{{t "The live connections this server is holding for your tenant, on the event stream and over SSH. Another server running against the same database holds its own, which this screen cannot see."}}</p>
   </div>
+  {{template "help" $}}
 </div>
 
 {{/* Same figure row as Statistics and Status: one way of writing a number

@@ -7,6 +7,7 @@ func init() {
 		// The Connect an agent screen.
 		"Connect an agent": "Свързване на агент",
 		"Docs":             "Документация",
+		"Help: %s":         "Помощ: %s",
 		"Every command here is filled in for this server and for you. Copy them in order, or skip to the part you need.": "Всяка команда тук е попълнена за този сървър и за вас. Копирайте ги поред или преминете направо към частта, която ви трябва.",
 		"Signed in as":    "Влезли сте като",
 		"Install the CLI": "Инсталирайте CLI",

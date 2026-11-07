@@ -9,6 +9,15 @@ The pages are server-rendered Go templates with no build step. htmx swaps fragme
 reload would lose the reader's place, but every form carries a real `method` and `action`, so a
 browser that runs no script submits it normally and follows the redirect.
 
+## Signing in
+
+`/login` takes an email and a password. An account with a second factor is asked for its code on a second
+page ([The second factor](#the-second-factor)), and a deep link followed while signed out lands after both
+steps. An account flagged for a password change gets a Choose a new password page first, and an invite
+link opens a page of its own ([Inviting people and required password
+changes](#inviting-people-and-required-password-changes)). Can't sign in? opens the `tix user` commands
+that create an account or reset a password from the machine serving tix.
+
 ## The sidebar
 
 The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
@@ -106,6 +115,30 @@ The page content starts the gutter's width from the sidebar on every screen. It 
 the space beside the sidebar, under a width cap that differs between a listing and a form, which put
 its left edge somewhere different on almost every screen; it is anchored now, and a screen narrower
 than the window leaves the spare width on its right.
+
+## Projects
+
+`/projects` lists the tenant's projects, each with its icon, name, key and description, linking to its
+board. An archived project stays listed with an archived mark. Each row can pin the project to the sidebar
+or open its tasks in the task list. New project in the header asks for a key, a name, a workflow and a
+description; colour and icon are set afterwards in the project's settings. The key starts every task
+reference in the project, as in `INFRA-5`.
+
+The board at `/projects/KEY` is the project's tasks in its workflow's columns; [List, board or
+lanes](#list-board-or-lanes) covers the drawing. Settings in its header opens the project's settings.
+
+### Project settings
+
+`/projects/KEY/settings` has four sections, always drawn:
+
+- **Project**: name, key, workflow, description, colour and icon. A new key keeps the old one as an
+  alias ([Changing a project's key](#changing-a-projects-key)).
+- **Claims**: how long a claim on the project's tasks holds and the longest one allowed
+  ([Claim length](#claim-length)).
+- **Housekeeping**: when the project's done, cancelled and trashed tasks are cleaned up, overriding the
+  tenant ([Housekeeping](#housekeeping)).
+- **Danger zone**: Archive project, which hides it and keeps its tasks, and Delete project
+  ([Deleting a project](#deleting-a-project)).
 
 ## The task list
 
@@ -1476,6 +1509,12 @@ and on touch. Beside a heading, a label or a setting's name the note opens under
 what follows down, rather than floating over the next row. One in a toolbar, the view switch or the
 task screen's header, floats on a wide screen with a mouse and opens under the toolbar the same way
 on a phone, a tablet or any window narrower than 900px.
+
+A (?) at the right end of each screen's header opens the section of these docs about that screen, in a
+new tab, for the release the server runs: it links to `/docs/PAGE?section=ANCHOR`, which redirects to the
+page on GitHub at the running version's tag (or `main` for a development build) with `#ANCHOR` on the end.
+`internal/web/help.go` holds the one table of screens and sections, and its tests fail on a screen
+without a button or a section whose heading is gone.
 
 A placeholder is italic, in the muted colour and the body font even in a monospace field, so it does
 not read as a value already saved, and one that gives an example says so: "For example, laptop".

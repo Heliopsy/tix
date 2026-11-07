@@ -6,6 +6,7 @@
     <p class="lede summary"><a href="/admin/global">{{t "Global admin"}}</a> &middot; <span class="mono">{{$v.Tenant.Key}}</span></p>
   </div>
   <div class="pagehead-tools">{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 
 <ul class="peoplelist rows">

@@ -16,7 +16,7 @@
   the screen wondering whether anything happened.
 */}}
 {{define "content"}}
-<h1>{{t "Settings"}}</h1>
+<div class="headtip"><h1>{{t "Settings"}}</h1>{{template "help" $}}</div>
 <p class="lede">{{t "Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently."}}</p>
 
 <div class="settings"><div class="settings-grid">

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "External sync"}}</h1>{{template "tip" (tip "External sync" "A sync copies tasks from another tracker into one project. Each run reads the source, turns every record into a task through your mapping file, and creates or updates the matching tasks. Start with a dry run to see the result first." "docs/migrating.md")}}</div>
+<div class="headtip"><h1>{{t "External sync"}}</h1>{{template "tip" (tip "External sync" "A sync copies tasks from another tracker into one project. Each run reads the source, turns every record into a task through your mapping file, and creates or updates the matching tasks. Start with a dry run to see the result first." "docs/migrating.md")}}{{template "help" $}}</div>
 {{template "synctabs" .}}
 
 {{/* A run's answer, or why it was refused, is drawn first, where the reader

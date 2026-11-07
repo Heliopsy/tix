@@ -1,43 +1,5 @@
 # Changelog
 
-## [0.45.0](https://github.com/Heliopsy/tix/compare/v0.44.0...v0.45.0) (2026-11-07)
-
-
-### Features
-
-* **audit:** record the access channel of every change ([b0edb53](https://github.com/Heliopsy/tix/commit/b0edb53b10f86ca5136e2c4736f38d3cf3ff3f70))
-* **cli:** tix sync source set uploads the mapping and credentials ([782c263](https://github.com/Heliopsy/tix/commit/782c263ff4560cf806b7283a1f0736bb0ca7f0a3))
-* date format and timezone per tenant and per person ([24a7486](https://github.com/Heliopsy/tix/commit/24a74863330de6d7d11a24633b30c4c8e0441d6c))
-* export a project's tasks as CSV, JSON, NDJSON or Markdown ([9a34628](https://github.com/Heliopsy/tix/commit/9a34628b0bb08567db88d2614b24e38a16c1542f))
-* import tasks into a project from CSV, JSON, NDJSON or a pasted list ([7ee99f4](https://github.com/Heliopsy/tix/commit/7ee99f4c4d9ecd90318d2627f579dd7ca83845b4))
-* **sync:** add a users section to the mapping for assignees ([4e90491](https://github.com/Heliopsy/tix/commit/4e9049184c73293cba6cbab887687a2c512f1d2f))
-* **sync:** match imported assignees to tix users ([993fb84](https://github.com/Heliopsy/tix/commit/993fb84a84292e90e47763143c20f2b769f5f002))
-* **sync:** ship a default OpenProject mapping ([5076503](https://github.com/Heliopsy/tix/commit/50765031f1b3d06afce8a9c92a644bdf9a2f00b3))
-* **sync:** store the mapping and sealed credentials on the source ([c0c668d](https://github.com/Heliopsy/tix/commit/c0c668d31ee362f1a5ebbc10e128b032d7f0798d))
-* **taskio:** read task rows from csv, json and ndjson sources ([25fa391](https://github.com/Heliopsy/tix/commit/25fa391e4236d5f0d2de04b8027a7e14782e81c7))
-* **tenants:** ask generated first-admin passwords to be changed at first sign-in ([7aaa945](https://github.com/Heliopsy/tix/commit/7aaa945ded424d7a634d1ca08ecbe92c5b585fe3))
-* **tui:** draw dates in the account's format, over SSH too ([3d65b9a](https://github.com/Heliopsy/tix/commit/3d65b9a001291864d5fa11fa9ac5b027430f6443))
-* **users:** invite links and a required password change at first sign-in ([ab690cc](https://github.com/Heliopsy/tix/commit/ab690ccf08ffcc489428aea4f0ebb815f43d4120))
-* **web:** keep date preferences with the account, show every timestamp in full on hover ([d38d8a5](https://github.com/Heliopsy/tix/commit/d38d8a558a366a5e34a47ce315e007f64f5bf010))
-* **web:** list the access channel in the raw entry dialog ([ce5bb06](https://github.com/Heliopsy/tix/commit/ce5bb06d55d29622d900efc1bd30e735ec293d4f))
-* **web:** say sync runs on the server and take the mapping and credentials in the source dialog ([ef978cd](https://github.com/Heliopsy/tix/commit/ef978cd5783a70f0a292df0da0352b68ea2c3956))
-* **web:** start a source from the OpenProject mapping and name unmatched people in a run ([c618674](https://github.com/Heliopsy/tix/commit/c618674a4d26e70d331992798dedd45fa3cf9906))
-
-
-### Bug Fixes
-
-* bound concat's preallocation, keep redirects on site and refuse .. in mapping paths ([5ab0061](https://github.com/Heliopsy/tix/commit/5ab0061c4cd83afb0af706cd4256a3e5689349a5))
-* **store:** build concat's result without a capacity summed from both runs ([63531e1](https://github.com/Heliopsy/tix/commit/63531e13943fe38af92341330afa1d643fbf4741))
-* **taskio:** drop an unused reader field the linter caught ([5395748](https://github.com/Heliopsy/tix/commit/53957482d880760ba975885574077d348cca1cd5))
-* **web:** close the handoff media block the rebase split ([e49e9cf](https://github.com/Heliopsy/tix/commit/e49e9cf6da038d2dd738bd744f8ba0f2efeb0c4a))
-* **web:** give the import tables the standard row states ([caabeb8](https://github.com/Heliopsy/tix/commit/caabeb8794d733629f6d0b51de6ba86af73b410c))
-* **web:** keep the import file field and inbox times inside their boxes ([5a5e6a6](https://github.com/Heliopsy/tix/commit/5a5e6a628bf1c1e3d217012fe40e33056a046298))
-* **web:** let the channel wrap, and keep the tests on the new words ([3c9a9f2](https://github.com/Heliopsy/tix/commit/3c9a9f2c4c6baee31b4c666066fffe323802d6e5))
-* **web:** let the docs redirect reach the audit log and import-export guides ([1ce2024](https://github.com/Heliopsy/tix/commit/1ce20241fbe1b1510d4f5b5e354c01335e1935a8))
-* **web:** open a history row's raw entry in a wide dialog ([d4245f9](https://github.com/Heliopsy/tix/commit/d4245f98782f881c1596887a6ad5629bc599caad))
-* **web:** share the sync mapping upload with import and read export dates from the account ([5ef11ee](https://github.com/Heliopsy/tix/commit/5ef11ee446ac75ec98d583f59b7e0d67f3aac596))
-* **web:** wire rows a live activity refresh draws into htmx ([62f04ce](https://github.com/Heliopsy/tix/commit/62f04cebd27556152488cfc9591f4954d6b479d6))
-
 ## [0.44.0](https://github.com/Heliopsy/tix/compare/v0.43.0...v0.44.0) (2026-11-06)
 
 

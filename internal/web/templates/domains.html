@@ -2,6 +2,7 @@
 <div class="pagehead">
   <div class="pagehead-title"><div class="headtip"><h1>{{t "Domains"}}</h1>{{template "tip" (tip "Domains" "A domain maps a hostname to this tenant: a request whose Host header names it is served this tenant without anyone choosing one. A hostname belongs to one tenant only, and a host mapped to none falls back to the server's default tenant." "docs/tenancy.md")}}</div></div>
   <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "domain-new" (t "Map a hostname") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 <table class="rows">
   <thead><tr><th>{{t "Hostname"}}</th>{{if .Columns.Show "domains" "verified"}}<th>{{t "Verified"}}</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>{{t "Certificate"}}</th>{{end}}<th></th></tr></thead>

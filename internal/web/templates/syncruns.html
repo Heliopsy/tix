@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$v := .Data}}
-<div class="headtip"><h1>{{t "Sync runs"}}</h1>{{template "tip" (tip "Sync runs" "Each row is an import that finished and wrote its changes, read back from the audit log. A dry run or a failed run leaves no row; a failure shows as its source's status in the second table." "docs/migrating.md")}}</div>
+<div class="headtip"><h1>{{t "Sync runs"}}</h1>{{template "tip" (tip "Sync runs" "Each row is an import that finished and wrote its changes, read back from the audit log. A dry run or a failed run leaves no row; a failure shows as its source's status in the second table." "docs/migrating.md")}}{{template "help" $}}</div>
 {{template "synctabs" .}}
 
 <p class="lede">{{t "Every import that finished, newest first: which source it read, and what it did when it got there."}}</p>

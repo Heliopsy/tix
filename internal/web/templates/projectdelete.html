@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$p := .Data.Project}}
-<div class="headtip"><h1>{{t "Delete project %s" $p.Name}}</h1>{{template "tip" (tip "Deleting a project" "Deleting a project is permanent. Its tasks either move to another project, keeping their comments, attachments, tags, dependencies, stars and history under a new number, or are deleted with it for good. Archive the project instead to hide it and keep everything." "docs/web-ui.md")}}</div>
+<div class="headtip"><h1>{{t "Delete project %s" $p.Name}}</h1>{{template "tip" (tip "Deleting a project" "Deleting a project is permanent. Its tasks either move to another project, keeping their comments, attachments, tags, dependencies, stars and history under a new number, or are deleted with it for good. Archive the project instead to hide it and keep everything." "docs/web-ui.md")}}{{template "help" $}}</div>
 <p class="backlink"><a href="/projects/{{$p.Key}}">{{template "icon" "arrow-left"}}<span>{{t "Back to the %s board" $p.Name}}</span></a></p>
 
 {{/* The confirmation is drawn as the create forms are (create-forms-read-as-

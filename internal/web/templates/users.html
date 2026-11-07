@@ -12,6 +12,7 @@
     </p>
   </div>
   <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
+  {{template "help" $}}
 </div>
 
 {{/* A list of records, not a table of cells: every account is one block with
