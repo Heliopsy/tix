@@ -37,9 +37,11 @@ func tenantCreateCmd(g *globals) *cobra.Command {
 		Use:   "create KEY [NAME]",
 		Short: "Create a tenant",
 		Long: "Create a tenant, the top-level isolation boundary, and with --admin its first admins.\n\n" +
-			"Each --admin becomes a user holding the admin role in the new tenant only, with a generated " +
-			"password printed once. Only a global admin may create a tenant; a shell holding the database is one.\n\n" +
-			"Exit codes: 2 invalid key or email, 4 key or email already in use, 5 not a global admin.",
+			"Each --admin becomes an admin of the new tenant. A new address gets a user with a generated " +
+			"password printed once. An address that already has an account keeps its own password and second " +
+			"factor, and nothing is printed for it. Only a global admin may create a tenant; a shell holding " +
+			"the database is one.\n\n" +
+			"Exit codes: 2 invalid key or email, 4 key already in use, 5 not a global admin.",
 		Example: "  tix tenant create acme \"Acme Corp\"\n" +
 			"  tix tenant create acme --name \"Acme Corp\" --admin ada@example.com --admin bob@example.com",
 		Args: rangeArgs(1, 2),
@@ -64,7 +66,7 @@ func tenantCreateCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&name, "name", "", "the tenant's display name, instead of the NAME argument")
-	f.StringArrayVar(&admins, "admin", nil, "email of a first admin to create in the tenant, repeatable")
+	f.StringArrayVar(&admins, "admin", nil, "email of a first admin, new or with an account already, repeatable")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	return cmd
 }

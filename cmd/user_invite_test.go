@@ -142,3 +142,17 @@ func TestUserInviteRefusesAMember(t *testing.T) {
 		t.Fatalf("a 90 day expiry exited %d, want %d\n%s", got.code, core.ExitUsage, got.err)
 	}
 }
+
+// An account of another tenant is invited like anybody else, since its owner
+// accepts with their own password. One with no password yet is the conflict.
+func TestUserInviteReachesAnotherTenantsAccount(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("user", "create", "ada@example.com", "--password", firstPassword, "--handle", "ada")
+	c.mustRun("user", "invite", "bob@example.com")
+	c.mustRun("tenant", "create", "acme", "Acme")
+
+	c.mustRun("--tenant", "acme", "user", "invite", "ada@example.com")
+	if got := c.run("--tenant", "acme", "user", "invite", "bob@example.com"); got.code != core.ExitConflict {
+		t.Fatalf("inviting an account with no password exited %d, want %d\n%s", got.code, core.ExitConflict, got.err)
+	}
+}

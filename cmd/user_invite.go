@@ -15,7 +15,9 @@ import (
 const inviteHelp = "An invite link lets somebody choose their own password instead of being handed one. " +
 	"Inviting a new address creates the account at once, with no password, so it can be assigned work " +
 	"straight away; opening the link asks for a password and a display name and signs the person in. " +
-	"An address of this tenant's user who holds no membership is given one, and keeps its password.\n\n" +
+	"An address of this tenant's user who holds no membership is given one, and keeps its password. " +
+	"An address of a person in another tenant is invited too: they accept with their own password and " +
+	"second factor, and hold no membership here until they do.\n\n" +
 	"tix sends no email: send the link yourself. It works once, expires after 7 days unless --expires " +
 	"says otherwise (1h to 30d), and is shown only when it is issued, because only its hash is kept."
 
@@ -29,7 +31,8 @@ func newUserInviteCmd(g *globals) *cobra.Command {
 		Short: "Invite somebody by link instead of setting their password",
 		Long: "Invite an email address to this tenant and print a single-use link.\n\n" + inviteHelp + "\n\n" +
 			"Exit codes: 2 invalid input or expiry, 4 the address belongs to a member who can already " +
-			"sign in, to another tenant's user, or to an account with a pending invite, 5 permission denied.",
+			"sign in, to an account with a pending invite, or to another tenant's account that has no " +
+			"password yet, or the handle is taken here, 5 permission denied.",
 		Example: "  tix user invite ada@example.com --role member\n" +
 			"  tix user invite ada@example.com --expires 48h -o json",
 		Args: exactArgs(1),

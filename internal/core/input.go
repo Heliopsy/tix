@@ -19,9 +19,10 @@ type CreateTenantInput struct {
 	Key string `json:"key" yaml:"key"`
 	// Name is the tenant's display name. Required.
 	Name string `json:"name" yaml:"name"`
-	// Admins are the first administrators of the new tenant, each created as a
-	// user holding the admin role there and nowhere else, in the same
-	// operation as the tenant. Omitted creates a tenant with no members.
+	// Admins are the first administrators of the new tenant, each given the
+	// admin role there in the same operation as the tenant. A new address
+	// becomes a user; an address that already has an account keeps it, with
+	// its password and second factor. Omitted creates a tenant with no members.
 	Admins []TenantAdminInput `json:"admins,omitempty" yaml:"admins,omitempty"`
 }
 

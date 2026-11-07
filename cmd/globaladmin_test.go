@@ -256,3 +256,29 @@ func TestAccountLogCommands(t *testing.T) {
 		t.Errorf("tix account log from a shell, which is nobody's account, exited %d, want %d", got.code, core.ExitUsage)
 	}
 }
+
+// An --admin address that already has an account becomes an admin of the new
+// tenant with its own password, so nothing is generated for it. Only a key
+// already in use is a conflict.
+func TestTenantCreateMakesAnExistingAccountAnAdmin(t *testing.T) {
+	c := newCLI(t)
+	db := filepath.Join(t.TempDir(), "tix.db")
+	c.mustRun("--db", db, "user", "create", "ada@z09.test", "--password", "correct-horse-battery")
+
+	got := c.mustRun("--db", db, "tenant", "create", "test", "Test", "--admin", "ada@z09.test", "-o", "json")
+	var created core.CreatedTenant
+	if err := json.Unmarshal([]byte(got.out), &created); err != nil {
+		t.Fatalf("decoding %q: %v", got.out, err)
+	}
+	if len(created.Admins) != 1 || len(created.InitialCredentials) != 0 {
+		t.Fatalf("json = %+v, want ada as the one admin and no generated password", created)
+	}
+	users := c.mustRun("--db", db, "tenant", "user", "ls", "test", "-o", "json")
+	if !strings.Contains(users.out, `"role": "admin"`) || !strings.Contains(users.out, "ada@z09.test") {
+		t.Errorf("tix tenant user ls test = %s, want ada as admin", users.out)
+	}
+
+	if again := c.run("--db", db, "tenant", "create", "test", "Again"); again.code != core.ExitConflict {
+		t.Errorf("a key already in use exited %d, want %d\nstderr: %s", again.code, core.ExitConflict, again.err)
+	}
+}

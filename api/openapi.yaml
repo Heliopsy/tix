@@ -3650,7 +3650,7 @@ paths:
         - invite
     post:
       description: |-
-        CreateInvite invites an email address to this tenant and returns a single-use link, once. A new address gets an account with no password; an account of this tenant without a membership is granted one. An address of a member who has a password, or of another tenant's user, is a conflict.
+        CreateInvite invites an email address to this tenant and returns a single-use link, once. A new address gets an account with no password; an account of this tenant without a membership is granted one. An account of another tenant is invited, and gains the membership only when its owner accepts with their own password and second factor. An address of a member who has a password, of an account with a pending invite, or of another tenant's account that has no password yet is a conflict.
 
         Command line: `tix user invite`.
 
@@ -8260,7 +8260,7 @@ paths:
         - tenant
     post:
       description: |-
-        CreateTenant creates a tenant with the given key and name, seeds it with the builtin workflow, and creates the admins it names as users holding the admin role in the new tenant only. A password left out is generated and returned once in initial_credentials. Only a global admin may call it. A key already in use, or an admin email that already belongs to a user, is a conflict, and nothing is created.
+        CreateTenant creates a tenant with the given key and name, seeds it with the builtin workflow, and makes the admins it names admins of the new tenant. A new address becomes a user whose password, when left out, is generated and returned once in initial_credentials. An address that already has an account keeps its own password and second factor, and supplying a password for it is refused. Only a global admin may call it. A key already in use is a conflict, and nothing is created.
 
         Command line: `tix tenant create`.
 
@@ -8308,8 +8308,8 @@ paths:
         - session:
             - global:admin
       summary: CreateTenant creates a tenant with the given key and name, seeds it
-        with the builtin workflow, and creates the admins it names as users holding
-        the admin role in the new tenant only
+        with the builtin workflow, and makes the admins it names admins of the new
+        tenant
       tags:
         - tenant
       x-tix-openspec:
@@ -11297,8 +11297,10 @@ components:
       properties:
         admins:
           description: Admins are the first administrators of the new tenant, each
-            created as a user holding the admin role there and nowhere else, in the
-            same operation as the tenant. Omitted creates a tenant with no members.
+            given the admin role there in the same operation as the tenant. A new
+            address becomes a user; an address that already has an account keeps it,
+            with its password and second factor. Omitted creates a tenant with no
+            members.
           items:
             $ref: '#/components/schemas/TenantAdminInput'
           type: array
