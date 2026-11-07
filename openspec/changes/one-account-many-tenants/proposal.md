@@ -23,9 +23,9 @@ tenant take over a person who administers another.
   `actors.user_id`. No code may assume an actor ID equals a user ID afterwards.
 - **Sessions stay bound to one tenant.** Sign-in picks the tenant from the host as today. A switcher mints
   a session for the person's actor in another tenant, checking that tenant's membership and second factor
-  policy. On a host bound to a tenant domain, the switch hands off to the target tenant's host with a
-  single-use ticket. A host no domain claims (the default-tenant fallback) serves whichever tenant the
-  session or the `X-Tix-Tenant` header names, and only to a credential of that tenant.
+  policy. A host no domain claims (the default-tenant fallback) serves whichever tenant the
+  session or the `X-Tix-Tenant` header names, and only to a credential of that tenant. Switching to a
+  tenant on its own domain with a single-use handoff ticket is a later phase.
 - **Tokens and SSH keys stay per tenant actor.** No cross-tenant token is added. SSH keeps choosing the
   tenant by username.
 - **Adding an existing person to a tenant:** a global admin adds them directly; a tenant admin only
@@ -41,6 +41,8 @@ tenant take over a person who administers another.
   Switch button. No `<details>`.
 - **CLI:** one context per tenant, each with its own token. `tix login --tenant KEY` on a shared host;
   `tix tenant use` checks the key against the memberships.
+- **Account log:** one list per account of every change to it (credentials, second factor, memberships,
+  roles, disable, global admin), readable by the person and global admins only.
 - **Audit:** each tenant records what happened in it, by the person's actor in that tenant. A switch is
   recorded in the target tenant as a sign-in with method `switch`, never naming the source tenant.
 
@@ -60,12 +62,13 @@ None. The behaviour extends existing capabilities.
 - `web-ui`: header tenant switcher, invite acceptance for an existing account.
 - `cli`: per-tenant contexts and login.
 - `ssh-access`: keys stay per tenant actor, removal revokes them.
-- `audit-log`: attribution across tenants.
+- `audit-log`: attribution across tenants, the account log.
 - `data-model`: `actors.user_id` and the migration.
 
 ## Impact
 
-- Migrations 0035 and 0036 (0031 to 0034 are taken by #216). Backfill only; no ID changes.
+- Two migrations after #216's 0031 to 0034 (link backfill, account log), a third in the later phase
+  (switch tickets). No ID changes.
 - `internal/service`: `session.go`, `user.go`, `tenantusers.go`, `globaladmin.go`, `totp.go`,
   `sshlogin.go`, `token.go`, `sshkey.go`, invites from #216, a new `switch.go` and `memberships.go`.
 - `internal/store` (both engines): actor lookups by user, an unscoped membership listing on the allow-list,

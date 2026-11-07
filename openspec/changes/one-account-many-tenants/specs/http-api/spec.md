@@ -41,3 +41,12 @@ The API SHALL serve `POST /auth/switch`, taking a target tenant key and answerin
 
 - **WHEN** a session on the shared host posts a switch to a tenant the person belongs to
 - **THEN** the answer carries a new session for that tenant and the old session no longer authenticates
+
+### Requirement: Account log routes
+
+The API SHALL serve `GET /account/log` for the caller's own account and `GET /admin/accounts/{email}/log` for a global admin, both keyset paginated.
+
+#### Scenario: Global admin reads a person's log
+
+- **WHEN** a global admin requests the log of villy@
+- **THEN** the answer lists villy@'s account changes across every tenant
