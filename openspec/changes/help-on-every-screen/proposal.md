@@ -22,4 +22,4 @@ documentation and has to find the page and the section on their own.
 
 - New `help` icon and partial, `.helplink` styles, one line in each screen template.
 - `view.Help`, `Help: %s` in Bulgarian.
-- docs/web-ui.md.
+- docs/web-ui.md. The import screen added since gets its button too; the invite page, which carries a secret in its address, gets none.
