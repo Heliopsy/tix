@@ -595,6 +595,7 @@
           <a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{t "Open the task"}}</a>
           <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
           <button type="button" class="flowgo" data-copy-text="{{ref .Task.Ref}}">{{t "Copy reference"}}</button>
+          {{template "share-card" .Task}}
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
           {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>
           <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}

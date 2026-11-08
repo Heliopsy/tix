@@ -753,8 +753,8 @@ attached, so the link still goes to the same place after a tag, a comment or an 
 task returns there too.
 
 The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
-beside it, your star, and one actions menu behind the three dots: **Copy link**, **Copy the task id**,
-**Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
+beside it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions
+menu behind the three dots: **Copy the task id**, **Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
 a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
 
 On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
@@ -866,6 +866,40 @@ whatever language the interface speaks, since a model reads it.
 
 The browser remembers the last client tab chosen, so the next task opens on it. Without scripting the button
 draws the dialog in place, with no tabs and every client's block one under another.
+
+## Sharing a task
+
+**Share** in the task screen's header, beside Hand to an agent, opens a small menu. The same button is in
+the header when the task is open in a dialog, and on a phone it is its icon alone:
+
+- **Share…** opens the system share sheet, on a phone or wherever the browser has one
+  (`navigator.share`), with the reference and title and the address. It is not drawn where there is
+  no sheet. Dismissing the sheet does nothing; a browser that refuses it copies the link instead.
+- **Copy link** copies the task's address.
+- **Copy as Markdown** copies `[INFRA-12 Fix the build](https://tix.example.com/tasks/infra-12)`, the
+  title on one line with `\`, `[` and `]` escaped, ready for a pull request or a wiki.
+- **Copy key and title** copies `INFRA-12 Fix the build`, for a chat message or a commit.
+
+Each copy says what it did in a toast that a screen reader announces ("Link copied"), the menu closes and
+focus goes back to the Share button. The menu is a popover like the actions menu: Escape closes it, and
+the arrow keys, Home and End move along it. Its foot shows the address itself as a plain link that
+selects whole, with a (?) that opens this section. With scripting off the menu still opens, the copy
+buttons are not drawn, and the link is there to select. A lane card's three dots menu offers Copy as
+Markdown, Copy key and title and Share… beside its Copy link and Copy reference.
+
+The address is the task's screen, `/tasks/REF`, on the scheme and host the browser is on, so behind a
+proxy it is the address the reader typed. A reference under a project's old key still opens the task
+([Changing a project's key](#changing-a-projects-key)). It names no tenant, and needs none: on a shared
+host the tenant comes from the reader's session ([tenancy.md](tenancy.md#switching-tenant)), so another
+member of the same tenant, signed in to it on that host, opens the task. Someone signed in there to a
+different tenant of theirs switches tenant first, and someone not signed in signs in and lands on the
+task. A `?tenant=` on the link would not help: the interface refuses a tenant named in the request.
+
+The command line prints the same address with `tix task link REF`, from the server the context talks to,
+and `--as markdown` or `--as text` print the other two forms. A local database has no web address, so
+there it needs `--base` naming the address the browser interface is served at. The SSH listener runs
+only registry operations and does not know the web address either, so `tix task link` is not offered
+over SSH, and the terminal interface, which has no clipboard, does not offer it.
 
 ## Acting on many tasks
 

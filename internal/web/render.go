@@ -23,7 +23,7 @@ import (
 )
 
 // layoutFiles are parsed into every screen.
-var layoutFiles = []string{"templates/layout.html", "templates/partials.html"}
+var layoutFiles = []string{"templates/layout.html", "templates/partials.html", "templates/share.html"}
 
 // held passes a service read through, turning the one answer core.Service says
 // it never gives -- no record and no error -- into the fault it is.
@@ -242,7 +242,7 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 	out := make(map[string]*template.Template, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || name == "layout.html" || name == "partials.html" {
+		if entry.IsDir() || slices.Contains(layoutFiles, "templates/"+name) {
 			continue
 		}
 		files := append(append([]string{}, layoutFiles...), "templates/"+name)
