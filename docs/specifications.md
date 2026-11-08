@@ -33,5 +33,5 @@ been specified since. Both point at `openspec/specs/`, where an archived change'
 | | | |
 | --- | --- | --- |
 | [theming](../openspec/specs/theming/spec.md) | [stats](../openspec/specs/stats/spec.md) | [ssh-access](../openspec/specs/ssh-access/spec.md) |
-| [live-connections](../openspec/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/archive/2026-11-06-v0-5-0-polish/specs/) | |
+| [live-connections](../openspec/specs/live-connections/spec.md) | [v0-5-0-polish](../openspec/changes/archive/2026-11-06-v0-5-0-polish/specs/) | [embedding](../openspec/specs/embedding/spec.md) |
 <!-- markdownlint-enable MD013 -->
