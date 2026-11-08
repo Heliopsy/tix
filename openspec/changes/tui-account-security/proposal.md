@@ -14,7 +14,7 @@ service decides who may read it, so the tenant a session is pinned to was never 
 
 ## What Changes
 
-- A new terminal view, **account**, opened with `@` and from the command palette. It states who the session
+- A new terminal view, **account**, opened with `$` and from the command palette. It states who the session
   is signed in as, the second factor, the reader's own API tokens, the reader's own SSH keys and the newest
   page of the account log. Each section is read on its own and a refused one says why without costing the
   rest of the screen.

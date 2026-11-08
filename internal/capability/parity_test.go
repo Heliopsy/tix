@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -373,7 +374,7 @@ func contains(values []string, want string) bool {
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
 	"stats": true, "project": true, "history": true, "inbox": true, "people": true,
-	"integrations": true, "server": true, "globaladmin": true,
+	"integrations": true, "server": true, "globaladmin": true, "account": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -530,10 +531,15 @@ func TestNoCLIGapRemains(t *testing.T) {
 // connection.list and connection.end on the server view, and tenant.create and
 // tenant.delete on the global admin view, since every global admin operation
 // names the tenant it acts on and the pin was never what stood in the way.
+//
+// It came down from 17 with the account view, which closed eleven: token.create,
+// token.list, token.revoke, sshkey.enrol, sshkey.list, sshkey.revoke,
+// totp.status, totp.enrol, totp.confirm, totp.codes and totp.remove. The same
+// view took account.log off the absences, which was never a gap.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 17,
+		capability.SurfaceTUI: 6,
 		capability.SurfaceWeb: 0,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
@@ -561,26 +567,37 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // same operation reaches elsewhere. Naming them rather than counting them is
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
-var recordedShortfalls = map[string]capability.Surface{
-	"PutArtifact":  capability.SurfaceTUI,
-	"AddDomain":    capability.SurfaceTUI,
-	"DeleteTenant": capability.SurfaceTUI,
+var recordedShortfalls = map[string][]capability.Surface{
+	"PutArtifact":  {capability.SurfaceTUI},
+	"AddDomain":    {capability.SurfaceTUI},
+	"DeleteTenant": {capability.SurfaceTUI},
+	"ListTokens":   {capability.SurfaceTUI},
+	"ListSSHKeys":  {capability.SurfaceTUI},
 }
 
 // TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,
 // and keeps each of them recorded.
 func TestEveryLimitationIsJustified(t *testing.T) {
 	t.Parallel()
-	held := map[string]capability.Surface{}
+	held := map[string][]capability.Surface{}
 	for _, s := range capability.Limitations() {
-		held[s.Method] = s.Surface
+		held[s.Method] = append(held[s.Method], s.Surface)
 	}
-	for method, surface := range recordedShortfalls {
-		switch got, ok := held[method]; {
-		case !ok:
-			t.Errorf("%s no longer records that its %s binding reaches less far", method, surface)
-		case got != surface:
-			t.Errorf("%s records a shortfall on %s, not on %s", method, got, surface)
+	for method, surfaces := range recordedShortfalls {
+		got, ok := held[method]
+		if !ok {
+			t.Errorf("%s no longer records that its binding reaches less far", method)
+			continue
+		}
+		for _, surface := range surfaces {
+			if !slices.Contains(got, surface) {
+				t.Errorf("%s no longer records that its %s binding reaches less far", method, surface)
+			}
+		}
+		for _, surface := range got {
+			if !slices.Contains(surfaces, surface) {
+				t.Errorf("%s records a shortfall on %s nobody reviewed", method, surface)
+			}
 		}
 	}
 	for method := range held {

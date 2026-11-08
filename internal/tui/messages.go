@@ -29,6 +29,7 @@ const (
 	viewPeople
 	viewServer
 	viewGlobal
+	viewAccount
 )
 
 // actionKind names a board action whose result is reported back.

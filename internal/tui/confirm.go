@@ -28,6 +28,10 @@ const (
 	confirmDeleteTenant
 	confirmRevokeGlobal
 	confirmDeleteTenantUser
+	confirmRevokeToken
+	confirmRevokeKey
+	confirmRemoveTOTP
+	confirmRecoveryCodes
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -53,6 +57,10 @@ var confirmVerbs = map[confirmKind]string{
 	confirmDeleteTenant:     "delete tenant",
 	confirmRevokeGlobal:     "revoke global admin from",
 	confirmDeleteTenantUser: "delete user",
+	confirmRevokeToken:      "revoke",
+	confirmRevokeKey:        "revoke",
+	confirmRemoveTOTP:       "remove",
+	confirmRecoveryCodes:    "replace",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -100,6 +108,8 @@ type Confirm struct {
 	// within is the tenant a user deletion acts in.
 	subject string
 	within  string
+	// credential is the token or key a revocation on the account screen names.
+	credential string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

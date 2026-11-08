@@ -1133,9 +1133,7 @@ var registry = []Operation{
 		CLI:  "tix account log",
 		HTTP: apiGet(wire.RouteAccountLog),
 		Web:  webGet(web.RouteAccount, tplAcctLog),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "an account spans every tenant it belongs to, and a terminal session is pinned to one"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "account.log.any", Method: "GetAccountLogFor",
@@ -1293,27 +1291,21 @@ var registry = []Operation{
 		CLI:  "tix user totp status",
 		HTTP: apiGet(wire.RouteTOTP),
 		Web:  webGet(web.RouteSettings, tplSettings),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "totp.enrol", Method: "BeginTOTPEnrolment", Contract: Contract{Status: http.StatusCreated},
 		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTP),
 		Web:  webPost(web.RouteTOTPSetup),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "totp.confirm", Method: "ConfirmTOTPEnrolment", Contract: Contract{Body: httpapi.TOTPCodeRequest{}},
 		CLI:  "tix user totp enrol",
 		HTTP: apiPost(wire.RouteTOTPConfirm),
 		Web:  webPost(web.RouteTOTPConfirm),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "totp.verify", Method: "VerifySecondFactor", Contract: Contract{Body: httpapi.TOTPCodeRequest{}},
@@ -1329,18 +1321,14 @@ var registry = []Operation{
 		CLI:  "tix user totp rm",
 		HTTP: apiDelete(wire.RouteTOTP),
 		Web:  webPost(web.RouteTOTPRemove),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "totp.codes", Method: "RegenerateRecoveryCodes",
 		CLI:  "tix user totp codes",
 		HTTP: apiPost(wire.RouteTOTPCodes),
 		Web:  webPost(web.RouteTOTPCodes),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:  "account",
 	},
 	{
 		Name: "totp.clear", Method: "ClearUserTOTP",
@@ -1417,9 +1405,7 @@ var registry = []Operation{
 		CLI:   "tix token create",
 		HTTP:  apiPost(wire.RouteTokens),
 		Web:   webPost(web.RouteTokens),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
-		},
+		TUI:   "account",
 	},
 	{
 		Name: "token.list", Method: "ListTokens", Contract: Contract{Query: httpapi.ActorQuery{}},
@@ -1427,9 +1413,9 @@ var registry = []Operation{
 		CLI:   "tix token ls",
 		HTTP:  apiGet(wire.RouteTokens),
 		Web:   webGet(web.RouteTokens, tplTokens),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
-		},
+		Limits: []Limitation{{SurfaceTUI, "the account view lists the signed-in actor's own tokens, " +
+			"where the cli and the api take another actor's identifier"}},
+		TUI: "account",
 	},
 	{
 		Name: "token.revoke", Method: "RevokeToken",
@@ -1437,9 +1423,7 @@ var registry = []Operation{
 		CLI:   "tix token rm",
 		HTTP:  apiDelete(wire.RouteToken),
 		Web:   webPost(web.RouteTokenRevoke),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
-		},
+		TUI:   "account",
 	},
 
 	{
@@ -1448,9 +1432,7 @@ var registry = []Operation{
 		CLI:   "tix user key add",
 		HTTP:  apiPost(wire.RouteSSHKeys),
 		Web:   webPost(web.RouteSSHKeys),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:   "account",
 	},
 	{
 		Name: "sshkey.list", Method: "ListSSHKeys", Contract: Contract{Query: httpapi.ActorQuery{}},
@@ -1458,9 +1440,9 @@ var registry = []Operation{
 		CLI:   "tix user key ls",
 		HTTP:  apiGet(wire.RouteSSHKeys),
 		Web:   webGet(web.RouteSSHKeys, tplSSHKeys),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		Limits: []Limitation{{SurfaceTUI, "the account view lists the signed-in actor's own keys, " +
+			"where the cli and the api take another actor's identifier"}},
+		TUI: "account",
 	},
 	{
 		Name: "sshkey.revoke", Method: "RevokeSSHKey",
@@ -1468,9 +1450,7 @@ var registry = []Operation{
 		CLI:   "tix user key rm",
 		HTTP:  apiDelete(wire.RouteSSHKey),
 		Web:   webPost(web.RouteSSHKeyRevoke),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
-		},
+		TUI:   "account",
 	},
 
 	{

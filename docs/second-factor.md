@@ -42,7 +42,9 @@ tix user totp codes      # replaces the recovery codes
 tix user totp rm
 ```
 
-The browser has the same thing under Settings, and the terminal interface over SSH offers it too.
+The browser has the same thing under Settings, and the terminal interface has it on the account screen
+(`$`), which draws the enrolment as a QR code when the terminal has colour and room for it and always as
+the key and the URI. See [tui.md](tui.md#the-account-screen).
 
 Enrolment is per person, not per tenant. One credential set, one enrolment, one entry in your authenticator
 app, however many tenants you belong to.

@@ -16,8 +16,9 @@ rather than claiming the whole operation.
 
 One cursor runs over the second-factor row, then the tokens, then the keys, so `X` always knows which of the
 three it is removing. The keys are the board's own (`n`, `X`, `enter`, `esc`, and in the scope picker the
-inbox's `space` and `a`), so every keybinding scheme drives the view without new bindings. `@` opens it: every
-letter worth having is spoken for, and `@` is already the card marker for "this is about you".
+inbox's `space` and `a`), so every keybinding scheme drives the view without new bindings. `$` opens it: every
+letter worth having is spoken for, `@` went to the people screen, and `$` is the shell's prompt for an ordinary
+user, the one that means "you".
 
 `n` opens a one-field form asking what to add, offering only what the reader may do and what makes sense
 now: `second factor` while none is enrolled, `recovery codes` once one is.

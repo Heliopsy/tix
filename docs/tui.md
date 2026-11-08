@@ -13,12 +13,12 @@ actually dispatching, so neither can describe keys you do not have. This page co
 what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The sixteen views
+## The seventeen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
 board, the task, the project screen, activity, history, the inbox, the tenant screen, people, integrations, the server,
-global admin, statistics and settings all render into the same frame and recognising the body was the only way to tell
-where you were.
+global admin, your account, statistics and settings all render into the same frame and recognising the body was the
+only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
@@ -37,6 +37,7 @@ where you were.
 | integrations | `J` | webhooks and their deliveries, external sync sources, and retention, one tab each, as far as your scopes reach |
 | server | `%` | the installation, the servers registered against it, the tenant's work and second factor, and its live connections |
 | globaladmin | `!`, offered to a global admin only | every tenant and the global admins; a tenant's users; any account's log |
+| account | `$` | who you are signed in as, your second factor, your API tokens and SSH keys, and your account log |
 | settings | `,` | display preferences, and what this session is connected to |
 | help | `?` | the bindings of the view underneath, and the legends |
 
@@ -187,7 +188,7 @@ an action unbound.
 | `F` | reclaim the lease another worker holds, leaving the task where it is; clears the selected user's second factor on people | board, detail, people |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
-| `n` | new task, new project on the project list, new field or domain or member, new user or invite, new endpoint or sync source; a tenant, global admin, user or account on global admin | board, detail, projects, project, tenant, people, integrations, global admin |
+| `n` | new task, new project on the project list, new field or domain or member, new user or invite, new endpoint or sync source; a tenant, global admin, user or account on global admin; a token or key or second factor on account | board, detail, projects, project, tenant, people, integrations, global admin, account |
 | `e` | edit the whole task on one form; edits the project, the tenant, a user, an endpoint, a source, the retention windows or a tenant's user on their own screens | board, detail, project, tenant, people, integrations, global admin |
 | `P` | set priority, from the five | board, detail |
 | `p` | cycle priority one place down, wrapping from `P5` back to `P1` | board, detail |
@@ -206,20 +207,21 @@ an action unbound.
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin | board, detail, project, tenant, people, integrations, server, global admin |
+| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token or key | board, detail, project, tenant, people, integrations, server, global admin, account |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
 | `<`, `>` | move the selected column left, right | board |
 | `=` | show every hidden column again | board |
-| `space` | mark the selected item read, or unread | inbox |
-| `a` | mark every item read | inbox |
+| `space` | mark the selected item read, or unread; tick a scope in the token scope picker | inbox, account |
+| `a` | mark every item read; tick or clear a whole group in the token scope picker | inbox, account |
 | `y` | agree to a confirmation | wherever one is open |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
 | `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T`, `@` | projects, settings, activity, history, inbox, statistics, tenant, people | everywhere |
 | `J` | integrations: webhooks, external sync and retention | everywhere |
+| `$` | your account: tokens, SSH keys, second factor and account log | everywhere |
 | `%`, `!` | the server, global admin | everywhere they are offered |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
@@ -789,6 +791,7 @@ cursor, or the reason it was refused, are drawn under the sources.
 value, which is what `tix retention set` does with a flag left out. `enter` prunes from a form whose dry
 run is on by default, with an optional limit per kind. A prune that writes asks first, and either way the
 counts are drawn on the tab.
+
 ## The server view
 
 `%` reads the same report `tix status` prints and the tenant's live connections, and is offered to a reader
@@ -827,6 +830,44 @@ The view has three parts, and `esc` walks out of a part before it leaves the vie
   confirmation.
 - **An account log.** `enter` on a global admin or a user, or `/` and an email anywhere in the view, reads
   that account's log: every change, the tenant it concerned, who made it and through what.
+
+## The account screen
+
+`$` opens what the browser spreads over Settings, Tokens, SSH keys and Your account: who this session is
+signed in as, your second factor, your own API tokens and SSH keys, and the newest page of your account
+log. Each section is its own read, so a refused one says why and the rest of the screen still draws. An
+agent's session, for one, has no second factor and no account log to show.
+
+One cursor runs over the second factor, the tokens, the keys and the log entries. `X` on a token or a key
+revokes it and on the second factor removes it, each behind a confirmation naming what goes; a revoked
+token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
+removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
+status bar carries that refusal.
+
+`n` asks what to add, offering only what your authority reaches: an API token, an SSH key, and either a
+second factor while none is on or new recovery codes once one is.
+
+A token takes a name, an expiry from the browser's own choices (7, 30 or 90 days, a year, or never, with
+90 days proposed) and a preset to start from. The scope picker then takes the screen: the browser's groups
+in the browser's order, each scope with the same note, `*` first for a reader who holds it, and a scope you
+do not hold drawn as `[-]` and refused when ticked. `space` ticks one, `a` ticks or clears its whole group,
+`enter` issues and `esc` gives up. The token's value is drawn once at the top of the screen and stays until
+`esc` dismisses it; it never goes to the status bar, where the next message would replace it.
+
+An SSH key takes the line `ssh-keygen` wrote to the `.pub` file, and a label.
+
+Enrolling a second factor draws the `otpauth://` address as a QR code, the same half blocks `tix login`
+prints, when the terminal has colour and room for the whole symbol, because a terminal that strips escapes
+gets a block of identical characters and half a symbol does not scan. When either is missing the screen
+says which, and how large the terminal needs to be. The key, grouped in fours, and the address are always
+drawn as text, so enrolment never depends on the code. `enter` asks for the code the authenticator shows;
+the recovery codes are then drawn once, the same way a token's value is. `esc` abandons an enrolment,
+which grants nothing until it is confirmed.
+
+The tokens and keys listed are yours. The browser's Tokens screen widens to the whole tenant for a reader
+holding `tenant:admin`, and `tix token ls --actor` and `tix user key ls --actor` reach anybody's; the
+registry records that as a limitation on both terminal bindings. The account log reads the newest fifty
+entries; `tix account log --cursor` reads further back.
 
 ## You are offered the views your permissions reach
 
@@ -899,7 +940,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 17 such gaps against 174
+a reason as a gap when the binding ought to exist. As of this writing there are 6 such gaps against 174
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -909,19 +950,15 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 17 now has one of two shapes:
-
-- **Administration.** Tokens and credentials have no terminal screen at all. The second factor is here
-  too: enrolling one, confirming it, removing it, replacing the recovery codes and reading the state of
-  either are five operations with no screen. That is eleven of the count.
-- **Bulk and data movement.** Import, export and bundles are command line and API only.
-  That is the other six.
+Every one of the 6 is bulk and data movement: import, export and bundles are command line and API only.
 
 The calendar feed is absent on purpose rather than as a gap: its address is pasted into a calendar app,
 which the terminal has no part in, so its six operations are managed from `tix calendar` and the settings
 screen.
 
-Five shapes that were on this list have closed. Working on definitions rather than instances: the project
+Five shapes that were on this list have closed. Your own credentials: the account screen issues and
+revokes your API tokens, enrols and revokes your SSH keys and runs your second factor from enrolment to
+removal, which closed eleven. Working on definitions rather than instances: the project
 screen edits a project, defines and removes custom fields, and renders the workflow it runs on. Input a
 single line of text cannot gather: a prompt now hands over to a form whose every field picks from the
 values the operation accepts, which is how the assignee and the artifact arrived, and what the terminal
