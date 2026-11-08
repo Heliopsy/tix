@@ -35,7 +35,7 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 - [x] 2.5 Verifiers read account and actor disabled state per request, which stops a disabled account in
   every tenant at once; the per-tenant sweep this replaced is not needed (M)
 - [ ] 2.6 Tenant deletion deletes accounts left with no actor; `tix doctor` lists orphans (S)
-- [ ] 2.7 Snapshot import maps an existing email only for a global admin (S)
+- [x] 2.7 Snapshot import maps an existing email only for a global admin (S); nothing to map, see the PR 5 notes
 
 ## 3. Account log (PR 3, M)
 
@@ -59,10 +59,10 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 5. CLI, TUI, SSH, docs (PR 5, M)
 
-- [ ] 5.1 `tix login --tenant`, `tix tenant ls|use` from memberships, `tix whoami` lists them (M)
-- [ ] 5.2 TUI tenant view lists memberships and switches where a credential exists (S)
-- [ ] 5.3 `tix ssh key add --all-tenants` (S)
-- [ ] 5.4 `docs/tenancy.md`, `docs/web-ui.md`, `docs/api.md`, skill, release note on rollback (S)
+- [x] 5.1 `tix login --tenant`, `tix tenant ls|use` from memberships, `tix whoami` lists them (M)
+- [x] 5.2 TUI tenant view lists memberships and switches where a credential exists (S)
+- [x] 5.3 `tix ssh key add --all-tenants` (S)
+- [x] 5.4 `docs/tenancy.md`, `docs/web-ui.md`, `docs/api.md`, skill, release note on rollback (S)
 - [x] 5.5 Retire `global-admins-and-tenant-bootstrap`'s "Existing users" limitation (S)
 
 ## 6. Later phase: cross-host switch (PR 6, M)

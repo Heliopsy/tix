@@ -672,12 +672,19 @@ rather than held for the session, with one of the three roles beside it.
 
 ### Switching tenant
 
-The same screen takes a key to switch this session to another tenant. There is no list of other tenants to
-pick from: the listing above it is the tenants this session can see, which is
-its own, because an actor belongs to one tenant and both listing tenants and reading one are scoped to it.
-From inside `default` a tenant named `acme` and a tenant that was never created are the same answer. The
-key is checked the way `tix tenant use` checks it, by opening a connection pinned to it and asking who you
-are there.
+For a person in more than one tenant the screen lists their memberships, read from whoami, under
+`memberships`: each tenant's key and the role held there, the current one marked. The cursor runs onto these
+rows after the domains and the members, and enter on one switches to it when a credential for it is at hand:
+a context holding its token on the same server (`tix login --tenant KEY` stores one), or a database opened
+directly, which reaches every tenant. A tenant with no credential says so on its row, and enter names the
+login command and leaves the session where it is. A person in one tenant, or a local caller whose actor has
+no account, is offered no list.
+
+Over SSH the username picked the tenant, so the rows carry `ssh KEY@HOST` instead and enter repeats it; there
+is no switch inside an SSH session.
+
+A key can still be typed: enter anywhere else on the screen opens the input. It is checked the way
+`tix tenant use` checks one, by opening a connection pinned to it and asking who you are there.
 
 A key that cannot be reached leaves the session exactly as it was, naming the key in the refusal. The key
 the session is already on is refused before anything is dialled. A switch that lands replaces everything
