@@ -16,8 +16,9 @@ first and find out afterwards.
 ## The fourteen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
-board, the task, the project screen, activity, history, the inbox, the tenant screen, the server, global admin, statistics and settings all
-render into the same frame and recognising the body was the only way to tell where you were.
+board, the task, the project screen, activity, history, the inbox, the tenant screen, the server, global admin,
+statistics and settings all render into the same frame and recognising the body was the only way to tell where you
+were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
