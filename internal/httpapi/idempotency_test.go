@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -211,7 +212,10 @@ func TestARetryWhileTheFirstRunsIs409WithRetryAfter(t *testing.T) {
 		gated.apiService = f.svc
 		cfg.Service = gated
 	})
-	done := make(chan *http.Response)
+	var release sync.Once
+	open := func() { release.Do(func() { close(gated.gate) }) }
+	t.Cleanup(open)
+	done := make(chan *http.Response, 1)
 	go func() { done <- f.createKeyed("deploy", "key-1") }()
 	<-gated.entered
 
@@ -227,7 +231,7 @@ func TestARetryWhileTheFirstRunsIs409WithRetryAfter(t *testing.T) {
 		t.Fatalf("code = %q, want conflict", code)
 	}
 
-	close(gated.gate)
+	open()
 	first := <-done
 	mustStatus(t, first, http.StatusCreated)
 	_ = first.Body.Close()
