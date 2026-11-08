@@ -47,52 +47,12 @@ type scopePicker struct {
 	AllChecked bool
 }
 
-// scopeNotes says what each scope allows. scopeGroups places each one, and
-// a test fails on a scope in neither.
-var scopeNotes = map[core.Scope]string{
-	core.ScopeTaskRead:       "Read tasks, their comments and history.",
-	core.ScopeTaskWrite:      "Create and edit tasks.",
-	core.ScopeTaskTransition: "Move a task from one state to another.",
-	core.ScopeTaskClaim:      "Claim tasks, renew the lease and release it.",
-	core.ScopeTaskDelete:     "Delete tasks and restore them from the trash.",
-	core.ScopeTaskReclaim:    "End a lease another worker holds.",
-	core.ScopeProjectRead:    "Read projects.",
-	core.ScopeProjectWrite:   "Create and change projects.",
-	core.ScopeWorkflowRead:   "Read workflows.",
-	core.ScopeWorkflowWrite:  "Create and change workflows.",
-	core.ScopeCommentWrite:   "Comment on tasks.",
-	core.ScopeArtifactWrite:  "Attach artifacts to tasks.",
-	core.ScopeEventSubscribe: "Follow the live event stream.",
-	core.ScopeUserAdmin:      "Create, change and remove users.",
-	core.ScopeTOTPAdmin:      "Clear another person's second factor.",
-	core.ScopeTokenAdmin:     "Issue and revoke API tokens.",
-	core.ScopeWebhookAdmin:   "Manage outgoing webhooks.",
-	core.ScopeTenantAdmin:    "Manage the tenant, its members and domains.",
-	core.ScopeSyncAdmin:      "Manage and run imports from other trackers.",
-	core.ScopeAuditRead:      "Read the audit log.",
-	core.ScopeExport:         "Export a snapshot of the whole tenant.",
-	core.ScopeImport:         "Import a snapshot into the tenant.",
-	core.ScopeGlobalAdmin:    "Administer every tenant on this server. Only a global admin's token can carry it.",
-	core.ScopeAccountRead:    "Read your own account's history, which names every tenant you belong to. Only a token for your own account can carry it.",
-}
-
-// scopeGroups orders the scopes the way a person looks for them.
-var scopeGroups = []struct {
-	ID     string
-	Name   string
-	Scopes []core.Scope
-}{
-	{"tasks", "Tasks", []core.Scope{core.ScopeTaskRead, core.ScopeTaskWrite, core.ScopeTaskTransition,
-		core.ScopeTaskClaim, core.ScopeTaskDelete, core.ScopeTaskReclaim}},
-	{"projects", "Projects", []core.Scope{core.ScopeProjectRead, core.ScopeProjectWrite}},
-	{"workflows", "Workflows", []core.Scope{core.ScopeWorkflowRead, core.ScopeWorkflowWrite}},
-	{"comments", "Comments and artifacts", []core.Scope{core.ScopeCommentWrite, core.ScopeArtifactWrite}},
-	{"events", "Events", []core.Scope{core.ScopeEventSubscribe}},
-	{"admin", "Administration", []core.Scope{core.ScopeUserAdmin, core.ScopeTOTPAdmin, core.ScopeTokenAdmin,
-		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeAuditRead,
-		core.ScopeExport, core.ScopeImport, core.ScopeGlobalAdmin}},
-	{"account", "Your account", []core.Scope{core.ScopeAccountRead}},
-}
+// scopeNotes and scopeGroups are internal/onboard's, so the browser and the
+// terminal draw one scope picker.
+var (
+	scopeNotes  = onboard.ScopeNotes
+	scopeGroups = onboard.ScopeGroups
+)
 
 // newScopePicker draws the picker for a reader, with chosen ticked.
 func newScopePicker(actor *core.Actor, chosen []core.Scope) scopePicker {

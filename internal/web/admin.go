@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/onboard"
 )
 
 // adminRoutes are the tenant, domain, user, token and key administration screens.
@@ -614,39 +615,17 @@ func (v tokensView) Fixed() int {
 	return 3
 }
 
-// tokenExpiry is one option of the form's expiry control.
-//
-// Whole days rather than an instant, because "90 days" is the decision an
-// operator is making and a datetime field makes them do the arithmetic, in a
-// zone neither side has agreed on. The command line already takes an absolute
-// date (tix token create --expires), so both grammars exist and neither
-// surface has to parse the other's.
-type tokenExpiry struct {
-	Key   string
-	Label string
-	// Days is how long the token lasts; zero means it never expires.
-	Days int
-}
+// tokenExpiry is one option of the form's expiry control, shared with the
+// terminal through internal/onboard.
+type tokenExpiry = onboard.TokenExpiry
 
 // tokenExpiryChoices are the expiries the form offers, and the only values it
 // accepts: a key that is not one of these is refused rather than quietly read
 // as no expiry.
-var tokenExpiryChoices = []tokenExpiry{
-	{Key: "7d", Label: "7 days", Days: 7},
-	{Key: "30d", Label: "30 days", Days: 30},
-	{Key: "90d", Label: "90 days", Days: 90},
-	{Key: "365d", Label: "1 year", Days: 365},
-	{Key: "never", Label: "Never expires", Days: 0},
-}
+var tokenExpiryChoices = onboard.TokenExpiries
 
 // defaultTokenExpiry is what the form proposes before anybody chooses.
-//
-// An expiry, not "never". A token is normally handed to something outside the
-// operator's control, and until this control existed every token the browser
-// minted was immortal by omission rather than by anybody's decision, so there
-// is no choice being overridden here. "Never expires" is still one option away
-// for a credential that genuinely needs it.
-const defaultTokenExpiry = "90d"
+const defaultTokenExpiry = onboard.DefaultTokenExpiry
 
 // tokenForm is what the issue-a-token form holds, so a refused submission
 // comes back with everything the reader entered still in it.
