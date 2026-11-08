@@ -2299,7 +2299,7 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyPeopleEdit(form)
 	case formInviteReissue:
 		return m.closeForm().applyReissue(form)
-	case formAccountAdd, formToken, formSSHKey, formTOTPCode:
+	case formAccountAdd, formToken, formSSHKey, formTOTPCode, formRotateToken:
 		return m.closeForm().submitAccountForm(form)
 	case formTransfer:
 		return m.closeForm().applyTransferForm(form)

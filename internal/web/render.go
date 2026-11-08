@@ -330,7 +330,7 @@ func savedNext(what, section string) string {
 }
 
 // tokenState names whether a token still authenticates, as the one word its
-// row is keyed on: revoked, expired, or active.
+// row is keyed on: revoked, expired, retiring or active.
 //
 // The listing returns revoked and expired tokens as well as live ones, and
 // said nothing about either: a revoked token was a row identical to a working
@@ -338,12 +338,18 @@ func savedNext(what, section string) string {
 // three to get wrong. core.APIToken.Active is the same answer the
 // authentication path reaches, so the badge cannot disagree with whether the
 // credential works.
+//
+// A rotated token inside its grace window is "retiring": it still works, and
+// says so, rather than reading as revoked while whatever holds it swaps over.
 func tokenState(t core.APIToken) string {
-	if t.RevokedAt != nil {
+	now := time.Now()
+	switch {
+	case t.Revoked(now):
 		return "revoked"
-	}
-	if !t.Active(time.Now()) {
+	case !t.Active(now):
 		return "expired"
+	case t.Retiring(now):
+		return "retiring"
 	}
 	return "active"
 }

@@ -125,7 +125,7 @@ the routes the server registers. The areas are the first segment of each operati
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
 | tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
-| token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
+| token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}`, `POST /tokens/{id}/rotate` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
 | trash | `GET /trash` |
 | user | `GET /users`, `POST /users`, `GET /users/{id}`, `PATCH /users/{id}`, `DELETE /users/{id}` |

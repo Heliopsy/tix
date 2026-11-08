@@ -455,6 +455,24 @@ func (t *tx) GetToken(ctx context.Context, id string) (*core.APIToken, error) {
 	return &tk, nil
 }
 
+// GetLiveTokenByName returns the unrevoked token of this tenant carrying a
+// name, which the live-name unique index makes at most one.
+func (t *tx) GetLiveTokenByName(ctx context.Context, name string) (*core.APIToken, error) {
+	b := t.builder("api_tokens").Select(tokenColumns...).
+		Where("name = ?", name).
+		Where("revoked_at IS NULL").
+		Limit(1)
+	q, args := b.SelectQuery()
+	tk, err := scanToken(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("api token %q", name)
+		}
+		return nil, err
+	}
+	return &tk, nil
+}
+
 // ListTokens returns an actor's tokens.
 func (t *tx) ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error) {
 	b := t.builder("api_tokens").
@@ -531,14 +549,15 @@ func (t *tx) DeleteActorSessions(ctx context.Context, actorID string) (int64, er
 	return t.execDelete(ctx, b, "deleting sessions for actor %q", actorID)
 }
 
-// RevokeActorTokens revokes every token an actor holds that is not already revoked.
+// RevokeActorTokens revokes every token an actor holds that is not already
+// revoked, a rotated one still inside its grace window included.
 func (t *tx) RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error) {
 	if strings.TrimSpace(actorID) == "" {
 		return 0, core.Invalid("actor id must not be empty")
 	}
 	b := t.builder("api_tokens").
 		Where("actor_id = ?", actorID).
-		Where("revoked_at IS NULL").
+		Where("(revoked_at IS NULL OR revoked_at > ?)", timeArg(at)).
 		Set("revoked_at", timeArg(at))
 	return t.execUpdate(ctx, b, "revoking tokens for actor %q", actorID)
 }

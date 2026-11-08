@@ -464,6 +464,13 @@ type AuthService interface {
 	// RevokeToken revokes an API token of this tenant. Revoking a revoked token
 	// changes nothing.
 	RevokeToken(ctx context.Context, id string) error
+	// RotateToken replaces a live API token, addressed by identifier or name,
+	// with a new one of the same name, scopes and project and the same
+	// lifetime counted from now, and returns its value once. The old token
+	// stops at once, or after a grace of up to 24h so whatever holds it can
+	// swap. A token's own actor may rotate it; another actor's needs
+	// token:admin, and the new token never carries a scope its rotator lacks.
+	RotateToken(ctx context.Context, id string, in RotateTokenInput) (*IssuedToken, error)
 
 	// EnrolSSHKey registers a public key against an actor of this tenant, so
 	// that key can reach the terminal interface over SSH.

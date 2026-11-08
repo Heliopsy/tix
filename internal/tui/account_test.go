@@ -28,6 +28,7 @@ type accountFake struct {
 
 	createdTokens []core.CreateTokenInput
 	revokedTokens []string
+	rotatedTokens map[string]core.RotateTokenInput
 	enrolledKeys  []core.EnrolSSHKeyInput
 	revokedKeys   []string
 	codes         []string
@@ -59,6 +60,14 @@ func (f *accountFake) CreateToken(_ context.Context, in core.CreateTokenInput) (
 func (f *accountFake) RevokeToken(_ context.Context, id string) error {
 	f.revokedTokens = append(f.revokedTokens, id)
 	return nil
+}
+
+func (f *accountFake) RotateToken(_ context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	if f.rotatedTokens == nil {
+		f.rotatedTokens = map[string]core.RotateTokenInput{}
+	}
+	f.rotatedTokens[id] = in
+	return &core.IssuedToken{APIToken: core.APIToken{ID: "tok-rotated", Name: "rotated"}, Token: "tix_rotatedvalue"}, nil
 }
 
 func (f *accountFake) EnrolSSHKey(_ context.Context, in core.EnrolSSHKeyInput) (*core.SSHKey, error) {
@@ -101,11 +110,12 @@ func (f *accountFake) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecove
 func accountService() *accountFake {
 	at := time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
 	later := at.AddDate(1, 0, 0)
+	gone := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 	return &accountFake{
 		fakeService: newFakeService(),
 		tokens: []core.APIToken{
 			{ID: "tok-ci", Name: "ci-bot", Scopes: []core.Scope{core.ScopeTaskRead}, CreatedAt: at, ExpiresAt: &later},
-			{ID: "tok-old", Name: "old-bot", Scopes: []core.Scope{core.ScopeTaskWrite}, CreatedAt: at, RevokedAt: &at},
+			{ID: "tok-old", Name: "old-bot", Scopes: []core.Scope{core.ScopeTaskWrite}, CreatedAt: gone, RevokedAt: &gone},
 		},
 		keys: []core.SSHKey{{ID: "key-laptop", Label: "laptop", Fingerprint: "SHA256:abc", CreatedAt: at}},
 		totp: &core.TOTPStatus{RequiredSSH: true},

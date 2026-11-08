@@ -521,3 +521,36 @@ func TestCanReadAccount(t *testing.T) {
 		t.Errorf("Can deciding account.read = %v, want it refused to the dedicated check", err)
 	}
 }
+
+func TestCanRotateToken(t *testing.T) {
+	p := New()
+	agent := scopeActor(core.ScopeTaskRead)
+	pinned := scopeActor(core.ScopeTaskRead)
+	pinned.ProjectID = projA
+	for _, tc := range []struct {
+		name           string
+		actor          *core.Actor
+		owner, project string
+		want           bool
+	}{
+		{"own token without token:admin", agent, agent.ID, "", true},
+		{"another actor's token without token:admin", agent, "someone", "", false},
+		{"another actor's token with token:admin", scopeActor(core.ScopeTokenAdmin), "someone", "", true},
+		{"admin role on another actor's token", roleActor(core.RoleAdmin), "someone", "", true},
+		{"member role on another actor's token", roleActor(core.RoleMember), "someone", "", false},
+		{"pinned caller, sibling pinned to the same project", pinned, pinned.ID, projA, true},
+		{"pinned caller, unpinned sibling", pinned, pinned.ID, "", false},
+		{"pinned caller, sibling pinned elsewhere", pinned, pinned.ID, projB, false},
+	} {
+		err := p.CanRotateToken(tc.actor, tc.owner, tc.project)
+		if (err == nil) != tc.want {
+			t.Errorf("%s: CanRotateToken = %v, want allowed=%v", tc.name, err, tc.want)
+		}
+		if err != nil && !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("%s: refusal %v is not forbidden", tc.name, err)
+		}
+	}
+	if err := p.CanRotateToken(nil, "x", ""); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("nil actor: %v, want unauthenticated", err)
+	}
+}

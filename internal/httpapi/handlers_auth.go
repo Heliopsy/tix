@@ -91,6 +91,7 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTokens, rt.handleListTokens)
 	rt.mux.HandleFunc("POST "+wire.RouteTokens, rt.handleCreateToken)
 	rt.mux.HandleFunc("DELETE "+wire.RouteToken, rt.handleRevokeToken)
+	rt.mux.HandleFunc("POST "+wire.RouteTokenRotate, rt.handleRotateToken)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSSHKeys, rt.handleListSSHKeys)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHKeys, rt.handleEnrolSSHKey)
@@ -385,6 +386,20 @@ func (rt *Router) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleRotateToken replaces an API token, answering the new value once.
+func (rt *Router) handleRotateToken(w http.ResponseWriter, r *http.Request) {
+	var in core.RotateTokenInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	token, err := rt.cfg.Service.RotateToken(r.Context(), r.PathValue("id"), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, token)
 }
 
 // handleListSSHKeys returns the enrolled keys of one actor, revoked ones

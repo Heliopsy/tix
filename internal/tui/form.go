@@ -53,6 +53,7 @@ const (
 	formToken
 	formSSHKey
 	formTOTPCode
+	formRotateToken
 	formTransfer
 )
 

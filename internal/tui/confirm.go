@@ -2,7 +2,11 @@
 
 package tui
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"time"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // confirmKind names the destructive action a confirmation stands in front of.
 type confirmKind int
@@ -32,6 +36,7 @@ const (
 	confirmRevokeKey
 	confirmRemoveTOTP
 	confirmRecoveryCodes
+	confirmRotateToken
 	confirmImport
 	confirmOverwrite
 )
@@ -63,6 +68,7 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRevokeKey:        "revoke",
 	confirmRemoveTOTP:       "remove",
 	confirmRecoveryCodes:    "replace",
+	confirmRotateToken:      "rotate",
 	confirmImport:           "import",
 	confirmOverwrite:        "overwrite",
 }
@@ -114,6 +120,8 @@ type Confirm struct {
 	within  string
 	// credential is the token or key a revocation on the account screen names.
 	credential string
+	// grace is how long a rotated token's old value keeps working.
+	grace time.Duration
 }
 
 // Open reports whether a confirmation is waiting for an answer.

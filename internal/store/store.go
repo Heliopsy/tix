@@ -478,13 +478,17 @@ type AuthTx interface {
 	// GetToken returns one token of this tenant by identifier, so a caller
 	// that is about to change it can record whose it was.
 	GetToken(ctx context.Context, id string) (*core.APIToken, error)
+	// GetLiveTokenByName returns the unrevoked token of this tenant carrying
+	// the name, so a token can be addressed the way people remember it.
+	GetLiveTokenByName(ctx context.Context, name string) (*core.APIToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error)
 	// TokenNameInUse reports whether an unrevoked token of this tenant already
 	// carries the given name, whichever actor holds it. Revoked names are free
 	// again, which is the same window the unique index enforces.
 	TokenNameInUse(ctx context.Context, name string) (bool, error)
 	RevokeToken(ctx context.Context, id string, at time.Time) error
-	// RevokeActorTokens revokes every token an actor holds.
+	// RevokeActorTokens revokes every token an actor holds, ending a rotated
+	// token's grace window as well.
 	RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error)
 	TouchToken(ctx context.Context, id string, at time.Time) error
 
