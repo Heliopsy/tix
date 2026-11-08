@@ -21,6 +21,7 @@
 
 <div class="settings"><div class="settings-grid">
 <nav class="setnav" aria-label="{{t "Settings sections"}}">
+  <a href="#profile">{{t "Profile"}}</a>
   <a href="#appearance">{{t "Appearance"}}</a>
   <a href="#listings">{{t "Listings"}}</a>
   <a href="#keyboard" class="needs-keys">{{t "Keyboard"}}</a>
@@ -33,6 +34,54 @@
 </nav>
 
 <div class="setbody">
+{{/* Who the reader is, as whoami answers it: the browser's binding of the
+     one operation every other surface opens with. Read-only, because none of
+     it is a preference; the identifier copies, since it is what a command
+     line or an API call takes. */}}
+{{$p := .Data.Profile}}
+<section class="setgroup" id="profile">
+  <h2>{{t "Profile"}}</h2>
+  <div class="setlist profile">
+    <p class="setrow setlead">{{t "Who you are signed in as here, and with what authority."}} <a href="{{$p.ActorHref}}">{{t "Open your actor page"}}</a></p>
+    <div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Handle"}}</span>{{template "field-info" "The short name other people type to mention you or assign you work, unique within this tenant."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="handle"><strong>{{$p.Actor.Handle}}</strong></span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><span class="setname">{{t "Name"}}</span></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="name">{{if $p.Actor.DisplayName}}{{$p.Actor.DisplayName}}{{else}}<span class="muted">{{t "Not set"}}</span>{{end}}</span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Actor id"}}</span>{{template "field-info" "The identifier the command line, the API and the audit log use for you. It never changes, while a handle can."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue profile-id"><code data-profile="id">{{$p.Actor.ID}}</code><button type="button" class="ghost small" data-copy-text="{{$p.Actor.ID}}" aria-label="{{t "Copy your actor id"}}">{{t "Copy"}}</button></span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><span class="setname">{{t "Kind"}}</span></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="kind"><span class="chip">{{$p.Actor.Kind}}</span></span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Role"}}</span>{{template "field-info" "Your role in this tenant. Its scopes add to any granted to you directly."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="role">{{if $p.Actor.Role}}{{$p.Actor.Role}}{{else}}<span class="muted">{{t "None"}}</span>{{end}}</span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><span class="setname">{{t "Tenant"}}</span></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="tenant">{{if $p.TenantKey}}<strong>{{$p.TenantKey}}</strong>{{with $p.TenantName}} <span class="muted">{{.}}</span>{{end}}{{else}}<code>{{$p.Actor.TenantID}}</code>{{end}}</span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Global admin"}}</span>{{template "field-info" "Whether you may administer the whole installation, every tenant included, right now."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="global">{{if $p.Actor.GlobalAdmin}}{{t "Yes"}}{{else}}{{t "No"}}{{end}}</span></div>
+    </div>
+    <div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Signed in with"}}</span>{{template "field-info" "What this request authenticated with: the session this browser holds, or an API token."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="method">{{if $p.ViaToken}}{{t "API token"}}{{with $p.Token}} <code>{{.}}</code>{{end}}{{else}}{{t "Browser session"}}{{end}}</span></div>
+    </div>
+    <div class="setrow stacked">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Scopes"}}</span>{{template "field-info" "Everything you may do here, from your role and from any scope granted to you directly."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue profile-scopes" data-profile="scopes">{{range $p.Scopes}}<code class="evchip">{{.}}</code>{{else}}<span class="muted">{{t "None"}}</span>{{end}}</span></div>
+    </div>
+  </div>
+</section>
+
 <section class="setgroup" id="appearance">
   <h2>{{t "Appearance"}}</h2>
   <div class="setlist">

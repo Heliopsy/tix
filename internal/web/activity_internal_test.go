@@ -124,7 +124,7 @@ func TestTheActivityFeedShowsEveryMatchItScanned(t *testing.T) {
 	cursor := ""
 	for page := 0; page < 10; page++ {
 		r := httptest.NewRequest(http.MethodGet, RouteActivity, nil)
-		entries, next, err := h.scanAudit(r, query, cursor)
+		entries, next, err := h.scanAudit(r, query, cursor, activityPageSize)
 		if err != nil {
 			t.Fatalf("scanning page %d: %v", page+1, err)
 		}

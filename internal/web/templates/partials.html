@@ -419,6 +419,19 @@
      without the reader having to go looking; the id is what the control's
      aria-describedby points at. A refusal naming no single control carries no
      id and sits at the top of the form. */}}
+{{/* actor-filter is the Actor control above the token and SSH key tables: a
+     GET form, so a filtered listing is an address, naming a handle or an
+     identifier for the service to resolve. Takes actorFilter. */}}
+{{define "actor-filter"}}<form method="get" action="{{.Action}}" class="filterbar actorfilter" role="search" aria-label="{{t "Whose credentials"}}">
+  <label for="actor-filter">{{t "Actor"}}</label>
+  <input id="actor-filter" name="actor" value="{{.Value}}" list="actor-filter-handles" autocomplete="off" placeholder="{{t "Handle or id, empty for yours"}}"{{if .Missing}} aria-invalid="true" aria-describedby="actor-filter-error"{{end}}>
+  <datalist id="actor-filter-handles">{{range .Handles}}<option value="{{.}}"></option>{{end}}</datalist>
+  <button class="secondary" type="submit">{{t "Show"}}</button>
+  {{if .Active}}<a class="clear" href="{{.Action}}">{{t "Show yours"}}</a>{{end}}
+</form>
+{{if .Missing}}<p class="field-error" id="actor-filter-error" role="alert">{{t "No actor of this tenant is named %s." .Value}}</p>
+{{else if .Active}}<p class="meta actorfilter-whose">{{t "Listing what %s holds." .Label}}</p>{{end}}{{end}}
+
 {{define "field-error"}}<p class="field-error"{{if .Field}} id="{{.ID}}"{{end}} role="alert">{{.Message}}</p>{{end}}
 
 {{/* required-mark says a field must be filled in, in words rather than an

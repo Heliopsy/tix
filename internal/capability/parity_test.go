@@ -486,9 +486,9 @@ func TestNoCLIGapRemains(t *testing.T) {
 
 // TestGapsStandWhereTheyAreRecorded states where parity actually stands, so
 // the number cannot grow quietly and cannot be mistaken for zero. The browser
-// count is two rather than none: the root route calls WhoAmI for its error and
-// throws the identity away, and the screens call GetActor only to turn an
-// identifier into a label, so neither operation reaches a browser reader.
+// count is none: it came down from two when the settings screen's Profile
+// section bound WhoAmI and the actor screen bound GetActor, which until then
+// were called only for an error and to label an identifier.
 //
 // It came down from eight when the second factor reached the browser, closing
 // the six it had been recorded against: the status, enrolment and recovery
@@ -524,7 +524,7 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
 		capability.SurfaceTUI: 34,
-		capability.SurfaceWeb: 2,
+		capability.SurfaceWeb: 0,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
 	got := map[capability.Surface]int{}
@@ -554,9 +554,6 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 var recordedShortfalls = map[string]capability.Surface{
 	"PutArtifact": capability.SurfaceTUI,
 	"AddDomain":   capability.SurfaceTUI,
-	"TaskTree":    capability.SurfaceWeb,
-	"ListTokens":  capability.SurfaceWeb,
-	"ListSSHKeys": capability.SurfaceWeb,
 }
 
 // TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,

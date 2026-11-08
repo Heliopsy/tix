@@ -48,6 +48,8 @@ var helpDocs = map[string]helpDoc{
 	"/tasks/{ref}":                       {"web-ui.md", "the-task-screen"},
 	"/tasks/{ref}/copy":                  {"web-ui.md", "copying-a-task"},
 	"/actors":                            {"web-ui.md", "the-directory"},
+	"/actors/{id}":                       {"web-ui.md", "the-actor-screen"},
+	"/tasks/{ref}/tree":                  {"web-ui.md", "the-task-screen"},
 	"/admin/tenant":                      {"tenancy.md", "tenants"},
 	"/admin/domains":                     {"tenancy.md", "domains"},
 	"/admin/users":                       {"tenancy.md", "members-and-roles"},

@@ -1,0 +1,51 @@
+{{/*
+  One actor: who it is, where its work and credentials are, and what it did
+  last. GetActor answers naming fields only, so this screen says nothing about
+  what the actor may do; the reader's own authority is in Settings, Profile.
+  The recent entries are the activity feed's own block (activity-rows), so a
+  row here reads exactly as it does on /activity.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+{{$a := $v.Target}}
+<p class="backlink"><a href="/actors">{{template "icon" "arrow-left"}}<span>{{t "Directory"}}</span></a></p>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{if $a.Handle}}{{$a.Handle}}{{else}}{{$a.ID}}{{end}}</h1>{{template "tip" (tip "Actor" "A person or an agent of this tenant, by the name others use for it. What it may do is not shown here." "docs/web-ui.md")}}</div>
+    <p class="lede summary">{{if $a.DisplayName}}{{$a.DisplayName}} &middot; {{end}}<span class="chip">{{$a.Kind}}</span>{{if $v.Self}} <span class="muted">{{t "(you)"}}</span>{{end}}</p>
+  </div>
+  {{template "help" $}}
+</div>
+
+<section class="actorcard card" aria-labelledby="actor-about">
+  <h2 id="actor-about" class="sr-only">{{t "About"}}</h2>
+  <dl class="actorfacts">
+    <div><dt>{{t "Handle"}}</dt><dd>{{if $a.Handle}}{{$a.Handle}}{{else}}<span class="muted">&mdash;</span>{{end}}</dd></div>
+    <div><dt>{{t "Name"}}</dt><dd>{{if $a.DisplayName}}{{$a.DisplayName}}{{else}}<span class="muted">{{t "Not set"}}</span>{{end}}</dd></div>
+    <div><dt>{{t "Kind"}}</dt><dd>{{$a.Kind}}</dd></div>
+    <div><dt>{{t "Actor id"}}</dt><dd class="actor-id"><code id="actor-id-value">{{$a.ID}}</code> <button type="button" class="ghost small" data-copy-target="actor-id-value" aria-label="{{t "Copy the actor id"}}">{{t "Copy"}}</button></dd></div>
+  </dl>
+  <ul class="plain actorlinks">
+    {{if $a.Handle}}<li><a href="{{$v.TasksHref}}">{{template "icon" "tasks"}}<span>{{t "Tasks assigned to %s" $a.Handle}}</span></a></li>{{end}}
+    {{if $v.CanCredentials}}
+    <li><a href="{{$v.TokensHref}}">{{template "icon" "tokens"}}<span>{{t "API tokens"}}</span></a></li>
+    <li><a href="{{$v.KeysHref}}">{{template "icon" "keys"}}<span>{{t "SSH keys"}}</span></a></li>
+    {{end}}
+    {{if $v.Self}}<li><a href="/settings#profile">{{template "icon" "settings"}}<span>{{t "Your profile"}}</span></a></li>{{end}}
+  </ul>
+</section>
+
+<section class="actoractivity" aria-labelledby="actor-recent">
+  <div class="sechead"><h2 id="actor-recent">{{t "Recent activity"}}</h2>{{if $v.CanAudit}}<a class="btn link small" href="{{$v.ActivityHref}}">{{t "All activity"}}</a>{{end}}</div>
+  {{if not $v.CanAudit}}
+  <p class="muted">{{t "Recent activity needs the audit:read scope, which you do not hold."}}</p>
+  {{else if $v.Groups}}
+  <div class="card">
+    <ul class="plain feed rows">{{template "activity-rows" .}}</ul>
+  </div>
+  <div class="rawslot"></div>
+  {{else}}
+  <p class="empty quiet">{{t "No recorded activity."}}</p>
+  {{end}}
+</section>
+{{end}}

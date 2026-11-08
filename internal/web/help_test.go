@@ -107,6 +107,7 @@ func TestEveryScreenHasAHelpButtonInItsHeader(t *testing.T) {
 		"template": templateID(t, f, "daily"),
 		"channel":  strings.TrimPrefix(channel, "/settings/notifications/"),
 		"filter":   saveFilter(t, b, url.Values{"name": {"Mine"}, "q": {"tag:ops"}}),
+		"actor":    "alice",
 	}
 	screens := 0
 	for _, r := range m.Routes {

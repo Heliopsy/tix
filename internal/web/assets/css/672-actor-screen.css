@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The actor screen (templates/actor.html) and the Profile section of
+   Settings. The facts are a two-column list that stacks on a phone, and the
+   links under them wrap rather than scroll sideways.
+   ------------------------------------------------------------------------ */
+.actorcard { margin: 0 0 var(--space-5); }
+.actorfacts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.actorfacts > div { display: contents; }
+.actorfacts dt { color: var(--muted); font-size: var(--text-sm); }
+.actorfacts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.actor-id code { overflow-wrap: anywhere; }
+.actorlinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.actorlinks a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-sm);
+}
+.actoractivity .card { padding: 0; }
+
+.profile-id, .profile-scopes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+.profile-id code { overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+  .actorfacts { grid-template-columns: minmax(0, 1fr); gap: 0 0; }
+  .actorfacts dd { margin-bottom: var(--space-2); }
+}
+
+/* A who-link is an actor named on another screen: it reads as the name it
+   was, with the link underline only on hover or focus. */
+a.who-name { text-decoration: none; }
+a.who-name:hover, a.who-name:focus-visible { text-decoration: underline; }
+.proplink { display: inline-flex; align-items: center; margin-left: var(--space-1); color: var(--muted); }
+.proplink:hover, .proplink:focus-visible { color: var(--ink); }
+.proplink svg { width: 0.9em; height: 0.9em; }
