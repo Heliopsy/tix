@@ -107,6 +107,26 @@ func (p Policy) CanReadAccount(actor *core.Actor) error {
 	return nil
 }
 
+// CanRotateToken decides whether the actor may rotate a token held by owner
+// and pinned to project, which is empty for an unpinned token. The token's own
+// actor may, so an agent rotates its credential without token:admin; a pinned
+// caller only a token pinned to its own project, or it could mint itself an
+// unpinned one through a sibling. Anybody else needs token:admin. Which scopes
+// the new token may carry is the caller's ceiling, decided by the service.
+func (p Policy) CanRotateToken(actor *core.Actor, owner, project string) error {
+	if actor == nil {
+		return core.Unauthenticated("no authenticated actor")
+	}
+	if owner != actor.ID {
+		return p.Can(actor, ActionTokenAdmin, Resource{ProjectID: project, OwnerID: owner})
+	}
+	if actor.ScopedToProject() && project != actor.ProjectID {
+		return p.deny(ActionTokenAdmin, Resource{ProjectID: project, OwnerID: owner},
+			"a token pinned to a project may rotate only a token pinned to the same project")
+	}
+	return nil
+}
+
 // Allowed reports whether the actor may act, for UI affordances that need no error.
 func (p Policy) Allowed(actor *core.Actor, action Action, res Resource) bool {
 	return p.Can(actor, action, res) == nil

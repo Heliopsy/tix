@@ -52,6 +52,8 @@ const (
 
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
+	// RouteTokenRotate replaces a token with a new one of the same name.
+	RouteTokenRotate = APIPrefix + "/tokens/{id}/rotate" // #nosec G101 -- a url path, not a credential
 
 	// The second factor of the caller's own account, and the one route that
 	// reaches another user's: an administrative clear.

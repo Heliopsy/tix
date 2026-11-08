@@ -152,3 +152,8 @@ func (c *Client) ListTokens(ctx context.Context, actorID string) ([]core.APIToke
 func (c *Client) RevokeToken(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteToken, "id", id), nil, nil)
 }
+
+// RotateToken replaces an API token with a new one and returns its value once.
+func (c *Client) RotateToken(ctx context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	return call[core.IssuedToken](ctx, c, http.MethodPost, routePath(wire.RouteTokenRotate, "id", id), nil, in)
+}

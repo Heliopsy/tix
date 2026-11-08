@@ -258,7 +258,7 @@ func newTokenCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(tokenCreateCmd(g), tokenLsCmd(g), tokenRmCmd(g))
+	cmd.AddCommand(tokenCreateCmd(g), tokenLsCmd(g), tokenRmCmd(g), tokenRotateCmd(g))
 	return cmd
 }
 
@@ -364,6 +364,56 @@ func tokenRmCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be revoked without writing")
+	return cmd
+}
+
+func tokenRotateCmd(g *globals) *cobra.Command {
+	var actor, grace string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "rotate ID|NAME",
+		Short: "Replace an API token with a new one",
+		Long: "Issue a new token with the same name, scopes, project and lifetime counted from now, and retire " +
+			"the old one. The new secret is shown exactly once.\n\n" +
+			"--grace keeps the old token working for up to 24h beside the new one, so whatever holds it can " +
+			"swap without a failed request; the default stops it at once. A token may rotate itself, so an " +
+			"agent can replace its own credential; another actor's token needs token:admin.\n\n" +
+			"Exit codes: 2 invalid grace, 3 unknown token, 4 token already rotated or no longer working, " +
+			"5 permission denied.",
+		Example: "  tix token rotate ci-agent --grace 10m\n  tix token rotate 01J000000000000000000A -o json",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in := core.RotateTokenInput{ActorID: actor}
+			if grace != "" {
+				d, err := core.ParseDuration(grace)
+				if err != nil {
+					return core.Invalid("--grace %q is not a duration such as 10m or 1h", grace).
+						WithDetail(core.DetailField, "grace")
+				}
+				in.Grace = d
+			}
+			if err := in.Validate(); err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("token.rotate", args[0], map[string]any{"grace": in.Grace.String()}))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			issued, err := conn.Service.RotateToken(ctx, args[0], in)
+			if err != nil {
+				return err
+			}
+			g.diag(cmd, "the new token value is shown once and cannot be retrieved again")
+			return g.render(cmd, issued)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&grace, "grace", "", "how long the old token keeps working beside the new one, such as 10m (0 to 24h); empty stops it at once")
+	f.StringVar(&actor, "actor", "", "the actor the token must belong to, by handle or identifier")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be rotated without writing")
 	return cmd
 }
 

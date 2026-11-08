@@ -261,6 +261,7 @@ const (
 	RouteInviteAccept  = "/invite/{token}"
 	RouteTokens        = "/admin/tokens"
 	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
+	RouteTokenRotate   = "/admin/tokens/rotate" // #nosec G101 -- a url path, not a credential
 	RouteStatus        = "/admin/status"
 	RouteConnections   = "/admin/connections"
 	RouteConnectionEnd = "/admin/connections/end"

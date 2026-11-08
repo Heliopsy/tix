@@ -9126,6 +9126,63 @@ paths:
       summary: RevokeToken revokes an API token of this tenant
       tags:
         - token
+  /api/v1/tokens/{id}/rotate:
+    post:
+      description: |-
+        RotateToken replaces a live API token, addressed by identifier or name, with a new one of the same name, scopes and project and the same lifetime counted from now, and returns its value once. The old token stops at once, or after a grace of up to 24h so whatever holds it can swap. A token's own actor may rotate it; another actor's needs token:admin, and the new token never carries a scope its rotator lacks.
+
+        Command line: `tix token rotate`.
+      operationId: token.rotate
+      parameters:
+        - description: API token ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RotateTokenInput'
+        required: false
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedToken'
+          description: IssuedToken carries a newly minted token value.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: RotateToken replaces a live API token, addressed by identifier or name,
+        with a new one of the same name, scopes and project and the same lifetime
+        counted from now, and returns its value once
+      tags:
+        - token
   /api/v1/trash:
     get:
       description: |-
@@ -10533,8 +10590,9 @@ components:
             means every project the actor can reach.
           type: string
         revoked_at:
-          description: RevokedAt is when the token was revoked, RFC 3339. A revoked
-            token never authenticates again.
+          description: 'RevokedAt is when the token was revoked, RFC 3339. A revoked
+            token never authenticates again. A time still to come is a rotated token''s
+            grace window: it works until then.'
           format: date-time
           type:
             - "null"
@@ -12680,8 +12738,9 @@ components:
             means every project the actor can reach.
           type: string
         revoked_at:
-          description: RevokedAt is when the token was revoked, RFC 3339. A revoked
-            token never authenticates again.
+          description: 'RevokedAt is when the token was revoked, RFC 3339. A revoked
+            token never authenticates again. A time still to come is a rotated token''s
+            grace window: it works until then.'
           format: date-time
           type:
             - "null"
@@ -13042,6 +13101,19 @@ components:
       type:
         - "null"
         - string
+    RotateTokenInput:
+      description: RotateTokenInput replaces a live token with a new one of the same
+        name, scopes and project.
+      properties:
+        actor_id:
+          description: ActorID, when set, is the actor the token must belong to, by
+            identifier or handle; a token of anybody else is reported missing.
+          type: string
+        grace:
+          description: Grace is how long the old token keeps working beside the new
+            one, from 0 (it stops at once, the default) up to 24h.
+          type: string
+      type: object
     RouteInput:
       description: RouteInput moves a task along a route, one ordinary transition
         per hop. A caller either names the whole route or names the destination and

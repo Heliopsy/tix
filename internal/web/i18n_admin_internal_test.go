@@ -2,7 +2,10 @@
 
 package web
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/onboard"
+)
 
 // The admin screens translate the token expiry choices, the token states, the
 // delivery statuses and the rows of the tenant diagram, all fixed English
@@ -16,7 +19,14 @@ func init() {
 			}
 			return out
 		},
-		func() []string { return []string{"active", "revoked", "expired"} },
+		func() []string { return []string{"active", "revoked", "expired", "retiring"} },
+		func() []string {
+			var out []string
+			for _, g := range onboard.RotateGraces {
+				out = append(out, g.Label)
+			}
+			return out
+		},
 		func() []string {
 			return []string{string(core.DeliveryPending), string(core.DeliveryDelivered), string(core.DeliveryFailed)}
 		},

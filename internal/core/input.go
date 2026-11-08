@@ -897,6 +897,30 @@ func (in CreateTokenInput) Validate() error {
 	return nil
 }
 
+// MaxTokenRotateGrace is the longest a rotated token may keep working beside
+// its replacement. A longer window would keep a leaked value alive.
+const MaxTokenRotateGrace = 24 * time.Hour
+
+// RotateTokenInput replaces a live token with a new one of the same name,
+// scopes and project.
+type RotateTokenInput struct {
+	// Grace is how long the old token keeps working beside the new one, from
+	// 0 (it stops at once, the default) up to 24h.
+	Grace Duration `json:"grace,omitempty" yaml:"grace,omitempty"`
+	// ActorID, when set, is the actor the token must belong to, by identifier
+	// or handle; a token of anybody else is reported missing.
+	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+}
+
+// Validate checks the input.
+func (in RotateTokenInput) Validate() error {
+	if in.Grace < 0 || in.Grace.D() > MaxTokenRotateGrace {
+		return Invalid("a rotated token keeps working for between 0 and 24h, not %s", in.Grace).
+			WithDetail(DetailField, "grace")
+	}
+	return nil
+}
+
 // WebhookInput registers or updates a delivery endpoint.
 type WebhookInput struct {
 	// ID names the endpoint to update; empty registers a new one.

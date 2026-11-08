@@ -202,6 +202,27 @@ func (s *apiService) RevokeToken(_ context.Context, id string) error {
 	return core.NotFound("token %q", id)
 }
 
+func (s *apiService) RotateToken(ctx context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	for actorID, list := range s.tokens {
+		for i, tok := range list {
+			if tok.ID == id || tok.Name == id {
+				next := core.APIToken{ID: tok.ID + "-rotated", TenantID: actor.TenantID, ActorID: actorID,
+					Name: tok.Name, Scopes: tok.Scopes}
+				s.tokens[actorID] = append(append(list[:i:i], next), list[i+1:]...)
+				return &core.IssuedToken{APIToken: next, Token: "tix_pat_rotated"}, nil
+			}
+		}
+	}
+	return nil, core.NotFound("token %q", id)
+}
+
 func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
 	if _, err := core.RequireActor(ctx); err != nil {
 		return nil, err

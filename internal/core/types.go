@@ -181,16 +181,28 @@ type APIToken struct {
 	// Absent if never used.
 	LastUsedAt *time.Time `json:"last_used_at,omitempty" yaml:"last_used_at,omitempty"`
 	// RevokedAt is when the token was revoked, RFC 3339. A revoked token never
-	// authenticates again.
+	// authenticates again. A time still to come is a rotated token's grace
+	// window: it works until then.
 	RevokedAt *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
 }
 
 // Active reports whether the token may still authenticate at time now.
 func (t APIToken) Active(now time.Time) bool {
-	if t.RevokedAt != nil {
+	if t.Revoked(now) {
 		return false
 	}
 	return t.ExpiresAt == nil || t.ExpiresAt.After(now)
+}
+
+// Revoked reports whether the token's revocation has taken effect at now.
+func (t APIToken) Revoked(now time.Time) bool {
+	return t.RevokedAt != nil && !t.RevokedAt.After(now)
+}
+
+// Retiring reports whether the token was rotated and still works at now
+// inside its grace window.
+func (t APIToken) Retiring(now time.Time) bool {
+	return t.RevokedAt != nil && t.Active(now)
 }
 
 // IssuedToken carries a newly minted token value.

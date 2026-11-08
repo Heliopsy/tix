@@ -748,6 +748,9 @@ func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core
 }
 func (f *fakeService) ListTokens(context.Context, string) ([]core.APIToken, error) { return nil, nil }
 func (f *fakeService) RevokeToken(context.Context, string) error                   { return nil }
+func (f *fakeService) RotateToken(context.Context, string, core.RotateTokenInput) (*core.IssuedToken, error) {
+	return nil, nil
+}
 
 func (f *fakeService) ListConnections(context.Context) (*core.ConnectionList, error) {
 	return nil, nil

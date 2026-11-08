@@ -5,6 +5,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -37,6 +38,7 @@ func (h *handler) adminRoutes() []route {
 		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens", "ListActors"),
 		post(RouteTokens, h.createToken, "CreateToken"),
 		post(RouteTokenRevoke, h.revokeToken, "RevokeToken"),
+		post(RouteTokenRotate, h.rotateToken, "RotateToken"),
 		get(RouteSSHKeys, "sshkeys.html", h.showSSHKeys, "ListSSHKeys"),
 		post(RouteSSHKeys, h.enrolSSHKey, "EnrolSSHKey"),
 		post(RouteSSHKeyRevoke, h.revokeSSHKey, "RevokeSSHKey"),
@@ -635,6 +637,8 @@ type tokensView struct {
 	Tokens []tokenRow
 	Picker scopePicker
 	Expiry []tokenExpiry
+	// Graces are the windows the rotate dialog offers the old token.
+	Graces []onboard.RotateGrace
 	Secret *oneTimeSecret
 	Form   tokenForm
 	Errors fieldErrors
@@ -868,6 +872,7 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
 		Tokens: list.Rows, Picker: newScopePicker(actor, form.Scopes), Expiry: tokenExpiryChoices,
+		Graces: onboard.RotateGraces,
 		Secret: issuedTokenSecret(issued), Form: form, Errors: errs,
 		Owners: list.Owners, Whole: list.Whole, Filter: filter})
 }
@@ -920,6 +925,27 @@ func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, RouteTokens, "token revoked")
+	return nil
+}
+
+// rotateToken replaces an API token and shows the new value exactly once,
+// back on the listing the reader rotated it from.
+func (h *handler) rotateToken(w http.ResponseWriter, r *http.Request) error {
+	grace, ok := onboard.RotateGraceFor(field(r, "grace"))
+	if !ok {
+		return core.Invalid("choose how long the old token keeps working").WithDetail(core.DetailField, "grace")
+	}
+	issued, err := h.svc.RotateToken(r.Context(), field(r, "id"), core.RotateTokenInput{Grace: core.Duration(grace.Grace)})
+	if err != nil {
+		return err
+	}
+	back := RouteTokens
+	if actor := field(r, actorFilterParam); actor != "" {
+		back += "?" + url.Values{actorFilterParam: {actor}}.Encode()
+	}
+	// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
+	http.SetCookie(w, oneTimeCookie(issuedTokenCookie, RouteTokens, issuedValue(issued.Token, issued.Scopes), h.secureCookie(r)))
+	redirect(w, r, back, "token rotated")
 	return nil
 }
 

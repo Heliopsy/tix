@@ -2,7 +2,11 @@
 
 package onboard
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"time"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // ScopeGroup is a headed set of scopes, in the order a person looks for them.
 type ScopeGroup struct {
@@ -81,3 +85,30 @@ var TokenExpiries = []TokenExpiry{
 // expiry, not "never", because a token is normally handed to something outside
 // the operator's control.
 const DefaultTokenExpiry = "90d"
+
+// RotateGrace is one grace window a rotation form offers: how long the old
+// token keeps working beside its replacement.
+type RotateGrace struct {
+	Key   string
+	Label string
+	Grace time.Duration
+}
+
+// RotateGraces are the windows a rotation form offers, the first proposed.
+// None reaches past core.MaxTokenRotateGrace.
+var RotateGraces = []RotateGrace{
+	{Key: "0", Label: "Stop the old token now", Grace: 0},
+	{Key: "10m", Label: "Keep it working for 10 minutes", Grace: 10 * time.Minute},
+	{Key: "1h", Label: "Keep it working for 1 hour", Grace: time.Hour},
+	{Key: "24h", Label: "Keep it working for 24 hours", Grace: 24 * time.Hour},
+}
+
+// RotateGraceFor resolves a grace key, or a label, to its window.
+func RotateGraceFor(choice string) (RotateGrace, bool) {
+	for _, g := range RotateGraces {
+		if g.Key == choice || g.Label == choice {
+			return g, true
+		}
+	}
+	return RotateGrace{}, false
+}

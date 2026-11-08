@@ -1438,6 +1438,13 @@ var registry = []Operation{
 		Web:   webPost(web.RouteTokenRevoke),
 		TUI:   "account",
 	},
+	{
+		Name: "token.rotate", Method: "RotateToken", Contract: Contract{Status: http.StatusCreated, OptionalBody: true},
+		CLI:  "tix token rotate",
+		HTTP: apiPost(wire.RouteTokenRotate),
+		Web:  webPost(web.RouteTokenRotate),
+		TUI:  "account",
+	},
 
 	{
 		Name: "sshkey.enrol", Method: "EnrolSSHKey", Contract: Contract{Status: http.StatusCreated},

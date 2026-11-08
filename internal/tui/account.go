@@ -111,6 +111,9 @@ type AccountRow struct {
 	// Active is false for a revoked or expired credential, which has nothing
 	// left to revoke.
 	Active bool
+	// Retiring marks a rotated token still inside its grace window: it can be
+	// revoked, but its replacement is the one to rotate.
+	Retiring bool
 }
 
 // AccountState is everything the account screen renders from.
@@ -149,7 +152,8 @@ func AccountRows(s AccountState) []AccountRow {
 		out = append(out, AccountRow{Kind: accountRowFactor, Label: "your second factor", Active: s.TOTP.Enrolled})
 	}
 	for _, t := range s.Tokens {
-		out = append(out, AccountRow{Kind: accountRowToken, ID: t.ID, Label: "token " + t.Name, Active: t.Active(s.Now)})
+		out = append(out, AccountRow{Kind: accountRowToken, ID: t.ID, Label: "token " + t.Name,
+			Active: t.Active(s.Now), Retiring: t.Retiring(s.Now)})
 	}
 	for _, k := range s.Keys {
 		out = append(out, AccountRow{Kind: accountRowKey, ID: k.ID, Label: "key " + keyName(k), Active: k.Active()})
@@ -291,6 +295,8 @@ func TokenSummary(t core.APIToken, now time.Time, style output.TimeStyle) string
 		parts = append(parts, "one project")
 	}
 	switch {
+	case t.Retiring(now):
+		parts = append(parts, "rotated, stops "+style.Format(*t.RevokedAt))
 	case t.RevokedAt != nil:
 		parts = append(parts, "revoked "+style.Format(*t.RevokedAt))
 	case t.ExpiresAt == nil:
@@ -843,8 +849,46 @@ func (m Model) handleAccountAction(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.Delete):
 		return m.confirmAccountRemoval()
+	case key.Matches(msg, m.keys.Renew):
+		return m.openRotateToken()
 	}
 	return m, nil
+}
+
+// openRotateToken asks how long the selected token's old value may keep
+// working, refusing a row that is not a live token with nothing to replace.
+func (m Model) openRotateToken() (Model, tea.Cmd) {
+	row, ok := m.selectedAccountRow()
+	switch {
+	case !ok || row.Kind != accountRowToken:
+		m.err = "select a token to rotate"
+		return m, nil
+	case row.Retiring:
+		m.err = row.Label + " was already rotated; rotate its replacement"
+		return m, nil
+	case !row.Active:
+		m.err = row.Label + " no longer works, so there is nothing to rotate"
+		return m, nil
+	case !m.mayPerform("RotateToken"):
+		m.err = "this session may not rotate tokens"
+		return m, nil
+	}
+	m.err = ""
+	return m.openForm(RotateTokenForm(row.Label))
+}
+
+// RotateTokenForm asks how long a rotated token's old value keeps working,
+// from the browser's choices, stopping it at once unless told otherwise.
+func RotateTokenForm(label string) Form {
+	graces := make([]string, 0, len(onboard.RotateGraces))
+	for _, g := range onboard.RotateGraces {
+		graces = append(graces, g.Label)
+	}
+	return Form{
+		Kind: formRotateToken, Title: "rotate " + label,
+		Note:   "a new token with the same name, scopes and lifetime replaces it; its value is shown once",
+		Fields: []FormField{{Key: "grace", Label: "old token", Options: graces, Value: graces[0]}},
+	}
 }
 
 // confirmAccountRemoval names the selected token, key or factor and waits for
@@ -914,6 +958,19 @@ func (m Model) submitAccountForm(form Form) (Model, tea.Cmd) {
 		picker := NewScopePicker(m.actor, name, expiry, PresetScopes(form.Value("preset")))
 		m.acct.picker, m.err = &picker, ""
 		return m, nil
+	case formRotateToken:
+		row, ok := m.selectedAccountRow()
+		if !ok || row.Kind != accountRowToken {
+			m.err = "select a token to rotate"
+			return m, nil
+		}
+		grace, _ := onboard.RotateGraceFor(form.Value("grace"))
+		note := "the old value stops at once"
+		if grace.Grace > 0 {
+			note = "the old value keeps working for " + strings.ToLower(strings.TrimPrefix(grace.Label, "Keep it working for "))
+		}
+		return m.askConfirm(Confirm{Kind: confirmRotateToken, Target: row.Label, Note: note,
+			credential: row.ID, grace: grace.Grace}, "there is nothing named to rotate")
 	case formSSHKey:
 		in := core.EnrolSSHKeyInput{PublicKey: strings.TrimSpace(form.Value("key")), Label: strings.TrimSpace(form.Value("label"))}
 		return m, m.accountCall("enrolling the key", func(svc core.Service, ctx context.Context) accountDoneMsg {
@@ -945,6 +1002,16 @@ func (m Model) runAccountConfirm(c Confirm) tea.Cmd {
 	case confirmRevokeToken:
 		return m.accountCall("revoking the token", func(svc core.Service, ctx context.Context) accountDoneMsg {
 			return accountDoneMsg{err: svc.RevokeToken(ctx, id), status: c.Target + " revoked"}
+		})
+	case confirmRotateToken:
+		in := core.RotateTokenInput{Grace: core.Duration(c.grace)}
+		return m.accountCall("rotating the token", func(svc core.Service, ctx context.Context) accountDoneMsg {
+			issued, err := svc.RotateToken(ctx, id, in)
+			if err != nil {
+				return accountDoneMsg{err: err}
+			}
+			return accountDoneMsg{status: "token " + issued.Name + " rotated",
+				reveal: &AccountReveal{Title: "token " + issued.Name + ", rotated and shown once; copy it now:", Lines: []string{issued.Token}}}
 		})
 	case confirmRevokeKey:
 		return m.accountCall("revoking the key", func(svc core.Service, ctx context.Context) accountDoneMsg {
