@@ -65,7 +65,7 @@ An instance SHALL mint an API token for the local actor of the named tenant, as 
 
 #### Scenario: Token reaches the API
 
-- **WHEN** a program mints a token for tenant `work` and calls `/v1/whoami` on the instance with it
+- **WHEN** a program mints a token for tenant `work` and calls `/api/v1/whoami` on the instance with it
 - **THEN** the answer names the local actor in tenant `work`
 
 ### Requirement: C ABI exports

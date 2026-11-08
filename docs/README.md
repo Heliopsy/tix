@@ -28,6 +28,7 @@ tix.
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
 | [deployment.md](deployment.md#containers) | The published container image: tags, what the image already decides, verifying the signature, Kubernetes |
 | [deployment.md](deployment.md#the-terminal-interface-over-ssh) | Serving the terminal interface over SSH: enrolling keys, the username as tenant, enrolled and demo modes |
+| [embedding.md](embedding.md) | Running tix inside an app with no server: the Go package, the C ABI, building the library per platform, loopback only |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [import-export.md](import-export.md) | A project's tasks out as CSV, JSON, NDJSON or Markdown, and files from tix, Jira, GitHub, Trello or Linear in, with mapping |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
