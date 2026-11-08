@@ -205,18 +205,6 @@ count happen in one change and neither can drift from the other.
 - **THEN** the count is the number the gate records
 - **AND** a gap put back fails the gate
 
-### Requirement: The registry keeps the tenant creation and deletion gaps
-
-The registry SHALL go on recording a terminal gap against `tenant.create` and `tenant.delete`, each with the
-reason that a session pinned to one tenant is neither where another is made nor where the one in use is
-destroyed.
-
-#### Scenario: The two that stay are still recorded
-
-- **WHEN** the registry is asked for its terminal gaps
-- **THEN** `tenant.create` and `tenant.delete` are among them
-- **AND** each carries a reason
-
 ### Requirement: The terminal domain binding records what it cannot gather
 
 `domain.add` SHALL record a terminal limitation naming what the screen cannot gather, because a binding that
@@ -242,18 +230,6 @@ against the real service rather than taking on trust.
 - **WHEN** the registry is asked for the operation bound to `Status`
 - **THEN** exactly one operation names that method
 - **AND** it declares a command line binding, an HTTP route and a browser screen
-
-### Requirement: The status operation's terminal absence is recorded as a gap
-
-The status operation SHALL record a terminal gap rather than an exemption, because the terminal interface
-has no administration screen at all and the server is one more thing it cannot show, which is a parity
-defect kept visible rather than an operation a terminal cannot serve.
-
-#### Scenario: The terminal absence is recorded as a gap
-
-- **WHEN** the registry is asked for its terminal gaps
-- **THEN** the status operation is among them
-- **AND** its reason is marked as a gap rather than as an operation the terminal cannot serve
 
 ### Requirement: The status operation raises the gap count and the operation count by one
 
@@ -412,3 +388,46 @@ closing a gap and lowering the count happen in one change.
 - **WHEN** the terminal gaps are counted
 - **THEN** the count is the number the gate records
 - **AND** a gap put back fails the gate
+
+### Requirement: The registry binds server and global administration to the terminal
+
+The registry SHALL bind `status.read`, `connection.list` and `connection.end` to the `server` terminal
+view, and `tenant.create`, `tenant.delete`, `tenant.user.list`, `tenant.user.create`, `tenant.user.update`,
+`tenant.user.delete`, `tenant.member.add`, `global_admin.list`, `global_admin.grant`, `global_admin.revoke`
+and `account.log.any` to the `globaladmin` view.
+
+#### Scenario: None of the fourteen records a terminal exemption
+
+- **WHEN** the registry is read
+- **THEN** each of the fourteen declares a terminal binding and no terminal exemption
+
+### Requirement: The terminal tenant deletion records what it does not delete
+
+`tenant.delete` SHALL record a terminal limitation saying the session's own tenant is not deleted from the
+terminal.
+
+#### Scenario: The shortfall is readable off the operation
+
+- **WHEN** `tenant.delete` is read from the registry
+- **THEN** it records a terminal limitation
+
+### Requirement: An operation needing global admin is permitted on the service's report
+
+`Operation.Permits` SHALL answer, for an operation whose scope is `global:admin`, whether the actor carries
+the service's global admin report, because the policy decides global admin from the store and not from a
+scope a session holds.
+
+#### Scenario: A reported global admin is permitted
+
+- **WHEN** an actor reported as a global admin and holding no scopes is asked about `ListGlobalAdmins`
+- **THEN** it is permitted, and an actor without the report is not
+
+### Requirement: Server and global administration lower the terminal gap count by five
+
+The recorded terminal gap count SHALL fall by five, for `status.read`, `connection.list`,
+`connection.end`, `tenant.create` and `tenant.delete`.
+
+#### Scenario: The count follows the bindings
+
+- **WHEN** the terminal gaps are counted
+- **THEN** the count is the number the gate records
