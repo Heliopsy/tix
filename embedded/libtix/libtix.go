@@ -61,4 +61,4 @@ func TixVersion() *C.char { return out(capi.Version()) }
 // TixFree releases a string returned by any other function. NULL is ignored.
 //
 //export TixFree
-func TixFree(p *C.char) { C.free(unsafe.Pointer(p)) }
+func TixFree(p *C.char) { C.free(unsafe.Pointer(p)) } // #nosec G103 -- releasing what C.CString allocated
