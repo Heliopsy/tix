@@ -2536,6 +2536,25 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "listing own sessions and revoking one that is not ours",
+		covers: []string{"ListSessions", "RevokeSession"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			own, _, err := tg.svc.ListSessions(tg.ctx, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			current := 0
+			for _, s := range own {
+				if s.Current {
+					current++
+				}
+			}
+			unknown := tg.svc.RevokeSession(tg.ctx, "nosuchsession00000")
+			return sig{"is_list": own != nil, "current": current,
+				"unknown": string(core.KindOf(unknown))}, nil
+		},
+	},
+	{
 		name:   "granting and revoking global admin",
 		covers: []string{"GrantGlobalAdmin", "ListGlobalAdmins", "RevokeGlobalAdmin"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
