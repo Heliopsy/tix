@@ -283,9 +283,10 @@ switch is recorded in the target as `user.login` with method `switch`, and nothi
 left. Only a browser session switches: a token stays in the tenant it was minted for.
 
 `GET /api/v1/whoami` reports `tenant_key`, `tenant_name` and `theme` (the tenant's resolved palette, see
-[theming.md](theming.md#reading-the-theme-from-a-client)) for every credential, an agent's token included. For a
-person it adds `account_id` and `email`, and, for a session or a token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
-`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone. A token
+[theming.md](theming.md#reading-the-theme-from-a-client)) for every credential, an agent's token included.
+For a person it adds `account_id` and `email`, and, for a session or a token carrying `account:read`,
+`memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`, `handle` and `host`, the
+tenant's own address or empty when it is served on a shared host alone. A token
 lists them only with `account:read`, whoever it was minted for; an SSH session lists them as a browser
 session does.
 
