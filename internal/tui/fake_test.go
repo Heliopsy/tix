@@ -740,6 +740,9 @@ func (f *fakeService) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecove
 }
 func (f *fakeService) ClearUserTOTP(context.Context, string) error { return nil }
 func (f *fakeService) Logout(context.Context) error                { return nil }
+func (f *fakeService) SwitchTenant(context.Context, core.SwitchTenantInput) (*core.LoginResult, error) {
+	return nil, nil
+}
 func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core.IssuedToken, error) {
 	return nil, nil
 }
