@@ -887,9 +887,9 @@ the screen still draws. An agent's session, for one, has no second factor and no
 
 One cursor runs over the second factor, the tokens, the keys, the sessions and the log entries. `X` on a
 token, a key or a session revokes it and on the second factor removes it, each behind a confirmation naming
-what goes; a revoked token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
-removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
-status bar carries that refusal.
+what goes; a revoked token or key has nothing left to revoke and is not offered. The service decides
+whether the factor may be removed from the surface you came in on: a tenant that requires one over SSH
+refuses it there, and the status bar carries that refusal.
 
 The sessions are your browser and terminal sign-ins in this tenant, newest first, each with how and when it
 signed in, when it expires and its user agent. Revoking one signs whatever holds it out at once. The
