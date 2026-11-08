@@ -27,6 +27,7 @@ var colourSchemes = []colourScheme{
 	{Name: "light", Var: "--proj-l", Page: core.RGB{R: 0xff, G: 0xff, B: 0xff}, Surface: core.RGB{R: 0xf6, G: 0xf7, B: 0xf9}},
 	{Name: "dim", Var: "--proj-m", Page: core.RGB{R: 0x1d, G: 0x21, B: 0x26}, Surface: core.RGB{R: 0x23, G: 0x28, B: 0x2e}},
 	{Name: "dark", Var: "--proj-d", Page: core.RGB{R: 0x14, G: 0x17, B: 0x1b}, Surface: core.RGB{R: 0x1b, G: 0x1f, B: 0x24}},
+	{Name: "oled", Var: "--proj-o", Page: core.RGB{R: 0x00, G: 0x00, B: 0x00}, Surface: core.RGB{R: 0x0a, G: 0x0b, B: 0x0d}},
 }
 
 // projectColourFloor is the contrast every palette token clears against its

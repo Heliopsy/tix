@@ -15,10 +15,11 @@
      light scheme and was silently ignored in dark and dim, which is the scheme
      a browser defaults to: the feature looked like it did nothing. These
      blocks match those selectors exactly and sit after the stylesheet, so they
-     win on source order. */}}
+     win on source order. OLED and system-oled take the dark accent: the media
+     rule matches both on a dark device, and the explicit list names oled. */}}
 <style>
 :root { --accent: {{.Brand.Accent}}; --accent-soft: {{.Brand.AccentSoft}}; }
-:root[data-theme="dark"], :root[data-theme="dim"] { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
+:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dim"]) { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
 }

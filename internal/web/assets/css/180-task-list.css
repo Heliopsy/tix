@@ -110,7 +110,7 @@ li.task.is-accented, .feed > li.is-accented {
 :root[data-theme="dim"] .proj-custom { --proj: var(--proj-m); }
 :root[data-theme="dark"] .proj-custom { --proj: var(--proj-d); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dim"]) .proj-custom { --proj: var(--proj-d); }
+  :root:not([data-theme="light"]):not([data-theme="dim"]):not([data-theme="oled"]):not([data-theme="system-oled"]) .proj-custom { --proj: var(--proj-d); }
 }
 
 /* The one colour control (partials.html colour-field): predefined swatches as
