@@ -218,7 +218,7 @@ In Zed's `settings.json`, opened with `zed: open settings file` ([docs](https://
 | --- | --- |
 | Name | The operationId with dots as underscores: `task.create` is `task_create` |
 | Description | The operation's description from the document, then its method and path |
-| Input | One object: path parameters, query parameters and the JSON body's properties side by side; when a body property collides with a parameter, or the body is not an object, the body goes whole under `body` |
+| Input | One object: path parameters, query parameters and the JSON body's properties side by side; when a body property collides with a parameter, or the body is not an object, the body goes whole under `body`. Header parameters such as `Idempotency-Key` are not arguments: a tool call is not replayed from a queue, so the tools send no key |
 | Result | The JSON response as text, and as structured content when it is an object; `204` is `{"status":"ok"}` |
 | Error | A tool error carrying the API's envelope, `{"error":{"code":"not_found","message":"..."}}`, so a model reads the same kinds a script does ([scripting.md](scripting.md)) |
 | Annotations | `GET` is read-only; `PUT` and `DELETE` are idempotent; destructive tools carry the destructive hint |
