@@ -22,6 +22,10 @@ func init() {
 		"An invite link lets the person choose their own password. It works once and expires; tix sends no email, so you pass the link on yourself. A password you type yourself can be made to change at their first sign-in.": "Връзката за покана позволява на човека сам да избере парола. Тя работи веднъж и изтича; tix не изпраща имейли, затова вие предавате връзката. Парола, която въвеждате вие, може да се наложи да бъде сменена при първото влизане.",
 		"Their next sign-in with a password stops at a page asking for a new one, and goes no further until they choose it. Sessions already open and API tokens are not affected.":                                             "Следващото им влизане с парола спира на страница, която иска нова, и не продължава, докато не я изберат. Вече отворените сесии и API токените не се засягат.",
 
+		// A change the account's other tenants keep from a tenant admin.
+		"%s also belongs to another tenant, so only they or a global admin can ask them to change their password. Leave the box as it was to save the rest.": "%s е член и на друг тенант, затова само те или глобален администратор могат да поискат смяна на паролата им. Оставете полето както беше, за да запазите останалото.",
+		"%s also belongs to another tenant, so only they or a global admin can clear their second factor.":                                                   "%s е член и на друг тенант, затова само те или глобален администратор могат да изчистят втория им фактор.",
+
 		// Pending invites.
 		"Pending invites": "Чакащи покани",
 		"Links issued and not used yet. Re-issuing stops the old link and gives you a new one to send; revoking stops it and keeps the account, without a password.": "Издадени и още неизползвани връзки. Повторното издаване спира старата връзка и ви дава нова за изпращане; отмяната я спира и запазва акаунта, без парола.",

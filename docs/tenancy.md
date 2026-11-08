@@ -200,8 +200,11 @@ password and whoever holds the link would then hold the account everywhere; a gl
 An administrator of one tenant must not be able to take over a person who also works in another, so for such
 a person a tenant admin who is not a global admin cannot set the password, require a password change or clear
 the second factor; the answer is forbidden with reason `account_in_other_tenants`, naming no other tenant.
-Only the person or a global admin can. A tenant admin keeps those powers over people who are members of
-their tenant only. Disabling and removing such a person work in this tenant alone: their sessions, tokens and
+Only the person or a global admin can. Sending the flag the person already has, or already lacks, is not a
+change and is not refused, and the browser's Manage dialog sends only the fields you changed, so renaming such
+a person or changing their role works; a refused change comes back on the dialog, beside the control that
+asked. A tenant admin keeps those powers over people who are members of their tenant only. Disabling and
+removing such a person work in this tenant alone: their sessions, tokens and
 SSH keys here stop at once, and their other tenants are untouched. Removing a person from their last tenant
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
