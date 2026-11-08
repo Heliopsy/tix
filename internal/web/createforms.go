@@ -116,9 +116,12 @@ func formOf(p core.Project, workflowKey string) projectForm {
 // refusable reports whether a refused create or save is answered by drawing
 // the form again rather than with the error screen. A not-found refusal is
 // one the reader can correct when it names a field: an unknown parent or
-// assignee is a typo in a box on the form.
+// assignee is a typo in a box on the form. So is a change to the account of
+// somebody who also belongs to another tenant, once the handler has named the
+// control that asked for it.
 func refusable(err error) bool {
-	return correctable(err) || core.KindOf(err) == core.KindNotFound && core.FieldOf(err) != ""
+	return correctable(err) || core.KindOf(err) == core.KindNotFound && core.FieldOf(err) != "" ||
+		accountElsewhere(err) && core.FieldOf(err) != ""
 }
 
 // refusedRequest is the request a refused add is drawn for: the same request

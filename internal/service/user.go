@@ -318,7 +318,8 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 // For a person who also belongs to another tenant, a tenant administrator who
 // is not a global admin may change only their standing here: the role, the
 // display name in this tenant, and whether they are disabled in this tenant.
-// Their password and the forced password change are refused.
+// Their password and the forced password change are refused; asking for the
+// forced change they already have, or already lack, is not a change at all.
 //
 // The display name is the person's name in this tenant. For somebody who
 // belongs to this tenant only it is also their account's name, which a new
@@ -338,6 +339,9 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 	reach, err := l.reachOver(ctx, account, actor.TenantID)
 	if err != nil {
 		return nil, err
+	}
+	if in.RequirePasswordChange != nil && *in.RequirePasswordChange == account.RequirePasswordChange {
+		in.RequirePasswordChange = nil
 	}
 	if !reach.account && (in.Password != nil || in.RequirePasswordChange != nil) {
 		return nil, errAccountInOtherTenants()

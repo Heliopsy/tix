@@ -97,14 +97,17 @@
      can be undone. */}}
 {{range $v.Users}}
 {{$sh := shell (print "manage-user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
+{{$m := $.Dialog.For (print "manage-user-" .User.ID)}}
+{{$label := .Label}}
 {{template "dlg-start" $sh}}
         <form method="post" action="/admin/users/update">
           {{template "csrf" $.CSRF}}
+          {{with $m.Errors.On ""}}{{template "field-error" .}}{{end}}
           <input type="hidden" name="id" value="{{.User.ID}}">
           <div class="row">
             <div>
               <label for="name-{{.User.ID}}">{{t "Display name"}}</label>
-              <input id="name-{{.User.ID}}" name="display_name" value="{{.User.DisplayName}}">
+              <input id="name-{{.User.ID}}" name="display_name" value="{{if $m.Refused}}{{$m.Value "display_name"}}{{else}}{{.User.DisplayName}}{{end}}">
             </div>
             <div>
               {{/* Pre-selected from the membership this account actually
@@ -112,6 +115,7 @@
               <label for="role-{{.User.ID}}">{{t "Role"}}</label>
               {{$role := .Role}}
               <select id="role-{{.User.ID}}" name="role">
+                {{if $m.Refused}}{{$role = $m.Value "role"}}{{end}}
                 {{if not $role}}<option value="" selected>{{t "leave unchanged"}}</option>{{end}}
                 {{range $.Data.Roles}}<option value="{{.}}" {{if eq . $role}}selected{{end}}>{{.}}</option>{{end}}
               </select>
@@ -119,17 +123,18 @@
           </div>
           <div class="field-label">
             <label class="check-inline" for="disabled-{{.User.ID}}">
-              <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if .Disabled}}checked{{end}}>
+              <input id="disabled-{{.User.ID}}" type="checkbox" name="disabled" value="1" {{if $m.Checked "disabled" .Disabled}}checked{{end}}>
               {{t "Disabled"}}
             </label>
             {{template "field-info" "A disabled account cannot sign in: its sessions are dropped and its API tokens are revoked the moment you save. Clearing the box lets it sign in again, but does not bring the old tokens back."}}
           </div>
           <div class="field-label">
             <label class="check-inline" for="pwchange-{{.User.ID}}">
-              <input id="pwchange-{{.User.ID}}" type="checkbox" name="require_password_change" value="1" {{if .User.RequirePasswordChange}}checked{{end}}>
+              <input id="pwchange-{{.User.ID}}" type="checkbox" name="require_password_change" value="1" {{if $m.Checked "require_password_change" .User.RequirePasswordChange}}checked{{end}}{{$m.Errors.Attrs "require_password_change"}}>
               {{t "Ask to change the password at next sign-in"}}
             </label>
             {{template "field-info" "Their next sign-in with a password stops at a page asking for a new one, and goes no further until they choose it. Sessions already open and API tokens are not affected."}}
+            {{with $m.Errors.On "require_password_change"}}<p class="field-error" id="{{.ID}}" role="alert">{{t "%s also belongs to another tenant, so only they or a global admin can ask them to change their password. Leave the box as it was to save the rest." $label}}</p>{{end}}
           </div>
           <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save changes"}}</button></div>
         </form>
@@ -144,6 +149,7 @@
             {{if .User.TOTPEnrolled}}{{t "This account holds a second factor."}}{{else}}{{t "This account holds no second factor."}}{{end}}
             {{t "Clearing it drops the enrolment and its recovery codes. Use it when somebody has lost both."}}
           </p>
+          {{with $m.Errors.On "totp"}}<p class="field-error" id="{{.ID}}" role="alert">{{t "%s also belongs to another tenant, so only they or a global admin can clear their second factor." $label}}</p>{{end}}
           <div class="actions"><button class="secondary" type="submit">{{t "Clear second factor"}}</button></div>
         </form>
         {{end}}
