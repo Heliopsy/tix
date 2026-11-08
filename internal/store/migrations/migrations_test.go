@@ -661,3 +661,65 @@ func TestActorDisplayNameComesFromTheAccountForAOneTenantPerson(t *testing.T) {
 		}
 	}
 }
+
+// repair_actor_links runs the two backfills that did nothing on PostgreSQL.
+// Here it starts from the rows such a database holds after 0.48.0: actors
+// left unlinked, one linked since by hand, and one whose account another actor
+// of its tenant already holds. It links what it can, leaves the rest, and
+// changes nothing on a database where the backfills already worked.
+func TestRepairActorLinksLinksWhatTheBackfillsMissed(t *testing.T) {
+	db := open(t)
+	ctx := context.Background()
+	all, err := All()
+	if err != nil {
+		t.Fatalf("All() error = %v", err)
+	}
+	version := 0
+	for _, m := range all {
+		if m.Name == "repair_actor_links" {
+			version = m.Version
+		}
+	}
+	if version == 0 {
+		t.Fatal("no repair_actor_links migration")
+	}
+	runThrough(ctx, t, db, version-1)
+
+	const at = `'2026-01-01T00:00:00Z'`
+	for _, stmt := range []string{
+		`INSERT INTO tenants (id, key, name, created_at, updated_at) VALUES ('t1','acme','Acme',` + at + `,` + at + `)`,
+		`INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES ('u1','ada@x.test','Ada',` + at + `,` + at + `)`,
+		`INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES ('u2','pat@x.test','Pat',` + at + `,` + at + `)`,
+		`INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES ('u3','sam@x.test','Sam',` + at + `,` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, kind, handle, display_name, created_at) VALUES ('u1','t1','user','ada','Ada old',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, user_id, kind, handle, display_name, created_at) VALUES ('u2','t1','u2','user','pat','Pat',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, kind, handle, display_name, created_at) VALUES ('u3','t1','user','sam','Sam',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, user_id, kind, handle, display_name, created_at) VALUES ('s3','t1','u3','user','sam2','Sam',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, kind, handle, display_name, created_at) VALUES ('bot','t1','agent','bot','Bot',` + at + `)`,
+	} {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			t.Fatalf("seeding: %v\n%s", err, stmt)
+		}
+	}
+	if _, err := Run(ctx, db); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := map[string]struct{ user, name string }{
+		"u1":  {"u1", "Ada"},
+		"u2":  {"u2", "Pat"},
+		"u3":  {"", "Sam"},
+		"s3":  {"u3", "Sam"},
+		"bot": {"", "Bot"},
+	}
+	for id, w := range want {
+		var user sql.NullString
+		var name string
+		if err := db.QueryRowContext(ctx, `SELECT user_id, display_name FROM actors WHERE id = ?`, id).Scan(&user, &name); err != nil {
+			t.Fatalf("reading actor %s: %v", id, err)
+		}
+		if user.String != w.user || name != w.name {
+			t.Errorf("actor %s = (%q, %q) after the migration, want (%q, %q)", id, user.String, name, w.user, w.name)
+		}
+	}
+}

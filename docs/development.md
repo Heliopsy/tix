@@ -68,3 +68,9 @@ CREATE VIEW open_tasks AS SELECT id FROM tasks WHERE status <> 'done';
 `TestEveryMigrationRewindsToTheSchemaItStartedFrom` fails on a migration it cannot undo, so a new one
 never needs a test's list edited. Row-level security on PostgreSQL attaches to the migration whose
 `CREATE TABLE` creates the table, read from the files as well.
+
+A data step (`UPDATE`, `INSERT`, `DELETE`) reaches every tenant's rows on PostgreSQL too: the runner
+sets `tix.migrating` for the migration's transaction and a policy on every forced table admits it, even
+when the login role is neither superuser nor `BYPASSRLS`. Test a data migration against rows that
+existed before it, with `migrationtest.Rewind`, rather than rows written on the new schema. See
+[the engine notes](../internal/store/postgres/README.md#migrations-run-outside-the-policies-they-create).

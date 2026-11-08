@@ -66,37 +66,56 @@ superuser or `BYPASSRLS` connection -- which is what the test container and
 most development setups give -- the policies do not apply and a migration sees
 every row. On the plain owner role recommended above they do apply, because RLS
 is forced, and `current_setting('tix.tenant_id', true)` is NULL, so the
-predicate is never true and **a data step sees no rows at all**.
+isolation predicate is never true.
 
-Reproduced on PostgreSQL 18: as a `NOSUPERUSER NOBYPASSRLS` owner of a table
-carrying the forced policy, `UPDATE projects SET seq_counter = ...` reports
-`UPDATE 0` against a table holding one row.
+So every migration transaction sets `tix.migrating` to `on` with
+`set_config(..., true)` before its first statement, and every forced table
+carries a second, permissive policy, `tix_migrating`, that admits every command
+while that flag is on:
 
-What that costs today, migration by migration:
+    USING (current_setting('tix.migrating', true) = 'on' AND current_user <> 'tix_app')
+
+PostgreSQL ORs permissive policies, so the isolation policy is unchanged for
+everything else. What keeps this from becoming a runtime path:
+
+- The flag is transaction-local, so it ends with the migration transaction and
+  never reaches the next transaction on the connection.
+- Only `applyMigration` sets it. `TestOnlyTheRunnerSetsTheMigrationFlag` fails
+  on any other source under `internal/` or `cmd/` that names it.
+- The policy refuses `tix_app`, the role every runtime transaction enters where
+  the login role may create it, so even a runtime transaction that set the flag
+  would still see only its own tenant
+  (`TestTheMigrationFlagWidensNoRuntimeTransaction`). Where the role cannot be
+  created, the first two points are what stand.
+
+The policy arrives with `repair_actor_links` (0.48.1) on every table that
+predates it, ahead of that migration's own statements; a table created later
+gets it from the migration that creates it, beside its isolation policy.
+`TestEveryForcedTableAdmitsTheMigrationRunner` reads the catalogue and fails on
+a forced table without it, and `TestADataStepReachesEveryTenantAsARestrictedOwner`
+runs an `UPDATE`, `INSERT` and `DELETE` through the runner as a
+`NOSUPERUSER NOBYPASSRLS` owner and requires them to reach both tenants.
+
+Before 0.48.1 a data step saw no rows at all on such a role and reported
+success. What that cost, migration by migration:
 
 - `0002_project_seq` would leave every existing project's `seq_counter` at
-  zero, which reissues task numbers. It is unreachable: 0002 shipped in v0.1.0
-  alongside 0001, so no released database has ever had a `projects` row at the
-  moment 0002 applies, and an empty table makes the step a no-op anyway.
-- `0010_token_name_unique` is reachable, on an upgrade from v0.13.x or earlier,
-  and fails loudly rather than silently. The rename it would have applied
-  affects no rows, and the `CREATE UNIQUE INDEX` in the same transaction then
-  cannot be built -- an index build reads the heap and ignores RLS, so it still
-  sees the duplicates: `ERROR: could not create unique index ... Duplicate keys
-  exist.` The transaction rolls back and the upgrade refuses, which is the
-  behaviour wanted even if the message points at the wrong cause.
+  zero. It was unreachable: 0002 shipped in v0.1.0 alongside 0001, so no
+  released database had a `projects` row when it applied.
+- `0010_token_name_unique`, on an upgrade from v0.13.x or earlier, failed
+  loudly: the rename affected no rows and the `CREATE UNIQUE INDEX` after it,
+  which reads the heap and ignores RLS, refused the duplicates.
+- `actor_user_link` (0.46.0) linked no actor to its account, so every account
+  created before 0.46.0 could not sign in in the browser, was missing from
+  `user ls` and lost its global admin standing.
+- `actor_display_name_from_account` (0.48.0) copied no name.
 
-So nothing ships broken. What is not safe is **the next data migration**: one
-whose effect no DDL in the same transaction depends on would apply to zero rows
-and report success. A migration that mutates tenant-scoped rows therefore
-cannot be reviewed as portable SQL alone until the runner is fixed.
-
-The fix belongs in the runner, not in the SQL: `applyMigration` would have to
-put the policies out of the way for the data step it is applying, and every
-route to that (lifting `FORCE ROW LEVEL SECURITY` for the transaction, entering
-a bypassing role, or driving the step once per tenant) changes the security
-posture this section rests on and needs guards of its own. It is deliberately
-not done here.
+`repair_actor_links` runs the last two again. The earlier migrations are not
+edited and still behave as they did on a database that has not reached 0.48.1,
+because the policy does not exist until then.
+`TestAnUpgradeFromBefore046LinksEveryAccountUnderRowLevelSecurity` rewinds to
+0034, writes the rows as 0.45 had them and migrates forward as a restricted
+owner, then signs in, lists users and checks global admin standing.
 
 ## Partitioning and retention
 
