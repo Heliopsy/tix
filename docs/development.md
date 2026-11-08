@@ -25,6 +25,8 @@ local and CI results cannot drift apart.
 | `just cover-check` | The coverage floor, the headroom above it, and what the run skipped |
 | `just test-shard SHARD` | One of the shards CI runs side by side; see [testing.md](testing.md#how-ci-runs-the-suite) |
 | `just ci` | Everything CI runs, locally |
+| `just lib` / `just lib-android ABI` / `just lib-ios` / `just lib-macos` / `just lib-windows` | The embedding library for the host or a platform; see [embedding.md](embedding.md#building) |
+| `just lib-test` / `just lib-notices GOOS GOARCH DIR` | The library's tests, including the C harness; its licence notices |
 
 [testing.md](testing.md) covers the suite itself: what a partial run announces, the coverage floors,
 and mutation testing with `just mutate`.
