@@ -69,6 +69,7 @@ type KeyMap struct {
 	ReadAll       key.Binding
 	Stats         key.Binding
 	Tenant        key.Binding
+	People        key.Binding
 	Refresh       key.Binding
 	Palette       key.Binding
 	Help          key.Binding
@@ -194,8 +195,11 @@ func DefaultKeyMap() KeyMap {
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
-		Stats:   key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
-		Tenant:  key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		Stats:  key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
+		Tenant: key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		// @, the mark the interface already puts in front of a handle: every
+		// capital worth having is spoken for.
+		People:  key.NewBinding(key.WithKeys("@"), key.WithHelp("@", "people")),
 		Refresh: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		// ctrl+k and :, the two keys nothing else was on. Not g: Top is bound
 		// to it, and gg-style motion is muscle memory for exactly the readers
@@ -254,6 +258,7 @@ const (
 	doInbox
 	doStats
 	doTenant
+	doPeople
 	doQuit
 	doInterrupt
 
@@ -364,6 +369,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
 		{id: doInbox, binding: k.Inbox, opens: viewInbox},
+		{id: doPeople, binding: k.People, opens: viewPeople},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -620,6 +626,9 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
 			entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back),
 		}
+	case viewPeople:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			append(k.peopleActions(may), entry(k.Back))...)
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
@@ -812,6 +821,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	case viewInbox:
 		short = []HelpEntry{entry(k.Enter), entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back)}
+	case viewPeople:
+		short = append(k.peopleActions(ctx.May), entry(k.Back))
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
 	default:

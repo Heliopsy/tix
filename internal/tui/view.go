@@ -101,6 +101,8 @@ func (m Model) viewName() string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewPeople:
+		return "people"
 	case viewHelp:
 		return "help"
 	}
@@ -157,6 +159,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.inboxLines(layout)
 	case viewMenu:
 		return m.menuLines()
+	case viewPeople:
+		return m.peopleLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -1108,6 +1112,9 @@ func (m Model) statusBar() string {
 	}
 	if m.view == viewInbox {
 		segments = append(segments, m.theme.Dim.Render(InboxCount(m.inbox, m.inboxMore)))
+	}
+	if m.view == viewPeople && m.people.loaded {
+		segments = append(segments, m.theme.Dim.Render(PeopleCount(m.people)))
 	}
 	switch {
 	case m.activityFilterErr != "":
