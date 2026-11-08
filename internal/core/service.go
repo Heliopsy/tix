@@ -434,6 +434,16 @@ type AuthService interface {
 	// member of is not found, the same answer as one that does not exist. A
 	// token cannot switch: tokens stay in the tenant they were minted for.
 	SwitchTenant(ctx context.Context, in SwitchTenantInput) (*LoginResult, error)
+	// ListSessions lists the caller's own unexpired sessions in this tenant,
+	// browser and terminal sign-ins, newest first and keyset paginated. Each
+	// names when it began and expires, how it signed in and the user agent it
+	// signed in with, and marks the one the caller presented; never its token.
+	// A token needs account:read, which "*" does not carry.
+	ListSessions(ctx context.Context, page Page) ([]SessionInfo, string, error)
+	// RevokeSession ends one of the caller's own sessions by identifier, so
+	// it stops signing anybody in. Another person's session is not found. A
+	// token needs account:read, which "*" does not carry.
+	RevokeSession(ctx context.Context, id string) error
 
 	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
 	// bound to this tenant and to the host the request was made to. Nothing
@@ -738,6 +748,25 @@ type Session struct {
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
 	// ExpiresAt is when the session stops working, in RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+}
+
+// SessionInfo describes one of the caller's sessions without its secret.
+type SessionInfo struct {
+	// ID identifies the session for revoking it. It is not a credential.
+	ID string `json:"id" yaml:"id"`
+	// CreatedAt is when the sign-in happened.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// ExpiresAt is when the session stops working.
+	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+	// Method is how it signed in: password, ssh-key or switch.
+	Method string `json:"method" yaml:"method"`
+	// SecondFactor reports that the sign-in passed a second factor.
+	SecondFactor bool `json:"second_factor" yaml:"second_factor"`
+	// UserAgent is the user agent the sign-in request sent, truncated, or
+	// empty for a session that predates recording it.
+	UserAgent string `json:"user_agent" yaml:"user_agent"`
+	// Current marks the session the caller presented with this request.
+	Current bool `json:"current" yaml:"current"`
 }
 
 // SnapshotHeader is the first record of a streamed snapshot.

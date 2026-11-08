@@ -91,6 +91,19 @@ func (p Policy) CanGlobal(actor *core.Actor, standing GlobalStanding) error {
 // tenant must learn nothing about the person's other tenants. A token pinned
 // to a project is confined to it and never reads the account.
 func (p Policy) CanReadAccount(actor *core.Actor) error {
+	return p.ownAccount(actor, "reading your account log with a token needs the account:read scope")
+}
+
+// CanManageSessions decides whether the caller may list and revoke their own
+// sessions, by CanReadAccount's rule: the token tix login stores names
+// account:read and may, while an agent's "*" token may not sign its person out.
+func (p Policy) CanManageSessions(actor *core.Actor) error {
+	return p.ownAccount(actor, "managing your sessions with a token needs the account:read scope")
+}
+
+// ownAccount admits a session, and a token naming account:read that is not
+// pinned to a project, refusing anything else with missing as the reason.
+func (p Policy) ownAccount(actor *core.Actor, missing string) error {
 	if actor == nil {
 		return core.Unauthenticated("no authenticated actor")
 	}
@@ -101,8 +114,7 @@ func (p Policy) CanReadAccount(actor *core.Actor) error {
 		return p.deny(ActionAccountRead, Resource{}, "token is pinned to a project and this action is not confined to one")
 	}
 	if !actor.HasScope(core.ScopeAccountRead) {
-		return p.deny(ActionAccountRead, Resource{},
-			"reading your account log with a token needs the account:read scope")
+		return p.deny(ActionAccountRead, Resource{}, missing)
 	}
 	return nil
 }

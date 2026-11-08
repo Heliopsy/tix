@@ -234,6 +234,14 @@ carry and which a person can only mint for themselves. A global admin reads anyb
 area, with `tix global-admin account-log EMAIL`, or `GET /api/v1/accounts/{email}/log`. A tenant admin never
 reads it, because it names the person's other tenants. A deleted account's history is kept.
 
+Your own sessions, the browser and terminal sign-ins you hold in the current tenant, are listed by the
+Sessions section of Settings, `tix account sessions`, or `GET /api/v1/account/sessions`: identifier, when each
+signed in and expires, how, whether a second factor passed, the user agent, and `current` for the one the
+request presented. `tix account sessions revoke ID`, `DELETE /api/v1/account/sessions/ID` or the section's
+Revoke button ends one. Only your own are listed or revoked; another person's identifier answers not found.
+The session token and its hash are never returned. A token needs `account:read`, as for the account log, so
+the token `tix login --tenant` stores may and an agent's `*` token may not; `tix mcp` offers neither.
+
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.
 

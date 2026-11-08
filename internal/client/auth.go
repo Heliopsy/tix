@@ -157,3 +157,13 @@ func (c *Client) RevokeToken(ctx context.Context, id string) error {
 func (c *Client) RotateToken(ctx context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
 	return call[core.IssuedToken](ctx, c, http.MethodPost, routePath(wire.RouteTokenRotate, "id", id), nil, in)
 }
+
+// ListSessions returns one page of the caller's own sessions.
+func (c *Client) ListSessions(ctx context.Context, page core.Page) ([]core.SessionInfo, string, error) {
+	return list[core.SessionInfo](ctx, c, wire.RouteAccountSessions, pageQuery(page))
+}
+
+// RevokeSession ends one of the caller's own sessions.
+func (c *Client) RevokeSession(ctx context.Context, id string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteAccountSession, "id", id), nil, nil)
+}

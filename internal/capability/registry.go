@@ -1167,6 +1167,20 @@ var registry = []Operation{
 		TUI:  "account",
 	},
 	{
+		Name: "session.list", Method: "ListSessions",
+		CLI:  "tix account sessions",
+		HTTP: apiGet(wire.RouteAccountSessions),
+		Web:  webGet(web.RouteSettings, tplSettings),
+		TUI:  "account",
+	},
+	{
+		Name: "session.revoke", Method: "RevokeSession",
+		CLI:  "tix account sessions revoke",
+		HTTP: apiDelete(wire.RouteAccountSession),
+		Web:  webPost(web.RouteSessionRevoke),
+		TUI:  "account",
+	},
+	{
 		Name: "account.log.any", Method: "GetAccountLogFor",
 		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix global-admin account-log",

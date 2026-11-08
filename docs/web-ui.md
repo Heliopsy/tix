@@ -1492,8 +1492,8 @@ fallback stays regardless: a value that does not resolve must not take a page do
 
 ### The settings screen
 
-Settings is ten sections (Profile, Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
-Second factor, Calendar feed, Database) with a navigation of plain anchors to each. Database, which
+Settings is eleven sections (Profile, Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
+Second factor, Sessions, Calendar feed, Database) with a navigation of plain anchors to each. Database, which
 names the server's database path or a redacted DSN, is drawn for a tenant administrator only, and the
 command palette offers it to nobody else either. Where the settings block has room the navigation is a
 column that stays in view beside the sections; where it does not, it is a wrapped row of links above
@@ -1758,6 +1758,17 @@ nothing is signed in yet: the page asks for the current password again beside th
 confirmation, and its only other way out is back to sign-in. The new password must be at least 12 characters
 and differ from the current one; a refusal redraws the page with the reason beside the field. Saving clears
 the flag and signs in.
+
+## Sessions
+
+Settings carries a Sessions section listing your own browser and terminal sign-ins in this tenant, newest
+first: the user agent each signed in with, when it signed in and how (password, SSH key or a tenant switch,
+and whether a second factor passed), and when it expires. The one this browser is using is marked This
+browser. Each row has a red Revoke button that opens a dialog naming what happens; the form is only in the
+dialog. Revoking another session signs whatever holds it out at once and returns to the section with a
+notice; revoking the one in use signs this browser out. Session tokens are never shown, only an identifier
+that cannot sign anybody in. Sessions that predate this list show Unknown client, because the user agent was
+not recorded then.
 
 ## Calendar feed
 

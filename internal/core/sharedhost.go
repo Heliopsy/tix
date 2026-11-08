@@ -19,6 +19,8 @@ type SessionOrigin struct {
 	Method string
 	// SecondFactor reports that the sign-in passed a second factor.
 	SecondFactor bool
+	// UserAgent is the user agent the sign-in request sent, truncated.
+	UserAgent string
 }
 
 // ServedHost describes the host a request arrived on, as the transport

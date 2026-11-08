@@ -104,6 +104,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, tenantUserHeader, v, p.tenantUserRow)
 	case []core.AccountLogEntry:
 		return renderRows(w, p, accountLogHeader, v, p.accountLogRow)
+	case []core.SessionInfo:
+		return renderRows(w, p, sessionHeader, v, p.sessionRow)
 	case core.User:
 		return renderRows(w, p, userHeader, []core.User{v}, p.userRow)
 	case *core.User:
@@ -205,6 +207,7 @@ var (
 	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
 	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "CREATED", "DISABLED"}
 	accountLogHeader      = table.Row{"WHEN", "ACTION", "TENANT", "BY", "VIA", "DETAIL"}
+	sessionHeader         = table.Row{"ID", "CREATED", "EXPIRES", "METHOD", "2FA", "CURRENT", "USER AGENT"}
 	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
 	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
@@ -328,6 +331,11 @@ func (p Painter) accountLogRow(e core.AccountLogEntry) table.Row {
 	}
 	return table.Row{p.style.Format(e.OccurredAt), string(e.Action), e.TenantKey, by, string(e.Via),
 		accountLogDetail(e.Detail)}
+}
+
+func (p Painter) sessionRow(s core.SessionInfo) table.Row {
+	return table.Row{s.ID, p.style.Format(s.CreatedAt), p.style.Format(s.ExpiresAt), s.Method,
+		yesNo(s.SecondFactor), yesNo(s.Current), truncate(s.UserAgent, 60)}
 }
 
 // accountLogDetail renders an entry's detail as key=value pairs in key order.

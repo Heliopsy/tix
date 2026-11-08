@@ -981,7 +981,7 @@ func (k KeyMap) accountBindings() []viewAction {
 	return []viewAction{
 		{gatedAction{binding: k.New, methods: []string{"CreateToken", "EnrolSSHKey",
 			"BeginTOTPEnrolment", "RegenerateRecoveryCodes"}}, "issue a token, enrol a key or a second factor"},
-		{gatedAction{binding: k.Delete, methods: []string{"RevokeToken", "RevokeSSHKey", "RemoveTOTP"}},
+		{gatedAction{binding: k.Delete, methods: []string{"RevokeToken", "RevokeSSHKey", "RevokeSession", "RemoveTOTP"}},
 			"revoke or remove the selected row"},
 		{gatedAction{binding: k.Renew, methods: []string{"RotateToken"}}, "rotate the selected token"},
 	}

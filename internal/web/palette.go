@@ -182,6 +182,7 @@ var paletteScreens = []paletteScreen{
 	{RouteSettings + "#keyboard", "Keyboard", "Settings", false, false},
 	{RouteSettings + "#dates", "Dates and times", "Settings", false, false},
 	{RouteSettings + "#second-factor", "Second factor", "Settings", false, false},
+	{RouteSettings + "#sessions", "Sessions", "Settings", false, false},
 	{Href: RouteSettings + "#database", Label: "Database", Hint: "Settings", Admin: true},
 }
 

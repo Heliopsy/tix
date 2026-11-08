@@ -29,6 +29,7 @@
   <a href="#inbox">{{t "Inbox"}}</a>
   <a href="#notifications">{{t "Notifications"}}</a>
   <a href="#second-factor">{{t "Second factor"}}</a>
+  <a href="#sessions">{{t "Sessions"}}</a>
   <a href="#calendar">{{t "Calendar feed"}}</a>
   {{if .Data.ShowTarget}}<a href="#database">{{t "Database"}}</a>{{end}}
 </nav>
@@ -533,6 +534,50 @@
   {{end}}
   </div>
 </section>
+
+{{/* The reader's own sign-ins in this tenant. Each live one carries a red
+     Revoke that only opens its dialog; the dialog holds the form. Ending the
+     one in use signs this browser out. */}}
+{{$ss := .Data.Sessions}}
+<section class="setgroup" id="sessions">
+  <h2>{{t "Sessions"}}</h2>
+  <div class="setlist">
+  {{if not $ss.Available}}
+    <div class="setrow">
+      <div class="setrow-text">
+        <span class="setname">{{t "Signed-in sessions"}}</span>
+        <span class="sethelp">{{t "Sessions belong to a person, and this session does not speak for one, so there is nothing to manage here."}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "Not applicable"}}</span></div>
+    </div>
+  {{else}}
+    <p class="setrow setlead">{{t "Every browser and terminal sign-in you hold in this tenant. Revoke one you do not recognise, or one left signed in on a machine you no longer use."}}</p>
+    {{range $ss.Sessions}}
+    <div class="setrow session-row" id="session-{{.ID}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{if .UserAgent}}{{.UserAgent}}{{else}}{{t "Unknown client"}}{{end}}</span>{{if .Current}} <span class="chip">{{t "This browser"}}</span>{{end}}</div>
+        <span class="sethelp">{{tt "Signed in %s with %s" (when .CreatedAt) .Method}}{{if .SecondFactor}} {{t "and a second factor"}}{{end}}. {{tt "Expires %s." (when .ExpiresAt)}}</span>
+      </div>
+      <div class="setrow-ctl">{{template "dlg-open" ((opener (print "session-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke this session"))}}</div>
+    </div>
+    {{else}}
+    <div class="setrow"><span class="sethelp">{{t "No sessions. You are signed in with an API token."}}</span></div>
+    {{end}}
+    {{if $ss.More}}<p class="setrow muted">{{t "Older sessions are listed by tix account sessions --cursor."}}</p>{{end}}
+  {{end}}
+  </div>
+</section>
+{{range $ss.Sessions}}
+{{$sh := shell (print "session-revoke-" .ID) (t "Revoke this session?") "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/settings/sessions/revoke" hx-boost="false">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  <p>{{if .Current}}{{t "This is the session this browser is using, so revoking it signs you out here."}}{{else}}{{t "Whatever holds this session is signed out at once. It cannot be undone; signing in again starts a new one."}}{{end}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Revoke"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
 
 <section class="setgroup" id="calendar">
   <h2>{{t "Calendar feed"}}</h2>

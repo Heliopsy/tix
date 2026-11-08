@@ -37,7 +37,7 @@ was the only way to tell where you were.
 | integrations | `J` | webhooks and their deliveries, external sync sources, and retention, one tab each, as far as your scopes reach |
 | server | `%` | the installation, the servers registered against it, the tenant's work and second factor, and its live connections |
 | globaladmin | `!`, offered to a global admin only | every tenant and the global admins; a tenant's users; any account's log |
-| account | `$` | who you are signed in as, your second factor, your API tokens and SSH keys, and your account log |
+| account | `$` | who you are signed in as, your second factor, your API tokens, SSH keys and sessions, and your account log |
 | settings | `,` | display preferences, and what this session is connected to |
 | transfer | `V` | exports and imports of the open project's tasks, a bundle or a snapshot, by file path; over SSH, the `ssh` commands that do them instead |
 | help | `?` | the bindings of the view underneath, and the legends |
@@ -209,7 +209,7 @@ an action unbound.
 | `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token or key | board, detail, project, tenant, people, integrations, server, global admin, account |
+| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token, key or session | board, detail, project, tenant, people, integrations, server, global admin, account |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
@@ -224,7 +224,7 @@ an action unbound.
 | `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T`, `@` | projects, settings, activity, history, inbox, statistics, tenant, people | everywhere |
 | `J` | integrations: webhooks, external sync and retention | everywhere |
-| `$` | your account: tokens, SSH keys, second factor and account log | everywhere |
+| `$` | your account: tokens, SSH keys, sessions, second factor and account log | everywhere |
 | `%`, `!` | the server, global admin | everywhere they are offered |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
@@ -881,15 +881,20 @@ The view has three parts, and `esc` walks out of a part before it leaves the vie
 ## The account screen
 
 `$` opens what the browser spreads over Settings, Tokens, SSH keys and Your account: who this session is
-signed in as, your second factor, your own API tokens and SSH keys, and the newest page of your account
-log. Each section is its own read, so a refused one says why and the rest of the screen still draws. An
+signed in as, your second factor, your own API tokens and SSH keys, your sessions in this tenant, and the
+newest page of your account log. Each section is its own read, so a refused one says why and the rest of the screen still draws. An
 agent's session, for one, has no second factor and no account log to show.
 
-One cursor runs over the second factor, the tokens, the keys and the log entries. `X` on a token or a key
-revokes it and on the second factor removes it, each behind a confirmation naming what goes; a revoked
+One cursor runs over the second factor, the tokens, the keys, the sessions and the log entries. `X` on a
+token, a key or a session revokes it and on the second factor removes it, each behind a confirmation naming what goes; a revoked
 token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
 removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
 status bar carries that refusal.
+
+The sessions are your browser and terminal sign-ins in this tenant, newest first, each with how and when it
+signed in, when it expires and its user agent. Revoking one signs whatever holds it out at once. The
+terminal itself runs on a token or an SSH key, so none of them is marked as this one; a token needs
+`account:read` to see them, which the token `tix login` stores carries.
 
 `R` on a live token rotates it: a form asks how long the old value keeps working, from the browser's choices
 (stop it now, proposed, or 10 minutes, 1 hour or 24 hours), a confirmation names the token and the window,

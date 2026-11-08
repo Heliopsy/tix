@@ -91,6 +91,8 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTokens, rt.handleListTokens)
 	rt.mux.HandleFunc("POST "+wire.RouteTokens, rt.handleCreateToken)
 	rt.mux.HandleFunc("DELETE "+wire.RouteToken, rt.handleRevokeToken)
+	rt.mux.HandleFunc("GET "+wire.RouteAccountSessions, rt.handleListSessions)
+	rt.mux.HandleFunc("DELETE "+wire.RouteAccountSession, rt.handleRevokeSession)
 	rt.mux.HandleFunc("POST "+wire.RouteTokenRotate, rt.handleRotateToken)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSSHKeys, rt.handleListSSHKeys)
@@ -382,6 +384,30 @@ func (rt *Router) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 // handleRevokeToken revokes an API token.
 func (rt *Router) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	if err := rt.cfg.Service.RevokeToken(r.Context(), r.PathValue("id")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleListSessions returns a page of the caller's own sessions.
+func (rt *Router) handleListSessions(w http.ResponseWriter, r *http.Request) {
+	page, err := pageFrom(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	sessions, next, err := rt.cfg.Service.ListSessions(r.Context(), page)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, sessions, next)
+}
+
+// handleRevokeSession ends one of the caller's own sessions.
+func (rt *Router) handleRevokeSession(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.RevokeSession(r.Context(), r.PathValue("id")); err != nil {
 		WriteError(w, err)
 		return
 	}

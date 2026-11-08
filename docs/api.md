@@ -53,6 +53,12 @@ not imply it, so an agent's token does not learn where else its owner works. `PO
 and answers the enrolment in the caller's tenant with `enrolled_in` listing the tenants it was added to; a
 token needs `account:read` for it, and it takes no `actor_id`.
 
+`GET /account/sessions` lists the caller's own unexpired sessions in this tenant, newest first, as
+`{"items":[{"id","created_at","expires_at","method","second_factor","user_agent","current"}],"next_cursor"}`.
+`current` is true for the session whose cookie the request carried, and never for a token request.
+`DELETE /account/sessions/ID` ends one of them and answers `204`; another person's session, or none, is `404`.
+Neither returns a session token or its hash. A session may call both; a token needs `account:read`.
+
 ## Health
 
 | Route | Purpose |
@@ -115,7 +121,7 @@ the routes the server registers. The areas are the first segment of each operati
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
-| session | `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
+| session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
 | stats | `GET /stats` |
