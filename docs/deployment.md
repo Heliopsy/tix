@@ -41,9 +41,10 @@ The four `--ssh-*` flags belong to the same command and are listed with the list
 [Both listeners in one process](#both-listeners-in-one-process). Together the two tables are every flag
 `tix serve` registers, and a test asserts it.
 
-Two settings that shape how the server is reached have no flag and are set from configuration only:
-`server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES` and `server.cookie_security` /
-`TIX_SERVER_COOKIE_SECURITY`. See [configuration.md](configuration.md).
+Three settings that shape how the server is reached have no flag and are set from configuration only:
+`server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES`, `server.cookie_security` /
+`TIX_SERVER_COOKIE_SECURITY` and `server.public_url` / `TIX_SERVER_PUBLIC_URL`. See
+[configuration.md](configuration.md).
 
 The `--log-*` flags are global rather than serve's own, so they are not in the table above. See
 [Logs](#logs).
@@ -137,6 +138,17 @@ This is what puts `Secure` on the session cookie in this deployment. tix termina
 certificate, and the flag follows the scheme the client used rather than the scheme of the hop to the proxy. Set
 `server.cookie_security` to `always` or `never` to override the derivation; see
 [configuration.md](configuration.md).
+
+Set `server.public_url` to the address the proxy answers as. A request carries the host the proxy forwards,
+which is right for a page, but nothing outside a request knows the address: without the key an SSH session
+cannot run `tix task link`, the API's tasks carry no `web_url` and a notification channel message for a
+tenant without a domain carries no link. A request on an internal name, such as a health check or a
+colleague on the backend port, also builds its links under the key rather than under the name it used.
+
+```sh
+TIX_SERVER_PUBLIC_URL=https://tix.example.com \
+TIX_SERVER_TRUSTED_PROXIES=127.0.0.1,::1 tix serve --listen 127.0.0.1:8080
+```
 
 nginx:
 
@@ -819,7 +831,10 @@ so quote a title with spaces twice, as in the second line.
 
 What runs:
 
-- **Exactly the CLI bindings of the capability registry**, less the ones exempted for ssh. `login` and
+- **Exactly the CLI bindings of the capability registry**, and the commands that only format one of their
+  results, less the ones exempted for ssh. `task link` formats `task show` and runs wherever it does: it
+  prints the task's `web_url`, refuses `--base`, and exits 2 naming `server.public_url` on a server that
+  does not set it. `login` and
   `logout` are exempted: the key is the credential, and there is no local configuration to write. Commands
   the registry does not bind at all, `config`, `ctx`, `serve`, `init`, `tui`, `mcp`, `docs`, `completion`,
   `update`, `doctor`, `demo`, `claim exec` and the rest, are cut from the command tree before it runs, and

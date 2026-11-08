@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 22
+version: 23
 verified-against: tix 7be6cf4a (2026-11-06)
 ---
 
@@ -561,6 +561,12 @@ tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
 tix project ls -o json               # the project keys, if you do not know them
 ```
+
+When the server sets `server.public_url`, every task in `-o json` output (and
+in the API and MCP) carries `web_url`, the address a person opens it at. Hand
+that to a human instead of building a link yourself; it is absent when the
+server knows no public address, and then `tix task link` needs `--base` or a
+remote context. `tix task link` also runs over the SSH listener.
 
 `tix project rm KEY` exits 6 while the project holds tasks. Say what happens
 to them: `--move-tasks-to OTHER` (renumbered there, statuses mapped onto its
