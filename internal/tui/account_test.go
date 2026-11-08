@@ -597,3 +597,76 @@ func TestRemovingRefusesARowWithNothingToRemove(t *testing.T) {
 		})
 	}
 }
+
+func TestRotatingATokenAsksForAGraceConfirmsAndShowsTheValueOnce(t *testing.T) {
+	m, svc := accountModel(t)
+	m = selectRow(t, m, accountRowToken, "tok-ci")
+	m, _ = m.reduce(pressKey("R"))
+	if m.form.Kind != formRotateToken {
+		t.Fatalf("R opened %v, want the rotate form", m.form.Kind)
+	}
+	if got := m.form.Value("grace"); got != "Stop the old token now" {
+		t.Errorf("the rotate form proposes %q, want the old token stopped at once", got)
+	}
+	m, _ = fill(t, m, map[string]string{"grace": "Keep it working for 10 minutes"})
+	if q := m.confirm.Question(); !strings.Contains(q, "rotate token ci-bot") || !strings.Contains(q, "10 minutes") {
+		t.Fatalf("the confirmation asks %q, want it to name the token and the grace", q)
+	}
+	if len(svc.rotatedTokens) != 0 {
+		t.Fatal("the rotation ran before agreement")
+	}
+	m, cmd := m.reduce(pressKey("y"))
+	m = drainAccount(t, m, cmd)
+	in, ok := svc.rotatedTokens["tok-ci"]
+	if !ok || len(svc.rotatedTokens) != 1 || in.Grace.D() != 10*time.Minute {
+		t.Fatalf("RotateToken got %v, want tok-ci with a 10 minute grace", svc.rotatedTokens)
+	}
+	frame := m.Frame()
+	if !strings.Contains(adminSection(t, frame, "token rotated, rotated and shown once; copy it now:"), "tix_rotatedvalue") {
+		t.Errorf("the rotated value is not drawn:\n%s", frame)
+	}
+	if strings.Contains(m.statusBar(), "tix_rotatedvalue") {
+		t.Error("the rotated value went to the status bar")
+	}
+}
+
+func TestATokenThatCannotBeRotatedIsNotOffered(t *testing.T) {
+	future := time.Now().Add(time.Hour)
+	for _, tc := range []struct {
+		name, id, says string
+		token          *core.APIToken
+	}{
+		{"revoked", "tok-old", "no longer works", nil},
+		{"retiring", "tok-retiring", "already rotated",
+			&core.APIToken{ID: "tok-retiring", Name: "swap", Scopes: []core.Scope{core.ScopeTaskRead}, RevokedAt: &future}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, svc := accountModel(t)
+			if tc.token != nil {
+				svc.tokens = append(svc.tokens, *tc.token)
+				m = drainAccount(t, m, m.loadAccount())
+			}
+			m = selectRow(t, m, accountRowToken, tc.id)
+			m, _ = m.reduce(pressKey("R"))
+			if m.form.Open() || m.confirm.Open() || len(svc.rotatedTokens) != 0 {
+				t.Fatal("a token with nothing to replace was offered for rotation")
+			}
+			if !strings.Contains(m.err, tc.says) {
+				t.Errorf("the refusal says %q, want %q", m.err, tc.says)
+			}
+		})
+	}
+}
+
+func TestTheRotateKeyIsDocumentedAndGated(t *testing.T) {
+	t.Parallel()
+	has := func(help []HelpEntry) bool {
+		return slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Desc == "rotate the selected token" })
+	}
+	if !has(DefaultKeyMap().ViewHelp(viewAccount, permitAll)) {
+		t.Error("the account help does not list the rotate key")
+	}
+	if has(DefaultKeyMap().ViewHelp(viewAccount, permitOnly())) {
+		t.Error("a reader who may rotate nothing is offered the rotate key")
+	}
+}

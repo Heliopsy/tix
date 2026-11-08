@@ -236,8 +236,9 @@ func TestRotateTokenHonoursTheGraceWindowAndThenEndsIt(t *testing.T) {
 			t.Errorf("the old token inside its window is not retiring: %+v", tok)
 		}
 	}
-	if _, err := l.RotateToken(ctx, old.ID, core.RotateTokenInput{}); !core.IsKind(err, core.KindConflict) {
-		t.Errorf("rotating a retiring token again = %v, want conflict", err)
+	if _, err := l.RotateToken(ctx, old.ID, core.RotateTokenInput{}); !core.IsKind(err, core.KindConflict) ||
+		!strings.Contains(err.Error(), "already rotated") {
+		t.Errorf("rotating a retiring token again = %v, want a conflict saying it was already rotated", err)
 	}
 
 	clk.Advance(6 * time.Minute)
