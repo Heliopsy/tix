@@ -34,6 +34,10 @@ type Options struct {
 	TrustedProxies []string
 	// CookieSecurity overrides how the Secure attribute is decided.
 	CookieSecurity string
+	// PublicURL is server.public_url: the address links drawn from a request
+	// on a shared host, and channel messages, are built under. Empty keeps
+	// the request's own host.
+	PublicURL string
 	// AllowPrivateWebhookTargets lets webhook deliveries reach loopback and
 	// private network addresses. Off by default: a tenant-supplied URL
 	// reaching internal infrastructure is the classic request-forgery shape.
@@ -133,6 +137,7 @@ func Assemble(opts Options) (*Server, error) {
 		SecureCookies:   opts.CertFile != "",
 		TrustedProxies:  opts.TrustedProxies,
 		CookieSecurity:  opts.CookieSecurity,
+		PublicURL:       opts.PublicURL,
 		Probe:           opts.Store,
 		ExpectedSchema:  latest,
 	})
@@ -277,6 +282,7 @@ func workersFor(opts Options) []Worker {
 			// deny-by-default guard, which is safe but would also refuse a
 			// target an operator deliberately permitted.
 			webhook.WithGuard(webhookGuard(opts)),
+			webhook.WithPublicURL(opts.PublicURL),
 		)
 		workers = append(workers, DispatcherWorker(dispatcher))
 	}

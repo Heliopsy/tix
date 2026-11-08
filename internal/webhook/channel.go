@@ -10,6 +10,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/tasklink"
 )
 
 // Channel delivery event names, carried in HeaderEvent.
@@ -149,15 +150,28 @@ func discordText(m ChannelMessage) string {
 	return text
 }
 
-// channelBase is the address task links are built under: the tenant's first
-// domain, served over https. A tenant with no domain gets messages without a
-// link rather than a link to an address tix cannot know.
-func channelBase(ctx context.Context, tx store.Tx) string {
+// channelBase is the address task links are built under. Without a public
+// address it is the tenant's first domain over https, and a tenant with no
+// domain gets messages without a link rather than a link to an address tix
+// cannot know. With one, a tenant's own domain (one not marked shared) keeps
+// the public address's scheme, port and path, and any other tenant links
+// under the public address.
+func channelBase(ctx context.Context, tx store.Tx, public string) string {
 	domains, err := tx.ListDomains(ctx)
-	if err != nil || len(domains) == 0 {
-		return ""
+	if public == "" {
+		if err != nil || len(domains) == 0 {
+			return ""
+		}
+		return "https://" + domains[0].Hostname
 	}
-	return "https://" + domains[0].Hostname
+	if err == nil {
+		for _, d := range domains {
+			if !d.Shared {
+				return tasklink.Rehost(public, d.Hostname)
+			}
+		}
+	}
+	return public
 }
 
 // loadChannelItem names an item's task and actor for its message.

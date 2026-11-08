@@ -69,6 +69,11 @@ type Config struct {
 	// validated; this package names those constants rather than restating them.
 	CookieSecurity string
 
+	// PublicURL is server.public_url, the address people reach the browser
+	// interface at. Links built from a request on a host that serves several
+	// tenants use it in place of the request's own host; see Origin.
+	PublicURL string
+
 	// TrustedProxies lists the proxy addresses, as IPs or CIDR blocks, whose
 	// X-Forwarded-Proto and X-Forwarded-For are believed. Leaving it empty
 	// believes neither header from anybody, because any client can send them.
@@ -88,10 +93,11 @@ type Config struct {
 
 // Router serves the tix REST API.
 type Router struct {
-	cfg     Config
-	proxies *auth.ProxyPolicy
-	mux     *routeMux
-	handler http.Handler
+	cfg       Config
+	publicURL string
+	proxies   *auth.ProxyPolicy
+	mux       *routeMux
+	handler   http.Handler
 	// imports matches the routes that take MaxImportBytes; it serves nothing.
 	imports *http.ServeMux
 }
@@ -154,7 +160,8 @@ func New(cfg Config) (*Router, error) {
 		return nil, err
 	}
 
-	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux()}
+	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux(),
+		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/")}
 	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
 		rt.imports.Handle(pattern, http.NotFoundHandler())
 	}

@@ -44,6 +44,12 @@ type liveAPI struct {
 
 func newLiveAPI(t *testing.T) *liveAPI {
 	t.Helper()
+	return newLiveAPIWith(t)
+}
+
+// newLiveAPIWith is newLiveAPI over a service built with further options.
+func newLiveAPIWith(t *testing.T, with ...service.Option) *liveAPI {
+	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 	st, err := sqlite.Open(sqlitetest.Path(t), clk)
@@ -77,7 +83,7 @@ func newLiveAPI(t *testing.T) *liveAPI {
 
 	api := &liveAPI{clk: clk, lookup: tokens{}, tenant: tenant.ID, actor: actor.ID}
 	router, err := httpapi.New(httpapi.Config{
-		Service:         service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff)),
+		Service:         service.New(st, append([]service.Option{service.WithClock(clk), service.WithHooks(service.HookOff)}, with...)...),
 		Authenticator:   auth.NewChain(auth.NewBearerAuthenticator(auth.NewTokenVerifier(api.lookup, clk))),
 		DefaultTenantID: tenant.ID,
 		Logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -230,5 +236,32 @@ func TestToolsFollowTheTokenAndTheDestructiveSwitch(t *testing.T) {
 	}
 	if slices.Contains(wide, "project_delete") {
 		t.Errorf("--allow-destructive offered project_delete to a token without project:write")
+	}
+}
+
+// An agent reading a task through the tools gets the link a person opens it
+// at, when the server knows its public address, and no guess when it does not.
+func TestTaskToolsCarryTheWebAddress(t *testing.T) {
+	cases := []struct {
+		name string
+		with []service.Option
+		want any
+	}{
+		{"set", []service.Option{service.WithPublicURL("https://tix.example.com")}, "https://tix.example.com/tasks/infra-1"},
+		{"unset", nil, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := newLiveAPIWith(t, tc.with...)
+			cs := a.session(t, a.mint(t, core.ScopeTaskRead, core.ScopeTaskWrite), false)
+			created, isErr := call(t, cs, "task_create", map[string]any{"project_ref": "infra", "title": "x"})
+			if isErr || created["web_url"] != tc.want {
+				t.Fatalf("task_create answered web_url %v, want %v", created["web_url"], tc.want)
+			}
+			shown, _ := call(t, cs, "task_show", map[string]any{"ref": "infra-1"})
+			if got, present := shown["web_url"]; got != tc.want || (tc.want == nil && present) {
+				t.Fatalf("task_show answered web_url %v (present %v), want %v", got, present, tc.want)
+			}
+		})
 	}
 }

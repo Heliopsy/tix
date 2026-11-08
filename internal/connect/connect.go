@@ -421,6 +421,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
+		service.WithPublicURL(cfg.Config.Server.PublicURL),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
 		service.WithSyncHost(service.SyncHost{
 			Trusted: !ov.Serving, FileRoot: expandHome(cfg.Config.Sync.FileRoot, ov.Home),

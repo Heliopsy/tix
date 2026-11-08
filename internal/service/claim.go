@@ -109,8 +109,8 @@ func (l *Local) TaskLease(ctx context.Context, ref core.TaskRef) (*core.LeaseGra
 	return &out, nil
 }
 
-// ClaimTask takes a lease on one task.
-func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimInput) (*core.Claim, error) {
+// claimTask takes a lease on one task.
+func (l *Local) claimTask(ctx context.Context, ref core.TaskRef, in core.ClaimInput) (*core.Claim, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -172,8 +172,8 @@ func (l *Local) ClaimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 	return out, nil
 }
 
-// ClaimNext claims the highest-priority unblocked task matching the filter.
-func (l *Local) ClaimNext(ctx context.Context, in core.ClaimNextInput) (*core.Claim, error) {
+// claimNext claims the highest-priority unblocked task matching the filter.
+func (l *Local) claimNext(ctx context.Context, in core.ClaimNextInput) (*core.Claim, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -282,8 +282,8 @@ func (l *Local) applyTaskLease(ctx context.Context, m *mutation, task *core.Task
 	return grant, revised, nil
 }
 
-// RenewLease extends a live lease held under the caller's token.
-func (l *Local) RenewLease(ctx context.Context, ref core.TaskRef, token string, ttl core.Duration) (*core.Claim, error) {
+// renewLease extends a live lease held under the caller's token.
+func (l *Local) renewLease(ctx context.Context, ref core.TaskRef, token string, ttl core.Duration) (*core.Claim, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
 	if err != nil {
 		return nil, err

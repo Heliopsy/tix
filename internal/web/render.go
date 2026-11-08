@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/quickadd"
@@ -163,6 +164,10 @@ type view struct {
 	OpenAfterAdd bool
 	// Hover is whether rows, cards and controls respond to the pointer.
 	Hover bool
+	// ShareOrigin is the public web address assets/share.js builds a copied
+	// link under in place of the page's own origin, set only where the
+	// configured address applies (httpapi.PublicOrigin).
+	ShareOrigin string
 	// TaskDialog is whether this page carries the dialog a task opens in.
 	// Never on the task screen itself, which is what the dialog would show.
 	TaskDialog bool
@@ -485,6 +490,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
+		ShareOrigin:     httpapi.PublicOrigin(r),
 		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
