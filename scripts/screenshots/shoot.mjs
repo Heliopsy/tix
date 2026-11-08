@@ -293,6 +293,10 @@ function seedHostile(tix, db, env, dir) {
     if (r.status !== 0) throw new Error(`tix ${argv.slice(0, 3).join(" ")} failed: ${r.stderr || r.stdout}`);
   };
   run(["project", "create", "HOSTILE", "Hostile content"]);
+  // A second tenant for the demo admin, named past any width a sidebar
+  // entry has, so the tenant switcher and Choose a tenant are drawn.
+  run(["tenant", "create", "second", "A second tenant whose name is long enough to wrap in the sidebar of a phone"]);
+  run(["tenant", "user", "add", "second", "nadia@demo.invalid", "--role", "admin"]);
   const due = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const titles = [
     "1.1.1 Core customer problem works end-to-end",

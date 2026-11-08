@@ -19,6 +19,29 @@ For a reader who is a member of more than one tenant, the header SHALL show the 
 - **WHEN** scripting is off and the tenant button is followed
 - **THEN** the same list is drawn in place and each Switch button submits a plain form
 
+### Requirement: A tenant at its own address is a link
+
+The switcher SHALL offer a Switch button only for a tenant the current host serves. A tenant served at a domain of its own SHALL be listed as a link to that address's sign-in page.
+
+#### Scenario: Tenant with its own domain
+
+- **WHEN** a person in HO and in `away`, which has its own domain, opens the switcher on HO's shared host
+- **THEN** `away` is listed with a link to its sign-in page and no Switch button
+
+### Requirement: Sign-in on a shared host goes by the account
+
+A browser sign-in on a shared host that no header or credential pointed at a tenant SHALL accept an account that is no member of the host's own tenant, signing it in to the first tenant by key it belongs to that the host serves. After the password and any second factor, a person with more than one such tenant SHALL land on a Choose a tenant screen.
+
+#### Scenario: Member of test only
+
+- **WHEN** a member of `test` alone signs in on tix.z09.org, a shared domain of HO
+- **THEN** the session belongs to `test`
+
+#### Scenario: Member of both
+
+- **WHEN** a member of HO and `test` signs in on tix.z09.org
+- **THEN** after the password and any code the Choose a tenant screen lists both
+
 ### Requirement: The switcher lists only the reader's own memberships
 
 The switcher SHALL list only tenants the reader is a member of. A global admin's reach into other tenants SHALL stay in the Global admin area and SHALL NOT appear as switcher entries.

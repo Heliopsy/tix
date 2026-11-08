@@ -16,9 +16,18 @@ Every actor of kind user SHALL reference its account, unique per tenant. The upg
 
 ### Requirement: Sessions record how they were minted
 
-Each session SHALL record its sign-in method (`password`, `ssh` or `switch`) and whether a second factor was passed. Sessions existing before the upgrade SHALL read as `password` without a second factor.
+Each session SHALL record its sign-in method (`password`, `ssh-key` or `switch`, as the sign-in's audit entry names it) and whether a second factor was passed. Sessions existing before the upgrade SHALL read as `password` without a second factor.
 
 #### Scenario: Old session after upgrade
 
 - **WHEN** a session minted before the upgrade is used to switch to a tenant requiring a second factor
 - **THEN** a code is asked for
+
+### Requirement: Tenant domains carry a shared flag
+
+Each tenant domain SHALL carry a shared flag. Domains existing before the upgrade SHALL read as not shared.
+
+#### Scenario: Existing domain after upgrade
+
+- **WHEN** a database with a domain bound to HO is migrated
+- **THEN** the domain is not shared, and its host serves HO alone as before
