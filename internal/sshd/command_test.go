@@ -266,6 +266,8 @@ func TestEveryExcludedClassIsRefused(t *testing.T) {
 		{"project --icon-file", "project create web Web --icon-file " + secret, "--icon-file", core.ExitUsage},
 		{"project icon --out", "project icon tob --out " + written, "--out", core.ExitUsage},
 		{"user key --file", "user key add --file " + secret, "--file", core.ExitUsage},
+		{"project edit --icon-file", "project edit tob --icon-file " + secret, "--icon-file", core.ExitUsage},
+		{"domain --cert on the server", "domain add t.example.test --cert-mode file --cert " + secret + " --key " + secret, "--cert", core.ExitUsage},
 		{"sync --mapping-file", "sync source add generic x --file x.csv --mapping-file " + secret, "over ssh", core.ExitUsage},
 		{"sync --file on the server", "sync source add generic x --file " + secret, "--file", core.ExitUsage},
 	}

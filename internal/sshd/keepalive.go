@@ -60,7 +60,7 @@ func (w watched) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // The two are independent on purpose. A keepalive refreshes every deadline the
 // transport keeps, so it cannot also be what the idle decision reads: the idle
 // decision reads the activity tap, which only a keystroke moves.
-func (s *Server) watch(sess ssh.Session, quit func(), act *activity) {
+func (s *Server) watch(sess ssh.Session, quit func(), act *activity, done <-chan struct{}) {
 	ctx := sess.Context()
 	conn, ok := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	if !ok {
@@ -79,6 +79,8 @@ func (s *Server) watch(sess ssh.Session, quit func(), act *activity) {
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-done:
 			return
 		case <-idleC:
 			if act.idleFor(s.opts.Clock.Now()) < s.opts.IdleTimeout {

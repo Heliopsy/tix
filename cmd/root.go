@@ -75,6 +75,9 @@ type globals struct {
 	// prompts buffers standard input across every question one invocation
 	// asks, so a second prompt does not find the first one's read-ahead gone.
 	prompts *bufio.Reader
+	// promptCR is true when the last answer ended on a carriage return, so
+	// the line feed that may follow it is not read as an empty answer.
+	promptCR bool
 
 	resolved *config.Resolved
 	conn     *connect.Conn

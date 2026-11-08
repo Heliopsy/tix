@@ -50,8 +50,26 @@ func refused() error {
 // opened. An ambiguous fingerprint is refused rather than guessed: guessing
 // would drop somebody into the wrong tenant.
 func (e *enrolled) ActorByFingerprint(ctx context.Context, fingerprint string) (*core.Actor, error) {
+	actor, key, err := e.resolveKey(ctx, fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	e.touch(ctx, *key)
+	return actor, nil
+}
+
+// resolve answers what ActorByFingerprint answers without recording a use, so
+// a running command can be rechecked as often as it likes.
+func (e *enrolled) resolve(ctx context.Context, fingerprint string) (*core.Actor, error) {
+	actor, _, err := e.resolveKey(ctx, fingerprint)
+	return actor, err
+}
+
+// resolveKey finds the enrolment a fingerprint and the offered username
+// select, and the actor and authority behind it.
+func (e *enrolled) resolveKey(ctx context.Context, fingerprint string) (*core.Actor, *core.SSHKey, error) {
 	if strings.TrimSpace(fingerprint) == "" {
-		return nil, refused()
+		return nil, nil, refused()
 	}
 	var found []core.SSHKey
 	if err := e.store.Unscoped(ctx, func(u store.UnscopedTx) error {
@@ -59,22 +77,20 @@ func (e *enrolled) ActorByFingerprint(ctx context.Context, fingerprint string) (
 		found, err = u.FindSSHKeysByFingerprint(ctx, fingerprint)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(found) == 0 {
-		return nil, refused()
+		return nil, nil, refused()
 	}
-
 	key, err := e.narrow(ctx, found, usernameFrom(ctx))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	actor, err := e.actor(ctx, *key)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	e.touch(ctx, *key)
-	return actor, nil
+	return actor, key, nil
 }
 
 // narrow picks the one enrolment this connection runs as, or refuses.
