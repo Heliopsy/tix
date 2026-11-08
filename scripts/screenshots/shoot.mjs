@@ -438,6 +438,15 @@ async function addHostileFixtures(page, base, taskRef) {
     await api("POST", `/tasks/${encodeURIComponent(taskRef)}/comments`, { body: i % 2 ? body : `${hex}${hex} ${url}` });
   }
   if (created[0]) await api("PATCH", `/tasks/${encodeURIComponent(taskRef)}`, { parent_ref: created[0], version: 0 });
+  // A subtask chain deeper than the task screen draws at once, with the
+  // longest titles, so the tree's indent, its fold buttons and the Show
+  // subtasks link are captured at phone width.
+  let parent = taskRef;
+  for (let i = 1; i <= 5; i++) {
+    const sub = await api("POST", "/tasks", { project_ref: taskRef.replace(/-\d+$/, ""), title: title(i), parent_ref: parent });
+    if (!sub?.ref) break;
+    parent = sub.ref;
+  }
   for (let i = 1; i <= 3; i++) {
     await api("POST", "/users", {
       display_name: `${word} ${i} Konstantinopolskaya-${word}`,
@@ -1231,12 +1240,20 @@ async function main() {
   await signIn(lp, target);
   const wanted = new Set();
   for (const r of MANIFEST.routes) for (const v of Object.values(r.params || {})) wanted.add(v);
+  let seeded = "";
   if (target.local) {
     const pre = await resolveParams(lp, target.base, ["task"]);
     await addFixtures(lp, target.base, pre.task);
-    if (args.hostile) await addHostileFixtures(lp, target.base, pre.task);
+    if (args.hostile) {
+      await addHostileFixtures(lp, target.base, pre.task);
+      seeded = pre.task;
+    }
   }
   const values = await resolveParams(lp, target.base, [...wanted]);
+  // The hostile fixtures add tasks ahead of the one they decorated, so the
+  // listing's first task is no longer it. Capture the task that carries the
+  // long body, the comments and the subtask chain.
+  if (seeded) values.task = seeded;
   const storageState = await login.storageState();
   await login.close();
 
