@@ -93,6 +93,7 @@ var columnSets = map[string][]Column{
 	"domains": {
 		{Key: "verified", Label: "Verified", Default: true},
 		{Key: "cert", Label: "Certificate", Default: true},
+		{Key: "shared", Label: "Shared", Default: true},
 	},
 	// The projects listing had five: Name, Colour, State, Screens, Manage.
 	// It is not a table any more -- it is a row per project carrying its

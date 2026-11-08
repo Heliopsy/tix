@@ -127,6 +127,62 @@ func (l *Local) findCandidate(ctx context.Context, scope core.TenantScope, email
 	return out, nil
 }
 
+// sharedHostCandidate is sign-in on a shared host that no header or
+// credential pointed at a tenant: the account comes first, and when it is no
+// member of the host's own tenant the sign-in goes to the first tenant, by
+// key, it is a member of and that this host serves. The person picks another
+// from the switcher once signed in. Anywhere else it answers the candidate it
+// was given, so the failure stays the one a wrong password gives.
+func (l *Local) sharedHostCandidate(ctx context.Context, scope core.TenantScope, email string,
+	cand candidate,
+) (candidate, error) {
+	host, ok := core.ServedHostFrom(ctx)
+	if !ok || !host.Shared || host.Named || email == "" {
+		return cand, nil
+	}
+	var account *core.User
+	if err := l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+		found, _, err := u.GetUserByEmail(ctx, email)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		account = found
+		return err
+	}); err != nil || account == nil {
+		return cand, err
+	}
+	found, err := l.membershipsOf(ctx, account.ID)
+	if err != nil {
+		return cand, err
+	}
+	for _, m := range found {
+		if m.TenantID == scope.TenantID || !host.Serves(m.TenantID, m.Host) {
+			continue
+		}
+		alt, err := l.findCandidate(ctx, core.TenantScope{TenantID: m.TenantID}, email)
+		if err != nil {
+			return cand, err
+		}
+		if alt.usable() {
+			return alt, nil
+		}
+	}
+	return cand, nil
+}
+
+// servedHere reports whether the second step of a sign-in on a shared host
+// may complete in the tenant its ticket names, which the first step chose
+// for the account rather than the host. The ticket is sealed by this server,
+// so the tenant in it is the one the password was checked against.
+func (l *Local) servedHere(ctx context.Context, tenantID string) bool {
+	host, ok := core.ServedHostFrom(ctx)
+	if !ok || !host.Shared || host.Named {
+		return false
+	}
+	addr, err := l.TenantAddress(ctx, tenantID)
+	return err == nil && host.Serves(tenantID, addr)
+}
+
 // usable reports whether the candidate may be logged in with password.
 //
 // A person with an actor here but no membership, removed from this tenant or
@@ -180,6 +236,12 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 	if err != nil {
 		return nil, err
 	}
+	if !cand.usable() {
+		if cand, err = l.sharedHostCandidate(ctx, scope, email, cand); err != nil {
+			return nil, err
+		}
+		scope = core.TenantScope{TenantID: cand.tenant}
+	}
 	stored := l.dummyHash()
 	if cand.hash != "" {
 		stored = cand.hash
@@ -212,7 +274,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 	if changed != "" {
 		record := func(m *mutation) error { return recordPasswordChange(ctx, m, cand.user, changed) }
 		if challenge == nil {
-			return l.mintSession(ctx, scope, sessionActor, cand.user, "", core.LoginMethodPassword, record)
+			return l.mintSession(ctx, scope, sessionActor, cand.user, "", passwordOrigin, record)
 		}
 		// The second factor is a separate step, so the new password is kept
 		// now: the person signs in with it from here on whether or not they
@@ -227,7 +289,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		// here would be a write on a path that may never produce a session.
 		return &core.LoginResult{Challenge: challenge}, nil
 	}
-	return l.mintSession(ctx, scope, sessionActor, cand.user, rehashed, core.LoginMethodPassword, nil)
+	return l.mintSession(ctx, scope, sessionActor, cand.user, rehashed, passwordOrigin, nil)
 }
 
 // replacementPassword hashes the new password a sign-in carries, once the old
@@ -339,6 +401,9 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	if err != nil {
 		return nil, err
 	}
+	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
+		scope = core.TenantScope{TenantID: ticket.TenantID}
+	}
 	if ticket.TenantID != scope.TenantID || ticket.Surface != surface {
 		return nil, core.Unauthenticated("this sign-in has expired; start again")
 	}
@@ -393,7 +458,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	}
 
 	if !pending {
-		return l.mintSession(ctx, scope, sessionActor, user, "", method, func(m *mutation) error {
+		return l.mintSession(ctx, scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
 			return m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt)
 		})
 	}
@@ -409,7 +474,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	for _, h := range hashes {
 		rows = append(rows, core.RecoveryCode{UserID: user.ID, CodeHash: h})
 	}
-	out, err := l.mintSession(ctx, scope, sessionActor, user, "", method, func(m *mutation) error {
+	out, err := l.mintSession(ctx, scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt); err != nil {
 			return err
 		}
@@ -448,7 +513,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 func (l *Local) loginWithRecoveryCode(ctx context.Context, scope core.TenantScope, actor *core.Actor,
 	user *core.User, method, submitted string, codeErr error,
 ) (*core.LoginResult, error) {
-	result, err := l.mintSessionIf(ctx, scope, actor, method, func(m *mutation) (bool, error) {
+	result, err := l.mintSessionIf(ctx, scope, actor, factorOrigin(method), func(m *mutation) (bool, error) {
 		id, spent, err := l.spendRecoveryCode(ctx, m, user.ID, submitted, m.now)
 		if err != nil {
 			return false, err
@@ -490,12 +555,20 @@ func (c candidate) sessionActor(scope core.TenantScope) *core.Actor {
 	}
 }
 
+// passwordOrigin is a session minted by a password with no second factor.
+var passwordOrigin = core.SessionOrigin{Method: core.LoginMethodPassword}
+
+// factorOrigin is a session minted by method after a second factor passed.
+func factorOrigin(method string) core.SessionOrigin {
+	return core.SessionOrigin{Method: method, SecondFactor: true}
+}
+
 // mintSession writes the session, the optional password rehash and whatever
 // else the sign-in has to record, in one transaction.
 func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *core.Actor,
-	user *core.User, rehashed, method string, also func(*mutation) error,
+	user *core.User, rehashed string, origin core.SessionOrigin, also func(*mutation) error,
 ) (*core.LoginResult, error) {
-	out, err := l.mintSessionIf(ctx, scope, actor, method, func(m *mutation) (bool, error) {
+	out, err := l.mintSessionIf(ctx, scope, actor, origin, func(m *mutation) (bool, error) {
 		if rehashed != "" {
 			if err := m.tx.UpdateUser(ctx, user, rehashed); err != nil {
 				return false, err
@@ -518,7 +591,7 @@ func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *
 // mintSessionIf mints a session only when also reports the sign-in may
 // complete, so a check that has to run inside the transaction can refuse
 // without leaving a session behind. It answers nil, nil when it refused.
-func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, method string,
+func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, origin core.SessionOrigin,
 	also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
 	minted, err := auth.MintSession(l.clock, auth.SessionInput{
@@ -536,12 +609,13 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 		if ok, err = also(m); err != nil || !ok {
 			return err
 		}
-		if err := m.tx.CreateSession(ctx, actor.ID, minted.Stored.TokenHash, minted.Session.ExpiresAt); err != nil {
+		if err := m.tx.CreateSession(ctx, actor.ID, minted.Stored.TokenHash, minted.Session.ExpiresAt,
+			origin); err != nil {
 			return err
 		}
 		return m.Record(auditUserLogin, eventSessionCreated, "session", actor.ID, "", nil,
-			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": method},
-			map[string]any{"actor_id": actor.ID, "handle": actor.Handle, "method": method})
+			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": origin.Method},
+			map[string]any{"actor_id": actor.ID, "handle": actor.Handle, "method": origin.Method})
 	}); err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 )
@@ -18,6 +19,7 @@ import (
 // global admin.
 type twoTenants struct {
 	l           *Local
+	clk         *clock.Fake
 	home, other core.TenantScope
 	homeAdmin   *core.Actor
 	otherAdmin  *core.Actor
@@ -31,7 +33,7 @@ const patEmail = "pat@example.com"
 
 func newTwoTenants(t *testing.T, opts ...Option) twoTenants {
 	t.Helper()
-	l, _, scope, admin := newLocalWith(t, opts...)
+	l, clk, scope, admin := newLocalWith(t, opts...)
 	other := otherTenantActor(t, l)
 	global, _ := globalAdmin(t, l, admin, "root@acme.test")
 	homePat, err := l.CreateUser(authContext(admin), core.CreateUserInput{
@@ -45,7 +47,7 @@ func newTwoTenants(t *testing.T, opts ...Option) twoTenants {
 		t.Fatalf("adding pat to the other tenant: %v", err)
 	}
 	return twoTenants{
-		l: l, home: scope, other: core.TenantScope{TenantID: other.TenantID},
+		l: l, clk: clk, home: scope, other: core.TenantScope{TenantID: other.TenantID},
 		homeAdmin: admin, otherAdmin: other, global: global,
 		homePat: homePat, otherPat: otherPat, otherKey: "other",
 	}

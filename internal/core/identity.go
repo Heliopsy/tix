@@ -184,6 +184,17 @@ type Actor struct {
 	// alone; the account and its other tenants are untouched. Never
 	// serialised.
 	DisabledAt *time.Time `json:"-" yaml:"-"`
+	// AccountID is the account behind a user actor, on the answer to WhoAmI.
+	AccountID string `json:"account_id,omitempty" yaml:"account_id,omitempty"`
+	// Email is that account's sign-in address, on the answer to WhoAmI.
+	Email string `json:"email,omitempty" yaml:"email,omitempty"`
+	// TenantKey and TenantName name the actor's tenant, on the answer to
+	// WhoAmI.
+	TenantKey  string `json:"tenant_key,omitempty" yaml:"tenant_key,omitempty"`
+	TenantName string `json:"tenant_name,omitempty" yaml:"tenant_name,omitempty"`
+	// Memberships are every tenant the account is a member of, on the answer
+	// to WhoAmI for a session or a token carrying account:read.
+	Memberships []AccountMembership `json:"memberships,omitempty" yaml:"memberships,omitempty"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
@@ -353,6 +364,9 @@ type AccountMembership struct {
 	Handle string `json:"handle" yaml:"handle"`
 	// Role is the role the membership grants.
 	Role Role `json:"role" yaml:"role"`
+	// Host is the tenant's own address, a domain not marked shared; empty when
+	// it is served only on a shared host.
+	Host string `json:"host" yaml:"host"`
 }
 
 // Membership grants a human a role within one tenant.

@@ -19,6 +19,7 @@
     { "pattern": "/invite/{token}", "skip": "opens only with a live invite token, which no page links to; the invite tests draw it" },
     { "pattern": "/settings" },
     { "pattern": "/account" },
+    { "pattern": "/switch" },
     { "pattern": "/settings/notifications" },
     { "pattern": "/release" },
     {
@@ -28,7 +29,10 @@
     { "pattern": "/activity/feed", "skip": "htmx fragment of /activity" },
     { "pattern": "/stats" },
     { "pattern": "/admin/status" },
-    { "pattern": "/projects" },
+    {
+      "pattern": "/projects",
+      "states": [{ "name": "tenant-switcher", "query": "?dialog=tenants", "wait": "dialog#tenants[open]" }]
+    },
     {
       "pattern": "/projects/{key}",
       "params": { "key": "project" },

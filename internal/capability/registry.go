@@ -180,6 +180,26 @@ var registry = []Operation{
 		TUI:   "tenant",
 	},
 	{
+		Name: "domain.update", Method: "UpdateDomain",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix domain edit",
+		HTTP:  apiPatch(wire.RouteDomain),
+		Web:   webPost(web.RouteGlobalDomain),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "tenant.domain.list", Method: "ListTenantDomains",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant domain ls",
+		HTTP:  apiGet(wire.RouteTenantDomains),
+		Web:   webGet(web.RouteGlobalTenant, tplGlobalUsr),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
 		Name: "domain.resolve", Method: "ResolveDomain",
 		HTTP: apiGet(wire.RouteDomain),
 		Exempt: []Exemption{
@@ -1286,6 +1306,15 @@ var registry = []Operation{
 		Web:  webPost(web.RouteLogout),
 		Exempt: []Exemption{
 			off(SurfaceTUI, "ending the session would revoke the credential the running interface is using; tix logout is the way out"),
+		},
+	},
+	{
+		Name: "session.switch", Method: "SwitchTenant",
+		HTTP: apiPost(wire.RouteSwitch),
+		Web:  webPost(web.RouteSwitch),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "a command line context holds a token, and tokens stay in the tenant they were minted for; a second tenant is a second context from tix login"),
+			off(SurfaceTUI, "the interface runs on a context's token, which cannot switch; its tenant view moves between contexts instead"),
 		},
 	},
 	{

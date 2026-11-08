@@ -153,6 +153,9 @@ type view struct {
 	// GlobalAdmin is whether the reader may act as a global admin, which is
 	// the only reader the sidebar offers the global admin area to.
 	GlobalAdmin bool
+	// Switcher is the reader's tenants, for a reader in more than one; see
+	// switcher.go.
+	Switcher *tenantSwitcher
 	// Side is the sidebar as this browser left it; see sidebar.go.
 	Side     sidebarState
 	DragMove bool
@@ -444,6 +447,7 @@ func formatCounts(counts map[string]int) string {
 func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
+	me := h.whoAmI(r)
 	return view{
 		Title:           title,
 		Lang:            langOf(r),
@@ -468,7 +472,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Brand:           h.brand(r),
 		Actor:           actor,
 		Advanced:        advancedMode(r),
-		GlobalAdmin:     h.globalAdmin(r),
+		GlobalAdmin:     me != nil && me.GlobalAdmin,
+		Switcher:        h.switcherFor(r, me, here(r)),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),

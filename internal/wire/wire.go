@@ -28,6 +28,7 @@ const (
 
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
+	RouteSwitch = APIPrefix + "/auth/switch"
 
 	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
 	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"
@@ -68,6 +69,8 @@ const (
 	// The users of a named tenant, which only a global admin reaches.
 	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
 	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
+	// RouteTenantDomains lists a named tenant's domains, for a global admin.
+	RouteTenantDomains = APIPrefix + "/tenants/{ref}/domains"
 	// RouteAccountLog is the caller's own account log.
 	RouteAccountLog = APIPrefix + "/account/log"
 	// RouteAccountLogFor is any account's log, for a global admin.

@@ -26,23 +26,14 @@ func (h *handler) globalRoutes() []route {
 		post(RouteGlobalTenantDelete, h.deleteTenant, "DeleteTenant"),
 		post(RouteGlobalAdmins, h.grantGlobalAdmin, "GrantGlobalAdmin"),
 		post(RouteGlobalAdminRevoke, h.revokeGlobalAdmin, "RevokeGlobalAdmin"),
-		get(RouteGlobalTenant, "globalusers.html", h.showGlobalUsers, "ListTenantUsers", "GetTenant"),
+		get(RouteGlobalTenant, "globalusers.html", h.showGlobalUsers, "ListTenantUsers", "GetTenant", "ListTenantDomains"),
 		post(RouteGlobalUsers, h.createGlobalUser, "CreateTenantUser"),
 		post(RouteGlobalMembers, h.addGlobalMember, "AddTenantMember"),
 		post(RouteGlobalUserUpdate, h.updateGlobalUser, "UpdateTenantUser"),
 		post(RouteGlobalUserDelete, h.deleteGlobalUser, "DeleteTenantUser"),
+		post(RouteGlobalDomain, h.updateGlobalDomain, "UpdateDomain"),
 		get(RouteGlobalAccount, accountLogTemplate, h.showGlobalAccountLog, "GetAccountLogFor"),
 	}
-}
-
-// globalAdmin reports whether the reader may act as a global admin, which
-// decides whether the sidebar offers the area at all.
-func (h *handler) globalAdmin(r *http.Request) bool {
-	if _, ok := core.ActorFrom(r.Context()); !ok {
-		return false
-	}
-	me, err := h.svc.WhoAmI(r.Context())
-	return err == nil && me.GlobalAdmin
 }
 
 // globalView is what the global admin screen renders.
@@ -209,6 +200,8 @@ type globalUsersView struct {
 	Users  []userRow
 	Roles  []core.Role
 	Pager  pager
+	// Domains are the tenant's hostnames, each with whether it is shared.
+	Domains []core.Domain
 }
 
 // globalUsersPath is the users screen of one tenant.
@@ -229,7 +222,11 @@ func (h *handler) showGlobalUsers(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	data := globalUsersView{Tenant: *tenant, Roles: core.Roles,
+	domains, err := h.svc.ListTenantDomains(r.Context(), tenant.Key)
+	if err != nil {
+		return err
+	}
+	data := globalUsersView{Tenant: *tenant, Roles: core.Roles, Domains: domains,
 		Pager: newPager(r, globalUsersPath(tenant.Key), next, len(users), "users", SizeParam)}
 	for _, u := range users {
 		data.Users = append(data.Users, userRow{User: u.User, Role: u.Role})
@@ -294,6 +291,21 @@ func (h *handler) updateGlobalUser(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 	redirect(w, r, globalUsersPath(key), "user updated")
+	return nil
+}
+
+// updateGlobalDomain marks or unmarks a domain of the named tenant as shared.
+func (h *handler) updateGlobalDomain(w http.ResponseWriter, r *http.Request) error {
+	key := field(r, "target")
+	shared := field(r, "shared") == "1"
+	if _, err := h.svc.UpdateDomain(r.Context(), field(r, "hostname"), core.UpdateDomainInput{Shared: &shared}); err != nil {
+		return err
+	}
+	if shared {
+		redirect(w, r, globalUsersPath(key)+"#domains", "domain shared")
+		return nil
+	}
+	redirect(w, r, globalUsersPath(key)+"#domains", "domain no longer shared")
 	return nil
 }
 

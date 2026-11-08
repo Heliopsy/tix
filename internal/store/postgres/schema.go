@@ -60,6 +60,22 @@ const (
 	accountLookupMigration = "account_memberships"
 )
 
+// credentialLookupSetting is the per-transaction flag that admits finding the
+// tenant a presented session or API token belongs to, on a host that serves
+// several tenants and so cannot name one before the credential is read.
+// credentialLookupPolicy grants it on sessions and api_tokens alone, for
+// SELECT alone, on the same terms as the SSH, domain and account ones. The
+// account lookup policy also reaches tenant_domains from the same migration,
+// so a membership can say which address its tenant is served on.
+// #nosec G101 -- a setting and a policy name, not credentials.
+const (
+	credentialLookupSetting = "tix.credential_lookup"
+	credentialLookupOn      = "on"
+	credentialLookupPolicy  = "tix_credential_lookup"
+	// sharedHostsMigration names the migration both policies arrive with.
+	sharedHostsMigration = "shared_hosts"
+)
+
 // partitionMonthsBack and partitionMonthsAhead bound the partitions created up
 // front, so writes never wait on partition creation.
 const (
@@ -84,6 +100,8 @@ var boolColumns = map[string]bool{
 	"user_invites.existing_account":  true,
 	"user_invites.grants_membership": true,
 	"account_log.by_global_admin":    true,
+	"tenant_domains.shared":          true,
+	"sessions.second_factor":         true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.
@@ -432,7 +450,29 @@ func adjustmentsFor(version int, now time.Time) []string {
 	out = append(out, rowLevelSecurity(version)...)
 	out = append(out, sshAuthLookup(version)...)
 	out = append(out, domainResolveLookup(version)...)
-	return append(out, accountMembershipLookup(version)...)
+	out = append(out, accountMembershipLookup(version)...)
+	return append(out, sharedHostLookups(version)...)
+}
+
+// sharedHostLookups returns the policies the shared host rests on: reading the
+// tenant of a credential by its hash, and reading a tenant's own addresses
+// for the membership listing. Every table predates the migration, so each
+// policy is dropped first for a test that rewinds past it and migrates again.
+func sharedHostLookups(version int) []string {
+	if versionNamed(sharedHostsMigration) != version {
+		return nil
+	}
+	var out []string
+	for _, table := range []string{"sessions", "api_tokens"} {
+		out = append(out,
+			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s", credentialLookupPolicy, table),
+			fmt.Sprintf("CREATE POLICY %s ON %s FOR SELECT USING (current_setting('%s', true) = '%s')",
+				credentialLookupPolicy, table, credentialLookupSetting, credentialLookupOn))
+	}
+	return append(out,
+		fmt.Sprintf("DROP POLICY IF EXISTS %s ON tenant_domains", accountLookupPolicy),
+		fmt.Sprintf("CREATE POLICY %s ON tenant_domains FOR SELECT USING (current_setting('%s', true) = '%s')",
+			accountLookupPolicy, accountLookupSetting, accountLookupOn))
 }
 
 // accountMembershipLookup returns the policies that let the membership listing

@@ -72,7 +72,7 @@ func seedIsolated(t *testing.T, s *Store, clk *clock.Fake, key, hostname string)
 		if err := tx.CreateToken(ctx, &d.token, "hash-"+key); err != nil {
 			return err
 		}
-		if err := tx.CreateSession(ctx, d.actor.ID, "session-"+key, clk.Now().Add(time.Hour)); err != nil {
+		if err := tx.CreateSession(ctx, d.actor.ID, "session-"+key, clk.Now().Add(time.Hour), core.SessionOrigin{}); err != nil {
 			return err
 		}
 		d.sshKey = core.SSHKey{ActorID: d.actor.ID, Fingerprint: "SHA256:shared",

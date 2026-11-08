@@ -533,7 +533,7 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 		return nil, err
 	}
 	if challenge == nil {
-		return l.mintSession(ctx, scope, sessionActor, live.user, "", core.LoginMethodPassword, accept)
+		return l.mintSession(ctx, scope, sessionActor, live.user, "", passwordOrigin, accept)
 	}
 	if err := l.write(ctx, sessionActor, accept); err != nil {
 		return nil, err
@@ -599,14 +599,14 @@ func (l *Local) acceptMembership(ctx context.Context, live liveInvite, surface c
 			*live.invite, after, trail)
 	}
 	if attempt != nil {
-		return l.mintSession(ctx, scope, sessionActor, live.user, "", core.LoginMethodPassword, accept)
+		return l.mintSession(ctx, scope, sessionActor, live.user, "", factorOrigin(core.LoginMethodPassword), accept)
 	}
 	challenge, err := l.secondFactorFor(ctx, scope, surface, sessionActor, live.user, core.LoginMethodPassword)
 	if err != nil {
 		return nil, err
 	}
 	if challenge == nil {
-		return l.mintSession(ctx, scope, sessionActor, live.user, "", core.LoginMethodPassword, accept)
+		return l.mintSession(ctx, scope, sessionActor, live.user, "", passwordOrigin, accept)
 	}
 	if err := l.write(ctx, sessionActor, accept); err != nil {
 		return nil, err

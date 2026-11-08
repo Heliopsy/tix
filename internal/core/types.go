@@ -109,6 +109,10 @@ type Domain struct {
 	// KeyPath is the server-side path of the PEM private key, set when CertMode
 	// is "file".
 	KeyPath string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+	// Shared reports that the host also serves the tenant a credential or the
+	// X-Tix-Tenant header names, as a host no domain claims does. Only a
+	// global admin sets it.
+	Shared bool `json:"shared" yaml:"shared"`
 	// CreatedAt is when the domain was added, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }

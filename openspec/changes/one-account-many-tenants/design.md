@@ -129,14 +129,34 @@ the request log anyway, as invite routes are.
 
 ### The shared host
 
-A host that no tenant domain claims resolves today to `DefaultTenantID`. On that host only, the tenant may
-also come from the credential: a session cookie or token of tenant T is served as tenant T, and the
-`X-Tix-Tenant` header names a tenant for sign-in and for a client that holds several contexts against one
-URL. The header is read by the transport in `resolveTenant`, once per request, never by a service, which
-is what the "Tenant resolved once per request" requirement asks. On a host bound to a tenant domain the
-header must match or be absent, and a credential of another tenant is refused as today. That keeps the
-cookie isolation that per-tenant domains give, and lets an installation with one hostname host several
-tenants, which the `test` case probably needs.
+A host is shared when no tenant domain claims it (it resolves to `DefaultTenantID`) or when the domain claiming
+it carries the `shared` flag. In production tix.z09.org is HO's domain and `test` is served on the same name,
+so "unclaimed" alone was not enough. The flag lives on the domain row rather than in server configuration, so
+it travels with the domain and is visible where domains are administered. Only a global admin sets it
+(`UpdateDomain`, `tix domain edit HOST --shared[=false]`, `PATCH /domains/{hostname}`, the Global admin tenant
+screen), and it is audited in the owning tenant: shared hosting widens what a host serves, which a tenant
+admin of the owning tenant must not decide for other tenants.
+
+`resolveTenant` reads the host once per request, before any credential is examined, and treats both kinds of
+shared host alike:
+
+1. `X-Tix-Tenant` names the tenant, for sign-in and for a client holding several contexts against one URL.
+2. Otherwise the credential picks it: the hash of the bearer token or session cookie is looked up across
+   tenants (`CredentialTenant`, unscoped, SELECT-only on `sessions` and `api_tokens` under its own
+   transaction-local flag on PostgreSQL). It returns a tenant identifier and nothing else; the credential is
+   then verified inside that tenant exactly as on any host, so a lookup that names the wrong tenant fails
+   closed.
+3. Otherwise the domain's own tenant, or the default tenant on an unclaimed host.
+
+A tenant with a domain of its own that is not shared (other than the host's own tenant) is not served on a
+shared host: a header naming it is refused, and a credential of it is ignored, so it is looked up in the
+host's tenant, finds nothing, and the visitor can still reach the sign-in page. This keeps the cookie isolation
+a tenant's own domain gives it. On a host bound to one tenant the header must name that tenant or be absent,
+and a credential of another tenant is refused as before.
+
+The transport hands the service a `ServedHost` (host, shared, owner, whether a header or credential named the
+tenant) in the context. Services never read the header; they read what the transport resolved, for
+account-first sign-in and for deciding which memberships a switch can reach.
 
 ## Tokens and SSH keys
 
@@ -334,6 +354,28 @@ link from the dialog to the Global admin area; tenants they are not a member of 
 - Writing the log needs the account behind the acting actor. A global admin acting through `inTenant` is not
   an actor of the target tenant, so the standing marker now carries the global admin's account; tenant
   creation carries it into the setup transaction, which runs as the system actor.
+
+## Implementation notes (PR 4)
+
+- The shared flag is a column on `tenant_domains`, set by a global admin only (decided by the owner). The same
+  migration adds `sessions.second_factor` and `sessions.method`.
+- `method` stores the sign-in's audit method: `password`, `ssh-key` or `switch`, so the column and the
+  `user.login` entry never disagree.
+- Sign-in on a shared host that no header or credential pointed at goes by the account: when the address is no
+  member of the host's own tenant, the first tenant by key it belongs to and the host serves is used. The second
+  step's ticket is sealed with that tenant, and the code step accepts it on the same shared host. With the
+  header set the old strict rule applies, so a CLI login names its tenant.
+- A switch ends the old session in a second transaction after the new one is written; if that fails the new
+  token is never returned. The tenant left records nothing. The target's `user.login` entry carries no session
+  reference from the source.
+- A target requiring a factor the session lacks asks for a code with the same request (no ticket); an account
+  with no factor set up is refused with `second_factor_required` rather than taken through enrolment inside a
+  switch.
+- `whoami` gains `tenant_key` and `tenant_name` besides `account_id`, `email` and `memberships`, which the web
+  header needs anyway. `memberships[].host` is the tenant's first non-shared domain, verified first.
+- The browser switcher is the first sidebar entry rather than a button beside the brand: on a phone the header
+  is a bar with no room, and the sidebar is the menu there. The form field is `to`, because the browser
+  interface refuses any request carrying a `tenant` parameter.
 
 ## Decisions
 

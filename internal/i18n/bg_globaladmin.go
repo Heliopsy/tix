@@ -31,5 +31,14 @@ func init() {
 		"tenant deleted":       "тенантът е изтрит",
 		"global admin granted": "глобалният администратор е даден",
 		"global admin revoked": "глобалният администратор е отнет",
+		// Shared domains, set by a global admin on a tenant's screen.
+		"Shared domains":   "Споделени домейни",
+		"Shared":           "Споделен",
+		"this tenant only": "само този тенант",
+		"Share this host":  "Сподели този хост",
+		"Stop sharing":     "Спри споделянето",
+		"A shared domain's host also serves the tenant a session, a token or the X-Tix-Tenant header names, so several tenants work on one address. With neither it serves this tenant. A domain that is not shared serves this tenant alone and refuses every other tenant's credential. Only a global admin changes it.": "Хостът на споделен домейн обслужва и тенанта, който посочват сесия, токен или заглавният ред X-Tix-Tenant, така че няколко тенанта работят на един адрес. Без тях обслужва този тенант. Домейн, който не е споделен, обслужва само този тенант и отказва идентификацията на всеки друг тенант. Само глобален администратор го променя.",
+		"domain shared":           "домейнът е споделен",
+		"domain no longer shared": "домейнът вече не е споделен",
 	})
 }
