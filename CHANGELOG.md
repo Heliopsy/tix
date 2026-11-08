@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.49.0](https://github.com/Heliopsy/tix/compare/v0.48.0...v0.49.0) (2026-11-08)
+
+
+### Features
+
+* **embedded:** a C ABI for dart:ffi ([6191dbd](https://github.com/Heliopsy/tix/commit/6191dbd6b9bb8d1653b9bf56d1ddb7c0a7c04451))
+* **embedded:** run tix inside another process ([72296a8](https://github.com/Heliopsy/tix/commit/72296a8350da1a9993d9345a7bbd4b0b1c838d8a))
+
+
+### Bug Fixes
+
+* **embedded:** point the macOS build at the SDK and list the docs page ([b66e8b4](https://github.com/Heliopsy/tix/commit/b66e8b4456251a2086d50e07514f30b724d51d72))
+* **store:** let PostgreSQL migrations reach every tenant's rows ([1c72f0e](https://github.com/Heliopsy/tix/commit/1c72f0e6d593ee2ab3948cefa2385385556dfc70))
+
+
+### Dependencies
+
+* **embedded:** generate the library's licence notices ([c7a94b8](https://github.com/Heliopsy/tix/commit/c7a94b8ea75e73d15d5107ce275b98143805d413))
+
 ## [0.48.0](https://github.com/Heliopsy/tix/compare/v0.47.0...v0.48.0) (2026-11-08)
 
 
