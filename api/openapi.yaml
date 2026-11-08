@@ -59,6 +59,8 @@ paths:
         GetAccountLog returns the caller's own account log, oldest first unless the page asks for desc: every change to their password, second factor, disabled state, global admin standing and memberships, in every tenant they belong to, with who made it and from which tenant. A token needs the account:read scope, which "*" does not carry.
 
         Command line: `tix account log`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: account.log
       parameters:
         - description: 'Limit is the most items one page holds: default 50, at most
@@ -134,12 +136,16 @@ paths:
         belong to, with who made it and from which tenant'
       tags:
         - account
+      x-tix-openspec:
+        - http-api
   /api/v1/accounts/{email}/log:
     get:
       description: |-
         GetAccountLogFor returns the log of the account with this email, for a global admin. Anybody else is refused.
 
         Command line: `tix global-admin account-log`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: account.log.any
       parameters:
         - description: Sign-in email of the account.
@@ -221,6 +227,8 @@ paths:
         a global admin
       tags:
         - account
+      x-tix-openspec:
+        - http-api
   /api/v1/actors:
     get:
       description: |-
@@ -804,14 +812,10 @@ paths:
         - http-api
   /api/v1/auth/switch:
     post:
-      description: 'SwitchTenant moves the caller''s browser session to another tenant
-        they are a member of, served on the same host. The answer carries a session
-        for the person''s actor there, and the session presented stops working. When
-        the target requires a second factor the presented session did not pass, the
-        answer is a code challenge instead, and the same request sent again with the
-        code completes the switch. A tenant the caller is not a member of is not found,
-        the same answer as one that does not exist. A token cannot switch: tokens
-        stay in the tenant they were minted for.'
+      description: |-
+        SwitchTenant moves the caller's browser session to another tenant they are a member of, served on the same host. The answer carries a session for the person's actor there, and the session presented stops working. When the target requires a second factor the presented session did not pass, the answer is a code challenge instead, and the same request sent again with the code completes the switch. A tenant the caller is not a member of is not found, the same answer as one that does not exist. A token cannot switch: tokens stay in the tenant they were minted for.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: session.switch
       requestBody:
         content:
@@ -856,6 +860,8 @@ paths:
         are a member of, served on the same host
       tags:
         - session
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/totp:
     delete:
       description: |-
@@ -2449,6 +2455,8 @@ paths:
         UpdateDomain changes a tenant domain, whichever tenant it belongs to. Marking it shared lets its host also serve the tenant a session, token or the X-Tix-Tenant header names, and its own tenant otherwise. Global admin only. An unmapped hostname is not_found.
 
         Command line: `tix domain edit`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: domain.update
       parameters:
         - description: Hostname, such as tix.example.com. Case, a port and a trailing
@@ -2501,6 +2509,8 @@ paths:
       summary: UpdateDomain changes a tenant domain, whichever tenant it belongs to
       tags:
         - domain
+      x-tix-openspec:
+        - http-api
   /api/v1/events:
     get:
       description: |-
@@ -8587,6 +8597,8 @@ paths:
         ListTenantDomains lists the hostnames mapped to any tenant, each with whether it is shared. Global admin only.
 
         Command line: `tix tenant domain ls`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: tenant.domain.list
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
@@ -8643,6 +8655,8 @@ paths:
         whether it is shared
       tags:
         - tenant
+      x-tix-openspec:
+        - http-api
   /api/v1/tenants/{ref}/members:
     post:
       description: |-
@@ -9132,6 +9146,8 @@ paths:
         RotateToken replaces a live API token, addressed by identifier or name, with a new one of the same name, scopes and project and the same lifetime counted from now, and returns its value once. The old token stops at once, or after a grace of up to 24h so whatever holds it can swap. A token's own actor may rotate it; another actor's needs token:admin, and the new token never carries a scope its rotator lacks.
 
         Command line: `tix token rotate`.
+
+        Specified in [`capability`](openspec/specs/capability/spec.md).
       operationId: token.rotate
       parameters:
         - description: API token ID.
@@ -9183,6 +9199,8 @@ paths:
         counted from now, and returns its value once
       tags:
         - token
+      x-tix-openspec:
+        - capability
   /api/v1/trash:
     get:
       description: |-
