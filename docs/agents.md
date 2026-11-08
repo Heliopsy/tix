@@ -470,7 +470,7 @@ two apart by filtering on the action. The entry names the token and the actor it
 | `webhook:admin` | manage webhooks |
 | `tenant:admin` | manage the tenant, its members and its domains |
 | `global:admin` | act as a global admin: create tenants, reach every tenant. Not carried by `*`; see [tenancy.md](tenancy.md#global-admins) |
-| `account:read` | read the token owner's own account history, which names every tenant they belong to. Not carried by `*`; minted only for the owner's own actor; see [tenancy.md](tenancy.md#account-history) |
+| `account:read` | read the token owner's own account history, which names every tenant they belong to, and list or revoke the owner's own sessions. Not carried by `*`; minted only for the owner's own actor; see [tenancy.md](tenancy.md#account-history) |
 | `sync:admin` | manage and run import sources |
 | `audit:read` | read the audit log |
 | `export` / `import` | stream a tenant snapshot out or in |

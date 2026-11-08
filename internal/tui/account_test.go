@@ -19,18 +19,20 @@ import (
 type accountFake struct {
 	*fakeService
 
-	tokens  []core.APIToken
-	keys    []core.SSHKey
-	totp    *core.TOTPStatus
-	log     []core.AccountLogEntry
-	logErr  error
-	totpErr error
+	tokens   []core.APIToken
+	keys     []core.SSHKey
+	totp     *core.TOTPStatus
+	log      []core.AccountLogEntry
+	logErr   error
+	totpErr  error
+	sessions []core.SessionInfo
 
 	createdTokens []core.CreateTokenInput
 	revokedTokens []string
 	rotatedTokens map[string]core.RotateTokenInput
 	enrolledKeys  []core.EnrolSSHKeyInput
 	revokedKeys   []string
+	revokedSess   []string
 	codes         []string
 	began         int
 	removed       int
@@ -49,6 +51,15 @@ func (f *accountFake) TOTPStatus(context.Context) (*core.TOTPStatus, error) {
 
 func (f *accountFake) GetAccountLog(context.Context, core.Page) ([]core.AccountLogEntry, string, error) {
 	return f.log, "", f.logErr
+}
+
+func (f *accountFake) ListSessions(context.Context, core.Page) ([]core.SessionInfo, string, error) {
+	return f.sessions, "", nil
+}
+
+func (f *accountFake) RevokeSession(_ context.Context, id string) error {
+	f.revokedSess = append(f.revokedSess, id)
+	return nil
 }
 
 func (f *accountFake) CreateToken(_ context.Context, in core.CreateTokenInput) (*core.IssuedToken, error) {
@@ -118,6 +129,8 @@ func accountService() *accountFake {
 			{ID: "tok-old", Name: "old-bot", Scopes: []core.Scope{core.ScopeTaskWrite}, CreatedAt: gone, RevokedAt: &gone},
 		},
 		keys: []core.SSHKey{{ID: "key-laptop", Label: "laptop", Fingerprint: "SHA256:abc", CreatedAt: at}},
+		sessions: []core.SessionInfo{{ID: "sess-firefox", CreatedAt: at, ExpiresAt: later, Method: "password",
+			SecondFactor: true, UserAgent: "Firefox/140"}},
 		totp: &core.TOTPStatus{RequiredSSH: true},
 		log: []core.AccountLogEntry{
 			{Seq: 2, Action: core.AccountMemberAdded, TenantKey: "acme", ByEmail: "root@example.test",
@@ -190,6 +203,8 @@ func TestTheAccountScreenListsWhatItRead(t *testing.T) {
 		{"tokens (2):", "task:read"},
 		{"tokens (2):", "revoked"},
 		{"ssh keys (1):", "SHA256:abc"},
+		{"sessions (1):", "password + second factor"},
+		{"sessions (1):", "Firefox/140"},
 		{"account log, newest first:", "account.membership_added  in acme  by root@example.test as global admin  via web  role=admin"},
 		{"account log, newest first:", "by the system  via cli-local"},
 	} {
@@ -346,6 +361,7 @@ func TestRevokingNamesTheTokenOrKeyAndWaitsForAgreement(t *testing.T) {
 	}{
 		{accountRowToken, "tok-ci", "revoke token ci-bot?", func(f *accountFake) []string { return f.revokedTokens }},
 		{accountRowKey, "key-laptop", "revoke key laptop,", func(f *accountFake) []string { return f.revokedKeys }},
+		{accountRowSession, "sess-firefox", "revoke session sess-firefox,", func(f *accountFake) []string { return f.revokedSess }},
 	} {
 		m, svc := accountModel(t)
 		m = selectRow(t, m, tc.kind, tc.id)
@@ -577,7 +593,7 @@ func TestRemovingRefusesARowWithNothingToRemove(t *testing.T) {
 		kind AccountRowKind
 		want string
 	}{
-		{"a log entry", accountRowLog, "select a token, a key or the second factor"},
+		{"a log entry", accountRowLog, "select a token, a key, a session or the second factor"},
 		{"a factor that is off", accountRowFactor, "no second factor is on"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

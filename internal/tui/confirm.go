@@ -34,6 +34,7 @@ const (
 	confirmDeleteTenantUser
 	confirmRevokeToken
 	confirmRevokeKey
+	confirmRevokeSession
 	confirmRemoveTOTP
 	confirmRecoveryCodes
 	confirmRotateToken
@@ -66,6 +67,7 @@ var confirmVerbs = map[confirmKind]string{
 	confirmDeleteTenantUser: "delete user",
 	confirmRevokeToken:      "revoke",
 	confirmRevokeKey:        "revoke",
+	confirmRevokeSession:    "revoke",
 	confirmRemoveTOTP:       "remove",
 	confirmRecoveryCodes:    "replace",
 	confirmRotateToken:      "rotate",

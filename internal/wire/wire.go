@@ -75,6 +75,10 @@ const (
 	RouteTenantDomains = APIPrefix + "/tenants/{ref}/domains"
 	// RouteAccountLog is the caller's own account log.
 	RouteAccountLog = APIPrefix + "/account/log"
+	// RouteAccountSessions lists the caller's own sessions in this tenant.
+	RouteAccountSessions = APIPrefix + "/account/sessions"
+	// RouteAccountSession ends one of the caller's own sessions.
+	RouteAccountSession = APIPrefix + "/account/sessions/{id}"
 	// RouteAccountLogFor is any account's log, for a global admin.
 	RouteAccountLogFor = APIPrefix + "/accounts/{email}/log"
 	// RouteTenantMembers adds an existing account to a tenant.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
@@ -303,6 +304,7 @@ func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expir
 		Set("created_at", t.now()).
 		Set("expires_at", timeArg(expiresAt)).
 		Set("method", origin.Method).
+		Set("user_agent", origin.UserAgent).
 		Set("second_factor", origin.SecondFactor)
 	_, err := t.execInsert(ctx, ins, "creating session for actor %q", actorID)
 	return err
@@ -348,6 +350,61 @@ func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.Sessi
 	}
 	out.SecondFactor = factor
 	return out, nil
+}
+
+var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash"}
+
+func scanSession(s scanner) (store.SessionRecord, error) {
+	var (
+		r       store.SessionRecord
+		created sql.NullTime
+		expires sql.NullTime
+		factor  bool
+	)
+	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash); err != nil {
+		return store.SessionRecord{}, mapErr(err, "scanning session")
+	}
+	r.CreatedAt, r.ExpiresAt, r.SecondFactor = scanTime(created), scanTime(expires), factor
+	return r, nil
+}
+
+// ListActorSessions returns a page of an actor's sessions that expire after now.
+func (t *tx) ListActorSessions(ctx context.Context, actorID string, now time.Time, page core.Page,
+) ([]store.SessionRecord, error) {
+	spec, err := resolvePage(page, core.SortCreatedAt, map[string]string{core.SortCreatedAt: "created_at"})
+	if err != nil {
+		return nil, err
+	}
+	b := t.builder("sessions").Select(sessionColumns...).
+		Where("actor_id = ?", actorID).
+		Where("expires_at > ?", timeArg(now))
+	rows, err := t.query(ctx, spec.apply(b, "id"), "listing sessions of actor %q", actorID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []store.SessionRecord{}
+	for rows.Next() {
+		r, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, mapRowsErr(rows, "listing sessions")
+}
+
+// DeleteActorSession removes one of an actor's sessions by identifier.
+func (t *tx) DeleteActorSession(ctx context.Context, actorID, sessionID string) error {
+	b := t.builder("sessions").Where("id = ?", sessionID).Where("actor_id = ?", actorID)
+	n, err := t.execDelete(ctx, b, "deleting session %q", sessionID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("session %q", sessionID)
+	}
+	return nil
 }
 
 // DeleteSession removes one session.

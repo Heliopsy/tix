@@ -469,6 +469,13 @@ type AuthTx interface {
 	// DeleteActorSessions ends every session an actor holds, so removing or
 	// disabling a user takes effect immediately rather than at expiry.
 	DeleteActorSessions(ctx context.Context, actorID string) (int64, error)
+	// ListActorSessions returns a page of an actor's sessions that expire
+	// after now, each with its token hash so the caller can tell which one
+	// was presented.
+	ListActorSessions(ctx context.Context, actorID string, now time.Time, page core.Page) ([]SessionRecord, error)
+	// DeleteActorSession removes one of an actor's sessions by identifier. A
+	// session of another actor, or none, is not found.
+	DeleteActorSession(ctx context.Context, actorID, id string) error
 	GetSessionByHash(ctx context.Context, tokenHash string) (actorID string, expiresAt time.Time, err error)
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
@@ -708,4 +715,11 @@ type StatsRows struct {
 	Created      int
 	StatusCounts map[string]int
 	Oldest       []core.Task
+}
+
+// SessionRecord is a stored session as a listing reads it: what a person may
+// see of it, and the token hash that never leaves the service.
+type SessionRecord struct {
+	core.SessionInfo
+	TokenHash string
 }

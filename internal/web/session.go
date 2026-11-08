@@ -25,8 +25,8 @@ func (h *handler) sessionRoutes() []route {
 		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		get(RouteAccount, accountLogTemplate, h.showAccountLog, "GetAccountLog"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
-		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions"),
+		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -233,6 +233,9 @@ type settingsView struct {
 	// recovery codes are left, and whether this tenant requires it here.
 	TOTP totpSection
 
+	// Sessions is the reader's own sign-ins, the one in use marked.
+	Sessions sessionsView
+
 	// Calendar is the reader's own feed of due dates.
 	Calendar calendarView
 	// InboxKinds are the switches that mute a kind of inbox item.
@@ -273,6 +276,10 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 	if err != nil {
 		return err
 	}
+	sessions, err := h.sessionsFor(r)
+	if err != nil {
+		return err
+	}
 	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
 		Profile:        profile,
 		TargetDescribe: h.targetDescribe,
@@ -282,6 +289,7 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		DateZone:       zone,
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
+		Sessions:       sessions,
 		Calendar:       calendar,
 		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
 		Notifications:  notes,

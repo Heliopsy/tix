@@ -12,6 +12,12 @@ operations:
   session.logout:
     hide: true
     reason: ends a browser session, which a bearer token does not have
+  session.list:
+    hide: true
+    reason: a person's browser and terminal sign-ins, which a model acting on their work has no use for
+  session.revoke:
+    hide: true
+    reason: signs a person out of a browser or terminal, which is theirs to decide, never an agent's
   session.ssh_challenge:
     hide: true
     reason: one step of an SSH key sign-in, which a bearer token never needs

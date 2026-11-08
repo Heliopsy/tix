@@ -609,6 +609,7 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 		if ok, err = also(m); err != nil || !ok {
 			return err
 		}
+		origin.UserAgent = core.TruncateUserAgent(m.via.UserAgent)
 		if err := m.tx.CreateSession(ctx, actor.ID, minted.Stored.TokenHash, minted.Session.ExpiresAt,
 			origin); err != nil {
 			return err

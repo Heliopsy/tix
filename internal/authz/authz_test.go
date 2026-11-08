@@ -516,6 +516,9 @@ func TestCanReadAccount(t *testing.T) {
 		if err := p.CanReadAccount(tc.actor); (err == nil) != tc.want {
 			t.Errorf("%s: CanReadAccount = %v, want allowed=%v", tc.name, err, tc.want)
 		}
+		if err := p.CanManageSessions(tc.actor); (err == nil) != tc.want {
+			t.Errorf("%s: CanManageSessions = %v, want allowed=%v", tc.name, err, tc.want)
+		}
 	}
 	if err := p.Can(token(core.ScopeAccountRead), ActionAccountRead, resource()); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("Can deciding account.read = %v, want it refused to the dedicated check", err)

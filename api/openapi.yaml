@@ -138,6 +138,126 @@ paths:
         - account
       x-tix-openspec:
         - http-api
+  /api/v1/account/sessions:
+    get:
+      description: |-
+        ListSessions lists the caller's own unexpired sessions in this tenant, browser and terminal sign-ins, newest first and keyset paginated. Each names when it began and expires, how it signed in and the user agent it signed in with, and marks the one the caller presented; never its token. A token needs account:read, which "*" does not carry.
+
+        Command line: `tix account sessions`.
+      operationId: session.list
+      parameters:
+        - description: 'Limit is the most items one page holds: default 50, at most
+            500.'
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Cursor is the next_cursor of the previous page, to read the
+            page after it. Leave it out for the first page.
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Sort names the field the listing is ordered by. Each listing
+            has its own default and refuses a field it cannot sort by.
+          in: query
+          name: sort
+          schema:
+            type: string
+        - description: Direction is asc or desc, default asc.
+          in: query
+          name: direction
+          schema:
+            enum:
+              - asc
+              - desc
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/SessionInfo'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: ListSessions lists the caller's own unexpired sessions in this tenant,
+        browser and terminal sign-ins, newest first and keyset paginated
+      tags:
+        - session
+  /api/v1/account/sessions/{id}:
+    delete:
+      description: |-
+        RevokeSession ends one of the caller's own sessions by identifier, so it stops signing anybody in. Another person's session is not found. A token needs account:read, which "*" does not carry.
+
+        Command line: `tix account sessions revoke`.
+      operationId: session.revoke
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: RevokeSession ends one of the caller's own sessions by identifier,
+        so it stops signing anybody in
+      tags:
+        - session
   /api/v1/accounts/{email}/log:
     get:
       description: |-
@@ -13874,6 +13994,35 @@ components:
           type: string
         token:
           description: Token is the session secret, presented as the session cookie.
+          type: string
+      type: object
+    SessionInfo:
+      description: SessionInfo describes one of the caller's sessions without its
+        secret.
+      properties:
+        created_at:
+          description: CreatedAt is when the sign-in happened.
+          format: date-time
+          type: string
+        current:
+          description: Current marks the session the caller presented with this request.
+          type: boolean
+        expires_at:
+          description: ExpiresAt is when the session stops working.
+          format: date-time
+          type: string
+        id:
+          description: ID identifies the session for revoking it. It is not a credential.
+          type: string
+        method:
+          description: 'Method is how it signed in: password, ssh-key or switch.'
+          type: string
+        second_factor:
+          description: SecondFactor reports that the sign-in passed a second factor.
+          type: boolean
+        user_agent:
+          description: UserAgent is the user agent the sign-in request sent, truncated,
+            or empty for a session that predates recording it.
           type: string
       type: object
     SnoozeInput:

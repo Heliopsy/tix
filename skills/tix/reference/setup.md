@@ -192,6 +192,14 @@ tix token create ci-agent --expires never --scope task:read
 them. Revoking a token that is not yours is recorded as `token.revoke_other`
 in the audit trail, so it can be told apart from somebody rotating their own.
 
+### Your own sessions
+
+`tix account sessions` lists your browser and terminal sign-ins in this tenant
+(identifier, created, expires, method, second factor, user agent, current);
+`tix account sessions revoke ID` ends one. Only your own: another person's
+identifier exits `3`. A token needs `account:read`, which `*` lacks (exit `5`);
+the token `tix login --tenant` stores has it. Session tokens are never printed.
+
 ## People: invites and password changes
 
 Bring a person in without choosing their password: `tix user invite EMAIL
