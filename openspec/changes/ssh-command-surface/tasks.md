@@ -17,13 +17,13 @@
 
 ## Terminal transfer view
 
-- [ ] Transfer view: task, bundle and snapshot export and import by path
-- [ ] Task import mapping steps: dry run, columns, preview, confirm
-- [ ] Hosted view names the `ssh` commands; registry Limitation on the six operations
-- [ ] Tests for the view, local and hosted
+- [x] Transfer view: task, bundle and snapshot export and import by path
+- [x] Task import mapping steps: dry run, columns, preview, confirm
+- [x] Hosted view names the `ssh` commands; registry Limitation on the six operations
+- [x] Tests for the view, local and hosted
 
 ## Docs
 
 - [x] `docs/deployment.md`: running commands over SSH, the security model
-- [ ] `docs/tui.md`: the transfer view, the hosted limitation
+- [x] `docs/tui.md`: the transfer view, the hosted limitation
 - [x] `skills/tix`: commands over SSH

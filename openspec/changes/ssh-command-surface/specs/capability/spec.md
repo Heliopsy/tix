@@ -26,3 +26,15 @@ listener, whatever its source, and otherwise the surface its source maps to.
 - **GIVEN** a tenant requiring a second factor for SSH only
 - **WHEN** a person runs `ssh acme@host user totp rm`
 - **THEN** the removal is refused as it is from a board session
+
+### Requirement: A view binding no read is offered by its scoped operations
+
+A terminal view whose operations are all writes SHALL be offered to an actor who may perform at least
+one of its operations that names a scope, since there is no read to offer it by. An operation whose
+scope varies by input SHALL NOT open such a view on its own.
+
+#### Scenario: An actor holding export only
+
+- **GIVEN** an actor holding `export` and not `import`
+- **WHEN** the terminal decides which views to offer
+- **THEN** the transfer view is offered, with its export rows only

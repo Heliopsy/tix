@@ -494,3 +494,32 @@ func TestConcurrentCommandsKeepTheirOwnOutput(t *testing.T) {
 		t.Fatalf("outputs named %v", seen)
 	}
 }
+
+// The hosted transfer view prints these commands for a person to run, so each
+// one has to work as printed.
+func TestTheCommandsTheHostedTransferViewPrintsRun(t *testing.T) {
+	_, _, client := enrolled(t, nil)
+	if r := run(t, client, "task add moved -p tob", nil, nil); r.code != 0 {
+		t.Fatalf("task add exited %d: %s", r.code, r.err)
+	}
+	bundle := run(t, client, "bundle export -p tob", nil, nil)
+	if bundle.code != 0 || bundle.out == "" {
+		t.Fatalf("bundle export: exit %d, err %q", bundle.code, bundle.err)
+	}
+	snapshot := run(t, client, "export", nil, nil)
+	if snapshot.code != 0 || snapshot.out == "" {
+		t.Fatalf("export: exit %d, err %q", snapshot.code, snapshot.err)
+	}
+	tasks := run(t, client, "export tasks -p tob", nil, nil)
+	for _, c := range []struct{ line, in string }{
+		{"bundle import --on-collision skip --preview", bundle.out},
+		{"bundle import --on-collision skip", bundle.out},
+		{"import --mode merge --dry-run", snapshot.out},
+		{"import --mode merge", snapshot.out},
+		{"import tasks -p tob --dry-run", tasks.out},
+	} {
+		if r := run(t, client, c.line, strings.NewReader(c.in), nil); r.code != 0 {
+			t.Errorf("%q: exit %d, err %q", c.line, r.code, r.err)
+		}
+	}
+}

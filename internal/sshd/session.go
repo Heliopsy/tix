@@ -152,14 +152,19 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		// What this session is offered is its actor's authority and nothing
 		// else. A sandbox visitor and an enrolled member reach this line the
 		// same way, so the set is resolved here rather than per surface.
-		Access:    capability.TUIAccess(actor),
-		Environ:   environ,
-		Color:     &color,
-		Profile:   profile,
-		Project:   l.project,
-		Start:     l.start,
-		TimeStyle: output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle),
-		Now:       s.opts.Clock.Now,
+		Access:  capability.TUIAccess(actor),
+		Environ: environ,
+		Color:   &color,
+		Profile: profile,
+		Project: l.project,
+		Start:   l.start,
+		// The listener cannot reach the client's files, so the transfer view
+		// names the command that moves them through standard input and
+		// output. The host is the one name a server cannot know it is
+		// reached by, so it stays a placeholder.
+		SSHCommand: "ssh " + printableUser(sess.User()) + "@HOST",
+		TimeStyle:  output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle),
+		Now:        s.opts.Clock.Now,
 	})
 	if notice := s.notice(); notice != "" {
 		sess.Context().SetValue(noticeKey{}, notice)
@@ -289,4 +294,20 @@ func lookupEnv(environ []string, name string) string {
 		}
 	}
 	return ""
+}
+
+// printableUser is the username a session offered, when it is plainly one,
+// and the neutral user otherwise. A demo listener ignores the username, so it
+// can carry anything a client cares to send, and it is drawn on screen.
+func printableUser(name string) string {
+	if name == "" || len(name) > 64 {
+		return NeutralUser
+	}
+	for _, r := range name {
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || strings.ContainsRune("-_.", r)
+		if !ok {
+			return NeutralUser
+		}
+	}
+	return name
 }
