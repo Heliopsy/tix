@@ -1,0 +1,110 @@
+name: just
+description: >-
+  Put the pinned just on PATH. The release archive comes from the cache main
+  saved, or is downloaded with retries, and is checked against a pinned
+  sha256 either way before it is unpacked.
+
+runs:
+  using: composite
+  steps:
+    # This replaces extractions/setup-just, which was pinned to a commit and
+    # given just-version for two reasons that still hold here.
+    #
+    # Without a version it passed an empty specifier to setup-crate, which
+    # listed casey/just releases and picked the newest. That lookup failed once
+    # mid-run with "no release for just matching version specifier", while
+    # 1.59.0 sat there published and not a prerelease, so it was the resolution
+    # that blinked rather than upstream. And this repository pins every action
+    # to a commit and then let the tool one of them installed float, which is
+    # the same hole a layer down. An exact version is one deterministic request
+    # instead of a list-and-match, and a bump is a reviewed change: the version
+    # and the four checksums below.
+    #
+    # It went because even pinned it fetched from
+    # github.com/casey/just/releases/download on every job, with two retries,
+    # and that endpoint answered 504 for hours while every other part of GitHub
+    # worked. A warm run now downloads nothing.
+    - id: plan
+      shell: bash
+      run: |
+        set -euo pipefail
+        version=1.59.0
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64)
+            target=x86_64-unknown-linux-musl
+            sum=409044617b6f06517c1035e55ca38c8c856ff8b650e41bc2aa1ef82d5903a23e ;;
+          Linux-ARM64)
+            target=aarch64-unknown-linux-musl
+            sum=23871b1702bfd550fb5f901778fd4290ecf2ee034a45a889fbe96d89b188086d ;;
+          macOS-ARM64)
+            target=aarch64-apple-darwin
+            sum=6574cea774ed4cae12e24b6aa11857de33e80dab4667cf628fd5840df96a2a9d ;;
+          macOS-X64)
+            target=x86_64-apple-darwin
+            sum=036ead9df9bc31dbae9934ae3b4236ed124d0bafcffd33439460ae084d5c9cb7 ;;
+          *)
+            echo "no pinned just for ${RUNNER_OS}-${RUNNER_ARCH}" >&2
+            exit 1 ;;
+        esac
+        dir="${HOME}/.cache/tix-tools/just-${version}"
+        {
+          echo "version=${version}"
+          echo "asset=just-${version}-${target}.tar.gz"
+          echo "sum=${sum}"
+          echo "dir=${dir}"
+          echo "key=tool-just-${version}-${RUNNER_OS}-${RUNNER_ARCH}"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}/archive
+        key: ${{ steps.plan.outputs.key }}
+
+    - if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ steps.plan.outputs.version }}
+        ASSET: ${{ steps.plan.outputs.asset }}
+        SUM: ${{ steps.plan.outputs.sum }}
+        DIR: ${{ steps.plan.outputs.dir }}
+      run: |
+        "$GITHUB_ACTION_PATH/../fetch-release-asset.sh" casey/just \
+          "$VERSION" "$ASSET" "$SUM" "$DIR/archive/$ASSET"
+
+    # Saved straight away rather than at the end of the job, so a job that
+    # fails later still leaves the download behind. Only a push to main writes
+    # it, as with the Go cache: a pull request reads main's and writes none.
+    - if: >-
+        steps.restore.outputs.cache-hit != 'true'
+        && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}/archive
+        key: ${{ steps.plan.outputs.key }}
+
+    # The checksum is checked again on a cache hit. The cache is written only
+    # from main, but the release workflow reads it too, and what it unpacks
+    # should be the pinned bytes no matter where they came from.
+    - shell: bash
+      env:
+        ASSET: ${{ steps.plan.outputs.asset }}
+        SUM: ${{ steps.plan.outputs.sum }}
+        DIR: ${{ steps.plan.outputs.dir }}
+      run: |
+        set -euo pipefail
+        archive="$DIR/archive/$ASSET"
+        if command -v sha256sum >/dev/null; then
+          got=$(sha256sum "$archive" | cut -d' ' -f1)
+        else
+          got=$(shasum -a 256 "$archive" | cut -d' ' -f1)
+        fi
+        if [ "$got" != "$SUM" ]; then
+          echo "$ASSET: sha256 $got, expected $SUM" >&2
+          exit 1
+        fi
+        mkdir -p "$DIR/bin"
+        tar -xzf "$archive" -C "$DIR/bin" just
+        echo "$DIR/bin" >> "$GITHUB_PATH"
+        "$DIR/bin/just" --version
