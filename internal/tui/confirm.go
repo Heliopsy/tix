@@ -32,6 +32,8 @@ const (
 	confirmRevokeKey
 	confirmRemoveTOTP
 	confirmRecoveryCodes
+	confirmImport
+	confirmOverwrite
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -61,6 +63,8 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRevokeKey:        "revoke",
 	confirmRemoveTOTP:       "remove",
 	confirmRecoveryCodes:    "replace",
+	confirmImport:           "import",
+	confirmOverwrite:        "overwrite",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.

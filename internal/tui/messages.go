@@ -30,6 +30,7 @@ const (
 	viewServer
 	viewGlobal
 	viewAccount
+	viewTransfer
 )
 
 // actionKind names a board action whose result is reported back.

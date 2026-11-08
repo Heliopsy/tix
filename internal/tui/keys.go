@@ -65,6 +65,7 @@ type KeyMap struct {
 	Pause         key.Binding
 	History       key.Binding
 	Inbox         key.Binding
+	Transfer      key.Binding
 	ToggleRead    key.Binding
 	ReadAll       key.Binding
 	Stats         key.Binding
@@ -192,6 +193,10 @@ func DefaultKeyMap() KeyMap {
 		// I, for the inbox. Lowercase i is free but the cross-view keys that
 		// open a screen are capitals when they are not the obvious letter.
 		Inbox: key.NewBinding(key.WithKeys("I"), key.WithHelp("I", "inbox")),
+		// V, because every letter a transfer could be named by is spoken for:
+		// t and T, x and X, e and E, o and O, and i is vim's and helix's edit.
+		// J went to integrations.
+		Transfer: key.NewBinding(key.WithKeys("V"), key.WithHelp("V", "import and export")),
 		// Space toggles the selected item and a marks everything read: the
 		// inbox's own keys, free there because the inbox acts on no task.
 		ToggleRead: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "read/unread")),
@@ -277,6 +282,7 @@ const (
 	doServer
 	doGlobal
 	doAccount
+	doTransfer
 	doQuit
 	doInterrupt
 
@@ -392,6 +398,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doServer, binding: k.Server, opens: viewServer},
 		{id: doGlobal, binding: k.Global, opens: viewGlobal},
 		{id: doAccount, binding: k.Account, opens: viewAccount},
+		{id: doTransfer, binding: k.Transfer, opens: viewTransfer},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -666,6 +673,8 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewAccount:
 		return append(append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
 			k.accountActions(may)...), append(k.pickerHelp(), entry(k.Back))...)
+	case viewTransfer:
+		return k.transferHelp(false)
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -826,6 +835,12 @@ type ActionContext struct {
 	// Integ describes the integrations view's open tab and the row under its
 	// cursor.
 	Integ IntegrationsContext
+	// Hosted reports a session the client's files are not on, where the
+	// transfer view names commands and starts nothing. HasPlan reports an
+	// import preview on screen, and CanImport that it may be written.
+	Hosted    bool
+	HasPlan   bool
+	CanImport bool
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool
@@ -881,6 +896,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.globalShort(ctx)...), entry(k.Back))
 	case viewAccount:
 		short = k.accountShort(ctx)
+	case viewTransfer:
+		short = k.transferShort(ctx)
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -1008,4 +1025,34 @@ func (k KeyMap) accountShort(ctx ActionContext) []HelpEntry {
 		out = append(out, a.entry())
 	}
 	return append(out, entry(k.Back))
+}
+
+// transferHelp lists the transfer view's bindings. Over SSH the view starts
+// nothing, so only the keys that scroll and leave it are documented there.
+func (k KeyMap) transferHelp(hosted bool) []HelpEntry {
+	if hosted {
+		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Back)}
+	}
+	return []HelpEntry{
+		entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
+		{Keys: k.Enter.Help().Key, Desc: "export or import"},
+		{Keys: k.Agree.Help().Key, Desc: "write the previewed import"},
+		{Keys: k.Back.Help().Key, Desc: "discard the preview, or back"},
+	}
+}
+
+// transferShort offers the transfer view's keys for what is on screen: the
+// transfers to start, a preview to agree to, or, over SSH, commands to read.
+func (k KeyMap) transferShort(ctx ActionContext) []HelpEntry {
+	switch {
+	case ctx.Hosted:
+		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
+	case ctx.HasPlan && ctx.CanImport:
+		return []HelpEntry{entry(k.Up), entry(k.Down), {Keys: k.Agree.Help().Key, Desc: "import"},
+			{Keys: k.Back.Help().Key, Desc: "discard"}}
+	case ctx.HasPlan:
+		return []HelpEntry{entry(k.Up), entry(k.Down), {Keys: k.Back.Help().Key, Desc: "discard"}}
+	default:
+		return []HelpEntry{entry(k.Up), entry(k.Down), {Keys: k.Enter.Help().Key, Desc: "start"}, entry(k.Back)}
+	}
 }
