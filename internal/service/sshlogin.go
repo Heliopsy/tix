@@ -90,7 +90,7 @@ func (l *Local) SSHLogin(ctx context.Context, in core.SSHLoginInput) (*core.Logi
 		}
 		return &core.LoginResult{Challenge: challenge}, nil
 	}
-	out, err := l.mintSessionIf(ctx, scope, sessionActor, core.LoginMethodSSHKey, func(m *mutation) (bool, error) {
+	out, err := l.mintSessionIf(ctx, scope, sessionActor, core.SessionOrigin{Method: core.LoginMethodSSHKey}, func(m *mutation) (bool, error) {
 		return claim(ctx, m.tx, key, nonce.IssuedAt, m.now)
 	})
 	if err != nil {

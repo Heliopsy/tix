@@ -218,19 +218,21 @@ func (t *tx) domainAuthLookup(ctx context.Context, on bool) error {
 }
 
 var domainColumns = []string{
-	"id", "tenant_id", "hostname", "verified_at", "cert_mode", "cert_path", "key_path", "created_at",
+	"id", "tenant_id", "hostname", "verified_at", "cert_mode", "cert_path", "key_path", "created_at", "shared",
 }
 
 func scanDomain(s scanner) (core.Domain, error) {
 	var (
 		d        core.Domain
 		verified sql.NullTime
+		shared   bool
 		created  sql.NullTime
 	)
 	if err := s.Scan(&d.ID, &d.TenantID, &d.Hostname, &verified,
-		&d.CertMode, &d.CertPath, &d.KeyPath, &created); err != nil {
+		&d.CertMode, &d.CertPath, &d.KeyPath, &created, &shared); err != nil {
 		return core.Domain{}, mapErr(err, "scanning domain")
 	}
+	d.Shared = shared
 	d.VerifiedAt = scanNullTime(verified)
 	d.CreatedAt = scanTime(created)
 	return d, nil

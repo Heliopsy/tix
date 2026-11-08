@@ -78,6 +78,15 @@ type Tx interface {
 // a tenant before the scope is known, and for administering tenants themselves.
 type UnscopedTx interface {
 	ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, error)
+	// ResolveHost is ResolveDomain with whether the domain is marked shared.
+	ResolveHost(ctx context.Context, hostname string) (*core.Tenant, bool, error)
+	// TenantAddress returns a tenant's own address, its first domain not
+	// marked shared, or the empty string when it has none.
+	TenantAddress(ctx context.Context, tenantID string) (string, error)
+	// CredentialTenant returns the tenant a session or API token belongs to,
+	// by the hash of its secret. A shared host reads it before it knows the
+	// tenant; the credential is then verified inside that tenant as anywhere.
+	CredentialTenant(ctx context.Context, tokenHash string) (string, error)
 	GetTenantByKey(ctx context.Context, key string) (*core.Tenant, error)
 	GetTenantByID(ctx context.Context, id string) (*core.Tenant, error)
 	ListTenants(ctx context.Context, page core.Page) ([]core.Tenant, error)
@@ -133,6 +142,8 @@ type TenantTx interface {
 	AddDomain(ctx context.Context, d *core.Domain) error
 	ListDomains(ctx context.Context) ([]core.Domain, error)
 	RemoveDomain(ctx context.Context, hostname string) error
+	// SetDomainShared marks or unmarks one of this tenant's domains as shared.
+	SetDomainShared(ctx context.Context, hostname string, shared bool) error
 	AddMember(ctx context.Context, m *core.Membership) error
 	GetMember(ctx context.Context, actorID string) (*core.Membership, error)
 	ListMembers(ctx context.Context) ([]core.Membership, error)
@@ -450,7 +461,11 @@ type AuthTx interface {
 	SetUserGlobalAdmin(ctx context.Context, userID string, on bool) error
 	DeleteUser(ctx context.Context, id string) error
 
-	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time) error
+	// CreateSession stores a session token hash for an actor, with how the
+	// sign-in that minted it went.
+	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time, origin core.SessionOrigin) error
+	// GetSessionOrigin returns how the session behind a hash was minted.
+	GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error)
 	// DeleteActorSessions ends every session an actor holds, so removing or
 	// disabling a user takes effect immediately rather than at expiry.
 	DeleteActorSessions(ctx context.Context, actorID string) (int64, error)

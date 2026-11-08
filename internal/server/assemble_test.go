@@ -193,7 +193,7 @@ func TestStoreCredentialsResolveASession(t *testing.T) {
 	}
 	if err := a.store.Update(ctx, scope, func(tx store.Tx) error {
 		return tx.CreateSession(ctx, minted.Stored.ActorID, minted.Stored.TokenHash,
-			minted.Stored.ExpiresAt)
+			minted.Stored.ExpiresAt, core.SessionOrigin{})
 	}); err != nil {
 		t.Fatalf("storing session: %v", err)
 	}

@@ -678,7 +678,7 @@ func TestAuthRoundTrip(t *testing.T) {
 			t.Fatalf("duplicate handle = %v, want conflict", err)
 		}
 
-		if err := tx.CreateSession(ctx, f.actor.ID, "session-hash", clk.Now().Add(time.Hour)); err != nil {
+		if err := tx.CreateSession(ctx, f.actor.ID, "session-hash", clk.Now().Add(time.Hour), core.SessionOrigin{}); err != nil {
 			return err
 		}
 		actorID, expires, err := tx.GetSessionByHash(ctx, "session-hash")

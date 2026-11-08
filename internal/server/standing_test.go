@@ -65,7 +65,7 @@ func TestCredentialsOfADisabledPersonStopAtOnce(t *testing.T) {
 				if err := tx.AddMember(ctx, &core.Membership{ActorID: actor.ID, Role: core.RoleMember}); err != nil {
 					return err
 				}
-				if err := tx.CreateSession(ctx, actor.ID, "session-hash", time.Now().Add(time.Hour)); err != nil {
+				if err := tx.CreateSession(ctx, actor.ID, "session-hash", time.Now().Add(time.Hour), core.SessionOrigin{}); err != nil {
 					return err
 				}
 				token.ActorID = actor.ID

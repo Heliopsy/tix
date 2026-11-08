@@ -290,13 +290,20 @@ func (t *tx) DeleteUser(ctx context.Context, userID string) error {
 }
 
 // CreateSession stores a session token hash for an actor.
-func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time) error {
+func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time,
+	origin core.SessionOrigin,
+) error {
+	if origin.Method == "" {
+		origin.Method = core.LoginMethodPassword
+	}
 	ins := t.insert("sessions").
 		Set("id", id.New()).
 		Set("actor_id", actorID).
 		Set("token_hash", tokenHash).
 		Set("created_at", t.now()).
-		Set("expires_at", timeArg(expiresAt))
+		Set("expires_at", timeArg(expiresAt)).
+		Set("method", origin.Method).
+		Set("second_factor", origin.SecondFactor)
 	_, err := t.execInsert(ctx, ins, "creating session for actor %q", actorID)
 	return err
 }
@@ -320,6 +327,27 @@ func (t *tx) GetSessionByHash(ctx context.Context, tokenHash string) (string, ti
 		return "", time.Time{}, mapErr(err, "reading session")
 	}
 	return actorID, scanTime(expires), nil
+}
+
+// GetSessionOrigin returns how the session behind a hash was minted.
+func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error) {
+	b := t.builder("sessions").
+		Select("method", "second_factor").
+		Where("token_hash = ?", tokenHash).
+		Limit(1)
+	q, args := b.SelectQuery()
+	var (
+		out    core.SessionOrigin
+		factor bool
+	)
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor); err != nil {
+		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
+			return core.SessionOrigin{}, core.NotFound("session not found")
+		}
+		return core.SessionOrigin{}, mapErr(err, "reading session")
+	}
+	out.SecondFactor = factor
+	return out, nil
 }
 
 // DeleteSession removes one session.
