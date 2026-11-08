@@ -377,6 +377,28 @@ link from the dialog to the Global admin area; tenants they are not a member of 
   is a bar with no room, and the sidebar is the menu there. The form field is `to`, because the browser
   interface refuses any request carrying a `tenant` parameter.
 
+## Implementation notes (PR 5)
+
+- A browser session is not a bearer credential, so `tix login --tenant` trades the session for an API token
+  (`*` plus `account:read`) of the same actor, ends the session, and stores the token. Minting a token needs
+  token administration, which only the admin role holds; anybody else is told to add a token an admin gives
+  them, and nothing is written. The header is sent for the sign-in only: afterwards the token picks its
+  tenant on a shared host.
+- A token's actor reads as an agent whoever it was minted for, which kept `whoami` from listing memberships
+  to an `account:read` token in practice. `describeAccount` now looks the account up for any token, and lists
+  memberships to every credential that is not a token (session, SSH sign-in, a shell holding the database).
+- `tix tenant use KEY` on a server makes the context holding KEY's token current rather than writing the key
+  into a context whose token cannot reach it.
+- `--all-tenants` is a field on the enrolment input rather than a new operation, and the answer carries
+  `enrolled_in`. It runs only for a session or a token with `account:read`, takes no actor, passes over a
+  tenant already holding the key or where the person may not enrol keys, and writes in each tenant with the
+  person's actor there and an access channel stripped of the source tenant's session and token. The command is
+  `tix user key add`, which is where enrolment already lived.
+- The SSH listener knows no public name for itself, so the terminal interface says `ssh KEY@HOST`.
+- Task 2.7: no import path carries accounts. A snapshot carries no actors (`actorRef` falls back to the
+  operator), and sync matches by email only among actors already in the tenant, so there is no email for an
+  import to map to another tenant's account. The rule stands for any import that later carries users.
+
 ## Decisions
 
 The owner answered the open questions of the first draft:

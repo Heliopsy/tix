@@ -62,6 +62,22 @@ The unwritable case is checked first on purpose. Finding out after the download 
 permission error at the exact moment the binary is being replaced, which reads like the replacement half
 happened.
 
+## Going back to an older release
+
+`tix update --version` installs an older release as readily as a newer one, but a database that a newer
+release migrated is not migrated back: no migration here has a down step. Most of the time the older binary
+simply ignores the columns it does not know. One case needs care.
+
+**After one person belongs to several tenants.** The release that let one account join several tenants
+linked every actor to its account (`actors.user_id`), and existing rows kept their identifiers, so for every
+person who existed before it the actor and the account share one. Rolling back is safe while that is still
+true of everybody. Once a global admin adds somebody to a second tenant, or an invite to an existing account
+is accepted, that person has an actor whose identifier differs from their account's. An older binary finds a
+person only through the actor sharing their account's identifier, so after a rollback they can sign in only
+to the tenant they were in first, and the other memberships, with their tokens and SSH keys, stop working
+until the newer release is back. Nothing is deleted. Before rolling back, check with
+`tix global-admin account-log EMAIL` or `GET /api/v1/whoami` whether anybody holds more than one membership.
+
 ## Restarting a server
 
 `tix update` does not restart anything. If a `tix serve` is running from the binary you just replaced, it

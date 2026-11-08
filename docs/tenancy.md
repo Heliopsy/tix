@@ -279,7 +279,44 @@ left. Only a browser session switches: a token stays in the tenant it was minted
 
 `GET /api/v1/whoami` reports `account_id`, `email`, `tenant_key` and `tenant_name`, and, for a session or a
 token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
-`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone.
+`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone. A token
+lists them only with `account:read`, whoever it was minted for; an SSH session lists them as a browser
+session does.
+
+### Several tenants from the command line
+
+A context holds one server, one tenant and one token. A person in several tenants keeps one context per
+tenant, and `tix login --tenant` sets each one up:
+
+```sh
+tix --server https://tix.example.com login --tenant ho --context ho --email villy@example.com --password -
+tix --server https://tix.example.com login --tenant test --context test --email villy@example.com --password -
+```
+
+It sends the key as `X-Tix-Tenant`, so a shared host signs in to that tenant, and a host bound to another
+tenant refuses it with nothing written. After the password and any second factor it mints an API token for
+the person's actor there, with scopes `*` and `account:read`, ends the sign-in session, and stores the token
+on the context `--context` names (else the current context, else one named after the tenant). The first
+context written becomes current. Minting a token needs the admin role in that tenant; anybody else is told so,
+nothing is written, and they add a token an admin gives them with `tix ctx add`.
+
+`tix tenant ls` then lists the person's tenants from whoami, with the role and handle in each, the current one
+marked, and the context holding a token for each. `tix whoami` prints the same list under the identity.
+`tix tenant use KEY` checks the key against those memberships: a tenant the person is not in is refused (exit
+3), another of their tenants makes the context holding its token current, and with no such context nothing
+is written and the answer names `tix login --tenant KEY` (exit 6). A global admin, a token without
+`account:read` and a local database list and check tenants as before.
+
+### SSH keys in several tenants
+
+A key is enrolled against one actor in one tenant, and the SSH username picks which enrolment a connection
+uses (`ssh test@host`). `tix user key add --all-tenants` enrols your own key in every tenant you belong to in
+one go: one enrolment and one `sshkey.enrol` audit entry per tenant, each written by your actor there, with
+nothing in one tenant's entry naming another tenant's session or token. A tenant that already holds the key,
+or where your role may not enrol keys, is passed over, and the answer lists the tenants it was added to.
+Tenants are written one after another, so an error part way leaves the earlier ones enrolled and a second run
+passes over them. It takes no `--actor`, and a token needs `account:read` for it. Over HTTP it is
+`POST /api/v1/ssh-keys` with `"all_tenants": true`.
 
 ## Domains
 
@@ -412,11 +449,11 @@ $ tix --tenant default project ls -o json | grep -o '"key":"[^"]*"'
 "key":"default"
 ```
 
-The key is checked before it is written, by opening the target tenant and asking it who you are. This matters
-because an actor is bound to exactly one tenant, so from inside `default` a tenant named `acme` and a
-tenant that was never created are indistinguishable: `tix tenant ls` returns your own tenant and nothing
-else, by design. Writing an unreachable key would leave every later command failing with an error that names
-the wrong problem. Pass `--force` for the case where the tenant genuinely does not exist yet.
+When the credential lists your memberships, the key is checked against them, as
+[above](#several-tenants-from-the-command-line). Otherwise it is checked before it is written by opening the
+target tenant and asking it who you are, because an actor is bound to one tenant and the tenant listing it
+reads is scoped to it. Writing an unreachable key would leave every later command failing with an error that
+names the wrong problem. Pass `--force` for the case where the tenant genuinely does not exist yet.
 
 With a context current, the key is stored on that context rather than at the top level, because a context is
 what pins the database or server the tenant lives in:
@@ -431,11 +468,13 @@ Nothing else in the configuration file is touched: selecting a tenant writes the
 you were resolving from `XDG_DATA_HOME` or `TIX_DATABASE_DSN` keeps resolving from there afterwards.
 
 Inside the terminal interface, `tix tui --tenant acme` starts in that tenant, and `tix tenant use` before
-launching it has the same effect. `T` opens the tenant view mid-session, which shows the tenant in force and
-takes a key to switch to. It asks for a key rather than offering a list, for the same reason `tix tenant use`
-checks one by opening it: the actor cannot see any tenant but its own, so there is no list to draw. The key is
-checked by opening a connection pinned to it and asking who you are there; a key that cannot be reached is
-refused and the session stays where it was.
+launching it has the same effect. `T` opens the tenant view mid-session, which shows the tenant in force and,
+for a person in more than one tenant, lists their memberships with the role in each. Enter on one switches to
+it when a credential for it is at hand: a context holding its token on the same server, or a database opened
+directly. Without one the view names `tix login --tenant KEY` and the session stays where it was. A key can
+still be typed; it is checked by opening a connection pinned to it and asking who you are there, and a key
+that cannot be reached is refused. Over SSH the username picked the tenant, so the view lists the
+memberships with the `ssh KEY@HOST` command that opens each instead of switching.
 
 A switch inside the interface lasts for the session. Everything loaded from the previous tenant is dropped
 (the project list, the open board, the event tail), because all of it belonged to that tenant, and the session

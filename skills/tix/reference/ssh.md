@@ -22,7 +22,11 @@ tix user key rm 01JB2K3M4N5P6Q7R8S9T
 ```
 
 `--actor` takes a handle or an id and defaults to *you*, so enrolling somebody
-else's key means naming them. `--file -` reads stdin, `--dry-run` reports what
+else's key means naming them. `--all-tenants` enrols your own key in every
+tenant your account is a member of, one enrolment and one audit entry in each,
+and passes over a tenant that already holds it; it takes no `--actor`, and a
+token needs `account:read` for it. Each enrolment is still per tenant, so the
+username still picks the tenant: `ssh acme@host`. `--file -` reads stdin, `--dry-run` reports what
 would be enrolled without writing. The CLI is not the only route: the same
 three operations are on the API at `/api/v1/ssh-keys` (`GET`, `POST`, `DELETE
 /api/v1/ssh-keys/{id}`) and in the browser at `/admin/ssh-keys`. `user key rm`
