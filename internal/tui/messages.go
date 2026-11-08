@@ -25,6 +25,7 @@ const (
 	viewHistory
 	viewInbox
 	viewMenu
+	viewPeople
 )
 
 // actionKind names a board action whose result is reported back.

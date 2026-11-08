@@ -161,6 +161,8 @@ type Model struct {
 	admin    *tenantInfoMsg
 	adminSel int
 	adminOff int
+	// people is what the people screen lists and the link it issued last.
+	people peopleState
 	// ownConn is the connection this session opened for itself by switching.
 	// The connection it started with belongs to the caller, so it is never
 	// closed here.
@@ -452,6 +454,12 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onInbox(msg)
 	case inboxMarkMsg:
 		return m.onInboxMark(msg)
+	case peopleMsg:
+		return m.onPeople(msg)
+	case peopleShowMsg:
+		return m.onPeopleShow(msg)
+	case peopleDoneMsg:
+		return m.onPeopleDone(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -788,6 +796,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleInboxKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
+	case viewPeople:
+		return m.handlePeopleKey(msg)
 	}
 	return m, nil
 }
@@ -1142,6 +1152,9 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case doTenant:
 		next, cmd := m.openTenant()
+		return next, cmd, true
+	case doPeople:
+		next, cmd := m.openPeople()
 		return next, cmd, true
 	case doQuit:
 		next, cmd := m.leave(tea.Quit)
@@ -1660,6 +1673,9 @@ func (m Model) refresh() tea.Cmd {
 	if m.view == viewTenant {
 		return m.loadTenantInfo()
 	}
+	if m.view == viewPeople {
+		return m.loadPeople()
+	}
 	if m.project.ID == "" {
 		return m.loadProjects()
 	}
@@ -1982,6 +1998,10 @@ func (m Model) focusField() Model {
 		return m.fitArea()
 	}
 	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", "", field.Limit
+	m.input.EchoMode = textinput.EchoNormal
+	if field.Secret {
+		m.input.EchoMode = textinput.EchoPassword
+	}
 	m.input.SetValue(field.Value)
 	m.input.CursorEnd()
 	m.input.Focus()
@@ -2128,6 +2148,7 @@ func (m Model) editField(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (m Model) closeForm() Model {
 	m.form = Form{}
 	m.input.SetValue("")
+	m.input.EchoMode = textinput.EchoNormal
 	m.input.Blur()
 	m.area.SetValue("")
 	m.area.Blur()
@@ -2155,6 +2176,12 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyMember(form)
 	case formSavedFilter:
 		return m.closeForm().applySavedFilter(form)
+	case formPeopleNew:
+		return m.closeForm().applyPeopleCreate(form)
+	case formPeopleEdit:
+		return m.closeForm().applyPeopleEdit(form)
+	case formInviteReissue:
+		return m.closeForm().applyReissue(form)
 	}
 	if form.Kind == formTaskEdit {
 		next := m.closeForm()
@@ -2280,6 +2307,12 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.removeMember(c.actorID, c.Target)
 	case confirmDeleteTemplate:
 		return m.deleteTemplate(c.template)
+	case confirmDeleteUser:
+		return m.deleteUser(c)
+	case confirmRevokeInvite:
+		return m.revokeInvite(c)
+	case confirmClearTOTP:
+		return m.clearTOTP(c)
 	default:
 		return nil
 	}

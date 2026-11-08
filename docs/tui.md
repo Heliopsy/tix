@@ -13,10 +13,10 @@ actually dispatching, so neither can describe keys you do not have. This page co
 what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The twelve views
+## The thirteen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
-board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
+board, the task, the project screen, activity, history, the inbox, the tenant screen, people, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
@@ -32,6 +32,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | inbox | `I` | your mentions, assignments, comments on tasks you follow and status changes, newest first |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
+| people | `@` | the tenant's users with role, state and second factor, and the pending invites |
 | settings | `,` | display preferences, and what this session is connected to |
 | help | `?` | the bindings of the view underneath, and the legends |
 
@@ -178,12 +179,12 @@ an action unbound.
 | `K` | keep the board's filter as a saved filter, under a name | board |
 | `c` | claim | board, detail |
 | `x` | release | board, detail |
-| `R` | renew the lease | board, detail |
-| `F` | reclaim the lease another worker holds, leaving the task where it is | board, detail |
+| `R` | renew the lease; re-issues the selected invite on people | board, detail, people |
+| `F` | reclaim the lease another worker holds, leaving the task where it is; clears the selected user's second factor on people | board, detail, people |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
-| `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
-| `e` | edit the whole task on one form; edits the project or the tenant on their own screens | board, detail, project, tenant |
+| `n` | new task, new project on the project list, new field or domain or member, new user or invite | board, detail, projects, project, tenant, people |
+| `e` | edit the whole task on one form; edits the project, the tenant or a user on their own screens | board, detail, project, tenant, people |
 | `P` | set priority, from the five | board, detail |
 | `p` | cycle priority one place down, wrapping from `P5` back to `P1` | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
@@ -201,7 +202,7 @@ an action unbound.
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
+| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite | board, detail, project, tenant, people |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
@@ -213,7 +214,7 @@ an action unbound.
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
 | `~` | the start menu | everywhere |
-| `W`, `,`, `v`, `H`, `I`, `S`, `T` | projects, settings, activity, history, inbox, statistics, tenant | everywhere |
+| `W`, `,`, `v`, `H`, `I`, `S`, `T`, `@` | projects, settings, activity, history, inbox, statistics, tenant, people | everywhere |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -698,6 +699,42 @@ The switch lasts for the session. `tix tenant use KEY` writes it down. A session
 way to dial another tenant, which is what an SSH session is, says that plainly and points at
 `tix tenant use` rather than offering a switch that cannot happen.
 
+## The people screen
+
+`@` lists the people of the tenant this session is pinned to: each user's address, display name, role,
+whether they are active or disabled, whether they hold a second factor and whether their next sign-in must
+choose a new password. The pending invites follow, expired ones included so they can be re-issued, each with
+its role, when it stops working and who issued it. One cursor runs over both lists. It is the browser's
+Admin > Users screen and `tix user` in one place.
+
+`enter` reads the selected user in full, the way `tix user show` does. `n` opens one form for a new person,
+with a choice of how they sign in. With a password, the password is masked as it is typed and as it is
+shown, and the change at first sign-in is on by default, as in the browser. With an invite link, the form
+asks how long the link works instead, from one to thirty days.
+
+**An invite link is shown once.** Only its hash is kept, so the link is drawn at the top of the screen when
+it is issued and is gone as soon as you act again or leave the screen. tix sends no email: copy the link and
+send it yourself. A session against a local database knows no address of its own, so the link is a path,
+and the screen says to put the address people open tix at in front of it.
+
+`e` edits the selected user: display name, role, disabled, a new password at next sign-in, and the password
+itself, which is left alone while the field is empty. Only the fields you changed are sent. `R` re-issues the
+selected invite with a fresh expiry and shows the new link once; the old one stops. `F` clears the selected
+user's second factor, for somebody who lost both the device and the recovery codes. `X` deletes the selected
+user or revokes the selected invite. Clearing, deleting and revoking each ask first, naming the person.
+
+A person can belong to more than one tenant. Their password, their second factor and their account belong to
+all of them, so a tenant administrator who is not a global admin may change only their standing here: the
+role, the display name and whether they are disabled in this tenant. A change that reaches further is
+refused, and the status line says why in words naming them:
+
+```text
+✗ cannot edit ada@example.com: ada@example.com also belongs to another tenant, so only they or a global admin can change their password, second factor or account
+```
+
+The roles are read from the tenant's memberships, which needs `tenant:admin`. A reader who holds
+`user:admin` without it gets the list with the roles marked unknown and a line saying why.
+
 ## You are offered the views your permissions reach
 
 A key that opens a view the service would refuse tells the reader the refusal is their mistake. So the
@@ -721,6 +758,7 @@ first.
 | activity | the actor may subscribe to events |
 | history | the actor may read the audit log |
 | tenant | always: asking a tenant who you are there needs only a session |
+| people | the actor may administer users (`user:admin`, which the admin role holds) |
 
 The project list, settings and help are exempt because they need no authority. Settings and help read
 nothing from the service at all, and the project list is where every session starts and where going back
@@ -760,7 +798,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 44 such gaps against 171
+a reason as a gap when the binding ought to exist. As of this writing there are 34 such gaps against 171
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -770,14 +808,14 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 44 now has one of two shapes:
+Every one of the 34 now has one of two shapes:
 
-- **Administration.** Users and their invites, tokens, credentials, webhooks and their deliveries, retention and the server
+- **Administration.** Tokens, credentials, webhooks and their deliveries, retention and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
   registered against the store can be listed here, and creating or destroying a tenant is not something a
   session pinned to one tenant can do. The second factor is here too: enrolling one, confirming it,
-  removing it, replacing the recovery codes, reading the state of either and clearing somebody else's are
-  six operations with no screen. That is thirty-four of the count.
+  removing it, replacing the recovery codes and reading the state of either are five operations with no
+  screen. That is twenty-four of the count.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
   That is the other ten.
 
@@ -795,7 +833,8 @@ bound and says in the same breath that a payload, a content type and an inline b
 the dependency list, the actor directory and the deleted cards `is:deleted` reveals all have a cursor
 over them now. And the tenant itself: the screen that stated only which tenant a session was pinned to
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
-three, which closed nine.
+three, which closed nine. The people screen closed ten more: users, their invites and clearing somebody
+else's second factor.
 
 Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out

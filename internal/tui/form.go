@@ -37,6 +37,9 @@ const (
 	formSavedFilter
 	formTemplates
 	formSaveTemplate
+	formPeopleNew
+	formPeopleEdit
+	formInviteReissue
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -78,6 +81,9 @@ type FormField struct {
 	Needs   FieldCondition
 	Kind    FieldKind
 	Limit   int
+	// Secret masks a typed answer, on the row and in the field, for a
+	// password.
+	Secret bool
 }
 
 // Typed reports whether a field is gathered by typing rather than by cycling.
@@ -241,6 +247,9 @@ func (f Form) Lines() []FormLine {
 // one line and several paragraphs drawn into it is the defect this field
 // exists to fix.
 func FieldSummary(field FormField) string {
+	if field.Secret {
+		return strings.Repeat("•", len([]rune(field.Value)))
+	}
 	if field.Kind != FieldProse {
 		return field.Value
 	}
