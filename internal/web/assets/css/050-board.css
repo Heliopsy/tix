@@ -140,7 +140,7 @@
 }
 
 /* Visually hidden but still present for assistive technology: the board's
-   live region (templates/board.html) that narrates a drag-and-drop move,
+   live region (templates/tasks.html) that narrates a drag-and-drop move,
    and any future use that needs the same. Unlike .file-field's hidden input,
    this is never meant to be reachable by tab, so it takes no size at all
    rather than the 1px real inputs need to stay clickable. */

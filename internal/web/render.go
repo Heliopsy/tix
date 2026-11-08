@@ -779,18 +779,22 @@ func hoverEffects(r *http.Request) bool {
 // ThemeCookie remembers the colour scheme this browser asked for.
 const ThemeCookie = "tix_theme"
 
-// Themes are the schemes on offer. An empty value follows the system, and
-// "dim" is a low contrast scheme for people who find the default too stark.
-var Themes = []string{"", "light", "dark", "dim"}
+// Themes are the schemes on offer, in the order the sidebar switch cycles. An
+// empty value follows the system, "oled" is a black page for OLED screens,
+// "dim" is a low contrast scheme for people who find the default too stark,
+// and "system-oled" follows the system but draws OLED where it would draw dark.
+var Themes = []string{"", "light", "dark", "oled", "dim", "system-oled"}
 
 // themeLabels names each scheme in the words the reader sees. The empty
 // scheme is what a browser that has never chosen gets, and reads as the
 // system's own preference rather than as a palette of ours.
 var themeLabels = map[string]string{
-	"":      "System",
-	"light": "Light",
-	"dark":  "Dark",
-	"dim":   "Low contrast",
+	"":            "System",
+	"light":       "Light",
+	"dark":        "Dark",
+	"oled":        "OLED",
+	"dim":         "Low contrast",
+	"system-oled": "System, OLED when dark",
 }
 
 // ThemeLabel names one scheme, falling back to the system wording for a
@@ -806,9 +810,9 @@ func ThemeLabel(theme string) string {
 
 // nextTheme is the scheme one press of the sidebar switch moves to.
 //
-// The switch cycles rather than offering four positions, because without
+// The switch cycles rather than offering six positions, because without
 // scripting a select needs an Apply button beside it and that is a form, not
-// a button, in a 224px column. Cycling costs a reader at most three presses
+// a button, in a 224px column. Cycling costs a reader at most five presses
 // to reach any scheme and needs one control.
 func nextTheme(current string) string {
 	for i, t := range Themes {

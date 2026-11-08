@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,6 +54,7 @@ func TestStartRefusals(t *testing.T) {
 		"no path":        {`{}`, "invalid"},
 		"public address": {fmt.Sprintf(`{"db_path":%q,"listen":"0.0.0.0:0","init_if_missing":true}`, filepath.Join(dir, "a.db")), "invalid"},
 		"missing file":   {fmt.Sprintf(`{"db_path":%q}`, filepath.Join(dir, "missing.db")), "not_found"},
+		"journal mode":   {fmt.Sprintf(`{"db_path":%q,"init_if_missing":true,"journal_mode":"memory"}`, filepath.Join(dir, "c.db")), "invalid"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := code(t, Start(tc.options)); got != tc.code {
@@ -104,6 +106,22 @@ func TestRoundTrip(t *testing.T) {
 		if got := code(t, answer); got != "not_found" {
 			t.Errorf("%s after stop answered %s, want not_found", name, answer)
 		}
+	}
+}
+
+func TestStartTakesTheJournalMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tix.db")
+	opts, _ := json.Marshal(map[string]any{"db_path": path, "init_if_missing": true, "journal_mode": "delete"})
+	var s started
+	if answer := Start(string(opts)); json.Unmarshal([]byte(answer), &s) != nil || s.Handle <= 0 {
+		t.Fatalf("start answered %s", answer)
+	}
+	t.Cleanup(func() { Stop(s.Handle) })
+	if got := CreateTenant(s.Handle, `{"key":"work","name":"Work"}`); got != `{"key":"work","name":"Work"}` {
+		t.Fatalf("create answered %s", got)
+	}
+	if _, err := os.Stat(path + "-wal"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("journal_mode delete left a -wal file: %v", err)
 	}
 }
 

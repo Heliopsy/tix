@@ -138,8 +138,29 @@ or open its tasks in the task list. New project in the header asks for a key, a 
 description; colour and icon are set afterwards in the project's settings. The key starts every task
 reference in the project, as in `INFRA-5`.
 
-The board at `/projects/KEY` is the project's tasks in its workflow's columns; [List, board or
-lanes](#list-board-or-lanes) covers the drawing. Settings in its header opens the project's settings.
+`/projects/KEY` is the project's page; see [The project page](#the-project-page). Settings in its
+header opens the project's settings.
+
+### The project page
+
+The project page is the task screen narrowed to one project, not a second listing: the same handler and
+template draw it, so it has the List, Board and Lanes views, the filter bar with its search, deadline
+window and sort, Save this filter, the View panel with its columns, grouping and arrangement, the bulk
+bar, quick add (set to the project), the pager and the live refresh. Its header is the project's own: its
+icon and name, the workflow it runs with links to the field definitions and the workflow editor, and
+Import, Export and Settings.
+
+The project comes from the path, so the filter bar has no project select, and a `project` parameter
+carried over from the task list is ignored rather than added to it. Everything the screen writes back to
+itself stays on the project page: the filter form, Clear, the pager, show finished too, a row's way back,
+and the view switch. Its live refresh fetches `/projects/KEY/live` with the page's own query and listens
+to that project only.
+
+The page opens on the board, which is what it has always shown, unless the address names a view:
+`/projects/infra?view=list&q=tag:ops&sort=title` is the infra list filtered by a tag and sorted by title,
+and a link to it opens exactly that. Choosing a view here does not change the task list's remembered
+view. A board of one project draws that project's workflow, and the columns a reader arranged on the old
+project board keep their arrangement.
 
 ### Project settings
 
@@ -301,15 +322,27 @@ Fifteen checkboxes popping in sequence on load says fifteen things just happened
 
 ## List, board or lanes
 
-The switch beside the filter bar draws the same tasks either as rows or as columns, and remembers
-which per browser (`tix_task_view`). The list is what an untouched install shows. The same switch is
-on Settings, and it is the same control: both render one partial over one resolved value, so neither
-can show a position the other denies.
+The switch beside the filter bar draws the same tasks as rows, as columns or as lanes, and remembers
+which per browser (`tix_task_view`). The list is what an untouched install shows. Settings shows the
+remembered view from the same resolved value, as a form, since it has no listing to link to.
 
 It is one selection drawn three ways. The filter, the deadline window, the project control, the sort,
 the page size, the page position and the project visibility choice are resolved once and apply to all
 of them, so switching changes the drawing and never which tasks are on screen, and one pager walks
 them all.
+
+**The view is in the address.** Each position of the switch is a link to the same screen carrying
+the current query with its own `view` (`?q=tag:ops&sort=title&view=board`), so switching never resets
+the filter, the search text, the deadline window, the sort or the project, and works without
+scripting. The cursor and a flash are left behind, since a cursor addresses a place in one drawing's walk
+and the list narrows to open work where the board does not. A parameter the target view does not use
+stays in the link, so switching back restores it. `view` in the address wins over the remembered choice;
+following the switch on the task list also remembers it in `tix_task_view`, so the next visit to
+`/tasks` opens the same way. The filter form carries the view the address named, so Apply keeps the
+drawing. With scripting on, the filter bar narrows the listing in place as you type, and the switch is
+redrawn from the same answer so its links carry what was just typed; the live refresh still replaces only
+the summary and the listing. Settings keeps a form for the remembered view, and the command palette's
+view entries follow the switch's links when the screen has them.
 
 **Filtering by project.** The filter bar's project select is the same on the list, the board and the
 lanes. It submits `project=KEY` (several keys comma separated, `project=web,ops`), which is read as
@@ -321,9 +354,8 @@ address rather than a cookie: a filter is what a link shares, while the View pan
 visibility is the remembered, per-browser choice. A screen filtered to projects listens for changes in
 those projects only. On the board, one project draws its own workflow's columns, several projects draw
 one board when their workflows agree, and projects whose workflows disagree get the explanation below
-with the list in place of the board. That is why the
-board is on this screen. The project board at `/projects/{key}` answers a different question (one
-project, no filter), and its header's **Settings** button opens the project's settings screen.
+with the list in place of the board. The project page at
+`/projects/KEY` is this same screen narrowed to one project ([The project page](#the-project-page)).
 
 **Columns come from a workflow, and the list mixes projects.** So a board over several projects is
 only drawable when those projects agree about their states, and agreement is decided structurally,
@@ -1211,25 +1243,36 @@ you are in; enrolling one key in every tenant you belong to is `tix user key add
 MCP client or an agent at this server, filled in for it. The server address is the one the browser reached,
 with the scheme taken from `server.trusted_proxies` the way the calendar feed takes it; the tenant key is
 filled in for a reader allowed to read the tenant, and left out otherwise, since a token already names its
-tenant. The steps, each linking to its documentation:
+tenant. It reads as three steps:
 
-1. Install the CLI: `install.sh`, PowerShell, `go install` and the container image, pinned to the version the
-   server runs.
-2. Issue a token, with the scope picker below. Only a reader holding `token:admin` gets the form.
-3. Point the CLI at the server with `tix ctx add`, and check it with `tix task ls`.
-4. Register `tix mcp` with Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop, Cursor, VS Code or Zed,
-   one tab each. These are the snippets in [mcp.md](mcp.md), from one Go source a test holds to that page.
-5. Install the agent skill for Claude Code, in the project or for every project, or point another agent at it.
-6. Open the terminal interface and stream events over SSH. Shown only when `tix serve` runs with
-   `--ssh-listen`; the address is `ssh.public_address` when set ([configuration.md](configuration.md)).
-7. Call the REST API with `curl`, and open the OpenAPI document.
+1. **Get a credential.** The token form with the scope picker below, drawn once for every tab that needs a
+   token. Only a reader holding `token:admin` gets the form; it also shows `tix token create` and
+   `tix token rotate --grace 10m`. SSH needs no token, and the step says so.
+2. **Pick how you connect.** A strip of five tabs: CLI, MCP, SSH, API and Skill.
+3. **Copy the commands** in the chosen tab. Each tab has a help button (?) opening its documentation section.
+
+| Tab | Holds | Help opens |
+| --- | --- | --- |
+| CLI | the install (`install.sh`, PowerShell, `go install`, the container image, pinned to the server's version), `tix ctx add`, `tix task ls` to check, and `tix login --tenant` for a reader whose address and tenant are known | [configuration.md](configuration.md#contexts) |
+| MCP | `tix mcp` for Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop, Cursor, VS Code and Zed, a tab each, and `tix mcp --list`. These are the snippets in [mcp.md](mcp.md), from one Go source a test holds to that page | [mcp.md](mcp.md#wiring-it-into-a-client) |
+| SSH | enrolling a key, the terminal interface, a tix command over ssh (`ssh acme@host task ls -o json`), an export and the event stream. Drawn only when `tix serve` runs with `--ssh-listen`, at `ssh.public_address` when set ([configuration.md](configuration.md)); otherwise the tab says the server runs no listener | [deployment.md](deployment.md#commands-over-ssh) |
+| API | `curl` with the token, and the OpenAPI document | [api.md](api.md#authentication) |
+| Skill | installing the agent skill for Claude Code, in the project or for every project, or pointing another agent at it | [agents.md](agents.md#the-shape-of-a-worker) |
+
+Every tab is a link, `/connect?tab=mcp`, and so is each nested one: `install=`, `client=` and `skill=` name
+the install method, the MCP client and where the skill goes, so `/connect?tab=mcp&client=codex` opens the
+Codex commands. The server draws the named tab selected and hides the rest, so the page works without
+scripting, and an unknown name falls back to the first tab. With scripting the strips are the task screen's
+tabs (`assets/tasktabs.js`): a click switches without a reload, the arrow keys, Home and End move along a
+strip, and the address is rewritten to name the tab on screen. Unlike the task screen, the choice is kept in
+the address only, not in the browser. Issuing a token comes back to the tab it was issued from.
 
 Before a token is issued the commands read `$TIX_TOKEN`. Issuing one draws the value once, with the scopes it
-got, and the page's script writes it into every command. It is not stored and not put in the URL, so a reload
-puts `$TIX_TOKEN` back. Every `tix` command the screen shows is checked against the command tree by
-`cmd/connect_test.go`.
+got, and the page's script writes it into every command, in every tab. It is not stored and not put in the
+URL, so a reload puts `$TIX_TOKEN` back. Every `tix` command the screen shows, the ones run over ssh
+included, is checked against the command tree by `cmd/connect_test.go`.
 
-**Docs** in the sidebar and the account menu, and the docs link on each step, go through `/docs/PAGE`, which
+**Docs** in the sidebar and the account menu, and the help button on each tab, go through `/docs/PAGE`, which
 redirects to that page on GitHub at the running release's tag (`main` for a development build). Rendered pages
 name no external origin, and only a page that exists under `docs/` is redirected.
 
@@ -1362,11 +1405,12 @@ The exception is the colour scheme, whose only control is the switch at the foot
 every signed-in screen. It is the preference a reader changes while looking at the screen that made
 them want to change it, which is the same argument as the three above, and it is the one that could
 be made small enough to live beside the Settings link. It cycles: one press posts the next of System,
-Light, Dark and Low contrast and returns to the page it was pressed on, so it stays a button rather
-than becoming a select with an Apply beside it, which is what a four-position control costs with
-scripting off. Its accessible name says both the scheme in force and the one a press moves to, since
-the glyph says neither and a `title` never reaches a keyboard user who does not hover. Settings names
-the current scheme and points at the switch rather than carrying a second form.
+Light, Dark, OLED, Low contrast and System, OLED when dark, and returns to the page it was pressed on,
+so it stays a button rather than becoming a select with an Apply beside it, which is what a
+six-position control costs with scripting off. Its accessible name says both the scheme in force and
+the one a press moves to, since the glyph says neither and a `title` never reaches a keyboard user
+who does not hover. Settings names the current scheme and points at the switch rather than carrying
+a second form.
 
 A shortcut never takes a key from the control it is pressing. Enter on a focused button or link, and
 Space on a focused button, do what they do natively; the `open` shortcut is bound to Enter, and it
@@ -1376,7 +1420,7 @@ going back a page.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
-| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
+| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `oled`, `dim`, `system-oled` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
@@ -1599,6 +1643,32 @@ round trip and is correct.
 
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).
+
+### OLED
+
+OLED is a black page for screens that light every pixel they draw. The page is `#000` and the
+surfaces are `#0a0b0d`, close enough to black that a card or a field reads as raised through its
+border rather than a grey slab, so the strong line is brighter than dark's and clears 3:1 on both.
+Ink is a shade softer than dark's to cut the halo white text gets on black. The accents, the state
+colours, the priority colours and the project palette are dark's, which were tuned for 4.5:1 on a
+lighter surface and clear it with more room on black; the soft tints behind a selected row or a
+badge are darker, so a highlight does not light a band across the screen. The sign-in card drops
+its accent glow. A tenant's dark accent and a custom project colour's shade apply as they do under
+dark.
+
+System, OLED when dark is offered as its own position rather than as a second setting. Most readers
+who want OLED are on a phone that turns dark at night: pinning OLED paints the page black at noon
+too, and a separate "prefer OLED" toggle would be a second cookie that only means anything under one
+value of the first. Plain System still maps to light and dark and stays the default.
+
+The scheme is a cookie on the browser like the rest, so it follows no tenant or account default, and
+no link carries it. The terminal interface has no light or dark scheme, only the tenant accent and
+`NO_COLOR`, so OLED is browser only.
+
+`TestEveryDarkTokenHasAnOLEDValue` fails when a token is added to dark and not to OLED, or when the
+OLED block and its System, OLED when dark copy differ; `TestTheOLEDSchemeClearsTheContrastFloor`
+computes its contrast; `TestEverySchemeRuleKnowsOLED` fails on a dark rule elsewhere in the
+stylesheet with no OLED twin.
 
 ## Language and info tips
 

@@ -68,7 +68,8 @@ linters:
       # LISTEN on a dedicated connection carries a channel name and no rows.
       - path: 'internal/store/postgres/listen\.go'
         linters: [forbidigo]
-      # PRAGMA journal_mode on open, before any tenant is known.
+      # PRAGMA journal_mode on open, before any tenant is known, and
+      # PRAGMA wal_checkpoint at an embedded stop.
       - path: 'internal/store/sqlite/sqlite\.go'
         linters: [forbidigo]
       # Tests may print and may build ad-hoc queries to verify isolation.

@@ -30,7 +30,9 @@ func TestPlaceholdersAndNativeControlsFollowTheScheme(t *testing.T) {
 		{":root {", "light"},
 		{`:root[data-theme="dim"] {`, "dark"},
 		{`:root[data-theme="dark"] {`, "dark"},
-		{`:root:not([data-theme="light"]):not([data-theme="dim"]) {`, "dark"},
+		{`:root[data-theme="oled"] {`, "dark"},
+		{`:root[data-theme="system-oled"] {`, "dark"},
+		{`:root:not([data-theme="light"]):not([data-theme="dim"]):not([data-theme="oled"]):not([data-theme="system-oled"]) {`, "dark"},
 	}
 	for _, tt := range tests {
 		got := declarations(t, sheet, tt.selector)

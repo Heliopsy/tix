@@ -23,8 +23,9 @@ var connectTarget = onboard.Target{URL: "https://tix.example.com", Tenant: "acme
 func connectSnippets() []onboard.Snippet {
 	t := connectTarget
 	out := append([]onboard.Snippet{}, onboard.Install(t)...)
-	out = append(out, onboard.Snippet{ID: "token", Lang: "sh", Text: onboard.TokenCommand()})
+	out = append(out, onboard.Snippet{ID: "token", Lang: "sh", Text: onboard.TokenCommand()}, onboard.Rotate())
 	out = append(out, onboard.CLI(t)...)
+	out = append(out, *onboard.Login(t, "ada@example.com"))
 	out = append(out, onboard.MCPPreview())
 	for _, c := range onboard.MCPClients(t) {
 		out = append(out, c.Snippets...)
@@ -67,8 +68,12 @@ func tixInvocations(t *testing.T, s onboard.Snippet) []string {
 			}
 			continue
 		}
-		for _, seg := range regexp.MustCompile(`\|\||&&|[|;]`).Split(line, -1) {
+		for _, seg := range regexp.MustCompile(`\|\||&&|[|;<>]`).Split(line, -1) {
 			words := strings.Fields(seg)
+			if cmd := overSSH(words); cmd != "" {
+				out = append(out, cmd)
+				continue
+			}
 			for i, w := range words {
 				if w == "tix" && (i == 0 || words[i-1] == "--" || strings.HasPrefix(words[0], "podman")) {
 					out = append(out, strings.Join(words[i:], " "))
@@ -78,6 +83,25 @@ func tixInvocations(t *testing.T, s onboard.Snippet) []string {
 		}
 	}
 	return out
+}
+
+// overSSH is the tix command an ssh line runs on the listener, or "" for a
+// line that is not ssh or that opens an interface (nothing, a board, watch).
+func overSSH(words []string) string {
+	if len(words) == 0 || words[0] != "ssh" {
+		return ""
+	}
+	i := 1
+	for i < len(words) && strings.HasPrefix(words[i], "-") {
+		if words[i] == "-p" {
+			i++
+		}
+		i++
+	}
+	if i+1 >= len(words) || !strings.Contains(words[i], "@") || words[i+1] == "watch" || words[i+1] == "board" {
+		return ""
+	}
+	return "tix " + strings.Join(words[i+1:], " ")
 }
 
 // jsonCommands finds every server entry in a client's JSON and returns its
