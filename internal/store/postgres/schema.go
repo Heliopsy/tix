@@ -67,6 +67,7 @@ const (
 // SELECT alone, on the same terms as the SSH, domain and account ones. The
 // account lookup policy also reaches tenant_domains from the same migration,
 // so a membership can say which address its tenant is served on.
+// #nosec G101 -- a setting and a policy name, not credentials.
 const (
 	credentialLookupSetting = "tix.credential_lookup"
 	credentialLookupOn      = "on"
