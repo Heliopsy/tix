@@ -852,6 +852,63 @@ var serviceScenarios = []svcScenario{
 			"for the same coverage",
 	},
 	{
+		name:   "poll the events after a cursor",
+		covers: []string{"CreateProject", "CreateTask", "PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			start, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{})
+			if err != nil {
+				return nil, err
+			}
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "polled"})
+			mustf(t, tg, err, "creating the task")
+			page, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{
+				SinceSeq: start.NextSeq, Types: []core.EventType{"task.*"}, ProjectIDs: []string{p.ID},
+			})
+			if err != nil {
+				return nil, err
+			}
+			again, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{SinceSeq: page.NextSeq})
+			if err != nil {
+				return nil, err
+			}
+			out := sig{"events": len(page.Events), "caught_up": len(again.Events), "stays": again.NextSeq == page.NextSeq}
+			if len(page.Events) > 0 {
+				e := page.Events[0]
+				out["type"] = string(e.Type)
+				out["subject"] = e.SubjectID == task.ID
+				out["after_cursor"] = e.Seq > start.NextSeq
+				out["next_is_last"] = page.NextSeq == page.Events[len(page.Events)-1].Seq
+			}
+			return out, nil
+		},
+	},
+	{
+		name:   "a poll naming an unknown event type is invalid",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{Types: []core.EventType{"task.invented"}})
+			return nil, err
+		},
+	},
+	{
+		name:   "a poll waiting longer than the cap is invalid",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{Wait: core.Duration(26 * time.Second)})
+			return nil, err
+		},
+	},
+	{
+		name:   "polling events without event:subscribe is forbidden",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			svc, ctx := h.scoped(tg, core.ScopeTaskRead)
+			_, err := svc.PollEvents(ctx, core.EventPollInput{})
+			return nil, err
+		},
+	},
+	{
 		name:   "read a project back by key",
 		covers: []string{"CreateProject", "GetProject"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
