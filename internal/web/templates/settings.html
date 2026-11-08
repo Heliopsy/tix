@@ -47,6 +47,10 @@
       <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Handle"}}</span>{{template "field-info" "The short name other people type to mention you or assign you work, unique within this tenant."}}</div></div>
       <div class="setrow-ctl"><span class="setvalue" data-profile="handle"><strong>{{$p.Actor.Handle}}</strong></span></div>
     </div>
+    {{if $p.Actor.Email}}<div class="setrow">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Email"}}</span>{{template "field-info" "The address you sign in with. It belongs to your account, which is the same in every tenant you are a member of."}}</div></div>
+      <div class="setrow-ctl"><span class="setvalue" data-profile="email">{{$p.Actor.Email}}</span></div>
+    </div>{{end}}
     <div class="setrow">
       <div class="setrow-text"><span class="setname">{{t "Name"}}</span></div>
       <div class="setrow-ctl"><span class="setvalue" data-profile="name">{{if $p.Actor.DisplayName}}{{$p.Actor.DisplayName}}{{else}}<span class="muted">{{t "Not set"}}</span>{{end}}</span></div>
@@ -75,6 +79,10 @@
       <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Signed in with"}}</span>{{template "field-info" "What this request authenticated with: the session this browser holds, or an API token."}}</div></div>
       <div class="setrow-ctl"><span class="setvalue" data-profile="method">{{if $p.ViaToken}}{{t "API token"}}{{with $p.Token}} <code>{{.}}</code>{{end}}{{else}}{{t "Browser session"}}{{end}}</span></div>
     </div>
+    {{with $p.Actor.Memberships}}<div class="setrow stacked">
+      <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Memberships"}}</span>{{template "field-info" "Every tenant your account is a member of, with your handle and role there."}}</div></div>
+      <div class="setrow-ctl"><ul class="plain profile-members" data-profile="memberships">{{range .}}<li><strong>{{.TenantKey}}</strong>{{with .TenantName}} <span class="muted">{{.}}</span>{{end}} &middot; {{.Handle}} &middot; {{.Role}}{{if eq .TenantID $p.Actor.TenantID}} <span class="chip">{{t "this tenant"}}</span>{{end}}</li>{{end}}</ul></div>
+    </div>{{end}}
     <div class="setrow stacked">
       <div class="setrow-text"><div class="setname-line"><span class="setname">{{t "Scopes"}}</span>{{template "field-info" "Everything you may do here, from your role and from any scope granted to you directly."}}</div></div>
       <div class="setrow-ctl"><span class="setvalue profile-scopes" data-profile="scopes">{{range $p.Scopes}}<code class="evchip">{{.}}</code>{{else}}<span class="muted">{{t "None"}}</span>{{end}}</span></div>

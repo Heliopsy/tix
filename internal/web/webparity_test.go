@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // The browser's two parity gaps and three shortfalls: no screen said who the
@@ -51,21 +53,40 @@ func TestSettingsProfileSaysWhoTheReaderIs(t *testing.T) {
 	}
 }
 
-// A reader who may not read the tenant record is shown its identifier, not a
-// key the screen would have had to guess.
-func TestSettingsProfileShowsTheTenantIDToANonAdministrator(t *testing.T) {
+// whoami names the tenant to a reader who may not read the tenant record, so
+// a viewer is told the key, not an identifier.
+func TestSettingsProfileNamesTheTenantToAViewer(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	section := profileSection(t, f.as("viewer").page("/settings"))
-	tenant := profileValue(t, section, "tenant")
-	if !strings.Contains(tenant, f.tenantA.ID) || strings.Contains(tenant, "acme") {
-		t.Errorf("a viewer's tenant row = %q, want the identifier %s", tenant, f.tenantA.ID)
+	if tenant := profileValue(t, section, "tenant"); !strings.Contains(tenant, "acme") {
+		t.Errorf("a viewer's tenant row = %q, want the key acme", tenant)
 	}
 	if role := profileValue(t, section, "role"); !strings.Contains(role, "viewer") {
 		t.Errorf("a viewer's role row = %q", role)
 	}
 	if scopes := profileValue(t, section, "scopes"); strings.Contains(scopes, "task:write") || !strings.Contains(scopes, "audit:read") {
 		t.Errorf("a viewer's scopes row is not the viewer role's scopes: %q", scopes)
+	}
+}
+
+// A browser session's whoami carries the account: its address and every
+// tenant it belongs to.
+func TestSettingsProfileNamesTheAccountAndItsMemberships(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	if err := f.store.Update(context.Background(), core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
+		return tx.AddMember(context.Background(), &core.Membership{TenantID: f.tenantA.ID, ActorID: f.actorA.ID, Role: core.RoleAdmin})
+	}); err != nil {
+		t.Fatalf("making alice a member: %v", err)
+	}
+	section := profileSection(t, f.as("session").page("/settings"))
+	if email := profileValue(t, section, "email"); email != "alice@acme.test" {
+		t.Errorf("the email row = %q, want alice@acme.test", email)
+	}
+	members := between(t, section, `data-profile="memberships">`, "</ul>")
+	if !strings.Contains(members, "<strong>acme</strong>") || !strings.Contains(members, "this tenant") {
+		t.Errorf("the memberships row does not list acme as this tenant:\n%s", members)
 	}
 }
 
