@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
@@ -232,7 +233,24 @@ func TestUserAndTokenMutationRoutes(t *testing.T) {
 	var issued core.IssuedToken
 	decodeBody(t, token, &issued)
 
-	revoked := f.call(http.MethodDelete, "/api/v1/tokens/"+issued.ID, nil)
+	rotated := f.call(http.MethodPost, "/api/v1/tokens/"+issued.ID+"/rotate", core.RotateTokenInput{Grace: core.Duration(time.Minute)})
+	mustStatus(t, rotated, http.StatusCreated)
+	var replacement core.IssuedToken
+	decodeBody(t, rotated, &replacement)
+	if replacement.Token == "" || replacement.ID == issued.ID || replacement.Name != "ci" {
+		t.Errorf("rotation answered %+v, want a new token named ci with its value", replacement)
+	}
+	bare := f.call(http.MethodPost, "/api/v1/tokens/ci/rotate", nil)
+	mustStatus(t, bare, http.StatusCreated)
+	_ = bare.Body.Close()
+	tooLong := f.call(http.MethodPost, "/api/v1/tokens/ci/rotate", map[string]string{"grace": "25h"})
+	mustStatus(t, tooLong, http.StatusBadRequest)
+	_ = tooLong.Body.Close()
+	missing := f.call(http.MethodPost, "/api/v1/tokens/nosuch/rotate", nil)
+	mustStatus(t, missing, http.StatusNotFound)
+	_ = missing.Body.Close()
+
+	revoked := f.call(http.MethodDelete, "/api/v1/tokens/"+issued.ID+"-rotated-rotated", nil)
 	mustStatus(t, revoked, http.StatusNoContent)
 	_ = revoked.Body.Close()
 

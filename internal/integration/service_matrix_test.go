@@ -1792,6 +1792,49 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "rotating a token replaces it under the same name",
+		covers: []string{"CreateToken", "RotateToken", "ListTokens"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.CreateToken(tg.ctx, core.CreateTokenInput{
+				Name: "rotor", ActorID: h.adminActor.ID, Scopes: []core.Scope{core.ScopeTaskRead, core.ScopeTaskClaim},
+			})
+			mustf(t, tg, err, "minting the token")
+			rotated, err := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.RotateToken(tg.ctx, issued.ID, core.RotateTokenInput{})
+			_, unknown := tg.svc.RotateToken(tg.ctx, "nosuchtoken0000000", core.RotateTokenInput{})
+			_, tooLong := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{Grace: core.Duration(25 * time.Hour)})
+			_, wrongActor := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{ActorID: "nosuchactor"})
+			tokens, err := tg.svc.ListTokens(tg.ctx, h.adminActor.ID)
+			mustf(t, tg, err, "listing tokens")
+			var live, revoked int
+			for _, tok := range tokens {
+				if tok.Name != "rotor" {
+					continue
+				}
+				if tok.RevokedAt != nil {
+					revoked++
+				} else {
+					live++
+				}
+			}
+			return sig{
+				"new_secret":  rotated.Token != "" && rotated.Token != issued.Token && rotated.ID != issued.ID,
+				"name":        rotated.Name,
+				"scopes":      rotated.Scopes,
+				"expires":     rotated.ExpiresAt != nil,
+				"live":        live,
+				"revoked":     revoked,
+				"again":       core.KindOf(again),
+				"unknown":     core.KindOf(unknown),
+				"too_long":    core.KindOf(tooLong),
+				"wrong_actor": core.KindOf(wrongActor),
+			}, nil
+		},
+	},
+	{
 		name:   "a token with no scopes is rejected",
 		covers: []string{"CreateToken"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
