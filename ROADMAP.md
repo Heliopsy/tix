@@ -759,18 +759,91 @@ install time.
 command answers `-o json`, exit codes are documented, and `internal/connect` already resolves the target
 a plugin would be handed.
 
-### Desktop application
+### iOS app
 
-A thin wrapper around the browser interface, not a second client: the same
-server-rendered screens in a native window, so there is one interface to build and one to
-test. A wrapper keeps the multiplatform cost near zero compared with a native rewrite, and
-the CLI already covers the scripted path.
+[tix-mobile](https://github.com/heliopsy/tix-mobile) is the Flutter client, and its iOS build exists
+but is not published: there is no signing yet, so it is built from source. Today it is a client of a tix
+server over the HTTP API. The app also has screens to create or open a local `.db` file, behind a build
+flag, waiting for the engine.
 
-**Seam in v1:** the browser interface is server rendered with no JavaScript build step, and
-`tix serve` binds a local address by default. A desktop build starts the server on a
-loopback port and points a webview at it, so it needs no new product surface. The open
-question is bundling: a webview per platform is small but ties the build to each platform's
-toolchain, while shipping a browser engine is large but uniform.
+**What exists:** `just lib-ios` builds `Tix.xcframework`, a static archive the app links into its own
+binary and calls through the C ABI from `dart:ffi`, so tix runs in the app's process on a loopback port
+with no second process, which iOS would not allow. See [docs/embedding.md](docs/embedding.md). The
+libraries are built and tested in CI but not attached to releases.
+
+**Still needed:**
+
+- Release wiring for the xcframework, so the app pins a tix version and verifies a checksum instead of
+  building tix itself.
+- Signing in CI, TestFlight, App Store Connect, a privacy manifest and the review.
+- iOS suspends the app in the background, and the embedded instance with it, so a local database does
+  no lease sweeps or webhook deliveries while the app is closed. That is fine for a personal file and
+  wrong for one agents also work on.
+- Notifications need a sender on the server side through APNs, which is a tix change before it is an
+  app change, and has to work for a self-hosted server without a hosted relay.
+
+### Android app
+
+The Android build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released on GitHub as an APK
+per ABI and an AAB, as a pre-release client of a tix server. Local databases are behind a build flag.
+
+**What exists:** `just lib-android` builds `libtix.so` for all four ABIs with the NDK, aligned for 16 KB
+pages as Google Play requires, and CI checks the alignment on every change. The app loads it from
+`jniLibs` with `DynamicLibrary.open`. The library carries the whole server, about 32 MB per ABI before
+compression.
+
+**Still needed:**
+
+- Release wiring for the libraries, and the embedded engine in the app's release build.
+- A Google Play listing and review. F-Droid needs a reproducible build from source with no proprietary
+  dependencies.
+- Android limits background work too, so the embedded instance stops with the app, as on iOS.
+- Notifications through FCM, needing the same server-side sender as iOS.
+
+### Windows app
+
+The Windows build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.zip` for
+Windows 10 x64, a client of a tix server, with the token kept by DPAPI. This replaces the earlier plan
+of a webview wrapped around the browser interface: the native client shares one codebase with the phones.
+
+**What exists:** `just lib-windows` builds `libtix.dll` with mingw-w64, loaded from beside the executable,
+so a local database needs no `tix` binary installed or supervised. Loopback is not private on a shared
+machine, so the app keeps the token it mints in the platform's secure storage.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the DLL.
+- Code signing, so SmartScreen opens the app without a warning, and an installer or a store package in
+  place of a `.zip`.
+
+### Linux app
+
+The Linux build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.tar.gz` for x64
+and arm64 on GTK 3, a client of a tix server, with the token in libsecret.
+
+**What exists:** `just lib` builds `libtix.so` for the host, installed under `lib/` beside the executable.
+CI builds it and drives it through the C ABI from a C program on every change.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the library.
+- Packaging beyond a tarball: a Flatpak manifest building from source for Flathub, and possibly an
+  AppImage or a `.deb`. Which ones is undecided.
+
+### macOS app
+
+The macOS build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.zip`, ad-hoc
+signed only, a client of a tix server with the token in the Keychain.
+
+**What exists:** `just lib-macos` builds a universal `libtix.dylib`, arm64 and x86_64, with the install
+name `@rpath/libtix.dylib`, embedded in `Contents/Frameworks`. CI builds it and drives it through the C
+ABI on macOS.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the dylib.
+- Developer ID signing and notarization, so Gatekeeper opens the app without a right-click, which the
+  embedded dylib has to pass as well.
 
 ### Tests on arm64 as well as amd64
 
