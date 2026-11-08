@@ -506,7 +506,7 @@ func (m Model) quiet(style lipgloss.Style) lipgloss.Style {
 // gathering an answer.
 func (m Model) inputOpen() bool {
 	return m.paletteOpen || m.prompt != promptNone || m.choice != choiceNone ||
-		m.confirm.Open() || m.form.Open()
+		m.confirm.Open() || m.form.Open() || m.shared != nil
 }
 
 // DeletedMarker is what a card carries once the task behind it is deleted.
@@ -969,6 +969,8 @@ func (m Model) inputPanel() []string {
 		return m.panel(m.confirmPanel())
 	case m.form.Open():
 		return m.panel(m.formPanel())
+	case m.shared != nil:
+		return m.panel(m.sharedPanel())
 	}
 	return nil
 }
@@ -1053,6 +1055,7 @@ func (m Model) choicePanel() Panel {
 	row := "  " + pad(m.choice.Field(), FormLabelWidth) + strings.Join(ChoiceLabels(m.choices), "   ")
 	return Panel{
 		Title: strings.TrimSuffix(strings.TrimSpace(m.choice.Prompt()), ":"),
+		Note:  m.choiceNote,
 		Rows:  []string{m.fit(m.theme.Style().Render(row))},
 		Keys:  ChoiceHelp(len(m.choices)) + "   " + m.keys.Cancel.Help().Key + " cancel",
 	}

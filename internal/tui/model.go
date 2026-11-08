@@ -114,6 +114,15 @@ type Model struct {
 
 	choice  choiceKind
 	choices []Choice
+	// choiceNote is said above a picker's options: why the share picker
+	// offers no link, for one.
+	choiceNote string
+	// shared is the text the share key just copied, drawn in full until the
+	// next key, so a terminal that ignores OSC 52 still shows it to select.
+	shared *sharedText
+	// webBase is the browser interface's address a task's link is built
+	// under when the task carries no web_url: a remote context's server.
+	webBase string
 
 	// paletteOpen is the command palette, which takes the keyboard the way a
 	// prompt does. paletteSel indexes the entries the query leaves and
@@ -319,6 +328,11 @@ type Config struct {
 	// commands that move data through standard input and output instead of
 	// asking for a path. Empty is a local session.
 	SSHCommand string
+	// WebBase is the address of the browser interface the share key links a
+	// task under when the task carries no web_url of its own, which a server
+	// with server.public_url sets. A remote context's server URL; empty for a
+	// local database.
+	WebBase string
 }
 
 // New builds the initial model.
@@ -354,6 +368,7 @@ func New(cfg Config) Model {
 		autoColor: auto, profile: cfg.Profile, brand: cfg.Brand,
 		allowed:    resolveActions(cfg.Actor),
 		sshCommand: strings.TrimSpace(cfg.SSHCommand), files: osFiles{},
+		webBase: strings.TrimRight(strings.TrimSpace(cfg.WebBase), "/"),
 	}
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
@@ -809,6 +824,9 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Interrupt):
 		m.interrupted = true
 		return m, tea.Quit
+	case m.shared != nil:
+		m.shared = nil
+		return m, nil
 	case m.confirm.Open():
 		return m.handleConfirmKey(msg)
 	case m.form.Open():
@@ -1328,6 +1346,8 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCopy:
 		next, cmd := m.openCopyForm()
 		return next, cmd, true
+	case doShare:
+		return m.startShare(), nil, true
 	case doTemplates:
 		next, cmd := m.openTemplatesForm()
 		return next, cmd, true
@@ -1570,7 +1590,7 @@ func (m Model) closePrompt() Model {
 // handleChoiceKey picks a numbered option.
 func (m Model) handleChoiceKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Cancel) {
-		m.choice, m.choices = choiceNone, nil
+		m.choice, m.choices, m.choiceNote = choiceNone, nil, ""
 		return m, nil
 	}
 	picked, ok := ChoiceAt(m.choices, msg.String())
@@ -1578,7 +1598,10 @@ func (m Model) handleChoiceKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	kind := m.choice
-	m.choice, m.choices = choiceNone, nil
+	m.choice, m.choices, m.choiceNote = choiceNone, nil, ""
+	if kind == choiceShare {
+		return m.copyShare(picked)
+	}
 	return m, m.runChoice(kind, picked)
 }
 
