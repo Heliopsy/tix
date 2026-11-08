@@ -127,7 +127,9 @@ runs:
             printf '%s' "$file"
             return
           fi
-          "$GITHUB_ACTION_PATH/../fetch-release-asset.sh" "$repo" "$tag" "$name" "$sum" "$file" >&2
+          # Explicit, because a command substitution does not inherit set -e:
+          # a failed fetch went on to print the path of a file never written.
+          "$GITHUB_ACTION_PATH/../fetch-release-asset.sh" "$repo" "$tag" "$name" "$sum" "$file" >&2 || return 1
           printf '%s' "$file"
         }
 
