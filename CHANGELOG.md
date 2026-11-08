@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.48.0](https://github.com/Heliopsy/tix/compare/v0.47.0...v0.48.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **security:** on tix serve a sync source whose url reaches a loopback, link-local or private address is refused, when saved for a literal address or localhost and at connect time otherwise. Allow the tracker with server.egress_allow (TIX_SERVER_EGRESS_ALLOW), for example [jira.internal, 10.20.0.15/32], or set server.egress_allow_private: true when every tenant is trusted with the network. Webhooks and channels gain 0.0.0.0/8, 240.0.0.0/4, fec0::/10, 6to4 and Teredo in their refused set. See docs/migrating.md, "Trackers on an internal network".
+
+### Features
+
+* **cli:** one context per tenant with tix login --tenant ([1cc2383](https://github.com/Heliopsy/tix/commit/1cc2383bb8d90cc6a2e8ff4836dd759c0964b093))
+* enrol one SSH key in every tenant with --all-tenants ([6400398](https://github.com/Heliopsy/tix/commit/6400398ca1541d21a54c970c3fd467918f9ffeee))
+* **ssh:** point the hosted transfer view at the ssh commands ([88653ec](https://github.com/Heliopsy/tix/commit/88653ecb062b3e54c92d7fb0f0bb4d75dc318c78))
+* **ssh:** run tix commands over the ssh listener ([3e1a1c9](https://github.com/Heliopsy/tix/commit/3e1a1c961454d7aa867c129d249f998e2bc991ab))
+* **tui:** add a transfer view for imports and exports ([488d1bb](https://github.com/Heliopsy/tix/commit/488d1bbccca7849ceee73a5c2c3c8b3a1f705b2d))
+* **tui:** list memberships in the tenant view and switch to one ([052e5bc](https://github.com/Heliopsy/tix/commit/052e5bcc4933022d987504b7ca7668ac0c4e7064))
+* **tui:** manage your tokens, ssh keys and second factor from an account screen ([c715b06](https://github.com/Heliopsy/tix/commit/c715b06977f362d270cd703ed4298d72bb245151))
+* **tui:** server view and global admin view ([e5f7265](https://github.com/Heliopsy/tix/commit/e5f7265e902ad51798774635c6b1cc353831335c))
+* **tui:** webhooks, external sync and retention on an integrations view ([ea6f1e2](https://github.com/Heliopsy/tix/commit/ea6f1e2790483f09f100165e545f8b81d2523a87))
+* **web:** close the browser parity gaps for whoami, actors, subtask trees and credentials ([3d80822](https://github.com/Heliopsy/tix/commit/3d80822d057c691d9d308924378cc033678843fb))
+* **web:** show the account's email and memberships on the Profile section ([793010a](https://github.com/Heliopsy/tix/commit/793010a9922a367eebef5d2e69391767b909e4ce))
+
+
+### Bug Fixes
+
+* **security:** hold every tenant-supplied url to one egress guard ([bba4ac5](https://github.com/Heliopsy/tix/commit/bba4ac5632b137bb5d6a4c47ef153acb02b33062))
+* **service:** don't refuse an unchanged forced password change for a two-tenant person ([d8b198a](https://github.com/Heliopsy/tix/commit/d8b198ad5f9f44a6ee5046e52bcfe14dda8ab336))
+* **service:** list memberships to a person's account:read token ([20ee722](https://github.com/Heliopsy/tix/commit/20ee722231dba88f02c5c15bb5c5ebc89705954d))
+* **service:** read and write a person's name in a tenant on their actor ([44a87d1](https://github.com/Heliopsy/tix/commit/44a87d1a4726994d7195a4b384509e64c6262b35))
+* **service:** spool exports outside the read transaction and cap them per tenant ([844c1e7](https://github.com/Heliopsy/tix/commit/844c1e74b0aa23464070977aa13d822f921dd813))
+* **ssh:** per-channel state, stall and standing watchdogs, byte-exact streams ([ce46ff2](https://github.com/Heliopsy/tix/commit/ce46ff2b7a507dcb4423d0e191551f1e1b6ea586))
+* **ssh:** stop a command at its timeout and survive a panic in one ([3e46caa](https://github.com/Heliopsy/tix/commit/3e46caaa1d6fe7b9fd9ed02d59af6ae1e046d7e6))
+* **tui:** name why a transfer path failed before the path itself ([7d6f298](https://github.com/Heliopsy/tix/commit/7d6f2987ab6a3ecc01a3ff678dcbfe8457bf5c5e))
+* **web:** send only what changed from the user Manage dialog ([0b817d8](https://github.com/Heliopsy/tix/commit/0b817d8481a61d1fd7b1a2a70ede69cac13d17dd))
+
 ## [0.47.0](https://github.com/Heliopsy/tix/compare/v0.46.1...v0.47.0) (2026-11-08)
 
 
