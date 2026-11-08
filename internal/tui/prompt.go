@@ -144,6 +144,7 @@ const (
 	choiceNone choiceKind = iota
 	choiceTransition
 	choicePriority
+	choiceShare
 )
 
 // Prompt introduces a picker.
@@ -153,6 +154,8 @@ func (k choiceKind) Prompt() string {
 		return "transition to: "
 	case choicePriority:
 		return "set priority: "
+	case choiceShare:
+		return "share: "
 	default:
 		return ""
 	}
@@ -166,6 +169,8 @@ func (k choiceKind) Field() string {
 		return "state"
 	case choicePriority:
 		return "priority"
+	case choiceShare:
+		return "copy"
 	default:
 		return "value"
 	}

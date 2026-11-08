@@ -50,6 +50,7 @@ type KeyMap struct {
 	SavedFilters  key.Binding
 	SaveFilter    key.Binding
 	Copy          key.Binding
+	Share         key.Binding
 	Templates     key.Binding
 	SaveTemplate  key.Binding
 	Artifact      key.Binding
@@ -157,6 +158,9 @@ func DefaultKeyMap() KeyMap {
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
+		// ^, the arrow a share glyph draws. Every letter worth having is
+		// spoken for, and Y already copies the task itself, not its link.
+		Share: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "share task")),
 		// B, for a blueprint, since t, T and the obvious capitals are spoken
 		// for. E keeps the selected task as an exemplar to make more from; K
 		// went to saving the filter.
@@ -308,6 +312,7 @@ const (
 	doCheck
 	doSnooze
 	doCopy
+	doShare
 	doTemplates
 	doSaveTemplate
 	doArtifact
@@ -584,6 +589,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
+		{id: doShare, binding: k.Share, needsTask: true,
+			gate: gatedAction{methods: []string{"GetTask"}}},
 		{id: doTemplates, binding: k.Templates, needsProject: true,
 			gate: gatedAction{methods: []string{"UseTemplate", "GetTemplate", "UpdateTemplate", "DeleteTemplate"},
 				needs: []string{"ListTemplates"}}},
