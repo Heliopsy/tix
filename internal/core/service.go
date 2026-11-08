@@ -400,6 +400,15 @@ type AuthService interface {
 	// Logout ends the session the caller presented. With no session to end it
 	// answers unauthenticated.
 	Logout(ctx context.Context) error
+	// SwitchTenant moves the caller's browser session to another tenant they
+	// are a member of, served on the same host. The answer carries a session
+	// for the person's actor there, and the session presented stops working.
+	// When the target requires a second factor the presented session did not
+	// pass, the answer is a code challenge instead, and the same request sent
+	// again with the code completes the switch. A tenant the caller is not a
+	// member of is not found, the same answer as one that does not exist. A
+	// token cannot switch: tokens stay in the tenant they were minted for.
+	SwitchTenant(ctx context.Context, in SwitchTenantInput) (*LoginResult, error)
 
 	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
 	// bound to this tenant and to the host the request was made to. Nothing

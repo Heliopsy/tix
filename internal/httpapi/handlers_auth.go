@@ -67,6 +67,7 @@ type SweepResult struct {
 func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
+	rt.mux.HandleFunc("POST "+wire.RouteSwitch, rt.handleSwitch)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHChallenge, rt.handleSSHChallenge)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHVerify, rt.handleSSHLogin)
 
@@ -270,6 +271,25 @@ func (rt *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, auth.ClearSessionCookie(rt.secureCookie(r)))
 	writeNoContent(w)
+}
+
+// handleSwitch moves the caller's session to another tenant on this host. A
+// result carrying a code challenge is a 200, as a sign-in's is.
+func (rt *Router) handleSwitch(w http.ResponseWriter, r *http.Request) {
+	var in core.SwitchTenantInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.SwitchTenant(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if result.Session != nil {
+		http.SetCookie(w, auth.NewSessionCookie(
+			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+	}
+	WriteJSON(w, http.StatusOK, result)
 }
 
 // handleListUsers returns a page of users.

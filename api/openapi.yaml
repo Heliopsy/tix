@@ -10444,11 +10444,45 @@ components:
             caller reached it.'
           type: string
       type: object
+    AccountMembership:
+      description: 'AccountMembership is one tenant an account belongs to: its actor
+        there and the role its membership grants.'
+      properties:
+        actor_id:
+          description: ActorID is the account's actor in the tenant.
+          type: string
+        handle:
+          description: Handle is that actor's handle.
+          type: string
+        host:
+          description: Host is the tenant's own address, a domain not marked shared;
+            empty when it is served only on a shared host.
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role the membership grants.
+        tenant_id:
+          description: TenantID is the tenant.
+          type: string
+        tenant_key:
+          description: TenantKey is the tenant's key.
+          type: string
+        tenant_name:
+          description: TenantName is the tenant's name.
+          type: string
+      type: object
     Actor:
       description: Actor is the authenticated identity performing an operation.
       properties:
+        account_id:
+          description: AccountID is the account behind a user actor, on the answer
+            to WhoAmI.
+          type: string
         display_name:
           description: DisplayName is the human-readable name, when one is set.
+          type: string
+        email:
+          description: Email is that account's sign-in address, on the answer to WhoAmI.
           type: string
         global_admin:
           description: GlobalAdmin reports, on the answer to WhoAmI, that the actor
@@ -10464,6 +10498,12 @@ components:
         kind:
           $ref: '#/components/schemas/ActorKind'
           description: Kind says whether the actor is a user, an agent or the system.
+        memberships:
+          description: Memberships are every tenant the account is a member of, on
+            the answer to WhoAmI for a session or a token carrying account:read.
+          items:
+            $ref: '#/components/schemas/AccountMembership'
+          type: array
         project_id:
           description: ProjectID restricts the actor to one project when set, as a
             project-scoped token does.
@@ -10480,6 +10520,12 @@ components:
           type: array
         tenant_id:
           description: TenantID is the tenant the actor acts in.
+          type: string
+        tenant_key:
+          description: TenantKey and TenantName name the actor's tenant, on the answer
+            to WhoAmI.
+          type: string
+        tenant_name:
           type: string
         token_id:
           description: TokenID is the API token the request authenticated with, if
@@ -11526,6 +11572,11 @@ components:
           description: KeyPath is the server-side path of the PEM private key, set
             when CertMode is "file".
           type: string
+        shared:
+          description: Shared reports that the host also serves the tenant a credential
+            or the X-Tix-Tenant header names, as a host no domain claims does. Only
+            a global admin sets it.
+          type: boolean
         tenant_id:
           description: TenantID is the tenant the hostname resolves to.
           type: string

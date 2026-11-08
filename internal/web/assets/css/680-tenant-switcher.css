@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The tenant switcher: the sidebar entry naming the current tenant, and the
+   dialog and Choose a tenant screen listing the reader's tenants. */
+
+.nav-tenant span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tenantswitch-list {
+  margin: 0;
+  padding: 0;
+}
+
+.tenantswitch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.tenantswitch-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tenantswitch-form {
+  margin: 0;
+}
+
+.tenantswitch-current {
+  font-weight: 600;
+}
+
+.tenantswitch-more {
+  margin-top: 1rem;
+}

@@ -127,6 +127,62 @@ func (l *Local) findCandidate(ctx context.Context, scope core.TenantScope, email
 	return out, nil
 }
 
+// sharedHostCandidate is sign-in on a shared host that no header or
+// credential pointed at a tenant: the account comes first, and when it is no
+// member of the host's own tenant the sign-in goes to the first tenant, by
+// key, it is a member of and that this host serves. The person picks another
+// from the switcher once signed in. Anywhere else it answers the candidate it
+// was given, so the failure stays the one a wrong password gives.
+func (l *Local) sharedHostCandidate(ctx context.Context, scope core.TenantScope, email string,
+	cand candidate,
+) (candidate, error) {
+	host, ok := core.ServedHostFrom(ctx)
+	if !ok || !host.Shared || host.Named || email == "" {
+		return cand, nil
+	}
+	var account *core.User
+	if err := l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+		found, _, err := u.GetUserByEmail(ctx, email)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		account = found
+		return err
+	}); err != nil || account == nil {
+		return cand, err
+	}
+	found, err := l.membershipsOf(ctx, account.ID)
+	if err != nil {
+		return cand, err
+	}
+	for _, m := range found {
+		if m.TenantID == scope.TenantID || !host.Serves(m.TenantID, m.Host) {
+			continue
+		}
+		alt, err := l.findCandidate(ctx, core.TenantScope{TenantID: m.TenantID}, email)
+		if err != nil {
+			return cand, err
+		}
+		if alt.usable() {
+			return alt, nil
+		}
+	}
+	return cand, nil
+}
+
+// servedHere reports whether the second step of a sign-in on a shared host
+// may complete in the tenant its ticket names, which the first step chose
+// for the account rather than the host. The ticket is sealed by this server,
+// so the tenant in it is the one the password was checked against.
+func (l *Local) servedHere(ctx context.Context, tenantID string) bool {
+	host, ok := core.ServedHostFrom(ctx)
+	if !ok || !host.Shared || host.Named {
+		return false
+	}
+	addr, err := l.TenantAddress(ctx, tenantID)
+	return err == nil && host.Serves(tenantID, addr)
+}
+
 // usable reports whether the candidate may be logged in with password.
 //
 // A person with an actor here but no membership, removed from this tenant or
@@ -179,6 +235,12 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 	cand, err := l.findCandidate(ctx, scope, email)
 	if err != nil {
 		return nil, err
+	}
+	if !cand.usable() {
+		if cand, err = l.sharedHostCandidate(ctx, scope, email, cand); err != nil {
+			return nil, err
+		}
+		scope = core.TenantScope{TenantID: cand.tenant}
 	}
 	stored := l.dummyHash()
 	if cand.hash != "" {
@@ -338,6 +400,9 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	ticket, err := auth.ParseTicket(l.totpKey, in.Ticket, l.clock.Now())
 	if err != nil {
 		return nil, err
+	}
+	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
+		scope = core.TenantScope{TenantID: ticket.TenantID}
 	}
 	if ticket.TenantID != scope.TenantID || ticket.Surface != surface {
 		return nil, core.Unauthenticated("this sign-in has expired; start again")

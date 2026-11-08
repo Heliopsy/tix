@@ -292,25 +292,146 @@ func (rt *Router) withTimeout(next http.Handler) http.Handler {
 	})
 }
 
-// resolveTenant pins the request to the tenant its Host names, before any
-// credential is examined.
+// resolveTenant pins the request to a tenant, once, before any credential is
+// examined. A host bound to one tenant serves that tenant alone. A host no
+// domain claims, or one whose domain is marked shared, serves the tenant the
+// X-Tix-Tenant header names, else the tenant of the credential presented,
+// else its own tenant.
 func (rt *Router) resolveTenant(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isUnscopedPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		scope, err := rt.tenantForHost(r)
+		served, err := rt.tenantFor(r)
 		if err != nil {
 			WriteError(w, err)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(core.WithTenant(r.Context(), scope)))
+		ctx := core.WithTenant(r.Context(), core.TenantScope{TenantID: served.tenant})
+		next.ServeHTTP(w, r.WithContext(core.WithServedHost(ctx, served.ServedHost)))
 	})
 }
 
+// servedTenant is the tenant a request is pinned to and the host it came by.
+type servedTenant struct {
+	core.ServedHost
+	tenant string
+}
+
+// SharedHosts is what serving several tenants on one host needs beyond
+// mapping a hostname to its tenant. service.Local provides it.
+type SharedHosts interface {
+	// ResolveHost maps a hostname to the tenant whose domain claims it and
+	// whether the domain is marked shared; an unclaimed host is not found.
+	ResolveHost(ctx context.Context, hostname string) (*core.Tenant, bool, error)
+	// TenantForKey returns the live tenant a key names.
+	TenantForKey(ctx context.Context, key string) (*core.Tenant, error)
+	// TenantAddress returns a tenant's own address, or "".
+	TenantAddress(ctx context.Context, tenantID string) (string, error)
+	// CredentialTenant returns the tenant of a credential hash, or "".
+	CredentialTenant(ctx context.Context, tokenHash string) (string, error)
+}
+
+// tenantFor resolves the request's host, and on a shared host the tenant the
+// header or the credential names.
+func (rt *Router) tenantFor(r *http.Request) (servedTenant, error) {
+	hosts, ok := rt.cfg.Resolver.(SharedHosts)
+	if !ok {
+		scope, err := rt.tenantForHost(r)
+		return servedTenant{tenant: scope.TenantID, ServedHost: core.ServedHost{Host: hostOf(r), Owner: scope.TenantID}}, err
+	}
+	ctx := r.Context()
+	host := hostOf(r)
+	header := strings.ToLower(strings.TrimSpace(r.Header.Get(core.HeaderTenant)))
+	owner, shared, err := hosts.ResolveHost(ctx, host)
+	served := servedTenant{ServedHost: core.ServedHost{Host: host, Shared: shared}}
+	switch {
+	case err == nil && owner != nil:
+		served.Owner = owner.ID
+	case err != nil && !core.IsKind(err, core.KindNotFound) && !core.IsKind(err, core.KindInvalid):
+		return servedTenant{}, err
+	default:
+		served.Shared, served.Owner = true, rt.cfg.DefaultTenantID
+	}
+	if !served.Shared {
+		if header != "" && header != owner.Key {
+			return servedTenant{}, core.Forbidden("this host serves one tenant, and the %s header names another",
+				core.HeaderTenant)
+		}
+		served.tenant = served.Owner
+		return served, nil
+	}
+	if err := rt.namedTenant(ctx, hosts, r, header, &served); err != nil {
+		return servedTenant{}, err
+	}
+	if served.tenant == "" {
+		if served.Owner == "" {
+			return servedTenant{}, core.NotFound("no tenant serves host %q", host)
+		}
+		served.tenant = served.Owner
+	}
+	return served, nil
+}
+
+// namedTenant sets the tenant the header or, failing that, the credential
+// names on a shared host. A header naming a tenant served at an address of
+// its own is refused; a credential of one is ignored, so it is looked up in
+// the host's own tenant, finds nothing there, and the visitor can sign in.
+func (rt *Router) namedTenant(ctx context.Context, hosts SharedHosts, r *http.Request, header string,
+	served *servedTenant,
+) error {
+	tenantID := ""
+	if header != "" {
+		t, err := hosts.TenantForKey(ctx, header)
+		if err != nil {
+			return err
+		}
+		tenantID = t.ID
+	} else if hash := credentialHash(r); hash != "" {
+		id, err := hosts.CredentialTenant(ctx, hash)
+		if err != nil {
+			return err
+		}
+		tenantID = id
+	}
+	if tenantID == "" {
+		return nil
+	}
+	if tenantID != served.Owner {
+		addr, err := hosts.TenantAddress(ctx, tenantID)
+		if err != nil {
+			return err
+		}
+		if !served.Serves(tenantID, addr) {
+			if header != "" {
+				return core.Forbidden("tenant %q is served at its own address, %s", header, addr)
+			}
+			return nil
+		}
+	}
+	served.tenant, served.Named = tenantID, true
+	return nil
+}
+
+// credentialHash is the stored hash of the credential a request presents, a
+// bearer token before a session cookie as the authenticator chain tries them,
+// or "" when it presents neither.
+func credentialHash(r *http.Request) string {
+	if scheme, value, ok := strings.Cut(r.Header.Get(wire.HeaderAuth), " "); ok && strings.EqualFold(scheme, "bearer") {
+		if v := strings.TrimSpace(value); v != "" {
+			return auth.HashToken(v)
+		}
+	}
+	if c, err := r.Cookie(wire.SessionCookieName); err == nil && c.Value != "" {
+		return auth.HashToken(c.Value)
+	}
+	return ""
+}
+
 // tenantForHost resolves the Host header, falling back to the configured
-// default tenant when one is set.
+// default tenant when one is set. It serves a resolver that cannot tell a
+// shared host from a bound one.
 func (rt *Router) tenantForHost(r *http.Request) (core.TenantScope, error) {
 	host := hostOf(r)
 	tenant, err := rt.cfg.Resolver.ResolveDomain(r.Context(), host)
