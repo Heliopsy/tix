@@ -225,7 +225,9 @@ paths:
         Command line: `tix account sessions revoke`.
       operationId: session.revoke
       parameters:
-        - in: path
+        - description: Session ID, from the session listing. It identifies a session
+            and cannot sign anybody in.
+          in: path
           name: id
           required: true
           schema:
