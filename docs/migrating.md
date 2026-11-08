@@ -493,6 +493,17 @@ supplied with `tix webhook put`.
 The bundle format is NDJSON: a header record, then one record per component. It is readable, diffable and
 reviewable in a pull request, which is the point of keeping it separate from a tenant snapshot.
 
+## Upgrading to 0.48.1 on PostgreSQL
+
+The 0.48.1 migration repairs accounts that predate 0.46.0. No operator action is needed.
+
+On PostgreSQL with a login role that is not a superuser and has no `BYPASSRLS`, the 0.46.0 migration that links
+each person's actor to their account, and the 0.48.0 one that copies the account's name onto it, changed no rows.
+Accounts created before 0.46.0 then failed browser sign-in with "invalid credentials", were missing from
+`tix user ls`, and lost their global admin standing. 0.48.1 runs both again on its first start and leaves alone
+any actor already linked, including one linked by hand. SQLite was not affected and the migration changes nothing
+there. See [the engine notes](../internal/store/postgres/README.md#migrations-run-outside-the-policies-they-create).
+
 ## Related
 
 - [workflows.md](workflows.md) for what a workflow document contains

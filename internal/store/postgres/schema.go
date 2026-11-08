@@ -76,6 +76,22 @@ const (
 	sharedHostsMigration = "shared_hosts"
 )
 
+// migratingSetting is the transaction-local flag the migration runner, and
+// nothing else, sets on every migration transaction. migratingPolicy admits it
+// on every forced table, for every command, so a data step reaches each
+// tenant's rows with no tix.tenant_id set; without it the step sees none and
+// reports success. The policy also refuses tix_app, the role every runtime
+// transaction enters where it can, so the flag cannot widen one of those even
+// if it were set.
+const (
+	migratingSetting = "tix.migrating"
+	migratingOn      = "on"
+	migratingPolicy  = "tix_migrating"
+	// migratingMigration names the migration the policy arrives with on the
+	// tables that predate it; a table created later brings its own.
+	migratingMigration = "repair_actor_links"
+)
+
 // partitionMonthsBack and partitionMonthsAhead bound the partitions created up
 // front, so writes never wait on partition creation.
 const (
@@ -135,12 +151,11 @@ var constraintKeywords = map[string]bool{
 // the portable schema to PostgreSQL types and adding the engine-specific
 // partitioning, search vector and row-level security within the same step.
 //
-// It runs as the login role with no tix.tenant_id set, so a step that mutates
-// tenant-scoped rows is subject to the forced policies it has itself created
-// and sees no rows at all on a role without BYPASSRLS. No shipped migration is
-// harmed by that; the next one that mutates data could be. README.md, "Migrations
-// run outside the policies they create", has the reproduction and why the fix
-// belongs here rather than in the SQL.
+// It runs as the login role with no tix.tenant_id set, under the forced
+// policies, so each migration transaction sets tix.migrating, which
+// migratingPolicy admits on every forced table. Before that policy existed a
+// data step saw no rows on a role without BYPASSRLS; README.md, "Migrations
+// run outside the policies they create", has what that cost.
 func runMigrations(ctx context.Context, db *sql.DB, clk clock.Clock) error {
 	if err := ensureVersionTable(ctx, db); err != nil {
 		return err
@@ -235,6 +250,7 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrations.Migration, clk
 	// search columns, partitions and row-level security policies. None of them
 	// is idempotent, so running them after every migration makes the second
 	// migration fail on a column that already exists.
+	stmts = append(migrationPreamble(m.Version), stmts...)
 	stmts = append(stmts, adjustmentsFor(m.Version, clk.Now())...)
 	for _, stmt := range stmts {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
@@ -568,10 +584,12 @@ func partitionName(table string, month time.Time) string {
 
 // rowLevelSecurity returns the policies for the scoped tables that the given
 // migration creates, so each table is locked down by the migration that
-// introduces it.
+// introduces it. A table created after migratingMigration also gets the
+// migration policy here, since the one emitted by migrationPreamble predates it.
 func rowLevelSecurity(version int) []string {
 	var out []string
 	predicate := fmt.Sprintf("%s = current_setting('%s', true)", sqlb.TenantColumn, tenantSetting)
+	since := versionNamed(migratingMigration)
 	for _, table := range sqlb.ScopedTables() {
 		if introducedIn(table) != version {
 			continue
@@ -582,8 +600,43 @@ func rowLevelSecurity(version int) []string {
 			fmt.Sprintf("CREATE POLICY %s ON %s USING (%s) WITH CHECK (%s)",
 				isolationPolicy, table, predicate, predicate),
 		)
+		if since != 0 && version > since {
+			out = append(out, migratingPolicyOn(table))
+		}
 	}
 	return out
+}
+
+// migrationPreamble opens every migration transaction: it sets tix.migrating
+// for this transaction alone and, with migratingMigration, gives every table
+// that predates it the policy that flag is read by, before the migration's own
+// data steps run. The policy is dropped first for a test that rewinds past the
+// migration and applies it again.
+func migrationPreamble(version int) []string {
+	out := []string{fmt.Sprintf("SELECT set_config('%s', '%s', true)", migratingSetting, migratingOn)}
+	since := versionNamed(migratingMigration)
+	if since == 0 || version != since {
+		return out
+	}
+	for _, table := range sqlb.ScopedTables() {
+		if v := introducedIn(table); v == 0 || v >= since {
+			continue
+		}
+		out = append(out,
+			fmt.Sprintf("DROP POLICY IF EXISTS %s ON %s", migratingPolicy, table),
+			migratingPolicyOn(table))
+	}
+	return out
+}
+
+// migratingPolicyOn admits a migration transaction to every row of a table,
+// for every command. It is permissive, so it sits beside the isolation policy,
+// and without tix.migrating set, or inside tix_app, it admits nothing.
+func migratingPolicyOn(table string) string {
+	predicate := fmt.Sprintf("current_setting('%s', true) = '%s' AND current_user <> '%s'",
+		migratingSetting, migratingOn, appRoleName)
+	return fmt.Sprintf("CREATE POLICY %s ON %s USING (%s) WITH CHECK (%s)",
+		migratingPolicy, table, predicate, predicate)
 }
 
 // EnsurePartitions creates the monthly partitions covering every month from now
