@@ -197,7 +197,7 @@ func TestTheViewSwitchIsBoosted(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
-	tag := openTag(t, b.page("/tasks"), `action="/taskview"`)
+	tag := openTag(t, b.page("/tasks"), `id="tasks-views"`)
 	if tag == "" {
 		t.Fatal("the listing has no view switch")
 	}

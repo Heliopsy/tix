@@ -120,7 +120,7 @@ func TestSavingASettingReturnsToItsSectionAndSaysSo(t *testing.T) {
 	if form := prefForm(t, main, "/taskview"); !strings.Contains(form, `name="next" value="/settings?flash=Task&#43;view&#43;saved#listings"`) {
 		t.Errorf("the shared task view switch does not return to Listings on settings:\n%s", form)
 	}
-	if form := prefForm(t, b.page("/tasks"), "/taskview"); strings.Contains(form, "flash=") {
+	if form := viewSwitch(t, b.page("/tasks?flash=x")); strings.Contains(form, "flash=") {
 		t.Errorf("the task screen's own switch was pointed at settings:\n%s", form)
 	}
 

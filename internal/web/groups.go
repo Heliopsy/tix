@@ -385,8 +385,8 @@ func buildListGroups(by string, projects []core.Project, tasks []core.Task, move
 const tasksRegion = "#tasks-listing"
 
 // arrangeBoard draws the task screen's board as the reader arranged it.
-func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, self string) arrangement {
-	prefs := h.groupPrefs(r, core.ViewBoard)
+func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, view, self string) arrangement {
+	prefs := h.groupPrefs(r, view)
 	makers := board.Groups[0].Projects
 	for i := range board.Columns {
 		c := &board.Columns[i]
@@ -394,7 +394,7 @@ func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, self string) a
 	}
 	board.Columns, _ = arrangeGroups(board.Columns, colHead, groupPrefIndex(prefs))
 	hidden := hiddenOf(prefs, stateNamer(board.Groups[0].Workflow.Definition))
-	return newArrangement(r, core.ViewBoard, self, tasksRegion, drawnOrder(board.Columns, colHead), hidden, prefs)
+	return newArrangement(r, view, self, tasksRegion, drawnOrder(board.Columns, colHead), hidden, prefs)
 }
 
 // arrangeLanes draws the lanes as the reader arranged them.
@@ -428,19 +428,6 @@ func (h *handler) arrangeList(r *http.Request, by string, projects []core.Projec
 	a := newArrangement(r, view, self, tasksRegion, drawnOrder(groups, listHead), hiddenOf(prefs, name), prefs)
 	a.Vertical = true
 	return groups, a
-}
-
-// arrangeProjectBoard draws a project's own board as the reader arranged it.
-func (h *handler) arrangeProjectBoard(r *http.Request, p core.Project, def core.WorkflowDefinition, columns []column) ([]column, arrangement) {
-	view := core.ProjectView(p.Key)
-	prefs := h.groupPrefs(r, view)
-	for i := range columns {
-		c := &columns[i]
-		c.Head = statusHead(c.State, len(c.Tasks), []core.Project{p})
-	}
-	columns, _ = arrangeGroups(columns, colHead, groupPrefIndex(prefs))
-	self := strings.Replace(RouteProject, "{key}", p.Key, 1)
-	return columns, newArrangement(r, view, self, "#project-board", drawnOrder(columns, colHead), hiddenOf(prefs, stateNamer(def)), prefs)
 }
 
 // taskRow is what the "task-row" partial draws: one task and the page it is

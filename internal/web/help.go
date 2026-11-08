@@ -29,7 +29,7 @@ var helpDocs = map[string]helpDoc{
 	"/stats":                             {"statistics.md", "what-each-figure-means"},
 	"/admin/status":                      {"web-ui.md", "server-administration"},
 	"/projects":                          {"web-ui.md", "projects"},
-	"/projects/{key}":                    {"web-ui.md", "list-board-or-lanes"},
+	"/projects/{key}":                    {"web-ui.md", "the-project-page"},
 	"/projects/{key}/settings":           {"web-ui.md", "project-settings"},
 	"/projects/{key}/delete":             {"web-ui.md", "deleting-a-project"},
 	"/projects/{key}/fields":             {"workflows.md", "custom-fields"},
