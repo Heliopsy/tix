@@ -646,6 +646,7 @@ target  server https://tix.internal.example.com (context work)
 tenant  acme
 user    ada (Ada Lovelace), admin
 token   yes, from context work
+theme   ocean (#0b7285, dark #67e8f9)
 ```
 
 Up to 0.43.0 that held only for some commands. `task ls` and `task add` read the configuration before
