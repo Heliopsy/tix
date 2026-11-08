@@ -97,10 +97,13 @@ func accountOfActor(ctx context.Context, tx store.Tx, actorID string) (*core.Use
 // the two are equal; for a person in several tenants they are not.
 //
 // A person disabled in this tenant alone reads as disabled here, whatever the
-// account's own state.
+// account's own state. The display name is the one this tenant gave them,
+// held on the actor, because that is the name every other screen of the
+// tenant shows for them.
 func asMember(u *core.User, a *core.Actor) *core.User {
 	out := *u
 	out.ID = a.ID
+	out.DisplayName = a.DisplayName
 	if out.DisabledAt == nil && a.DisabledAt != nil {
 		out.DisabledAt = a.DisabledAt
 	}
@@ -317,6 +320,10 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 // display name in this tenant, and whether they are disabled in this tenant.
 // Their password and the forced password change are refused; asking for the
 // forced change they already have, or already lack, is not a change at all.
+//
+// The display name is the person's name in this tenant. For somebody who
+// belongs to this tenant only it is also their account's name, which a new
+// membership elsewhere starts from.
 func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInput) (*core.User, error) {
 	actor, err := l.authorize(ctx, authz.ActionUserAdmin, authz.Resource{})
 	if err != nil {
@@ -438,20 +445,21 @@ func logUserUpdate(ctx context.Context, m *mutation, prior core.User, u *core.Us
 	return nil
 }
 
-// applyStanding applies the display name and disabled state of an update. A
-// caller whose reach is the account changes the account, as before; one whose
-// reach is this tenant changes the person's actor here, which leaves their
-// other tenants as they were.
+// applyStanding applies the display name and disabled state of an update. The
+// name is always the person's actor here, and the account's too when this is
+// their only tenant. For the disabled state, a caller whose reach is the
+// account changes the account, as before; one whose reach is this tenant
+// changes the person's actor here, which leaves their other tenants as they
+// were.
 func applyStanding(ctx context.Context, m *mutation, u *core.User, subject *core.Actor,
 	in core.UpdateUserInput, reach accountReach,
 ) error {
 	actorChanged := false
 	if in.DisplayName != nil {
-		if reach.account {
+		subject.DisplayName = *in.DisplayName
+		actorChanged = true
+		if !reach.elsewhere {
 			u.DisplayName = *in.DisplayName
-		} else {
-			subject.DisplayName = *in.DisplayName
-			actorChanged = true
 		}
 	}
 	if in.Disabled != nil {

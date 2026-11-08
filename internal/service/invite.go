@@ -503,17 +503,21 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 		if err := m.tx.AcceptInvite(ctx, live.invite.ID, m.now); err != nil {
 			return auth.ErrNoInvite()
 		}
-		before := *live.user
+		before, beforeActor := *live.user, *live.actor
 		if hash != "" {
 			if display := strings.TrimSpace(in.DisplayName); display != "" {
 				live.user.DisplayName = display
+				live.actor.DisplayName = display
+				if err := m.tx.UpdateActor(ctx, live.actor); err != nil {
+					return err
+				}
 			}
 			live.user.RequirePasswordChange = false
 			if err := m.tx.UpdateUser(ctx, live.user, hash); err != nil {
 				return err
 			}
 			err := m.Audit(auditUserUpdate, "user", live.actor.ID,
-				asMember(&before, live.actor), asMember(live.user, live.actor))
+				asMember(&before, &beforeActor), asMember(live.user, live.actor))
 			if err != nil {
 				return err
 			}
