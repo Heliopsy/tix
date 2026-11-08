@@ -146,17 +146,8 @@ func (l *Local) switchTarget(ctx context.Context, actor *core.Actor, host core.S
 			"that serves several", key)
 	}
 
-	scope := core.TenantScope{TenantID: to.TenantID}
-	cand := candidate{user: account, tenant: to.TenantID}
-	if err := l.read(ctx, core.SystemActor(scope.TenantID), func(tx store.Tx) error {
-		a, err := tx.GetActorByUser(ctx, account.ID)
-		if err != nil {
-			return err
-		}
-		role, err := userRole(ctx, tx, a.ID)
-		cand.actor, cand.role = a, role
-		return err
-	}); err != nil {
+	cand, err := l.memberIn(ctx, account, to.TenantID)
+	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return candidate{}, missing
 		}
