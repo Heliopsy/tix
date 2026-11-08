@@ -2100,6 +2100,25 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a generated webhook secret is returned once",
+		covers: []string{"PutWebhook", "ListWebhooks"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.PutWebhook(tg.ctx, core.WebhookInput{
+				URL: closedEndpoint, EventTypes: []string{"task.*"}, Active: true,
+			})
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListWebhooks(tg.ctx)
+			mustf(t, tg, err, "listing webhooks")
+			return sig{
+				"returned": len(issued.SigningSecret) > 0,
+				"stored":   issued.Secret,
+				"listed":   listed[0].Secret,
+			}, nil
+		},
+	},
+	{
 		name:   "a webhook without a url is rejected",
 		covers: []string{"PutWebhook"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

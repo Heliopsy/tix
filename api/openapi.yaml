@@ -10037,7 +10037,7 @@ paths:
         - webhook
     put:
       description: |-
-        PutWebhook registers an https delivery endpoint, or updates one by identifier. A registration with no secret gets a generated one, returned only in this response.
+        PutWebhook registers an https delivery endpoint, or updates one by identifier. A registration with no secret gets a generated one, returned as secret in this response and never again; a supplied or kept secret is not returned.
 
         Command line: `tix webhook put`.
       operationId: webhook.put
@@ -10052,8 +10052,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebhookEndpoint'
-          description: WebhookEndpoint is a registered delivery target.
+                $ref: '#/components/schemas/IssuedWebhook'
+          description: 'IssuedWebhook is an endpoint as PutWebhook answers it: the
+            only answer that can carry a signing secret, and only one tix generated
+            for that call.'
         "400":
           $ref: '#/components/responses/Error400'
         "401":
@@ -13011,6 +13013,41 @@ components:
         token:
           description: Token is the secret bearer value. It is returned only when
             the token is issued and cannot be read again.
+          type: string
+      type: object
+    IssuedWebhook:
+      description: 'IssuedWebhook is an endpoint as PutWebhook answers it: the only
+        answer that can carry a signing secret, and only one tix generated for that
+        call.'
+      properties:
+        active:
+          description: Active turns deliveries on. An inactive endpoint receives nothing.
+          type: boolean
+        created_at:
+          description: CreatedAt is when the endpoint was registered, RFC 3339.
+          format: date-time
+          type: string
+        event_types:
+          description: EventTypes are the event types delivered, exact or with a trailing
+            "*" such as "task.*". Empty delivers every event.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        id:
+          description: ID is the endpoint's unique identifier.
+          type: string
+        secret:
+          description: SigningSecret is the secret tix generated for an endpoint saved
+            without one, returned this once. Absent when the caller supplied or kept
+            one.
+          type: string
+        tenant_id:
+          description: TenantID is the tenant that owns the endpoint.
+          type: string
+        url:
+          description: URL is where deliveries are POSTed.
           type: string
       type: object
     Kind:

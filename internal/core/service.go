@@ -504,8 +504,9 @@ type AuthService interface {
 type WebhookService interface {
 	// PutWebhook registers an https delivery endpoint, or updates one by
 	// identifier. A registration with no secret gets a generated one, returned
-	// only in this response.
-	PutWebhook(ctx context.Context, in WebhookInput) (*WebhookEndpoint, error)
+	// as secret in this response and never again; a supplied or kept secret is
+	// not returned.
+	PutWebhook(ctx context.Context, in WebhookInput) (*IssuedWebhook, error)
 	// ListWebhooks lists this tenant's delivery endpoints, without their secrets.
 	ListWebhooks(ctx context.Context) ([]WebhookEndpoint, error)
 	// DeleteWebhook removes a delivery endpoint and its pending deliveries.

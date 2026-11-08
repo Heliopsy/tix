@@ -1058,7 +1058,15 @@ Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-S
 trusting a delivery.
 
 A signing secret is stored write-only: no read of an endpoint ever returns it. Register one without a secret
-and tix generates one, returned in the response to that registration alone. In the browser, `/admin/webhooks`
+and tix generates one, returned in the response to that registration alone, as `secret` beside the
+endpoint's fields:
+
+```json
+{"id":"01J000...","tenant_id":"01J...","url":"https://ci.example.com/hooks/tix","event_types":["task.*"],"active":true,"created_at":"2026-11-08T09:00:00Z","secret":"k3j..."}
+```
+
+`secret` is absent when you supplied the secret or kept the existing one. There is no separate rotate:
+`PUT /api/v1/webhooks` with the endpoint's `id` and a new `secret` replaces it. In the browser, `/admin/webhooks`
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.

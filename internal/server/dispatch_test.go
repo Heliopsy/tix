@@ -76,7 +76,7 @@ func TestAssembledServerDeliversQueuedWebhooks(t *testing.T) {
 		if got.eventType != string(core.EventTaskCreated) {
 			t.Errorf("%s = %q, want %q", webhook.HeaderEvent, got.eventType, core.EventTaskCreated)
 		}
-		if !webhook.Verify(endpoint.Secret, got.timestamp, got.body, got.signature) {
+		if !webhook.Verify(endpoint.SigningSecret, got.timestamp, got.body, got.signature) {
 			t.Errorf("%s %q does not verify over timestamp %q and the body",
 				webhook.HeaderSignature, got.signature, got.timestamp)
 		}

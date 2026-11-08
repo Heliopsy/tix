@@ -30,6 +30,7 @@ type fakeIntegrations struct {
 	webhookPuts   []core.WebhookInput
 	webhooksGone  []string
 	redelivered   []string
+	pinged        []string
 	sourcePuts    []core.SyncSourceInput
 	sourcesGone   []string
 	runs          []core.RunSyncInput
@@ -57,13 +58,19 @@ func (f *fakeIntegrations) GetRetention(context.Context) (*core.RetentionPolicy,
 	return f.retention, nil
 }
 
-func (f *fakeIntegrations) PutWebhook(_ context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (f *fakeIntegrations) PutWebhook(_ context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
 	f.webhookPuts = append(f.webhookPuts, in)
-	e := &core.WebhookEndpoint{ID: "w-new", URL: in.URL, Active: in.Active, EventTypes: in.EventTypes}
+	e := &core.IssuedWebhook{WebhookEndpoint: core.WebhookEndpoint{
+		ID: "w-new", URL: in.URL, Active: in.Active, EventTypes: in.EventTypes}}
 	if in.Secret == "" && in.ID == "" {
-		e.Secret = f.generated
+		e.SigningSecret = f.generated
 	}
 	return e, nil
+}
+
+func (f *fakeIntegrations) PingWebhook(_ context.Context, id string) (*core.WebhookDelivery, error) {
+	f.pinged = append(f.pinged, id)
+	return &core.WebhookDelivery{ID: "d-ping", EndpointID: id, Status: core.DeliveryDelivered}, nil
 }
 
 func (f *fakeIntegrations) DeleteWebhook(_ context.Context, id string) error {
