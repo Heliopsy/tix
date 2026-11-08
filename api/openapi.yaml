@@ -11768,6 +11768,11 @@ components:
           description: 'ActorID is the actor the key speaks for. Empty means the calling
             actor, which is the common case: enrolling one''s own key.'
           type: string
+        all_tenants:
+          description: AllTenants enrols the caller's own key in every tenant their
+            account is a member of, one enrolment and one audit entry per tenant.
+            It takes no actor, and a token needs account:read for it.
+          type: boolean
         label:
           description: Label is a human note for telling one key from another.
           type: string
@@ -13151,6 +13156,13 @@ components:
           description: CreatedAt is when the key was enrolled, RFC 3339.
           format: date-time
           type: string
+        enrolled_in:
+          description: EnrolledIn lists, on the answer to an all-tenants enrolment,
+            the keys of the tenants this call enrolled the key in. Tenants that already
+            held it are not listed.
+          items:
+            type: string
+          type: array
         fingerprint:
           description: Fingerprint is the key's SHA-256 fingerprint as ssh prints
             it ("SHA256:...").
