@@ -42,6 +42,11 @@ A tenant switch SHALL require a second factor code when the target tenant requir
 - **WHEN** a person whose HO session was minted with a password only switches to a tenant that requires a second factor in the browser
 - **THEN** they are asked for a code and no session is minted until a valid one is given
 
+#### Scenario: No second factor set up
+
+- **WHEN** a person whose account has no second factor switches to a tenant that requires one in the browser
+- **THEN** the switch is refused as forbidden with reason `second_factor_required` and no session is minted
+
 #### Scenario: Session already passed one
 
 - **WHEN** a person whose session was minted with a second factor switches to such a tenant

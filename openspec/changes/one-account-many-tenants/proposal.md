@@ -23,8 +23,9 @@ tenant take over a person who administers another.
   `actors.user_id`. No code may assume an actor ID equals a user ID afterwards.
 - **Sessions stay bound to one tenant.** Sign-in picks the tenant from the host as today. A switcher mints
   a session for the person's actor in another tenant, checking that tenant's membership and second factor
-  policy. A host no domain claims (the default-tenant fallback) serves whichever tenant the
-  session or the `X-Tix-Tenant` header names, and only to a credential of that tenant. Switching to a
+  policy. A host no domain claims (the default-tenant fallback), or one whose domain a global admin marked
+  shared, serves whichever tenant the session or the `X-Tix-Tenant` header names, and only to a credential
+  of that tenant. Switching to a
   tenant on its own domain with a single-use handoff ticket is a later phase.
 - **Tokens and SSH keys stay per tenant actor.** No cross-tenant token is added. SSH keeps choosing the
   tenant by username.

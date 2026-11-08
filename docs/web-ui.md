@@ -18,6 +18,12 @@ link opens a page of its own ([Inviting people and required password
 changes](#inviting-people-and-required-password-changes)). Can't sign in? opens the `tix user` commands
 that create an account or reset a password from the machine serving tix.
 
+On a host that serves several tenants (see [tenancy.md](tenancy.md#switching-tenant)) the sign-in goes by
+the account, and somebody who belongs to more than one tenant there lands on Choose a tenant (`/switch`)
+after the password and any code: one row per tenant with its role, the current one marked, a Switch button
+for each other tenant this host serves, a link to the sign-in page of a tenant at its own address, and
+Continue here.
+
 ## The sidebar
 
 The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
@@ -27,8 +33,13 @@ Connect an agent and Docs.
 Your own views follow, Saved filters and Recently viewed, then Admin, and at the foot your account menu
 with the version under it.
 
-The tenant's name is plain text. A session belongs to the tenant its host resolves to, and finding your
-accounts in other tenants would mean looking your address up across tenants, so there is no switcher.
+**Switching tenant.** For somebody in more than one tenant, the first sidebar entry is the current
+tenant's name. It opens Your tenants, the same rows as Choose a tenant, plus links to Your account and, for a
+global admin, the Global admin area; tenants a global admin is no member of are reached from there, not
+listed here. Without scripting the entry is a link to `?dialog=tenants`, which draws the list in place.
+Switch mints a session in that tenant and ends the one you had; when that tenant requires a second factor
+your sign-in did not give, it asks for a code first. With one tenant the name at the top is plain text and
+there is no switcher.
 
 **My work's badge** counts your open assigned tasks past their deadline, not all of them: a count of
 everything assigned is never zero for anybody with work, so it says nothing. It reads 99+ past 99 and is
