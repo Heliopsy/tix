@@ -2,16 +2,17 @@
 
 ### Requirement: Settings states who the reader is
 
-The settings screen SHALL open with a Profile section naming the signed-in actor's handle, display name,
-identifier, kind, role, tenant, scopes, whether the actor may act as a global admin, and whether the request
-authenticated with a browser session or an API token. It SHALL read them from `WhoAmI` and SHALL link to
-the reader's own actor screen.
+The settings screen SHALL open with a Profile section naming the signed-in actor's handle, email, display
+name, identifier, kind, role, tenant, memberships, scopes, whether it may act as a global admin, and whether
+the request authenticated with a browser session or an API token. It SHALL read them from `WhoAmI` and
+SHALL link to the reader's own actor screen.
 
 #### Scenario: An administrator reads their profile
 
 - **GIVEN** alice, an admin of the tenant acme
 - **WHEN** she opens Settings
-- **THEN** the Profile section names `alice`, her actor identifier, the role admin and the tenant acme
+- **THEN** the Profile section names `alice`, her email, her actor identifier, the role admin and the tenant acme
+- **AND** it lists acme among her memberships as this tenant
 - **AND** it links to `/actors/` followed by her identifier
 
 ### Requirement: An actor has a screen of its own

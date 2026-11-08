@@ -4,10 +4,10 @@
 
 The Profile section is the browser's binding of `WhoAmI`. It sits on Settings rather than on a screen of
 its own because Settings is already where the reader looks after their own account, and the account menu
-reaches it. It reads only the actor `WhoAmI` returns plus `GetTenant` for the tenant's key and name, so it
-shows nothing the API does not already tell the same reader. The sign-in method is what the request
-carries: a browser session, or an API token by name. PR #237 adds the email, the session's method and the
-memberships to whoami; the section takes them as rows when that lands.
+reaches it. It reads only the actor `WhoAmI` returns, which names the account's email, the tenant and,
+for a browser session, every membership, so it shows nothing the API does not already tell the same
+reader. An agent's answer carries no tenant key; `GetTenant` supplies it where the reader may read the
+tenant. The sign-in method is what the request carries: a browser session, or an API token by name.
 
 ## Actor screen
 

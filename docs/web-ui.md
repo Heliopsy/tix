@@ -1398,11 +1398,12 @@ them. The choice is a container query on the block rather than a viewport breakp
 sidebar is resizable and collapsible and the room beside it is what decides. The section last jumped
 to is marked in the navigation through `:target`, with no script.
 
-Profile is who you are signed in as, the browser's `tix whoami`: handle, display name, actor id with a
-Copy button, kind, role, tenant, whether you may act as a global admin, what this request authenticated
-with (the browser session, or an API token by name) and every scope you hold. It links to your actor
-screen. The tenant shows its key and name to a tenant administrator and its identifier to anybody else,
-because only an administrator may read the tenant record.
+Profile is who you are signed in as, the browser's `tix whoami`: handle, email, display name, actor id
+with a Copy button, kind, role, tenant, whether you may act as a global admin, what this request
+authenticated with (the browser session, or an API token by name), every tenant your account is a member
+of with your handle and role there, and every scope you hold. It links to your actor screen. An agent's
+whoami carries no tenant key, so for one the tenant shows its key to a tenant administrator and its
+identifier to anybody else.
 
 Each setting is a row: its name and one line saying what it does on the left, its control on the
 right in a column every row shares, so selects are one width and switches line up. The longer
