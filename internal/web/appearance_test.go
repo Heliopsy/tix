@@ -124,7 +124,7 @@ func TestTheDarkSchemeGetsTheThemesOwnDarkAccent(t *testing.T) {
 	page := newFixture(t).as("alice").page("/projects")
 
 	light := between(t, page, "\n:root { --accent: ", ";")
-	dark := between(t, page, `:root[data-theme="dark"], :root[data-theme="dim"] { --accent: `, ";")
+	dark := between(t, page, `:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent: `, ";")
 	if light == "" || dark == "" {
 		t.Fatalf("the page emits no accent rules:\n%s", between(t, page, "<style>", "</style>"))
 	}
