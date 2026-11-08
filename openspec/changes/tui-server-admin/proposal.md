@@ -26,8 +26,8 @@ session is. Nothing about a terminal stops it from doing the same.
   and `capability.Operation.Permits` honours that report for operations needing `global:admin`.
 - Generated first-admin passwords are shown once on the global admin view and are gone when it is read
   again or left.
-- A form field kind for a secret, masked as it is typed and in the form's summary, for a new user's
-  password.
+- The form's shared `Secret` flag on a new user's password, masked as it is typed and in the form's
+  summary.
 - Registry: `status.read`, `connection.list` and `connection.end` bound to the `server` view;
   `tenant.create`, `tenant.delete`, `tenant.user.list`, `tenant.user.create`, `tenant.user.update`,
   `tenant.user.delete`, `tenant.member.add`, `global_admin.list`, `global_admin.grant`,
@@ -37,7 +37,7 @@ session is. Nothing about a terminal stops it from doing the same.
 
 ## Impact
 
-- `internal/tui`: two new views in their own files, a secret field kind, hooks in the shared dispatch.
+- `internal/tui`: two new views in their own files, the shared `Secret` flag on a password field, hooks in the shared dispatch.
 - `internal/capability`: registry bindings, `Permits`, gap count, recorded shortfalls, view list.
 - `cmd/tui.go`, `internal/sshd/session.go`: resolve the actor's global admin standing before computing
   access.

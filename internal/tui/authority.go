@@ -3,6 +3,8 @@
 package tui
 
 import (
+	"context"
+
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -80,3 +82,21 @@ func (m Model) mayPerform(method string) bool { return m.allowed[method] }
 // permits is mayPerform as the predicate the footer and the help overlay filter
 // with.
 func (m Model) permits() func(string) bool { return m.mayPerform }
+
+// WithStanding returns the actor carrying the service's report of whether it
+// may act as a global admin right now, which is what an operation needing
+// global admin is offered on. The caller asks once, before resolving the views
+// a session is offered. A failed question leaves the actor as it was, which
+// offers nothing it did not already have.
+func WithStanding(ctx context.Context, svc core.Service, actor *core.Actor) *core.Actor {
+	if actor == nil || svc == nil {
+		return actor
+	}
+	me, err := svc.WhoAmI(ctx)
+	if err != nil || me == nil {
+		return actor
+	}
+	out := *actor
+	out.GlobalAdmin = me.GlobalAdmin
+	return &out
+}

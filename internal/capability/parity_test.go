@@ -373,7 +373,7 @@ func contains(values []string, want string) bool {
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
 	"stats": true, "project": true, "history": true, "inbox": true, "people": true,
-	"integrations": true,
+	"integrations": true, "server": true, "globaladmin": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -525,10 +525,15 @@ func TestNoCLIGapRemains(t *testing.T) {
 // It came down from 34 with the integrations view, which closed twelve: the
 // five webhook operations, the four external sync operations and the three
 // retention operations, each on a tab its own scope gates.
+//
+// It came down from 22 with the server and global admin views: status.read,
+// connection.list and connection.end on the server view, and tenant.create and
+// tenant.delete on the global admin view, since every global admin operation
+// names the tenant it acts on and the pin was never what stood in the way.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 22,
+		capability.SurfaceTUI: 17,
 		capability.SurfaceWeb: 0,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
@@ -557,8 +562,9 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string]capability.Surface{
-	"PutArtifact": capability.SurfaceTUI,
-	"AddDomain":   capability.SurfaceTUI,
+	"PutArtifact":  capability.SurfaceTUI,
+	"AddDomain":    capability.SurfaceTUI,
+	"DeleteTenant": capability.SurfaceTUI,
 }
 
 // TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,

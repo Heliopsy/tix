@@ -53,9 +53,10 @@ footer, the help overlay and the keystroke.
 
 ## Secrets in a form
 
-A new user's password is typed into a form. `FieldSecret` is a typed field whose input is echoed as
-bullets and whose summary on an unselected row is masked, so a password never reaches the frame. The
-input's echo mode is reset when the form closes, so the next prompt is not masked.
+A new user's password is typed into a form. It is a text field with the form's shared `Secret` flag,
+the one the people screen's password uses: its input is echoed as bullets and its summary on an
+unselected row is masked, so a password never reaches the frame. The input's echo mode is reset when the
+form closes, so the next prompt is not masked. There is no second field kind for it.
 
 ## Generated passwords
 

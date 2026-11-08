@@ -24,6 +24,10 @@ const (
 	confirmDeleteUser
 	confirmRevokeInvite
 	confirmClearTOTP
+	confirmEndConnection
+	confirmDeleteTenant
+	confirmRevokeGlobal
+	confirmDeleteTenantUser
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -44,6 +48,11 @@ var confirmVerbs = map[confirmKind]string{
 	confirmDeleteWebhook:    "delete endpoint",
 	confirmDeleteSyncSource: "delete source",
 	confirmPrune:            "prune",
+
+	confirmEndConnection:    "end connection",
+	confirmDeleteTenant:     "delete tenant",
+	confirmRevokeGlobal:     "revoke global admin from",
+	confirmDeleteTenantUser: "delete user",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -86,6 +95,11 @@ type Confirm struct {
 	// userID and inviteID address the people screen's removals.
 	userID   string
 	inviteID string
+	// subject addresses what an administration view's confirmation acts on: a
+	// connection identifier, a tenant key, an email or a user identifier.
+	// within is the tenant a user deletion acts in.
+	subject string
+	within  string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

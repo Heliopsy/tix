@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] `FieldSecret` and `FieldCondition.Not` in `internal/tui/form.go`, with the masked input
+- [ ] The `Secret` flag on secret fields and `FieldCondition.Not` in `internal/tui/form.go`, with the masked input
 - [ ] `integrations` view kind, name, `J` binding, scheme view actions and collision list
 - [ ] Integrations state, reads and writes in `internal/tui/integrations.go`
 - [ ] Pure rendering in `internal/tui/integrations_view.go`

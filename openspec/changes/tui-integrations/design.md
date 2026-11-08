@@ -32,9 +32,10 @@ pager to a terminal tab.
 
 The forms reuse the existing form widget. Two small additions make them possible:
 
-- `FieldSecret`, a typed field drawn masked and gathered by the single-line input in password mode. It is
-  never seeded, so a stored secret cannot reach the screen, and a blank answer keeps what is stored,
-  which is what the service already does with an empty secret or credential.
+- Secret fields are text fields with the form's shared `Secret` flag, drawn masked and gathered by the
+  single-line input in password mode. They are never seeded, so a stored secret cannot reach the screen,
+  and a blank answer keeps what is stored, which is what the service already does with an empty secret
+  or credential.
 - `FieldCondition.Not`, so a field can be shown for every system but one. Generic sync sources take a file
   and the two trackers take a URL, a project and a query; the form shows only what the chosen system
   accepts, and the service still refuses anything else.

@@ -213,7 +213,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // two views, and often should.
 func viewActions(v viewKind) []string {
 	global := []string{"Palette", "Help", "Refresh", "Menu", "Projects", "Project", "Activity", "History",
-		"Inbox", "Tenant", "People", "Integrations", "Quit", "Interrupt"}
+		"Inbox", "Tenant", "People", "Integrations", "Server", "Global", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -254,6 +254,14 @@ func viewActions(v viewKind) []string {
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
 			"Edit", "New", "Delete", "Back",
 		}, global...)
+	case viewServer:
+		return append([]string{"Up", "Down", "Top", "Bottom", "Delete", "Back"}, global...)
+	case viewGlobal:
+		// Left and Right cycle a form's answers, as on the tenant screen.
+		return append([]string{
+			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
+			"Edit", "New", "Delete", "Filter", "Back",
+		}, global...)
 	case viewInbox:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "ToggleRead", "ReadAll", "Back"}, global...)
 	case viewPeople:
@@ -277,6 +285,7 @@ func viewActions(v viewKind) []string {
 var collisionViews = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
 	viewProject, viewHistory, viewInbox, viewHelp, viewMenu, viewPeople, viewIntegrations,
+	viewServer, viewGlobal,
 }
 
 // Collision is one key bound to two actions in the same view.
@@ -385,6 +394,10 @@ func viewName(v viewKind) string {
 		return "integrations"
 	case viewPeople:
 		return "people"
+	case viewServer:
+		return "server"
+	case viewGlobal:
+		return "globaladmin"
 	default:
 		return "help"
 	}
