@@ -69,6 +69,7 @@ type Tx interface {
 	TemplateTx
 	HousekeepingTx
 	TimePrefsTx
+	IdempotencyTx
 
 	Commit() error
 	Rollback() error
@@ -243,6 +244,53 @@ type ViewTx interface {
 	// DeleteGroupPrefs removes an actor's preference on one group, or on every
 	// group of the view when group is empty, reporting how many it removed.
 	DeleteGroupPrefs(ctx context.Context, actorID, view, group string) (int64, error)
+}
+
+// Idempotency key states. A row is reserved while its request runs, executed
+// once that request's write has committed, and done once its response is kept.
+const (
+	IdempotencyReserved = "reserved"
+	IdempotencyExecuted = "executed"
+	IdempotencyDone     = "done"
+)
+
+// IdempotencyRecord is one client retry key and what its request answered.
+type IdempotencyRecord struct {
+	ID          string
+	ActorID     string
+	Key         string
+	Fingerprint string
+	State       string
+	Status      int
+	ContentType string
+	Body        []byte
+	CreatedAt   time.Time
+	// LeaseExpiresAt bounds how long a reserved or executed row counts as
+	// still running.
+	LeaseExpiresAt time.Time
+	// ExpiresAt is when the key stops answering and may be pruned.
+	ExpiresAt time.Time
+}
+
+// IdempotencyTx covers the keys clients send to retry a write safely.
+type IdempotencyTx interface {
+	// GetIdempotencyKey returns an actor's row for a key, or not found.
+	GetIdempotencyKey(ctx context.Context, actorID, key string) (*IdempotencyRecord, error)
+	// CreateIdempotencyKey inserts a row, assigning its identifier when empty.
+	// A key the actor already holds is a conflict.
+	CreateIdempotencyKey(ctx context.Context, r *IdempotencyRecord) error
+	// MarkIdempotencyExecuted moves a reserved row to executed. A row in any
+	// other state, or no row, is left alone.
+	MarkIdempotencyExecuted(ctx context.Context, id string) error
+	// FinishIdempotencyKey writes a row's state, response and expiry.
+	FinishIdempotencyKey(ctx context.Context, r *IdempotencyRecord) error
+	// DeleteIdempotencyKey removes one row.
+	DeleteIdempotencyKey(ctx context.Context, id string) error
+	// PruneIdempotencyKeys deletes at most limit rows that expired before the
+	// cutoff, oldest expiry first.
+	PruneIdempotencyKeys(ctx context.Context, before time.Time, limit int) (int64, error)
+	// CountExpiredIdempotencyKeys counts the rows that expired before the cutoff.
+	CountExpiredIdempotencyKeys(ctx context.Context, before time.Time) (int, error)
 }
 
 // SavedFilterTx covers each actor's named task filters.

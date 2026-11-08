@@ -886,6 +886,8 @@ type PruneResult struct {
 	AuditEntries int64 `json:"audit_entries" yaml:"audit_entries"`
 	// WebhookDeliveries counts the webhook delivery records removed.
 	WebhookDeliveries int64 `json:"webhook_deliveries" yaml:"webhook_deliveries"`
+	// IdempotencyKeys counts the expired idempotency keys removed.
+	IdempotencyKeys int64 `json:"idempotency_keys" yaml:"idempotency_keys"`
 	// RetainedForSubscribers counts events past their window kept because a
 	// subscriber has not consumed them yet.
 	RetainedForSubscribers int64 `json:"retained_for_subscribers" yaml:"retained_for_subscribers"`

@@ -82,6 +82,10 @@ type Config struct {
 	Probe          DBProbe
 	ExpectedSchema int
 
+	// Idempotency keeps the answers of writes sent with an Idempotency-Key.
+	// Left nil, the router uses its service when the service provides it.
+	Idempotency Idempotency
+
 	// EventHandler serves the WebSocket event route when it is supplied.
 	EventHandler http.Handler
 
@@ -147,6 +151,9 @@ func New(cfg Config) (*Router, error) {
 	if cfg.RequestTimeout <= 0 {
 		cfg.RequestTimeout = DefaultRequestTimeout
 	}
+	if cfg.Idempotency == nil {
+		cfg.Idempotency, _ = cfg.Service.(Idempotency)
+	}
 
 	if cfg.CookieSecurity == "" {
 		cfg.CookieSecurity = config.CookieSecurityAuto
@@ -167,6 +174,7 @@ func New(cfg Config) (*Router, error) {
 	}
 	rt.register()
 	rt.handler = chain(rt.mux,
+		rt.idempotent,
 		rt.authenticate,
 		rt.resolveTenant,
 		rt.withTimeout,

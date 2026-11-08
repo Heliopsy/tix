@@ -299,6 +299,10 @@ type Retention struct {
 	Audit             core.Duration `yaml:"audit"`
 	Events            core.Duration `yaml:"events"`
 	WebhookDeliveries core.Duration `yaml:"webhook_deliveries"`
+	// IdempotencyKeys is how long a kept Idempotency-Key answers repeats of
+	// its request. It is not a tenant policy: a key is a client's retry
+	// handle, not history anybody reads.
+	IdempotencyKeys core.Duration `yaml:"idempotency_keys"`
 }
 
 // Policy renders the configured windows as a retention policy for a tenant.
@@ -457,6 +461,8 @@ const (
 	DefaultRetentionEvent = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
+	// DefaultRetentionIdempotency is how long a kept idempotency key answers.
+	DefaultRetentionIdempotency = "24h"
 	// DefaultPageSize is how many rows a listing shows when nothing says
 	// otherwise. Fifty filled more than three screens of a browser window,
 	// which is more rows than anybody reads before paging.
@@ -600,6 +606,7 @@ func Defaults() Config {
 			Audit:             mustDuration(DefaultRetentionAudit),
 			Events:            mustDuration(DefaultRetentionEvent),
 			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
+			IdempotencyKeys:   mustDuration(DefaultRetentionIdempotency),
 		},
 		Log: Log{
 			Level:  DefaultLogLevel,

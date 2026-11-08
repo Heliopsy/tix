@@ -426,6 +426,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithClock(clk),
 		service.WithHooks(service.HookModeOf(mode)),
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
+		service.WithIdempotencyWindow(cfg.Config.Retention.IdempotencyKeys.D()),
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
