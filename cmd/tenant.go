@@ -111,7 +111,14 @@ func tenantLsCmd(g *globals) *cobra.Command {
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List tenants",
-		Long:    "List every tenant visible to the actor.\n\nExit codes: 5 permission denied.",
+		Long: "List the tenants you can work in.\n\n" +
+			"For a person who is not a global admin this is the tenants your account is a member of, read " +
+			"from whoami, with your role and handle in each, the current one marked, and in the credential " +
+			"column the context holding a token for it (local for a database opened directly). A tenant with " +
+			"no credential is reached with `tix login --tenant KEY`. A server lists memberships to a token " +
+			"only when it carries account:read, which `tix login --tenant` grants; without it, and for a " +
+			"global admin, every tenant visible to the actor is listed instead.\n\n" +
+			"Exit codes: 5 permission denied.",
 		Example: "  tix tenant ls",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -121,6 +128,9 @@ func tenantLsCmd(g *globals) *cobra.Command {
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
+				return err
+			}
+			if listed, err := g.listMemberships(cmd, ctx, conn); listed || err != nil {
 				return err
 			}
 			tenants, next, err := conn.Service.ListTenants(ctx, core.Page{Limit: size})
@@ -151,10 +161,13 @@ func tenantUseCmd(g *globals) *cobra.Command {
 		Long: "Write a tenant key into the configuration file so later commands run against it.\n" +
 			"With a current context the key is stored on that context; otherwise it becomes the top-level default.\n" +
 			"--tenant still overrides it for one command.\n\n" +
-			"The key is checked by opening the target tenant and asking it who the actor is, because an actor " +
-			"is bound to one tenant and so cannot list another one to validate the key against. " +
-			"--force skips that check, for a tenant that does not exist yet.\n\n" +
-			"Exit codes: 2 unreadable configuration, 3 the tenant could not be reached, 5 permission denied.",
+			"When whoami lists your memberships the key is checked against them: a tenant you are not a " +
+			"member of is refused. On a server, choosing another of your tenants makes the context holding " +
+			"its token current; with no such context nothing is written and the command names " +
+			"`tix login --tenant KEY`. Otherwise the key is checked by opening the target tenant and asking " +
+			"it who the actor is. --force skips the check, for a tenant that does not exist yet.\n\n" +
+			"Exit codes: 2 unreadable configuration, 3 the tenant could not be reached or you are not a member, " +
+			"5 permission denied, 6 no context holds a credential for the tenant.",
 		Example: "  tix tenant use acme\n  tix tenant use acme --dry-run\n  tix tenant use new-tenant --force",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -162,20 +175,27 @@ func tenantUseCmd(g *globals) *cobra.Command {
 			if key == "" {
 				return usagef(cmd, "a tenant key is required")
 			}
-			if !force {
-				if err := g.probeTenant(cmd, key); err != nil {
-					return err
-				}
-			}
-			return g.editConfig(cmd, dryRun, "tenant.use", key, func(cfg *config.Config) error {
-				if current, ok := cfg.Contexts[cfg.CurrentContext]; ok && cfg.CurrentContext != "" {
-					current.Tenant = key
-					cfg.Contexts[cfg.CurrentContext] = current
+			write := func() error {
+				return g.editConfig(cmd, dryRun, "tenant.use", key, func(cfg *config.Config) error {
+					if current, ok := cfg.Contexts[cfg.CurrentContext]; ok && cfg.CurrentContext != "" {
+						current.Tenant = key
+						cfg.Contexts[cfg.CurrentContext] = current
+						return nil
+					}
+					cfg.Tenant = key
 					return nil
-				}
-				cfg.Tenant = key
-				return nil
-			})
+				})
+			}
+			if force {
+				return write()
+			}
+			if decided, err := g.useMembership(cmd, key, dryRun, write); decided || err != nil {
+				return err
+			}
+			if err := g.probeTenant(cmd, key); err != nil {
+				return err
+			}
+			return write()
 		},
 	}
 	f := cmd.Flags()

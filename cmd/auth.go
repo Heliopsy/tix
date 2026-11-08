@@ -369,7 +369,7 @@ func tokenRmCmd(g *globals) *cobra.Command {
 
 // newLoginCmd builds the login command.
 func newLoginCmd(g *globals) *cobra.Command {
-	var email, password, sshKey string
+	var email, password, sshKey, contextName string
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Exchange a password or an SSH key for a session",
@@ -386,9 +386,17 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"An account an administrator marked to change its password is asked for a new one, twice and " +
 			"without echo, before the session is printed. Without a terminal the sign-in stops and names " +
 			"the web sign-in page, where the change can be made instead.\n\n" +
+			"With --tenant KEY against a server the sign-in is for that tenant: the key goes in the " +
+			"X-Tix-Tenant header, so a host serving several tenants knows which one is meant, and a host " +
+			"bound to another tenant refuses it. Instead of printing the session, the command mints an API " +
+			"token for your actor in that tenant (scopes * and account:read), ends the session, and stores " +
+			"the token on the context --context names, or on the current context, or on a new context named " +
+			"after the tenant. Run it once per tenant to hold one context for each; tix tenant ls marks which " +
+			"of your tenants have one.\n\n" +
 			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials, " +
 			"6 no terminal to prompt for a code or a new password.",
 		Example: "  tix login --email ada@example.com --password -\n" +
+			"  tix --server https://tix.example login --tenant test --context test --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --ssh-key\n" +
 			"  tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519",
 		GroupID: "setup",
@@ -398,7 +406,7 @@ func newLoginCmd(g *globals) *cobra.Command {
 				if email != "" || password != "" {
 					return usagef(cmd, "--ssh-key replaces --email and --password; pass one or the other")
 				}
-				return g.loginWithSSHKey(cmd, sshKey)
+				return g.loginWithSSHKey(cmd, sshKey, contextName)
 			}
 			secret, err := body(cmd, password)
 			if err != nil {
@@ -412,8 +420,12 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			svc, tl, err := g.loginService(conn, contextName)
+			if err != nil {
+				return err
+			}
 			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI}
-			result, err := conn.Service.Login(ctx, in)
+			result, err := svc.Login(ctx, in)
 			if err != nil {
 				return err
 			}
@@ -421,11 +433,11 @@ func newLoginCmd(g *globals) *cobra.Command {
 				if in.NewPassword, err = g.askNewPassword(cmd, conn.Info.Target.URL); err != nil {
 					return err
 				}
-				if result, err = conn.Service.Login(ctx, in); err != nil {
+				if result, err = svc.Login(ctx, in); err != nil {
 					return err
 				}
 			}
-			return g.finishLogin(cmd, conn.Service, ctx, result)
+			return g.finishLogin(cmd, svc, ctx, result, tl)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")
@@ -433,6 +445,8 @@ func newLoginCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&sshKey, "ssh-key", "",
 		"sign in with an enrolled SSH key: alone, ssh-agent then the default keys; =PATH, that private key")
 	cmd.Flags().Lookup("ssh-key").NoOptDefVal = sshKeyDiscover
+	cmd.Flags().StringVar(&contextName, "context", "",
+		"with --tenant, the context to store the token on; defaults to the current one, else the tenant key")
 	return cmd
 }
 
@@ -470,7 +484,7 @@ func (g *globals) askNewPassword(cmd *cobra.Command, server string) (string, err
 // finishLogin takes a first step's answer through the second factor, when
 // there is one, and prints the session.
 func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.Context,
-	result *core.LoginResult,
+	result *core.LoginResult, tl *tenantLogin,
 ) error {
 	var err error
 	if result.Challenge != nil {
@@ -482,12 +496,15 @@ func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.
 		return core.Internal("the sign-in finished without a session")
 	}
 	showRecoveryCodes(cmd, result.RecoveryCodes)
+	if tl != nil {
+		return g.storeTenantLogin(cmd, ctx, tl, result.Session)
+	}
 	return g.render(cmd, result.Session)
 }
 
 // loginWithSSHKey signs the server's challenge with the key the flag names,
 // or with each key the person holds until one is accepted.
-func (g *globals) loginWithSSHKey(cmd *cobra.Command, path string) error {
+func (g *globals) loginWithSSHKey(cmd *cobra.Command, path, contextName string) error {
 	ask := g.passphrasePrompt(cmd)
 	home := lookupEnv(g.environ, "HOME")
 	var candidates []sshlogin.Candidate
@@ -505,12 +522,16 @@ func (g *globals) loginWithSSHKey(cmd *cobra.Command, path string) error {
 	if err != nil {
 		return err
 	}
-	target := conn.Info.Target
-	result, err := sshlogin.Login(ctx, conn.Service, audienceOf(target.URL), target.Tenant, candidates)
+	svc, tl, err := g.loginService(conn, contextName)
 	if err != nil {
 		return err
 	}
-	return g.finishLogin(cmd, conn.Service, ctx, result)
+	target := conn.Info.Target
+	result, err := sshlogin.Login(ctx, svc, audienceOf(target.URL), target.Tenant, candidates)
+	if err != nil {
+		return err
+	}
+	return g.finishLogin(cmd, svc, ctx, result, tl)
 }
 
 // audienceOf is the host a signature is bound to: the server this invocation
