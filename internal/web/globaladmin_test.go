@@ -278,3 +278,57 @@ func TestAccountHistoryIsReadableByThePersonAndAGlobalAdmin(t *testing.T) {
 		t.Errorf("the global admin's view of alice's history is wrong:\n%s", theirs)
 	}
 }
+
+// listsUser reports whether a users screen draws anything for one actor: its
+// row and its manage dialog both carry the identifier, and nothing else on
+// the screen does.
+func listsUser(page, id string) bool {
+	return strings.Contains(page, `user-`+id+`"`)
+}
+
+// A person removed from a tenant keeps an actor there for history, which the
+// users screens used to list as a user with no role. Removed from one tenant
+// while still a member of another, they leave that tenant's screen and stay
+// on the other's, whichever admin removed them.
+func TestAPersonRemovedFromATenantLeavesItsUsersScreen(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	f.makeGlobalAdmin()
+	b := f.as("alice")
+	const pat = "pat@acme.test"
+	created := b.post("/admin/users", url.Values{"email": {pat}, "password": {"correct-horse-battery"}, "role": {"member"}})
+	wantStatus(t, created, http.StatusSeeOther)
+	_ = created.Body.Close()
+	home := userIDFor(t, b.page("/admin/users"), pat)
+	add := func() string {
+		t.Helper()
+		added := b.post("/admin/global/members", url.Values{"target": {"other"}, "email": {pat}, "role": {"member"}})
+		wantStatus(t, added, http.StatusSeeOther)
+		_ = added.Body.Close()
+		return userIDFor(t, b.page("/admin/global/tenants/other"), pat)
+	}
+	there := add()
+
+	removed := b.post("/admin/global/users/delete", url.Values{"target": {"other"}, "id": {there}})
+	wantStatus(t, removed, http.StatusSeeOther)
+	_ = removed.Body.Close()
+	if listsUser(b.page("/admin/global/tenants/other"), there) {
+		t.Error("the other tenant's users screen still lists pat after a global admin removed her")
+	}
+	if !listsUser(b.page("/admin/users"), home) {
+		t.Fatal("removing pat from the other tenant took her off her home tenant's users screen")
+	}
+
+	if again := add(); again != there {
+		t.Errorf("re-adding pat gave her a new actor %q, want her old one %q", again, there)
+	}
+	removed = b.post("/admin/users/delete", url.Values{"id": {home}})
+	wantStatus(t, removed, http.StatusSeeOther)
+	_ = removed.Body.Close()
+	if listsUser(b.page("/admin/users"), home) {
+		t.Error("the users screen still lists pat after her tenant admin removed her")
+	}
+	if !listsUser(b.page("/admin/global/tenants/other"), there) {
+		t.Error("removing pat at home took her off the other tenant's users screen")
+	}
+}

@@ -684,7 +684,7 @@ func (f *fakeService) ListActors(context.Context, core.Page) ([]core.Actor, stri
 	return f.directory, "", f.directoryErr
 }
 func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
-func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
+func (f *fakeService) ListUsers(context.Context, core.UserFilter) ([]core.User, string, error) {
 	return nil, "", nil
 }
 func (f *fakeService) UpdateUser(context.Context, string, core.UpdateUserInput) (*core.User, error) {
@@ -696,7 +696,7 @@ func (f *fakeService) GrantGlobalAdmin(context.Context, core.GlobalAdminInput) (
 }
 func (f *fakeService) RevokeGlobalAdmin(context.Context, string) error       { return nil }
 func (f *fakeService) ListGlobalAdmins(context.Context) ([]core.User, error) { return nil, nil }
-func (f *fakeService) ListTenantUsers(context.Context, string, core.Page) ([]core.TenantUser, string, error) {
+func (f *fakeService) ListTenantUsers(context.Context, string, core.UserFilter) ([]core.TenantUser, string, error) {
 	return nil, "", nil
 }
 func (f *fakeService) UpdateDomain(context.Context, string, core.UpdateDomainInput) (*core.Domain, error) {

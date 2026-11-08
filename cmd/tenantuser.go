@@ -61,12 +61,15 @@ func newTenantDomainCmd(g *globals) *cobra.Command {
 func tenantUserLsCmd(g *globals) *cobra.Command {
 	var limit int
 	var cursor string
+	var removed bool
 	cmd := &cobra.Command{
 		Use:     "ls KEY",
 		Aliases: []string{"list"},
 		Short:   "List a tenant's users with their roles",
-		Long:    "List the users of a tenant and each one's role there.\n\nExit codes: 3 unknown tenant, 5 not a global admin.",
-		Example: "  tix tenant user ls acme",
+		Long: "List the users of a tenant and each one's role there. People removed from the tenant are left out;\n" +
+			"--include-removed lists them too, with the role \"removed\".\n\n" +
+			"Exit codes: 3 unknown tenant, 5 not a global admin.",
+		Example: "  tix tenant user ls acme\n  tix tenant user ls acme --include-removed",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -77,7 +80,9 @@ func tenantUserLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			users, next, err := conn.Service.ListTenantUsers(ctx, args[0], core.Page{Limit: size, Cursor: cursor})
+			users, next, err := conn.Service.ListTenantUsers(ctx, args[0], core.UserFilter{
+				IncludeRemoved: removed, Page: core.Page{Limit: size, Cursor: cursor},
+			})
 			if err != nil {
 				return err
 			}
@@ -87,6 +92,7 @@ func tenantUserLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, users)
 		},
 	}
+	cmd.Flags().BoolVar(&removed, "include-removed", false, "include people removed from the tenant")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd

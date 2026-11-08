@@ -153,6 +153,10 @@ type User struct {
 	// RequirePasswordChange reports whether the next password sign-in must
 	// choose a new password before a session is minted.
 	RequirePasswordChange bool `json:"require_password_change" yaml:"require_password_change"`
+	// Removed reports that the person was removed from this tenant: their
+	// actor stays so history still names them, but they hold no membership.
+	// A listing returns such a person only when asked to include them.
+	Removed bool `json:"removed,omitempty" yaml:"removed,omitempty"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.

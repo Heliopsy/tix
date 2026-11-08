@@ -483,9 +483,9 @@ type usersView struct {
 // role empty rather than failing the screen, and the edit control then says
 // so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
-	users, next, err := h.svc.ListUsers(r.Context(), core.Page{
+	users, next, err := h.svc.ListUsers(r.Context(), core.UserFilter{Page: core.Page{
 		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	})
+	}})
 	if err != nil {
 		return err
 	}

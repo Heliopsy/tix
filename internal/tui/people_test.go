@@ -50,7 +50,7 @@ func newPeopleFake() *peopleFake {
 	}
 }
 
-func (f *peopleFake) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
+func (f *peopleFake) ListUsers(context.Context, core.UserFilter) ([]core.User, string, error) {
 	f.listed++
 	return append([]core.User(nil), f.users...), "", nil
 }

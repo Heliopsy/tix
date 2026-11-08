@@ -232,6 +232,14 @@ type ProjectListQuery struct {
 	IncludeArchived bool `query:"include_archived"`
 }
 
+// UserListQuery is the filter a user listing reads.
+type UserListQuery struct {
+	PageQuery
+	// IncludeRemoved is true to list people removed from the tenant too,
+	// each marked removed.
+	IncludeRemoved bool `query:"include_removed"`
+}
+
 // ProjectDeleteQuery is how a project deletion is asked for.
 type ProjectDeleteQuery struct {
 	// Archive is true to archive the project instead of deleting it, which

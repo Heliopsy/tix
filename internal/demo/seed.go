@@ -105,7 +105,7 @@ func HasData(ctx context.Context, svc core.Service) (bool, error) {
 	if len(page.Tasks) > 0 {
 		return true, nil
 	}
-	users, _, err := svc.ListUsers(ctx, core.Page{Limit: 1})
+	users, _, err := svc.ListUsers(ctx, core.UserFilter{IncludeRemoved: true, Page: core.Page{Limit: 1}})
 	if err != nil {
 		return false, err
 	}
