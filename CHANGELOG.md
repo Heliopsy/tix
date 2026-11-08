@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/Heliopsy/tix/compare/v0.49.0...v0.50.0) (2026-11-08)
+
+
+### Features
+
+* **token:** rotate an API token with an optional grace window ([bb66093](https://github.com/Heliopsy/tix/commit/bb660931425ff5440c3e9e244eb80d7690a45504))
+
 ## [0.49.0](https://github.com/Heliopsy/tix/compare/v0.48.0...v0.49.0) (2026-11-08)
 
 
