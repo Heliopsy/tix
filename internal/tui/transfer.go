@@ -397,6 +397,13 @@ func (m Model) startImport(op transferOp, path string, form Form) (Model, tea.Cm
 	return m, m.planImport(plan, mapping)
 }
 
+// pathError puts the reason a file could not be reached ahead of its path. A
+// path can run longer than the status bar, as a temporary directory on macOS
+// does, and the bar truncates from the right, so the reason has to come first.
+func pathError(verb, path string, err error) error {
+	return fmt.Errorf("%w (%s %s)", fileError(err), verb, path)
+}
+
 // fileError drops the operation and path an os error repeats, since the
 // message around it names the path already.
 func fileError(err error) error {
@@ -417,13 +424,13 @@ func (m Model) planImport(plan transferPlan, mappingPath string) tea.Cmd {
 	return func() tea.Msg {
 		data, err := files.ReadFile(plan.path)
 		if err != nil {
-			return transferPlanMsg{err: fmt.Errorf("reading %s: %w", plan.path, fileError(err))}
+			return transferPlanMsg{err: pathError("reading", plan.path, err)}
 		}
 		plan.data = data
 		if mappingPath != "" {
 			raw, err := files.ReadFile(mappingPath)
 			if err != nil {
-				return transferPlanMsg{err: fmt.Errorf("reading %s: %w", mappingPath, fileError(err))}
+				return transferPlanMsg{err: pathError("reading", mappingPath, err)}
 			}
 			plan.tasks.Mapping = string(raw)
 		}
@@ -593,7 +600,7 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 func writeFile(files transferFiles, path string, write func(io.Writer) error) (int64, error) {
 	f, err := files.Create(path)
 	if err != nil {
-		return 0, fmt.Errorf("creating %s: %w", path, fileError(err))
+		return 0, pathError("creating", path, err)
 	}
 	cw := &countingWriter{w: f}
 	if err := write(cw); err != nil {
@@ -602,7 +609,7 @@ func writeFile(files transferFiles, path string, write func(io.Writer) error) (i
 		return 0, err
 	}
 	if err := f.Close(); err != nil {
-		return 0, fmt.Errorf("writing %s: %w", path, fileError(err))
+		return 0, pathError("writing", path, err)
 	}
 	return cw.n, nil
 }

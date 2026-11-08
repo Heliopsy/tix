@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -281,7 +282,9 @@ func TestATaskImportWithRowsInErrorCannotBeWritten(t *testing.T) {
 }
 
 func TestAnUnreadablePathIsReportedNotFatal(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "nowhere", "file.csv")
+	// Longer than the status bar, as a temporary directory on macOS is, so the
+	// reason is only visible if it comes ahead of the path.
+	missing := filepath.Join(t.TempDir(), strings.Repeat("a-directory-that-is-not-there/", 4), "file.csv")
 	for _, title := range []string{"import tasks", "import bundle", "import snapshot", "export tasks"} {
 		t.Run(title, func(t *testing.T) {
 			b := newLiveBoard(t)
@@ -292,6 +295,9 @@ func TestAnUnreadablePathIsReportedNotFatal(t *testing.T) {
 			}
 			if m.view != viewTransfer || m.fatal != nil {
 				t.Errorf("a bad path left the view: view %s, fatal %v", viewName(m.view), m.fatal)
+			}
+			if lipgloss.Width(m.statusBar()) > m.width {
+				t.Fatalf("the status bar is wider than the terminal's %d cells:\n%s", m.width, m.statusBar())
 			}
 			if !strings.Contains(m.statusBar(), "no such file") {
 				t.Errorf("the status bar does not carry the error:\n%s", m.statusBar())
