@@ -8800,7 +8800,7 @@ paths:
   /api/v1/tenants/{ref}/users:
     get:
       description: |-
-        ListTenantUsers lists the users of any tenant, with each one's role there, keyset paginated. Only a global admin may call it; for anybody else it is forbidden whatever the tenant.
+        ListTenantUsers lists the users of any tenant, with each one's role there, keyset paginated. People removed from the tenant are left out unless include_removed asks for them, marked removed and with no role. Only a global admin may call it; for anybody else it is forbidden whatever the tenant.
 
         Command line: `tix tenant user ls`.
       operationId: tenant.user.list
@@ -8838,6 +8838,12 @@ paths:
               - asc
               - desc
             type: string
+        - description: IncludeRemoved is true to list people removed from the tenant
+            too, each marked removed.
+          in: query
+          name: include_removed
+          schema:
+            type: boolean
       responses:
         "200":
           content:
@@ -9331,7 +9337,7 @@ paths:
   /api/v1/users:
     get:
       description: |-
-        ListUsers lists the users of this tenant, keyset paginated, with the cursor for the next page.
+        ListUsers lists the users of this tenant, keyset paginated, with the cursor for the next page. People removed from the tenant, whose actor stays for history, are left out unless include_removed asks for them, each then marked removed.
 
         Command line: `tix user ls`.
       operationId: user.list
@@ -9362,6 +9368,12 @@ paths:
               - asc
               - desc
             type: string
+        - description: IncludeRemoved is true to list people removed from the tenant
+            too, each marked removed.
+          in: query
+          name: include_removed
+          schema:
+            type: boolean
       responses:
         "200":
           content:
@@ -13165,6 +13177,13 @@ components:
         tasks:
           description: Tasks counts the project's live tasks.
           type: integer
+        trashed:
+          description: Trashed counts the project's soft deleted tasks, in the trash.
+          type: integer
+        would_delete:
+          description: WouldDelete counts the tasks a planned deletion would remove
+            permanently, trashed ones included. Only a plan sets it.
+          type: integer
       type: object
     ProjectIconFile:
       description: 'ProjectIconFile is an image a caller uploads as a project''s icon.
@@ -13177,13 +13196,6 @@ components:
         data:
           description: 'Data is the image, base64 in JSON: a PNG, JPEG, WebP or script-free
             SVG of at most 64 KiB. Empty asks for no image.'
-        trashed:
-          description: Trashed counts the project's soft deleted tasks, in the trash.
-          type: integer
-        would_delete:
-          description: WouldDelete counts the tasks a planned deletion would remove
-            permanently, trashed ones included. Only a plan sets it.
-          type: integer
           format: base64
           type: string
       type: object
@@ -15065,6 +15077,11 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        removed:
+          description: 'Removed reports that the person was removed from this tenant:
+            their actor stays so history still names them, but they hold no membership.
+            A listing returns such a person only when asked to include them.'
+          type: boolean
         require_password_change:
           description: RequirePasswordChange reports whether the next password sign-in
             must choose a new password before a session is minted.
@@ -15599,6 +15616,11 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        removed:
+          description: 'Removed reports that the person was removed from this tenant:
+            their actor stays so history still names them, but they hold no membership.
+            A listing returns such a person only when asked to include them.'
+          type: boolean
         require_password_change:
           description: RequirePasswordChange reports whether the next password sign-in
             must choose a new password before a session is minted.

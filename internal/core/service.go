@@ -78,9 +78,11 @@ type TenantService interface {
 	DeleteTenant(ctx context.Context, ref string) error
 
 	// ListTenantUsers lists the users of any tenant, with each one's role
-	// there, keyset paginated. Only a global admin may call it; for anybody
-	// else it is forbidden whatever the tenant.
-	ListTenantUsers(ctx context.Context, tenant string, page Page) ([]TenantUser, string, error)
+	// there, keyset paginated. People removed from the tenant are left out
+	// unless include_removed asks for them, marked removed and with no role.
+	// Only a global admin may call it; for anybody else it is forbidden
+	// whatever the tenant.
+	ListTenantUsers(ctx context.Context, tenant string, f UserFilter) ([]TenantUser, string, error)
 	// CreateTenantUser creates a user, its actor and its membership in any
 	// tenant, as CreateUser does in the caller's own. Global admin only.
 	CreateTenantUser(ctx context.Context, tenant string, in CreateUserInput) (*User, error)
@@ -383,8 +385,10 @@ type AuthService interface {
 	// GetUser returns a user of this tenant by identifier.
 	GetUser(ctx context.Context, id string) (*User, error)
 	// ListUsers lists the users of this tenant, keyset paginated, with the cursor
-	// for the next page.
-	ListUsers(ctx context.Context, page Page) ([]User, string, error)
+	// for the next page. People removed from the tenant, whose actor stays for
+	// history, are left out unless include_removed asks for them, each then
+	// marked removed.
+	ListUsers(ctx context.Context, f UserFilter) ([]User, string, error)
 	// UpdateUser changes a user's display name, password, role or disabled state;
 	// fields left out are unchanged. Disabling a user also revokes its API
 	// tokens.

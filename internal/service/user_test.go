@@ -298,7 +298,7 @@ func TestListUsersIsTenantScoped(t *testing.T) {
 		t.Fatalf("CreateUser in the other tenant: %v", err)
 	}
 
-	users, _, err := l.ListUsers(ctx, core.Page{})
+	users, _, err := l.ListUsers(ctx, core.UserFilter{})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -322,21 +322,21 @@ func TestListUsersPaginates(t *testing.T) {
 		}
 	}
 
-	first, next, err := l.ListUsers(ctx, core.Page{Limit: 2, Sort: "email"})
+	first, next, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 2, Sort: "email"}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
 	if len(first) != 2 || next == "" {
 		t.Fatalf("first page = %d users, cursor %q", len(first), next)
 	}
-	rest, last, err := l.ListUsers(ctx, core.Page{Limit: 2, Sort: "email", Cursor: next})
+	rest, last, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 2, Sort: "email", Cursor: next}})
 	if err != nil {
 		t.Fatalf("ListUsers page two: %v", err)
 	}
 	if len(rest) != 1 || last != "" {
 		t.Fatalf("second page = %d users, cursor %q", len(rest), last)
 	}
-	if _, _, err := l.ListUsers(ctx, core.Page{Limit: -1}); !core.IsKind(err, core.KindInvalid) {
+	if _, _, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: -1}}); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("a negative limit = %v, want invalid", err)
 	}
 }
@@ -352,7 +352,7 @@ func TestUserAdminIsDeniedToNonAdmins(t *testing.T) {
 	if _, err := l.GetUser(ctx, "whatever"); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("GetUser as a member = %v, want forbidden", err)
 	}
-	if _, _, err := l.ListUsers(ctx, core.Page{}); !core.IsKind(err, core.KindForbidden) {
+	if _, _, err := l.ListUsers(ctx, core.UserFilter{}); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("ListUsers as a member = %v, want forbidden", err)
 	}
 	if _, err := l.UpdateUser(ctx, "whatever", core.UpdateUserInput{}); !core.IsKind(err, core.KindForbidden) {
@@ -525,7 +525,7 @@ func TestListUsersCursorNeverNamesAnotherTenantsUser(t *testing.T) {
 	visible := map[string]bool{}
 	cursor := ""
 	for i, want := range mine {
-		users, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: cursor})
+		users, next, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 1, Sort: "email", Cursor: cursor}})
 		if err != nil {
 			t.Fatalf("ListUsers page %d: %v", i, err)
 		}
@@ -550,7 +550,7 @@ func TestListUsersCursorNeverNamesAnotherTenantsUser(t *testing.T) {
 		}
 	}
 
-	last, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: cursor})
+	last, next, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 1, Sort: "email", Cursor: cursor}})
 	if err != nil {
 		t.Fatalf("ListUsers past the end: %v", err)
 	}
@@ -575,7 +575,7 @@ func TestListUsersNeverReturnsAnEmptyPageWithACursor(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	users, next, err := l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email"})
+	users, next, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 1, Sort: "email"}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -590,7 +590,7 @@ func TestListUsersNeverReturnsAnEmptyPageWithACursor(t *testing.T) {
 		if c.SortValue != "z@example.com" {
 			t.Fatalf("cursor names %q, which this tenant cannot see", c.SortValue)
 		}
-		users, next, err = l.ListUsers(ctx, core.Page{Limit: 1, Sort: "email", Cursor: next})
+		users, next, err = l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 1, Sort: "email", Cursor: next}})
 		if err != nil {
 			t.Fatalf("ListUsers: %v", err)
 		}

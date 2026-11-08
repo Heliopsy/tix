@@ -209,6 +209,11 @@ SSH keys here stop at once, and their other tenants are untouched. Removing a pe
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
 
+A removed person's actor stays in the tenant so history still names them, but they are no longer one of its
+users: the Users screens, the TUI people view, `tix user ls`, `tix tenant user ls` and the API listings leave
+them out. `--include-removed` on either command, or `include_removed=true` on the API, lists them too, each
+marked `removed`.
+
 A person's display name is per tenant: it lives on their actor there, and the Users screen, `tix user ls`
 and `show`, the API and the account menu all show that one. Renaming somebody changes the name in this
 tenant only; for a person who belongs to this tenant alone it also becomes the account's name, which a

@@ -293,12 +293,20 @@ func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) erro
 }
 
 func (p Painter) userRow(u core.User) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
+	name := truncate(u.DisplayName, 30)
+	if u.Removed {
+		name = strings.TrimSpace(name + " (removed)")
+	}
+	return table.Row{u.ID, u.Email, name,
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
 func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), string(u.Role), yesNo(u.GlobalAdmin),
+	role := string(u.Role)
+	if u.Removed {
+		role = "removed"
+	}
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), role, yesNo(u.GlobalAdmin),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 

@@ -77,7 +77,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPatch, "/api/v1/tenants/acme"},
 		{"delete tenant", func(c *Client) error { return c.DeleteTenant(ctx, "acme") }, http.MethodDelete, "/api/v1/tenants/acme"},
-		{"list tenant users", func(c *Client) error { _, _, err := c.ListTenantUsers(ctx, "acme", core.Page{}); return err },
+		{"list tenant users", func(c *Client) error { _, _, err := c.ListTenantUsers(ctx, "acme", core.UserFilter{}); return err },
 			http.MethodGet, "/api/v1/tenants/acme/users"},
 		{"create tenant user", func(c *Client) error {
 			_, err := c.CreateTenantUser(ctx, "acme", core.CreateUserInput{Email: "a@b.test"})
@@ -205,7 +205,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPost, wire.RouteUsers},
 		{"get user", func(c *Client) error { _, err := c.GetUser(ctx, "u1"); return err }, http.MethodGet, "/api/v1/users/u1"},
-		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteUsers},
+		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.UserFilter{}); return err }, http.MethodGet, wire.RouteUsers},
 		{"list actors", func(c *Client) error { _, _, err := c.ListActors(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteActors},
 		{"update user", func(c *Client) error { _, err := c.UpdateUser(ctx, "u1", core.UpdateUserInput{}); return err }, http.MethodPatch, "/api/v1/users/u1"},
 		{"delete user", func(c *Client) error { return c.DeleteUser(ctx, "u1") }, http.MethodDelete, "/api/v1/users/u1"},

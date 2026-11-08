@@ -124,7 +124,7 @@ func TestAnActorWhoseIdentifierIsNotItsAccountsIsAdministered(t *testing.T) {
 		t.Errorf("GetUser(account identifier) = %v, want not found: a tenant names its users by actor", err)
 	}
 
-	listed, _, err := l.ListUsers(ctx, core.Page{Limit: 50})
+	listed, _, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 50}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}

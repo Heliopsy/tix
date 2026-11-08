@@ -401,6 +401,13 @@ type ProjectFilter struct {
 	Page            Page     `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
+// UserFilter selects the users a listing returns. People removed from the
+// tenant are left out unless IncludeRemoved asks for them.
+type UserFilter struct {
+	IncludeRemoved bool `json:"include_removed,omitempty" yaml:"include_removed,omitempty"`
+	Page           Page `json:"page,omitempty" yaml:"page,omitempty"`
+}
+
 // DeliveryFilter selects webhook deliveries.
 type DeliveryFilter struct {
 	EndpointID string           `json:"endpoint_id,omitempty" yaml:"endpoint_id,omitempty"`
