@@ -249,3 +249,20 @@ func expiry(ttl time.Duration) *time.Time {
 	at := time.Now().Add(ttl).UTC()
 	return &at
 }
+
+// ErrorCode names the kind of an error this package returned, as the HTTP API
+// reports it: invalid, not_found, conflict, forbidden, internal and so on.
+func ErrorCode(err error) string {
+	if err == nil {
+		return ""
+	}
+	return string(core.KindOf(err))
+}
+
+// ErrorMessage is the error's text without the kind ErrorCode already names.
+func ErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	return strings.TrimPrefix(err.Error(), ErrorCode(err)+": ")
+}
