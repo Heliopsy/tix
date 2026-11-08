@@ -156,8 +156,22 @@ $ tix token create ci-agent --scope task:read
 error: conflict: a token named "ci-agent" already exists; revoke it or choose another name
 ```
 
-That is exit `4`. Revoking frees the name, so rotation is `tix token rm ID`
-then the same `token create` again.
+That is exit `4`. Revoking frees the name.
+
+To replace a token, rotate it: `tix token rotate NAME` issues a new one with
+the same name, scopes, project and lifetime (counted from now), prints it once,
+and retires the old one. You may rotate the token you run on without
+`token:admin`. `--grace 10m` (up to `24h`) keeps the old value working while you
+swap, so nothing fails mid-run:
+
+```sh
+new=$(tix token rotate ci-agent --grace 10m -o json | jq -r .token)
+tix ctx add work --server "$SERVER" --token "$new" --use
+```
+
+Save the printed value before the window closes; it is not shown again. A
+token already rotated and still in its window is exit `4`: rotate its
+replacement. Leave `--grace` off after a leak, so the old value stops at once.
 
 `--expires` (default 90d) bounds the token: a duration such as `90d`, a date,
 an RFC 3339 timestamp, or `never`. **A token you mint without saying anything

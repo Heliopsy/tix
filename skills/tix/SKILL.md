@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 21
+version: 22
 verified-against: tix 7be6cf4a (2026-11-06)
 ---
 
@@ -70,6 +70,10 @@ where it came from.
   `tix ctx add` line above for a server, or `tix init` for a local database.
 - **Exit `5` naming "needs an API token":** the server is set but no token is.
   Add one with `tix ctx add ... --token`, as above.
+- **Asked to rotate your own token:** `tix token rotate NAME --grace 10m -o json`
+  prints the new value once; put it in your context before the ten minutes are
+  up. No `token:admin` is needed for the token you run on. See
+  [reference/setup.md](reference/setup.md).
 
 While the default local database is in use, every command also prints
 `using local database PATH (no server configured; ...)` on standard error,

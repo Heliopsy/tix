@@ -366,12 +366,7 @@ command then presents. `tix whoami` says which one is in use.
 A token's name has to identify one token, because the name is what you choose by when you revoke: two
 credentials called `ci` make "revoke the one that leaked" a guess. Within a tenant, no two tokens that are
 still live may share a name, on every surface: the command line, the API and the browser. A revoked token
-keeps its name in the listing and releases it, so rotation is the obvious thing:
-
-```sh
-tix token rm 01J000000000000000000A
-tix token create ci --scope task:read --scope task:claim --scope task:transition
-```
+keeps its name in the listing and releases it, which is what lets a rotated token keep its name.
 
 Give a token an expiry. It is the only control that bounds what a leaked token can do while nobody has
 noticed, and an agent's credential is by definition held somewhere you do not watch.
@@ -400,6 +395,45 @@ The HTTP API has no default of its own and is left that way. `POST /api/v1/token
 caller sends and mints a non-expiring token when the field is absent, because an API client composes the
 value rather than typing it, and a transport that quietly rewrites a field nobody set is worse than one that
 does what it was told. The ninety days belong to the two surfaces a person drives.
+
+### Rotating a token
+
+`tix token rotate ID|NAME` replaces a token in one step: it issues a new one with the same name, scopes,
+project and lifetime, prints its value once, and retires the old one.
+
+```sh
+tix token rotate ci                  # the old value stops at once
+tix token rotate ci --grace 10m      # the old value keeps working for ten minutes
+tix token rotate 01J000000000000000000A --actor ci-bot -o json
+```
+
+- **Lifetime.** The new token gets the old one's lifetime counted from now: a 90-day token rotated on day 80 is
+  good for another 90 days, and a token that never expired still does not. Rotating should not shorten a
+  credential each time it is done.
+- **Grace.** `--grace` keeps the old value working beside the new one for up to `24h`, so a running agent can
+  pick up the new value without a failed request. The default is `0`: after a leak, stop it now. The end of
+  the window is stored on the old token as its revocation time, so nothing has to run when it closes. Until
+  then the listings show the old token as *retiring*; `tix token rm` on it, or disabling its user, ends the
+  window at once. A retiring token cannot be rotated again: rotate its replacement.
+- **Who may.** A token's own actor may rotate it without `token:admin`, so an agent can rotate the token it
+  runs on. Anybody else's token needs `token:admin`. The new token never carries a scope the rotator does not
+  hold, by the same rules as `tix token create`, and a token pinned to a project rotates only tokens pinned to
+  the same project.
+- **Trail.** The audit entry is `token.rotate`, or `token.rotate_other` for somebody else's token, naming the
+  old and new token ids and never a value; the event is `token.rotated`.
+
+Over HTTP it is `POST /api/v1/tokens/{id}/rotate` with an optional `{"grace": "10m", "actor_id": "..."}`,
+answering `201` and the issued token, and so an MCP tool. The browser's Tokens screen has a Rotate button
+beside Revoke, and the terminal's account view rotates the selected token with `R`.
+
+An agent rotating its own token, without downtime:
+
+```sh
+new=$(tix token rotate "$TOKEN_NAME" --grace 10m -o json | jq -r .token)
+tix ctx add work --server "$SERVER" --token "$new" --use   # or update TIX_TOKEN wherever it lives
+```
+
+Store the new value before the window closes; it is not shown again.
 
 ### Revoking somebody else's token
 
