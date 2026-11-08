@@ -1141,8 +1141,10 @@ Three screens under Admin answer for the installation rather than the work in it
 is the browser's view of a command. `/admin/status` is `tix status`: what the installation holds and
 which servers are running against it. `/admin/connections` is `tix connection ls` and `kill`: the live
 event streams and SSH sessions this server holds, and ending one. `/admin/ssh-keys` is `tix user key`:
-the public keys the SSH listener accepts, enrolled and revoked. [deployment.md](deployment.md) covers
-the listener and live connections.
+the public keys the SSH listener accepts, enrolled and revoked. The screen enrols a key in the tenant
+you are in; enrolling one key in every tenant you belong to is `tix user key add --all-tenants`, or
+`"all_tenants": true` on the API (see [tenancy.md](tenancy.md#ssh-keys-in-several-tenants)).
+[deployment.md](deployment.md) covers the listener and live connections.
 
 ## Connect an agent
 

@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 20
+version: 21
 verified-against: tix 7be6cf4a (2026-11-06)
 ---
 
@@ -52,8 +52,18 @@ where it came from.
 
   and carry on only once `target` names the server and `token` says `yes`.
   The context keeps the token and every command presents it; do not export
-  `TIX_TOKEN` as a workaround. `tix login` prints a browser session, not a
-  token for the command line.
+  `TIX_TOKEN` as a workaround. `tix login` alone prints a browser session, not a
+  token for the command line. `tix login --tenant KEY --context NAME` against a
+  server does store one: it signs in to that tenant, mints a token for the
+  person's actor there and writes it to the context. That is for a person; an
+  agent is handed a token.
+- **One person, several tenants:** each context holds one tenant's token.
+  `tix tenant ls` lists the person's tenants with the role held in each and the
+  context holding a token for it; `tix tenant use KEY` makes that context
+  current, and with none it writes nothing and names
+  `tix login --tenant KEY` (exit `6`); `--force` skips every check and is only
+  for a tenant that does not exist yet. Do not reuse one tenant's token for
+  another: it works in its own tenant only.
 - **`tix whoami` fails with exit `6`:** nothing is configured, and tix will not
   create a local database on its own. Ask which one the person wants: the
   `tix ctx add` line above for a server, or `tix init` for a local database.
