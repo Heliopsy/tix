@@ -66,10 +66,19 @@ func (l *Local) ExportBundle(ctx context.Context, in core.BundleExportInput, w i
 	if err != nil {
 		return err
 	}
-	enc := bundle.NewEncoder(w)
-	if err := enc.Header(in.Name, l.clock.Now()); err != nil {
-		return err
-	}
+	return l.spoolExport(ctx, actor.TenantID, w, func(w io.Writer) error {
+		enc := bundle.NewEncoder(w)
+		if err := enc.Header(in.Name, l.clock.Now()); err != nil {
+			return err
+		}
+		return l.exportBundle(ctx, actor, in, kinds, enc)
+	})
+}
+
+// exportBundle walks the selected components into enc inside one read
+// transaction.
+func (l *Local) exportBundle(ctx context.Context, actor *core.Actor, in core.BundleExportInput,
+	kinds []core.ComponentKind, enc *bundle.Encoder) error {
 	return l.read(ctx, actor, func(tx store.Tx) error {
 		projects, err := bundleProjects(ctx, tx, in.ProjectRefs)
 		if err != nil {

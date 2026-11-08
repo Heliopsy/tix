@@ -36,6 +36,14 @@ func (l *Local) ExportTasks(ctx context.Context, in core.TaskExportInput, w io.W
 	if err != nil {
 		return err
 	}
+	return l.spoolExport(ctx, actor.TenantID, w, func(w io.Writer) error {
+		return l.exportTasks(ctx, actor, in, date, w)
+	})
+}
+
+// exportTasks walks one project's tasks into w inside one read transaction.
+func (l *Local) exportTasks(ctx context.Context, actor *core.Actor, in core.TaskExportInput,
+	date func(time.Time) string, w io.Writer) error {
 	return l.read(ctx, actor, func(tx store.Tx) error {
 		project, err := lookupProject(ctx, tx, in.ProjectRef)
 		if err != nil {

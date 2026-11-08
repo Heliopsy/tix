@@ -17,6 +17,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
+	"github.com/heliopsy/tix/internal/transfer"
 )
 
 // seeded names what a seeded tenant contains, so a test can assert against it.
@@ -1006,9 +1007,14 @@ func TestExportReportsAWriteFailureAtEveryStage(t *testing.T) {
 	in := core.ExportInput{IncludeComments: true, IncludeArtifacts: true}
 	for stage := range 9 {
 		w := &failAfter{n: stage, err: boom}
-		if err := l.ExportTo(ctx, in, w); !errors.Is(err, boom) {
-			t.Errorf("export interrupted after %d records = %v, want the write failure", stage, err)
+		if err := l.exportSnapshot(ctx, actor, in, transfer.NewEncoder(w)); !errors.Is(err, boom) {
+			t.Errorf("the walk interrupted after %d records = %v, want the write failure", stage, err)
 		}
+	}
+	// The client is written to once the walk is over, from the spool, and a
+	// failure there is the export's failure.
+	if err := l.ExportTo(ctx, in, &failAfter{err: boom}); !errors.Is(err, boom) {
+		t.Errorf("a client that fails = %v, want the write failure", err)
 	}
 }
 
