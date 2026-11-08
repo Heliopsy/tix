@@ -42,6 +42,9 @@ type Local struct {
 	// and ends its own and no other's.
 	conns *connections.Registry
 
+	// exports counts the exports running per tenant, which spoolExport caps.
+	exports exportSlots
+
 	// themes resolves a tenant's theme name to a palette. It is here so the
 	// write path can refuse a name that does not resolve, which is the moment
 	// someone can still fix a typo; reads fall back to the default instead,

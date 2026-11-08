@@ -43,7 +43,13 @@ func (l *Local) ExportTo(ctx context.Context, in core.ExportInput, w io.Writer) 
 	if err != nil {
 		return err
 	}
-	enc := transfer.NewEncoder(w)
+	return l.spoolExport(ctx, actor.TenantID, w, func(w io.Writer) error {
+		return l.exportSnapshot(ctx, actor, in, transfer.NewEncoder(w))
+	})
+}
+
+// exportSnapshot walks the tenant into enc inside one read transaction.
+func (l *Local) exportSnapshot(ctx context.Context, actor *core.Actor, in core.ExportInput, enc *transfer.Encoder) error {
 	return l.read(ctx, actor, func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
