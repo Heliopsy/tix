@@ -24,6 +24,40 @@ func newTenantUserCmd(g *globals) *cobra.Command {
 	return cmd
 }
 
+// newTenantDomainCmd builds the group a global admin reads another tenant's
+// domains with.
+func newTenantDomainCmd(g *globals) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "domain",
+		Short: "Read the domains of any tenant, as a global admin",
+		Long: "Read the hostnames mapped to the tenant named by KEY, each with whether it is shared. " +
+			"Only a global admin may; tix domain manages the domains of your own tenant, and tix domain edit " +
+			"marks one shared.",
+		Args: noArgs,
+		RunE: helpRunner,
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:     "ls KEY",
+		Aliases: []string{"list"},
+		Short:   "List a tenant's hostnames",
+		Long:    "List the hostnames mapped to a tenant and whether each is shared.\n\nExit codes: 3 unknown tenant, 5 not a global admin.",
+		Example: "  tix tenant domain ls acme",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			domains, err := conn.Service.ListTenantDomains(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, domains)
+		},
+	})
+	return cmd
+}
+
 func tenantUserLsCmd(g *globals) *cobra.Command {
 	var limit int
 	var cursor string

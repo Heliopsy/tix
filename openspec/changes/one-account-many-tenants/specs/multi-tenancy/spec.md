@@ -84,6 +84,29 @@ A session SHALL belong to one tenant and one actor. Moving to another tenant SHA
 - **WHEN** a person switches to a tenant where they hold no membership
 - **THEN** it is refused as not found, the same answer as for a tenant that does not exist
 
+### Requirement: Only a global admin marks a domain shared
+
+A tenant domain SHALL carry a shared flag, off by default. Only a global admin SHALL set or clear it, for a domain of any tenant. A tenant admin or a token without `global:admin` SHALL be refused as forbidden, whether or not the hostname is mapped, and nothing SHALL change.
+
+#### Scenario: Global admin shares HO's host
+
+- **WHEN** a global admin marks tix.z09.org, a domain of tenant HO, shared
+- **THEN** the domain is shared and still belongs to HO
+
+#### Scenario: Tenant admin tries
+
+- **WHEN** an admin of HO who is not a global admin marks HO's own domain shared, by session or by a token carrying `*`
+- **THEN** it is refused as forbidden and the domain stays bound to HO alone
+
+### Requirement: Sharing a domain is audited in its tenant
+
+Setting or clearing a domain's shared flag SHALL record an audit entry and an event in the tenant owning the domain, naming the global admin and the value before and after. Setting the value the domain already holds SHALL record nothing.
+
+#### Scenario: Shared and unshared
+
+- **WHEN** a global admin marks a domain of HO shared and later clears it
+- **THEN** HO's audit log holds two domain updates, each with the shared value before and after
+
 ## REMOVED Requirements
 
 ### Requirement: An existing user is not made an admin of another tenant

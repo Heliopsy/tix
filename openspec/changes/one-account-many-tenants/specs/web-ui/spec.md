@@ -37,6 +37,15 @@ A pending invite addressed to an existing account SHALL appear on the inviting t
 - **WHEN** a tenant admin has invited an address that has an account and it is not accepted yet
 - **THEN** the Users screen lists the address as pending and the assignee choices do not include it
 
+### Requirement: The Global admin area shares a tenant's domains
+
+A tenant's screen in the Global admin area SHALL list its domains, each marked shared or bound to the tenant, with a control that sets or clears the flag. A tenant's own Domains screen SHALL show the flag and SHALL NOT offer to change it.
+
+#### Scenario: Global admin shares a host
+
+- **WHEN** a global admin opens tenant HO in the Global admin area and shares tix.z09.org
+- **THEN** the row shows the domain as shared and offers to stop sharing it
+
 ### Requirement: An Account screen shows the reader's account log
 
 The web UI SHALL offer an Account screen, reached from the settings screen, listing the reader's account log. The Global admin area SHALL link each user to their account log.

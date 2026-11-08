@@ -2435,6 +2435,43 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "a global admin shares a domain and reads it back from the tenant",
+		covers: []string{"UpdateDomain", "ListTenantDomains"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			host := "s" + randSuffix() + ".example.test"
+			if _, err := tg.svc.AddDomain(tg.ctx, core.AddDomainInput{Hostname: host}); err != nil {
+				return nil, err
+			}
+			on, off := true, false
+			shared, err := tg.svc.UpdateDomain(tg.ctx, host, core.UpdateDomainInput{Shared: &on})
+			if err != nil {
+				return nil, err
+			}
+			own, err := tg.svc.GetTenant(tg.ctx, "")
+			mustf(t, tg, err, "reading the own tenant")
+			listed, err := tg.svc.ListTenantDomains(tg.ctx, own.Key)
+			if err != nil {
+				return nil, err
+			}
+			listedShared := false
+			for _, d := range listed {
+				listedShared = listedShared || (d.Hostname == host && d.Shared)
+			}
+			unshared, err := tg.svc.UpdateDomain(tg.ctx, host, core.UpdateDomainInput{Shared: &off})
+			if err != nil {
+				return nil, err
+			}
+			_, missing := tg.svc.UpdateDomain(tg.ctx, "nosuch"+host, core.UpdateDomainInput{Shared: &on})
+			mustf(t, tg, tg.svc.RemoveDomain(tg.ctx, host), "removing the domain")
+			return sig{
+				"shared":        shared.Shared,
+				"listed_shared": listedShared,
+				"unshared":      !unshared.Shared,
+				"missing":       string(core.KindOf(missing)),
+			}, nil
+		},
+	},
+	{
 		name:   "resolving a hostname nobody claimed",
 		covers: []string{"ResolveDomain"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

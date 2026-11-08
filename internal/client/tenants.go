@@ -64,6 +64,16 @@ func (c *Client) RemoveDomain(ctx context.Context, hostname string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteDomain, "hostname", hostname), nil, nil)
 }
 
+// UpdateDomain changes a domain of any tenant.
+func (c *Client) UpdateDomain(ctx context.Context, hostname string, in core.UpdateDomainInput) (*core.Domain, error) {
+	return call[core.Domain](ctx, c, http.MethodPatch, routePath(wire.RouteDomain, "hostname", hostname), nil, in)
+}
+
+// ListTenantDomains returns a named tenant's domains.
+func (c *Client) ListTenantDomains(ctx context.Context, tenant string) ([]core.Domain, error) {
+	return listAll[core.Domain](ctx, c, routePath(wire.RouteTenantDomains, "ref", tenantRef(tenant)), nil)
+}
+
 // ResolveDomain returns the tenant a hostname belongs to.
 func (c *Client) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, error) {
 	return call[core.Tenant](ctx, c, http.MethodGet, routePath(wire.RouteDomain, "hostname", hostname), nil, nil)

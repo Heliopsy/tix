@@ -119,6 +119,14 @@ type TenantService interface {
 	// ResolveDomain returns the tenant a hostname is mapped to. It runs before
 	// authentication and reads across tenants.
 	ResolveDomain(ctx context.Context, hostname string) (*Tenant, error)
+	// UpdateDomain changes a tenant domain, whichever tenant it belongs to.
+	// Marking it shared lets its host also serve the tenant a session, token or
+	// the X-Tix-Tenant header names, and its own tenant otherwise. Global admin
+	// only. An unmapped hostname is not_found.
+	UpdateDomain(ctx context.Context, hostname string, in UpdateDomainInput) (*Domain, error)
+	// ListTenantDomains lists the hostnames mapped to any tenant, each with
+	// whether it is shared. Global admin only.
+	ListTenantDomains(ctx context.Context, tenant string) ([]Domain, error)
 
 	// AddMember grants an existing actor a role (viewer, member or admin) in the
 	// current tenant. An actor who is already a member is a conflict.

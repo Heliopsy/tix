@@ -42,6 +42,15 @@ The API SHALL serve `POST /auth/switch`, taking a target tenant key and answerin
 - **WHEN** a session on the shared host posts a switch to a tenant the person belongs to
 - **THEN** the answer carries a new session for that tenant and the old session no longer authenticates
 
+### Requirement: Domain update routes
+
+The API SHALL serve `PATCH /domains/{hostname}`, taking `shared`, and `GET /tenants/{ref}/domains`, both for a global admin only, and SHALL answer anybody else as forbidden.
+
+#### Scenario: Tenant admin token
+
+- **WHEN** a token of a tenant admin carrying `*` patches a domain's `shared`
+- **THEN** it is answered 403 and the domain is unchanged
+
 ### Requirement: Account log routes
 
 The API SHALL serve `GET /account/log` for the caller's own account and `GET /accounts/{email}/log` for a global admin, both keyset paginated.
