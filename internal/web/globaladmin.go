@@ -36,16 +36,6 @@ func (h *handler) globalRoutes() []route {
 	}
 }
 
-// globalAdmin reports whether the reader may act as a global admin, which
-// decides whether the sidebar offers the area at all.
-func (h *handler) globalAdmin(r *http.Request) bool {
-	if _, ok := core.ActorFrom(r.Context()); !ok {
-		return false
-	}
-	me, err := h.svc.WhoAmI(r.Context())
-	return err == nil && me.GlobalAdmin
-}
-
 // globalView is what the global admin screen renders.
 type globalView struct {
 	Tenants []globalTenantRow
