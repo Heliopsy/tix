@@ -14,6 +14,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/serving"
 	"github.com/spf13/cobra"
 )
 
@@ -39,16 +40,7 @@ func (g *globals) formatName() string {
 // is validated at load, so a bad value cannot reach here; a zero style is
 // still the fallback rather than a panic, because rendering a timestamp in the
 // wrong layout is a far smaller failure than refusing to print a task list.
-func (g *globals) configTimeStyle() output.TimeStyle {
-	if g.resolved == nil {
-		return output.TimeStyle{}
-	}
-	style, err := output.NewTimeStyle(g.resolved.Config.Output.TimeFormat, g.resolved.Config.Output.Timezone)
-	if err != nil {
-		return output.TimeStyle{}
-	}
-	return style
-}
+func (g *globals) configTimeStyle() output.TimeStyle { return serving.TimeStyle(g.resolved) }
 
 // timeStyle resolves how an instant is shown to the person running this
 // command: a format or zone set on this machine (a flag, TIX_OUTPUT_* or the

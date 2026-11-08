@@ -14,8 +14,8 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/serving"
 	"github.com/heliopsy/tix/internal/sshd"
-	"github.com/heliopsy/tix/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -78,7 +78,7 @@ func newServeCmd(g *globals) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&o.listen, "listen", server.DefaultAddr, "address to listen on")
+	f.StringVar(&o.listen, "listen", serving.Defaults().Listen, "address to listen on")
 	f.StringVar(&o.certFile, "tls-cert", "", "path to the tls certificate")
 	f.StringVar(&o.keyFile, "tls-key", "", "path to the tls key")
 	f.BoolVar(&o.insecure, "insecure-no-tls", false,
@@ -87,9 +87,9 @@ func newServeCmd(g *globals) *cobra.Command {
 	f.DurationVar(&o.requestTimeout, "request-timeout", 0, "per-request timeout")
 	f.DurationVar(&o.shutdownTimeout, "shutdown-timeout", 0,
 		"how long shutdown waits for in-flight requests")
-	f.DurationVar(&o.sweepInterval, "sweep-interval", time.Minute,
+	f.DurationVar(&o.sweepInterval, "sweep-interval", serving.DefaultSweepInterval,
 		"how often expired leases are swept")
-	f.DurationVar(&o.pruneInterval, "prune-interval", time.Hour,
+	f.DurationVar(&o.pruneInterval, "prune-interval", serving.DefaultPruneInterval,
 		"how often retention pruning runs")
 	f.BoolVar(&o.disableSweep, "no-lease-sweeper", false, "disable the lease sweeper")
 	f.BoolVar(&o.disableDispatch, "no-webhook-dispatcher", false, "disable the webhook dispatcher")
@@ -136,48 +136,25 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		return err
 	}
 
-	// Validate rejects a malformed palette at load, so a registry built here
-	// cannot fail on colour; an error would mean a themes block that Validate
-	// somehow let through, and serving the built-ins is the safe answer.
-	themes, err := resolved.Config.ThemeRegistry()
-	if err != nil {
-		return err
-	}
-	egressPolicy, err := resolved.Config.Server.Egress()
-	if err != nil {
-		return err
-	}
-
-	srv, err := server.Assemble(server.Options{
-		Logger:  log,
-		Service: conn.Service,
-		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.configTimeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
-			web.WithPageSize(resolved.Config.Web.PageSize), web.WithLeasePolicy(resolved.Config.Lease.Policy()),
-			web.WithSSH(o.sshListen, resolved.Config.SSH.PublicAddress), web.WithImportLimit(resolved.Config.Server.MaxImportBytes)),
-		Store:                      conn.Store,
-		Clock:                      clock.New(),
-		TenantID:                   conn.Info.TenantID,
-		Addr:                       o.listen,
-		CertFile:                   o.certFile,
-		KeyFile:                    o.keyFile,
-		AllowInsecure:              o.insecure,
-		MaxBodyBytes:               o.maxBody,
-		MaxImportBytes:             resolved.Config.Server.MaxImportBytes,
-		ImportRoutes:               web.ImportRoutes(),
-		RequestTimeout:             o.requestTimeout,
-		ShutdownTimeout:            o.shutdownTimeout,
-		TrustedProxies:             resolved.Config.Server.TrustedProxies,
-		CookieSecurity:             resolved.Config.Server.CookieSecurity,
-		AllowPrivateWebhookTargets: resolved.Config.Webhooks.AllowPrivateTargets,
-		Egress:                     egressPolicy,
-		SweepInterval:              o.sweepInterval,
-		PruneInterval:              o.pruneInterval,
-		DisableSweep:               o.disableSweep,
-		DisableDispatch:            o.disableDispatch,
-		DisablePrune:               o.disablePrune,
-		DisableRegistry:            o.disableRegistry,
-		HeartbeatInterval:          o.heartbeat,
-		SSH:                        sshListener,
+	srv, err := serving.Build(conn, resolved, serving.Params{
+		Listen:          o.listen,
+		CertFile:        o.certFile,
+		KeyFile:         o.keyFile,
+		Insecure:        o.insecure,
+		MaxBodyBytes:    o.maxBody,
+		RequestTimeout:  o.requestTimeout,
+		ShutdownTimeout: o.shutdownTimeout,
+		SweepInterval:   o.sweepInterval,
+		PruneInterval:   o.pruneInterval,
+		DisableSweep:    o.disableSweep,
+		DisableDispatch: o.disableDispatch,
+		DisablePrune:    o.disablePrune,
+		DisableRegistry: o.disableRegistry,
+		Heartbeat:       o.heartbeat,
+		SSHListen:       o.sshListen,
+		SSH:             sshListener,
+		Logger:          log,
+		Clock:           clock.New(),
 	})
 	if err != nil {
 		return err
