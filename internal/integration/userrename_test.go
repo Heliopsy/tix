@@ -40,9 +40,9 @@ func TestARenamedTwoTenantPersonReadsBackUnderTheNewName(t *testing.T) {
 
 	page := readAll(t, getOK(t, client, h.baseURL+web.RouteUsers))
 	form := url.Values{
-		"id":               {pat.ID},
-		"display_name":     {"Pat Renamed"},
-		"role":             {string(core.RoleMember)},
+		"id":              {pat.ID},
+		"display_name":    {"Pat Renamed"},
+		"role":            {string(core.RoleMember)},
 		web.CSRFFieldName: {betweenQuotes(page, `name="`+web.CSRFFieldName+`" value="`)},
 	}
 	res, err := client.PostForm(h.baseURL+web.RouteUserUpdate, form)
