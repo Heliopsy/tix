@@ -216,6 +216,20 @@ type Model struct {
 	menuSel     int
 	menuProject int
 
+	// sshCommand is how a client reaches this server over SSH, set only on a
+	// hosted session. files is what the local transfer view reads and writes;
+	// transferProject is the project it acts on, transferOp the transfer its
+	// form is gathering, transferPlan an import dry run waiting for agreement
+	// and transferJob an export waiting for an overwrite to be agreed to.
+	sshCommand      string
+	files           transferFiles
+	transferSel     int
+	transferOff     int
+	transferProject core.Project
+	transferOp      transferOp
+	transferPlan    *transferPlan
+	transferJob     *transferJob
+
 	err         string
 	status      string
 	fatal       error
@@ -277,6 +291,12 @@ type Config struct {
 	// Start lands the session on the start menu rather than the project
 	// list. The SSH listener sets it for a session that named nothing.
 	Start bool
+	// SSHCommand is the command a client runs to reach this server, such as
+	// "ssh acme@tix.example". Set, it marks the session as hosted: the server
+	// cannot reach the client's files, so the transfer view names the
+	// commands that move data through standard input and output instead of
+	// asking for a path. Empty is a local session.
+	SSHCommand string
 }
 
 // New builds the initial model.
@@ -310,7 +330,8 @@ func New(cfg Config) Model {
 		prefs: prefs, prefSources: cfg.Sources, savePrefs: cfg.SavePrefs,
 		session:   cfg.Session,
 		autoColor: auto, profile: cfg.Profile, brand: cfg.Brand,
-		allowed: resolveActions(cfg.Actor),
+		allowed:    resolveActions(cfg.Actor),
+		sshCommand: strings.TrimSpace(cfg.SSHCommand), files: osFiles{},
 	}
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
@@ -452,6 +473,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onInbox(msg)
 	case inboxMarkMsg:
 		return m.onInboxMark(msg)
+	case transferPlanMsg:
+		return m.onTransferPlan(msg)
+	case transferDoneMsg:
+		return m.onTransferDone(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -788,6 +813,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleInboxKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
+	case viewTransfer:
+		return m.handleTransferKey(msg)
 	}
 	return m, nil
 }
@@ -1143,6 +1170,8 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 	case doTenant:
 		next, cmd := m.openTenant()
 		return next, cmd, true
+	case doTransfer:
+		return m.openTransfer(), nil, true
 	case doQuit:
 		next, cmd := m.leave(tea.Quit)
 		return next, cmd, true
@@ -1598,7 +1627,9 @@ func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
-		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
+		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0,
+		Hosted:     m.hosted(), HasPlan: m.transferPlan != nil,
+		CanImport: m.transferPlan != nil && m.transferPlan.blocked() == ""}
 	if _, ok := m.selectedColumn(); ok {
 		ctx.HasColumn = true
 		ctx.CanLeft = ColumnNeighbour(m.columns, m.sel.Col, -1) >= 0
@@ -2155,6 +2186,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyMember(form)
 	case formSavedFilter:
 		return m.closeForm().applySavedFilter(form)
+	case formTransfer:
+		return m.closeForm().applyTransferForm(form)
 	}
 	if form.Kind == formTaskEdit {
 		next := m.closeForm()
@@ -2280,6 +2313,13 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.removeMember(c.actorID, c.Target)
 	case confirmDeleteTemplate:
 		return m.deleteTemplate(c.template)
+	case confirmImport:
+		return m.commitImport()
+	case confirmOverwrite:
+		if m.transferJob == nil {
+			return nil
+		}
+		return m.runExport(*m.transferJob)
 	default:
 		return nil
 	}

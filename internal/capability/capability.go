@@ -297,18 +297,29 @@ func TUIViews() []string {
 // tenant that does not exist from one this actor cannot see, and it needs no
 // authority beyond a session.
 //
+// A view that binds no read at all, the transfer view, is offered when the
+// actor may perform one of its operations that names a scope. One that names
+// none decides its authority per call, so it cannot be the reason a view is
+// offered.
+//
 // The answer is a value, computed once from the actor the session already
 // holds, so gating a keystroke costs no call.
 func TUIAccess(a *core.Actor) map[string]bool {
 	out := make(map[string]bool, len(TUIViews()))
+	reads := map[string]bool{}
 	for _, view := range TUIViews() {
 		out[view] = false
 	}
 	for _, op := range registry {
-		if op.TUI == "" || !op.Reads() {
+		if op.TUI != "" && op.Reads() {
+			reads[op.TUI] = true
+		}
+	}
+	for _, op := range registry {
+		if op.TUI == "" || !op.Permits(a) {
 			continue
 		}
-		if op.Permits(a) {
+		if op.Reads() || (!reads[op.TUI] && op.Scope != "") {
 			out[op.TUI] = true
 		}
 	}

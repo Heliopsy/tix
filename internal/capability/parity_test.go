@@ -410,7 +410,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
-	"stats": true, "project": true, "history": true, "inbox": true,
+	"stats": true, "project": true, "history": true, "inbox": true, "transfer": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -436,20 +436,24 @@ func TestEveryTUIViewCarriesAnOperation(t *testing.T) {
 }
 
 // TestEveryTUIViewHasAReadToOfferIt guards the gating rule: a view is offered
-// when the reader may perform one of its reads. A view bound only to writes
-// would be permanently hidden from everyone, which is a navigation the reader
-// can never reach rather than one the policy refused.
+// when the reader may perform one of its reads, or, for a view binding no read,
+// one of its scoped operations. A view with neither would be permanently hidden
+// from everyone, which is a navigation the reader can never reach rather than
+// one the policy refused.
 func TestEveryTUIViewHasAReadToOfferIt(t *testing.T) {
 	t.Parallel()
-	reads := map[string]int{}
+	reads, scoped := map[string]int{}, map[string]int{}
 	for _, op := range capability.Operations() {
 		if op.TUI != "" && op.Reads() {
 			reads[op.TUI]++
 		}
+		if op.TUI != "" && op.Scope != "" {
+			scoped[op.TUI]++
+		}
 	}
 	for _, view := range capability.TUIViews() {
-		if reads[view] == 0 {
-			t.Errorf("view %q binds no read, so no reader can ever be offered it", view)
+		if reads[view] == 0 && scoped[view] == 0 {
+			t.Errorf("view %q binds no read and no scoped operation, so no reader can ever be offered it", view)
 		}
 	}
 }
@@ -554,10 +558,14 @@ func TestNoCLIGapRemains(t *testing.T) {
 // domain.remove, member.add, member.list and member.remove. tenant.create and
 // tenant.delete stay recorded, because a session pinned to one tenant is neither
 // where another is made nor where the one in use is destroyed.
+//
+// It came down from 44 to 38 with the transfer view, which binds the six import
+// and export operations: task.export, task.import, bundle.export, bundle.import,
+// snapshot.export and snapshot.import.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 44,
+		capability.SurfaceTUI: 38,
 		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
@@ -587,10 +595,17 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string]capability.Surface{
 	"PutArtifact": capability.SurfaceTUI,
-	"AddDomain":   capability.SurfaceTUI,
-	"TaskTree":    capability.SurfaceWeb,
-	"ListTokens":  capability.SurfaceWeb,
-	"ListSSHKeys": capability.SurfaceWeb,
+	// Over SSH the transfer view names the ssh command instead of a path.
+	"ExportTo":     capability.SurfaceTUI,
+	"ImportFrom":   capability.SurfaceTUI,
+	"ExportTasks":  capability.SurfaceTUI,
+	"ImportTasks":  capability.SurfaceTUI,
+	"ExportBundle": capability.SurfaceTUI,
+	"ImportBundle": capability.SurfaceTUI,
+	"AddDomain":    capability.SurfaceTUI,
+	"TaskTree":     capability.SurfaceWeb,
+	"ListTokens":   capability.SurfaceWeb,
+	"ListSSHKeys":  capability.SurfaceWeb,
 }
 
 // TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,

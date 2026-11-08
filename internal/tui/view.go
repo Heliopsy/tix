@@ -101,6 +101,8 @@ func (m Model) viewName() string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewTransfer:
+		return "transfer"
 	case viewHelp:
 		return "help"
 	}
@@ -157,6 +159,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.inboxLines(layout)
 	case viewMenu:
 		return m.menuLines()
+	case viewTransfer:
+		return m.transferLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -845,7 +849,11 @@ func CommentTarget(c core.Comment, actors map[string]string, style output.TimeSt
 func (m Model) helpLines(layout Layout) []string {
 	lines := []string{m.theme.Header.Render("help"), ""}
 	lines = append(lines, "this view:")
-	for _, e := range m.keys.ViewHelp(m.underView(), m.permits()) {
+	entries := m.keys.ViewHelp(m.underView(), m.permits())
+	if m.underView() == viewTransfer {
+		entries = m.keys.transferHelp(m.hosted())
+	}
+	for _, e := range entries {
 		lines = append(lines, "  "+pad(e.Keys, 12)+e.Desc)
 	}
 	lines = append(lines, "", "everywhere:")

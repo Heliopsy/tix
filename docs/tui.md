@@ -13,11 +13,11 @@ actually dispatching, so neither can describe keys you do not have. This page co
 what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The twelve views
+## The thirteen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
-board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
-render into the same frame and recognising the body was the only way to tell where you were.
+board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics, transfer and
+settings all render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
@@ -33,6 +33,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | settings | `,` | display preferences, and what this session is connected to |
+| transfer | `J` | exports and imports of the open project's tasks, a bundle or a snapshot, by file path; over SSH, the `ssh` commands that do them instead |
 | help | `?` | the bindings of the view underneath, and the legends |
 
 Navigation is a stack. `esc` and `backspace` step back one level, and so does `q`: quitting from a
@@ -209,7 +210,8 @@ an action unbound.
 | `=` | show every hidden column again | board |
 | `space` | mark the selected item read, or unread | inbox |
 | `a` | mark every item read | inbox |
-| `y` | agree to a confirmation | wherever one is open |
+| `J` | import and export: tasks, bundles and snapshots, by file path, or the `ssh` commands over SSH | everywhere |
+| `y` | agree to a confirmation; writes a previewed import | wherever one is open, transfer |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
 | `~` | the start menu | everywhere |
@@ -221,7 +223,34 @@ an action unbound.
 | `ctrl+c` | interrupt, exit 130 | everywhere |
 
 `S` is capital because lowercase `s` is spoken for on the board, and a capital is what the other
-cross-view keys already use when their letter is taken.
+cross-view keys already use when their letter is taken. `J` opens transfer for the same reason, with less
+excuse: every letter a transfer could be named by was taken.
+
+### Moving data in and out
+
+`J` opens the transfer view on the project the board is open on, or the row under the cursor on the project
+list. It lists the six transfers the reader's authority reaches: export and import of the project's tasks,
+of the project as a bundle, and of a snapshot of the whole tenant. `enter` opens a form that asks for a file
+path and the choices the command line offers: the format of a task export (CSV by default, JSON, NDJSON or a
+Markdown table), the collision policy of a bundle import, and whether a snapshot import merges or replaces.
+A relative path is read from the directory `tix tui` started in, and `~` is your home. Exporting onto a file
+that exists asks before overwriting it, and the file holds exactly the bytes `tix export tasks`,
+`tix bundle export` or `tix export` would have written.
+
+No import writes on the first press. A task import runs as a dry run first and the view shows what
+`tix import tasks --dry-run` prints: how many rows would be created, updated, skipped or refused, every
+column of the file with the field it fills and whether that is tix's guess, the first rows as they would be
+written, and every row in error. The form takes a mapping file by path when the guess is wrong; editing the
+mapping column by column is the browser's import screen and `--save-mapping`. While any row is in error
+nothing can be written. Otherwise `y` asks once more and then writes the same bytes with the mapping that
+was shown. A bundle import shows its preview and a snapshot import its dry run the same way before `y`
+writes them. `esc` discards a preview.
+
+Over SSH the server cannot read or write a file on your machine, so the hosted view asks for no path. It
+names, for the same project, the command that does each transfer through standard input and output from
+your own shell, such as `ssh acme@tix.example export tasks -p infra > infra.csv` and
+`ssh acme@tix.example import tasks -p infra --dry-run < tasks.csv`. The registry records this as a
+limitation of the six terminal bindings rather than as a gap.
 
 ### The command palette
 
@@ -766,7 +795,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 44 such gaps against 174
+a reason as a gap when the binding ought to exist. As of this writing there are 38 such gaps against 174
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -776,7 +805,7 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 44 now has one of two shapes:
+Every one of the 38 now has one of two shapes:
 
 - **Administration.** Users and their invites, tokens, credentials, webhooks and their deliveries, retention and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
@@ -784,8 +813,8 @@ Every one of the 44 now has one of two shapes:
   session pinned to one tenant can do. The second factor is here too: enrolling one, confirming it,
   removing it, replacing the recovery codes, reading the state of either and clearing somebody else's are
   six operations with no screen. That is thirty-four of the count.
-- **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
-  That is the other ten.
+- **External sync.** Registering, listing, removing and running a sync source are command line, browser
+  and API only. That is the other four.
 
 The calendar feed is absent on purpose rather than as a gap: its address is pasted into a calendar app,
 which the terminal has no part in, so its six operations are managed from `tix calendar` and the settings
@@ -801,7 +830,9 @@ bound and says in the same breath that a payload, a content type and an inline b
 the dependency list, the actor directory and the deleted cards `is:deleted` reveals all have a cursor
 over them now. And the tenant itself: the screen that stated only which tenant a session was pinned to
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
-three, which closed nine.
+three, which closed nine. Import and export closed after them: the transfer view moves tasks, bundles and
+snapshots by file path, and over SSH names the command that does it instead (see
+[moving data in and out](#moving-data-in-and-out)).
 
 Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out

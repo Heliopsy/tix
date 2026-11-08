@@ -18,6 +18,8 @@ const (
 	confirmRemoveDomain
 	confirmRemoveMember
 	confirmDeleteTemplate
+	confirmImport
+	confirmOverwrite
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -31,6 +33,8 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRemoveDomain:   "remove domain",
 	confirmRemoveMember:   "remove member",
 	confirmDeleteTemplate: "delete template",
+	confirmImport:         "import",
+	confirmOverwrite:      "overwrite",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.

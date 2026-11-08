@@ -68,9 +68,13 @@ func TestEveryDeclaredScopeIsTheScopeTheServiceEnforces(t *testing.T) {
 				if op.Scope != "" {
 					t.Fatalf("%s varies by input and still declares scope %q", op.Method, op.Scope)
 				}
-				if op.TUI != "" {
-					t.Fatalf("%s varies by input and is bound to the %q view, which would be "+
-						"gated on a scope nothing declares", op.Method, op.TUI)
+				// A binding is allowed: what offers a view is a read, or a
+				// scoped operation where the view binds no read, so an
+				// operation declaring no scope rides on a view something
+				// else opened and the service refuses it per input.
+				if op.TUI != "" && op.Reads() {
+					t.Fatalf("%s varies by input and is a read bound to the %q view, which would "+
+						"offer the view on a scope nothing declares", op.Method, op.TUI)
 				}
 				return
 			}
