@@ -226,7 +226,7 @@ func (l *Local) FinishIdempotent(ctx context.Context, c *IdempotencyClaim, resp 
 		committed := rec.State == store.IdempotencyExecuted
 		fits := !resp.TooLarge && len(resp.Body) <= MaxIdempotentBody
 		success := resp.Status >= 200 && resp.Status < 300
-		if !committed && !(success && fits) {
+		if !committed && (!success || !fits) {
 			return tx.DeleteIdempotencyKey(ctx, rec.ID)
 		}
 		rec.ExpiresAt = now.Add(l.idempotencyWindow)
