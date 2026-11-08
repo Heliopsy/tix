@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os/signal"
 	"slices"
@@ -62,7 +63,7 @@ func newWatchCmd(g *globals) *cobra.Command {
 				return err
 			}
 			g.watchBanner(cmd, conn.Info.Target.Describe(), projects, types, actors, since)
-			return g.follow(cmd, filterByActor(events, actors), limit)
+			return g.follow(cmd, filterByActor(ctx, events, actors), limit)
 		},
 	}
 	f := cmd.Flags()
@@ -78,19 +79,19 @@ func newWatchCmd(g *globals) *cobra.Command {
 // everything unchanged when none were requested. core.EventFilter has no
 // actor field, so this filters the stream after the service has already
 // applied the project and type filters, rather than asking the server to.
-func filterByActor(events <-chan core.Event, actors []string) <-chan core.Event {
+func filterByActor(ctx context.Context, events <-chan core.Event, actors []string) <-chan core.Event {
 	if len(actors) == 0 {
 		return events
 	}
 	out := make(chan core.Event)
-	go func() {
+	goGuarded(ctx, func() {
 		defer close(out)
 		for event := range events {
 			if slices.Contains(actors, event.ActorID) {
 				out <- event
 			}
 		}
-	}()
+	})
 	return out
 }
 

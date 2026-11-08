@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -132,7 +133,7 @@ func TestFilterByActorKeepsOnlyMatchingActors(t *testing.T) {
 	close(in)
 
 	var got []string
-	for e := range filterByActor(in, []string{"alice"}) {
+	for e := range filterByActor(context.Background(), in, []string{"alice"}) {
 		got = append(got, e.ActorID)
 	}
 	if len(got) != 2 || got[0] != "alice" || got[1] != "alice" {
@@ -145,7 +146,7 @@ func TestFilterByActorPassesEverythingWhenNoneWereRequested(t *testing.T) {
 	in := make(chan core.Event, 1)
 	in <- core.Event{ActorID: "alice"}
 	close(in)
-	if _, ok := <-filterByActor(in, nil); !ok {
+	if _, ok := <-filterByActor(context.Background(), in, nil); !ok {
 		t.Fatal("the event did not pass through unfiltered")
 	}
 }

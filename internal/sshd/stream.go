@@ -12,8 +12,6 @@ import (
 	"strings"
 
 	"charm.land/ssh"
-	"github.com/heliopsy/tix/internal/auth"
-	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
 )
@@ -113,7 +111,8 @@ func plausibleRef(s string) bool {
 // It is not the interface. A stream piped into grep has no terminal, and
 // writing an alternate screen or escape codes into it would corrupt what the
 // pipe reads, so nothing here touches bubbletea.
-func (s *Server) stream(sess ssh.Session, actor *core.Actor, req watchRequest) {
+func (s *Server) stream(sess ssh.Session, ch *channel, req watchRequest) {
+	actor := ch.actor
 	ctx, cancel := context.WithCancel(sessionCtx(sess, actor))
 	defer cancel()
 
@@ -131,26 +130,19 @@ func (s *Server) stream(sess ssh.Session, actor *core.Actor, req watchRequest) {
 	pty, _, hasPty := sess.Pty()
 	color := hasPty && colorFor(withTerm(sess.Environ(), pty.Term, hasPty))
 	stdout, stderr := io.Writer(sess), io.Writer(sess.Stderr())
-	sess.Context().SetValue(handleKey{}, s.opts.Connections.Register(connections.Entry{
-		Surface:     core.ConnectionSSH,
-		TenantID:    actor.TenantID,
-		ActorID:     actor.ID,
-		ActorHandle: actor.Handle,
-		Remote:      sourceOf(sess.RemoteAddr()),
-		Fingerprint: auth.Fingerprint(sess.PublicKey()),
-	}, func(reason string) error {
+	s.register(sess, ch, func(reason string) error {
 		if reason != "" {
 			_, _ = io.WriteString(stderr, "\n"+reason+"\n")
 		}
 		cancel()
 		return sess.Close()
-	}))
+	})
 
 	_, _ = fmt.Fprintln(stderr, output.WatchBanner("as "+actor.Handle, keys, req.types, req.actors, req.since))
 	if hasPty {
 		go interrupts(sess, cancel)
 	}
-	go s.watch(sess, cancel, nil)
+	go s.watch(sess, cancel, nil, ch.done)
 	follow(ctx, events, req, newEventWriter(stdout, color, req.ndjson, output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle)))
 	_ = sess.Exit(0)
 }

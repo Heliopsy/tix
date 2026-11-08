@@ -19,22 +19,42 @@ import (
 	"github.com/heliopsy/tix/internal/tui"
 )
 
-// noticeKey carries the farewell line from the program handler to the handler
-// that runs once the interface has given the terminal back.
-type noticeKey struct{}
+// channel is what one session channel owns. A client may open several
+// channels on one connection, and the ssh context is the connection's, so
+// nothing a channel owns is kept there: a value set on it by one channel was
+// read, and given back, by another.
+type channel struct {
+	actor  *core.Actor
+	launch launch
+	// handle is the live connection registration, given back when handle
+	// returns, which is the one place that brackets the whole channel.
+	handle *connections.Handle
+	// notice is the farewell line, printed once the interface has given the
+	// terminal back.
+	notice string
+	// done is closed when the channel is over, which is what ends its
+	// keepalive watchdog.
+	done chan struct{}
+}
 
-// handleKey carries the registry handle from the program handler back to
-// handle, which is the one place that brackets the whole session and so the
-// only correct place to give the registration back.
-type handleKey struct{}
+// register records the channel as a live connection.
+func (s *Server) register(sess ssh.Session, ch *channel, end func(reason string) error) {
+	ch.handle = s.opts.Connections.Register(connections.Entry{
+		Surface:     core.ConnectionSSH,
+		TenantID:    ch.actor.TenantID,
+		ActorID:     ch.actor.ID,
+		ActorHandle: ch.actor.Handle,
+		Remote:      sourceOf(sess.RemoteAddr()),
+		Fingerprint: auth.Fingerprint(sess.PublicKey()),
+	}, end)
+}
 
-// actorKey carries the actor resolved before the session took its slot to the
-// program handler, which runs the interface as it.
-type actorKey struct{}
-
-// launchKey carries what the session's command asked for to the program
-// handler.
-type launchKey struct{}
+// unregister gives the channel's registration back, if it made one.
+func (ch *channel) unregister() {
+	if ch.handle != nil {
+		ch.handle.Unregister()
+	}
+}
 
 // handle serves one connection: the wish middleware owns the terminal, the
 // program handler owns the interface.
@@ -91,13 +111,13 @@ func (s *Server) handle(sess ssh.Session) {
 	// refusal naming what the listener hosts is still not for a stranger.
 	// Only its first word was looked at before, to know which way the factor
 	// is asked for.
+	ch := &channel{actor: actor, done: make(chan struct{})}
+	// The registration is made once the channel is running and given back
+	// here: these run when the channel is genuinely over, however it ended.
+	defer close(ch.done)
+	defer ch.unregister()
 	if command {
-		defer func() {
-			if h, ok := sess.Context().Value(handleKey{}).(*connections.Handle); ok {
-				h.Unregister()
-			}
-		}()
-		s.runCommand(sess, actor, sess.Command())
+		s.runCommand(sess, ch, sess.Command())
 		return
 	}
 	l, err := s.route(sess.Command())
@@ -105,21 +125,14 @@ func (s *Server) handle(sess ssh.Session) {
 		fatalf(sess, "%s", err.Error())
 		return
 	}
-	sess.Context().SetValue(actorKey{}, actor)
-	sess.Context().SetValue(launchKey{}, l)
-	// The registration is made once the session is running, inside program, and
-	// given back here: this defer runs when the session is genuinely over,
-	// however it ended.
-	defer func() {
-		if h, ok := sess.Context().Value(handleKey{}).(*connections.Handle); ok {
-			h.Unregister()
-		}
-	}()
+	ch.launch = l
 	if l.iface == "watch" {
-		s.stream(sess, actor, l.watch)
+		s.stream(sess, ch, l.watch)
 		return
 	}
-	bm.MiddlewareWithProgramHandler(s.program)(s.farewell)(sess)
+	bm.MiddlewareWithProgramHandler(func(sess ssh.Session) *tea.Program {
+		return s.program(sess, ch)
+	})(func(sess ssh.Session) { s.farewell(sess, ch) })(sess)
 }
 
 // program returns the interface bound to this session's streams, running as
@@ -129,14 +142,8 @@ func (s *Server) handle(sess ssh.Session) {
 // capped service and the model. Nothing is shared between sessions but the
 // service and the store beneath them, and both take their tenant from the
 // context they are handed, so two sessions cannot reach each other's data.
-func (s *Server) program(sess ssh.Session) *tea.Program {
-	actor, ok := sess.Context().Value(actorKey{}).(*core.Actor)
-	if !ok || actor == nil {
-		fatalf(sess, "tix could not open a session for you; try again shortly")
-		return nil
-	}
-
-	l, _ := sess.Context().Value(launchKey{}).(launch)
+func (s *Server) program(sess ssh.Session, ch *channel) *tea.Program {
+	actor, l := ch.actor, ch.launch
 
 	ctx := sessionCtx(sess, actor)
 	pty, _, hasPty := sess.Pty()
@@ -166,25 +173,16 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		TimeStyle:  output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle),
 		Now:        s.opts.Clock.Now,
 	})
-	if notice := s.notice(); notice != "" {
-		sess.Context().SetValue(noticeKey{}, notice)
-	}
+	ch.notice = s.notice()
 	// An administrator listing connections sees this session from now until
 	// handle gives the registration back. Closing it writes the reason first,
 	// so somebody cut off mid-edit is told why rather than simply dropped.
-	sess.Context().SetValue(handleKey{}, s.opts.Connections.Register(connections.Entry{
-		Surface:     core.ConnectionSSH,
-		TenantID:    actor.TenantID,
-		ActorID:     actor.ID,
-		ActorHandle: actor.Handle,
-		Remote:      sourceOf(sess.RemoteAddr()),
-		Fingerprint: auth.Fingerprint(sess.PublicKey()),
-	}, func(reason string) error {
+	s.register(sess, ch, func(reason string) error {
 		if reason != "" {
 			_, _ = io.WriteString(sess.Stderr(), "\r\n"+reason+"\r\n")
 		}
 		return sess.Close()
-	}))
+	})
 
 	// The profile is the one this session's own terminal declared, and it is
 	// handed to bubbletea as well as to the interface so the styles a frame is
@@ -195,7 +193,7 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		tea.WithContext(sess.Context()),
 	}, append(bm.MakeOptions(sess), tea.WithColorProfile(profile))...)
 	program := tea.NewProgram(watched{Model: model, act: act, clk: s.opts.Clock}, opts...)
-	go s.watch(sess, program.Quit, act)
+	go s.watch(sess, program.Quit, act, ch.done)
 	return program
 }
 
@@ -220,12 +218,11 @@ func (s *Server) notice() string {
 // farewell prints the session's notice once the alternate screen is gone,
 // which is the one moment a line is certain to be read rather than painted
 // over.
-func (s *Server) farewell(sess ssh.Session) {
-	notice, ok := sess.Context().Value(noticeKey{}).(string)
-	if !ok {
+func (s *Server) farewell(sess ssh.Session, ch *channel) {
+	if ch.notice == "" {
 		return
 	}
-	_, _ = fmt.Fprint(sess, notice)
+	_, _ = fmt.Fprint(sess, ch.notice)
 }
 
 // fatalf reports a refusal to the client and closes the session.

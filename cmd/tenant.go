@@ -470,6 +470,11 @@ func domainAddCmd(g *globals) *cobra.Command {
 		Example: "  tix domain add tix.example.com",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, f := range [][2]string{{"--cert", certPath}, {"--key", keyPath}} {
+				if err := localFile(cmd, f[0], f[1]); err != nil {
+					return err
+				}
+			}
 			in := core.AddDomainInput{
 				Hostname: args[0], CertMode: core.CertMode(certMode),
 				CertPath: certPath, KeyPath: keyPath,

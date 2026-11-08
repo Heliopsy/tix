@@ -3,7 +3,9 @@
 package sshd
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
@@ -54,4 +56,24 @@ const FactorTestKey = factorTestKey
 func NewTestSigner(t *testing.T) gossh.Signer {
 	s, _ := newSigner(t)
 	return s
+}
+
+// RevokeKeysOf revokes every key the person holds, as disabling them does.
+func RevokeKeysOf(t *testing.T, st store.Store, p Person) {
+	t.Helper()
+	ctx := context.Background()
+	if err := st.Update(ctx, core.TenantScope{TenantID: p.TenantID}, func(tx store.Tx) error {
+		keys, err := tx.ListSSHKeys(ctx, p.Actor.ID)
+		if err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if err := tx.RevokeSSHKey(ctx, k.ID, time.Now()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("revoking keys: %v", err)
+	}
 }

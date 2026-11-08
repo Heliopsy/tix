@@ -393,7 +393,7 @@ func renewInBackground(ctx context.Context, svc core.Service, ref core.TaskRef, 
 	interval := renewInterval(claim, ttl)
 	ticker := clock.New().NewTicker(interval)
 	done := make(chan struct{})
-	go func() {
+	goGuarded(ctx, func() {
 		for {
 			select {
 			case <-done:
@@ -404,7 +404,7 @@ func renewInBackground(ctx context.Context, svc core.Service, ref core.TaskRef, 
 				}
 			}
 		}
-	}()
+	})
 	return func() {
 		close(done)
 		ticker.Stop()
