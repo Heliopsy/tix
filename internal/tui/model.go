@@ -229,6 +229,9 @@ type Model struct {
 	// view does, each kept whole in its own file.
 	server serverState
 	global globalState
+	// acct is the account screen's state, kept in one field so the screen
+	// stays in account.go.
+	acct accountState
 
 	err         string
 	status      string
@@ -494,6 +497,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onGlobalLog(msg)
 	case globalActionMsg:
 		return m.onGlobalAction(msg)
+	case accountMsg:
+		return m.onAccount(msg)
+	case accountDoneMsg:
+		return m.onAccountDone(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -828,6 +835,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleHistoryKey(msg)
 	case viewInbox:
 		return m.handleInboxKey(msg)
+	case viewAccount:
+		return m.handleAccountKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
 	case viewIntegrations:
@@ -1204,6 +1213,9 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case doGlobal:
 		next, cmd := m.openGlobal()
+		return next, cmd, true
+	case doAccount:
+		next, cmd := m.openAccount()
 		return next, cmd, true
 	case doQuit:
 		next, cmd := m.leave(tea.Quit)
@@ -1660,8 +1672,11 @@ func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
-		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0,
-		Integ:      m.integrationsContext()}
+		HasRows: (m.view == viewTenant && len(m.adminRows()) > 0) ||
+			(m.view == viewAccount && m.accountRemovable()),
+		Picking:   m.view == viewAccount && m.acct.picker != nil,
+		Enrolling: m.view == viewAccount && m.acct.enrolment != nil,
+		Integ:     m.integrationsContext()}
 	switch m.view {
 	case viewServer:
 		ctx.HasRows = len(m.serverRows()) > 0
@@ -1741,6 +1756,9 @@ func (m Model) refresh() tea.Cmd {
 	}
 	if m.view == viewPeople {
 		return m.loadPeople()
+	}
+	if m.view == viewAccount {
+		return m.loadAccount()
 	}
 	if m.project.ID == "" {
 		return m.loadProjects()
@@ -2251,6 +2269,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyPeopleEdit(form)
 	case formInviteReissue:
 		return m.closeForm().applyReissue(form)
+	case formAccountAdd, formToken, formSSHKey, formTOTPCode:
+		return m.closeForm().submitAccountForm(form)
 	}
 	if isGlobalForm(form.Kind) {
 		return m.closeForm().applyGlobalForm(form)
@@ -2390,8 +2410,10 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 	case confirmDeleteTenant, confirmRevokeGlobal, confirmDeleteTenantUser:
 		return m.runGlobalConfirm(c)
 	default:
-		cmd, _ := m.runIntegrationConfirm(c)
-		return cmd
+		if cmd, ok := m.runIntegrationConfirm(c); ok {
+			return cmd
+		}
+		return m.runAccountConfirm(c)
 	}
 }
 

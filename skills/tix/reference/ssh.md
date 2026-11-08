@@ -29,7 +29,8 @@ token needs `account:read` for it. Each enrolment is still per tenant, so the
 username still picks the tenant: `ssh acme@host`. `--file -` reads stdin, `--dry-run` reports what
 would be enrolled without writing. The CLI is not the only route: the same
 three operations are on the API at `/api/v1/ssh-keys` (`GET`, `POST`, `DELETE
-/api/v1/ssh-keys/{id}`) and in the browser at `/admin/ssh-keys`. `user key rm`
+/api/v1/ssh-keys/{id}`), in the browser at `/admin/ssh-keys` and on the
+terminal interface's account screen (`$`, your own keys only). `user key rm`
 stops a key authenticating at once but does not cut the sessions it already
 holds; those end on `--idle-timeout`.
 

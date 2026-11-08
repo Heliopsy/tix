@@ -49,6 +49,10 @@ const (
 	formGlobalUserAdd
 	formGlobalUserEdit
 	formGlobalLog
+	formAccountAdd
+	formToken
+	formSSHKey
+	formTOTPCode
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is

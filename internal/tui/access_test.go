@@ -19,7 +19,7 @@ import (
 var everyView = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewHelp, viewSettings,
 	viewActivity, viewTenant, viewStats, viewProject, viewHistory, viewInbox, viewMenu, viewPeople,
-	viewIntegrations, viewServer, viewGlobal,
+	viewIntegrations, viewServer, viewGlobal, viewAccount,
 }
 
 // fullAccess offers every view, which is what an administrator's authority

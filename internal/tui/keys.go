@@ -73,6 +73,7 @@ type KeyMap struct {
 	People        key.Binding
 	Server        key.Binding
 	Global        key.Binding
+	Account       key.Binding
 	Refresh       key.Binding
 	Palette       key.Binding
 	Help          key.Binding
@@ -208,8 +209,11 @@ func DefaultKeyMap() KeyMap {
 		Integrations: key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "integrations")),
 		// % and !, because every letter worth having is spoken for. % reads the
 		// server's load and connections; ! is the one that acts across tenants.
-		Server:  key.NewBinding(key.WithKeys("%"), key.WithHelp("%", "server")),
-		Global:  key.NewBinding(key.WithKeys("!"), key.WithHelp("!", "global admin")),
+		Server: key.NewBinding(key.WithKeys("%"), key.WithHelp("%", "server")),
+		Global: key.NewBinding(key.WithKeys("!"), key.WithHelp("!", "global admin")),
+		// $, the shell's prompt for an ordinary user, for the screen about
+		// you: @ is people and every letter worth having is spoken for.
+		Account: key.NewBinding(key.WithKeys("$"), key.WithHelp("$", "account")),
 		Refresh: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		// ctrl+k and :, the two keys nothing else was on. Not g: Top is bound
 		// to it, and gg-style motion is muscle memory for exactly the readers
@@ -272,6 +276,7 @@ const (
 	doPeople
 	doServer
 	doGlobal
+	doAccount
 	doQuit
 	doInterrupt
 
@@ -386,6 +391,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doPeople, binding: k.People, opens: viewPeople},
 		{id: doServer, binding: k.Server, opens: viewServer},
 		{id: doGlobal, binding: k.Global, opens: viewGlobal},
+		{id: doAccount, binding: k.Account, opens: viewAccount},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -657,6 +663,9 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewGlobal:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
 			append(k.globalHelp(may), entry(k.Back))...)
+	case viewAccount:
+		return append(append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			k.accountActions(may)...), append(k.pickerHelp(), entry(k.Back))...)
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -795,6 +804,11 @@ type ActionContext struct {
 	// the cursor there, so its footer offers the keys that part answers.
 	Mode string
 	Row  string
+	// Picking and Enrolling report that the account screen has its scope
+	// picker or a begun enrolment open, which take the keyboard from the
+	// listing and answer to keys of their own.
+	Picking   bool
+	Enrolling bool
 	// IsDeleted reports whether the selected card is one of the deleted tasks a
 	// filter revealed. A deleted task accepts one action, so the footer offers
 	// that one and none of the editing keys the service would refuse.
@@ -865,6 +879,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.serverShort(ctx)...), entry(k.Back))
 	case viewGlobal:
 		short = append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.globalShort(ctx)...), entry(k.Back))
+	case viewAccount:
+		short = k.accountShort(ctx)
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -932,4 +948,64 @@ func (k KeyMap) offer(ctx ActionContext, actions ...gatedAction) []HelpEntry {
 		}
 	}
 	return out
+}
+
+// accountBindings are the actions the account screen offers, each against the
+// operations it calls. The keys are the board's own, so every scheme drives
+// the screen without rebinding anything.
+func (k KeyMap) accountBindings() []viewAction {
+	return []viewAction{
+		{gatedAction{binding: k.New, methods: []string{"CreateToken", "EnrolSSHKey",
+			"BeginTOTPEnrolment", "RegenerateRecoveryCodes"}}, "issue a token, enrol a key or a second factor"},
+		{gatedAction{binding: k.Delete, methods: []string{"RevokeToken", "RevokeSSHKey", "RemoveTOTP"}},
+			"revoke or remove the selected row"},
+	}
+}
+
+// accountActions are the account screen's bindings, as far as this reader's
+// authority reaches.
+func (k KeyMap) accountActions(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, len(k.accountBindings()))
+	for _, a := range k.accountBindings() {
+		if a.permitted(may) {
+			out = append(out, a.entry())
+		}
+	}
+	return out
+}
+
+// pickerHelp relabels the inbox's keys for the token scope picker and names
+// what enter does on the account screen's two inner states.
+func (k KeyMap) pickerHelp() []HelpEntry {
+	return []HelpEntry{
+		{Keys: k.ToggleRead.Help().Key, Desc: "tick a scope"},
+		{Keys: k.ReadAll.Help().Key, Desc: "tick or clear the scope's group"},
+		{Keys: k.Accept.Help().Key, Desc: "issue the token, or type the enrolment code"},
+	}
+}
+
+// accountShort offers the keys of whichever part of the account screen holds
+// the keyboard, dropping the removal when the selected row has nothing left to
+// remove.
+func (k KeyMap) accountShort(ctx ActionContext) []HelpEntry {
+	switch {
+	case ctx.Enrolling:
+		return []HelpEntry{{Keys: k.Enter.Help().Key, Desc: "type the code"},
+			{Keys: k.Back.Help().Key, Desc: "abandon"}}
+	case ctx.Picking:
+		return []HelpEntry{entry(k.Up), entry(k.Down),
+			{Keys: k.ToggleRead.Help().Key, Desc: "tick"}, {Keys: k.ReadAll.Help().Key, Desc: "tick group"},
+			{Keys: k.Accept.Help().Key, Desc: "issue"}, {Keys: k.Back.Help().Key, Desc: "cancel"}}
+	}
+	out := []HelpEntry{entry(k.Up), entry(k.Down)}
+	for _, a := range k.accountBindings() {
+		if !a.permitted(ctx.May) {
+			continue
+		}
+		if a.binding.Help().Key == k.Delete.Help().Key && !ctx.HasRows {
+			continue
+		}
+		out = append(out, a.entry())
+	}
+	return append(out, entry(k.Back))
 }
