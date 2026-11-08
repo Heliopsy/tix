@@ -50,11 +50,14 @@ type Config struct {
 	Themes map[string]Theme `yaml:"themes,omitempty"`
 }
 
-// Theme is one custom palette. Both colours must be #rrggbb; they end up
-// inside a stylesheet, so core validates them before anything renders.
+// Theme is one custom palette. Every colour must be #rrggbb; they end up
+// inside a stylesheet, so core validates them before anything renders. The
+// dark pair is optional and falls back to the light one.
 type Theme struct {
-	Accent     string `yaml:"accent"`
-	AccentSoft string `yaml:"accent_soft"`
+	Accent         string `yaml:"accent"`
+	AccentSoft     string `yaml:"accent_soft"`
+	AccentDark     string `yaml:"accent_dark,omitempty"`
+	AccentSoftDark string `yaml:"accent_soft_dark,omitempty"`
 }
 
 // ThemeRegistry builds the resolver every surface reads a tenant's accent
@@ -79,6 +82,7 @@ func (c *Config) ThemeRegistry() (*core.ThemeRegistry, error) {
 		t := c.Themes[name]
 		custom = append(custom, core.Theme{
 			Name: name, Accent: t.Accent, AccentSoft: t.AccentSoft,
+			AccentDark: t.AccentDark, AccentSoftDark: t.AccentSoftDark,
 		})
 	}
 	return core.NewThemeRegistry(custom)

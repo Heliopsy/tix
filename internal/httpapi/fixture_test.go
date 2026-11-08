@@ -95,7 +95,7 @@ func (s *apiService) GetUser(_ context.Context, id string) (*core.User, error) {
 	return u, nil
 }
 
-func (s *apiService) ListUsers(_ context.Context, _ core.Page) ([]core.User, string, error) {
+func (s *apiService) ListUsers(_ context.Context, _ core.UserFilter) ([]core.User, string, error) {
 	out := make([]core.User, 0, len(s.users))
 	for _, u := range s.users {
 		out = append(out, *u)

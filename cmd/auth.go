@@ -114,12 +114,14 @@ func userCreateCmd(g *globals) *cobra.Command {
 func userLsCmd(g *globals) *cobra.Command {
 	var limit int
 	var cursor string
+	var removed bool
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List users",
-		Long:    "List users.\n\nExit codes: 5 permission denied.",
-		Example: "  tix user ls -o json",
+		Long: "List the tenant's users. People removed from the tenant keep their actor for history but are left\n" +
+			"out; --include-removed lists them too, marked removed.\n\nExit codes: 5 permission denied.",
+		Example: "  tix user ls -o json\n  tix user ls --include-removed",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -130,7 +132,9 @@ func userLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: size, Cursor: cursor})
+			users, next, err := conn.Service.ListUsers(ctx, core.UserFilter{
+				IncludeRemoved: removed, Page: core.Page{Limit: size, Cursor: cursor},
+			})
 			if err != nil {
 				return err
 			}
@@ -140,6 +144,7 @@ func userLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, users)
 		},
 	}
+	cmd.Flags().BoolVar(&removed, "include-removed", false, "include people removed from the tenant")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd

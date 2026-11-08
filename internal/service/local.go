@@ -186,7 +186,8 @@ func WithTOTPKey(encoded string) Option {
 	}
 }
 
-// WithThemes supplies the registry a tenant's theme name is validated against.
+// WithThemes supplies the registry a tenant's theme name is validated against
+// and WhoAmI resolves the tenant's palette from.
 //
 // Without it the built-in themes are the whole vocabulary, which is what a
 // deployment that configures no palettes gets.

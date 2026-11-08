@@ -1539,7 +1539,7 @@ var serviceScenarios = []svcScenario{
 			}
 			got, err := tg.svc.GetUser(tg.ctx, created.ID)
 			mustf(t, tg, err, "reading the user back")
-			users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: 50})
+			users, _, err := tg.svc.ListUsers(tg.ctx, core.UserFilter{Page: core.Page{Limit: 50}})
 			mustf(t, tg, err, "listing users")
 			return sig{"email": got.Email, "display_name": got.DisplayName, "count": len(users)}, nil
 		},
@@ -2358,7 +2358,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2392,14 +2392,14 @@ var serviceScenarios = []svcScenario{
 			if _, err := tg.svc.UpdateTenantUser(tg.ctx, key, u.ID, core.UpdateUserInput{Role: &role}); err != nil {
 				return nil, err
 			}
-			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
 			if err := tg.svc.DeleteTenantUser(tg.ctx, key, u.ID); err != nil {
 				return nil, err
 			}
-			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2423,7 +2423,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}

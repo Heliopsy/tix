@@ -22,6 +22,7 @@ type File struct {
 	Path           string
 	Values         map[string]string
 	Contexts       map[string]Context
+	Themes         map[string]Theme
 	CurrentContext string
 	hasCurrent     bool
 }
@@ -70,6 +71,14 @@ func LoadFile(path string) (*File, error) {
 		}
 		doc.Contexts = contexts
 	}
+	if node, ok := tree["themes"]; ok {
+		delete(tree, "themes")
+		themes, terr := decodeThemes(node, path)
+		if terr != nil {
+			return nil, terr
+		}
+		doc.Themes = themes
+	}
 	if err := flattenTree(tree, "", doc.Values, path); err != nil {
 		return nil, err
 	}
@@ -89,6 +98,22 @@ func decodeContexts(node any, path string) (map[string]Context, error) {
 		return nil, core.Invalid("parsing contexts in %q: %v", path, err)
 	}
 	return contexts, nil
+}
+
+// decodeThemes reads the themes block, which is a map by name and so cannot
+// be a flat key: a misspelt colour field is refused, as any unknown key is.
+func decodeThemes(node any, path string) (map[string]Theme, error) {
+	encoded, err := yaml.Marshal(node)
+	if err != nil {
+		return nil, core.Invalid("parsing themes in %q: %v", path, err)
+	}
+	var themes map[string]Theme
+	decoder := yaml.NewDecoder(strings.NewReader(string(encoded)))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&themes); err != nil {
+		return nil, core.Invalid("parsing themes in %q: %v", path, err)
+	}
+	return themes, nil
 }
 
 func flattenTree(tree map[string]any, prefix string, out map[string]string, path string) error {
@@ -175,6 +200,9 @@ func SaveChanges(path string, existing *File, before, after *Config) error {
 	}
 	if len(after.Contexts) > 0 {
 		tree["contexts"] = after.Contexts
+	}
+	if existing != nil && len(existing.Themes) > 0 {
+		tree["themes"] = existing.Themes
 	}
 	return writeYAML(path, tree)
 }

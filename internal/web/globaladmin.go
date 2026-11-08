@@ -212,9 +212,9 @@ func globalUsersPath(tenant string) string {
 // showGlobalUsers renders the users of the tenant named in the path.
 func (h *handler) showGlobalUsers(w http.ResponseWriter, r *http.Request) error {
 	key := strings.TrimSpace(r.PathValue("key"))
-	users, next, err := h.svc.ListTenantUsers(r.Context(), key, core.Page{
+	users, next, err := h.svc.ListTenantUsers(r.Context(), key, core.UserFilter{Page: core.Page{
 		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	})
+	}})
 	if err != nil {
 		return err
 	}

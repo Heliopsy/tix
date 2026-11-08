@@ -192,6 +192,9 @@ type Actor struct {
 	// WhoAmI.
 	TenantKey  string `json:"tenant_key,omitempty" yaml:"tenant_key,omitempty"`
 	TenantName string `json:"tenant_name,omitempty" yaml:"tenant_name,omitempty"`
+	// Theme is the palette the actor's tenant resolves to, as the browser
+	// renders it, on the answer to WhoAmI.
+	Theme *Theme `json:"theme,omitempty" yaml:"theme,omitempty"`
 	// Memberships are every tenant the account is a member of, on the answer
 	// to WhoAmI for a session or a token carrying account:read.
 	Memberships []AccountMembership `json:"memberships,omitempty" yaml:"memberships,omitempty"`

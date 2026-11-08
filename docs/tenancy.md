@@ -209,6 +209,11 @@ SSH keys here stop at once, and their other tenants are untouched. Removing a pe
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
 
+A removed person's actor stays in the tenant so history still names them, but they are no longer one of its
+users: the Users screens, the TUI people view, `tix user ls`, `tix tenant user ls` and the API listings leave
+them out. `--include-removed` on either command, or `include_removed=true` on the API, lists them too, each
+marked `removed`.
+
 A person's display name is per tenant: it lives on their actor there, and the Users screen, `tix user ls`
 and `show`, the API and the account menu all show that one. Renaming somebody changes the name in this
 tenant only; for a person who belongs to this tenant alone it also becomes the account's name, which a
@@ -290,9 +295,11 @@ second factor set up is refused with reason `second_factor_required` and sets on
 switch is recorded in the target as `user.login` with method `switch`, and nothing is recorded in the tenant
 left. Only a browser session switches: a token stays in the tenant it was minted for.
 
-`GET /api/v1/whoami` reports `account_id`, `email`, `tenant_key` and `tenant_name`, and, for a session or a
-token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
-`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone. A token
+`GET /api/v1/whoami` reports `tenant_key`, `tenant_name` and `theme` (the tenant's resolved palette, see
+[theming.md](theming.md#reading-the-theme-from-a-client)) for every credential, an agent's token included.
+For a person it adds `account_id` and `email`, and, for a session or a token carrying `account:read`,
+`memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`, `handle` and `host`, the
+tenant's own address or empty when it is served on a shared host alone. A token
 lists them only with `account:read`, whoever it was minted for; an SSH session lists them as a browser
 session does.
 

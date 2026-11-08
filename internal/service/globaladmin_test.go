@@ -113,7 +113,7 @@ func TestCreateTenantWithAdminsTheyCanSignInAndAdministerOnlyIt(t *testing.T) {
 		}
 		admin := core.WithActor(context.Background(), &core.Actor{ID: sess.ActorID, TenantID: sess.TenantID,
 			Kind: core.ActorUser, Role: core.RoleAdmin})
-		if _, _, err := l.ListUsers(admin, core.Page{}); err != nil {
+		if _, _, err := l.ListUsers(admin, core.UserFilter{}); err != nil {
 			t.Errorf("%s administering the new tenant: %v", c.Email, err)
 		}
 		if _, err := l.GetTenant(admin, scope.TenantID); !core.IsKind(err, core.KindNotFound) {
@@ -489,7 +489,7 @@ func TestGlobalAdminManagesUsersOfAnotherTenant(t *testing.T) {
 	if _, err := l.UpdateTenantUser(root, "other", u.ID, core.UpdateUserInput{Role: &role}); err != nil {
 		t.Fatalf("UpdateTenantUser: %v", err)
 	}
-	users, _, err := l.ListTenantUsers(root, "other", core.Page{})
+	users, _, err := l.ListTenantUsers(root, "other", core.UserFilter{})
 	if err != nil || len(users) != 1 || users[0].Role != core.RoleAdmin {
 		t.Fatalf("ListTenantUsers = %+v, %v, want carol as admin", users, err)
 	}
@@ -521,7 +521,7 @@ func TestATenantAdminCannotReachAnotherTenant(t *testing.T) {
 	}
 	admin := tenantAdmin(t, l, actor, "admin@acme.test")
 	for _, ref := range []string{"other", "nosuch"} {
-		if _, _, err := l.ListTenantUsers(admin, ref, core.Page{}); !core.IsKind(err, core.KindForbidden) {
+		if _, _, err := l.ListTenantUsers(admin, ref, core.UserFilter{}); !core.IsKind(err, core.KindForbidden) {
 			t.Errorf("ListTenantUsers(%s) = %v, want forbidden whether or not it exists", ref, err)
 		}
 		if _, err := l.CreateTenantUser(admin, ref, core.CreateUserInput{Email: "x@y.test"}); !core.IsKind(err, core.KindForbidden) {
@@ -610,7 +610,7 @@ func TestGlobalAdminRefusesBadAddresses(t *testing.T) {
 	if _, err := l.CreateTenantUser(root, "nosuch", core.CreateUserInput{Email: "x@y.test"}); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("creating in an unknown tenant = %v, want not found", err)
 	}
-	if _, _, err := l.ListTenantUsers(root, "acme", core.Page{Limit: -1}); !core.IsKind(err, core.KindInvalid) {
+	if _, _, err := l.ListTenantUsers(root, "acme", core.UserFilter{Page: core.Page{Limit: -1}}); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("a bad page = %v, want invalid", err)
 	}
 }

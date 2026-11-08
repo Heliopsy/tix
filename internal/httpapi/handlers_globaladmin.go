@@ -32,12 +32,17 @@ func (rt *Router) handleListTenantUsers(w http.ResponseWriter, r *http.Request) 
 		WriteError(w, err)
 		return
 	}
-	users, next, err := rt.cfg.Service.ListTenantUsers(r.Context(), tenantRef(r), page)
+	users, next, err := rt.cfg.Service.ListTenantUsers(r.Context(), tenantRef(r), userFilter(r, page))
 	if err != nil {
 		WriteError(w, err)
 		return
 	}
 	writeList(w, r, users, next)
+}
+
+// userFilter reads a user listing's filter from the request.
+func userFilter(r *http.Request, page core.Page) core.UserFilter {
+	return core.UserFilter{IncludeRemoved: boolParam(r, "include_removed"), Page: page}
 }
 
 // handleCreateTenantUser creates a user in a tenant.

@@ -201,7 +201,7 @@ func TestAnUpgradeFromBefore046LinksEveryAccountUnderRowLevelSecurity(t *testing
 	}
 
 	root := core.WithActor(ctx, actors["root@example.com"])
-	listed, _, err := l.ListUsers(root, core.Page{Limit: 50})
+	listed, _, err := l.ListUsers(root, core.UserFilter{Page: core.Page{Limit: 50}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}

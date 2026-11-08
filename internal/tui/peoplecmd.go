@@ -101,7 +101,7 @@ func (m Model) loadPeople() tea.Cmd {
 	svc, ctx, mayRoles := m.svc, m.ctx, m.mayPerform("ListMembers")
 	return func() tea.Msg {
 		out := peopleMsg{}
-		if users, next, err := svc.ListUsers(ctx, core.Page{Limit: peopleLimit}); err != nil {
+		if users, next, err := svc.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: peopleLimit}}); err != nil {
 			out.usersErr = err.Error()
 		} else {
 			out.users, out.more = users, next != ""

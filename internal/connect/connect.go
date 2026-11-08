@@ -412,6 +412,10 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	if err != nil {
 		return nil, closeWith(conn, err)
 	}
+	themes, err := cfg.Config.ThemeRegistry()
+	if err != nil {
+		return nil, closeWith(conn, err)
+	}
 	version, err := st.SchemaVersion(ctx)
 	if err != nil {
 		return nil, closeWith(conn, err)
@@ -427,6 +431,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithEgress(egressPolicy),
 		service.WithPublicURL(cfg.Config.Server.PublicURL),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
+		service.WithThemes(themes),
 		service.WithSyncHost(service.SyncHost{
 			Trusted: !ov.Serving, FileRoot: expandHome(cfg.Config.Sync.FileRoot, ov.Home),
 			EnvSources: cfg.Config.Sync.EnvSources}),

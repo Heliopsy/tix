@@ -37,8 +37,8 @@ func (c *Client) GetUser(ctx context.Context, id string) (*core.User, error) {
 }
 
 // ListUsers returns one page of users.
-func (c *Client) ListUsers(ctx context.Context, page core.Page) ([]core.User, string, error) {
-	return list[core.User](ctx, c, wire.RouteUsers, pageQuery(page))
+func (c *Client) ListUsers(ctx context.Context, f core.UserFilter) ([]core.User, string, error) {
+	return list[core.User](ctx, c, wire.RouteUsers, userQuery(f))
 }
 
 // UpdateUser changes a user.

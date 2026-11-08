@@ -1110,7 +1110,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "user.list", Method: "ListUsers",
+		Name: "user.list", Method: "ListUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeUserAdmin,
 		CLI:   "tix user ls",
 		HTTP:  apiGet(wire.RouteUsers),
@@ -1134,7 +1134,7 @@ var registry = []Operation{
 		TUI:   "people",
 	},
 	{
-		Name: "tenant.user.list", Method: "ListTenantUsers",
+		Name: "tenant.user.list", Method: "ListTenantUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix tenant user ls",
 		HTTP:  apiGet(wire.RouteTenantUsers),

@@ -300,7 +300,7 @@ func (rt *Router) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	users, next, err := rt.cfg.Service.ListUsers(r.Context(), page)
+	users, next, err := rt.cfg.Service.ListUsers(r.Context(), userFilter(r, page))
 	if err != nil {
 		WriteError(w, err)
 		return

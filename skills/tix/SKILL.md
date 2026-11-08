@@ -571,6 +571,7 @@ remote context. `tix task link` also runs over the SSH listener.
 `tix project rm KEY` exits 6 while the project holds tasks. Say what happens
 to them: `--move-tasks-to OTHER` (renumbered there, statuses mapped onto its
 workflow) or `--delete-tasks` (permanent). `--dry-run` shows the mapping first.
+In JSON, `deleted` is how many tasks went and a dry run says `would_delete`.
 
 A project's key can change (`tix project edit infra --key ops`). Every
 reference changes with it, so `infra-8` becomes `ops-8`, but the old key stays

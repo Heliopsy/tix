@@ -8800,7 +8800,7 @@ paths:
   /api/v1/tenants/{ref}/users:
     get:
       description: |-
-        ListTenantUsers lists the users of any tenant, with each one's role there, keyset paginated. Only a global admin may call it; for anybody else it is forbidden whatever the tenant.
+        ListTenantUsers lists the users of any tenant, with each one's role there, keyset paginated. People removed from the tenant are left out unless include_removed asks for them, marked removed and with no role. Only a global admin may call it; for anybody else it is forbidden whatever the tenant.
 
         Command line: `tix tenant user ls`.
       operationId: tenant.user.list
@@ -8838,6 +8838,12 @@ paths:
               - asc
               - desc
             type: string
+        - description: IncludeRemoved is true to list people removed from the tenant
+            too, each marked removed.
+          in: query
+          name: include_removed
+          schema:
+            type: boolean
       responses:
         "200":
           content:
@@ -9331,7 +9337,7 @@ paths:
   /api/v1/users:
     get:
       description: |-
-        ListUsers lists the users of this tenant, keyset paginated, with the cursor for the next page.
+        ListUsers lists the users of this tenant, keyset paginated, with the cursor for the next page. People removed from the tenant, whose actor stays for history, are left out unless include_removed asks for them, each then marked removed.
 
         Command line: `tix user ls`.
       operationId: user.list
@@ -9362,6 +9368,12 @@ paths:
               - asc
               - desc
             type: string
+        - description: IncludeRemoved is true to list people removed from the tenant
+            too, each marked removed.
+          in: query
+          name: include_removed
+          schema:
+            type: boolean
       responses:
         "200":
           content:
@@ -10856,6 +10868,10 @@ components:
           type: string
         tenant_name:
           type: string
+        theme:
+          $ref: '#/components/schemas/Theme'
+          description: Theme is the palette the actor's tenant resolves to, as the
+            browser renders it, on the answer to WhoAmI.
         token_id:
           description: TokenID is the API token the request authenticated with, if
             any.
@@ -13139,7 +13155,9 @@ components:
             project.
           type: boolean
         deleted:
-          description: Deleted counts the project's soft deleted tasks, in the trash.
+          description: Deleted counts the tasks the deletion removed permanently,
+            trashed ones included. It is zero for a move and for a plan, which deletes
+            nothing.
           type: integer
         dry_run:
           description: 'DryRun marks a plan: what the deletion would do, nothing written.'
@@ -13158,6 +13176,13 @@ components:
           type: array
         tasks:
           description: Tasks counts the project's live tasks.
+          type: integer
+        trashed:
+          description: Trashed counts the project's soft deleted tasks, in the trash.
+          type: integer
+        would_delete:
+          description: WouldDelete counts the tasks a planned deletion would remove
+            permanently, trashed ones included. Only a plan sets it.
           type: integer
       type: object
     ProjectIconFile:
@@ -15058,6 +15083,11 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        removed:
+          description: 'Removed reports that the person was removed from this tenant:
+            their actor stays so history still names them, but they hold no membership.
+            A listing returns such a person only when asked to include them.'
+          type: boolean
         require_password_change:
           description: RequirePasswordChange reports whether the next password sign-in
             must choose a new password before a session is minted.
@@ -15083,6 +15113,46 @@ components:
         updated_at:
           description: UpdatedAt is when the user was last changed, RFC 3339.
           format: date-time
+          type: string
+      type: object
+    Theme:
+      description: Theme is the accent a tenant presents itself with, on every surface.
+        Two colours rather than a role per element. The web interface already has
+        light, dark and dim for everything structural, and a terminal cannot honour
+        a browser's palette anyway; what a tenant actually wants to choose is the
+        accent, and one accent plus the tint behind it is enough to carry a brand
+        through a header, a selected row and a reference. Colours that mean something
+        rather than brand something are not in here. State category and priority keep
+        their own, because a tenant that themes itself red should not lose the red
+        that means blocked.
+      properties:
+        accent:
+          description: 'Accent is the brand colour, as #rrggbb.'
+          type: string
+        accent_dark:
+          description: 'AccentDark is the accent for the dark and dim schemes, as
+            #rrggbb. The dark pair exists because an accent picked to read on white
+            is usually too dark to read on near-black, and the browser defaults to
+            the dark scheme: a theme with only a light accent renders as a barely
+            visible smear on the scheme most people actually see. Empty falls back
+            to the light pair, so a configured theme that names only an accent still
+            applies everywhere rather than being ignored on half the schemes.'
+          type: string
+        accent_soft:
+          description: 'AccentSoft is the tint it sits on, as #rrggbb.'
+          type: string
+        accent_soft_dark:
+          description: 'AccentSoftDark is the tint it sits on in those schemes, as
+            #rrggbb.'
+          type: string
+        built_in:
+          description: BuiltIn reports whether this theme ships with tix rather than
+            coming from configuration. Listing says which, so an operator can tell
+            what they can redefine.
+          type: boolean
+        name:
+          description: 'Name is the theme''s name, or the #rrggbb a custom accent
+            was named as.'
           type: string
       type: object
     TimePrefs:
@@ -15552,6 +15622,11 @@ components:
         id:
           description: ID is the user's actor identifier.
           type: string
+        removed:
+          description: 'Removed reports that the person was removed from this tenant:
+            their actor stays so history still names them, but they hold no membership.
+            A listing returns such a person only when asked to include them.'
+          type: boolean
         require_password_change:
           description: RequirePasswordChange reports whether the next password sign-in
             must choose a new password before a session is minted.
