@@ -78,7 +78,8 @@ func (s *Server) handle(sess ssh.Session) {
 	// before anything builds the interface. It cannot move later: the
 	// program handler below paints the tenant's board, and a question asked
 	// after that guards nothing.
-	if err := s.proveSecondFactor(sess, actor); err != nil {
+	command := s.isCommand(sess.Command())
+	if err := s.proveSecondFactor(sess, actor, command); err != nil {
 		s.log.Warn("refusing an ssh session that did not prove its second factor",
 			"fingerprint", fingerprint,
 			"source", sourceOf(sess.RemoteAddr()),
@@ -88,6 +89,17 @@ func (s *Server) handle(sess ssh.Session) {
 	}
 	// The command is read after the second factor, as it always was: a
 	// refusal naming what the listener hosts is still not for a stranger.
+	// Only its first word was looked at before, to know which way the factor
+	// is asked for.
+	if command {
+		defer func() {
+			if h, ok := sess.Context().Value(handleKey{}).(*connections.Handle); ok {
+				h.Unregister()
+			}
+		}()
+		s.runCommand(sess, actor, sess.Command())
+		return
+	}
 	l, err := s.route(sess.Command())
 	if err != nil {
 		fatalf(sess, "%s", err.Error())

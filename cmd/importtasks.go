@@ -65,6 +65,11 @@ func newImportTasksCmd(g *globals) *cobra.Command {
 				}
 				in.Format, path = core.TaskFormatLines, linesPath
 			}
+			for _, f := range [][2]string{{"FILE", path}, {"--mapping", mappingPath}, {"--save-mapping", saveMappingPath}} {
+				if err := localFile(cmd, f[0], f[1]); err != nil {
+					return err
+				}
+			}
 			if mappingPath != "" {
 				// #nosec G304 -- the path is the operator's own --mapping argument.
 				raw, err := os.ReadFile(mappingPath)
@@ -125,6 +130,9 @@ func newImportTasksCmd(g *globals) *cobra.Command {
 func openImportSource(cmd *cobra.Command, path string) (io.Reader, func(), error) {
 	if path == "" || path == StdinMarker {
 		return cmd.InOrStdin(), func() {}, nil
+	}
+	if err := localFile(cmd, "FILE", path); err != nil {
+		return nil, nil, err
 	}
 	// #nosec G304 -- the path is the operator's own argument.
 	f, err := os.Open(path)

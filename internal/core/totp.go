@@ -3,6 +3,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"time"
@@ -41,6 +42,17 @@ func SurfaceOf(src Source) (Surface, bool) {
 	default:
 		return "", false
 	}
+}
+
+// SurfaceFrom is the sign-in surface of the call ctx carries. Anything that
+// arrived over the SSH listener is on the ssh surface, whatever it runs there:
+// a command run over SSH has the cli source, and judging it on the cli surface
+// would let it walk past a requirement written for ssh.
+func SurfaceFrom(ctx context.Context) (Surface, bool) {
+	if ViaFrom(ctx).Kind == ViaSSH {
+		return SurfaceSSH, true
+	}
+	return SurfaceOf(SourceFrom(ctx))
 }
 
 // UserTOTP is one user's enrolled second factor. The secret is held sealed and

@@ -1295,6 +1295,7 @@ var registry = []Operation{
 		Web:  webPost(web.RouteLogin),
 		Exempt: []Exemption{
 			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
 		},
 	},
 	{
@@ -1304,6 +1305,7 @@ var registry = []Operation{
 		Exempt: []Exemption{
 			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
 			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
+			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
 		},
 	},
 	{
@@ -1313,6 +1315,7 @@ var registry = []Operation{
 		Exempt: []Exemption{
 			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
 			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
+			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
 		},
 	},
 	{
@@ -1322,6 +1325,7 @@ var registry = []Operation{
 		Web:  webPost(web.RouteLogout),
 		Exempt: []Exemption{
 			off(SurfaceTUI, "ending the session would revoke the credential the running interface is using; tix logout is the way out"),
+			off(SurfaceSSH, "an ssh session holds no token to revoke; tix logout clears a local configuration, and the way out is ending the connection"),
 		},
 	},
 	{

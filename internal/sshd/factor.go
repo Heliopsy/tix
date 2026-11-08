@@ -39,7 +39,12 @@ const recoveryCodeMarker = "  - "
 // guards nothing, because the tenant's data has reached the terminal before
 // the question was asked. Nothing in this file reads a task, a project or
 // anything else belonging to the tenant.
-func (s *Server) proveSecondFactor(sess ssh.Session, actor *core.Actor) error {
+//
+// A hosted command owes the factor on exactly the same terms. What differs is
+// how it is asked: a command run without a pseudo-terminal has nobody at a
+// prompt, and its standard input may be a file on its way to an import, so it
+// proves the factor with the code it sent in EnvCode or not at all.
+func (s *Server) proveSecondFactor(sess ssh.Session, actor *core.Actor, command bool) error {
 	ctx := sessionCtx(sess, actor)
 
 	status, err := s.opts.Service.TOTPStatus(ctx)
@@ -65,11 +70,46 @@ func (s *Server) proveSecondFactor(sess ssh.Session, actor *core.Actor) error {
 		return auth.ErrTOTPLocked(*status.VerificationLockEnd)
 	}
 
+	_, _, hasPty := sess.Pty()
+	if command && !hasPty {
+		return s.proveFromEnvironment(ctx, sess, status.Enrolled)
+	}
 	p := &prompter{server: s, sess: sess}
 	if status.Enrolled {
 		return p.askForCode(ctx)
 	}
 	return p.askToEnrol(ctx)
+}
+
+// EnvCode is the environment variable a command session without a terminal
+// sends its second factor code in: `ssh -o SetEnv=TIX_CODE=123456 host ...`.
+const EnvCode = "TIX_CODE"
+
+// proveFromEnvironment checks the one code a command session without a
+// terminal sent. One try, because a script that sent a wrong code will send
+// the same wrong code again, and the enrolment's own rate limit counts it.
+func (s *Server) proveFromEnvironment(ctx context.Context, sess ssh.Session, enrolled bool) error {
+	if !enrolled {
+		return core.Unauthenticated(
+			"this tenant asks for a second factor and this account has none yet; " +
+				"connect with `ssh -t` to the board once to enrol one")
+	}
+	code := strings.TrimSpace(lookupEnv(sess.Environ(), EnvCode))
+	if code == "" {
+		return core.Unauthenticated(
+			"this account proves a second factor before a command runs: run it with `ssh -t` to be asked, "+
+				"or send the code with `ssh -o SetEnv=%s=123456`", EnvCode)
+	}
+	if len(code) > maxAnswerLength {
+		return errFactorUnproved()
+	}
+	if err := s.opts.Service.VerifySecondFactor(ctx, code); err != nil {
+		if core.IsTOTPLocked(err) {
+			return err
+		}
+		return errFactorUnproved()
+	}
+	return nil
 }
 
 // prompter owns one session's terminal for the length of the exchange.

@@ -5,6 +5,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -177,6 +178,9 @@ func noArgs(cmd *cobra.Command, args []string) error {
 // readAll reads every byte of r.
 func readAll(r io.Reader) (string, error) {
 	b, err := io.ReadAll(r)
+	if e := (*core.Error)(nil); errors.As(err, &e) {
+		return "", err
+	}
 	if err != nil {
 		return "", core.Internal("reading standard input").Wrap(err)
 	}

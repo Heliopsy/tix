@@ -63,7 +63,7 @@ func (s *Server) route(command []string) (launch, error) {
 	if len(command) == 1 {
 		return boardFor(command[0])
 	}
-	return launch{}, errors.New("tix is an interface, not a shell: " + commandUsage())
+	return launch{}, errors.New("tix serves its interfaces and commands, not a shell: " + commandUsage())
 }
 
 // launchBoard opens the project list, or the board a key names.
@@ -102,5 +102,6 @@ func commandUsage() string {
 	for _, i := range tui.Interfaces() {
 		usages = append(usages, "`"+i.Usage+"`")
 	}
-	return "run one of " + strings.Join(usages, ", ") + ", or name a project key to open its board"
+	return "run one of " + strings.Join(usages, ", ") + ", name a project key to open its board, " +
+		"or run a tix command such as `task ls`"
 }

@@ -83,6 +83,9 @@ func (f *syncServerFlags) apply(cmd *cobra.Command, in *core.SyncSourceInput) er
 	if f.mappingFile == StdinMarker && (f.tokenStdin || f.passwordStdin) {
 		return core.Invalid("--mapping-file - and a credential cannot both read standard input")
 	}
+	if err := localFile(cmd, "--mapping-file", f.mappingFile); err != nil {
+		return err
+	}
 	if f.mappingFile != "" {
 		var doc string
 		var err error
@@ -184,6 +187,11 @@ func syncSourceAddCmd(g *globals) *cobra.Command {
 			"  tix sync source add jira platform --url https://acme.atlassian.net --project PLAT --mapping-file jira.yaml --check",
 		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, f := range [][2]string{{"--mapping", mapping}, {"--file", file}} {
+				if err := localFile(cmd, f[0], f[1]); err != nil {
+					return err
+				}
+			}
 			config := map[string]any{}
 			for key, value := range map[string]string{
 				core.SyncSettingURL: url, core.SyncSettingProject: project,
