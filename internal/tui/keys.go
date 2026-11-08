@@ -69,6 +69,8 @@ type KeyMap struct {
 	ReadAll       key.Binding
 	Stats         key.Binding
 	Tenant        key.Binding
+	Server        key.Binding
+	Global        key.Binding
 	Refresh       key.Binding
 	Palette       key.Binding
 	Help          key.Binding
@@ -194,8 +196,12 @@ func DefaultKeyMap() KeyMap {
 		// S, not s: lowercase s is taken on the board, and a capital is what
 		// the other cross-view keys already use when their letter is spoken
 		// for.
-		Stats:   key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
-		Tenant:  key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		Stats:  key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
+		Tenant: key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		// % and !, because every letter worth having is spoken for. % reads the
+		// server's load and connections; ! is the one that acts across tenants.
+		Server:  key.NewBinding(key.WithKeys("%"), key.WithHelp("%", "server")),
+		Global:  key.NewBinding(key.WithKeys("!"), key.WithHelp("!", "global admin")),
 		Refresh: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		// ctrl+k and :, the two keys nothing else was on. Not g: Top is bound
 		// to it, and gg-style motion is muscle memory for exactly the readers
@@ -254,6 +260,8 @@ const (
 	doInbox
 	doStats
 	doTenant
+	doServer
+	doGlobal
 	doQuit
 	doInterrupt
 
@@ -364,6 +372,8 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
 		{id: doInbox, binding: k.Inbox, opens: viewInbox},
+		{id: doServer, binding: k.Server, opens: viewServer},
+		{id: doGlobal, binding: k.Global, opens: viewGlobal},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -623,6 +633,12 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
+	case viewServer:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			append(permittedEntries(k.serverBindings(), may), entry(k.Back))...)
+	case viewGlobal:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			append(k.globalHelp(may), entry(k.Back))...)
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -756,6 +772,11 @@ type ActionContext struct {
 	// HasRows reports whether the tenant screen holds a domain or a member, so
 	// it does not advertise a removal with nothing under the cursor.
 	HasRows bool
+	// Mode names the part of a view with several that is open, such as the
+	// global admin view's users of one tenant, and Row the kind of row under
+	// the cursor there, so its footer offers the keys that part answers.
+	Mode string
+	Row  string
 	// IsDeleted reports whether the selected card is one of the deleted tasks a
 	// filter revealed. A deleted task accepts one action, so the footer offers
 	// that one and none of the editing keys the service would refuse.
@@ -814,6 +835,10 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = []HelpEntry{entry(k.Enter), entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back)}
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
+	case viewServer:
+		short = append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.serverShort(ctx)...), entry(k.Back))
+	case viewGlobal:
+		short = append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.globalShort(ctx)...), entry(k.Back))
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}

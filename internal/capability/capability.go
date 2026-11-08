@@ -165,9 +165,17 @@ func (o Operation) Reads() bool { return o.HTTP.Method == http.MethodGet }
 
 // Permits reports whether the actor holds the authority this operation needs.
 // An operation with no scope needs only an authenticated session.
+//
+// Global admin is not a scope a session holds: the policy asks the store, and
+// WhoAmI reports the answer as Actor.GlobalAdmin. An operation needing it is
+// permitted on that report, so an interface offers it to the readers the
+// service would let through and to nobody else.
 func (o Operation) Permits(a *core.Actor) bool {
 	if a == nil {
 		return false
+	}
+	if o.Scope == core.ScopeGlobalAdmin {
+		return a.GlobalAdmin
 	}
 	return o.Scope == "" || a.HasScope(o.Scope)
 }

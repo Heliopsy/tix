@@ -127,6 +127,9 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 	l, _ := sess.Context().Value(launchKey{}).(launch)
 
 	ctx := sessionCtx(sess, actor)
+	// The actor the interface is offered views for carries the service's
+	// report of global admin standing, which no scope on a key login holds.
+	actor = tui.WithStanding(ctx, s.opts.Service, actor)
 	pty, _, hasPty := sess.Pty()
 	environ := withTerm(sess.Environ(), pty.Term, hasPty)
 	color := colorFor(environ)

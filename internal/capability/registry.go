@@ -114,9 +114,7 @@ var registry = []Operation{
 		CLI:   "tix tenant create",
 		HTTP:  apiPost(wire.RouteTenants),
 		Web:   webPost(web.RouteGlobalTenants),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; the tenant view administers the tenant in force, and a session pinned to one tenant has no installation-level entry for creating another"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "tenant.show", Method: "GetTenant",
@@ -148,9 +146,10 @@ var registry = []Operation{
 		CLI:   "tix tenant rm",
 		HTTP:  apiDelete(wire.RouteTenant),
 		Web:   webPost(web.RouteGlobalTenantDelete),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; destroying the tenant a running session is pinned to would revoke the interface's own access mid-session"),
-		},
+		TUI:   "globaladmin",
+		Limits: []Limitation{{SurfaceTUI,
+			"the tenant the session is pinned to is not deleted from the terminal, because it would end " +
+				"the session's own access; tix tenant rm deletes it"}},
 	},
 	{
 		Name: "domain.add", Method: "AddDomain", Contract: Contract{Status: http.StatusCreated},
@@ -1117,9 +1116,7 @@ var registry = []Operation{
 		CLI:   "tix tenant user ls",
 		HTTP:  apiGet(wire.RouteTenantUsers),
 		Web:   webGet(web.RouteGlobalTenant, tplGlobalUsr),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "tenant.user.create", Method: "CreateTenantUser", Contract: Contract{Status: http.StatusCreated},
@@ -1127,9 +1124,7 @@ var registry = []Operation{
 		CLI:   "tix tenant user create",
 		HTTP:  apiPost(wire.RouteTenantUsers),
 		Web:   webPost(web.RouteGlobalUsers),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "account.log", Method: "GetAccountLog",
@@ -1146,9 +1141,7 @@ var registry = []Operation{
 		CLI:   "tix global-admin account-log",
 		HTTP:  apiGet(wire.RouteAccountLogFor),
 		Web:   webGet(web.RouteGlobalAccount, tplAcctLog),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "tenant.member.add", Method: "AddTenantMember", Contract: Contract{Status: http.StatusCreated},
@@ -1156,9 +1149,7 @@ var registry = []Operation{
 		CLI:   "tix tenant user add",
 		HTTP:  apiPost(wire.RouteTenantMembers),
 		Web:   webPost(web.RouteGlobalMembers),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "tenant.user.update", Method: "UpdateTenantUser",
@@ -1166,9 +1157,7 @@ var registry = []Operation{
 		CLI:   "tix tenant user edit",
 		HTTP:  apiPatch(wire.RouteTenantUser),
 		Web:   webPost(web.RouteGlobalUserUpdate),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "tenant.user.delete", Method: "DeleteTenantUser",
@@ -1176,9 +1165,7 @@ var registry = []Operation{
 		CLI:   "tix tenant user rm",
 		HTTP:  apiDelete(wire.RouteTenantUser),
 		Web:   webPost(web.RouteGlobalUserDelete),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "global_admin.list", Method: "ListGlobalAdmins",
@@ -1186,9 +1173,7 @@ var registry = []Operation{
 		CLI:   "tix global-admin ls",
 		HTTP:  apiGet(wire.RouteGlobalAdmins),
 		Web:   webGet(web.RouteGlobal, tplGlobal),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "global_admin.grant", Method: "GrantGlobalAdmin",
@@ -1196,9 +1181,7 @@ var registry = []Operation{
 		CLI:   "tix global-admin grant",
 		HTTP:  apiPost(wire.RouteGlobalAdmins),
 		Web:   webPost(web.RouteGlobalAdmins),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "global_admin.revoke", Method: "RevokeGlobalAdmin",
@@ -1206,9 +1189,7 @@ var registry = []Operation{
 		CLI:   "tix global-admin revoke",
 		HTTP:  apiDelete(wire.RouteGlobalAdmin),
 		Web:   webPost(web.RouteGlobalAdminRevoke),
-		Exempt: []Exemption{
-			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
-		},
+		TUI:   "globaladmin",
 	},
 	{
 		Name: "invite.create", Method: "CreateInvite", Contract: Contract{Status: http.StatusCreated},
@@ -1659,10 +1640,7 @@ var registry = []Operation{
 		CLI:   "tix status",
 		HTTP:  apiGet(wire.RouteStatus),
 		Web:   webGet(web.RouteStatus, tplStatus),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view, which is "+
-				"the same absence the live connection screen records"),
-		},
+		TUI:   "server",
 	},
 	{
 		Name: "connection.list", Method: "ListConnections",
@@ -1670,9 +1648,7 @@ var registry = []Operation{
 		CLI:   "tix connection ls",
 		HTTP:  apiGet(wire.RouteConnections),
 		Web:   webGet(web.RouteConnections, tplConns),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view"),
-		},
+		TUI:   "server",
 	},
 	{
 		Name: "connection.end", Method: "EndConnection",
@@ -1680,8 +1656,6 @@ var registry = []Operation{
 		CLI:   "tix connection kill",
 		HTTP:  apiDelete(wire.RouteConnection),
 		Web:   webPost(web.RouteConnectionEnd),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no server administration view"),
-		},
+		TUI:   "server",
 	},
 }

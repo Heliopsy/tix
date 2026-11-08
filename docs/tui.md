@@ -13,10 +13,10 @@ actually dispatching, so neither can describe keys you do not have. This page co
 what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The twelve views
+## The fourteen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
-board, the task, the project screen, activity, history, the inbox, the tenant screen, statistics and settings all
+board, the task, the project screen, activity, history, the inbox, the tenant screen, the server, global admin, statistics and settings all
 render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
@@ -32,6 +32,8 @@ render into the same frame and recognising the body was the only way to tell whe
 | inbox | `I` | your mentions, assignments, comments on tasks you follow and status changes, newest first |
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
+| server | `%` | the installation, the servers registered against it, the tenant's work and second factor, and its live connections |
+| globaladmin | `!`, offered to a global admin only | every tenant and the global admins; a tenant's users; any account's log |
 | settings | `,` | display preferences, and what this session is connected to |
 | help | `?` | the bindings of the view underneath, and the legends |
 
@@ -171,7 +173,7 @@ an action unbound.
 | `enter` | open, or apply an input; inserts a newline inside a multi-line field | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
-| `/` | filter | board, activity; cycles the window on statistics |
+| `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin |
 | `C` | clear the filter, and on activity the project the start menu picked | board, activity |
 | `space` | pause the tail, holding new events back; again to resume and draw them | activity |
 | `s` | apply one of your saved filters, or one shared with the tenant | board |
@@ -182,8 +184,8 @@ an action unbound.
 | `F` | reclaim the lease another worker holds, leaving the task where it is | board, detail |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
-| `n` | new task, new project on the project list, new field or domain or member | board, detail, projects, project, tenant |
-| `e` | edit the whole task on one form; edits the project or the tenant on their own screens | board, detail, project, tenant |
+| `n` | new task, new project on the project list, new field or domain or member; a tenant, global admin, user or account on global admin | board, detail, projects, project, tenant, global admin |
+| `e` | edit the whole task on one form; edits the project, the tenant or a tenant's user on their own screens | board, detail, project, tenant, global admin |
 | `P` | set priority, from the five | board, detail |
 | `p` | cycle priority one place down, wrapping from `P5` back to `P1` | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
@@ -201,7 +203,7 @@ an action unbound.
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member | board, detail, project, tenant |
+| `X` | delete the task or the selected comment; removes the selected domain or member; ends a connection; deletes a tenant or user, revokes a global admin | board, detail, project, tenant, server, global admin |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
@@ -214,6 +216,7 @@ an action unbound.
 | `f` | custom field definitions | project |
 | `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T` | projects, settings, activity, history, inbox, statistics, tenant | everywhere |
+| `%`, `!` | the server, global admin | everywhere they are offered |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -698,6 +701,45 @@ The switch lasts for the session. `tix tenant use KEY` writes it down. A session
 way to dial another tenant, which is what an SSH session is, says that plainly and points at
 `tix tenant use` rather than offering a switch that cannot happen.
 
+## The server view
+
+`%` reads the same report `tix status` prints and the tenant's live connections, and is offered to a reader
+who may read the status report, which is a tenant admin. It states the installation (version, schema,
+engine, store), every server registered against it with whether it still heartbeats and which one
+answered, the tenant's work counts, and the state of the second factor. The two reads are separate, so a
+refused one says why in its own section and costs nothing else.
+
+The connections are the tenant's on the server that answered, the same partial view `tix connection ls`
+gives when several servers share one database. The cursor runs over them and `X` ends the selected one
+behind a confirmation naming its surface, handle and address. Ending is not revocation: the holder may
+reconnect. Over SSH this session is in the list too, and ending it closes it.
+
+## The global admin view
+
+`!` is offered only to a session whose actor the service reports as a global admin when the session
+opens, which is the same report the web sidebar uses to offer its Global admin area. A session holding the
+database directly is one. Revoking global admin takes effect on the next call, because the service asks
+the store every time; the view stays offered until the session ends and then refuses.
+
+The session is pinned to one tenant and that does not get in the way: every global admin operation names
+the tenant it acts on, exactly as the web screens do from a session pinned the same way. Nothing is dialled.
+
+The view has three parts, and `esc` walks out of a part before it leaves the view:
+
+- **Tenants and global admins.** One cursor runs over every tenant and then every global admin. `n`
+  creates a tenant from a key, a name and the first admins' addresses separated by commas, or grants global
+  admin by email. A new address gets a generated password, shown once under its own heading until the view
+  is read again or left. `X` deletes the selected tenant, or revokes the selected global admin, after a
+  confirmation naming it. The tenant this session is on is marked and not deleted from here, because that
+  would end the session's own access; `tix tenant rm` can.
+- **A tenant's users.** `enter` on a tenant lists its users with their role and whether they are disabled.
+  `n` creates a user (email, handle, display name, password, role) or adds an existing account by email
+  with a handle and role. The password is masked as it is typed and on the form. `e` edits the display
+  name, the role and the disabled state, sending only what changed. `X` deletes the user after a
+  confirmation.
+- **An account log.** `enter` on a global admin or a user, or `/` and an email anywhere in the view, reads
+  that account's log: every change, the tenant it concerned, who made it and through what.
+
 ## You are offered the views your permissions reach
 
 A key that opens a view the service would refuse tells the reader the refusal is their mistake. So the
@@ -721,6 +763,13 @@ first.
 | activity | the actor may subscribe to events |
 | history | the actor may read the audit log |
 | tenant | always: asking a tenant who you are there needs only a session |
+| server | the actor may read the status report, which is tenant administration |
+| global admin | the service reports the actor as a global admin when the session opens |
+
+Global admin is the one row not derived from a scope. The service decides it from the store on every call,
+and no session holds it as a scope, so the session asks the service once, when it opens, whether its actor
+is a global admin, and `capability.Operation.Permits` answers operations needing `global:admin` from that
+report.
 
 The project list, settings and help are exempt because they need no authority. Settings and help read
 nothing from the service at all, and the project list is where every session starts and where going back
@@ -760,7 +809,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 44 such gaps against 171
+a reason as a gap when the binding ought to exist. As of this writing there are 39 such gaps against 171
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -770,14 +819,12 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 44 now has one of two shapes:
+Every one of the 39 now has one of two shapes:
 
-- **Administration.** Users and their invites, tokens, credentials, webhooks and their deliveries, retention and the server
-  itself have no terminal screen at all, and neither the live connections a server holds nor the servers
-  registered against the store can be listed here, and creating or destroying a tenant is not something a
-  session pinned to one tenant can do. The second factor is here too: enrolling one, confirming it,
+- **Administration.** Users and their invites, tokens, credentials, webhooks and their deliveries and
+  retention have no terminal screen at all. The second factor is here too: enrolling one, confirming it,
   removing it, replacing the recovery codes, reading the state of either and clearing somebody else's are
-  six operations with no screen. That is thirty-four of the count.
+  six operations with no screen. That is twenty-nine of the count.
 - **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
   That is the other ten.
 
@@ -796,6 +843,13 @@ the dependency list, the actor directory and the deleted cards `is:deleted` reve
 over them now. And the tenant itself: the screen that stated only which tenant a session was pinned to
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
 three, which closed nine.
+
+The server and the installation have closed too. The server view reads the status report and the
+tenant's live connections and ends one, which closed three, and the global admin view creates and deletes
+tenants, which closed the last two that a session pinned to one tenant was said not to be able to do. The
+same view turned nine absences that were never counted as gaps into bindings: a tenant's users, adding an
+existing account, the global admins and any account's log. `tenant.delete` records one limitation: the
+session's own tenant is not deleted from here.
 
 Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out

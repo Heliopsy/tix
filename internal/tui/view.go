@@ -101,6 +101,10 @@ func (m Model) viewName() string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewServer:
+		return "server"
+	case viewGlobal:
+		return "global admin"
 	case viewHelp:
 		return "help"
 	}
@@ -157,6 +161,10 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.inboxLines(layout)
 	case viewMenu:
 		return m.menuLines()
+	case viewServer:
+		return m.serverLines(layout)
+	case viewGlobal:
+		return m.globalLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -1051,7 +1059,7 @@ func (m Model) formPanel() Panel {
 			continue
 		}
 		value := l.Value
-		if l.Selected && l.Kind == FieldText {
+		if l.Selected && (l.Kind == FieldText || l.Kind == FieldSecret) {
 			value = m.input.View()
 		}
 		row := "  " + pad(l.Label, FormLabelWidth) + value

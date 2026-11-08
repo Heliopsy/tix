@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -37,6 +38,10 @@ const (
 	formSavedFilter
 	formTemplates
 	formSaveTemplate
+	formGlobalAdd
+	formGlobalUserAdd
+	formGlobalUserEdit
+	formGlobalLog
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -51,6 +56,9 @@ const (
 	FieldChoice FieldKind = iota
 	FieldText
 	FieldProse
+	// FieldSecret is typed like FieldText and never drawn: the input echoes a
+	// mask, and the row's summary is masked once the cursor leaves it.
+	FieldSecret
 )
 
 // FieldCondition keeps a field off screen until another field holds a value.
@@ -81,7 +89,9 @@ type FormField struct {
 }
 
 // Typed reports whether a field is gathered by typing rather than by cycling.
-func (f FormField) Typed() bool { return f.Kind == FieldText || f.Kind == FieldProse }
+func (f FormField) Typed() bool {
+	return f.Kind == FieldText || f.Kind == FieldProse || f.Kind == FieldSecret
+}
 
 // Form is a set of answers gathered on one screen. It is moved through and
 // cycled with the bindings the settings screen already uses, so every
@@ -241,6 +251,9 @@ func (f Form) Lines() []FormLine {
 // one line and several paragraphs drawn into it is the defect this field
 // exists to fix.
 func FieldSummary(field FormField) string {
+	if field.Kind == FieldSecret {
+		return strings.Repeat("•", utf8.RuneCountInString(field.Value))
+	}
 	if field.Kind != FieldProse {
 		return field.Value
 	}

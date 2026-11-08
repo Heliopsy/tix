@@ -216,6 +216,11 @@ type Model struct {
 	menuSel     int
 	menuProject int
 
+	// server is what the server view states and global what the global admin
+	// view does, each kept whole in its own file.
+	server serverState
+	global globalState
+
 	err         string
 	status      string
 	fatal       error
@@ -452,6 +457,18 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onInbox(msg)
 	case inboxMarkMsg:
 		return m.onInboxMark(msg)
+	case serverMsg:
+		return m.onServer(msg)
+	case serverEndMsg:
+		return m.onServerEnd(msg)
+	case globalHomeMsg:
+		return m.onGlobalHome(msg)
+	case globalUsersMsg:
+		return m.onGlobalUsers(msg)
+	case globalLogMsg:
+		return m.onGlobalLog(msg)
+	case globalActionMsg:
+		return m.onGlobalAction(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -788,6 +805,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleInboxKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
+	case viewServer:
+		return m.handleServerKey(msg)
+	case viewGlobal:
+		return m.handleGlobalKey(msg)
 	}
 	return m, nil
 }
@@ -1142,6 +1163,12 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case doTenant:
 		next, cmd := m.openTenant()
+		return next, cmd, true
+	case doServer:
+		next, cmd := m.openServer()
+		return next, cmd, true
+	case doGlobal:
+		next, cmd := m.openGlobal()
 		return next, cmd, true
 	case doQuit:
 		next, cmd := m.leave(tea.Quit)
@@ -1599,6 +1626,13 @@ func (m Model) actionContext() ActionContext {
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
 		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
+	switch m.view {
+	case viewServer:
+		ctx.HasRows = len(m.serverRows()) > 0
+	case viewGlobal:
+		ctx.Mode, ctx.Row = m.globalContext()
+		ctx.HasRows = ctx.Row != ""
+	}
 	if _, ok := m.selectedColumn(); ok {
 		ctx.HasColumn = true
 		ctx.CanLeft = ColumnNeighbour(m.columns, m.sel.Col, -1) >= 0
@@ -1654,6 +1688,12 @@ func (m Model) refresh() tea.Cmd {
 	}
 	if m.view == viewInbox {
 		return m.loadInbox()
+	}
+	if m.view == viewServer {
+		return m.loadServer()
+	}
+	if m.view == viewGlobal {
+		return m.reloadGlobal()
 	}
 	// The tenant screen is read once when the view opens, so refreshing
 	// anything else from here would reload a screen the reader is not on.
@@ -1982,6 +2022,10 @@ func (m Model) focusField() Model {
 		return m.fitArea()
 	}
 	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", "", field.Limit
+	m.input.EchoMode = textinput.EchoNormal
+	if field.Kind == FieldSecret {
+		m.input.EchoMode = textinput.EchoPassword
+	}
 	m.input.SetValue(field.Value)
 	m.input.CursorEnd()
 	m.input.Focus()
@@ -2127,6 +2171,7 @@ func (m Model) editField(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // closeForm dismisses the open form.
 func (m Model) closeForm() Model {
 	m.form = Form{}
+	m.input.EchoMode = textinput.EchoNormal
 	m.input.SetValue("")
 	m.input.Blur()
 	m.area.SetValue("")
@@ -2155,6 +2200,9 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyMember(form)
 	case formSavedFilter:
 		return m.closeForm().applySavedFilter(form)
+	}
+	if isGlobalForm(form.Kind) {
+		return m.closeForm().applyGlobalForm(form)
 	}
 	if form.Kind == formTaskEdit {
 		next := m.closeForm()
@@ -2280,6 +2328,10 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 		return m.removeMember(c.actorID, c.Target)
 	case confirmDeleteTemplate:
 		return m.deleteTemplate(c.template)
+	case confirmEndConnection:
+		return m.endConnection(c)
+	case confirmDeleteTenant, confirmRevokeGlobal, confirmDeleteTenantUser:
+		return m.runGlobalConfirm(c)
 	default:
 		return nil
 	}

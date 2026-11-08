@@ -373,6 +373,7 @@ func contains(values []string, want string) bool {
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
 	"stats": true, "project": true, "history": true, "inbox": true,
+	"server": true, "globaladmin": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -516,10 +517,15 @@ func TestNoCLIGapRemains(t *testing.T) {
 // domain.remove, member.add, member.list and member.remove. tenant.create and
 // tenant.delete stay recorded, because a session pinned to one tenant is neither
 // where another is made nor where the one in use is destroyed.
+//
+// It came down from 44 with the server and global admin views: status.read,
+// connection.list and connection.end on the server view, and tenant.create and
+// tenant.delete on the global admin view, since every global admin operation
+// names the tenant it acts on and the pin was never what stood in the way.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 44,
+		capability.SurfaceTUI: 39,
 		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
@@ -548,11 +554,12 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string]capability.Surface{
-	"PutArtifact": capability.SurfaceTUI,
-	"AddDomain":   capability.SurfaceTUI,
-	"TaskTree":    capability.SurfaceWeb,
-	"ListTokens":  capability.SurfaceWeb,
-	"ListSSHKeys": capability.SurfaceWeb,
+	"PutArtifact":  capability.SurfaceTUI,
+	"AddDomain":    capability.SurfaceTUI,
+	"DeleteTenant": capability.SurfaceTUI,
+	"TaskTree":     capability.SurfaceWeb,
+	"ListTokens":   capability.SurfaceWeb,
+	"ListSSHKeys":  capability.SurfaceWeb,
 }
 
 // TestEveryLimitationIsJustified keeps the recorded shortfalls attributable,
