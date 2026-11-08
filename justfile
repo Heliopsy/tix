@@ -458,7 +458,7 @@ actionlint: (tool "actionlint")
 # info on made the gate depend on which shellcheck release the runner had,
 # which is how it failed on a machine where it had just passed. SC2189 is an
 # error and is still caught, verified against the commit that motivated this.
-shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh")
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh" ".github/actions/fetch-release-asset.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # The jq filter that renders the agent panes, which is the only thing between a
 # lease token and a published video. shellcheck cannot read it and bash -n
