@@ -54,8 +54,31 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
-      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
+      # GoReleaser, and the cosign and syft it runs to sign and inventory the
+      # archives, come from the toolbox at the versions Containerfile.ci pins.
+      # They used to come from goreleaser-action, cosign-installer and
+      # download-syft, each fetching from github.com/OWNER/REPO/releases with
+      # its own few retries, and v0.47.0 failed on a 504 from syft's. cosign
+      # and syft now go through .github/actions/fetch-release-asset.sh, checked
+      # against a pinned sha256 and cached. GoReleaser is built by go install
+      # from the module proxy, checked by the checksum database, as the
+      # cross-compile job already does, and is no longer whatever `~> v2`
+      # resolved to on the day.
+      #
+      # The action comes from this workflow's own commit, as in the image job
+      # below, and .ci-actions is removed before GoReleaser runs: it refuses a
+      # dirty tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-actions
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - uses: ./.ci-actions/.github/actions/toolbox
+        with:
+          tools: cosign goreleaser syft
+      - name: Drop the workflow's own actions
+        run: rm -rf .ci-actions
 
       # `use_existing_draft` makes GoReleaser look for the draft release-please
       # left, and it looks at drafts only: it does not find a published release
@@ -90,12 +113,19 @@ jobs:
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F draft=true >/dev/null
           echo "$tag was published; held as a draft for this rebuild"
 
-      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de  # v7.3.0
-        with:
-          version: '~> v2'
-          args: release --clean
+      # Signing is not retried. GoReleaser has no retry for `signs`, and cosign
+      # has no flag for one: it retries a failed Rekor or Fulcio request inside
+      # the one process, where a repeat of a request that did land is answered
+      # 409 and cosign takes the existing entry. A second cosign process cannot
+      # do that. Keyless signing makes a fresh key and certificate each time, so
+      # a 500 that Rekor returned after committing the entry would leave it
+      # behind beside the new one. Nothing is lost by stopping instead: the
+      # checksums are signed before anything is uploaded, so a failure here
+      # leaves the draft untouched and a fresh dispatch of the tag starts clean.
+      - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goreleaser release --clean
 
   # The image is built, proven and scanned again here rather than trusted from
   # CI, then pushed. It runs after the release so a registry that is refusing
@@ -132,11 +162,13 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version-file: go.mod
-      # Pinned, cached and checksummed: .github/actions/just says why. It is
-      # taken from this workflow's own commit rather than the tag being built,
-      # because a dispatch that rebuilds an older tag checks out a tree from
-      # before that action existed. Removed once just is on PATH, so the image
-      # build sees only the tag.
+      # Pinned, cached and checksummed: .github/actions/just and
+      # .github/actions/toolbox say why. Both are taken from this workflow's own
+      # commit rather than the tag being built, because a dispatch that rebuilds
+      # an older tag checks out a tree from before those actions existed, or
+      # before they retried. The toolbox reads its pins from that commit too.
+      # Removed once the tools are on PATH, so the image build sees only the
+      # tag.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -144,13 +176,11 @@ jobs:
           sparse-checkout: .github/actions
           persist-credentials: false
       - uses: ./.ci-actions/.github/actions/just
+      - uses: ./.ci-actions/.github/actions/toolbox
+        with:
+          tools: cosign syft trivy
       - name: Drop the workflow's own actions
         run: rm -rf .ci-actions
-      - uses: ./.github/actions/toolbox
-        with:
-          tools: trivy
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
-      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
 
       - name: Resolve the tag and the repository to push to
         id: names
@@ -205,6 +235,13 @@ jobs:
       # well as the list. Somebody who pulls on arm64 gets the child, and a
       # signature over the list alone is not one they can check against what
       # they are running.
+      #
+      # Not retried, for the reason given at the GoReleaser step, and one more:
+      # --recursive signs three manifests in turn, so a pass that failed on the
+      # last would, run again, put a second signature on the two it had
+      # already signed. The same goes for the attestations below. Recovery is a
+      # dispatch with image_only, started by someone who has looked at what the
+      # registry holds.
       - name: Sign the image
         env:
           REF: ${{ steps.names.outputs.repo }}@${{ steps.push.outputs.digest }}
@@ -274,7 +311,24 @@ jobs:
           IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/release.yaml@${{ github.ref }}
         run: |
           set -euo pipefail
-          cosign verify \
+          # Verifying only reads, from the registry, Rekor and the TUF root, so
+          # unlike signing it is safe to repeat, and a 500 from one of them is
+          # not a reason to call a published release broken.
+          retry() {
+            local i
+            for i in 1 2 3; do
+              if "$@"; then
+                return 0
+              fi
+              if [ "$i" -lt 3 ]; then
+                echo "attempt $i of 3 failed: $1 $2; next in $((i * 20))s" >&2
+                sleep $((i * 20))
+              fi
+            done
+            return 1
+          }
+
+          retry cosign verify \
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "$REPO:$TAG" >/dev/null
@@ -283,7 +337,7 @@ jobs:
           for arch in amd64 arm64; do
             child=$(podman manifest inspect "$REPO:$TAG" \
               | jq -r --arg a "$arch" '.manifests[] | select(.platform.architecture == $a) | .digest')
-            cosign verify-attestation --type spdxjson \
+            retry cosign verify-attestation --type spdxjson \
               --certificate-identity "$IDENTITY" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               "$REPO@$child" >/dev/null
