@@ -171,7 +171,7 @@ func (in *Instance) Stop(ctx context.Context) error {
 			in.stopErr = err
 		case <-ctx.Done():
 			_ = in.srv.Close()
-			<-in.served
+			<-in.served //nolint:errcheck // the deadline is the error worth reporting
 			in.stopErr = ctx.Err()
 		}
 		if err := in.conn.Close(); err != nil && in.stopErr == nil {
@@ -211,7 +211,7 @@ func (in *Instance) CreateTenant(ctx context.Context, key, name string) (Tenant,
 	if err != nil {
 		return Tenant{}, err
 	}
-	return Tenant{Key: created.Tenant.Key, Name: created.Tenant.Name}, nil
+	return Tenant{Key: created.Key, Name: created.Name}, nil
 }
 
 // Token mints an API token for the local actor of the requested tenant, as
