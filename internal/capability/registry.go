@@ -43,10 +43,19 @@ func webPost(pattern string) Route { return Route{Method: http.MethodPost, Patte
 // off records a surface an operation is genuinely inapplicable to.
 func off(s Surface, reason string) Exemption { return Exemption{Surface: s, Reason: reason} }
 
-// gap records a binding that ought to exist and does not.
-func gap(s Surface, reason string) Exemption {
+// gap records a binding that ought to exist and does not. None stands today;
+// the next operation that arrives without a binding records it here.
+func gap(s Surface, reason string) Exemption { //nolint:unused // kept for the next recorded gap
 	return Exemption{Surface: s, Reason: reason, Gap: true}
 }
+
+// transferLimits is the shortfall the six import and export bindings share:
+// the terminal's transfer view reads and writes files by path, and a hosted
+// session runs on the server, where the client's files are not.
+var transferLimits = []Limitation{{SurfaceTUI,
+	"over SSH the server has no access to the client's files, so the hosted transfer view names the " +
+		"`ssh HOST ...` command that does each transfer through standard input and output instead of " +
+		"reading or writing a path"}}
 
 // Templates the browser screens render, named once so a binding cannot invent
 // a file the embedded assets do not hold.
@@ -1500,67 +1509,61 @@ var registry = []Operation{
 
 	{
 		Name: "snapshot.export", Method: "ExportTo", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentNDJSON},
-		Scope: core.ScopeExport,
-		CLI:   "tix export",
-		HTTP:  apiPost(wire.RouteExport),
-		Web:   webPost(web.RouteExport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		Scope:  core.ScopeExport,
+		CLI:    "tix export",
+		HTTP:   apiPost(wire.RouteExport),
+		Web:    webPost(web.RouteExport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 	{
 		Name: "snapshot.import", Method: "ImportFrom", Contract: Contract{Body: None{}, BodyContent: wire.ContentNDJSON, Query: httpapi.ImportQuery{}},
-		Scope: core.ScopeImport,
-		CLI:   "tix import",
-		HTTP:  apiPost(wire.RouteImport),
-		Web:   webPost(web.RouteImport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		Scope:  core.ScopeImport,
+		CLI:    "tix import",
+		HTTP:   apiPost(wire.RouteImport),
+		Web:    webPost(web.RouteImport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 	{
 		Name: "task.export", Method: "ExportTasks",
 		Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentCSV,
 			Alt: []string{wire.ContentJSON, wire.ContentNDJSON, wire.ContentMarkdown}},
-		Scope: core.ScopeExport,
-		CLI:   "tix export tasks",
-		HTTP:  apiPost(wire.RouteProjectTaskExport),
-		Web:   webPost(web.RouteProjectTaskExport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		Scope:  core.ScopeExport,
+		CLI:    "tix export tasks",
+		HTTP:   apiPost(wire.RouteProjectTaskExport),
+		Web:    webPost(web.RouteProjectTaskExport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 	{
 		Name: "task.import", Method: "ImportTasks", Contract: Contract{Body: core.TaskImportInput{}, BodyForm: true},
-		Scope: core.ScopeImport,
-		CLI:   "tix import tasks",
-		HTTP:  apiPost(wire.RouteProjectTaskImport),
-		Web:   webPost(web.RouteProjectImport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		Scope:  core.ScopeImport,
+		CLI:    "tix import tasks",
+		HTTP:   apiPost(wire.RouteProjectTaskImport),
+		Web:    webPost(web.RouteProjectImport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 	{
 		Name: "bundle.export", Method: "ExportBundle", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentBundle},
-		Scope: core.ScopeWorkflowRead,
-		CLI:   "tix bundle export",
-		HTTP:  apiPost(wire.RouteBundleExport),
-		Web:   webPost(web.RouteBundleExport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		Scope:  core.ScopeWorkflowRead,
+		CLI:    "tix bundle export",
+		HTTP:   apiPost(wire.RouteBundleExport),
+		Web:    webPost(web.RouteBundleExport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 	{
 		// The scope this needs is decided by the component kinds the bundle
 		// carries, so no single one describes it. authority_test.go names it
 		// rather than letting an empty scope read as "needs nothing".
 		Name: "bundle.import", Method: "ImportBundle", Contract: Contract{Body: None{}, BodyContent: wire.ContentBundle, Query: httpapi.BundleImportQuery{}},
-		CLI:  "tix bundle import",
-		HTTP: apiPost(wire.RouteBundleImport),
-		Web:  webPost(web.RouteBundleImport),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no import or export view"),
-		},
+		CLI:    "tix bundle import",
+		HTTP:   apiPost(wire.RouteBundleImport),
+		Web:    webPost(web.RouteBundleImport),
+		TUI:    "transfer",
+		Limits: transferLimits,
 	},
 
 	{
