@@ -18,6 +18,13 @@ runs:
     # workflow quietly stop being the same gate, which is the whole reason the
     # toolbox image exists.
     #
+    # The file is the one beside this action, not the one in the working
+    # directory. They are the same file in CI. The release workflow runs this
+    # action from a checkout of its own commit in .ci-actions while the working
+    # directory holds the tag being built, and an older tag's Containerfile.ci
+    # predates some of these pins. A sparse checkout of .github/actions still
+    # carries the root files, Containerfile.ci among them.
+    #
     # TIX_TOOL_MODE=direct because `just tool` prefers a container engine when
     # it finds one, and a GitHub runner has Docker. Left to itself it would
     # build the six-gigabyte toolbox image on every job. Here the tools are on
@@ -34,12 +41,13 @@ runs:
         TOOLS: ${{ inputs.tools }}
       run: |
         set -euo pipefail
+        pins="$GITHUB_ACTION_PATH/../../../Containerfile.ci"
 
         version() {
           local v
-          v=$(sed -n "s/^ARG $1=//p" Containerfile.ci)
+          v=$(sed -n "s/^ARG $1=//p" "$pins")
           if [ -z "$v" ]; then
-            echo "no $1 in Containerfile.ci: refusing to install an unpinned tool" >&2
+            echo "no $1 in $pins: refusing to install an unpinned tool" >&2
             exit 1
           fi
           printf '%s' "$v"
@@ -57,6 +65,8 @@ runs:
             actionlint)    line="$(version ACTIONLINT_VERSION) $(go env GOVERSION)" ;;
             trivy)         line="$(version TRIVY_VERSION) $(version TRIVY_SHA256)" ;;
             hadolint)      line="$(version HADOLINT_VERSION) $(version HADOLINT_SHA256)" ;;
+            syft)          line="$(version SYFT_VERSION) $(version SYFT_SHA256)" ;;
+            cosign)        line="$(version COSIGN_VERSION) $(version COSIGN_SHA256)" ;;
             markdownlint)  line="$(version MARKDOWNLINT_VERSION) $(node --version)" ;;
             openspec)      line="$(version OPENSPEC_VERSION) $(node --version)" ;;
             yamllint)      line="$(version YAMLLINT_VERSION) $(python3 --version)" ;;
@@ -82,9 +92,9 @@ runs:
     # working one, checked by path rather than by whatever the runner image
     # has on PATH, so a cold run installs everything and a warm run nothing.
     #
-    # trivy and hadolint are release assets. Their archives are what is cached,
-    # and the pinned sha256 from Containerfile.ci is checked on every run before
-    # they are unpacked, cache hit or not. The Go tools are verified by the
+    # trivy, hadolint, syft and cosign are release assets. Their archives are
+    # what is cached, and the pinned sha256 from Containerfile.ci is checked on
+    # every run before they are unpacked, cache hit or not. The Go tools are verified by the
     # module checksum database as go install builds them, and the npm and pip
     # ones by their registries, as before.
     - shell: bash
@@ -94,9 +104,10 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
+        pins="$GITHUB_ACTION_PATH/../../../Containerfile.ci"
 
         version() {
-          sed -n "s/^ARG $1=//p" Containerfile.ci
+          sed -n "s/^ARG $1=//p" "$pins"
         }
 
         bin="$DIR/bin"
@@ -164,6 +175,14 @@ runs:
               v=$(version HADOLINT_VERSION)
               f=$(asset hadolint/hadolint "$v" hadolint-linux-x86_64 "$(version HADOLINT_SHA256)")
               install -m 0755 "$f" "$bin/hadolint" ;;
+            syft)
+              v=$(version SYFT_VERSION)
+              f=$(asset anchore/syft "$v" "syft_${v#v}_linux_amd64.tar.gz" "$(version SYFT_SHA256)")
+              tar -xzf "$f" -C "$bin" syft ;;
+            cosign)
+              v=$(version COSIGN_VERSION)
+              f=$(asset sigstore/cosign "$v" cosign-linux-amd64 "$(version COSIGN_SHA256)")
+              install -m 0755 "$f" "$bin/cosign" ;;
             markdownlint)
               npm_tool markdownlint "markdownlint-cli@$(version MARKDOWNLINT_VERSION)" ;;
             openspec)
@@ -178,11 +197,14 @@ runs:
         done
 
     # Saved straight after the install, so a job that fails later still leaves
-    # the tools behind. Only a push to main writes it, as with the Go cache: a
-    # pull request reads main's and writes none.
+    # the tools behind. Only main writes it, as with the Go cache: a pull
+    # request reads main's and writes none. A dispatch from main counts,
+    # because that is how release-please starts the release workflow, and no
+    # CI job asks for the same set of tools, so nothing else would warm its
+    # cache keys.
     - if: >-
-        steps.restore.outputs.cache-hit != 'true'
-        && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        steps.restore.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       with:
         path: ${{ steps.plan.outputs.dir }}

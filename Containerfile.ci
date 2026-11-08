@@ -11,13 +11,21 @@ ARG GOVULNCHECK_VERSION=v1.9.0
 ARG ACTIONLINT_VERSION=v1.7.12
 ARG GORELEASER_VERSION=v2.20.0
 ARG TRIVY_VERSION=v0.76.1
-# The two tools fetched as release assets rather than built from a checksummed
+# The tools fetched as release assets rather than built from a checksummed
 # module are checked against these, here and in .github/actions/toolbox. A
-# version bump changes its sha256 in the same commit.
+# version bump changes its sha256 in the same commit, copied from the checksums
+# file the upstream release publishes.
 ARG TRIVY_SHA256=c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
 ARG GITLEAKS_VERSION=v8.30.1
 ARG HADOLINT_VERSION=v2.15.1
 ARG HADOLINT_SHA256=c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+# syft and cosign are not installed in this image. Only the release workflow
+# runs them, to inventory and sign what it publishes, and it installs them
+# through .github/actions/toolbox, which reads its pins from this file.
+ARG SYFT_VERSION=v1.54.0
+ARG SYFT_SHA256=54a87372498168b2d033e876fd41fa4e8035b872699e525a57046e1f2f09c860
+ARG COSIGN_VERSION=v3.1.4
+ARG COSIGN_SHA256=424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa
 # 1.14.1 made requirement text over 500 characters a warning, and --strict
 # fails on warnings, so requirements are split rather than compressed. 1.16.0
 # needs node 22.12 or newer for an npm install.
