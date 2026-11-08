@@ -760,9 +760,10 @@ attached, so the link still goes to the same place after a tag, a comment or an 
 task returns there too.
 
 The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
-beside it, your star, and one actions menu behind the three dots: **Copy link**, **Copy the task id**,
-**Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
-a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
+beside it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions
+menu behind the three dots: **Copy the task id**, **Copy to…**, **Save as template**, **Snooze…** or
+**Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with its two options.
+Nothing in that menu is drawn anywhere else.
 
 On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
 task's activity, and the column on the right holds the properties: status and priority, which open the same
@@ -873,6 +874,40 @@ whatever language the interface speaks, since a model reads it.
 
 The browser remembers the last client tab chosen, so the next task opens on it. Without scripting the button
 draws the dialog in place, with no tabs and every client's block one under another.
+
+## Sharing a task
+
+**Share** in the task screen's header, beside Hand to an agent, opens a small menu. The same button is in
+the header when the task is open in a dialog, and on a phone it is its icon alone:
+
+- **Share…** opens the system share sheet, on a phone or wherever the browser has one
+  (`navigator.share`), with the reference and title and the address. It is not drawn where there is
+  no sheet. Dismissing the sheet does nothing; a browser that refuses it copies the link instead.
+- **Copy link** copies the task's address.
+- **Copy as Markdown** copies `[INFRA-12 Fix the build](https://tix.example.com/tasks/infra-12)`, the
+  title on one line with `\`, `[` and `]` escaped, ready for a pull request or a wiki.
+- **Copy key and title** copies `INFRA-12 Fix the build`, for a chat message or a commit.
+
+Each copy says what it did in a toast that a screen reader announces ("Link copied"), the menu closes and
+focus goes back to the Share button. The menu is a popover like the actions menu: Escape closes it, and
+the arrow keys, Home and End move along it. Its foot shows the address itself as a plain link that
+selects whole, with a (?) that opens this section. With scripting off the menu still opens, the copy
+buttons are not drawn, and the link is there to select. A lane card's three dots menu offers Copy as
+Markdown, Copy key and title and Share… beside its Copy link and Copy reference.
+
+The address is the task's screen, `/tasks/REF`, on the scheme and host the browser is on, so behind a
+proxy it is the address the reader typed. A reference under a project's old key still opens the task
+([Changing a project's key](#changing-a-projects-key)). It names no tenant, and needs none: on a shared
+host the tenant comes from the reader's session ([tenancy.md](tenancy.md#switching-tenant)), so another
+member of the same tenant, signed in to it on that host, opens the task. Someone signed in there to a
+different tenant of theirs switches tenant first, and someone not signed in signs in and lands on the
+task. A `?tenant=` on the link would not help: the interface refuses a tenant named in the request.
+
+The command line prints the same address with `tix task link REF`, from the server the context talks to,
+and `--as markdown` or `--as text` print the other two forms. A local database has no web address, so
+there it needs `--base` naming the address the browser interface is served at. The SSH listener runs
+only registry operations and does not know the web address either, so `tix task link` is not offered
+over SSH, and the terminal interface, which has no clipboard, does not offer it.
 
 ## Acting on many tasks
 
@@ -1328,11 +1363,12 @@ The exception is the colour scheme, whose only control is the switch at the foot
 every signed-in screen. It is the preference a reader changes while looking at the screen that made
 them want to change it, which is the same argument as the three above, and it is the one that could
 be made small enough to live beside the Settings link. It cycles: one press posts the next of System,
-Light, Dark and Low contrast and returns to the page it was pressed on, so it stays a button rather
-than becoming a select with an Apply beside it, which is what a four-position control costs with
-scripting off. Its accessible name says both the scheme in force and the one a press moves to, since
-the glyph says neither and a `title` never reaches a keyboard user who does not hover. Settings names
-the current scheme and points at the switch rather than carrying a second form.
+Light, Dark, OLED, Low contrast and System, OLED when dark, and returns to the page it was pressed on,
+so it stays a button rather than becoming a select with an Apply beside it, which is what a
+six-position control costs with scripting off. Its accessible name says both the scheme in force and
+the one a press moves to, since the glyph says neither and a `title` never reaches a keyboard user
+who does not hover. Settings names the current scheme and points at the switch rather than carrying
+a second form.
 
 A shortcut never takes a key from the control it is pressing. Enter on a focused button or link, and
 Space on a focused button, do what they do natively; the `open` shortcut is bound to Enter, and it
@@ -1342,7 +1378,7 @@ going back a page.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
-| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
+| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `oled`, `dim`, `system-oled` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
@@ -1574,6 +1610,32 @@ round trip and is correct.
 
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).
+
+### OLED
+
+OLED is a black page for screens that light every pixel they draw. The page is `#000` and the
+surfaces are `#0a0b0d`, close enough to black that a card or a field reads as raised through its
+border rather than a grey slab, so the strong line is brighter than dark's and clears 3:1 on both.
+Ink is a shade softer than dark's to cut the halo white text gets on black. The accents, the state
+colours, the priority colours and the project palette are dark's, which were tuned for 4.5:1 on a
+lighter surface and clear it with more room on black; the soft tints behind a selected row or a
+badge are darker, so a highlight does not light a band across the screen. The sign-in card drops
+its accent glow. A tenant's dark accent and a custom project colour's shade apply as they do under
+dark.
+
+System, OLED when dark is offered as its own position rather than as a second setting. Most readers
+who want OLED are on a phone that turns dark at night: pinning OLED paints the page black at noon
+too, and a separate "prefer OLED" toggle would be a second cookie that only means anything under one
+value of the first. Plain System still maps to light and dark and stays the default.
+
+The scheme is a cookie on the browser like the rest, so it follows no tenant or account default, and
+no link carries it. The terminal interface has no light or dark scheme, only the tenant accent and
+`NO_COLOR`, so OLED is browser only.
+
+`TestEveryDarkTokenHasAnOLEDValue` fails when a token is added to dark and not to OLED, or when the
+OLED block and its System, OLED when dark copy differ; `TestTheOLEDSchemeClearsTheContrastFloor`
+computes its contrast; `TestEverySchemeRuleKnowsOLED` fails on a dark rule elsewhere in the
+stylesheet with no OLED twin.
 
 ## Language and info tips
 

@@ -11,7 +11,7 @@ An accent and the tint it sits on, once for the light scheme and once for the da
 | --- | --- |
 | `accent` | The brand colour: headings, the selected row, the focused column's border |
 | `accent_soft` | The tint it sits on in the browser |
-| `accent_dark` | The accent for the dark and dim schemes. Optional |
+| `accent_dark` | The accent for the dark, OLED and dim schemes. Optional |
 | `accent_soft_dark` | The tint for those schemes. Optional |
 
 The dark pair exists because an accent picked to read on white is usually too dark to read on
@@ -20,8 +20,8 @@ the light pair used to render as a barely visible smear on the scheme most peopl
 dark fields are optional and fall back to the light pair, so a theme written before they existed still
 applies everywhere rather than being dropped on half the schemes.
 
-A theme does not set a colour per element. The web interface already has light, dark and a
-low-contrast scheme for everything structural, chosen per browser in Settings, and a 256-colour
+A theme does not set a colour per element. The web interface already has light, dark, OLED and a
+low-contrast scheme for everything structural, chosen per browser from the sidebar, and a 256-colour
 terminal cannot honour a browser's palette anyway. The accent is what a tenant wants to set.
 
 ## Choosing one
@@ -97,7 +97,7 @@ board down, but the moment someone types a name is the moment to tell them it is
 **State and priority colours.** Blocked is red, done is green, and a tenant that themes itself red does not
 get a board where nothing stands out. These carry meaning rather than identity.
 
-**Light, dark and dim.** A separate axis, chosen per browser, not per tenant, because it belongs to
+**Light, dark, OLED and dim.** A separate axis, chosen per browser, not per tenant, because it belongs to
 the person reading, not the organisation. See
 [web-ui.md](web-ui.md) for that and the other preferences a browser keeps.
 

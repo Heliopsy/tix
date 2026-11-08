@@ -272,7 +272,11 @@ gremlins only removes them when it exits normally. Interrupt a run and they stay
 just screenshots                                   # everything, light theme
 just screenshots --only /tasks --viewports phone   # a quick look while working on one screen
 just screenshots --theme both --viewports fullhd   # light and dark side by side
+just screenshots --theme oled --only /tasks        # the OLED scheme alone
 ```
+
+`--theme` takes `light`, `dark`, `oled`, `both` (light and dark) or `all` (light, dark and OLED). A dark
+or OLED run also sets the browser's own scheme to dark, and its pages land in `<viewport>-<theme>`.
 
 Each run writes `out/screenshots/<time>/<viewport>/<page>[--<state>][--<popup>].png` and an `index.html`
 contact sheet beside them, one table per page with the viewports side by side, and prints its path at the

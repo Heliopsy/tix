@@ -63,6 +63,12 @@ const VIEWPORTS = {
 };
 const DEFAULT_VIEWPORTS = ["phone", "tablet", "fullhd", "4k"];
 
+// What each --theme value captures. Each one is a tix_theme cookie value.
+const THEME_SETS = { light: ["light"], dark: ["dark"], oled: ["oled"], both: ["light", "dark"], all: ["light", "dark", "oled"] };
+
+// The output directory, and the report column, of one viewport and theme.
+const columnOf = (vp, theme) => (theme === "light" ? vp : `${vp}-${theme}`);
+
 // One instant for the whole run. Every page sees the same Date.now(), so a
 // relative time reads the same on the first screen and the last, and on every
 // viewport, whatever the run's wall time.
@@ -81,7 +87,7 @@ const USAGE = `usage: node shoot.mjs [flags]
                         TIX_SHOT_PASSWORD and, when the tenant asks for a code, TIX_SHOT_TOTP
   --viewports LIST      comma separated: phone,tablet,fullhd,4k,laptop,desktop (default the
                         first four)
-  --theme T             light, dark or both (default light)
+  --theme T             light, dark, oled, both (light and dark) or all three (default light)
   --locale L            the browser's language, sent as Accept-Language, such as bg-BG
                         (default en-US)
   --only SUBSTR         only routes whose pattern contains SUBSTR (repeatable, comma separated)
@@ -128,7 +134,7 @@ function parseArgs(argv) {
     } else throw new Error(`unknown flag ${k}\n\n${USAGE}`);
   }
   for (const vp of a.viewports) if (!VIEWPORTS[vp]) throw new Error(`unknown viewport ${vp}`);
-  if (!["light", "dark", "both"].includes(a.theme)) throw new Error(`--theme must be light, dark or both`);
+  if (!THEME_SETS[a.theme]) throw new Error(`--theme must be light, dark, oled, both or all`);
   if (!(a.maxPopups >= 0)) throw new Error("--max-popups must be a number");
   if (!(a.jobs >= 1)) throw new Error("--jobs must be 1 or more");
   if (!a.url && !a.tix) throw new Error("pass --tix PATH, or --url URL for a running instance");
@@ -1074,7 +1080,7 @@ async function newContext(browser, vp, theme, target, storageState) {
   const ctx = await browser.newContext({
     ...VIEWPORTS[vp],
     locale: LOCALE,
-    colorScheme: theme,
+    colorScheme: theme === "light" ? "light" : "dark",
     reducedMotion: "reduce",
     storageState,
   });
@@ -1098,7 +1104,7 @@ async function newContext(browser, vp, theme, target, storageState) {
 }
 
 async function captureViewport(browser, args, target, storageState, vp, theme, runDir, plans, stats) {
-  const dirName = theme === "light" ? vp : `${vp}-dark`;
+  const dirName = columnOf(vp, theme);
   const shots = [];
   const seen = new Set();
   const globalsDone = new Set();
@@ -1333,10 +1339,10 @@ async function main() {
   mkdirSync(runDir, { recursive: true });
   out(`capturing ${plans.pages.length} pages into ${runDir}`);
 
-  const themes = args.theme === "both" ? ["light", "dark"] : [args.theme];
+  const themes = THEME_SETS[args.theme];
   const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], known: [], layoutSeen: new Set() };
   const combos = themes.flatMap((theme) => args.viewports.map((vp) => ({ theme, vp })));
-  const columns = combos.map(({ theme, vp }) => (theme === "light" ? vp : `${vp}-dark`));
+  const columns = combos.map(({ theme, vp }) => columnOf(vp, theme));
   const results = new Array(combos.length);
   let next = 0;
   const worker = async () => {

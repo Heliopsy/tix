@@ -105,7 +105,7 @@ func TestTheTaskScreenKeepsEveryPropertyInTheSidebar(t *testing.T) {
 }
 
 // One menu holds every action on the task as a whole, and none of them is
-// drawn anywhere else on the screen.
+// drawn anywhere else on the screen. The Share menu beside it holds Copy link.
 func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -113,13 +113,18 @@ func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 	ref := b.createTask("infra", "act on me")
 	page := b.page("/tasks/" + ref)
 
-	if head := header(t, page); strings.Count(head, "popovertarget=") != 1 ||
-		!strings.Contains(head, `popovertarget="taskmenu-`+ref+`"`) {
-		t.Errorf("the header does not open exactly the one actions menu:\n%s", head)
+	if head := header(t, page); strings.Count(head, "popovertarget=") != 2 ||
+		!strings.Contains(head, `popovertarget="taskmenu-`+ref+`"`) || !strings.Contains(head, `popovertarget="share-`+ref+`"`) {
+		t.Errorf("the header does not open exactly the actions menu and the Share menu:\n%s", head)
 	}
 	menu := actionsMenu(t, page, ref)
+	if strings.Contains(menu, "data-copy-link") || strings.Contains(menu, `data-share="link"`) {
+		t.Errorf("Copy link is still in the actions menu, as well as in Share:\n%s", menu)
+	}
+	if n := strings.Count(page, `data-share="link"`); n != 1 {
+		t.Errorf("Copy link is drawn %d times, want once, in the Share menu", n)
+	}
 	for _, want := range []string{
-		`data-copy-link="/tasks/` + ref + `"`,
 		`href="/tasks/` + ref + `/copy"`,
 		`href="/tasks/` + ref + `/template"`,
 		`popovertarget="snooze-` + ref + `"`,

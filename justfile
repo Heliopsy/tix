@@ -101,7 +101,7 @@ ui-rows *ARGS:
 # See docs/testing.md#ui-regression.
 ui-regression: ui-check (ui-rows "--jobs 4") ui-browser jstest
 
-# Every route at phone and Full HD, light and dark, on the hostile seed, with
+# Every route at phone and Full HD, light, dark and OLED, on the hostile seed, with
 # --strict. ui-rows covers the task listings at tablet and laptop besides.
 # TIX_UI_JOBS sets how many of the four run at once.
 ui-check: build
@@ -112,7 +112,7 @@ ui-check: build
     node -e 'import("playwright").then(({chromium}) => process.exit(require("node:fs").existsSync(chromium.executablePath()) ? 0 : 1))' \
       || npx playwright install chromium
     node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/ui-regression --hostile --strict \
-      --viewports phone,fullhd --theme both --jobs "${TIX_UI_JOBS:-4}" --max-popups 15
+      --viewports phone,fullhd --theme all --jobs "${TIX_UI_JOBS:-4}" --max-popups 15
 
 # The tests that drive a real browser, named *InABrowser, and the tests of the
 # launcher they share, which retries a Chrome that never writes
