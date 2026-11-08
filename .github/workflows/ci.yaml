@@ -627,3 +627,68 @@ jobs:
         with:
           path: ${{ steps.go.outputs.paths }}
           key: ${{ steps.go.outputs.key }}
+
+  # The C ABI library apps embed (docs/embedding.md), the one place cgo is
+  # allowed. Linux drives it from a C program, cross-builds every Android ABI
+  # with the NDK the runner image carries and checks their 16 KB page
+  # alignment, and cross-builds the Windows DLL with mingw-w64. macOS drives it
+  # from C too and builds the universal dylib and the iOS xcframework. The
+  # libraries are uploaded for a week, so the app can try a branch's build.
+  library:
+    name: Embedding library (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: go
+        uses: ./.github/actions/go
+        with:
+          job: library
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
+
+      - name: Test the package and drive the C ABI from C
+        run: just lib-test
+
+      - name: Build the library for this machine
+        run: just lib
+
+      - name: Android, every ABI, 16 KB aligned
+        if: runner.os == 'Linux'
+        run: just lib-android-all
+
+      - name: Windows DLL with mingw-w64
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-mingw-w64-x86-64
+          just lib-windows amd64
+
+      - name: Universal macOS dylib and iOS xcframework
+        if: runner.os == 'macOS'
+        run: |
+          just lib-macos
+          just lib-ios
+
+      - name: Upload the libraries
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: libtix-${{ runner.os }}
+          path: out/lib/
+          retention-days: 7
+
+      - name: Save the Go cache
+        if: >-
+          always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+          && steps.go.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.go.outputs.paths }}
+          key: ${{ steps.go.outputs.key }}

@@ -387,6 +387,142 @@ smoke:
 bench:
     go test ./internal/bench/... -bench=. -benchmem -run '^$'
 
+# ---------------------------------------------------------------- embedding library
+#
+# The C ABI in embedded/libtix, for apps that run tix in their own process
+# (docs/embedding.md). Each recipe leaves the library, its C header and the
+# NOTICES.json of exactly the modules it links in out/lib/<platform>/. This is
+# the only place cgo is turned on: the tix binary above stays CGO_ENABLED=0.
+
+lib_out     := "out/lib"
+android_api := env("ANDROID_API", "21")
+
+# The library for this machine: libtix.so, libtix.dylib or libtix.dll.
+lib:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    goos=$(go env GOOS); goarch=$(go env GOARCH)
+    case "$goos" in darwin) name=libtix.dylib;; windows) name=libtix.dll;; *) name=libtix.so;; esac
+    dir='{{lib_out}}'/"$goos-$goarch"
+    extld=""
+    [ "$goos" = darwin ] && extld="-extldflags=-Wl,-install_name,@rpath/libtix.dylib"
+    CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags "{{ldflags}} $extld" -o "$dir/$name" ./embedded/libtix
+    just lib-notices "$goos" "$goarch" "$dir"
+    ls -l "$dir"
+
+# Needs the NDK: ANDROID_NDK_HOME, ANDROID_NDK_LATEST_HOME or ANDROID_NDK_ROOT.
+# ANDROID_API sets the minimum API level, 21 by default.
+# One Android ABI (arm64-v8a, armeabi-v7a, x86_64 or x86), linked for 16 KB pages.
+lib-android ABI="arm64-v8a":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-}}}"
+    [ -d "$ndk" ] || { echo "set ANDROID_NDK_HOME to an Android NDK (r23 or newer)" >&2; exit 1; }
+    case "$(uname -s)" in Linux) host=linux-x86_64;; Darwin) host=darwin-x86_64;; *) host=windows-x86_64;; esac
+    bin="$ndk/toolchains/llvm/prebuilt/$host/bin"
+    export GOARM=
+    case "{{ABI}}" in
+      arm64-v8a)   goarch=arm64; triple=aarch64-linux-android;;
+      armeabi-v7a) goarch=arm;   triple=armv7a-linux-androideabi; export GOARM=7;;
+      x86_64)      goarch=amd64; triple=x86_64-linux-android;;
+      x86)         goarch=386;   triple=i686-linux-android;;
+      *) echo "unknown ABI {{ABI}}: arm64-v8a, armeabi-v7a, x86_64 or x86" >&2; exit 1;;
+    esac
+    dir='{{lib_out}}/android/{{ABI}}'
+    CGO_ENABLED=1 GOOS=android GOARCH=$goarch CC="$bin/${triple}{{android_api}}-clang" \
+      go build -trimpath -buildmode=c-shared \
+      -ldflags "{{ldflags}} -extldflags=-Wl,-z,max-page-size=16384" -o "$dir/libtix.so" ./embedded/libtix
+    just lib-android-check "$dir/libtix.so"
+    just lib-notices android "$goarch" "$dir"
+    ls -l "$dir"
+
+# Every Android ABI the app ships.
+lib-android-all:
+    for abi in arm64-v8a armeabi-v7a x86_64 x86; do just lib-android "$abi"; done
+
+# Google Play requires it of apps targeting Android 15 and later.
+# Fail unless every LOAD segment of an Android library is 16 KB aligned.
+lib-android-check SO:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-}}}"
+    readelf=$(ls "$ndk"/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | head -1 || true)
+    [ -n "$readelf" ] || readelf=$(command -v llvm-readelf || command -v readelf)
+    aligns=$("$readelf" -lW "{{SO}}" | awk '$1 == "LOAD" {print $NF}')
+    [ -n "$aligns" ] || { echo "no LOAD segments in {{SO}}" >&2; exit 1; }
+    for a in $aligns; do
+      if [ $((a)) -lt $((0x4000)) ]; then echo "{{SO}}: LOAD segment aligned to $a, want 0x4000" >&2; exit 1; fi
+    done
+    echo "{{SO}}: every LOAD segment 16 KB aligned ($(echo $aligns | tr ' ' ','))"
+
+# A universal macOS libtix.dylib (arm64 and x86_64). Needs Xcode's clang.
+lib-macos:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir='{{lib_out}}/macos'
+    for arch in arm64 amd64; do
+      CGO_ENABLED=1 GOOS=darwin GOARCH=$arch CC="$(xcrun -f clang)" \
+        CGO_CFLAGS="-mmacosx-version-min=11.0" CGO_LDFLAGS="-mmacosx-version-min=11.0" \
+        go build -trimpath -buildmode=c-shared \
+        -ldflags "{{ldflags}} -extldflags=-Wl,-install_name,@rpath/libtix.dylib" \
+        -o "$dir/$arch/libtix.dylib" ./embedded/libtix
+    done
+    lipo -create -output "$dir/libtix.dylib" "$dir/arm64/libtix.dylib" "$dir/amd64/libtix.dylib"
+    cp "$dir/arm64/libtix.h" "$dir/libtix.h"
+    just lib-notices darwin arm64 "$dir"
+    ls -l "$dir"
+
+# A static libtix.a for devices (arm64) and one for the simulator (arm64 and
+# x86_64), joined into one xcframework. Needs Xcode.
+# Tix.xcframework for iOS.
+lib-ios:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir='{{lib_out}}/ios'
+    rm -rf "$dir"
+    build() { # GOARCH SDK TARGET OUT
+      CGO_ENABLED=1 GOOS=ios GOARCH=$1 CC="$(xcrun --sdk "$2" -f clang)" \
+        CGO_CFLAGS="-isysroot $(xcrun --sdk "$2" --show-sdk-path) -target $3" \
+        CGO_LDFLAGS="-isysroot $(xcrun --sdk "$2" --show-sdk-path) -target $3" \
+        go build -trimpath -buildmode=c-archive -ldflags "{{ldflags}}" -o "$4/libtix.a" ./embedded/libtix
+    }
+    build arm64 iphoneos arm64-apple-ios13.0 "$dir/device"
+    build arm64 iphonesimulator arm64-apple-ios13.0-simulator "$dir/sim-arm64"
+    build amd64 iphonesimulator x86_64-apple-ios13.0-simulator "$dir/sim-amd64"
+    mkdir -p "$dir/sim" "$dir/headers"
+    lipo -create -output "$dir/sim/libtix.a" "$dir/sim-arm64/libtix.a" "$dir/sim-amd64/libtix.a"
+    cp "$dir/device/libtix.h" "$dir/headers/libtix.h"
+    xcodebuild -create-xcframework \
+      -library "$dir/device/libtix.a" -headers "$dir/headers" \
+      -library "$dir/sim/libtix.a" -headers "$dir/headers" \
+      -output "$dir/Tix.xcframework"
+    just lib-notices ios arm64 "$dir"
+    ls -l "$dir" "$dir/device"
+
+# Cross-builds from Linux or macOS with mingw-w64; on Windows itself, set
+# CC=gcc (MSYS2 or the runner's mingw).
+# libtix.dll for Windows.
+lib-windows ARCH="amd64":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ARCH}}" in amd64) cc=x86_64-w64-mingw32-gcc;; arm64) cc=aarch64-w64-mingw32-clang;; *) echo "ARCH is amd64 or arm64" >&2; exit 1;; esac
+    dir='{{lib_out}}/windows-{{ARCH}}'
+    CGO_ENABLED=1 GOOS=windows GOARCH={{ARCH}} CC="${CC:-$cc}" \
+      go build -trimpath -buildmode=c-shared -ldflags "{{ldflags}}" -o "$dir/libtix.dll" ./embedded/libtix
+    just lib-notices windows {{ARCH}} "$dir"
+    ls -l "$dir"
+
+# Module, version, SPDX licence and licence text, the Go standard library
+# included.
+# NOTICES.json for the modules the library links on one target.
+lib-notices GOOS GOARCH DIR:
+    go run ./internal/notices/gen -goos {{GOOS}} -goarch {{GOARCH}} -version '{{version}}' -o '{{DIR}}/NOTICES.json'
+
+# Includes the test that builds the shared library and drives it from C.
+# Test the embedding package, the C ABI and the notices generator.
+lib-test:
+    go test ./embedded/... ./internal/serving/ ./internal/notices/... -count=1
+
 # ---------------------------------------------------------------- gates (host)
 
 fmt:
