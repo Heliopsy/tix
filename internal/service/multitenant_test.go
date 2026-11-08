@@ -134,6 +134,74 @@ func TestATenantAdminCannotChangeTheAccountOfAPersonInAnotherTenant(t *testing.T
 	}
 }
 
+// A person's name in a tenant is the one on their actor there, and every
+// read of them as a user of that tenant shows it.
+func TestARenameReadsBackAsThePersonsNameInThatTenant(t *testing.T) {
+	f := newTwoTenants(t)
+	other, home := authContext(f.otherAdmin), authContext(f.homeAdmin)
+	name := "Pat in Other"
+	if _, err := f.l.UpdateUser(other, f.otherPat.ID, core.UpdateUserInput{DisplayName: &name}); err != nil {
+		t.Fatalf("renaming pat in the other tenant: %v", err)
+	}
+
+	got, err := f.l.GetUser(other, f.otherPat.ID)
+	if err != nil || got.DisplayName != name {
+		t.Errorf("GetUser in the other tenant = %+v, %v; want %q", got, err, name)
+	}
+	listed, _, err := f.l.ListUsers(other, core.Page{})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	found := false
+	for _, u := range listed {
+		if u.ID == f.otherPat.ID {
+			found = true
+			if u.DisplayName != name {
+				t.Errorf("ListUsers in the other tenant shows pat as %q, want %q", u.DisplayName, name)
+			}
+		}
+	}
+	if !found {
+		t.Error("ListUsers in the other tenant does not list pat")
+	}
+	a, err := f.l.GetActor(other, f.otherPat.ID)
+	if err != nil || a.DisplayName != name {
+		t.Errorf("pat's actor in the other tenant = %+v, %v; want %q", a, err, name)
+	}
+
+	if at, err := f.l.GetUser(home, f.homePat.ID); err != nil || at.DisplayName == name {
+		t.Errorf("pat at home = %+v, %v; want the other tenant's name kept out", at, err)
+	}
+}
+
+// For a person in one tenant only the name is also the account's, so their
+// actor, their user row and a membership added later all agree.
+func TestRenamingAOneTenantPersonRenamesTheAccountToo(t *testing.T) {
+	f := newTwoTenants(t)
+	home := authContext(f.homeAdmin)
+	solo, err := f.l.CreateUser(home, core.CreateUserInput{Email: "solo@example.com", DisplayName: "Solo", Role: core.RoleMember})
+	if err != nil {
+		t.Fatalf("creating solo: %v", err)
+	}
+	name := "Solo Renamed"
+	if _, err := f.l.UpdateUser(home, solo.ID, core.UpdateUserInput{DisplayName: &name}); err != nil {
+		t.Fatalf("renaming solo: %v", err)
+	}
+	if got, err := f.l.GetUser(home, solo.ID); err != nil || got.DisplayName != name {
+		t.Errorf("GetUser = %+v, %v; want %q", got, err, name)
+	}
+	if a, err := f.l.GetActor(home, solo.ID); err != nil || a.DisplayName != name {
+		t.Errorf("solo's actor = %+v, %v; want %q", a, err, name)
+	}
+	added, err := f.l.AddTenantMember(f.global, "other", core.AddTenantMemberInput{Email: "solo@example.com"})
+	if err != nil {
+		t.Fatalf("adding solo to the other tenant: %v", err)
+	}
+	if added.DisplayName != name {
+		t.Errorf("solo joins the other tenant as %q, want %q", added.DisplayName, name)
+	}
+}
+
 // A forced password change equal to the one the person already has, or
 // already lacks, is not a change, so a client that sends every field of an
 // edit form does not have the rest of the edit refused with it.
