@@ -289,6 +289,14 @@ until somebody sweeps. `tix serve --ssh-listen <addr>` adds the SSH listener
 beside it; see [ssh.md](ssh.md). `tix serve --help` has the deployment flags,
 and the project's `docs/deployment.md` owns that subject.
 
+A script calling the HTTP API that may resend a write after a dropped
+connection sends an `Idempotency-Key` header, one UUID per logical write, on
+every attempt. A repeat with the same key and body answers the first response
+with `Idempotent-Replayed: true` instead of creating a second task; the same
+key with a different body is `422`, and one still running is `409` with
+`Retry-After`. The CLI and the MCP tools do not retry and send no key. The
+project's `docs/api.md`, "Retrying safely", owns the details.
+
 `tix tui` is the terminal interface over the same store. It is what a human
 watching your queue will be looking at.
 

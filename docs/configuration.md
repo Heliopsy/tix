@@ -67,6 +67,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
+| `retention.idempotency_keys` | `TIX_RETENTION_IDEMPOTENCY_KEYS` | `24h` |
 | `log.level` | `TIX_LOG_LEVEL` | `info` (`debug`, `info`, `warn`, `error`) |
 | `log.format` | `TIX_LOG_FORMAT` | `text` (`text`, `json`) |
 | `log.output` | `TIX_LOG_OUTPUT` | `stderr` (`stderr`, `stdout`, or a file path) |
@@ -267,6 +268,12 @@ The audit window defaults to a year and the other two to thirty days, because an
 record while an event is a transport buffer and a delivery is a receipt. A negative window is refused. A window of
 `0` does not mean "keep forever": it means "unset", and the shipped default for that class applies. Say `87600h`
 rather than `0` if you mean ten years.
+
+`retention.idempotency_keys` is how long the server remembers an `Idempotency-Key` a client sent with a write,
+and the answer it gave, so a retry within the window replays that answer instead of applying the change again
+(see [Retrying safely](api.md#retrying-safely)). It defaults to `24h`. It is a deployment setting, not part of a
+tenant's policy, and a change applies to keys kept after it; keys already kept expire when they were due to. The
+pruner deletes expired keys on its tick, and `tix prune` reports them as `idempotency_keys`.
 
 ### Housekeeping
 
@@ -625,6 +632,7 @@ retention:
   audit: 8760h
   events: 720h
   webhook_deliveries: 720h
+  idempotency_keys: 24h
 
 contexts:
   work:

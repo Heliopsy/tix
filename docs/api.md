@@ -884,6 +884,52 @@ adjustable with `--max-body-bytes`). A project task import is the exception: it 
 `server.max_import_bytes` instead, 32 MiB by default. Each request has a 30 second timeout by default
 (`--request-timeout`).
 
+## Retrying safely
+
+A client that may send a write twice, such as an app replaying the writes it queued while offline, sends an
+`Idempotency-Key` header with it. Any authenticated `POST`, `PUT`, `PATCH` or `DELETE` under `/api/v1` takes one;
+reads and the routes that run without a credential ignore it. The key is any string of 1 to 200 printable ASCII
+characters the client chooses, a UUID per logical write being the usual choice. Without the header nothing
+changes.
+
+```sh
+curl -X POST https://tix.example.com/api/v1/tasks \
+  -H "Authorization: Bearer $TIX_TOKEN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6f1c2a0e-6c55-4c3e-9a51-3d1f0b7f2a10" \
+  -d '{"project_ref":"infra","title":"Rotate the certificate"}'
+```
+
+A key belongs to the tenant and the actor the credential resolves to, so two actors, or two tenants, never see
+each other's keys. The server compares a SHA-256 of the method, the path with its query, and the body; headers are
+not part of it.
+
+| The key was | Answer |
+| --- | --- |
+| Not seen before | The request runs, and its answer is kept |
+| Kept, same request | The kept status, content type and body, with `Idempotent-Replayed: true`; nothing runs |
+| Kept, different request | `422`, code `invalid`: "idempotency key reused with a different request" |
+| Sent with a request still running | `409`, code `conflict`, with `Retry-After` in seconds |
+| Applied, but its answer was lost | `409`, code `conflict`, without `Retry-After`; read the resource to see the outcome |
+| Malformed, or sent twice | `400`, code `invalid`, before anything runs |
+
+What is kept: an answer to a request that committed a write is kept whatever its status, a `5xx` included,
+because running it again would apply the change twice. A request that committed nothing keeps a `2xx` answer and
+releases the key on anything else, so a validation error, a conflict or a server error can be retried with the
+same key once the cause is fixed. An answer over 1 MiB is not kept.
+
+The write and the record that the request ran commit in one transaction, so a crash between the write and the
+answer never lets a retry apply the change twice; that is the "applied, but its answer was lost" row. A request that
+died before committing anything holds its key for twice the request timeout, then a retry runs it.
+
+Keys are kept for `retention.idempotency_keys`, 24 hours by default (see
+[configuration](configuration.md#retention)). The retention pruner deletes them once they expire, and `tix prune`
+reports how many as `idempotency_keys`.
+
+The `422` for a reused key is a deliberate exception to the table above: `invalid` is otherwise `400`, and the
+different status lets a client tell a malformed key from one that belongs to another request without reading the
+message. The CLI does not retry requests, so it sends no key, and `tix mcp` does not offer the header as a tool
+argument.
+
 ## The event stream
 
 `GET /api/v1/events` upgrades to a WebSocket. The caller must hold `event:subscribe`; anything else is rejected
