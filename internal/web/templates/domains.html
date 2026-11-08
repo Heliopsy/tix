@@ -5,13 +5,14 @@
   {{template "help" $}}
 </div>
 <table class="rows">
-  <thead><tr><th>{{t "Hostname"}}</th>{{if .Columns.Show "domains" "verified"}}<th>{{t "Verified"}}</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>{{t "Certificate"}}</th>{{end}}<th></th></tr></thead>
+  <thead><tr><th>{{t "Hostname"}}</th>{{if .Columns.Show "domains" "verified"}}<th>{{t "Verified"}}</th>{{end}}{{if .Columns.Show "domains" "cert"}}<th>{{t "Certificate"}}</th>{{end}}{{if .Columns.Show "domains" "shared"}}<th>{{t "Shared"}}</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Data.Domains}}
     <tr>
       <td>{{.Hostname}}</td>
       {{if $.Columns.Show "domains" "verified"}}<td>{{if .Verified}}{{tt "verified %s" (when .VerifiedAt)}}{{else}}{{t "pending"}}{{end}}</td>{{end}}
       {{if $.Columns.Show "domains" "cert"}}<td>{{.CertMode}}</td>{{end}}
+      {{if $.Columns.Show "domains" "shared"}}<td>{{if .Shared}}{{t "shared"}}{{else}}{{t "this tenant only"}}{{end}}</td>{{end}}
       <td>
         <form method="post" action="/admin/domains/remove">
           {{template "csrf" $.CSRF}}

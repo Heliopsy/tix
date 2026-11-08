@@ -35,6 +35,32 @@
 
 {{template "pager" $v.Pager}}
 
+<div class="pagehead" id="domains">
+  <div class="pagehead-title"><div class="headtip"><h2>{{t "Domains"}}</h2>{{template "tip" (tip "Shared domains" "A shared domain's host also serves the tenant a session, a token or the X-Tix-Tenant header names, so several tenants work on one address. With neither it serves this tenant. A domain that is not shared serves this tenant alone and refuses every other tenant's credential. Only a global admin changes it." "docs/tenancy.md")}}</div></div>
+</div>
+<table class="rows globaldomains">
+  <thead><tr><th>{{t "Hostname"}}</th><th>{{t "Shared"}}</th><th></th></tr></thead>
+  <tbody>
+  {{range $v.Domains}}
+    <tr id="domain-{{.Hostname}}">
+      <td class="mono">{{.Hostname}}</td>
+      <td>{{if .Shared}}<span class="state on">{{t "shared"}}</span>{{else}}<span class="state">{{t "this tenant only"}}</span>{{end}}</td>
+      <td>
+        <form method="post" action="/admin/global/domains">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="target" value="{{$v.Tenant.Key}}">
+          <input type="hidden" name="hostname" value="{{.Hostname}}">
+          {{if .Shared}}<input type="hidden" name="shared" value="0"><button class="secondary small" type="submit">{{t "Stop sharing"}}</button>
+          {{else}}<input type="hidden" name="shared" value="1"><button class="secondary small" type="submit">{{t "Share this host"}}</button>{{end}}
+        </form>
+      </td>
+    </tr>
+  {{else}}
+    <tr><td colspan="3"><span class="muted">{{t "No domains mapped."}}</span></td></tr>
+  {{end}}
+  </tbody>
+</table>
+
 {{range $v.Users}}
 {{$sh := shell (print "user-" .User.ID) (t "Manage %s" .Label) "" $.Dialog $.Here}}
 {{template "dlg-start" $sh}}

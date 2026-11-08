@@ -297,6 +297,31 @@ A host that maps to no tenant falls back to the server's default tenant, which `
 the database it opened. That is what makes a single-tenant deployment behave sensibly on `127.0.0.1` with no
 domain configured at all. A server assembled with no default answers an unmapped host as not found.
 
+### Shared domains
+
+A domain is bound to its tenant by default: its host serves that tenant alone, an `X-Tix-Tenant` header naming
+another tenant is refused, and a session or token of another tenant is refused as not valid for the host.
+
+Marking a domain shared makes its host serve several tenants, the way a host no domain claims already does. A
+request carrying a session cookie or a token of tenant T is served as T, and `X-Tix-Tenant` names a tenant for
+sign-in and for a client that keeps several contexts against one URL. A request with neither still gets the
+domain's own tenant, so an installation with one hostname keeps working as it did and can host further tenants
+beside it.
+
+```sh
+tix domain edit tix.example.com --shared
+tix domain edit tix.example.com --shared=false
+tix tenant domain ls acme
+```
+
+Only a global admin may mark a domain shared or bind it again, whichever tenant owns it: a shared host serves
+tenants other than the owner, so the owner's administrator is not the one to decide it. A tenant admin, or any
+token without `global:admin`, is refused with exit 5. The change is recorded in the owning tenant's audit log as
+`domain.update`, with the value before and after. Setting the value a domain already holds records nothing.
+`PATCH /api/v1/domains/{hostname}` and `GET /api/v1/tenants/{ref}/domains` are the same operations over HTTP, and
+the browser offers them on a tenant's screen in the Global admin area. A tenant's own Domains screen shows
+whether each domain is shared but cannot change it.
+
 ## How isolation is enforced
 
 Isolation is structural rather than a `WHERE` clause somebody has to remember. Four layers, each of which would

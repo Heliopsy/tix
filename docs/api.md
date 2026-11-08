@@ -81,7 +81,7 @@ the routes the server registers. The areas are the first segment of each operati
 | comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
 | connection | `GET /connections`, `DELETE /connections/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
-| domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `DELETE /domains/{hostname}` |
+| domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
 | event | `GET /events` |
 | field | `GET /projects/{ref}/fields`, `PUT /projects/{ref}/fields`, `DELETE /projects/{ref}/fields/{key}` |
 | filter | `GET /filters`, `POST /filters`, `PUT /filters/order`, `GET /filters/{filter}`, `PATCH /filters/{filter}`, `DELETE /filters/{filter}` |
@@ -102,7 +102,7 @@ the routes the server registers. The areas are the first segment of each operati
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
 | task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
-| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
+| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
 | token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |

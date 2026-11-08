@@ -2444,6 +2444,63 @@ paths:
       summary: ResolveDomain returns the tenant a hostname is mapped to
       tags:
         - domain
+    patch:
+      description: |-
+        UpdateDomain changes a tenant domain, whichever tenant it belongs to. Marking it shared lets its host also serve the tenant a session, token or the X-Tix-Tenant header names, and its own tenant otherwise. Global admin only. An unmapped hostname is not_found.
+
+        Command line: `tix domain edit`.
+      operationId: domain.update
+      parameters:
+        - description: Hostname, such as tix.example.com. Case, a port and a trailing
+            dot are ignored.
+          in: path
+          name: hostname
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDomainInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+          description: Domain maps a hostname to a tenant.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: UpdateDomain changes a tenant domain, whichever tenant it belongs to
+      tags:
+        - domain
   /api/v1/events:
     get:
       description: |-
@@ -8524,6 +8581,68 @@ paths:
         - tenant
       x-tix-openspec:
         - http-api
+  /api/v1/tenants/{ref}/domains:
+    get:
+      description: |-
+        ListTenantDomains lists the hostnames mapped to any tenant, each with whether it is shared. Global admin only.
+
+        Command line: `tix tenant domain ls`.
+      operationId: tenant.domain.list
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/Domain'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/Domain'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: ListTenantDomains lists the hostnames mapped to any tenant, each with
+        whether it is shared
+      tags:
+        - tenant
   /api/v1/tenants/{ref}/members:
     post:
       description: |-
@@ -14796,6 +14915,18 @@ components:
           description: Held is how many deleted tasks the trash holds, counted even
             while the trash is off.
           type: integer
+      type: object
+    UpdateDomainInput:
+      description: UpdateDomainInput changes a tenant domain. A nil field is left
+        as it is.
+      properties:
+        shared:
+          description: 'Shared marks the domain''s host as serving several tenants:
+            the tenant a credential or the X-Tix-Tenant header names, and the domain''s
+            own tenant otherwise.'
+          type:
+            - "null"
+            - boolean
       type: object
     UpdateProjectInput:
       description: UpdateProjectInput changes a project. A pointer to an empty colour

@@ -249,6 +249,7 @@ const (
 	RouteGlobalAccount      = "/admin/global/accounts/{email}"
 	RouteGlobalUserUpdate   = "/admin/global/users/update"
 	RouteGlobalUserDelete   = "/admin/global/users/delete"
+	RouteGlobalDomain       = "/admin/global/domains"
 
 	RouteUsers      = "/admin/users"
 	RouteUserUpdate = "/admin/users/update"

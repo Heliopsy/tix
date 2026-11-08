@@ -180,6 +180,26 @@ var registry = []Operation{
 		TUI:   "tenant",
 	},
 	{
+		Name: "domain.update", Method: "UpdateDomain",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix domain edit",
+		HTTP:  apiPatch(wire.RouteDomain),
+		Web:   webPost(web.RouteGlobalDomain),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
+		Name: "tenant.domain.list", Method: "ListTenantDomains",
+		Scope: core.ScopeGlobalAdmin,
+		CLI:   "tix tenant domain ls",
+		HTTP:  apiGet(wire.RouteTenantDomains),
+		Web:   webGet(web.RouteGlobalTenant, tplGlobalUsr),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "global admin is installation administration, and a terminal session is pinned to one tenant"),
+		},
+	},
+	{
 		Name: "domain.resolve", Method: "ResolveDomain",
 		HTTP: apiGet(wire.RouteDomain),
 		Exempt: []Exemption{

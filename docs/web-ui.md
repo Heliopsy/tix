@@ -51,7 +51,10 @@ screens need Advanced screens on, and Trash leaves when the tenant deletes for g
 neither gets no Admin heading at all. A global admin also gets Global admin there, whatever the
 preference says: every tenant with Create a tenant, Rename and Delete, each opening a dialog; the global
 admins with Grant and Revoke; and a Users button per tenant that opens that tenant's accounts with the same
-Manage dialog as Users. A tenant created with first admins brings the screen back with their generated
+Manage dialog as Users. Below the accounts, a Domains section lists the tenant's hostnames, each marked
+shared or this tenant only, with Share this host or Stop sharing beside it (see
+[tenancy.md](tenancy.md#shared-domains)); a tenant's own Domains screen shows the same mark in its Shared
+column and cannot change it. A tenant created with first admins brings the screen back with their generated
 passwords at the top, each with a Copy button, once; a reload shows none. See
 [tenancy.md](tenancy.md#global-admins).
 
