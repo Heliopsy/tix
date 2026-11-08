@@ -58,7 +58,7 @@ func errNoTerminal(what string) error {
 func (g *globals) ask(cmd *cobra.Command, prompt string) (string, error) {
 	errw := cmd.ErrOrStderr()
 	_, _ = fmt.Fprint(errw, output.NewPainter(g.colorMode(), errw).Muted(prompt))
-	line, err := g.stdin(cmd).ReadString('\n')
+	line, err := readAnswer(g.stdin(cmd), &g.promptCR)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", core.Internal("reading the answer").Wrap(err)
 	}
@@ -107,11 +107,39 @@ func (g *globals) readSecret(cmd *cobra.Command, prompt string) ([]byte, error) 
 	if f, ok := cmd.InOrStdin().(*os.File); ok {
 		return term.ReadPassword(f.Fd())
 	}
-	line, err := g.stdin(cmd).ReadString('\n')
+	line, err := readAnswer(g.stdin(cmd), &g.promptCR)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 	return []byte(strings.TrimRight(line, "\r\n")), nil
+}
+
+// readAnswer reads one typed line. It ends at a line feed, or at the carriage
+// return the enter key sends from a terminal in raw mode, which is what a
+// client of the SSH listener types into. A line feed right after a carriage
+// return is the same ending: afterCR remembers that the last answer ended on
+// one, so its line feed is skipped whenever it arrives rather than waited for,
+// which would hang a raw terminal until the next key.
+func readAnswer(r *bufio.Reader, afterCR *bool) (string, error) {
+	var b strings.Builder
+	for {
+		c, err := r.ReadByte()
+		if err != nil {
+			return b.String(), err
+		}
+		skip := *afterCR && c == '\n' && b.Len() == 0
+		*afterCR = false
+		switch {
+		case skip:
+		case c == '\n':
+			return b.String(), nil
+		case c == '\r':
+			*afterCR = true
+			return b.String(), nil
+		default:
+			b.WriteByte(c)
+		}
+	}
 }
 
 // stdin returns the buffered reader every prompt shares. A fresh reader per

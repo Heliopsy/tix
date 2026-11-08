@@ -3,14 +3,19 @@
 package cmd
 
 import (
+	"bufio"
+	"context"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/capability"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // neverHosted are the files whose file calls run only in commands the SSH
@@ -128,4 +133,133 @@ func TestOnlyTheRootRunsAPersistentPreRun(t *testing.T) {
 		}
 	}
 	visit(root.Commands())
+}
+
+// TestEveryGoroutineIsGuarded fails on a bare go statement in cmd/: a panic
+// in a goroutine a hosted command started would end the whole server.
+func TestEveryGoroutineIsGuarded(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") || neverHosted[name] != "" {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil || fn.Name.Name == "goGuarded" {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				if g, ok := n.(*ast.GoStmt); ok {
+					t.Errorf("%s: %s starts a goroutine without goGuarded", fset.Position(g.Pos()), fn.Name.Name)
+				}
+				return true
+			})
+		}
+	}
+}
+
+// A panic in a goroutine a hosted command started is recovered and the
+// goroutine's own defers still run.
+func TestGoGuardedRecoversOnlyWhenHosted(t *testing.T) {
+	done := make(chan struct{})
+	goGuarded(context.WithValue(context.Background(), hostedKey{}, true), func() {
+		defer close(done)
+		panic("inside a hosted command")
+	})
+	<-done
+}
+
+// pathFlags are the hosted flags and arguments that name a file, each refused
+// over ssh by localFile and each with a refusal case in internal/sshd. A path
+// flag that is handed on to an internal package, rather than opened here, is
+// invisible to TestEveryFileCallIsGuarded, so every flag that looks like a
+// path has to be named here before it can ship.
+var pathFlags = map[string]bool{
+	"artifact put --file":            true,
+	"bundle import FILE":             true,
+	"domain add --cert":              true,
+	"domain add --key":               true,
+	"export tasks --out":             true,
+	"import tasks --mapping":         true,
+	"import tasks --save-mapping":    true,
+	"import tasks --lines":           true,
+	"import tasks FILE":              true,
+	"project create --icon-file":     true,
+	"project edit --icon-file":       true,
+	"project icon --out":             true,
+	"sync source add --file":         true,
+	"sync source add --mapping":      true,
+	"sync source add --mapping-file": true,
+	"user key add --file":            true,
+	"workflow put --file":            true,
+}
+
+// pathish matches a flag whose name or usage says it takes a path.
+var pathish = regexp.MustCompile(`(?i)\b(file|path|directory|dir|out|lines|cert|key file)\b`)
+
+// notPaths are flags pathish matches that take no path.
+var notPaths = map[string]bool{
+	"artifact put --kind":    true,
+	"export tasks --format":  true,
+	"import tasks --format":  true,
+	"domain add --cert-mode": true,
+	"task add --parse":       true,
+}
+
+func TestEveryHostedPathFlagIsKnown(t *testing.T) {
+	root, _ := newRoot([]string{}, "")
+	pruneForSSH(root, capability.SSHCommands())
+	seen := map[string]bool{}
+	var visit func(c *cobra.Command)
+	visit = func(c *cobra.Command) {
+		path := strings.TrimPrefix(c.CommandPath(), "tix ")
+		if strings.Contains(c.Use, "FILE") {
+			seen[path+" FILE"] = true
+		}
+		c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+			name := path + " --" + f.Name
+			seen[name] = true
+			if (pathish.MatchString(f.Usage) || pathish.MatchString(f.Name)) && !notPaths[name] && !pathFlags[name] {
+				t.Errorf("%s looks like it takes a path and is not in pathFlags: %q", name, f.Usage)
+			}
+		})
+		if strings.Contains(c.Use, "FILE") && !pathFlags[path+" FILE"] {
+			t.Errorf("%s takes a FILE argument and is not in pathFlags", path)
+		}
+		for _, k := range c.Commands() {
+			visit(k)
+		}
+	}
+	visit(root)
+	for name := range pathFlags {
+		if !seen[name] {
+			t.Errorf("pathFlags names %s, which the hosted tree does not have", name)
+		}
+	}
+}
+
+func TestAnAnswerEndsAtEitherLineEnding(t *testing.T) {
+	cases := map[string][]string{
+		"123456\n654321\n":   {"123456", "654321"},
+		"123456\r654321\r":   {"123456", "654321"},
+		"123456\r\n654321\n": {"123456", "654321"},
+	}
+	for in, want := range cases {
+		r := bufio.NewReader(strings.NewReader(in))
+		afterCR := false
+		for _, w := range want {
+			got, err := readAnswer(r, &afterCR)
+			if err != nil || got != w {
+				t.Errorf("%q: read %q, %v; want %q", in, got, err, w)
+			}
+		}
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/sshd"
+	"github.com/heliopsy/tix/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -46,6 +47,24 @@ func localFile(cmd *cobra.Command, what, path string) error {
 	return core.Invalid("%s names a file, and over ssh the server opens no file of yours; "+
 		"pass - (or leave it out) and redirect instead: ssh HOST %s ... < FILE, or > FILE",
 		what, strings.TrimPrefix(cmd.CommandPath(), "tix "))
+}
+
+// goGuarded starts fn in a goroutine. Over SSH a panic in it would end every
+// session the server holds, because no recover above a goroutine can catch
+// what happens inside it, so there the panic is recovered and the goroutine
+// ends. Run locally it panics as any goroutine would.
+// TestEveryGoroutineIsGuarded fails on a bare go statement in cmd/.
+func goGuarded(ctx context.Context, fn func()) {
+	hosted := false
+	if ctx != nil {
+		hosted, _ = ctx.Value(hostedKey{}).(bool)
+	}
+	go func() {
+		if hosted {
+			defer func() { _ = recover() }()
+		}
+		fn()
+	}()
 }
 
 // RunHosted runs one tix command for an SSH session, in this process, as the
@@ -86,6 +105,11 @@ func RunHosted(ctx context.Context, inv sshd.Invocation) int {
 // this check names the refusal and holds the line if the pruning ever slips.
 func checkHosted(root *cobra.Command, args []string) error {
 	allowed := capability.SSHCommands()
+	if len(args) > 0 {
+		if _, ok := tui.LookupInterface(args[0]); ok {
+			return core.Invalid("%q is an interface the listener opens itself, not a command", args[0])
+		}
+	}
 	if len(args) == 0 || !slices.Contains(topWords(allowed), args[0]) {
 		word := ""
 		if len(args) > 0 {

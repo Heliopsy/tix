@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -15,8 +16,8 @@ import (
 	"charm.land/ssh"
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/capability"
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
-	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
 )
@@ -33,6 +34,16 @@ const (
 // than any command a person waits on and shorter than the idle timeout, so a
 // stalled import cannot hold its slot for the life of the listener.
 const DefaultCommandTimeout = 15 * time.Minute
+
+// DefaultWriteStallTimeout is how long a command's output may wait on a
+// client that is not reading before the command is stopped. Exports are
+// spooled before they are written, so a stalled client holds no store
+// connection; what it still holds is a session slot.
+const DefaultWriteStallTimeout = 2 * time.Minute
+
+// DefaultRecheckInterval is how often a running command's key is resolved
+// again, so a revocation reaches a long command quickly.
+const DefaultRecheckInterval = 30 * time.Second
 
 // Invocation is one tix command a session asked the listener to run.
 type Invocation struct {
@@ -114,7 +125,13 @@ func checkWords(args []string) error {
 
 // runCommand runs one hosted command as the session's actor and ends the
 // session with its exit code.
-func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) {
+//
+// Standard input and output are the session's bytes, untouched, whether or
+// not a pseudo-terminal was asked for: an export redirected to a file under
+// `ssh -t` is still the file. Only standard error, which is for a person, gets
+// the carriage returns the ssh package's emulated terminal adds.
+func (s *Server) runCommand(sess ssh.Session, ch *channel, args []string) {
+	actor := ch.actor
 	if s.opts.Commands == nil || s.opts.Demo {
 		fatalf(sess, "this listener runs no commands; it serves %s", commandUsage())
 		return
@@ -128,34 +145,21 @@ func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) 
 	defer cancel()
 
 	_, _, hasPty := sess.Pty()
-	var stdout, stderr io.Writer = sess, sess.Stderr()
-	var stdin io.Reader = sess
-	if hasPty {
-		stdout, stderr = crlf{sess}, crlf{sess.Stderr()}
-		stdin = &terminalInput{r: sess}
-	}
-	sess.Context().SetValue(handleKey{}, s.opts.Connections.Register(connections.Entry{
-		Surface:     core.ConnectionSSH,
-		TenantID:    actor.TenantID,
-		ActorID:     actor.ID,
-		ActorHandle: actor.Handle,
-		Remote:      sourceOf(sess.RemoteAddr()),
-		Fingerprint: auth.Fingerprint(sess.PublicKey()),
-	}, func(reason string) error {
+	stderr := io.Writer(sess.Stderr())
+	stdout := &progressWriter{w: rawChannel(sess), clk: s.opts.Clock}
+	s.register(sess, ch, func(reason string) error {
 		if reason != "" {
 			_, _ = io.WriteString(stderr, "\n"+reason+"\n")
 		}
 		cancel()
 		return sess.Close()
-	}))
-	go s.watch(sess, cancel, nil)
-	finished := make(chan struct{})
-	defer close(finished)
-	go s.stopAtDeadline(sess, stderr, stop, finished)
+	})
+	go s.watch(sess, cancel, nil, ch.done)
+	go s.police(sess, ch, stderr, stdout, stop)
 
 	code := s.runGuarded(ctx, sess, stderr, Invocation{
 		Args:     args,
-		Stdin:    &cappedInput{r: stdin, limit: s.opts.MaxInputBytes},
+		Stdin:    &cappedInput{r: sess, limit: s.opts.MaxInputBytes, terminal: hasPty},
 		Stdout:   stdout,
 		Stderr:   stderr,
 		Service:  s.opts.Service,
@@ -164,8 +168,11 @@ func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) 
 		Tenant:   s.tenantKey(ctx, actor),
 		Terminal: hasPty,
 	})
-	if errors.Is(context.Cause(ctx), errTimedOut) && code == core.ExitOK {
+	if cause := context.Cause(ctx); code == core.ExitOK && (errors.Is(cause, errTimedOut) || errors.Is(cause, errStalled)) {
 		code = core.ExitError
+	}
+	if errors.Is(context.Cause(ctx), errStanding) {
+		code = core.ExitPermission
 	}
 	_ = sess.Exit(code)
 }
@@ -193,23 +200,126 @@ func firstWord(args []string) string {
 	return args[0]
 }
 
-// errTimedOut is the cause a command's context carries once it ran too long.
-var errTimedOut = errors.New("the command ran past its timeout")
+// farewellWait bounds the attempt to tell a client why its command stopped. A
+// client that stopped reading has a full window, and stderr shares it, so the
+// line may never leave; the session is closed either way.
+const farewellWait = time.Second
 
-// stopAtDeadline ends a command that ran past its timeout. Cancelling the
-// context stops every service call, but not a read of standard input the
-// client is holding open, so the session is closed as well, which is what
-// unblocks that read and gives the slot back.
-func (s *Server) stopAtDeadline(sess ssh.Session, stderr io.Writer, stop context.CancelCauseFunc, finished <-chan struct{}) {
-	select {
-	case <-finished:
-	case <-sess.Context().Done():
-	case <-s.opts.Clock.After(s.opts.CommandTimeout):
-		stop(errTimedOut)
-		_, _ = fmt.Fprintf(stderr, "tix: the command ran past %s and was stopped\n", short(s.opts.CommandTimeout))
-		_ = sess.Exit(core.ExitError)
+// The causes a command is stopped for, each with its own line to the client.
+var (
+	errTimedOut = errors.New("the command ran past its timeout")
+	errStalled  = errors.New("the client stopped reading the command's output")
+	errStanding = errors.New("the key's standing changed while the command ran")
+)
+
+// police stops a command that ran past its timeout, whose client stopped
+// reading its output, or whose key lost its standing, until the channel ends.
+//
+// Cancelling the context stops every service call, but not a read of standard
+// input the client is holding open nor a write it is not reading, so the
+// session is closed as well, which is what unblocks either and gives the slot
+// back.
+func (s *Server) police(sess ssh.Session, ch *channel, stderr io.Writer, out *progressWriter,
+	stop context.CancelCauseFunc) {
+	deadline := s.opts.Clock.After(s.opts.CommandTimeout)
+	tick := s.opts.Clock.NewTicker(min(s.opts.RecheckInterval, s.opts.WriteStallTimeout))
+	defer tick.Stop()
+	end := func(cause error, line string) {
+		stop(cause)
+		code := core.ExitError
+		if errors.Is(cause, errStanding) {
+			code = core.ExitPermission
+		}
+		said := make(chan struct{})
+		go func() {
+			defer close(said)
+			_, _ = io.WriteString(stderr, "tix: "+line+"\n")
+			_ = sess.Exit(code)
+		}()
+		select {
+		case <-said:
+		case <-s.opts.Clock.After(farewellWait):
+		}
 		_ = sess.Close()
 	}
+	lastCheck := s.opts.Clock.Now()
+	for {
+		select {
+		case <-ch.done:
+			return
+		case <-sess.Context().Done():
+			return
+		case <-deadline:
+			end(errTimedOut, fmt.Sprintf("the command ran past %s and was stopped", short(s.opts.CommandTimeout)))
+			return
+		case now := <-tick.C():
+			if out.stalledFor(now) >= s.opts.WriteStallTimeout {
+				end(errStalled, fmt.Sprintf("nothing read the output for %s; the command was stopped",
+					short(s.opts.WriteStallTimeout)))
+				return
+			}
+			if now.Sub(lastCheck) < s.opts.RecheckInterval {
+				continue
+			}
+			lastCheck = now
+			if err := s.stillStanding(sess, ch.actor); err != nil {
+				s.log.Info("stopping an ssh command whose key lost its standing",
+					"fingerprint", auth.Fingerprint(sess.PublicKey()), "error", err.Error())
+				end(errStanding, "this key's access changed while the command ran; it was stopped")
+				return
+			}
+		}
+	}
+}
+
+// stillStanding resolves the session's key again and refuses when it no
+// longer resolves to the same actor, in the same tenant, with the same role.
+// A revoked key, a disabled or removed person and a demotion all land within
+// one recheck interval rather than at the end of a long command.
+func (s *Server) stillStanding(sess ssh.Session, was *core.Actor) error {
+	if s.standing == nil {
+		return nil
+	}
+	now, err := s.standing(sess.Context(), auth.Fingerprint(sess.PublicKey()))
+	if err != nil {
+		return err
+	}
+	if now.ID != was.ID || now.TenantID != was.TenantID || now.Role != was.Role {
+		return core.Forbidden("the key now resolves to a different standing")
+	}
+	return nil
+}
+
+// progressWriter is a command's standard output. It notes when a write has
+// been waiting on the client, so a client that stopped reading can be told
+// apart from a command that is simply quiet.
+type progressWriter struct {
+	w   io.Writer
+	clk clock.Clock
+
+	mu      sync.Mutex
+	pending time.Time
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	p.mu.Lock()
+	p.pending = p.clk.Now()
+	p.mu.Unlock()
+	n, err := p.w.Write(b)
+	p.mu.Lock()
+	p.pending = time.Time{}
+	p.mu.Unlock()
+	return n, err
+}
+
+// stalledFor reports how long the write in progress has waited, or zero.
+func (p *progressWriter) stalledFor(now time.Time) time.Duration {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.pending.IsZero() {
+		return 0
+	}
+	return now.Sub(p.pending)
 }
 
 // tenantKey names the actor's tenant for the commands that describe where
@@ -233,10 +343,15 @@ func refuse(sess ssh.Session, code int, msg string) {
 // over HTTP may carry. It fails rather than truncating: a file cut short at the
 // limit would import as if it were whole.
 type cappedInput struct {
-	r     io.Reader
-	limit int64
-	read  int64
+	r        io.Reader
+	limit    int64
+	read     int64
+	terminal bool
 }
+
+// IsTerminal reports whether a person is at a pseudo-terminal on the other
+// end, which is what lets a prompt ask them.
+func (c *cappedInput) IsTerminal() bool { return c.terminal }
 
 func (c *cappedInput) Read(p []byte) (int, error) {
 	if c.read > c.limit {
@@ -253,40 +368,23 @@ func (c *cappedInput) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// crlf turns each line feed into the carriage return and line feed a client
-// terminal in raw mode needs, which a real pseudo-terminal would have done.
-type crlf struct{ w io.Writer }
-
-func (c crlf) Write(p []byte) (int, error) {
-	if !strings.ContainsRune(string(p), '\n') {
-		return c.w.Write(p)
+// rawChannel is the session's channel without the emulated terminal's
+// rewriting of every line feed, which the ssh package applies to a session's
+// own Write once any channel on the connection asked for a pseudo-terminal.
+// The channel is reached by its exported field name; TestAPseudoTerminalLeavesDataByteExactAndPromptsWorking
+// fails if the package stops embedding it, rather than an export silently
+// gaining carriage returns.
+func rawChannel(sess ssh.Session) io.Writer {
+	v := reflect.ValueOf(sess)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
-	out := strings.ReplaceAll(strings.ReplaceAll(string(p), "\r\n", "\n"), "\n", "\r\n")
-	if _, err := io.WriteString(c.w, out); err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
-// terminalInput is standard input from a client terminal in raw mode: the
-// carriage return the enter key sends reads as a line feed, and it tells a
-// prompt that a person is there to answer it.
-type terminalInput struct {
-	mu sync.Mutex
-	r  io.Reader
-}
-
-// IsTerminal reports that a person is on the other end.
-func (t *terminalInput) IsTerminal() bool { return true }
-
-func (t *terminalInput) Read(p []byte) (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	n, err := t.r.Read(p)
-	for i := range p[:n] {
-		if p[i] == '\r' {
-			p[i] = '\n'
+	if v.Kind() == reflect.Struct {
+		if f := v.FieldByName("Channel"); f.IsValid() && f.CanInterface() {
+			if ch, ok := f.Interface().(io.Writer); ok && ch != nil {
+				return ch
+			}
 		}
 	}
-	return n, err
+	return sess
 }

@@ -135,6 +135,11 @@ type Options struct {
 	// standard input it may read.
 	CommandTimeout time.Duration
 	MaxInputBytes  int64
+	// WriteStallTimeout stops a command whose client has not taken a byte of
+	// its output for that long, and RecheckInterval is how often a running
+	// command's key is resolved again.
+	WriteStallTimeout time.Duration
+	RecheckInterval   time.Duration
 
 	TimeStyle output.TimeStyle
 	Logger    *slog.Logger
@@ -148,6 +153,9 @@ type Server struct {
 	limiter  *limiter
 	live     *gate
 	verifier *auth.PublicKeyVerifier
+	// standing resolves a key again without recording a use, for a running
+	// command's recheck. It is nil in demo mode, which runs no commands.
+	standing func(ctx context.Context, fingerprint string) (*core.Actor, error)
 	proxies  *auth.ProxyPolicy
 	log      *slog.Logger
 }
@@ -181,7 +189,11 @@ func New(o Options) (*Server, error) {
 		live:    newGate(o.MaxSessionsPerKey, o.MaxSessions),
 		proxies: proxies,
 	}
-	s.verifier = auth.NewPublicKeyVerifier(s.lookup())
+	lookup := s.lookup()
+	s.verifier = auth.NewPublicKeyVerifier(lookup)
+	if e, ok := lookup.(*enrolled); ok {
+		s.standing = e.resolve
+	}
 	s.ssh = &ssh.Server{
 		Addr:        o.Addr,
 		Handler:     s.handle,
@@ -272,6 +284,12 @@ func (o Options) withDefaults() Options {
 	}
 	if o.CommandTimeout <= 0 {
 		o.CommandTimeout = DefaultCommandTimeout
+	}
+	if o.WriteStallTimeout <= 0 {
+		o.WriteStallTimeout = DefaultWriteStallTimeout
+	}
+	if o.RecheckInterval <= 0 {
+		o.RecheckInterval = DefaultRecheckInterval
 	}
 	if o.MaxInputBytes <= 0 {
 		o.MaxInputBytes = config.DefaultMaxImportBytes
