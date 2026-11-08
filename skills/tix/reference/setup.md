@@ -433,10 +433,15 @@ tix sync run SOURCEID --full
 ```
 
 `--mapping-file` uploads a local file into the source; `--mapping` instead
-names a file already on the server. Credentials are read from standard input,
+names a file already on the server, which `tix serve` reads only from the
+tenant's directory under the operator's `sync.file_root` (refused without one).
+Prefer `--mapping-file`. Credentials are read from standard input,
 sealed with the server's key and never shown again: `ls` names which are set
 and the last four characters of a long one. A stored value wins over its
-`TIX_SYNC_<NAME>_*` variable, stored credentials win as a set.
+`TIX_SYNC_<NAME>_*` variable, stored credentials win as a set. On `tix serve`
+those variables apply only to sources the operator binds in
+`sync.env_sources`, and environment credentials go only to the environment's
+url, never to one stored on the source.
 `tix sync source set NAME` changes only the mapping and the credentials;
 `--check` validates on the server without saving, and `--clear-mapping` and
 `--clear-credentials` remove what is stored. A server with no

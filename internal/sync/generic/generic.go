@@ -27,8 +27,12 @@ const System = core.SystemGeneric
 
 // Options configures one file import.
 type Options struct {
-	// Path is the CSV or JSON file to read.
+	// Path is the CSV or JSON file to read, or, with Data set, only the name
+	// its format is detected from.
 	Path string
+	// Data is the file's content, already read by a caller that confines
+	// where it may come from. When set, Path is not opened.
+	Data []byte
 	// Format overrides detection by extension: "csv" or "json".
 	Format string
 	// UpdatedField is the dotted path holding each record's update time, which
@@ -47,7 +51,7 @@ type Importer struct {
 
 // New builds a file importer.
 func New(opt Options) (*Importer, error) {
-	if strings.TrimSpace(opt.Path) == "" {
+	if strings.TrimSpace(opt.Path) == "" && opt.Data == nil {
 		return nil, core.Invalid("the generic adapter needs a file to read; set %s",
 			extsync.EnvPrefix+"<SOURCE>_"+extsync.EnvFile)
 	}
@@ -116,15 +120,21 @@ func (i *Importer) load() error {
 	if i.loaded {
 		return nil
 	}
-	raw, err := os.ReadFile(i.opt.Path)
-	if err != nil {
-		return core.Invalid("reading import file %q: %v", i.opt.Path, err)
+	raw := i.opt.Data
+	if raw == nil {
+		var err error
+		if raw, err = os.ReadFile(i.opt.Path); err != nil {
+			return core.Invalid("reading import file %q: %v", i.opt.Path, err)
+		}
 	}
 	format := strings.ToLower(strings.TrimSpace(i.opt.Format))
 	if format == "" {
 		format = strings.TrimPrefix(strings.ToLower(filepath.Ext(i.opt.Path)), ".")
 	}
-	var records []extsync.Record
+	var (
+		records []extsync.Record
+		err     error
+	)
 	switch format {
 	case "csv", "tsv":
 		records, err = readCSV(raw, format)

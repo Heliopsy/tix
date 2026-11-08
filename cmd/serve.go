@@ -114,6 +114,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if !o.disableDispatch {
 		g.drainMode = connect.DrainModeServer
 	}
+	g.serving = true
 	conn, _, err := g.dial(cmd)
 	if err != nil {
 		return err

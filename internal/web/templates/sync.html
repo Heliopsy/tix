@@ -31,7 +31,7 @@
 {{end}}
 
 <p class="lede">{{t "Pull work that already lives in another tracker into tix. Imports run one way: tix reads from the source and never writes anything back to it."}}</p>
-<p class="syncwhere" role="note"><strong>{{t "Sync runs on the tix server, not on your machine."}}</strong> {{t "The mapping and the credentials a run uses have to be on the server. Upload the mapping and store the credentials in the source dialog, or from the command line with tix sync source set; the server's operator can use TIX_SYNC_ environment variables instead. Each source below says what its runs will use and what the server is still missing."}}</p>
+<p class="syncwhere" role="note"><strong>{{t "Sync runs on the tix server, not on your machine."}}</strong> {{t "The mapping and the credentials a run uses have to be on the server. Upload the mapping and store the credentials in the source dialog, or from the command line with tix sync source set; the server's operator can use TIX_SYNC_ environment variables instead, for the sources it binds to them. Each source below says what its runs will use and what the server is still missing."}}</p>
 <p class="note"><strong>{{t "Only a few tasks, or one file?"}}</strong> {{t "A sync is for a tracker you keep pulling from. Add a few tasks directly with quick add, tix task add, the API or MCP, or bring one CSV or JSON file in with Import on the project's page, where the mapping is suggested for you."}}</p>
 
 <div class="sechead"><h2>{{t "Sources"}}</h2>{{template "dlg-open" (opener "source-new" (t "Configure a source") "plus" "" .Here)}}</div>
@@ -160,7 +160,7 @@
     <div>
       <div class="field-label">
         <label for="mapping_path">{{t "Mapping file on the server"}}</label>
-        {{template "field-info" "A path on the server, for a mapping kept there by its operator. A document pasted or uploaded above wins over it."}}
+        {{template "field-info" "A file in this tenant's sync directory on the server, which its operator sets with sync.file_root; a path outside it is refused. A document pasted or uploaded above wins over it."}}
       </div>
       <input id="mapping_path" name="mapping_path" value="{{$d.Value "mapping_path"}}"{{$d.Errors.Attrs "mapping_path"}}>
     </div>
@@ -179,7 +179,7 @@
   </div>
 
   <h3 class="syncform-h">{{t "Settings"}}</h3>
-  <p class="meta">{{t "Each setting filled in is stored on the source and wins over its environment variable. generic takes a file on the server; jira and openproject take a url, a project and a query."}}</p>
+  <p class="meta">{{t "Each setting filled in is stored on the source and wins over its environment variable. generic takes a file in this tenant's sync directory on the server; jira and openproject take a url, a project and a query. The server's environment credentials are never sent to a url stored here."}}</p>
   <div class="row">
     <div><label for="url">{{t "URL"}}</label><input id="url" name="url" type="url" value="{{$d.Value "url"}}"{{$d.Errors.Attrs "url"}}></div>
     <div><label for="project">{{t "External project"}}</label><input id="project" name="project" value="{{$d.Value "project"}}"{{$d.Errors.Attrs "project"}}></div>

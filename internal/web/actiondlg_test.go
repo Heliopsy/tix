@@ -160,8 +160,8 @@ func TestARefusedCreateComesBackWithItsDialogOpen(t *testing.T) {
 		{"member", "/admin/tenant/members", "member-new", "", url.Values{"actor_id": {""}, "role": {"member"}}},
 		{"field", "/projects/infra/fields", "field-new", `value="size"`, url.Values{"key": {"size"}, "type": {"nonsense"}}},
 		{"sync source", "/sync/sources", "source-new", `value="upstream"`, url.Values{"name": {"upstream"}, "system": {"nonsense"}}},
-		{"sync settings", "/sync/sources", "source-new", `value="/etc/tix/ops.yaml"`, url.Values{"name": {"ops"},
-			"system": {"generic"}, "mapping_path": {"/etc/tix/ops.yaml"}, "url": {"https://jira.example"}}},
+		{"sync settings", "/sync/sources", "source-new", `value="ops.yaml"`, url.Values{"name": {"ops"},
+			"system": {"generic"}, "mapping_path": {"ops.yaml"}, "url": {"https://jira.example"}}},
 		{"sync page size", "/sync/sources", "source-new", `value="https://jira.example"`, url.Values{"name": {"ops"},
 			"system": {"jira"}, "url": {"https://jira.example"}, "page_size": {"0"}}},
 	} {

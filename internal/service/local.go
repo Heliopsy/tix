@@ -16,6 +16,7 @@ import (
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/store"
+	extsync "github.com/heliopsy/tix/internal/sync"
 )
 
 // Local is the authoritative implementation of core.Service.
@@ -74,6 +75,11 @@ type Local struct {
 	// noStarterProjects suppresses the starter lists a brand new installation
 	// is given, for an operator who wants an empty one.
 	noStarterProjects bool
+
+	// syncHost is what external sync may reach on this host, and
+	// syncEnvBindings its parsed environment bindings.
+	syncHost        SyncHost
+	syncEnvBindings extsync.EnvBindings
 
 	dummyOnce sync.Once
 	dummy     string

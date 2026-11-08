@@ -214,6 +214,7 @@ func TestSyncStoredCredentialsWinOverTheEnvironment(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := sealedSyncFixture(t, "ops")
 			t.Setenv(extsync.EnvName("op", extsync.EnvToken), tc.env)
+			t.Setenv(extsync.EnvName("op", extsync.EnvURL), "https://op.test/")
 			src := openProjectSource(t, f, "op", core.SyncSourceInput{Token: tc.stored})
 			if src.Resolved.Credentials.From != tc.wantFrom {
 				t.Errorf("credentials from %q, want %q", src.Resolved.Credentials.From, tc.wantFrom)

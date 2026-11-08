@@ -82,6 +82,8 @@ var unshadowedKeys = map[string]string{
 	"hooks.mode":                     "config.Validate only; this build implements one mode",
 	"webhooks.drain_mode":            "connect.drainMode",
 	"webhooks.allow_private_targets": "connect.Dial and runServe",
+	"sync.file_root":                 "connect.Dial, for the service tix serve runs",
+	"sync.env_sources":               "connect.Dial, for the service tix serve runs",
 	"discovery.enabled":              "config.discoveryEnabled; --no-discovery is a separate option",
 	"discovery.filenames":            "config.discoveryFilenames",
 	"retention.audit":                "connect.Dial, via Retention.Policy",

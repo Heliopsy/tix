@@ -118,14 +118,14 @@ func TestSyncScreenStoresTheSettingsItCollects(t *testing.T) {
 	b := newFixture(t).as("alice")
 	b.page("/sync")
 	resp := b.post("/sync/sources", url.Values{"system": {"jira"}, "name": {"platform"},
-		"mapping_path": {"/etc/tix/platform.yaml"}, "url": {"https://jira.example/"},
+		"mapping_path": {"platform.yaml"}, "url": {"https://jira.example/"},
 		"project": {"PLAT"}, "query": {""}, "file": {""}, "page_size": {""}})
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	row := section(t, b.page("/sync"), "Sources")
 	for _, want := range []string{
-		"mapping_path <code>/etc/tix/platform.yaml</code>",
+		"mapping_path <code>platform.yaml</code>",
 		"url <code>https://jira.example</code>",
 		"project <code>PLAT</code>",
 	} {

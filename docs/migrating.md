@@ -30,8 +30,9 @@ So everything a run needs has to end up on the server. You can put it there from
 | credentials | the source dialog's credential fields | `--token-stdin`, or `--user` with `--password-stdin` | sealed with the server's key, never shown again |
 | url, project, query, page size | the source dialog | `tix sync source add` flags | the source's settings |
 
-An operator who prefers configuration on the server's disk can keep using a mapping file path and
-`TIX_SYNC_<SOURCE>_*` environment variables; see [precedence](#what-a-run-uses-and-in-what-order) for what wins.
+An operator can also keep configuration on the server's disk and in `TIX_SYNC_<SOURCE>_*` environment variables,
+within the limits in [server files and the server's environment](#server-files-and-the-servers-environment); see
+[precedence](#what-a-run-uses-and-in-what-order) for what wins.
 
 Each source tells you, as worked out on the server, which mapping and which credentials a run will use and what
 is still missing. The web screen shows it on every row, `tix sync source ls` prints it as columns and lists what
@@ -41,9 +42,42 @@ refused before a single record is read, naming every missing piece:
 ```console
 $ tix sync run 01J0000000000000000000 --dry-run
 error: invalid: sync source "op" cannot run; sync runs on the server, and it is missing on the server: credentials
-(store them with tix sync source set op --token-stdin or in the source dialog, or set TIX_SYNC_OP_TOKEN in the
-server's environment)
+(store them with tix sync source set op --token-stdin or in the source dialog)
 ```
+
+### Server files and the server's environment
+
+`tix serve` answers every tenant on the host, so a path or a source name a tenant sends is not enough to read a
+file on the server or a variable in its environment. Two operator settings decide what a tenant's sources reach:
+
+| Key | Variable | What it allows |
+| --- | --- | --- |
+| `sync.file_root` | `TIX_SYNC_FILE_ROOT` | a source's `file` and `mapping_path`, only inside `<file_root>/<tenant key>/` |
+| `sync.env_sources` | `TIX_SYNC_ENV_SOURCES` | the `TIX_SYNC_<SOURCE>_*` variables, for the sources listed as `TENANT/SOURCE` or `TENANT/*` |
+
+- Without `sync.file_root`, `tix serve` refuses to store a `file` or `mapping_path`. With it, a relative path is
+  read from the tenant's directory and an absolute one must already be inside it. Symbolic links are followed only
+  while they stay inside. Every refused read gives the same answer, so it says nothing about other files.
+- A source `sync.env_sources` does not bind reads none of the server's `TIX_SYNC_<SOURCE>_*` variables, and
+  nothing it is shown changes with which of them are set.
+- Credentials from the environment are sent only to the url in `TIX_SYNC_<SOURCE>_URL`. A source that stores a
+  different url is reported missing credentials until it stores its own or clears its url. This holds for a
+  command run against the database directly too.
+- A command run against the database directly, such as `tix sync run` without a server, is the operator's own
+  process. It reads any file and any variable a source names, as before.
+
+A global admin gets no exception: the settings live on the tenant's source, which its admins can edit later.
+
+#### Upgrading a server that used files or variables
+
+Sources that already store a path outside the tenant's directory are kept, reported missing on the server, and
+refused at run time. To carry on:
+
+- Upload the mapping with `tix sync source set NAME --mapping-file m.yaml` or the source dialog, and store the
+  credentials on the source, which needs `auth.totp_key`.
+- Or move the files under `sync.file_root/<tenant key>/` and store the paths relative to it.
+- A single-tenant server that relies on `TIX_SYNC_<SOURCE>_*` sets `sync.env_sources: [default/*]`, and puts the
+  url in `TIX_SYNC_<SOURCE>_URL` rather than on the source when the credentials come from the environment.
 
 ### Setting up a source
 
@@ -97,8 +131,8 @@ there is refused with exit 2. Send them as the input's own `token`, `user` and `
 
 ### What a run uses, and in what order
 
-What is stored on the source wins, and the server's environment fills in what the source leaves empty. For a
-source named `platform`:
+What is stored on the source wins, and the server's environment fills in what the source leaves empty when it
+[applies to the source](#server-files-and-the-servers-environment). For a source named `platform`:
 
 | Setting | Stored as | Server environment fallback | Systems |
 | --- | --- | --- | --- |
@@ -114,8 +148,8 @@ source named `platform`:
 - The mapping comes from the first of: the stored document, then `mapping_path`, then `TIX_SYNC_<SOURCE>_MAPPING`.
   `resolved.mapping.from` is `stored`, `mapping_path`, `env` or `missing`.
 - Credentials come from the source when it stores any, as a set: a stored token is never combined with a password
-  from the environment. Otherwise they come from the environment. `resolved.credentials.from` is `stored`, `env`,
-  `none` (generic) or `missing`.
+  from the environment. Otherwise they come from the environment, and only for the environment's url.
+  `resolved.credentials.from` is `stored`, `env`, `none` (generic) or `missing`.
 
 The variable name is the source name uppercased, with every run of other characters turned into one underscore,
 so a source named `acme-jira` reads `TIX_SYNC_ACME_JIRA_TOKEN`.

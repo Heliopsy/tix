@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/output"
+	extsync "github.com/heliopsy/tix/internal/sync"
 	"github.com/heliopsy/tix/internal/webhook"
 )
 
@@ -56,6 +57,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		return invalidKey("webhooks.drain_mode", sources).
 			WithDetail("value", cfg.Webhooks.DrainMode).
 			WithDetail("allowed", WebhookDrainModes)
+	}
+	if _, err := extsync.ParseEnvBindings(cfg.Sync.EnvSources); err != nil {
+		return invalidKey("sync.env_sources", sources).
+			WithDetail("value", strings.Join(cfg.Sync.EnvSources, ",")).
+			WithDetail("reason", bindingReason(err))
 	}
 	// A timezone is not an enumeration, so it is validated by resolving it
 	// rather than by membership. A name the system cannot load would otherwise
@@ -311,4 +317,13 @@ func checkPublicAddress(addr string) error {
 		}
 	}
 	return nil
+}
+
+// bindingReason is a binding error's message without its kind.
+func bindingReason(err error) string {
+	var domain *core.Error
+	if errors.As(err, &domain) {
+		return domain.Message
+	}
+	return err.Error()
 }

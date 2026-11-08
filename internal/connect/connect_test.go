@@ -581,3 +581,40 @@ func dialTemp(t *testing.T, cfg *config.Resolved, home string) *Conn {
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn
 }
+
+// tix serve answers other people, so its service must not read a server file
+// a tenant names unless sync.file_root holds it; a command against the
+// database directly is the operator's own and may.
+func TestOnlyAServingProcessConfinesSyncPaths(t *testing.T) {
+	outside := filepath.Join(t.TempDir(), "mapping.yaml")
+	for _, tc := range []struct {
+		name    string
+		serving bool
+		environ []string
+		path    string
+		want    bool
+	}{
+		{"direct", false, nil, outside, true},
+		{"serving", true, nil, outside, false},
+		{"serving, a file in the tenant directory", true, []string{"TIX_SYNC_FILE_ROOT={dir}"}, "mapping.yaml", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			var environ []string
+			for _, e := range tc.environ {
+				environ = append(environ, strings.ReplaceAll(e, "{dir}", t.TempDir()))
+			}
+			ctx := context.Background()
+			conn, err := Dial(ctx, load(t, home, environ), Overrides{Home: home, Serving: tc.serving})
+			if err != nil {
+				t.Fatalf("Dial: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+			_, err = conn.Service.PutSyncSource(conn.Context(ctx), core.SyncSourceInput{
+				System: core.SystemGeneric, Name: "ops", MappingPath: tc.path})
+			if (err == nil) != tc.want {
+				t.Fatalf("PutSyncSource(%q) = %v, want accepted %v", tc.path, err, tc.want)
+			}
+		})
+	}
+}

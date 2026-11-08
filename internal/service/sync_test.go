@@ -77,9 +77,11 @@ func newSyncFixture(t *testing.T, name string) *syncFixture {
 }
 
 // newSyncFixtureWith builds the fixture on a service carrying extra options.
+// The service is a trusted host, a command against the database directly,
+// unless an option says otherwise; synchost_test.go covers a shared one.
 func newSyncFixtureWith(t *testing.T, name string, opts ...Option) *syncFixture {
 	t.Helper()
-	l, clk, scope, actor := newLocalWith(t, opts...)
+	l, clk, scope, actor := newLocalWith(t, append([]Option{WithSyncHost(SyncHost{Trusted: true})}, opts...)...)
 	ctx := core.WithActor(context.Background(), actor)
 
 	if _, err := l.PutWorkflow(ctx, core.WorkflowInput{
@@ -1243,7 +1245,7 @@ default_status: todo
 // newParentSyncFixture registers a source whose mapping carries a parent link.
 func newParentSyncFixture(t *testing.T, name, rows string) *syncFixture {
 	t.Helper()
-	l, clk, scope, actor := newLocal(t)
+	l, clk, scope, actor := newLocalWith(t, WithSyncHost(SyncHost{Trusted: true}))
 	ctx := core.WithActor(context.Background(), actor)
 
 	if _, err := l.PutWorkflow(ctx, core.WorkflowInput{

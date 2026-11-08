@@ -94,6 +94,12 @@ type Overrides struct {
 	// `tix mcp`. Empty means cli.
 	ClientHint string
 
+	// Serving marks a process that answers other people, tix serve. Its
+	// service lets a tenant's sync sources reach only the files and
+	// environment the operator's sync settings grant; any other process is
+	// the operator's own and reaches what they can.
+	Serving bool
+
 	// Anonymous skips confirming the credential against a remote server.
 	// tix login sets it: it exists to obtain a credential, so asking the
 	// server who the caller is first could only fail.
@@ -388,6 +394,9 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
+		service.WithSyncHost(service.SyncHost{
+			Trusted: !ov.Serving, FileRoot: expandHome(cfg.Config.Sync.FileRoot, ov.Home),
+			EnvSources: cfg.Config.Sync.EnvSources}),
 		service.WithTimeDefaults(core.TimePrefs{
 			TimeFormat: cfg.Config.Output.TimeFormat, Timezone: cfg.Config.Output.Timezone}),
 	)

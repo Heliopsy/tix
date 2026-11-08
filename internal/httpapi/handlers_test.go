@@ -490,7 +490,7 @@ func TestResolveDomainRoute(t *testing.T) {
 func TestSyncSourceSettingsRoundTripOverHTTP(t *testing.T) {
 	f := newFixture(t)
 	put := f.call(http.MethodPut, wire.RouteSyncSources, map[string]any{
-		"system": core.SystemJira, "name": "platform", "mapping_path": "/etc/tix/platform.yaml",
+		"system": core.SystemJira, "name": "platform", "mapping_path": "platform.yaml",
 		"config": map[string]any{"url": "https://jira.test", "project": "PLAT", "page_size": 50},
 	})
 	mustStatus(t, put, http.StatusOK)
@@ -507,7 +507,7 @@ func TestSyncSourceSettingsRoundTripOverHTTP(t *testing.T) {
 	}
 	for _, got := range []core.SyncSource{saved, listed[0]} {
 		if got.Config["url"] != "https://jira.test" || got.Config["project"] != "PLAT" ||
-			got.Config["page_size"] != "50" || got.MappingPath != "/etc/tix/platform.yaml" {
+			got.Config["page_size"] != "50" || got.MappingPath != "platform.yaml" {
 			t.Errorf("source = %+v, want the settings it was put with", got)
 		}
 	}

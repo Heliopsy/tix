@@ -95,7 +95,7 @@ func TestEveryScreenStateHasAWayBack(t *testing.T) {
 	}{
 		"sync run refused for its mapping file": {
 			walk: func(t *testing.T, b *browser) *http.Response {
-				saveSource(t, b, url.Values{"system": {"generic"}, "name": {"ops"}, "mapping_path": {"/etc/tix/missing.yaml"}})
+				saveSource(t, b, url.Values{"system": {"generic"}, "name": {"ops"}, "mapping_path": {"missing.yaml"}})
 				return b.postFrom("/sync", "/sync/run", url.Values{"source_id": {"src-ops"}, "dry_run": {"1"}})
 			},
 			want: state{http.StatusBadRequest, `<section class="runresult"`, `</section>`, "/sync"},
