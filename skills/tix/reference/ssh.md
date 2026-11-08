@@ -76,6 +76,33 @@ stream ends on client disconnect, the keepalive limit, `tix connection kill`
 and shutdown; `--idle-timeout` does not apply to it. Inside the interface `~`
 opens the start menu from anywhere.
 
+**Any other first word that is a tix command runs that command**, in the
+server process, as the key's actor in its tenant, with nothing configured on
+the client. It is no shell and runs no program: the words go to the same
+command tree `tix` has, pruned to what the capability registry binds.
+
+```sh
+ssh -p 2222 acme@localhost task ls -o json
+ssh -p 2222 acme@localhost 'task add "Rotate certs" -p infra'
+ssh -p 2222 acme@localhost export tasks -p infra > infra.csv
+ssh -p 2222 acme@localhost import tasks -p ops --dry-run < infra.csv
+```
+
+Stdin, stdout, stderr and the exit code pass through, so the exit codes in
+SKILL.md hold. Quote a multi-word argument twice: your shell joins the words
+and the server splits them again. Refused with exit `2`: commands outside the
+registry (`config`, `ctx`, `serve`, `init`, `claim exec`, ...), `login` and
+`logout`, the target flags `--db`, `--server`, `--token`, `--ctx`, `--config`,
+`--tenant`, `--no-discovery`, `--allow-network-fs`, `--log-*`, and any path but
+`-` (`--out`, `--mapping`, `--file`, a file argument): redirect instead. Every
+change is audited `via=ssh`. A second factor the board would ask for is owed
+here too: `ssh -t` to be asked, or `ssh -o SetEnv=TIX_CODE=123456` without a
+terminal. A command reads at most `server.max_import_bytes` of stdin, stops
+after 15 minutes and counts against `--rate-per-hour` (60), so a
+loop of calls wants a token and `tix ctx add` instead. A `--demo` listener runs
+no commands. Command words are reserved like `board` and `watch`, compared
+exactly: `ssh ... TASK` opens project TASK, `board task` opens it in any case.
+
 Every failure leaves by the same door, so a stranger cannot use the listener to
 learn which tenants exist. An unenrolled key, a username naming a tenant that
 does not exist and a username naming one that holds no enrolment of this key
