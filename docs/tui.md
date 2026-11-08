@@ -882,12 +882,12 @@ The view has three parts, and `esc` walks out of a part before it leaves the vie
 
 `$` opens what the browser spreads over Settings, Tokens, SSH keys and Your account: who this session is
 signed in as, your second factor, your own API tokens and SSH keys, your sessions in this tenant, and the
-newest page of your account log. Each section is its own read, so a refused one says why and the rest of the screen still draws. An
-agent's session, for one, has no second factor and no account log to show.
+newest page of your account log. Each section is its own read, so a refused one says why and the rest of
+the screen still draws. An agent's session, for one, has no second factor and no account log to show.
 
 One cursor runs over the second factor, the tokens, the keys, the sessions and the log entries. `X` on a
-token, a key or a session revokes it and on the second factor removes it, each behind a confirmation naming what goes; a revoked
-token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
+token, a key or a session revokes it and on the second factor removes it, each behind a confirmation naming
+what goes; a revoked token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
 removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
 status bar carries that refusal.
 
