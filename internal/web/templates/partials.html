@@ -1156,7 +1156,7 @@
     <span class="tenantswitch-name">{{.Name}} <span class="mono muted">{{.Key}}</span></span>
     <span class="chip">{{.Role}}</span>
     {{if .Current}}<span class="tenantswitch-current" aria-current="true">{{t "Current"}}</span>
-    {{else if .Switch}}<form method="post" action="/switch" class="tenantswitch-form">{{template "csrf" $.CSRF}}<input type="hidden" name="tenant" value="{{.Key}}"><button type="submit" class="secondary" aria-label="{{t "Switch to %s" $row.Name}}">{{t "Switch"}}</button></form>
+    {{else if .Switch}}<form method="post" action="/switch" class="tenantswitch-form">{{template "csrf" $.CSRF}}<input type="hidden" name="to" value="{{.Key}}"><button type="submit" class="secondary" aria-label="{{t "Switch to %s" $row.Name}}">{{t "Switch"}}</button></form>
     {{else if .Link}}<a class="btn secondary" href="{{.Link}}" aria-label="{{t "Sign in to %s" $row.Name}}">{{t "Sign in there"}}</a>
     {{else}}<span class="muted">{{t "Served at another address"}}</span>{{end}}
   </li>

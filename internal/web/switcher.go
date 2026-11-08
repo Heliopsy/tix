@@ -151,12 +151,12 @@ func (h *handler) showSwitch(w http.ResponseWriter, r *http.Request) error {
 // replaces the cookie, and the reader lands on the projects of the tenant
 // they moved to, since where they were belongs to the tenant they left.
 func (h *handler) doSwitch(w http.ResponseWriter, r *http.Request) error {
-	key := field(r, "tenant")
+	key := field(r, "to")
 	result, err := h.svc.SwitchTenant(r.Context(), core.SwitchTenantInput{
 		Tenant: key, Code: field(r, "code"), Surface: core.SurfaceWeb,
 	})
 	if err != nil {
-		if _, sentCode := sent(r, "code"); sentCode && refusable(err) {
+		if _, sentCode := sent(r, "code"); sentCode && (refusable(err) || core.IsKind(err, core.KindUnauthenticated)) {
 			return h.renderSwitchCode(w, r, core.KindOf(err).HTTPStatus(), key,
 				fieldErrors{"code": safeMessage(err, core.KindOf(err))})
 		}
