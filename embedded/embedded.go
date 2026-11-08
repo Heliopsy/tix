@@ -23,6 +23,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/serving"
+	"github.com/heliopsy/tix/internal/store/sqlite"
 )
 
 // DefaultListen is the address an instance binds when Options.Listen is empty:
@@ -42,6 +43,10 @@ type Options struct {
 	// InitIfMissing creates and seeds the database when DBPath does not exist,
 	// as tix init does. Without it a missing file is a not-found error.
 	InitIfMissing bool
+	// JournalMode is the SQLite journal mode: "wal", the default when empty,
+	// or "delete", which keeps every commit in the main file for a database
+	// a sync tool copies.
+	JournalMode string
 	// Logger receives the server's log; nil discards it.
 	Logger *slog.Logger
 }
@@ -90,6 +95,10 @@ func Start(ctx context.Context, opts Options) (*Instance, error) {
 	if path == "" {
 		return nil, core.Invalid("a database path is required")
 	}
+	journalMode, err := sqlite.ParseJournalMode(opts.JournalMode)
+	if err != nil {
+		return nil, err
+	}
 	if err := checkExists(path, opts.InitIfMissing); err != nil {
 		return nil, err
 	}
@@ -100,9 +109,10 @@ func Start(ctx context.Context, opts Options) (*Instance, error) {
 
 	cfg := config.Defaulted()
 	conn, err := connect.Dial(ctx, cfg, connect.Overrides{
-		DB:        path,
-		DrainMode: connect.DrainModeServer,
-		Serving:   true,
+		DB:          path,
+		DrainMode:   connect.DrainModeServer,
+		Serving:     true,
+		JournalMode: string(journalMode),
 	})
 	if err != nil {
 		return nil, err
@@ -161,8 +171,9 @@ func checkExists(path string, create bool) error {
 func (in *Instance) URL() string { return in.url }
 
 // Stop stops accepting connections, drains in-flight requests, stops the
-// workers and closes the database. It returns when that is done or ctx ends,
-// and does nothing on a stopped instance.
+// workers, checkpoints a WAL database into its main file and closes it. It
+// returns when that is done or ctx ends, and does nothing on a stopped
+// instance.
 func (in *Instance) Stop(ctx context.Context) error {
 	in.stopOnce.Do(func() {
 		in.cancel()
@@ -174,11 +185,28 @@ func (in *Instance) Stop(ctx context.Context) error {
 			<-in.served //nolint:errcheck // the deadline is the error worth reporting
 			in.stopErr = ctx.Err()
 		}
+		if err := in.checkpoint(ctx); err != nil && in.stopErr == nil {
+			in.stopErr = err
+		}
 		if err := in.conn.Close(); err != nil && in.stopErr == nil {
 			in.stopErr = err
 		}
 	})
 	return in.stopErr
+}
+
+// checkpointer is the SQLite store's checkpoint, asserted so this package
+// needs nothing new from the store interface.
+type checkpointer interface {
+	Checkpoint(ctx context.Context) error
+}
+
+func (in *Instance) checkpoint(ctx context.Context) error {
+	cp, ok := in.conn.Store.(checkpointer)
+	if !ok {
+		return nil
+	}
+	return cp.Checkpoint(context.WithoutCancel(ctx))
 }
 
 // Tenants lists the live tenants of the database.

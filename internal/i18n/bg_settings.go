@@ -14,7 +14,7 @@ func init() {
 		"Database":          "База данни",
 
 		"Colour scheme": "Цветова схема",
-		"Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast. System follows what your device asks for.": "Сменя се с превключвателя в долния край на страничната лента, на всеки екран. Всяко натискане минава към следващата от Система, Светла, Тъмна и Нисък контраст. Система следва настройката на устройството ти.",
+		"Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark, OLED, Low contrast and System, OLED when dark. System follows what your device asks for; System, OLED when dark draws OLED where it would draw Dark.": "Сменя се с превключвателя в долния край на страничната лента, на всеки екран. Всяко натискане минава към следващата от Система, Светла, Тъмна, OLED, Нисък контраст и Система, OLED на тъмно. Система следва настройката на устройството ти; Система, OLED на тъмно показва OLED там, където би показала Тъмна.",
 		"Use the switch at the foot of the sidebar.": "Използвай превключвателя в долния край на страничната лента.",
 
 		"Language": "Език",

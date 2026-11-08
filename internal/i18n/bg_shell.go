@@ -219,12 +219,14 @@ func init() {
 		"Certificate": "Сертификат",
 
 		// View and colour scheme switches.
-		"List":         "Списък",
-		"Board":        "Табло",
-		"Lanes":        "Ленти",
-		"System":       "Система",
-		"Light":        "Светла",
-		"Dark":         "Тъмна",
-		"Low contrast": "Нисък контраст",
+		"List":                   "Списък",
+		"Board":                  "Табло",
+		"Lanes":                  "Ленти",
+		"System":                 "Система",
+		"Light":                  "Светла",
+		"Dark":                   "Тъмна",
+		"Low contrast":           "Нисък контраст",
+		"OLED":                   "OLED",
+		"System, OLED when dark": "Система, OLED на тъмно",
 	})
 }

@@ -2,7 +2,10 @@
 
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"net/url"
+)
 
 // TaskViewCookie remembers whether the task screen draws its tasks as a list
 // of rows, a board of columns or one lane per project. It is the same set of
@@ -67,7 +70,15 @@ func taskViewOf(r *http.Request) string {
 // going back to the default leaves nothing behind, the way "Show all"
 // projects and "Reset" columns do.
 func (h *handler) setTaskView(w http.ResponseWriter, r *http.Request) error {
-	value := field(r, "view")
+	h.writeTaskView(w, r, field(r, "view"))
+	// #nosec G710 -- safeNext rejects anything that is not a relative path on
+	// this origin, including protocol-relative, backslash and control forms.
+	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
+	return nil
+}
+
+// writeTaskView stores the remembered view, clearing the cookie for the list.
+func (h *handler) writeTaskView(w http.ResponseWriter, r *http.Request, value string) {
 	if !knownTaskView(value) || value == TaskViewList {
 		value = ""
 	}
@@ -82,8 +93,72 @@ func (h *handler) setTaskView(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true, Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: age,
 	})
-	// #nosec G710 -- safeNext rejects anything that is not a relative path on
-	// this origin, including protocol-relative, backslash and control forms.
-	http.Redirect(w, r, safeNext(field(r, "next")), http.StatusSeeOther)
-	return nil
+}
+
+// ViewParam names the drawing in the address. It wins over the remembered
+// choice, so a link to a filter on the board opens on the board.
+const ViewParam = "view"
+
+// viewParam is the view the address names, or "" when it names none this
+// build draws.
+func viewParam(r *http.Request) string {
+	if v := r.URL.Query().Get(ViewParam); knownTaskView(v) {
+		return v
+	}
+	return ""
+}
+
+// screenView is the drawing a task screen request asks for: the address
+// first, then the remembered choice on the task list, or the board on a
+// project's page, which is what that page has always opened on.
+func screenView(r *http.Request, scope *taskScope) string {
+	if v := viewParam(r); v != "" {
+		return v
+	}
+	if scope != nil {
+		return TaskViewBoard
+	}
+	return taskViewOf(r)
+}
+
+// rememberTaskView stores the view a task list address names, so the next
+// visit without one opens the same way.
+func (h *handler) rememberTaskView(w http.ResponseWriter, r *http.Request) {
+	if v := viewParam(r); v != "" && v != taskViewOf(r) {
+		h.writeTaskView(w, r, v)
+	}
+}
+
+// viewLink is one position of the view switch drawn on a task screen.
+type viewLink struct {
+	Value    string
+	Label    string
+	Href     string
+	Selected bool
+}
+
+// viewDropped are the parameters a switch link leaves behind. A cursor and
+// its trail address a position in one drawing's walk, and the list narrows to
+// open work where the board does not; the flash and an open dialog belong to
+// the page they were drawn on. Everything else stays, including a filter the
+// target view does not use, so switching back restores it.
+var viewDropped = []string{CursorParam, TrailParam, PageParam, "flash", "flashref", FlashUndoParam, DialogParam}
+
+// viewLinks is the view switch: one link per drawing to route, each carrying
+// the request's query with its own view.
+func viewLinks(r *http.Request, route, current string) []viewLink {
+	base := r.URL.Query()
+	for _, k := range viewDropped {
+		base.Del(k)
+	}
+	out := make([]viewLink, 0, len(TaskViews))
+	for _, v := range TaskViews {
+		q := url.Values{}
+		for k, vals := range base {
+			q[k] = append([]string(nil), vals...)
+		}
+		q.Set(ViewParam, v)
+		out = append(out, viewLink{Value: v, Label: taskViewLabels[v], Href: route + "?" + q.Encode(), Selected: v == current})
+	}
+	return out
 }

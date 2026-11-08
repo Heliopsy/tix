@@ -342,7 +342,8 @@ can back off on 7 and page someone on 1.
 ## Tokens and scopes
 
 The browser's **Connect an agent** screen (`/connect`) issues a token and fills it into every command an
-agent needs: the CLI context, the MCP client of your choice, the skill and the REST API. See
+agent needs, one tab per way in: CLI, MCP (a tab per client), SSH, API and Skill. Each tab is a link, so
+`/connect?tab=mcp&client=codex` is the Codex setup for your server. See
 [web-ui.md](web-ui.md#connect-an-agent).
 
 Give an agent a token, not a user session:
@@ -498,8 +499,9 @@ enrolled in several. See [deployment.md](deployment.md#the-terminal-interface-ov
 the whole identity, and each new one is handed a seeded ephemeral tenant that is deleted after `--tenant-ttl`
 without a visit. That listener faces strangers, so it refuses to share a database with real work.
 
-An agent should still use a token. An enrolled key buys a terminal session and nothing else: the SSH listener
-serves the interactive interface, not the command tree, so there is no way to drive `tix claim` through it.
+An enrolled key also runs tix commands on the listener, `ssh acme@host task ls -o json`, with nothing
+configured on the client; see [deployment.md](deployment.md#commands-over-ssh). An agent should still use a
+token: it carries only the scopes you grant, where a key carries everything its person's role allows.
 
 ## Adding many tasks
 

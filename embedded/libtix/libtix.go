@@ -22,7 +22,7 @@ func main() {}
 
 func out(s string) *C.char { return C.CString(s) }
 
-// TixStart starts tix from {"db_path","listen","init_if_missing"} and returns
+// TixStart starts tix from {"db_path","listen","init_if_missing","journal_mode"} and returns
 // {"handle","url"} or {"error":{"code","message"}}.
 //
 //export TixStart

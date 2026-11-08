@@ -73,7 +73,7 @@ func TestTheSidebarCarriesTheColourSchemeSwitch(t *testing.T) {
 // The switch says what the scheme is and what pressing it does, in its
 // accessible name rather than in a title attribute, which never reaches a
 // keyboard user who does not hover. One press moves to the next scheme and
-// four presses come back to where they started.
+// six presses come back to where they started.
 func TestTheColourSchemeSwitchCyclesAndNamesBothHalves(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -83,8 +83,10 @@ func TestTheColourSchemeSwitchCyclesAndNamesBothHalves(t *testing.T) {
 	want := []struct{ scheme, label, next string }{
 		{"", "System", "Light"},
 		{"light", "Light", "Dark"},
-		{"dark", "Dark", "Low contrast"},
-		{"dim", "Low contrast", "System"},
+		{"dark", "Dark", "OLED"},
+		{"oled", "OLED", "Low contrast"},
+		{"dim", "Low contrast", "System, OLED when dark"},
+		{"system-oled", "System, OLED when dark", "System"},
 		{"", "System", "Light"},
 	}
 	for i, step := range want {
@@ -222,7 +224,7 @@ func TestSettingsPageNeedsNoScripting(t *testing.T) {
 	}
 }
 
-// All four schemes have to render the settings page, including the one an
+// Every scheme have to render the settings page, including the one an
 // untouched browser gets and the low contrast one.
 func TestSettingsPageRendersInEveryScheme(t *testing.T) {
 	t.Parallel()
@@ -495,7 +497,7 @@ func TestATenantAccentReachesEveryScheme(t *testing.T) {
 	// pinned dark and dim schemes, and the system preference.
 	for _, want := range []string{
 		`:root { --accent:`,
-		`:root[data-theme="dark"], :root[data-theme="dim"] { --accent:`,
+		`:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent:`,
 		`:root:not([data-theme="light"]):not([data-theme="dim"]) { --accent:`,
 	} {
 		if !strings.Contains(page, want) {

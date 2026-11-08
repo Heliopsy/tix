@@ -264,6 +264,11 @@ any credential is examined:
 A host bound to one tenant keeps the strict rule: `X-Tix-Tenant` must name that tenant or be absent, and a
 credential of another tenant is refused.
 
+A link to a screen, such as the one the task screen's Share menu copies, names no tenant: the browser
+interface refuses a request that names one. On a shared host it opens for whoever follows it in the tenant
+their session is in, so a member of the same tenant signed in to it there sees the task, and a person in
+several tenants switches first ([web-ui.md](web-ui.md#sharing-a-task)).
+
 Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
 the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
 any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
@@ -401,7 +406,7 @@ The exclusions are narrow and each carries its reason next to it in `.golangci.y
 | `internal/store/postgres/schema.go` | DDL, the RLS policies themselves, and monthly partition maintenance act on the schema, not on rows |
 | `internal/store/{postgres,sqlite}/tx.go` | Transaction lifecycle, plus `set_config` and `SET LOCAL ROLE`; these install the scope every later statement runs under |
 | `internal/store/postgres/listen.go` | `LISTEN` on a dedicated connection carries a channel name, no rows |
-| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known |
+| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known, and `PRAGMA wal_checkpoint` at an embedded stop |
 | `*_test.go` | Tests build ad-hoc unscoped queries on purpose, to prove the other layers hold |
 
 **Request scoping.** In the HTTP layer, the tenant is resolved from the `Host` header before authentication

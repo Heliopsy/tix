@@ -551,6 +551,7 @@ Reading one task or a few:
 ```sh
 tix task show default-1 -o json      # one task
 tix task tree default-1              # a task and its descendants
+tix task link default-1 --as markdown   # its web address as a Markdown link, for a PR or a chat
 tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred

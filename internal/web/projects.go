@@ -15,12 +15,13 @@ func (h *handler) projectRoutes() []route {
 	return []route{
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
-		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs"),
+		get(RouteProject, "tasks.html", h.showProjectTasks, "GetProject", "ListTasks", "ListProjects", "ListTags",
+			"ListGroupPrefs", "ListSavedFilters", "ListTemplates", "TrashStatus"),
 		get(RouteProjectSettings, "projectsettings.html", h.showProjectSettings,
 			"GetProject", "ListWorkflows", "GetHousekeeping"),
-		// The board's live fragment renders through the same template set,
-		// and the same block, the full board does. See showBoardLive.
-		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
+		// The project page's live fragment renders through the same template
+		// set, and the same block, the page does. See showProjectTasksLive.
+		get(RouteBoardLive, "tasks.html", h.showProjectTasksLive, "GetProject", "ListTasks"),
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
 		post(RouteProjectLease, h.updateProjectLease, "UpdateProject"),
 		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
@@ -36,7 +37,7 @@ func (h *handler) projectRoutes() []route {
 }
 
 // projectsView is what the project list renders. Editing a project, and
-// archiving or deleting it, happen on the project's own page (board.html),
+// archiving or deleting it, happen on the project's settings screen,
 // which has carried a full settings disclosure and a danger zone since the
 // board rework; the listing only ever needs to link to it, not to carry a
 // second copy of that form. Workflows and Colors are still needed here for
@@ -303,27 +304,6 @@ type column struct {
 	Head groupHead
 }
 
-// boardView is what the project board renders: the columns and nothing
-// else. The project's settings are a screen of their own; see
-// projectSettingsView.
-type boardView struct {
-	Project  core.Project
-	Workflow core.Workflow
-	Columns  []column
-
-	// Arrange is the reader's own arrangement of this board's columns.
-	Arrange arrangement
-
-	// Live is what keeps the columns current while the board is open. See
-	// live.go.
-	Live liveScreen
-
-	// Export is the Export dialog, nil for a reader who may not export.
-	Export *exportForm
-	// Import offers the import steps to a reader who may import.
-	Import bool
-}
-
 // projectSettingsView is what a project's settings screen renders.
 type projectSettingsView struct {
 	Project   core.Project
@@ -346,18 +326,6 @@ type projectSettingsView struct {
 	// Housekeeping is the project's cleanup overrides, nil for a reader who
 	// may not change them.
 	Housekeeping *housekeepingForm
-}
-
-// showBoard renders one column per workflow state.
-func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildBoardView(r)
-	if err != nil {
-		return err
-	}
-	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
-		return nil
-	}
-	return h.render(w, r, "board.html", data.Project.Name, data)
 }
 
 // showProjectSettings renders a project's settings, its claims, its
@@ -400,62 +368,6 @@ func (h *handler) buildSettingsView(r *http.Request) (projectSettingsView, error
 // settingsPath is a project's settings screen.
 func settingsPath(key string) string { return RouteProjects + "/" + key + "/settings" }
 
-// showBoardLive renders only the columns, from the same block the whole
-// board is drawn by, so a card that arrives live carries the moves its own
-// workflow allows rather than a set this file would have to guess at.
-func (h *handler) showBoardLive(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildBoardView(r)
-	if err != nil {
-		return err
-	}
-	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
-		return nil
-	}
-	return h.renderFragment(w, r, "board.html", "board-live", data.Project.Name, data)
-}
-
-// buildBoardView answers one request for a project board, for the page and
-// for its live fragment alike.
-func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
-	key := r.PathValue("key")
-	project, err := h.svc.GetProject(r.Context(), key)
-	if err != nil {
-		return boardView{}, err
-	}
-	workflows, err := h.svc.ListWorkflows(r.Context())
-	if err != nil {
-		return boardView{}, err
-	}
-	workflow, err := workflowFor(project, workflows)
-	if err != nil {
-		return boardView{}, err
-	}
-	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{
-		ProjectKeys: []string{project.Key},
-		Page:        core.Page{Limit: core.MaxPageLimit},
-	})
-	if err != nil {
-		return boardView{}, err
-	}
-	columns, arrange := h.arrangeProjectBoard(r, *project, workflow.Definition, buildColumns(workflow.Definition, page.Tasks))
-	view := boardView{Project: *project, Workflow: *workflow,
-		Columns: columns,
-		Arrange: arrange,
-		Live:    h.liveBoard(*project),
-	}
-	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeExport) {
-		defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
-		if err != nil {
-			return boardView{}, err
-		}
-		view.Export = newExportForm(defs)
-	}
-	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeImport) {
-		view.Import = true
-	}
-	return view, nil
-}
-
 // workflowOf resolves the workflow a project is assigned.
 func (h *handler) workflowOf(r *http.Request, project *core.Project) (*core.Workflow, error) {
 	workflows, err := h.svc.ListWorkflows(r.Context())
@@ -473,21 +385,6 @@ func workflowFor(project *core.Project, workflows []core.Workflow) (*core.Workfl
 		}
 	}
 	return nil, core.NotFound("workflow for project %q", project.Key)
-}
-
-// buildColumns groups tasks into the workflow's states, in declared order.
-func buildColumns(def core.WorkflowDefinition, tasks []core.Task) []column {
-	columns := make([]column, 0, len(def.States))
-	for _, state := range def.States {
-		col := column{State: state}
-		for _, task := range tasks {
-			if task.Status == state.Key {
-				col.Tasks = append(col.Tasks, card{Task: task, Routes: flowRoutes(def, task.Status)})
-			}
-		}
-		columns = append(columns, col)
-	}
-	return columns
 }
 
 // moveCard applies a board move, which is a route of one hop or of several.

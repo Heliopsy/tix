@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The project page: the task screen narrowed to one project, with the
+   project's own actions leading its header (templates/tasks.html). On a
+   phone those three buttons and the view switch took two rows above the
+   filter; there they keep their icons and tooltips, and their names stay
+   for a screen reader. */
+@media (max-width: 639px) {
+  .projact .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .projact { padding-inline: var(--space-2); }
+}

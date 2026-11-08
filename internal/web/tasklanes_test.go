@@ -99,7 +99,7 @@ func TestTheViewSwitchOffersAndKeepsLanes(t *testing.T) {
 	b := f.as("alice")
 	ref := b.createTask("infra", "in a lane")
 
-	values := regexp.MustCompile(`name="view" value="([^"]+)"`)
+	values := regexp.MustCompile(`(?:name="view" value|data-view)="([^"]+)"`)
 	for _, screen := range []string{"/tasks", "/settings"} {
 		var got []string
 		for _, m := range values.FindAllStringSubmatch(viewSwitch(t, b.page(screen)), -1) {

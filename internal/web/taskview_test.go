@@ -58,18 +58,24 @@ func (b *browser) chooseBoard(next string) string {
 	return resp.Header.Get("Location")
 }
 
-// viewSwitch is the switch's own form and nothing else, so an assertion about
-// the control cannot pass on a button belonging to another form on the page.
+// viewSwitch is the switch and nothing else, so an assertion about the
+// control cannot pass on a button or link belonging to something else on the
+// page. On a task screen it is the row of links (a nav), on settings the form
+// that sets the remembered view.
 func viewSwitch(t *testing.T, page string) string {
 	t.Helper()
-	start := strings.Index(page, `class="viewswitch"`)
+	start := strings.Index(page, `class="viewswitch`)
 	if start < 0 {
 		t.Fatalf("the task screen carries no view switch:\n%s", page)
 	}
 	block := page[start:]
-	end := strings.Index(block, "</form>")
+	closer := "</form>"
+	if strings.HasPrefix(block, `class="viewswitch viewlinks"`) {
+		closer = "</nav>"
+	}
+	end := strings.Index(block, closer)
 	if end < 0 {
-		t.Fatal("the view switch is not a closed form")
+		t.Fatalf("the view switch is not closed by %s", closer)
 	}
 	return block[:end]
 }
@@ -141,12 +147,12 @@ func TestTaskViewSwitchPersistsAcrossRequests(t *testing.T) {
 	// The control itself, on the screen it switches. A preference reachable
 	// only by posting to its route is a preference nobody has.
 	switchForm := viewSwitch(t, list)
-	for _, want := range []string{`name="view" value="list"`, `name="view" value="board"`} {
+	for _, want := range []string{`data-view="list"`, `data-view="board"`} {
 		if !strings.Contains(switchForm, want) {
 			t.Errorf("the view switch offers no %q:\n%s", want, switchForm)
 		}
 	}
-	if !strings.Contains(switchForm, `segment is-on`) || !strings.Contains(switchForm, `aria-current="true"`) {
+	if !strings.Contains(switchForm, `segment is-on`) || !strings.Contains(switchForm, `aria-current="page"`) {
 		t.Errorf("the switch does not say which view is current:\n%s", switchForm)
 	}
 	b.chooseBoard("/tasks")
