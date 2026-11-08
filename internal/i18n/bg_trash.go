@@ -12,10 +12,13 @@ func init() {
 		"The trash is empty.":                                   "Кошчето е празно.",
 		"The trash is empty":                                    "Кошчето е празно",
 		"A deleted task waits here until somebody restores it.": "Изтритата задача чака тук, докато някой не я възстанови.",
-		"Deleted %s": "Изтрита %s",
-		"deleted":    "изтрита",
-		"Restore %s": "Възстанови %s",
-		"Restore":    "Възстанови",
+		"Deleted %s":             "Изтрита %s",
+		"deleted":                "изтрита",
+		"Restore %s":             "Възстанови %s",
+		"Restore":                "Възстанови",
+		"Delete %s permanently":  "Изтрий %s завинаги",
+		"Delete %s permanently?": "Да се изтрие ли %s завинаги?",
+		"%s and its subtasks in the trash are deleted for good, with their comments, links and attachments. It cannot be undone; the audit log keeps the record.": "%s и подзадачите ѝ в кошчето се изтриват завинаги, заедно с коментарите, връзките и прикачените файлове. Това не може да бъде отменено; журналът на одита пази записа.",
 
 		// A tenant whose trash is turned off: the confirmation that stands in
 		// for the undo, and the setting on the Tenant screen.

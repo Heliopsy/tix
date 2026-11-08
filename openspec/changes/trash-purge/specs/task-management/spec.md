@@ -2,7 +2,7 @@
 
 ### Requirement: A trashed task can be purged
 
-Purging a task in the trash SHALL permanently delete it and its trashed descendants, deepest first, exactly as the trash rule does, writing per task one `task.delete` audit entry with `hard` and `purged` true and one `task.deleted` event, all in one transaction. It SHALL need the permission and scope a delete needs.
+Purging a task in the trash SHALL permanently delete it and its trashed descendants, deepest first, exactly as the trash rule does, writing per task one `task.delete` audit entry and one `task.deleted` event whose payload sets `hard` and `purged`, all in one transaction. It SHALL need the permission and scope a delete needs.
 
 #### Scenario: Purging a trashed task with a trashed subtask
 

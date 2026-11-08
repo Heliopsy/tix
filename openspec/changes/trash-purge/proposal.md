@@ -10,8 +10,8 @@ out the rule, or turn the trash off.
 ## What Changes
 
 - `PurgeTask` on the service permanently deletes one task already in the trash, with its trashed subtasks,
-  deepest first, the same rows the trash rule removes, each with a `task.delete` audit entry (`hard`,
-  `purged`) and a `task.deleted` event, all in one transaction.
+  deepest first, the same rows the trash rule removes, each with a `task.delete` audit entry and a
+  `task.deleted` event (payload `hard`, `purged`), all in one transaction.
 - A live task is refused as a failed precondition with reason `not_trashed`: it has to be deleted first.
 - With the tenant's trash off it is refused with reason `trash_off`, like a restore: what the trash held stays
   untouched until it is back on.

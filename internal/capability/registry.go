@@ -455,6 +455,16 @@ var registry = []Operation{
 		TUI: "board",
 	},
 	{
+		Name: "task.purge", Method: "PurgeTask",
+		Scope: core.ScopeTaskDelete,
+		CLI:   "tix task purge",
+		HTTP:  apiDelete(wire.RouteTaskTrash),
+		Web:   webPost(web.RouteTaskPurge),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the board reveals deleted cards and offers restore on them, but a permanent delete there would need its own confirmation flow; purging is on the web Trash, the command line and the API"),
+		},
+	},
+	{
 		Name: "trash.status", Method: "TrashStatus",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task trash",

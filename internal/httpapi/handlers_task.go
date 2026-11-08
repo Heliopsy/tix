@@ -54,6 +54,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskTransition, rt.handleTransitionTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRoute, rt.handleTransitionRoute)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskTrash, rt.handlePurgeTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskBulk, rt.handleBulkTasks)
@@ -534,6 +535,20 @@ func (rt *Router) handleRestoreTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, task)
+}
+
+// handlePurgeTask permanently deletes a task in the trash.
+func (rt *Router) handlePurgeTask(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if err := rt.cfg.Service.PurgeTask(r.Context(), ref); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
 }
 
 // handleTrashStatus answers whether the tenant keeps deleted tasks.

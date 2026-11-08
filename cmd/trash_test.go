@@ -34,3 +34,16 @@ func TestTenantEditTurnsTheTrashOffAndTaskRmSaysItIsPermanent(t *testing.T) {
 		t.Errorf("task ls --trashed with the trash off exited %d, want %d\n%s", got.code, core.ExitPrecondtion, got.err)
 	}
 }
+
+func TestTaskPurgeDeletesOnlyWhatIsInTheTrash(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "purged")
+	if got := c.run("task", "purge", "default-1"); got.code != core.ExitPrecondtion {
+		t.Fatalf("purging a live task exited %d, want %d\n%s", got.code, core.ExitPrecondtion, got.err)
+	}
+	c.mustRun("task", "rm", "default-1")
+	c.mustRun("task", "purge", "default-1")
+	if got := c.run("task", "restore", "default-1"); got.code != core.ExitNotFound {
+		t.Errorf("restoring a purged task exited %d, want %d", got.code, core.ExitNotFound)
+	}
+}

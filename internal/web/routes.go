@@ -182,6 +182,7 @@ const (
 	RouteTaskPriority    = "/tasks/{ref}/priority"
 	RouteTaskDelete      = "/tasks/{ref}/delete"
 	RouteTaskRestore     = "/tasks/{ref}/restore"
+	RouteTaskPurge       = "/tasks/{ref}/purge"
 	RouteTaskReclaim     = "/tasks/{ref}/reclaim"
 	RouteTaskDeps        = "/tasks/{ref}/deps"
 	RouteTaskDepDel      = "/tasks/{ref}/deps/remove"
