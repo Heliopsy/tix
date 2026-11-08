@@ -889,18 +889,24 @@ buttons are not drawn, and the link is there to select. A lane card's three dots
 Markdown, Copy key and title and Share… beside its Copy link and Copy reference.
 
 The address is the task's screen, `/tasks/REF`, on the scheme and host the browser is on, so behind a
-proxy it is the address the reader typed. A reference under a project's old key still opens the task
+proxy it is the address the reader typed. When the server is configured with `server.public_url`
+([configuration.md](configuration.md#the-public-web-address)), a host serving several tenants copies the
+link under that address instead, so a reader who reached the server by an internal name or a proxy's
+backend port still hands out the address everybody else opens; on a tenant's own domain the link stays on
+that domain. A reference under a project's old key still opens the task
 ([Changing a project's key](#changing-a-projects-key)). It names no tenant, and needs none: on a shared
 host the tenant comes from the reader's session ([tenancy.md](tenancy.md#switching-tenant)), so another
 member of the same tenant, signed in to it on that host, opens the task. Someone signed in there to a
 different tenant of theirs switches tenant first, and someone not signed in signs in and lands on the
 task. A `?tenant=` on the link would not help: the interface refuses a tenant named in the request.
 
-The command line prints the same address with `tix task link REF`, from the server the context talks to,
-and `--as markdown` or `--as text` print the other two forms. A local database has no web address, so
-there it needs `--base` naming the address the browser interface is served at. The SSH listener runs
-only registry operations and does not know the web address either, so `tix task link` is not offered
-over SSH, and the terminal interface, which has no clipboard, does not offer it.
+The command line prints the same address with `tix task link REF`, and `--as markdown` or `--as text`
+print the other two forms. The address is the task's `web_url` when the server sets one, else the server
+the context talks to; a local database without `server.public_url` has no web address, so there it needs
+`--base`. Over SSH `tix task link` prints the `web_url` and refuses `--base`, and it exits 2 naming
+`server.public_url` on a server without it. The terminal interface shares a task with `^`, through the
+terminal's clipboard ([tui.md](tui.md#sharing-a-task)). Over the API and MCP every task carries the same
+link as `web_url` while `server.public_url` is set.
 
 ## Acting on many tasks
 

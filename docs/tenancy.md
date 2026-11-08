@@ -264,6 +264,14 @@ interface refuses a request that names one. On a shared host it opens for whoeve
 their session is in, so a member of the same tenant signed in to it there sees the task, and a person in
 several tenants switches first ([web-ui.md](web-ui.md#sharing-a-task)).
 
+With `server.public_url` set, a link is built for the tenant it belongs to. A tenant served on a domain of
+its own, one not marked shared, links under that domain, with the public address's scheme, port and path:
+`https://tix.example.com/tix` and tenant acme bound to `tix.acme.example` give
+`https://tix.acme.example/tix/tasks/acme-3`. Every other tenant links under the public address itself. This
+holds wherever the link is built: a page, the API's `web_url`, `tix task link` over SSH, the terminal
+interface and a notification channel message. Without the key, a page links under the host it was reached
+at, and nothing outside a request builds a link.
+
 Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
 the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
 any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
