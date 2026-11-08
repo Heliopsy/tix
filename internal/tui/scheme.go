@@ -213,7 +213,7 @@ func KeyMapFor(scheme Scheme) KeyMap {
 // two views, and often should.
 func viewActions(v viewKind) []string {
 	global := []string{"Palette", "Help", "Refresh", "Menu", "Projects", "Project", "Activity", "History",
-		"Inbox", "Tenant", "Quit", "Interrupt"}
+		"Inbox", "Tenant", "Account", "Quit", "Interrupt"}
 	switch v {
 	case viewProjects:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "NewProject", "Back"}, global...)
@@ -249,6 +249,14 @@ func viewActions(v viewKind) []string {
 		}, global...)
 	case viewHistory:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Back"}, global...)
+	case viewAccount:
+		// Left and Right cycle a form's answers, and space and a drive the
+		// scope picker, so a scheme moving any of them onto another of this
+		// screen's keys would break the forms or the picker.
+		return append([]string{
+			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
+			"New", "Delete", "ToggleRead", "ReadAll", "Back",
+		}, global...)
 	case viewInbox:
 		return append([]string{"Up", "Down", "Top", "Bottom", "Enter", "ToggleRead", "ReadAll", "Back"}, global...)
 	case viewProject:
@@ -269,7 +277,7 @@ func viewActions(v viewKind) []string {
 // inline where a view added later would quietly miss it.
 var collisionViews = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewSettings, viewActivity, viewTenant,
-	viewProject, viewHistory, viewInbox, viewHelp, viewMenu,
+	viewProject, viewHistory, viewInbox, viewHelp, viewMenu, viewAccount,
 }
 
 // Collision is one key bound to two actions in the same view.
@@ -374,6 +382,8 @@ func viewName(v viewKind) string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewAccount:
+		return "account"
 	default:
 		return "help"
 	}

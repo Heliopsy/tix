@@ -216,6 +216,10 @@ type Model struct {
 	menuSel     int
 	menuProject int
 
+	// acct is the account screen's state, kept in one field so the screen
+	// stays in account.go.
+	acct accountState
+
 	err         string
 	status      string
 	fatal       error
@@ -452,6 +456,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onInbox(msg)
 	case inboxMarkMsg:
 		return m.onInboxMark(msg)
+	case accountMsg:
+		return m.onAccount(msg)
+	case accountDoneMsg:
+		return m.onAccountDone(msg)
 	case projectMsg:
 		m.setup, m.setupOff = &msg, 0
 		return m.enterView(viewProject), nil
@@ -786,6 +794,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleHistoryKey(msg)
 	case viewInbox:
 		return m.handleInboxKey(msg)
+	case viewAccount:
+		return m.handleAccountKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
 	}
@@ -1142,6 +1152,9 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case doTenant:
 		next, cmd := m.openTenant()
+		return next, cmd, true
+	case doAccount:
+		next, cmd := m.openAccount()
 		return next, cmd, true
 	case doQuit:
 		next, cmd := m.leave(tea.Quit)
@@ -1598,7 +1611,10 @@ func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
-		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
+		HasRows: (m.view == viewTenant && len(m.adminRows()) > 0) ||
+			(m.view == viewAccount && m.accountRemovable()),
+		Picking:   m.view == viewAccount && m.acct.picker != nil,
+		Enrolling: m.view == viewAccount && m.acct.enrolment != nil}
 	if _, ok := m.selectedColumn(); ok {
 		ctx.HasColumn = true
 		ctx.CanLeft = ColumnNeighbour(m.columns, m.sel.Col, -1) >= 0
@@ -1659,6 +1675,9 @@ func (m Model) refresh() tea.Cmd {
 	// anything else from here would reload a screen the reader is not on.
 	if m.view == viewTenant {
 		return m.loadTenantInfo()
+	}
+	if m.view == viewAccount {
+		return m.loadAccount()
 	}
 	if m.project.ID == "" {
 		return m.loadProjects()
@@ -2155,6 +2174,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyMember(form)
 	case formSavedFilter:
 		return m.closeForm().applySavedFilter(form)
+	case formAccountAdd, formToken, formSSHKey, formTOTPCode:
+		return m.closeForm().submitAccountForm(form)
 	}
 	if form.Kind == formTaskEdit {
 		next := m.closeForm()
@@ -2281,7 +2302,7 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 	case confirmDeleteTemplate:
 		return m.deleteTemplate(c.template)
 	default:
-		return nil
+		return m.runAccountConfirm(c)
 	}
 }
 

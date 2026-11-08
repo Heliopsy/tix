@@ -18,7 +18,7 @@ import (
 // resolve a name for.
 var everyView = []viewKind{
 	viewProjects, viewBoard, viewDetail, viewHelp, viewSettings,
-	viewActivity, viewTenant, viewStats, viewProject, viewHistory, viewInbox, viewMenu,
+	viewActivity, viewTenant, viewStats, viewProject, viewHistory, viewInbox, viewMenu, viewAccount,
 }
 
 // fullAccess offers every view, which is what an administrator's authority

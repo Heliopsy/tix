@@ -18,6 +18,10 @@ const (
 	confirmRemoveDomain
 	confirmRemoveMember
 	confirmDeleteTemplate
+	confirmRevokeToken
+	confirmRevokeKey
+	confirmRemoveTOTP
+	confirmRecoveryCodes
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -31,6 +35,10 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRemoveDomain:   "remove domain",
 	confirmRemoveMember:   "remove member",
 	confirmDeleteTemplate: "delete template",
+	confirmRevokeToken:    "revoke",
+	confirmRevokeKey:      "revoke",
+	confirmRemoveTOTP:     "remove",
+	confirmRecoveryCodes:  "replace",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -66,6 +74,8 @@ type Confirm struct {
 	actorID  string
 	// template names the task template a deletion removes.
 	template string
+	// credential is the token or key a revocation on the account screen names.
+	credential string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

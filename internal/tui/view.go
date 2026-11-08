@@ -101,6 +101,8 @@ func (m Model) viewName() string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewAccount:
+		return "account"
 	case viewHelp:
 		return "help"
 	}
@@ -157,6 +159,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.inboxLines(layout)
 	case viewMenu:
 		return m.menuLines()
+	case viewAccount:
+		return m.accountLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
