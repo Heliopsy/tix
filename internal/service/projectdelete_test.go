@@ -146,11 +146,18 @@ func TestDeletingTheTasksWithTheProjectRecordsEachOne(t *testing.T) {
 	before := len(f.events(t))
 	_, audits := countRows(t, f.l, f.scope)
 
+	plan, err := f.l.PlanProjectDeletion(f.ctx, "old", core.DeleteProjectInput{DeleteTasks: true})
+	if err != nil {
+		t.Fatalf("PlanProjectDeletion: %v", err)
+	}
+	if plan.Tasks != 2 || plan.Trashed != 1 || plan.Deleted != 0 || plan.WouldDelete != 3 || !plan.DryRun {
+		t.Errorf("the plan reports %+v", plan)
+	}
 	done, err := f.l.DeleteProject(f.ctx, "old", core.DeleteProjectInput{DeleteTasks: true})
 	if err != nil {
 		t.Fatalf("DeleteProject: %v", err)
 	}
-	if done.Tasks != 2 || done.Deleted != 1 || !done.DeleteTasks {
+	if done.Tasks != 2 || done.Trashed != 1 || done.Deleted != 3 || done.WouldDelete != 0 || !done.DeleteTasks {
 		t.Errorf("the result reports %+v", done)
 	}
 	for _, id := range []string{one.ID, two.ID, binned.ID} {

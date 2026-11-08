@@ -397,8 +397,14 @@ type ProjectDeletion struct {
 	Project string `json:"project" yaml:"project"`
 	// Tasks counts the project's live tasks.
 	Tasks int `json:"tasks" yaml:"tasks"`
-	// Deleted counts the project's soft deleted tasks, in the trash.
+	// Trashed counts the project's soft deleted tasks, in the trash.
+	Trashed int `json:"trashed" yaml:"trashed"`
+	// Deleted counts the tasks the deletion removed permanently, trashed ones
+	// included. It is zero for a move and for a plan, which deletes nothing.
 	Deleted int `json:"deleted" yaml:"deleted"`
+	// WouldDelete counts the tasks a planned deletion would remove
+	// permanently, trashed ones included. Only a plan sets it.
+	WouldDelete int `json:"would_delete,omitempty" yaml:"would_delete,omitempty"`
 	// MoveTo is the target's key when the tasks move.
 	MoveTo string `json:"move_to,omitempty" yaml:"move_to,omitempty"`
 	// DeleteTasks reports that the tasks go permanently with the project.
@@ -410,7 +416,7 @@ type ProjectDeletion struct {
 }
 
 // Total is every task the deletion reaches, soft deleted ones included.
-func (d ProjectDeletion) Total() int { return d.Tasks + d.Deleted }
+func (d ProjectDeletion) Total() int { return d.Tasks + d.Trashed }
 
 // StatusMove is one source status, the target status it maps to and how many
 // tasks it carries.

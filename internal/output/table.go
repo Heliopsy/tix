@@ -957,7 +957,8 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.DryRun && d.MoveTo != "":
 		return fmt.Sprintf("Dry run, planned only: deleting %s would move its %s to %s; nothing was written.", d.Project, n, d.MoveTo)
 	case d.DryRun && d.DeleteTasks:
-		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.", d.Project, n)
+		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.",
+			d.Project, countOf(d.WouldDelete, "task", "tasks"))
 	case d.DryRun:
 		return fmt.Sprintf("Dry run, planned only: %s holds %s; pass --move-tasks-to KEY or --delete-tasks; nothing was written.",
 			d.Project, n)
@@ -966,7 +967,7 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.MoveTo != "":
 		return fmt.Sprintf("Deleted project %s and moved its %s to %s.", d.Project, n, d.MoveTo)
 	default:
-		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, n)
+		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, countOf(d.Deleted, "task", "tasks"))
 	}
 }
 
