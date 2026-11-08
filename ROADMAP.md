@@ -710,6 +710,61 @@ Two things it has to get right, because getting them wrong is embarrassing later
   problem with backups, so a stale target is a `doctor` failure and an event on the stream, not
   a line in a log nobody reads.
 
+### Time machine
+
+Take back one change, or see a task or a project the way it was at a given moment, and put it back
+that way if needed. Today undo is narrow: the browser's toast takes back a move, a priority change or a
+soft delete for ten seconds, and everywhere else the way back is doing the opposite by hand, which
+assumes you remember what the field said before.
+
+Four pieces, roughly in the order they would be built:
+
+- **Revert one change.** A task's History row gets a Revert, and `tix task revert REF --entry SEQ` does
+  the same from the command line: a field edit, a status move, a reassignment, a rewritten
+  description, a tag or a dependency put back the way that entry found it. The revert is a new change
+  with its own audit entry and event, naming the entry it reverts. Nothing is erased, so the history
+  still shows the mistake and the correction, and a revert can itself be reverted.
+- **Read a task or a project as of a time.** `tix task show REF --at 2026-03-01T09:00` and the same
+  `--at` on a project's list or board, drawn read-only with a banner saying when, and no forms.
+- **Restore to a time.** Everything that changed on the task or the project since T, put back in one
+  request. Each record restored writes its own audit entry and event, the way a bulk action does, so
+  "who rolled this back, and from where" has the answer it has for any other change.
+- **A point-in-time view of a tenant.** Possibly. The audit log already holds enough to replay it, but
+  it is the same code at a larger scale and the least obviously useful of the four.
+
+Some rules it has to keep:
+
+- **Permissions are the change's, not the history's.** Reverting a status move needs the right to move
+  that task, and a revert on a claimed task is held to whatever an edit there is held to. Reading
+  history is `audit:read`; changing anything is not.
+- **Later changes win unless you say otherwise.** If a field was changed again after the entry being
+  reverted, the revert is refused with a conflict that names the later entry, the way a stale
+  `version` is refused today, and offers to revert both or to overwrite. A workflow with no way back
+  from the current state refuses the move, as `tix task mv` would.
+- **It reaches as far as retention does.** The time machine reads the audit log, and
+  `retention.audit` (a year by default, per tenant with `tix retention set`) prunes it. Before the
+  oldest kept entry, the answer is "not recorded", never a guess. Events are no help here: they keep
+  thirty days and carry field names, not values.
+- **Every surface or none.** Revert and `--at` are service methods with registry entries, so the CLI,
+  the API, MCP, the browser and the terminal get them together. An agent undoing its own bad edit
+  over MCP is one of the better reasons to build it.
+
+**Seam in v1:** every mutation already writes an audit entry in the same transaction, and for tasks
+and projects that entry carries the whole record before and after (`before_state`, `after_state`),
+which is what a History row's Raw dialog shows. A revert of a task field is therefore a read of one
+entry and an ordinary update, with no schema change. Tags, dependencies and comments are their own
+entries (`tag.add`, `dependency.remove`, `comment.edit`), so a point-in-time task is the task row
+plus those, replayed. `version` already refuses a stale write. The trash already brings back a soft
+delete, and a hard-deleted task's last state survives in its `task.delete` entry. The `via` channel
+already records where a change came from, so a revert from MCP is told apart from one in the browser.
+
+**Still to design:** the audit snapshot is redacted, so a value that looked like a credential was
+stored scrubbed and cannot be put back; a revert has to refuse that field and say why. Snapshot
+export carries no audit log, so a tenant imported from a snapshot has no history before the import.
+Workflows, custom field definitions and tenant settings would need their own before and after in the
+same shape before a project restore can cover them. And replaying a busy project's year of history
+to answer one `--at` may need periodic checkpoints rather than a scan from the first entry.
+
 ### Rate limiting and security headers
 
 Two things a server facing the internet needs. Part of the groundwork has shipped; the two
