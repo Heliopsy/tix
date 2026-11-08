@@ -3,6 +3,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -30,7 +31,7 @@ func (h *handler) adminRoutes() []route {
 		post(RouteInvites, h.createInvite, "CreateInvite"),
 		post(RouteInviteRevoke, h.revokeInvite, "RevokeInvite"),
 		post(RouteInviteReissue, h.reissueInvite, "ReissueInvite"),
-		post(RouteUserUpdate, h.updateUser, "UpdateUser"),
+		post(RouteUserUpdate, h.updateUser, "UpdateUser", "GetUser", "ListMembers"),
 		post(RouteUserDelete, h.deleteUser, "DeleteUser"),
 		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens", "ListActors"),
 		post(RouteTokens, h.createToken, "CreateToken"),
@@ -541,30 +542,69 @@ func (h *handler) createUser(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// updateUser changes a user's name, role or disabled state.
+// updateUser saves what the Manage form changed about a user, and nothing
+// else.
 func (h *handler) updateUser(w http.ResponseWriter, r *http.Request) error {
+	id := field(r, "id")
+	current, err := h.svc.GetUser(r.Context(), id)
+	if err != nil {
+		return err
+	}
+	in := userEdits(r, *current, h.memberRoles(r)[id])
+	if in != (core.UpdateUserInput{}) {
+		if _, err := h.svc.UpdateUser(r.Context(), id, in); err != nil {
+			if accountElsewhere(err) {
+				err = core.OnField(err, "require_password_change")
+			}
+			return h.refuseIn(w, r, manageDialogID(id), RouteUsers, err, h.showUsers)
+		}
+	}
+	redirect(w, r, RouteUsers, "user updated")
+	return nil
+}
+
+// userEdits is the update a Manage form asks for: the fields that differ
+// from the user as they stand. The form is drawn with every field filled, so
+// sending it whole would ask for changes nobody made, and the service refuses
+// a forced password change for somebody who also belongs to another tenant
+// even when it is the value they already have, taking the rest of the edit
+// with it.
+func userEdits(r *http.Request, u core.User, role core.Role) core.UpdateUserInput {
 	in := core.UpdateUserInput{}
 	// Presence, not value: the input is rendered with the current name in it,
 	// so emptying it and saving is the only gesture the screen offers for
 	// "this account has no display name". A caller that omits the key
 	// entirely is asking for no change, which is why the key is tested rather
 	// than what it holds.
-	if name, ok := sent(r, "display_name"); ok {
+	if name, ok := sent(r, "display_name"); ok && name != u.DisplayName {
 		in.DisplayName = &name
 	}
-	if role := field(r, "role"); role != "" {
-		value := core.Role(role)
-		in.Role = &value
+	if chosen := core.Role(field(r, "role")); chosen != "" && chosen != role {
+		in.Role = &chosen
 	}
-	disabled := checked(r, "disabled")
-	in.Disabled = &disabled
-	change := checked(r, "require_password_change")
-	in.RequirePasswordChange = &change
-	if _, err := h.svc.UpdateUser(r.Context(), field(r, "id"), in); err != nil {
-		return err
+	if off := checked(r, "disabled"); off != (u.DisabledAt != nil) {
+		in.Disabled = &off
 	}
-	redirect(w, r, RouteUsers, "user updated")
-	return nil
+	if change := checked(r, "require_password_change"); change != u.RequirePasswordChange {
+		in.RequirePasswordChange = &change
+	}
+	return in
+}
+
+// manageDialogID is the id of one user's Manage dialog.
+func manageDialogID(id string) string { return "manage-user-" + id }
+
+// reasonAccountInOtherTenants is the reason the service gives for refusing a
+// tenant administrator a change to the account of somebody who also belongs
+// to another tenant.
+const reasonAccountInOtherTenants = "account_in_other_tenants"
+
+// accountElsewhere reports whether err is that refusal. The Manage dialog
+// says so beside the control that asked, because the reader can act on it by
+// leaving that control alone.
+func accountElsewhere(err error) bool {
+	var domain *core.Error
+	return errors.As(err, &domain) && domain.Details["reason"] == reasonAccountInOtherTenants
 }
 
 // deleteUser removes a user.

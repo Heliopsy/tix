@@ -340,3 +340,31 @@ func TestTheUserAvatarTakesAWholeCharacterFromAOneWordName(t *testing.T) {
 		t.Errorf("the row carries a replacement character where a name should be:\n%s", row)
 	}
 }
+
+// The Manage form is drawn with every field filled, and saving it sends only
+// what the reader changed. Sent whole, an untouched forced password change
+// was refused for somebody who also belongs to another tenant and took the
+// rename or role change with it; a save that changes nothing changes nothing.
+func TestSavingTheManageFormUnchangedWritesNothing(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+
+	created := b.post("/admin/users", url.Values{"email": {"same@example.test"},
+		"display_name": {"Same"}, "password": {"correct-horse-battery"}, "role": {"member"}})
+	_ = created.Body.Close()
+	wantStatus(t, created, http.StatusSeeOther)
+	id := userIDFor(t, b.page("/admin/users"), "same@example.test")
+
+	saved := b.post("/admin/users/update", url.Values{"id": {id}, "display_name": {"Same"}, "role": {"member"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+
+	entries, _, err := f.svc.ListAudit(f.adminCtx(), core.AuditFilter{Actions: []string{"user.update"}})
+	if err != nil {
+		t.Fatalf("ListAudit: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("saving the form as drawn recorded %d user updates, want none", len(entries))
+	}
+}

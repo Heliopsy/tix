@@ -241,8 +241,12 @@ func (h *handler) removeTOTP(w http.ResponseWriter, r *http.Request) error {
 // needs is checked by the service; the control is drawn only for a reader who
 // holds it.
 func (h *handler) clearUserTOTP(w http.ResponseWriter, r *http.Request) error {
-	if err := h.svc.ClearUserTOTP(r.Context(), field(r, "id")); err != nil {
-		return err
+	id := field(r, "id")
+	if err := h.svc.ClearUserTOTP(r.Context(), id); err != nil {
+		if !accountElsewhere(err) {
+			return err
+		}
+		return h.refuseIn(w, r, manageDialogID(id), RouteUsers, core.OnField(err, "totp"), h.showUsers)
 	}
 	redirect(w, r, RouteUsers, "second factor cleared")
 	return nil
