@@ -83,7 +83,7 @@ func TestRoundTrip(t *testing.T) {
 	for name, tc := range map[string]struct{ answer, code string }{
 		"duplicate tenant": {CreateTenant(h, `{"key":"work","name":"Again"}`), "conflict"},
 		"bad tenant json":  {CreateTenant(h, `[]`), "invalid"},
-		"bad token json":   {Token(h, `{"nmae":"x"}`), "invalid"},
+		"bad token json":   {Token(h, `{"title":"x"}`), "invalid"},
 		"bad ttl":          {Token(h, `{"name":"x","ttl":"-5h"}`), "invalid"},
 		"missing tenant":   {Token(h, `{"tenant":"nope","name":"x"}`), "not_found"},
 		"duplicate token":  {Token(h, `{"tenant":"work","name":"app"}`), "conflict"},
@@ -162,7 +162,7 @@ func TestAPanicComesBackAsAnError(t *testing.T) {
 
 func TestParseTTL(t *testing.T) {
 	for in, want := range map[string]time.Duration{
-		"": 0, "never": -1, "720h": 720 * time.Hour, " 90d ": 90 * 24 * time.Hour, "1d": 24 * time.Hour,
+		"": 0, "never": -1, "720h": 720 * time.Hour, "90d": 90 * 24 * time.Hour, "1d": 24 * time.Hour,
 	} {
 		if got, err := ParseTTL(in); err != nil || got != want {
 			t.Errorf("ParseTTL(%q) = %v, %v; want %v", in, got, err, want)

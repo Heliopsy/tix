@@ -386,7 +386,7 @@ func TestStopHonoursItsDeadline(t *testing.T) {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatalf("stop with an ended context: %v", err)
 	}
-	if again := in.Stop(context.Background()); !errors.Is(again, err) && again != err {
+	if again := in.Stop(context.Background()); !errors.Is(again, err) {
 		t.Fatalf("second stop %v differs from the first %v", again, err)
 	}
 }
