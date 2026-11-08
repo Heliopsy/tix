@@ -1321,11 +1321,12 @@ The exception is the colour scheme, whose only control is the switch at the foot
 every signed-in screen. It is the preference a reader changes while looking at the screen that made
 them want to change it, which is the same argument as the three above, and it is the one that could
 be made small enough to live beside the Settings link. It cycles: one press posts the next of System,
-Light, Dark and Low contrast and returns to the page it was pressed on, so it stays a button rather
-than becoming a select with an Apply beside it, which is what a four-position control costs with
-scripting off. Its accessible name says both the scheme in force and the one a press moves to, since
-the glyph says neither and a `title` never reaches a keyboard user who does not hover. Settings names
-the current scheme and points at the switch rather than carrying a second form.
+Light, Dark, OLED, Low contrast and System, OLED when dark, and returns to the page it was pressed on,
+so it stays a button rather than becoming a select with an Apply beside it, which is what a
+six-position control costs with scripting off. Its accessible name says both the scheme in force and
+the one a press moves to, since the glyph says neither and a `title` never reaches a keyboard user
+who does not hover. Settings names the current scheme and points at the switch rather than carrying
+a second form.
 
 A shortcut never takes a key from the control it is pressing. Enter on a focused button or link, and
 Space on a focused button, do what they do natively; the `open` shortcut is bound to Enter, and it
@@ -1335,7 +1336,7 @@ going back a page.
 
 | Preference | Cookie | Values |
 | --- | --- | --- |
-| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `dim` |
+| Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `oled`, `dim`, `system-oled` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
@@ -1558,6 +1559,32 @@ round trip and is correct.
 
 The colour scheme is a separate axis from the tenant accent, which is the same everywhere and covered
 in [theming.md](theming.md).
+
+### OLED
+
+OLED is a black page for screens that light every pixel they draw. The page is `#000` and the
+surfaces are `#0a0b0d`, close enough to black that a card or a field reads as raised through its
+border rather than a grey slab, so the strong line is brighter than dark's and clears 3:1 on both.
+Ink is a shade softer than dark's to cut the halo white text gets on black. The accents, the state
+colours, the priority colours and the project palette are dark's, which were tuned for 4.5:1 on a
+lighter surface and clear it with more room on black; the soft tints behind a selected row or a
+badge are darker, so a highlight does not light a band across the screen. The sign-in card drops
+its accent glow. A tenant's dark accent and a custom project colour's shade apply as they do under
+dark.
+
+System, OLED when dark is offered as its own position rather than as a second setting. Most readers
+who want OLED are on a phone that turns dark at night: pinning OLED paints the page black at noon
+too, and a separate "prefer OLED" toggle would be a second cookie that only means anything under one
+value of the first. Plain System still maps to light and dark and stays the default.
+
+The scheme is a cookie on the browser like the rest, so it follows no tenant or account default, and
+no link carries it. The terminal interface has no light or dark scheme, only the tenant accent and
+`NO_COLOR`, so OLED is browser only.
+
+`TestEveryDarkTokenHasAnOLEDValue` fails when a token is added to dark and not to OLED, or when the
+OLED block and its System, OLED when dark copy differ; `TestTheOLEDSchemeClearsTheContrastFloor`
+computes its contrast; `TestEverySchemeRuleKnowsOLED` fails on a dark rule elsewhere in the
+stylesheet with no OLED twin.
 
 ## Language and info tips
 
