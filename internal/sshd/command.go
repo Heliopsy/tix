@@ -123,7 +123,8 @@ func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) 
 		refuse(sess, core.ExitUsage, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(sessionCtx(sess, actor), s.opts.CommandTimeout)
+	ctx, stop := context.WithCancelCause(sessionCtx(sess, actor))
+	cancel := func() { stop(context.Canceled) }
 	defer cancel()
 
 	_, _, hasPty := sess.Pty()
@@ -148,8 +149,11 @@ func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) 
 		return sess.Close()
 	}))
 	go s.watch(sess, cancel, nil)
+	finished := make(chan struct{})
+	defer close(finished)
+	go s.stopAtDeadline(sess, stderr, stop, finished)
 
-	code := s.opts.Commands(ctx, Invocation{
+	code := s.runGuarded(ctx, sess, stderr, Invocation{
 		Args:     args,
 		Stdin:    &cappedInput{r: stdin, limit: s.opts.MaxInputBytes},
 		Stdout:   stdout,
@@ -160,13 +164,52 @@ func (s *Server) runCommand(sess ssh.Session, actor *core.Actor, args []string) 
 		Tenant:   s.tenantKey(ctx, actor),
 		Terminal: hasPty,
 	})
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		_, _ = fmt.Fprintf(stderr, "tix: the command ran past %s and was stopped\n", short(s.opts.CommandTimeout))
-		if code == core.ExitOK {
-			code = core.ExitError
-		}
+	if errors.Is(context.Cause(ctx), errTimedOut) && code == core.ExitOK {
+		code = core.ExitError
 	}
 	_ = sess.Exit(code)
+}
+
+// runGuarded runs the command, turning a panic in it into a failed command
+// rather than the end of every session the process serves.
+func (s *Server) runGuarded(ctx context.Context, sess ssh.Session, stderr io.Writer, inv Invocation) (code int) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("a command run over ssh panicked",
+				"fingerprint", auth.Fingerprint(sess.PublicKey()), "command", firstWord(inv.Args), "panic", r)
+			_, _ = io.WriteString(stderr, "tix: the command failed inside the server; try again shortly\n")
+			code = core.ExitError
+		}
+	}()
+	return s.opts.Commands(ctx, inv)
+}
+
+// firstWord names a command for a log line without its arguments, which may
+// carry a task's text.
+func firstWord(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return args[0]
+}
+
+// errTimedOut is the cause a command's context carries once it ran too long.
+var errTimedOut = errors.New("the command ran past its timeout")
+
+// stopAtDeadline ends a command that ran past its timeout. Cancelling the
+// context stops every service call, but not a read of standard input the
+// client is holding open, so the session is closed as well, which is what
+// unblocks that read and gives the slot back.
+func (s *Server) stopAtDeadline(sess ssh.Session, stderr io.Writer, stop context.CancelCauseFunc, finished <-chan struct{}) {
+	select {
+	case <-finished:
+	case <-sess.Context().Done():
+	case <-s.opts.Clock.After(s.opts.CommandTimeout):
+		stop(errTimedOut)
+		_, _ = fmt.Fprintf(stderr, "tix: the command ran past %s and was stopped\n", short(s.opts.CommandTimeout))
+		_ = sess.Exit(core.ExitError)
+		_ = sess.Close()
+	}
 }
 
 // tenantKey names the actor's tenant for the commands that describe where
