@@ -27,9 +27,14 @@ type TenantConn struct {
 // is configuration, which `internal/tui` does not read.
 type TenantDialer func(ctx context.Context, key string) (TenantConn, error)
 
+// TenantReachable reports whether a credential for a tenant is at hand: a
+// context holding a token for it, or a database opened directly. It is
+// supplied by the command layer, which reads the configuration.
+type TenantReachable func(key string) bool
+
 // TenantSwitchPlan validates a typed tenant key against the one in force. It
-// is the whole decision the tenant view makes before anything is dialled:
-// there is no listing to pick from, so a typo can only be caught by trying.
+// is the whole decision the tenant view makes about a typed key before
+// anything is dialled, so a typo can only be caught by trying.
 func TenantSwitchPlan(current, typed string) (string, error) {
 	key := strings.TrimSpace(typed)
 	switch {
@@ -64,13 +69,11 @@ func plural(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
-// TenantViewLines is what the tenant view says. There is deliberately no list
-// of tenants to choose from: an actor belongs to exactly one tenant, and both
-// ListTenants and GetTenant are scoped to the caller's own, so from inside
-// "default" a tenant named "acme" and one that was never created are the same
-// answer. The only way to find out is to open a connection pinned to the key
-// and ask it who the actor is, which is exactly what `tix tenant use` does,
-// so the view asks for the key rather than pretending to offer a menu.
+// TenantViewLines is what the tenant view says about switching. The tenants
+// to pick from are the reader's memberships, listed above it when there is
+// more than one; a typed key still works, and is checked by opening a
+// connection pinned to it and asking who the actor is there, as
+// `tix tenant use` does.
 func TenantViewLines(current, handle string, canSwitch bool) []string {
 	lines := []string{"tenant", ""}
 	lines = append(lines, "  current: "+orUnknown(current))
@@ -86,12 +89,13 @@ func TenantViewLines(current, handle string, canSwitch bool) []string {
 			"  Switch outside the interface with:  tix tenant use KEY")
 	}
 	return append(lines,
-		"  Type a tenant key to switch this session to it.",
+		"  Pick one of your tenants under memberships with enter, or press enter",
+		"  elsewhere and type a tenant key.",
 		"",
-		"  There is no list to choose from. An actor belongs to one tenant, and",
-		"  listing tenants is scoped to that tenant, so a key that does not exist",
-		"  and one you cannot see are the same answer. The key is checked by",
-		"  opening it and asking who you are there, the way tix tenant use does.",
+		"  A switch needs a credential for the tenant: a context holding its",
+		"  token, which tix login --tenant KEY stores, or a database opened here.",
+		"  A typed key is checked by opening it and asking who you are there, the",
+		"  way tix tenant use does.",
 		"",
 		"  The switch lasts for this session only; tix tenant use writes it down.")
 }
@@ -133,8 +137,8 @@ func (m Model) adminState() TenantAdminState {
 		handle = m.actor.Handle
 	}
 	state := TenantAdminState{
-		Current: m.tenantKey, Handle: handle, CanSwitch: m.dialTenant != nil,
-		Selected: m.adminSel,
+		Current: m.currentTenant(), Handle: handle, CanSwitch: m.dialTenant != nil,
+		Selected: m.adminSel, Reachable: m.reachable, OverSSH: m.overSSH,
 	}
 	if m.admin == nil {
 		return state
@@ -142,6 +146,7 @@ func (m Model) adminState() TenantAdminState {
 	state.Loaded = true
 	state.Tenant, state.Tenants = m.admin.tenant, m.admin.tenants
 	state.Domains, state.Members, state.Handles = m.admin.domains, m.admin.members, m.admin.handles
+	state.Memberships = m.admin.memberships
 	state.TenantErr, state.TenantsErr = m.admin.tenantErr, m.admin.tenantsErr
 	state.DomainErr, state.MemberErr = m.admin.domainErr, m.admin.memberErr
 	return state
@@ -179,6 +184,13 @@ func (m Model) handleTenantKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.adminSel = clamp(rows-1, 0, rows-1)
 		return m, nil
 	case key.Matches(msg, m.keys.Enter):
+		if row, ok := m.selectedAdminRow(); ok && row.Kind == tenantRowMembership {
+			return m.chooseMembership(row.Key)
+		}
+		if m.overSSH {
+			m.err = "over ssh the username picks the tenant; reconnect with " + SSHTenantHint("TENANT")
+			return m, nil
+		}
 		if m.dialTenant == nil {
 			m.err = "this session cannot switch tenants; use tix tenant use KEY"
 			return m, nil
@@ -187,6 +199,39 @@ func (m Model) handleTenantKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 	return m.handleAdminKey(msg)
 }
+
+// currentTenant is the key of the tenant this session works in: the one it
+// was told, else the one whoami named.
+func (m Model) currentTenant() string {
+	if m.tenantKey == "" && m.actor != nil {
+		return m.actor.TenantKey
+	}
+	return m.tenantKey
+}
+
+// chooseMembership switches to one of the reader's tenants, or says why it
+// cannot: over SSH the username picks the tenant, and on a server a switch
+// needs a context holding the tenant's token.
+func (m Model) chooseMembership(tenant string) (Model, tea.Cmd) {
+	switch {
+	case strings.EqualFold(tenant, m.currentTenant()):
+		m.err = "this session is already on tenant " + tenant
+	case m.overSSH:
+		m.err = "over ssh the username picks the tenant; reconnect with " + SSHTenantHint(tenant)
+	case m.dialTenant == nil:
+		m.err = "this session cannot switch tenants; use tix tenant use " + tenant
+	case m.reachable != nil && !m.reachable(tenant):
+		m.err = "no credential for tenant " + tenant + "; run tix login --tenant " + tenant + ", then switch"
+	default:
+		m.status, m.err = "reaching tenant "+tenant+"...", ""
+		return m, m.switchTenant(tenant)
+	}
+	return m, nil
+}
+
+// SSHTenantHint is the command that opens a tenant over SSH. The listener
+// does not know the name it is reached by, so HOST stays for the reader.
+func SSHTenantHint(tenant string) string { return "ssh " + tenant + "@HOST" }
 
 // handleAdminKey runs the tenant screen's actions, refusing a key this reader's
 // authority does not reach rather than letting the service refuse it.
@@ -245,6 +290,10 @@ func (m Model) confirmAdminRemoval() (Model, tea.Cmd) {
 	row, ok := m.selectedAdminRow()
 	if !ok {
 		m.err = "this tenant has no domain and no member to remove"
+		return m, nil
+	}
+	if row.Kind == tenantRowMembership {
+		m.err = "a membership is not removed here; select a domain or a member"
 		return m, nil
 	}
 	confirm := Confirm{Kind: confirmRemoveDomain, Target: row.Label, hostname: row.Key}

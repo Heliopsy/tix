@@ -245,6 +245,8 @@ type tenantInfoMsg struct {
 	domains []core.Domain
 	members []core.Membership
 	handles map[string]string
+	// memberships are the reader's own tenants, as whoami lists them.
+	memberships []core.AccountMembership
 
 	tenantErr  string
 	tenantsErr string

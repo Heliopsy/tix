@@ -89,12 +89,12 @@ func TestTenantSwitchNoticeSaysWhatHappensToLeases(t *testing.T) {
 	}
 }
 
-// The view cannot offer a list of tenants, so it has to say why rather than
-// leaving a reader hunting for one.
-func TestTenantViewSaysThereIsNoListToChooseFrom(t *testing.T) {
+// The view says where the tenants to pick from are and what a switch needs,
+// rather than leaving a reader hunting for a credential.
+func TestTenantViewSaysWhatASwitchNeeds(t *testing.T) {
 	t.Parallel()
 	body := strings.Join(TenantViewLines("default", "ada", true), "\n")
-	for _, want := range []string{"default", "ada", "no list", "one tenant"} {
+	for _, want := range []string{"default", "ada", "memberships", "tix login --tenant KEY"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("tenant view does not mention %q:\n%s", want, body)
 		}

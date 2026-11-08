@@ -958,6 +958,9 @@ func (m Model) loadTenantInfo() tea.Cmd {
 		} else {
 			out.tenants = tenants
 		}
+		if who, err := svc.WhoAmI(ctx); err == nil {
+			out.memberships = who.Memberships
+		}
 		if domains, err := svc.ListDomains(ctx); err != nil {
 			out.domainErr = err.Error()
 		} else {

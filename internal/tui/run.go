@@ -33,6 +33,9 @@ type Options struct {
 	// read-only, which is what a caller that cannot re-dial should show.
 	Tenant string
 	Dial   TenantDialer
+	// Reachable reports whether a credential for a tenant is at hand, so the
+	// tenant view can mark which memberships it can switch to; nil means all.
+	Reachable TenantReachable
 	// Brand is the tenant's resolved accent, so the board carries the same
 	// colour a browser does. The zero value keeps the built-in accent.
 	Brand core.Theme
@@ -73,7 +76,7 @@ func Run(o Options) int {
 		Service: o.Service, Context: ctx, Actor: o.Actor, Access: o.Access,
 		Environ: o.Environ, Out: o.Out, Color: o.Color, Project: o.Project, Filter: o.Filter,
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle, Brand: o.Brand,
-		Tenant: o.Tenant, Dial: o.Dial,
+		Tenant: o.Tenant, Dial: o.Dial, Reachable: o.Reachable,
 		Prefs: o.Prefs, Sources: o.Sources, SavePrefs: o.SavePrefs, Session: o.Session,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()
