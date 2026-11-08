@@ -8,6 +8,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/capability"
 	"github.com/heliopsy/tix/internal/config"
+	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/tui"
 	"github.com/heliopsy/tix/internal/version"
@@ -31,8 +32,10 @@ func newTUICmd(g *globals) *cobra.Command {
 		Use:   "tui",
 		Short: "Browse and work on tasks in a terminal interface",
 		Long: "Open the terminal interface against the configured target.\n\n" +
-			"T switches the session to another tenant, by key: an actor belongs to one tenant and cannot " +
-			"list another, so there is no list to pick from and the key is checked by opening it. " +
+			"T opens the tenant view, which lists the tenants you are a member of when there is more than one " +
+			"and switches the session to one with enter. A switch needs a credential for the tenant: a context " +
+			"holding its token on the same server (tix login --tenant KEY stores one), or a database opened " +
+			"directly. A tenant key can also be typed, and is checked by opening it. " +
 			"The switch lasts for the session; tix tenant use writes it down.\n" +
 			"v opens the activity tail and / filters it with the expression tix audit ls --filter takes.\n\n" +
 			"Exit codes: 1 fatal error, 130 interrupted.",
@@ -87,7 +90,8 @@ func newTUICmd(g *globals) *cobra.Command {
 				SavePrefs: g.savePreferences(),
 				Session:   g.sessionInfo(resolved),
 				Tenant:    resolved.Config.Tenant,
-				Dial:      g.tenantDialer(cmd),
+				Dial:      g.tenantDialer(cmd, conn),
+				Reachable: g.tenantReachable(conn),
 				Service:   conn.Service,
 				Actor:     conn.Actor,
 				Access:    capability.TUIAccess(conn.Actor),
@@ -125,7 +129,11 @@ func init() { builders = append(builders, newTUICmd) }
 // `tix tenant use` opens to check a key, for the same reason: an actor
 // belongs to one tenant and cannot list another, so the target has to answer
 // for itself.
-func (g *globals) tenantDialer(cmd *cobra.Command) tui.TenantDialer {
+//
+// Against a server a tenant is reached with the context holding a token for
+// it, since a token works in its own tenant only; with none the switch is
+// refused, naming the login that would store one.
+func (g *globals) tenantDialer(cmd *cobra.Command, from *connect.Conn) tui.TenantDialer {
 	return func(_ context.Context, key string) (tui.TenantConn, error) {
 		target := &globals{
 			configPath: g.configPath, contextName: g.contextName,
@@ -133,12 +141,57 @@ func (g *globals) tenantDialer(cmd *cobra.Command) tui.TenantDialer {
 			noDiscovery: g.noDiscovery, allowNetworkFS: g.allowNetworkFS,
 			environ: g.environ, dir: g.dir,
 		}
+		if err := g.pinTenantContext(target, from, key); err != nil {
+			return tui.TenantConn{}, err
+		}
 		conn, ctx, err := target.dial(cmd)
 		if err != nil {
 			return tui.TenantConn{}, err
 		}
 		return tui.TenantConn{Service: conn.Service, Context: ctx, Close: conn.Close}, nil
 	}
+}
+
+// pinTenantContext points a dial at the context holding a token for key on
+// the server from talks to. A local database needs nothing.
+func (g *globals) pinTenantContext(target *globals, from *connect.Conn, key string) error {
+	creds := g.tenantCredentials(from, currentTenantOf(from))
+	if creds == nil {
+		return nil
+	}
+	name, held := creds[key]
+	if !held {
+		return core.Precondition("no context holds a credential for tenant %q: run `tix login --tenant %s`", key, key)
+	}
+	resolved, err := g.resolve()
+	if err != nil {
+		return err
+	}
+	if c, ok := resolved.Config.Contexts[name]; ok {
+		target.contextName, target.server, target.token = name, c.Server, c.Token
+	}
+	return nil
+}
+
+// tenantReachable tells the terminal interface which tenants a credential
+// reaches, or nil for a local database, which reaches them all.
+func (g *globals) tenantReachable(from *connect.Conn) tui.TenantReachable {
+	if from.Info.Target.Mode != connect.ModeRemote {
+		return nil
+	}
+	return func(key string) bool {
+		_, held := g.tenantCredentials(from, currentTenantOf(from))[key]
+		return held
+	}
+}
+
+// currentTenantOf is the key of the tenant a connection's actor is in, as
+// whoami named it.
+func currentTenantOf(conn *connect.Conn) string {
+	if conn.Actor == nil {
+		return ""
+	}
+	return conn.Actor.TenantKey
 }
 
 // mergeOverrides layers per-invocation rebindings over the configured ones.

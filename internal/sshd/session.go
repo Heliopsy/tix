@@ -140,12 +140,15 @@ func (s *Server) program(sess ssh.Session) *tea.Program {
 		// What this session is offered is its actor's authority and nothing
 		// else. A sandbox visitor and an enrolled member reach this line the
 		// same way, so the set is resolved here rather than per surface.
-		Access:    capability.TUIAccess(actor),
-		Environ:   environ,
-		Color:     &color,
-		Profile:   profile,
-		Project:   l.project,
-		Start:     l.start,
+		Access:  capability.TUIAccess(actor),
+		Environ: environ,
+		Color:   &color,
+		Profile: profile,
+		Project: l.project,
+		Start:   l.start,
+		// The username picked the tenant, so the tenant view answers a
+		// choice of another with the ssh command that opens it.
+		OverSSH:   true,
 		TimeStyle: output.ForCaller(ctx, s.opts.Service, s.opts.TimeStyle),
 		Now:       s.opts.Clock.Now,
 	})
