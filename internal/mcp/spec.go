@@ -119,6 +119,11 @@ func (d *Document) operation(method, path string, raw json.RawMessage) (Operatio
 		Scope: bearerScope(in.Security),
 	}
 	for _, p := range in.Parameters {
+		// A header such as Idempotency-Key is the client's business: a
+		// tool call is not replayed by a queue, so a model has no use for one.
+		if p.In == "header" {
+			continue
+		}
 		schema, _ := d.resolve(p.Schema, nil).(map[string]any)
 		op.Params = append(op.Params, Param{Name: p.Name, In: p.In, Required: p.Required || p.In == "path",
 			Description: p.Description, Schema: schema})

@@ -235,6 +235,16 @@ const (
 	SessionCookieName = "tix_session"
 )
 
+// Idempotency headers. A client sends HeaderIdempotencyKey on a write it may
+// retry; a response replayed from an earlier request with the same key carries
+// HeaderIdempotentReplayed, and a refusal because the first request is still
+// running carries HeaderRetryAfter in seconds.
+const (
+	HeaderIdempotencyKey     = "Idempotency-Key"
+	HeaderIdempotentReplayed = "Idempotent-Replayed"
+	HeaderRetryAfter         = "Retry-After"
+)
+
 // HeaderClient names the tix client making a request: cli or mcp. The server
 // treats it as a hint that refines a token request's access channel and never
 // as a credential.

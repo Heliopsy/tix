@@ -135,6 +135,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"retention.audit", cfg.Retention.Audit},
 		{"retention.events", cfg.Retention.Events},
 		{"retention.webhook_deliveries", cfg.Retention.WebhookDeliveries},
+		{"retention.idempotency_keys", cfg.Retention.IdempotencyKeys},
 	} {
 		if window.d < 0 {
 			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).

@@ -90,7 +90,7 @@ func TestEveryKeyHasOneUniqueEnvVar(t *testing.T) {
 	}
 	for _, want := range []string{"database.dsn", "server.url", "server.token", "tenant", "project",
 		"auth.mode", "hooks.mode", "discovery.enabled", "discovery.filenames",
-		"retention.audit", "retention.events", "retention.webhook_deliveries",
+		"retention.audit", "retention.events", "retention.webhook_deliveries", "retention.idempotency_keys",
 		"log.level", "server.listen"} {
 		if _, ok := Lookup(want); !ok {
 			t.Fatalf("required key %q is missing from the registry", want)
@@ -702,6 +702,7 @@ func TestValidationErrors(t *testing.T) {
 		{"invalid env value", "", map[string]string{"TIX_HOOKS_MODE": "always"}, "hooks.mode"},
 		{"negative retention", "", map[string]string{"TIX_RETENTION_EVENTS": "-1h"}, "retention.events"},
 		{"negative delivery retention", "", map[string]string{"TIX_RETENTION_WEBHOOK_DELIVERIES": "-1h"}, "retention.webhook_deliveries"},
+		{"negative idempotency window", "", map[string]string{"TIX_RETENTION_IDEMPOTENCY_KEYS": "-1h"}, "retention.idempotency_keys"},
 		{"invalid log level", "", map[string]string{"TIX_LOG_LEVEL": "loud"}, "log.level"},
 		{"invalid output format", "", map[string]string{"TIX_OUTPUT_FORMAT": "xml"}, "output.format"},
 		{"empty tenant", "", map[string]string{"TIX_TENANT": " "}, "tenant"},

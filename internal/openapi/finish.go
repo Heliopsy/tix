@@ -3,10 +3,13 @@
 package openapi
 
 import (
+	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -39,6 +42,10 @@ func (g *generator) finish(doc map[string]any, entries []entry) {
 		tags[tagOf(e.name)] = true
 		g.describe(op, e)
 		g.describeParams(op, e)
+		if takesIdempotencyKey(e) {
+			params, _ := op["parameters"].([]any)
+			op["parameters"] = append(params, idempotencyKeyParam())
+		}
 		if e.contract.Public {
 			op["security"] = []any{}
 		}
@@ -243,4 +250,31 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// takesIdempotencyKey reports whether an operation is one the router accepts
+// an Idempotency-Key on: an authenticated write under the API prefix.
+func takesIdempotencyKey(e entry) bool {
+	switch e.route.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+	default:
+		return false
+	}
+	return strings.HasPrefix(e.route.Pattern, wire.APIPrefix) && !e.contract.Public &&
+		!httpapi.IsPublicPath(e.route.Pattern)
+}
+
+// idempotencyKeyParam is the header a client sends to retry a write safely.
+func idempotencyKeyParam() map[string]any {
+	return map[string]any{
+		"name":     wire.HeaderIdempotencyKey,
+		"in":       "header",
+		"required": false,
+		"description": "Client-chosen key, such as a UUID, that makes retrying this write safe: a repeat of " +
+			"the same request replays the first answer. See Retrying safely in docs/api.md.",
+		"schema": map[string]any{
+			"type": "string", "minLength": float64(1), "maxLength": float64(service.MaxIdempotencyKeyLen),
+			"pattern": "^[ -~]+$",
+		},
+	}
 }

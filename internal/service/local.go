@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
@@ -55,6 +56,9 @@ type Local struct {
 	// retentionDefaults are the configured windows a tenant that never moved
 	// off the shipped default is pruned by.
 	retentionDefaults core.RetentionPolicy
+
+	// idempotencyWindow is how long a kept idempotency key answers repeats.
+	idempotencyWindow time.Duration
 
 	// leaseDefaults are the configured lease bounds for this deployment, laid
 	// under whatever the tenant has chosen for itself. A tenant narrows them;
@@ -139,6 +143,16 @@ func WithHooks(m HookMode) Option { return func(l *Local) { l.hooks = m } }
 // tenant's stored policy.
 func WithRetentionDefaults(p core.RetentionPolicy) Option {
 	return func(l *Local) { l.retentionDefaults = p }
+}
+
+// WithIdempotencyWindow sets how long a kept idempotency key answers repeats.
+// A non-positive window keeps DefaultIdempotencyWindow.
+func WithIdempotencyWindow(d time.Duration) Option {
+	return func(l *Local) {
+		if d > 0 {
+			l.idempotencyWindow = d
+		}
+	}
 }
 
 // WithLeaseDefaults sets the deployment-wide lease bounds that a tenant's own
@@ -228,6 +242,8 @@ func New(st store.Store, opts ...Option) *Local {
 		hooks:  HookInline,
 		hasher: defaultHasher(),
 		conns:  connections.Default,
+
+		idempotencyWindow: DefaultIdempotencyWindow,
 	}
 	for _, opt := range opts {
 		opt(l)

@@ -90,6 +90,7 @@ var unshadowedKeys = map[string]string{
 	"discovery.filenames":            "config.discoveryFilenames",
 	"retention.audit":                "connect.Dial, via Retention.Policy",
 	"retention.events":               "connect.Dial, via Retention.Policy",
+	"retention.idempotency_keys":     "connect.Dial, via service.WithIdempotencyWindow",
 	"retention.webhook_deliveries":   "connect.Dial, via Retention.Policy",
 	"log.level":                      "globals.logger; the --log-* flags gate on Changed",
 	"log.format":                     "globals.logger; the --log-* flags gate on Changed",

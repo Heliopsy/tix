@@ -18,6 +18,7 @@ type pruneWindow struct {
 	events time.Time
 	audit  time.Time
 	hooks  time.Time
+	keys   time.Time
 	floor  int64
 	limit  int
 }
@@ -61,10 +62,13 @@ func (l *Local) Prune(ctx context.Context, in core.PruneInput) (*core.PruneResul
 		if res.WebhookDeliveries, err = m.tx.PruneDeliveries(ctx, w.hooks, w.limit); err != nil {
 			return err
 		}
+		if res.IdempotencyKeys, err = m.tx.PruneIdempotencyKeys(ctx, w.keys, w.limit); err != nil {
+			return err
+		}
 		if res.RetainedForSubscribers, err = countRetained(ctx, m.tx, w); err != nil {
 			return err
 		}
-		if res.Events+res.AuditEntries+res.WebhookDeliveries == 0 {
+		if res.Events+res.AuditEntries+res.WebhookDeliveries+res.IdempotencyKeys == 0 {
 			return nil
 		}
 		return m.Audit("retention.prune", "tenant", actor.TenantID, nil, pruneSummary(w, res))
@@ -102,6 +106,7 @@ func (l *Local) pruneWindow(ctx context.Context, tx store.Tx, actor *core.Actor,
 		events: cutoffs[retention.ClassEvents],
 		audit:  cutoffs[retention.ClassAudit],
 		hooks:  cutoffs[retention.ClassDeliveries],
+		keys:   now,
 		floor:  floor,
 		limit:  limit,
 	}, nil
@@ -146,6 +151,11 @@ func countExpired(ctx context.Context, tx store.Tx, w pruneWindow, res *core.Pru
 			res.WebhookDeliveries++
 		}
 	}
+	keys, err := tx.CountExpiredIdempotencyKeys(ctx, w.keys)
+	if err != nil {
+		return err
+	}
+	res.IdempotencyKeys = int64(min(keys, w.limit))
 	return nil
 }
 
@@ -176,6 +186,7 @@ func pruneSummary(w pruneWindow, res *core.PruneResult) map[string]any {
 			string(retention.ClassEvents):     res.Events,
 			string(retention.ClassAudit):      res.AuditEntries,
 			string(retention.ClassDeliveries): res.WebhookDeliveries,
+			"idempotency_keys":                res.IdempotencyKeys,
 		},
 		"retained_for_subscribers": res.RetainedForSubscribers,
 		"limit":                    w.limit,

@@ -197,6 +197,9 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 		if err := m.flush(ctx); err != nil {
 			return err
 		}
+		if err := markIdempotent(ctx, tx); err != nil {
+			return err
+		}
 		queued = m.queued
 		return nil
 	})
