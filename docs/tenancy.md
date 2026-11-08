@@ -259,6 +259,11 @@ any credential is examined:
 A host bound to one tenant keeps the strict rule: `X-Tix-Tenant` must name that tenant or be absent, and a
 credential of another tenant is refused.
 
+A link to a screen, such as the one the task screen's Share menu copies, names no tenant: the browser
+interface refuses a request that names one. On a shared host it opens for whoever follows it in the tenant
+their session is in, so a member of the same tenant signed in to it there sees the task, and a person in
+several tenants switches first ([web-ui.md](web-ui.md#sharing-a-task)).
+
 Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
 the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
 any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
