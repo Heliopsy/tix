@@ -1001,9 +1001,7 @@ var registry = []Operation{
 		CLI:   "tix prune",
 		HTTP:  apiPost(wire.RoutePrune),
 		Web:   webPost(web.RoutePrune),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "retention.get", Method: "GetRetention",
@@ -1011,9 +1009,7 @@ var registry = []Operation{
 		CLI:   "tix retention show",
 		HTTP:  apiGet(wire.RouteRetention),
 		Web:   webGet(web.RouteTenant, tplTenant),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "retention.put", Method: "PutRetention",
@@ -1021,9 +1017,7 @@ var registry = []Operation{
 		CLI:   "tix retention set",
 		HTTP:  apiPut(wire.RouteRetention),
 		Web:   webPost(web.RouteRetention),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no retention view"),
-		},
+		TUI:   "integrations",
 	},
 
 	{
@@ -1504,9 +1498,7 @@ var registry = []Operation{
 		CLI:   "tix webhook put",
 		HTTP:  apiPut(wire.RouteWebhooks),
 		Web:   webPost(web.RouteWebhooks),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "webhook.list", Method: "ListWebhooks",
@@ -1514,9 +1506,7 @@ var registry = []Operation{
 		CLI:   "tix webhook ls",
 		HTTP:  apiGet(wire.RouteWebhooks),
 		Web:   webGet(web.RouteWebhooks, tplWebhooks),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "webhook.delete", Method: "DeleteWebhook",
@@ -1524,9 +1514,7 @@ var registry = []Operation{
 		CLI:   "tix webhook rm",
 		HTTP:  apiDelete(wire.RouteWebhook),
 		Web:   webPost(web.RouteWebhookDelete),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook administration view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "webhook.deliveries", Method: "ListDeliveries", Contract: Contract{Query: httpapi.DeliveryListQuery{}},
@@ -1534,9 +1522,7 @@ var registry = []Operation{
 		CLI:   "tix webhook deliveries",
 		HTTP:  apiGet(wire.RouteDeliveries),
 		Web:   webGet(web.RouteWebhooks, tplWebhooks),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook delivery view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "webhook.redeliver", Method: "RedeliverWebhook",
@@ -1544,9 +1530,7 @@ var registry = []Operation{
 		CLI:   "tix webhook redeliver",
 		HTTP:  apiPost(wire.RouteDeliveryRedeliver),
 		Web:   webPost(web.RouteRedeliver),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no webhook delivery view"),
-		},
+		TUI:   "integrations",
 	},
 
 	{
@@ -1620,9 +1604,7 @@ var registry = []Operation{
 		CLI:   "tix sync source add",
 		HTTP:  apiPut(wire.RouteSyncSources),
 		Web:   webPost(web.RouteSyncSources),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "sync.source.list", Method: "ListSyncSources",
@@ -1630,9 +1612,7 @@ var registry = []Operation{
 		CLI:   "tix sync source ls",
 		HTTP:  apiGet(wire.RouteSyncSources),
 		Web:   webGet(web.RouteSync, tplSync),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "sync.source.delete", Method: "DeleteSyncSource",
@@ -1640,9 +1620,7 @@ var registry = []Operation{
 		CLI:   "tix sync source rm",
 		HTTP:  apiDelete(wire.RouteSyncSource),
 		Web:   webPost(web.RouteSyncDelete),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
-		},
+		TUI:   "integrations",
 	},
 	{
 		Name: "sync.run", Method: "RunSync",
@@ -1650,9 +1628,7 @@ var registry = []Operation{
 		CLI:   "tix sync run",
 		HTTP:  apiPost(wire.RouteSyncRun),
 		Web:   webPost(web.RouteSyncRun),
-		Exempt: []Exemption{
-			gap(SurfaceTUI, "GAP: no tui binding yet; there is no external sync view"),
-		},
+		TUI:   "integrations",
 	},
 
 	{

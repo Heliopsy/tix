@@ -13,11 +13,11 @@ actually dispatching, so neither can describe keys you do not have. This page co
 what is here before you connect. Over SSH that is the whole problem, because you connect
 first and find out afterwards.
 
-## The thirteen views
+## The fourteen views
 
 The title bar names the open one, between the project and the connection state, because the start menu, projects, the
-board, the task, the project screen, activity, history, the inbox, the tenant screen, people, statistics and settings all
-render into the same frame and recognising the body was the only way to tell where you were.
+board, the task, the project screen, activity, history, the inbox, the tenant screen, people, integrations, statistics
+and settings all render into the same frame and recognising the body was the only way to tell where you were.
 
 <!-- Rows asserted against the view list by TestDocsViewsTableListsEveryView in internal/tui. -->
 | View | Opened by | Shows |
@@ -33,6 +33,7 @@ render into the same frame and recognising the body was the only way to tell whe
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | people | `@` | the tenant's users with role, state and second factor, and the pending invites |
+| integrations | `J` | webhooks and their deliveries, external sync sources, and retention, one tab each, as far as your scopes reach |
 | settings | `,` | display preferences, and what this session is connected to |
 | help | `?` | the bindings of the view underneath, and the legends |
 
@@ -166,10 +167,10 @@ an action unbound.
 | Keys | Action | Where |
 | --- | --- | --- |
 | `↑`/`k`, `↓`/`j` | move the selection | everywhere |
-| `←`/`h`, `→`/`l` | previous, next column | board; steps a value on settings, moves the cursor inside a text field |
+| `←`/`h`, `→`/`l` | previous, next column | board; steps a value on settings, switches the tab on integrations, moves the cursor inside a text field |
 | `tab`, `shift+tab` | next, previous field | wherever a form is open |
 | `g`/`home`, `G`/`end` | first, last | lists |
-| `enter` | open, or apply an input; inserts a newline inside a multi-line field | everywhere |
+| `enter` | open, or apply an input; inserts a newline inside a multi-line field; redelivers, runs a source or prunes on integrations | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
 | `/` | filter | board, activity; cycles the window on statistics |
@@ -183,8 +184,8 @@ an action unbound.
 | `F` | reclaim the lease another worker holds, leaving the task where it is; clears the selected user's second factor on people | board, detail, people |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
-| `n` | new task, new project on the project list, new field or domain or member, new user or invite | board, detail, projects, project, tenant, people |
-| `e` | edit the whole task on one form; edits the project, the tenant or a user on their own screens | board, detail, project, tenant, people |
+| `n` | new task, new project on the project list, new field or domain or member, new user or invite, new endpoint or sync source | board, detail, projects, project, tenant, people, integrations |
+| `e` | edit the whole task on one form; edits the project, the tenant, a user, an endpoint, a source or the retention windows on their own screens | board, detail, project, tenant, people, integrations |
 | `P` | set priority, from the five | board, detail |
 | `p` | cycle priority one place down, wrapping from `P5` back to `P1` | board, detail |
 | `A` | assign, from the tenant's directory | board, detail |
@@ -202,7 +203,7 @@ an action unbound.
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite | board, detail, project, tenant, people |
+| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source | board, detail, project, tenant, people, integrations |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
@@ -215,6 +216,7 @@ an action unbound.
 | `f` | custom field definitions | project |
 | `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T`, `@` | projects, settings, activity, history, inbox, statistics, tenant, people | everywhere |
+| `J` | integrations: webhooks, external sync and retention | everywhere |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
 | `?` | help | everywhere |
@@ -742,6 +744,48 @@ refused, and the status line says why in words naming them:
 The roles are read from the tenant's memberships, which needs `tenant:admin`. A reader who holds
 `user:admin` without it gets the list with the roles marked unknown and a line saying why.
 
+## The integrations view
+
+`J` opens the parts of a tenant that talk to the world outside it, on three tabs: webhooks, sync and
+retention. `←` and `→` move between them. Each tab needs its own scope, `webhook:admin`, `sync:admin` and
+`tenant:admin`, and a tab you lack the scope for is not drawn or read at all, so a reader holding only
+`sync:admin` opens the view on the sync tab and never sees the other two named. The tab strip at the top
+brackets the open one, which is how a terminal with no colour tells them apart.
+
+```text
+tabs: [webhooks]  sync  retention
+
+endpoints (1):
+▸ https://hooks.example.com/tix   active  task.*
+
+deliveries (1, newest first):
+  failed    3 attempts  connection refused  to https://hooks.example.com/tix  01J...
+```
+
+**Webhooks.** One cursor runs over the endpoints and then the newest fifty deliveries, the way the tenant
+screen runs one over domains and members. `n` registers an endpoint, `e` edits the selected one, `X`
+deletes it behind a confirmation naming its URL, and `enter` on a delivery queues it again. The form takes
+the URL, the event types comma separated (`task.*` matches a family, blank is every event), whether it is
+active, and the signing secret. Leave the secret blank and tix generates one, which the tab shows once,
+until you leave the view; a blank secret on an edit keeps the stored one. Older deliveries are
+`tix webhook deliveries --cursor`.
+
+**Sync.** Each source is listed with its system, its last run, its stored settings, which credentials are
+stored (by name and the last four characters of a long one, never more), where a run on the server reads
+its mapping and credentials from, and what it still lacks there. `n` configures a source, `e` sets up the
+selected one, `X` deletes it behind a confirmation, and `enter` runs it from a form whose dry run is on
+until you turn it off; full ignores the stored cursor. The source form offers the settings the chosen
+system takes, the mapping file on the server, a mapping document pasted into a multi-line field, and the
+credentials. Credentials are write-only, as on the web: their fields draw a mark per character, are never
+filled in from what is stored, and a blank one keeps what is there. `check only` validates the source on
+the server, saves nothing, and draws what a run would use. A run's counts, warnings, unmatched people and
+cursor, or the reason it was refused, are drawn under the sources.
+
+**Retention.** The three windows, in the form `30d` or `12h`. `e` edits them; a blank window keeps its
+value, which is what `tix retention set` does with a flag left out. `enter` prunes from a form whose dry
+run is on by default, with an optional limit per kind. A prune that writes asks first, and either way the
+counts are drawn on the tab.
+
 ## You are offered the views your permissions reach
 
 A key that opens a view the service would refuse tells the reader the refusal is their mistake. So the
@@ -766,6 +810,7 @@ first.
 | history | the actor may read the audit log |
 | tenant | always: asking a tenant who you are there needs only a session |
 | people | the actor may administer users (`user:admin`, which the admin role holds) |
+| integrations | the actor may list webhooks (`webhook:admin`), list sync sources (`sync:admin`) or read retention (`tenant:admin`); each tab only for its own |
 
 The project list, settings and help are exempt because they need no authority. Settings and help read
 nothing from the service at all, and the project list is where every session starts and where going back
@@ -805,7 +850,7 @@ visit.
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 34 such gaps against 174
+a reason as a gap when the binding ought to exist. As of this writing there are 22 such gaps against 174
 operations, and a test asserts the exact number so it cannot grow quietly and cannot be mistaken for
 zero. The number is coming down, so treat `internal/capability/registry.go` as the live answer rather
 than any list here:
@@ -815,22 +860,22 @@ grep 'gap(SurfaceTUI' internal/capability/registry.go
 go test ./internal/capability/...
 ```
 
-Every one of the 34 now has one of two shapes:
+Every one of the 22 now has one of two shapes:
 
-- **Administration.** Tokens, credentials, webhooks and their deliveries, retention and the server
+- **Administration.** Tokens, credentials and the server
   itself have no terminal screen at all, and neither the live connections a server holds nor the servers
   registered against the store can be listed here, and creating or destroying a tenant is not something a
   session pinned to one tenant can do. The second factor is here too: enrolling one, confirming it,
   removing it, replacing the recovery codes and reading the state of either are five operations with no
-  screen. That is twenty-four of the count.
-- **Bulk and data movement.** Import, export, bundles and external sync are command line and API only.
-  That is the other ten.
+  screen. That is sixteen of the count.
+- **Bulk and data movement.** Import, export and bundles are command line and API only.
+  That is the other six.
 
 The calendar feed is absent on purpose rather than as a gap: its address is pasted into a calendar app,
 which the terminal has no part in, so its six operations are managed from `tix calendar` and the settings
 screen.
 
-Four shapes that were on this list have closed. Working on definitions rather than instances: the project
+Five shapes that were on this list have closed. Working on definitions rather than instances: the project
 screen edits a project, defines and removes custom fields, and renders the workflow it runs on. Input a
 single line of text cannot gather: a prompt now hands over to a form whose every field picks from the
 values the operation accepts, which is how the assignee and the artifact arrived, and what the terminal
@@ -841,7 +886,9 @@ the dependency list, the actor directory and the deleted cards `is:deleted` reve
 over them now. And the tenant itself: the screen that stated only which tenant a session was pinned to
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
 three, which closed nine. The people screen closed ten more: users, their invites and clearing somebody
-else's second factor.
+else's second factor. And the parts of a tenant that talk to the world outside it: the integrations view
+lists, registers, edits and deletes webhook endpoints and redelivers from their log, configures, checks,
+runs and deletes external sync sources, and edits the retention windows and prunes, which closed twelve.
 
 Eight absences are not gaps and will not close. Closing the service is process lifecycle; hostname
 resolution runs in the server request path; lease sweeping is a background loop; signing in and out

@@ -217,6 +217,9 @@ type Model struct {
 	activityPaused bool
 	activityHeld   []core.Event
 
+	// integ is the integrations view's whole state.
+	integ integrationsState
+
 	// menuSel is the start menu's selected row and menuProject the project
 	// its Watch row has picked, zero for every project and i for projects[i-1].
 	menuSel     int
@@ -458,6 +461,10 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.onActors(msg)
 	case tenantInfoMsg:
 		return m.onTenantInfo(msg)
+	case integrationsMsg:
+		return m.onIntegrations(msg)
+	case integrationResultMsg:
+		return m.onIntegrationResult(msg)
 	case historyMsg:
 		return m.onHistory(msg)
 	case inboxMsg:
@@ -806,6 +813,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.handleInboxKey(msg)
 	case viewMenu:
 		return m.handleMenuKey(msg)
+	case viewIntegrations:
+		return m.handleIntegrationsKey(msg)
 	case viewPeople:
 		return m.handlePeopleKey(msg)
 	}
@@ -1162,6 +1171,9 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case doTenant:
 		next, cmd := m.openTenant()
+		return next, cmd, true
+	case doIntegrations:
+		next, cmd := m.openIntegrations()
 		return next, cmd, true
 	case doPeople:
 		next, cmd := m.openPeople()
@@ -1621,7 +1633,8 @@ func (m Model) actionContext() ActionContext {
 	ctx := ActionContext{HasProject: m.project.Key != "", May: m.permits(),
 		HasComment: m.view == viewDetail && m.detail != nil && len(m.detail.comments) > 0,
 		HasFields:  m.setup != nil && len(m.setup.fields) > 0,
-		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0}
+		HasRows:    m.view == viewTenant && len(m.adminRows()) > 0,
+		Integ:      m.integrationsContext()}
 	if _, ok := m.selectedColumn(); ok {
 		ctx.HasColumn = true
 		ctx.CanLeft = ColumnNeighbour(m.columns, m.sel.Col, -1) >= 0
@@ -1682,6 +1695,9 @@ func (m Model) refresh() tea.Cmd {
 	// anything else from here would reload a screen the reader is not on.
 	if m.view == viewTenant {
 		return m.loadTenantInfo()
+	}
+	if m.view == viewIntegrations {
+		return m.loadIntegrations()
 	}
 	if m.view == viewPeople {
 		return m.loadPeople()
@@ -2010,7 +2026,7 @@ func (m Model) focusField() Model {
 	m.input.Prompt, m.input.Placeholder, m.input.CharLimit = "", "", field.Limit
 	m.input.EchoMode = textinput.EchoNormal
 	if field.Secret {
-		m.input.EchoMode = textinput.EchoPassword
+		m.input.EchoMode, m.input.EchoCharacter = textinput.EchoPassword, '•'
 	}
 	m.input.SetValue(field.Value)
 	m.input.CursorEnd()
@@ -2169,6 +2185,9 @@ func (m Model) closeForm() Model {
 // form is to ask the question rather than to make the call.
 func (m Model) submitForm() (Model, tea.Cmd) {
 	form := m.form
+	if next, cmd, ok := m.submitIntegrationForm(form); ok {
+		return next, cmd
+	}
 	switch form.Kind {
 	case formProject:
 		return m.closeForm().applyProjectEdit(form)
@@ -2324,7 +2343,8 @@ func (m Model) runConfirm(c Confirm) tea.Cmd {
 	case confirmClearTOTP:
 		return m.clearTOTP(c)
 	default:
-		return nil
+		cmd, _ := m.runIntegrationConfirm(c)
+		return cmd
 	}
 }
 

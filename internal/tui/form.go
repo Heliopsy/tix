@@ -37,6 +37,11 @@ const (
 	formSavedFilter
 	formTemplates
 	formSaveTemplate
+	formWebhook
+	formSyncSource
+	formSyncRun
+	formRetention
+	formPrune
 	formPeopleNew
 	formPeopleEdit
 	formInviteReissue
@@ -56,17 +61,19 @@ const (
 	FieldProse
 )
 
-// FieldCondition keeps a field off screen until another field holds a value.
-// The delete form's reach switches mean nothing once its subject is a comment,
-// and a field that is shown but ignored is a question answered for nothing.
+// FieldCondition keeps a field off screen until another field holds a value,
+// or, with Not, while it holds one. The delete form's reach switches mean
+// nothing once its subject is a comment, and a field that is shown but ignored
+// is a question answered for nothing.
 type FieldCondition struct {
 	Key   string
 	Value string
+	Not   bool
 }
 
 // Met reports whether the condition holds for a form.
 func (c FieldCondition) Met(f Form) bool {
-	return c.Key == "" || f.value(c.Key) == c.Value
+	return c.Key == "" || (f.value(c.Key) == c.Value) != c.Not
 }
 
 // FormField is one answer a form gathers: a value cycled out of a fixed set, a

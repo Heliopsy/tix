@@ -18,6 +18,9 @@ const (
 	confirmRemoveDomain
 	confirmRemoveMember
 	confirmDeleteTemplate
+	confirmDeleteWebhook
+	confirmDeleteSyncSource
+	confirmPrune
 	confirmDeleteUser
 	confirmRevokeInvite
 	confirmClearTOTP
@@ -37,6 +40,10 @@ var confirmVerbs = map[confirmKind]string{
 	confirmDeleteUser:     "delete user",
 	confirmRevokeInvite:   "revoke the invite for",
 	confirmClearTOTP:      "clear the second factor of",
+
+	confirmDeleteWebhook:    "delete endpoint",
+	confirmDeleteSyncSource: "delete source",
+	confirmPrune:            "prune",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -72,6 +79,10 @@ type Confirm struct {
 	actorID  string
 	// template names the task template a deletion removes.
 	template string
+	// integID addresses the endpoint or the source a deletion removes, and
+	// prune is what an agreed prune sends.
+	integID string
+	prune   core.PruneInput
 	// userID and inviteID address the people screen's removals.
 	userID   string
 	inviteID string
