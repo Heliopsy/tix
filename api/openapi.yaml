@@ -10856,6 +10856,10 @@ components:
           type: string
         tenant_name:
           type: string
+        theme:
+          $ref: '#/components/schemas/Theme'
+          description: Theme is the palette the actor's tenant resolves to, as the
+            browser renders it, on the answer to WhoAmI.
         token_id:
           description: TokenID is the API token the request authenticated with, if
             any.
@@ -15077,6 +15081,46 @@ components:
         updated_at:
           description: UpdatedAt is when the user was last changed, RFC 3339.
           format: date-time
+          type: string
+      type: object
+    Theme:
+      description: Theme is the accent a tenant presents itself with, on every surface.
+        Two colours rather than a role per element. The web interface already has
+        light, dark and dim for everything structural, and a terminal cannot honour
+        a browser's palette anyway; what a tenant actually wants to choose is the
+        accent, and one accent plus the tint behind it is enough to carry a brand
+        through a header, a selected row and a reference. Colours that mean something
+        rather than brand something are not in here. State category and priority keep
+        their own, because a tenant that themes itself red should not lose the red
+        that means blocked.
+      properties:
+        accent:
+          description: 'Accent is the brand colour, as #rrggbb.'
+          type: string
+        accent_dark:
+          description: 'AccentDark is the accent for the dark and dim schemes, as
+            #rrggbb. The dark pair exists because an accent picked to read on white
+            is usually too dark to read on near-black, and the browser defaults to
+            the dark scheme: a theme with only a light accent renders as a barely
+            visible smear on the scheme most people actually see. Empty falls back
+            to the light pair, so a configured theme that names only an accent still
+            applies everywhere rather than being ignored on half the schemes.'
+          type: string
+        accent_soft:
+          description: 'AccentSoft is the tint it sits on, as #rrggbb.'
+          type: string
+        accent_soft_dark:
+          description: 'AccentSoftDark is the tint it sits on in those schemes, as
+            #rrggbb.'
+          type: string
+        built_in:
+          description: BuiltIn reports whether this theme ships with tix rather than
+            coming from configuration. Listing says which, so an operator can tell
+            what they can redefine.
+          type: boolean
+        name:
+          description: 'Name is the theme''s name, or the #rrggbb a custom accent
+            was named as.'
           type: string
       type: object
     TimePrefs:

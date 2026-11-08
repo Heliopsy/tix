@@ -139,24 +139,28 @@ func StandingWithdrawn(ctx context.Context, tx store.Tx, actorID string) (bool, 
 	return u.DisabledAt != nil, nil
 }
 
-// describeAccount fills in what WhoAmI tells a person about themselves: their
-// tenant's key and name, their account, and for an interactive credential (a
-// session, an SSH sign-in, a shell holding the database) or a token carrying
-// account:read every tenant the account is a member of. A token without that
-// scope says nothing about its owner's other tenants, so an agent's token in
-// one tenant cannot list where else its owner works.
+// describeAccount fills in what WhoAmI tells a caller about themselves. Every
+// credential learns its tenant's key, name and resolved theme, which every
+// member sees on every page anyway. A person also learns their account, and
+// for an interactive credential (a session, an SSH sign-in, a shell holding
+// the database) or a token carrying account:read every tenant the account is
+// a member of. A token without that scope says nothing about its owner's
+// other tenants, so an agent's token in one tenant cannot list where else its
+// owner works.
 //
 // A token's actor reads as an agent whoever it was minted for, so a token is
 // looked up by the actor it acts as: a person's token finds their account, an
 // agent's finds none.
 func (l *Local) describeAccount(ctx context.Context, out *core.Actor) error {
-	if out.Kind != core.ActorUser && out.TokenID == "" {
-		return nil
-	}
 	var account *core.User
 	if err := l.read(ctx, out, func(tx store.Tx) error {
 		if t, err := tx.GetTenant(ctx); err == nil {
 			out.TenantKey, out.TenantName = t.Key, t.Name
+			theme := l.ResolveTheme(t)
+			out.Theme = &theme
+		}
+		if out.Kind != core.ActorUser && out.TokenID == "" {
+			return nil
 		}
 		u, err := accountOfActor(ctx, tx, out.ID)
 		if core.IsKind(err, core.KindNotFound) {
