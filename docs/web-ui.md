@@ -1202,6 +1202,19 @@ line saying what the token will be able to do. Select all ticks each scope you h
 administrator gets `*` as its own choice with a warning. The issued token's confirmation lists the scopes it
 was granted.
 
+### Rotating a token
+
+On the API tokens screen every live token has a Rotate button beside Revoke, on the whole-tenant listing, on
+one actor's listing (`/admin/tokens?actor=ID`, where the directory's token links lead) and on your own. It
+opens a dialog naming the token and, when it is not yours, whose it is, with a choice of how long the old
+value keeps working: stop it now (proposed), 10 minutes, 1 hour or 24 hours. Rotate issues a new token with
+the same name, scopes, project and lifetime and shows its value once with a copy button, the same block an
+issued token gets, back on the listing you came from.
+
+While its window is open the old token is listed as *retiring*, with the time it stops, and offers Revoke but
+not Rotate: revoking it ends the window early, and its replacement is the one to rotate next. See
+[agents.md](agents.md#rotating-a-token) for the lifetime and who may rotate what.
+
 ## The release screen
 
 `/release` is linked twice from the sidebar footer: the running version opens its "What's new"

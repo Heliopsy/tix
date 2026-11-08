@@ -185,7 +185,7 @@ an action unbound.
 | `K` | keep the board's filter as a saved filter, under a name | board |
 | `c` | claim | board, detail |
 | `x` | release | board, detail |
-| `R` | renew the lease; re-issues the selected invite on people | board, detail, people |
+| `R` | renew the lease; re-issues the selected invite on people; rotates the selected token on account | board, detail, people, account |
 | `F` | reclaim the lease another worker holds, leaving the task where it is; clears the selected user's second factor on people | board, detail, people |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
@@ -872,6 +872,13 @@ revokes it and on the second factor removes it, each behind a confirmation namin
 token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
 removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
 status bar carries that refusal.
+
+`R` on a live token rotates it: a form asks how long the old value keeps working, from the browser's choices
+(stop it now, proposed, or 10 minutes, 1 hour or 24 hours), a confirmation names the token and the window,
+and the new value, same name, scopes and lifetime, is drawn once at the top of the screen the way an issued
+token is. A token already rotated and still in its window is listed as `rotated, stops ...` and offers `X`
+but not `R`. Rotating the token this session runs on with no window ends the session's own credential, so
+pick a window and point the context at the new value first.
 
 `n` asks what to add, offering only what your authority reaches: an API token, an SSH key, and either a
 second factor while none is on or new recovery codes once one is.
