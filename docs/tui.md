@@ -937,6 +937,12 @@ A demo sandbox prints one line on disconnect, after the alternate screen is gone
 that key, reconnecting with the same key finds it as it was, and it is deleted after a period without a
 visit.
 
+The same listener runs tix commands as well as this interface: `ssh acme@host task ls -o json` prints what
+`tix task ls -o json` would, as the key's actor, with nothing configured on the client. That is the way to
+move files over SSH, since the listener never reads or writes a path on your machine:
+`ssh acme@host export tasks -p infra > infra.csv`. See
+[deployment.md](deployment.md#commands-over-ssh).
+
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks

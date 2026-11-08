@@ -708,6 +708,7 @@ already carries the tenant, so the command is the only field left to say this in
 | `board KEY` | that project's board, whatever its key is spelled like |
 | `KEY` | that project's board, which is what `tix tui -p KEY` is locally |
 | `watch [KEY...] [flags]` | the live event stream `tix watch` prints |
+| `task ls -o json`, `export tasks -p KEY`, ... | runs that tix command as the key's actor; see [Commands over ssh](#commands-over-ssh) |
 
 The interfaces come from one registry in `internal/tui/interfaces.go`. The start menu draws a row for each,
 the listener keeps a launcher for each, and a refused command lists each one's usage, so a new interface
@@ -721,19 +722,24 @@ ssh -t -p 2222 tix@tix.example.com infra
 ```
 
 A key that names a project you cannot reach opens the project list and says so, rather than closing the
-connection. Anything that could not be a project key, or several words not led by an interface, is refused
-before a session is built, naming what does exist:
+connection. Anything that could not be a project key, or several words led by neither an interface nor a
+tix command, is refused before a session is built, naming what does exist:
 
 ```console
 $ ssh -p 2222 tix@tix.example.com ls -la
-tix: tix is an interface, not a shell: run one of `board [KEY]`, `watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o table|ndjson]`, or name a project key to open its board
+tix: tix serves its interfaces and commands, not a shell: run one of `board [KEY]`, `watch [KEY...] [--project REF] [--type TYPE] [--actor ID] [--since N] [--limit N] [-o table|ndjson]`, name a project key to open its board, or run a tix command such as `task ls`
 ```
 
-#### A project keyed like an interface
+#### A project keyed like an interface or a command
 
 `watch` and `board` are reserved as the first word, in any case, because a project key may be spelled
 either way and the command has to mean the same thing on every tenant. A project keyed `watch` opens with
-`board watch`. Every other key still opens as a bare word, so `ssh ... infra` is unchanged.
+`board watch`.
+
+Every top-level word of the tix command line is reserved too, exactly as spelled: `task`, `project`,
+`stats`, `login`, `config` and the rest. Command words are lowercase and compared exactly, so
+`ssh ... TASK` still opens the project keyed `TASK`, and `ssh ... task` runs the command. `board task`
+opens it in any case. Every other key still opens as a bare word, so `ssh ... infra` is unchanged.
 
 #### `watch` over ssh
 
@@ -779,6 +785,72 @@ tix: this key is not enrolled here: ask an operator to enrol it with `tix user k
 
 Naming a tenant that exists and naming one that does not are answered the same way, and the ambiguity message
 names only tenants that key is already enrolled in.
+
+### Commands over ssh
+
+An enrolled key can run tix commands with nothing configured on the client: no context, no token. The
+command runs inside the server process, against the server's own service, as the key's actor and in the
+tenant the username selects. Nothing is started: there is no shell, no program run, and the server's
+environment and configuration files are not visible to it.
+
+```sh
+ssh -p 2222 acme@tix.example.com task ls -o json
+ssh -p 2222 acme@tix.example.com 'task add "Rotate the staging certs" -p infra'
+ssh -p 2222 acme@tix.example.com export tasks -p infra > infra.csv
+ssh -p 2222 acme@tix.example.com import tasks -p ops --dry-run < infra.csv
+ssh -p 2222 acme@tix.example.com export > snapshot.ndjson
+```
+
+Standard input, output and error are the session's, and the session ends with the exit code the command
+line would have returned, so redirection, pipes and `$?` work as they do locally. Your local shell joins
+the words before ssh sends them, and the server splits them again by shell rules without running a shell,
+so quote a title with spaces twice, as in the second line.
+
+What runs:
+
+- **Exactly the CLI bindings of the capability registry**, less the ones exempted for ssh. `login` and
+  `logout` are exempted: the key is the credential, and there is no local configuration to write. Commands
+  the registry does not bind at all, `config`, `ctx`, `serve`, `init`, `tui`, `mcp`, `docs`, `completion`,
+  `update`, `doctor`, `demo`, `claim exec` and the rest, are cut from the command tree before it runs, and
+  refused with exit status 2. `watch` is the event stream interface above.
+- **No target or credential flags.** `--db`, `--server`, `--token`, `--ctx`, `--config`, `--tenant`,
+  `--no-discovery`, `--allow-network-fs` and every `--log-*` flag are refused with exit status 2. A session
+  works in its key's tenant and nowhere else.
+- **No file on the server.** Every flag or argument that names a path, `--out`, `--mapping`,
+  `--save-mapping`, `--lines`, `--icon-file`, `--file`, `--mapping-file`, the file argument of `import tasks`,
+  `bundle import` and `workflow put -f`, refuses anything but `-` with exit status 2. Redirect instead.
+  `sync source add --mapping` and `--file`, which name files the server reads when the source runs, are
+  refused for the same reason; upload the mapping with `--mapping-file -`.
+- **The same authority as everywhere else.** The key carries no scopes of its own. Every call is judged by
+  the service against the actor's role in the tenant, and a global admin command such as `tenant create`
+  needs the person behind the key to be a global admin. A demo listener runs no commands at all, because a
+  sandbox key is a stranger and a command such as `webhook put` makes the server reach out to an address the
+  caller picks.
+
+Every change a command makes is audited with `via=ssh`, the key's fingerprint and the client address, and
+`source=cli`.
+
+**The second factor** is owed exactly when a board session with the same key would owe it: the tenant
+requires one for ssh, or the person holds one. With `-t` the session asks at the prompt a board session
+uses. Without a terminal, which is the case for anything piped, send the current code as an environment
+variable, checked once:
+
+```sh
+ssh -o SetEnv=TIX_CODE=123456 -p 2222 acme@tix.example.com task ls
+```
+
+A command that owes a factor and sends neither is refused before it is read. Enrolling needs a terminal:
+open the board once with `ssh -t`. The factor is judged on the ssh surface, so `user totp rm` over ssh is
+refused in a tenant that requires one for ssh, the same as from the board.
+
+**Limits.** A command holds a session slot like any session (`--max-sessions-per-key`), counts against the
+connection rate limit (`--rate-per-hour`, 60 an hour per address by default, which a busy script will want
+raised), shows in `tix connection ls` and ends with `tix connection kill`. It reads at most
+`server.max_import_bytes` of standard input, the limit an import over HTTP has, and fails past it rather
+than importing a file cut short. It is stopped after 15 minutes. A command line may carry 128 words of at
+most 4 KiB each; a word with a control character other than tab or newline is refused.
+
+Interactive confirmations see a terminal only with `-t`. A script passes the flag that skips them.
 
 ### The zero-configuration `local` actor cannot use the hosted listener
 

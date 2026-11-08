@@ -17,7 +17,8 @@ need once in a while:
   and scopes, `tix serve`, `tix mcp`, workflows and custom fields, the audit log,
   import/export, sync, webhooks, bundles, retention.
 - [reference/ssh.md](reference/ssh.md): serving the terminal interface over
-  SSH, enrolling keys, and `tix login --ssh-key`.
+  SSH, running tix commands over SSH with only a key, enrolling keys, and
+  `tix login --ssh-key`.
 - [reference/recovery.md](reference/recovery.md): the worked crash transcript
   this skill's claims were verified against.
 
