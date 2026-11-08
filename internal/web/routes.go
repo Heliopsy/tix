@@ -53,6 +53,7 @@ func Exemptions() []Exemption {
 		{"SweepLeases", "lease sweeping is a background maintenance loop, not an operator action"},
 		{"WakeSnoozed", "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
+		{"PollEvents", "the browser follows events over the WebSocket; the poll is a fallback for clients whose network breaks WebSockets"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"ReadCalendarFeed", "a feed is iCalendar a calendar app reads at its address with no session; the settings screen hands that address out"},
 		{"SSHLoginChallenge", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},

@@ -202,6 +202,7 @@ func (rt *Router) register() {
 	rt.registerTaskRoutes()
 	rt.registerClaimRoutes()
 	rt.registerHistoryRoutes()
+	rt.registerEventRoutes()
 	rt.registerStatsRoutes()
 	rt.registerStatusRoutes()
 	rt.registerWebhookRoutes()

@@ -319,6 +319,21 @@ type EventFilter struct {
 	SinceSeq   int64       `json:"since_seq,omitempty" yaml:"since_seq,omitempty"`
 }
 
+// EventPollInput asks for the events after a cursor, waiting for one when none is there yet.
+type EventPollInput struct {
+	SinceSeq   int64       `json:"since_seq,omitempty" yaml:"since_seq,omitempty"`
+	Types      []EventType `json:"types,omitempty" yaml:"types,omitempty"`
+	ProjectIDs []string    `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
+	Limit      int         `json:"limit,omitempty" yaml:"limit,omitempty"`
+	Wait       Duration    `json:"wait,omitempty" yaml:"wait,omitempty"`
+}
+
+// EventPage is one poll's events in sequence order and the cursor that resumes after them.
+type EventPage struct {
+	Events  []Event `json:"events" yaml:"events"`
+	NextSeq int64   `json:"next_seq" yaml:"next_seq"`
+}
+
 // Matches reports whether an event satisfies the filter.
 func (f EventFilter) Matches(e Event) bool {
 	if len(f.ProjectIDs) > 0 && !containsString(f.ProjectIDs, e.ProjectID) {

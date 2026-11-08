@@ -1004,6 +1004,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "event.poll", Method: "PollEvents", Contract: Contract{Query: httpapi.EventPollQuery{}},
+		Scope: core.ScopeEventSubscribe,
+		CLI:   "tix events",
+		HTTP:  apiGet(wire.RouteEventsPoll),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "the browser follows events over the websocket; the poll is a fallback for clients whose network breaks websockets"),
+			off(SurfaceTUI, "the terminal views subscribe to the event stream directly and have no network to fall back from"),
+		},
+	},
+	{
 		Name: "retention.prune", Method: "Prune", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix prune",

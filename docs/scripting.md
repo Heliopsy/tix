@@ -129,6 +129,26 @@ while :; do
 done
 ```
 
+### Polling instead of streaming
+
+Where a WebSocket will not stay up, `tix events` asks once over a plain request, with the same filters, the
+same cursor and the same refusals. `-o json` prints the events and `next_seq`, the cursor for the next call;
+`--wait 25s` holds the request until something commits:
+
+```sh
+cursor=$(cat .tix-cursor 2>/dev/null || echo 0)
+while :; do
+  page=$(tix events --since "$cursor" --wait 25s -o json)
+  jq -c '.events[]' <<<"$page" | while IFS= read -r line; do handle "$line"; done
+  cursor=$(jq -r .next_seq <<<"$page")
+  printf '%s' "$cursor" > .tix-cursor
+done
+```
+
+Resume from `next_seq`, not from the last `seq` you handled: it moves past events your filter left out, so
+the next call does not read them again. Either cursor is safe to hand to `tix watch --since`.
+[api.md](api.md#following-events-over-http) has the route.
+
 ## NDJSON everywhere
 
 The same line-per-record shape shows up in four places, and they compose:

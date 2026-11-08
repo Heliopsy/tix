@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 )
 
 // workSubjects are the event subjects that any holder of event:subscribe may
@@ -36,6 +37,9 @@ var workSubjects = []string{
 	"",
 }
 
+// subjectScope is the gate every event transport applies, read from the service that owns it.
+var subjectScope = service.EventSubjectScopes()
+
 // TestEveryEventSubjectIsClassified reads the subject of every event the
 // service layer emits and requires it to be either administrative, and so
 // gated by a scope in subjectScope, or ordinary work listed above.
@@ -57,7 +61,7 @@ func TestEveryEventSubjectIsClassified(t *testing.T) {
 		case !gated && !work:
 			t.Errorf("event subject %q (%s) is classified nowhere.\n"+
 				"Decide what a holder of event:subscribe alone may learn from it.\n"+
-				"If it describes a person, a credential, or the deployment, add it to subjectScope in hub.go\n"+
+				"If it describes a person, a credential, or the deployment, add it to subjectScope in internal/service/events.go\n"+
 				"with the scope that reads it over REST. If it is ordinary work, add it to workSubjects here.", subject, file)
 		}
 	}

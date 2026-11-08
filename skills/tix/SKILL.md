@@ -683,6 +683,8 @@ in any case, filled in at each use.
 
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
+Where a WebSocket cannot stay up, `tix events --since N --wait 25s -o json`
+reads the same events once over plain HTTP; resume from its `next_seq`.
 
 ## Comments, artifacts and results
 

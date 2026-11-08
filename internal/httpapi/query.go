@@ -269,6 +269,23 @@ type StatsQuery struct {
 	Oldest int `query:"oldest"`
 }
 
+// EventPollQuery is what a poll of the event log reads.
+type EventPollQuery struct {
+	// SinceSeq is the exclusive cursor: events after this sequence number are
+	// returned. Absent or 0 starts at the newest event.
+	SinceSeq int64 `query:"since_seq"`
+	// Types keeps events of these types, comma separated or repeated; a
+	// trailing * matches a prefix, as in task.*.
+	Types []string `query:"types"`
+	// ProjectIDs keeps events of these projects, comma separated or repeated.
+	ProjectIDs []string `query:"project_ids"`
+	// Limit is how many events to return at most: default 200, at most 1000.
+	Limit int `query:"limit"`
+	// Wait is how long to hold the request when no event is available yet, a
+	// duration such as 25s or a number of seconds: default 0, at most 25s.
+	Wait string `query:"wait"`
+}
+
 // TemplateListQuery is the filter a template listing reads.
 type TemplateListQuery struct {
 	PageQuery

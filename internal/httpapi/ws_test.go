@@ -17,6 +17,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -611,11 +612,11 @@ func TestSubscriptionAcceptsEveryCoreEventType(t *testing.T) {
 		t.Fatal("core.EventTypes() is empty; the subscription filter would accept nothing")
 	}
 	for _, typ := range types {
-		if err := validateEventTypes([]core.EventType{typ}); err != nil {
+		if err := service.ValidateEventTypes([]core.EventType{typ}); err != nil {
 			t.Errorf("subscribing to %q is refused: %v", typ, err)
 		}
 	}
-	if err := validateEventTypes([]core.EventType{"nope.invented"}); err == nil {
+	if err := service.ValidateEventTypes([]core.EventType{"nope.invented"}); err == nil {
 		t.Error("an invented event type was accepted; the filter is not a closed set")
 	}
 }

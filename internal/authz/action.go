@@ -180,6 +180,11 @@ var projectConfinable = map[Action]bool{
 
 	ActionTaskExport: true,
 	ActionTaskImport: true,
+
+	// Every event transport narrows a pinned token to its own project and
+	// refuses one naming another, which the WebSocket always did on its own
+	// and the service now does for the poll and the direct subscription.
+	ActionEventSubscribe: true,
 }
 
 // ProjectConfinable reports whether a project-pinned token may perform the
