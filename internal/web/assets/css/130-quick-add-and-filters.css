@@ -20,6 +20,9 @@
 /* A long project name made the project select as wide as itself and pushed
    Apply past a laptop's edge; capped, the select shows the name cut short. */
 .filterbar select { max-width: 16rem; }
+/* The quick add's project select the same way: a project named one long
+   word with a key as long pushed From template past a tablet's edge. */
+.quickadd select { max-width: 16rem; }
 
 /* A refused filter reports under the box it is about, so the expression that
    caused it is still on screen and still editable. The bar keeps its own

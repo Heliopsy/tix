@@ -665,8 +665,18 @@ function layoutFindings({ controls, words, cells, prose, rows, cards, blocks, as
   // once it is wider than the cell. Lines are told apart one character at a time, since a split
   // word is two rectangles and which characters went where is the point.
   const SHORT_WORD = 24;
+  // A cell that truncates (a one-line clamp, a clipped box) breaks the word
+  // onto a line nobody sees; what shows is the word cut short with an
+  // ellipsis, which is the truncation asked for. Only what shows is judged.
+  const clipOf = (n) => {
+    for (let a = n.parentElement; a && a !== document.body; a = a.parentElement) {
+      if (/(hidden|clip)/.test(getComputedStyle(a).overflowY)) return a.getBoundingClientRect();
+    }
+    return null;
+  };
   const cellSplit = (nodes) => {
     for (const n of nodes) {
+      const clip = clipOf(n);
       for (const m of n.nodeValue.matchAll(/[\p{L}\p{N}]{2,}/gu)) {
         const whole = document.createRange();
         whole.setStart(n, m.index);
@@ -678,10 +688,11 @@ function layoutFindings({ controls, words, cells, prose, rows, cards, blocks, as
           r.setStart(n, m.index + i);
           r.setEnd(n, m.index + i + 1);
           const b = rects(r)[0];
-          if (!b) continue;
+          if (!b || (clip && (b.top + b.height / 2 > clip.bottom || b.top + b.height / 2 < clip.top))) continue;
           const top = [...parts.keys()].find((t) => Math.abs(t - b.top) < b.height / 2) ?? b.top;
           parts.set(top, (parts.get(top) || "") + m[0][i]);
         }
+        if (parts.size < 2) continue;
         const v = n.nodeValue;
         let a = m.index;
         let b = m.index + m[0].length;
