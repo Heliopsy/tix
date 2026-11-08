@@ -211,7 +211,8 @@ func (v connectView) Pane(id string) connectPane {
 }
 
 // sshAddress is where people reach the SSH listener: the configured public
-// address, else the browser's host name with the port the listener binds.
+// address, else the host name of the request's origin (the public web address
+// where that applies) with the port the listener binds.
 func (h *handler) sshAddress(r *http.Request) string {
 	if h.sshListen == "" {
 		return ""
@@ -220,7 +221,9 @@ func (h *handler) sshAddress(r *http.Request) string {
 		return h.sshPublic
 	}
 	host := r.Host
-	if hn, _, err := net.SplitHostPort(r.Host); err == nil {
+	if u, err := url.Parse(baseURL(r)); err == nil && u.Hostname() != "" {
+		host = u.Hostname()
+	} else if hn, _, err := net.SplitHostPort(r.Host); err == nil {
 		host = hn
 	}
 	_, port, err := net.SplitHostPort(h.sshListen)
@@ -240,11 +243,9 @@ func (h *handler) tenantKey(r *http.Request) string {
 	return tenant.Key
 }
 
-// baseURL is this deployment's address as the request reached it, the same
-// derivation the calendar feed uses.
-func baseURL(r *http.Request) string {
-	return httpapi.SchemeFrom(r.Context()) + "://" + r.Host
-}
+// baseURL is this deployment's address for links built from the request, the
+// same derivation the calendar feed uses: httpapi.Origin.
+func baseURL(r *http.Request) string { return httpapi.Origin(r) }
 
 // showConnect renders the screen, with a token just issued here if there is one.
 func (h *handler) showConnect(w http.ResponseWriter, r *http.Request) error {

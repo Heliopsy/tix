@@ -41,3 +41,25 @@ func TestPathEscapesWhatIsNotAReference(t *testing.T) {
 		t.Errorf("Path = %q", got)
 	}
 }
+
+func TestLabelIsTheMarkdownLabel(t *testing.T) {
+	if got := Label("INFRA-3", `see [docs] \ here`); got != `INFRA-3 see \[docs\] \\ here` {
+		t.Errorf("Label = %q", got)
+	}
+}
+
+// A tenant on its own domain keeps the public address's scheme, port and path.
+func TestRehost(t *testing.T) {
+	cases := []struct{ base, host, want string }{
+		{"https://tix.example.com", "tix.acme.example", "https://tix.acme.example"},
+		{"https://example.com/tix", "tix.acme.example", "https://tix.acme.example/tix"},
+		{"http://tix.example.com:8080/", "tix.acme.example", "http://tix.acme.example:8080"},
+		{"https://tix.example.com", "", "https://tix.example.com"},
+		{"", "tix.acme.example", ""},
+	}
+	for _, tc := range cases {
+		if got := Rehost(tc.base, tc.host); got != tc.want {
+			t.Errorf("Rehost(%q, %q) = %q, want %q", tc.base, tc.host, got, tc.want)
+		}
+	}
+}

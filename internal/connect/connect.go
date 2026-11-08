@@ -429,6 +429,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
+		service.WithPublicURL(cfg.Config.Server.PublicURL),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
 		service.WithThemes(themes),
 		service.WithSyncHost(service.SyncHost{

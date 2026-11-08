@@ -643,6 +643,12 @@ type Task struct {
 	// from the body, so it is absent from audit snapshots and exports, and nil
 	// when the description has no items.
 	Checklist *Checklist `json:"checklist,omitempty" yaml:"checklist,omitempty"`
+
+	// WebURL is the address of the task's screen in the browser interface,
+	// set when the server is configured with the address it is reached at
+	// (server.public_url). Only a read sets it, so it is absent from audit
+	// snapshots, events and exports.
+	WebURL string `json:"web_url,omitempty" yaml:"web_url,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.

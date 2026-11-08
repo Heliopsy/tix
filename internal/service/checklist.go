@@ -11,10 +11,10 @@ import (
 	"github.com/heliopsy/tix/internal/markdown"
 )
 
-// CheckTaskItem ticks or clears one checklist item of a task's description.
+// checkTaskItem ticks or clears one checklist item of a task's description.
 // Only that item's marker changes. An item already in the asked-for state
 // writes nothing and returns the task as it is.
-func (l *Local) CheckTaskItem(ctx context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
+func (l *Local) checkTaskItem(ctx context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{})
 	if err != nil {
 		return nil, err

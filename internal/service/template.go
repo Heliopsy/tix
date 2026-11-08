@@ -203,10 +203,10 @@ func (l *Local) DeleteTemplate(ctx context.Context, ref string) error {
 	})
 }
 
-// UseTemplate creates a task, and a subtask for each the template holds, in
+// useTemplate creates a task, and a subtask for each the template holds, in
 // one transaction, through the copier CopyTask uses, so a task made from a
 // template gets the same status, fields and tags rules as a copy.
-func (l *Local) UseTemplate(ctx context.Context, ref string, in core.UseTemplateInput) (*core.Task, error) {
+func (l *Local) useTemplate(ctx context.Context, ref string, in core.UseTemplateInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskCreate, authz.Resource{})
 	if err != nil {
 		return nil, err

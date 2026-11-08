@@ -14631,6 +14631,12 @@ components:
           description: Version increases by one on every change. Pass it back on an
             update to have a stale write refused with a conflict.
           type: integer
+        web_url:
+          description: WebURL is the address of the task's screen in the browser interface,
+            set when the server is configured with the address it is reached at (server.public_url).
+            Only a read sets it, so it is absent from audit snapshots, events and
+            exports.
+          type: string
       type: object
     TaskExportInput:
       description: TaskExportInput selects a project's tasks and the shape of the

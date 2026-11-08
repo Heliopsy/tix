@@ -89,6 +89,10 @@ type Local struct {
 	// operator's policy, strict by default.
 	egress egress.Policy
 
+	// publicURL is server.public_url without its trailing slash, the base
+	// every task's web_url is built under; empty sets none.
+	publicURL string
+
 	dummyOnce sync.Once
 	dummy     string
 

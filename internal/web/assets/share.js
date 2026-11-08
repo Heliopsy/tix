@@ -5,7 +5,9 @@
 // A control carries data-share="native|link|markdown|text" on or inside an element
 // carrying data-share-task with the task's reference, title and path. The
 // address is the path on this page's own origin, so it is the host the reader
-// is on whatever proxy sits in front. internal/tasklink builds the same forms
+// is on whatever proxy sits in front, unless the root carries
+// data-share-origin: the server's public address (server.public_url), drawn
+// only on a host where it applies. internal/tasklink builds the same forms
 // for the command line, and the tests on both sides share their cases.
 //
 // Share… opens the system share sheet where the browser has one, and is left
@@ -14,6 +16,13 @@
 (function (global) {
   "use strict";
   var tix = (global.tix = global.tix || {});
+
+  // shareOrigin is the origin a copied link goes under: the root's
+  // data-share-origin when the server drew one, else fallback.
+  tix.shareOrigin = function (root, fallback) {
+    var drawn = root && root.getAttribute ? root.getAttribute("data-share-origin") : "";
+    return drawn || fallback;
+  };
 
   function say(text) {
     return tix.t ? tix.t(text) : text;
@@ -152,7 +161,7 @@
   }
 
   function copy(btn, kind, task) {
-    var text = tix.shareValue(kind, task, global.location.origin);
+    var text = tix.shareValue(kind, task, tix.shareOrigin(doc.documentElement, global.location.origin));
     var deps = { clipboard: global.navigator && global.navigator.clipboard, legacy: tix.legacyCopy };
     var copier = tix.copyText || function (_t, _d, done) { done(false); };
     copier(text, deps, function (ok) {
@@ -168,7 +177,7 @@
     var task = taskOf(holder);
     leave(btn);
     if (kind === "native" && tix.shareCanNative(global.navigator)) {
-      tix.shareNative(global.navigator, task, global.location.origin, function () {
+      tix.shareNative(global.navigator, task, tix.shareOrigin(doc.documentElement, global.location.origin), function () {
         copy(btn, "link", task);
       });
       return;
