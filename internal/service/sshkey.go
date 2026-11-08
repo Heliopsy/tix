@@ -81,9 +81,20 @@ func (l *Local) EnrolSSHKey(ctx context.Context, in core.EnrolSSHKeyInput) (*cor
 		return nil, err
 	}
 
+	if in.AllTenants {
+		return l.enrolEverywhere(ctx, actor, parsed, in.Label)
+	}
+	return l.enrolIn(ctx, actor, in.ActorID, parsed, in.Label)
+}
+
+// enrolIn writes one enrolment, its audit entry and its event in the tenant
+// of the actor writing it.
+func (l *Local) enrolIn(ctx context.Context, actor *core.Actor, actorRef string, parsed parsedKey,
+	label string,
+) (*core.SSHKey, error) {
 	var out *core.SSHKey
-	err = l.write(ctx, actor, func(m *mutation) error {
-		target, err := tokenActor(ctx, m.tx, actor, in.ActorID)
+	err := l.write(ctx, actor, func(m *mutation) error {
+		target, err := tokenActor(ctx, m.tx, actor, actorRef)
 		if err != nil {
 			return err
 		}
@@ -91,7 +102,7 @@ func (l *Local) EnrolSSHKey(ctx context.Context, in core.EnrolSSHKeyInput) (*cor
 			ActorID:     target.ID,
 			Fingerprint: parsed.fingerprint,
 			PublicKey:   parsed.canonical,
-			Label:       strings.TrimSpace(in.Label),
+			Label:       strings.TrimSpace(label),
 			CreatedAt:   m.now,
 		}
 		if err := m.tx.CreateSSHKey(ctx, key); err != nil {

@@ -120,7 +120,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix user invite reissue", core.ReissueInviteInput{}, map[string]string{"expires_in": "--expires"}},
 	{"tix user key add", core.EnrolSSHKeyInput{}, map[string]string{
-		"actor_id": "--actor", "public_key": "--file", "label": "--label",
+		"actor_id": "--actor", "public_key": "--file", "label": "--label", "all_tenants": "--all-tenants",
 	}},
 	{"tix login", core.LoginInput{}, map[string]string{
 		"email": "--email", "password": "--password",

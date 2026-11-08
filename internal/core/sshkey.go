@@ -33,6 +33,10 @@ type SSHKey struct {
 	LastUsedAt *time.Time `json:"last_used_at,omitempty" yaml:"last_used_at,omitempty"`
 	// RevokedAt is when the key was revoked, absent while it still works.
 	RevokedAt *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
+	// EnrolledIn lists, on the answer to an all-tenants enrolment, the keys of
+	// the tenants this call enrolled the key in. Tenants that already held it
+	// are not listed.
+	EnrolledIn []string `json:"enrolled_in,omitempty" yaml:"enrolled_in,omitempty"`
 }
 
 // Active reports whether the key may still authenticate. Unlike a token a key
@@ -48,6 +52,10 @@ type EnrolSSHKeyInput struct {
 	PublicKey string `json:"public_key" yaml:"public_key"`
 	// Label is a human note for telling one key from another.
 	Label string `json:"label,omitempty" yaml:"label,omitempty"`
+	// AllTenants enrols the caller's own key in every tenant their account is a
+	// member of, one enrolment and one audit entry per tenant. It takes no
+	// actor, and a token needs account:read for it.
+	AllTenants bool `json:"all_tenants,omitempty" yaml:"all_tenants,omitempty"`
 }
 
 // hasKeyTypePrefix reports whether the text opens with an SSH key type.
@@ -88,6 +96,10 @@ func (in EnrolSSHKeyInput) Validate() error {
 	}
 	if len(in.Label) > 200 {
 		return Invalid("label must be 200 characters or fewer")
+	}
+	if in.AllTenants && strings.TrimSpace(in.ActorID) != "" {
+		return Invalid("an all-tenants enrolment is for your own key and takes no actor").
+			WithDetail(DetailField, "actor_id")
 	}
 	return nil
 }

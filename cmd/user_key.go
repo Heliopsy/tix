@@ -45,7 +45,7 @@ func readPublicKey(cmd *cobra.Command, path string) (string, error) {
 
 func userKeyAddCmd(g *globals) *cobra.Command {
 	var file, actor, label string
-	var dryRun bool
+	var dryRun, allTenants bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Enrol an SSH public key",
@@ -53,21 +53,28 @@ func userKeyAddCmd(g *globals) *cobra.Command {
 			"Pass the public half, usually ~/.ssh/id_ed25519.pub, never the private key. " +
 			"Options carried on an authorized_keys line are refused. They are not dropped, because " +
 			"dropping one would discard a restriction without telling anyone.\n\n" +
-			"Exit codes: 2 invalid key, 3 unknown actor, 4 key already enrolled, 5 permission denied.",
+			"--all-tenants enrols your own key in every tenant your account is a member of, one enrolment and " +
+			"one audit entry per tenant, written by your actor there. A tenant that already holds the key is " +
+			"passed over, and the answer lists the tenants it was added to. Over SSH the username still picks " +
+			"the tenant: ssh TENANT@host. It takes no --actor, and a token needs the account:read scope for it.\n\n" +
+			"Exit codes: 2 invalid key, 3 unknown actor, 4 key already enrolled (with --all-tenants, in every " +
+			"tenant), 5 permission denied.",
 		Example: "  tix user key add --file ~/.ssh/id_ed25519.pub --label laptop\n" +
-			"  ssh-add -L | head -1 | tix user key add --file -",
+			"  ssh-add -L | head -1 | tix user key add --file -\n" +
+			"  tix user key add --file ~/.ssh/id_ed25519.pub --all-tenants",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, err := readPublicKey(cmd, file)
 			if err != nil {
 				return err
 			}
-			in := core.EnrolSSHKeyInput{ActorID: actor, PublicKey: key, Label: label}
+			in := core.EnrolSSHKeyInput{ActorID: actor, PublicKey: key, Label: label, AllTenants: allTenants}
 			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
-				return g.render(cmd, newPlan("sshkey.enrol", label, map[string]any{"actor": actor}))
+				return g.render(cmd, newPlan("sshkey.enrol", label,
+					map[string]any{"actor": actor, "all_tenants": allTenants}))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -78,6 +85,9 @@ func userKeyAddCmd(g *globals) *cobra.Command {
 				return err
 			}
 			g.diag(cmd, "enrolled %s", enrolled.Fingerprint)
+			if len(enrolled.EnrolledIn) > 0 {
+				g.diag(cmd, "enrolled in tenants %s", strings.Join(enrolled.EnrolledIn, ", "))
+			}
 			return g.render(cmd, enrolled)
 		},
 	}
@@ -86,6 +96,7 @@ func userKeyAddCmd(g *globals) *cobra.Command {
 	f.StringVar(&actor, "actor", "", "actor the key speaks for, by handle or identifier; defaults to you")
 	f.StringVar(&label, "label", "", "note for telling one key from another")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be enrolled without writing")
+	f.BoolVar(&allTenants, "all-tenants", false, "enrol your own key in every tenant you are a member of")
 	return cmd
 }
 
