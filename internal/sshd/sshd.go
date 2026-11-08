@@ -14,6 +14,7 @@ import (
 	"charm.land/ssh"
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
+	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -120,6 +121,20 @@ type Options struct {
 	// one, which is the same registry the event stream feeds: a connection
 	// lives in one process, so one process has one registry.
 	Connections *connections.Registry
+
+	// Commands runs the tix commands a session names, in-process and as the
+	// session's actor. Left nil the listener hosts interfaces only, and a
+	// demo listener refuses commands whatever is set here.
+	Commands CommandRunner
+	// CommandWords are the first words of every command the command line
+	// knows, hosted or not. A session leading with one is answered as a
+	// command, so `ssh host login` is refused as a command this listener
+	// does not run rather than tried as a project key.
+	CommandWords []string
+	// CommandTimeout bounds one hosted command, and MaxInputBytes the
+	// standard input it may read.
+	CommandTimeout time.Duration
+	MaxInputBytes  int64
 
 	TimeStyle output.TimeStyle
 	Logger    *slog.Logger
@@ -254,6 +269,12 @@ func (o Options) withDefaults() Options {
 	}
 	if o.MaxSessionsPerKey <= 0 {
 		o.MaxSessionsPerKey = DefaultMaxSessionsPerKey
+	}
+	if o.CommandTimeout <= 0 {
+		o.CommandTimeout = DefaultCommandTimeout
+	}
+	if o.MaxInputBytes <= 0 {
+		o.MaxInputBytes = config.DefaultMaxImportBytes
 	}
 	if o.MaxSessionsPerKey > o.MaxSessions {
 		o.MaxSessionsPerKey = o.MaxSessions

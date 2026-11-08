@@ -1329,3 +1329,21 @@ func TestOutputColourRejectsAnUnknownMode(t *testing.T) {
 		t.Fatalf("error does not name the key: %v", err)
 	}
 }
+
+// A defaulted resolution reads no file and no environment, and says so for
+// every key, so a reader asking where a value came from is told the default.
+func TestDefaultedReadsNothing(t *testing.T) {
+	t.Setenv("TIX_DATABASE_DSN", "/should/not/be/read.db")
+	r := Defaulted()
+	if r.Config.Database.DSN != Defaults().Database.DSN {
+		t.Fatalf("database dsn = %q, want the default", r.Config.Database.DSN)
+	}
+	if r.ConfigFile != "" || r.LocalFile != "" || r.DotenvFile != "" {
+		t.Fatalf("a defaulted resolution names files: %+v", r)
+	}
+	for _, e := range r.SourcesRaw() {
+		if e.Source != LayerDefault {
+			t.Errorf("%s reports layer %q", e.Key, e.Source)
+		}
+	}
+}

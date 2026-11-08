@@ -89,3 +89,32 @@ func TestTheUserAgentIsCutOnACharacter(t *testing.T) {
 		t.Errorf("short agent = %q", got)
 	}
 }
+
+// A call that arrived over the SSH listener is judged on the ssh surface,
+// whatever source it carries, and everything else on its source's surface.
+func TestSurfaceFromPrefersTheSSHChannel(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		source core.Source
+		via    core.ViaKind
+		want   core.Surface
+		ok     bool
+	}{
+		{"a command run over ssh", core.SourceCLI, core.ViaSSH, core.SurfaceSSH, true},
+		{"a board over ssh", core.SourceTUI, core.ViaSSH, core.SurfaceSSH, true},
+		{"a remote command line", core.SourceCLI, core.ViaCLIRemote, core.SurfaceCLI, true},
+		{"the browser", core.SourceWeb, core.ViaWeb, core.SurfaceWeb, true},
+		{"the system", core.SourceSystem, core.ViaSystem, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := core.WithVia(core.WithSource(context.Background(), tc.source), core.Via{Kind: tc.via})
+			got, ok := core.SurfaceFrom(ctx)
+			if got != tc.want || ok != tc.ok {
+				t.Fatalf("SurfaceFrom = %q, %v; want %q, %v", got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}

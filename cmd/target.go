@@ -200,6 +200,8 @@ func writeIdentity(w io.Writer, r identity) error {
 		where = "local database " + r.Database
 	}
 	switch {
+	case r.Target == connect.ModeSSH:
+		where = "this ssh session, run by the server"
 	case r.Context != "":
 		where += " (context " + r.Context + ")"
 	case r.Origin == string(connect.OriginDefault):
@@ -253,6 +255,8 @@ func credentialLine(r identity) string {
 		return "yes, from " + r.TokenSource
 	case r.Target == connect.ModeLocal:
 		return "none; this process opens the database directly"
+	case r.Target == connect.ModeSSH:
+		return "none; the ssh key is the credential"
 	default:
 		return "none"
 	}

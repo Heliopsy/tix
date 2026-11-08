@@ -64,6 +64,13 @@ func TestEveryOperationBindsOrIsExempt(t *testing.T) {
 	for _, op := range capability.Operations() {
 		for _, surface := range capability.Bound {
 			exemption, exempted := op.ExemptionFor(surface)
+			if surface == capability.SurfaceSSH && op.CLI == "" {
+				if exempted {
+					t.Errorf("%s: an ssh exemption on an operation the cli does not bind says nothing, "+
+						"because ssh hosts the cli", op.Name)
+				}
+				continue
+			}
 			switch {
 			case op.Binds(surface) && exempted:
 				t.Errorf("%s: %s binding is both declared and exempted", op.Name, surface)
@@ -73,6 +80,37 @@ func TestEveryOperationBindsOrIsExempt(t *testing.T) {
 			case strings.TrimSpace(exemption.Reason) == "":
 				t.Errorf("%s: %s exemption carries no justification", op.Name, surface)
 			}
+		}
+	}
+}
+
+// TestSSHHostsEveryCLIBindingNotExempted pins the derivation the listener's
+// allowlist rests on: an operation with a CLI binding is on it unless an
+// exemption with a reason takes it off, and nothing else is.
+func TestSSHHostsEveryCLIBindingNotExempted(t *testing.T) {
+	t.Parallel()
+	hosted := map[string]bool{}
+	for _, path := range capability.SSHCommands() {
+		if strings.HasPrefix(path, "tix ") {
+			t.Errorf("ssh command %q keeps the program name", path)
+		}
+		hosted["tix "+path] = true
+	}
+	for _, op := range capability.Operations() {
+		_, off := op.ExemptionFor(capability.SurfaceSSH)
+		switch {
+		case op.CLI == "" || off:
+			if op.Binds(capability.SurfaceSSH) {
+				t.Errorf("%s binds ssh with no cli binding to host or with an exemption", op.Name)
+			}
+		case !hosted[op.CLI]:
+			t.Errorf("%s: %q binds the cli, carries no ssh exemption and is not on the ssh allowlist",
+				op.Name, op.CLI)
+		}
+	}
+	for _, path := range []string{"tix login", "tix logout"} {
+		if hosted[path] {
+			t.Errorf("%q signs a local command line in or out and must not be hosted", path)
 		}
 	}
 }

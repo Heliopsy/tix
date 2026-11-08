@@ -59,6 +59,9 @@ func newExportTasksCmd(g *globals) *cobra.Command {
 			if err := in.Validate(); err != nil {
 				return err
 			}
+			if err := localFile(cmd, "--out", out); err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -69,7 +72,7 @@ func newExportTasksCmd(g *globals) *cobra.Command {
 			if out == "" {
 				return conn.Service.ExportTasks(ctx, in, cmd.OutOrStdout())
 			}
-			return exportToFile(out, func(w io.Writer) error { return conn.Service.ExportTasks(ctx, in, w) })
+			return exportToFile(cmd, out, func(w io.Writer) error { return conn.Service.ExportTasks(ctx, in, w) })
 		},
 	}
 	f := cmd.Flags()
@@ -93,7 +96,10 @@ func newExportTasksCmd(g *globals) *cobra.Command {
 
 // exportToFile writes an export to path, removing the file again when the
 // export fails, so a refused export never leaves half a file behind.
-func exportToFile(path string, write func(io.Writer) error) error {
+func exportToFile(cmd *cobra.Command, path string, write func(io.Writer) error) error {
+	if err := localFile(cmd, "--out", path); err != nil {
+		return err
+	}
 	// #nosec G304 -- the path is the operator's own --out argument.
 	file, err := os.Create(path)
 	if err != nil {

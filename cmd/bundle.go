@@ -172,6 +172,9 @@ func bundleSource(cmd *cobra.Command, args []string) (io.Reader, func(), error) 
 	if len(args) == 0 || args[0] == StdinMarker {
 		return cmd.InOrStdin(), func() {}, nil
 	}
+	if err := localFile(cmd, "FILE", args[0]); err != nil {
+		return nil, nil, err
+	}
 	f, err := os.Open(args[0]) // #nosec G304 -- the path is chosen by the user
 	if err != nil {
 		return nil, nil, core.Invalid("reading bundle %q: %v", args[0], err)
