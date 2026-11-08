@@ -609,3 +609,55 @@ func serversShape(ctx context.Context, t *testing.T, db *sql.DB) string {
 	}
 	return b.String()
 }
+
+// A person in one tenant takes the account's name on their actor, which is
+// the one an administrator last set before the user list read the actor; a
+// person in several tenants keeps each tenant's own name.
+func TestActorDisplayNameComesFromTheAccountForAOneTenantPerson(t *testing.T) {
+	db := open(t)
+	ctx := context.Background()
+	all, err := All()
+	if err != nil {
+		t.Fatalf("All() error = %v", err)
+	}
+	version := 0
+	for _, m := range all {
+		if m.Name == "actor_display_name_from_account" {
+			version = m.Version
+		}
+	}
+	if version == 0 {
+		t.Fatal("no actor_display_name_from_account migration")
+	}
+	runThrough(ctx, t, db, version-1)
+
+	const at = `'2026-01-01T00:00:00Z'`
+	for _, stmt := range []string{
+		`INSERT INTO tenants (id, key, name, created_at, updated_at) VALUES ('t1','acme','Acme',` + at + `,` + at + `)`,
+		`INSERT INTO tenants (id, key, name, created_at, updated_at) VALUES ('t2','other','Other',` + at + `,` + at + `)`,
+		`INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES ('u1','ada@x.test','Ada Renamed',` + at + `,` + at + `)`,
+		`INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES ('u2','pat@x.test','Pat',` + at + `,` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, user_id, kind, handle, display_name, created_at) VALUES ('u1','t1','u1','user','ada','Ada',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, user_id, kind, handle, display_name, created_at) VALUES ('u2','t1','u2','user','pat','Pat at Acme',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, user_id, kind, handle, display_name, created_at) VALUES ('p2','t2','u2','user','pat','Pat at Other',` + at + `)`,
+		`INSERT INTO actors (id, tenant_id, kind, handle, display_name, created_at) VALUES ('bot','t1','agent','bot','Bot',` + at + `)`,
+	} {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			t.Fatalf("seeding: %v\n%s", err, stmt)
+		}
+	}
+	if _, err := Run(ctx, db); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	want := map[string]string{"u1": "Ada Renamed", "u2": "Pat at Acme", "p2": "Pat at Other", "bot": "Bot"}
+	for id, name := range want {
+		var got string
+		if err := db.QueryRowContext(ctx, `SELECT display_name FROM actors WHERE id = ?`, id).Scan(&got); err != nil {
+			t.Fatalf("reading actor %s: %v", id, err)
+		}
+		if got != name {
+			t.Errorf("actor %s is called %q after the migration, want %q", id, got, name)
+		}
+	}
+}
