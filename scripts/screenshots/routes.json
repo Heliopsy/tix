@@ -101,7 +101,15 @@
     { "pattern": "/admin/global/tenants/{key}", "params": { "key": "tenant" } },
     { "pattern": "/admin/global/accounts/{email}", "params": { "email": "account" } },
     { "pattern": "/admin/tokens" },
-    { "pattern": "/connect" },
+    {
+      "pattern": "/connect",
+      "states": [
+        { "name": "tab-mcp-codex", "query": "?tab=mcp&client=codex" },
+        { "name": "tab-ssh", "query": "?tab=ssh" },
+        { "name": "tab-api", "query": "?tab=api" },
+        { "name": "tab-skill", "query": "?tab=skill" }
+      ]
+    },
     { "pattern": "/docs", "skip": "redirects to the documentation, off this server" },
     { "pattern": "/docs/{page}", "skip": "redirects to one documentation page, off this server" },
     { "pattern": "/admin/ssh-keys" },
