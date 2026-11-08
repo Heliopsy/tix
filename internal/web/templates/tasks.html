@@ -27,9 +27,9 @@
   <div class="pagehead-tools">
     {{/* A project's own actions lead: the screen is that project. */}}
     {{with $v.Scope}}
-    {{if .Import}}<a class="btn secondary" href="/projects/{{.Project.Key}}/import">{{template "icon" "upload"}}<span class="btn-label">{{t "Import"}}</span></a>{{end}}
-    {{if .Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary" $.Here)}}{{end}}
-    <a class="btn secondary" href="/projects/{{.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
+    {{if .Import}}<a class="btn secondary projact" href="/projects/{{.Project.Key}}/import" title="{{t "Import"}}">{{template "icon" "upload"}}<span class="btn-label">{{t "Import"}}</span></a>{{end}}
+    {{if .Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary projact" $.Here)}}{{end}}
+    <a class="btn secondary projact" href="/projects/{{.Project.Key}}/settings" title="{{t "Settings"}}">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
     {{end}}
     {{/* My work is always the list grouped by deadline, so the view switch
          would offer a choice it ignores. Its own switch takes in the tasks
