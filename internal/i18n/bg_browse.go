@@ -56,7 +56,6 @@ func init() {
 		"lowest":  "най-нисък",
 
 		// Board.
-		"%s board":                        "Табло на %s",
 		"Workflow %s":                     "Работен процес %s",
 		"Field definitions":               "Дефиниции на полета",
 		"Workflow editor":                 "Редактор на работния процес",
@@ -97,13 +96,11 @@ func init() {
 		"Danger zone":     "Опасна зона",
 		"Archive project": "Архивирай проекта",
 		"Delete project":  "Изтрий проекта",
-		"Priority: %s":    "Приоритет: %s",
 		"Move %s":         "Премести %s",
 		"Move %s to":      "Премести %s в",
 		"No tasks.":       "Няма задачи.",
 		"Board":           "Табло",
-		"Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered.": "Всяка колона е едно състояние от работния процес на проекта, в реда на процеса. Плъзнете карта в друга колона или използвайте бутона „Премести“: предлагат се само преходите, които процесът позволява.",
-		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.":            "Всеки проект използва точно един работен процес. Той задава състоянията на задачите, колоните на таблото и позволените преходи между тях. Няколко проекта могат да споделят един процес.",
+		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.": "Всеки проект използва точно един работен процес. Той задава състоянията на задачите, колоните на таблото и позволените преходи между тях. Няколко проекта могат да споделят един процес.",
 
 		// Deleting a project.
 		"Delete project %s":  "Изтриване на проекта %s",

@@ -137,19 +137,6 @@ func (h *handler) liveTasks(r *http.Request, projectIDs []string) liveScreen {
 	}
 }
 
-// liveBoard is the binding one project's board renders. The board shows that
-// project and nothing else, so the subscription says so and an event from
-// another project never reaches it.
-func (h *handler) liveBoard(project core.Project) liveScreen {
-	return liveScreen{
-		Events:  h.eventsPath,
-		Href:    boardLiveRoute(project.Key),
-		Filter:  liveFilter([]string{project.ID}, liveTaskTypes),
-		Regions: "project-board",
-		Window:  liveListWindow,
-	}
-}
-
 // liveTask is the binding one task's screen renders. The stream has no filter
 // for a single record, so the subscription narrows to the task's project and
 // the screen narrows the rest of the way itself, on the subject the event

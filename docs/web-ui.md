@@ -138,8 +138,29 @@ or open its tasks in the task list. New project in the header asks for a key, a 
 description; colour and icon are set afterwards in the project's settings. The key starts every task
 reference in the project, as in `INFRA-5`.
 
-The board at `/projects/KEY` is the project's tasks in its workflow's columns; [List, board or
-lanes](#list-board-or-lanes) covers the drawing. Settings in its header opens the project's settings.
+`/projects/KEY` is the project's page; see [The project page](#the-project-page). Settings in its
+header opens the project's settings.
+
+### The project page
+
+The project page is the task screen narrowed to one project, not a second listing: the same handler and
+template draw it, so it has the List, Board and Lanes views, the filter bar with its search, deadline
+window and sort, Save this filter, the View panel with its columns, grouping and arrangement, the bulk
+bar, quick add (set to the project), the pager and the live refresh. Its header is the project's own: its
+icon and name, the workflow it runs with links to the field definitions and the workflow editor, and
+Import, Export and Settings.
+
+The project comes from the path, so the filter bar has no project select, and a `project` parameter
+carried over from the task list is ignored rather than added to it. Everything the screen writes back to
+itself stays on the project page: the filter form, Clear, the pager, show finished too, a row's way back,
+and the view switch. Its live refresh fetches `/projects/KEY/live` with the page's own query and listens
+to that project only.
+
+The page opens on the board, which is what it has always shown, unless the address names a view:
+`/projects/infra?view=list&q=tag:ops&sort=title` is the infra list filtered by a tag and sorted by title,
+and a link to it opens exactly that. Choosing a view here does not change the task list's remembered
+view. A board of one project draws that project's workflow, and the columns a reader arranged on the old
+project board keep their arrangement.
 
 ### Project settings
 
@@ -301,15 +322,27 @@ Fifteen checkboxes popping in sequence on load says fifteen things just happened
 
 ## List, board or lanes
 
-The switch beside the filter bar draws the same tasks either as rows or as columns, and remembers
-which per browser (`tix_task_view`). The list is what an untouched install shows. The same switch is
-on Settings, and it is the same control: both render one partial over one resolved value, so neither
-can show a position the other denies.
+The switch beside the filter bar draws the same tasks as rows, as columns or as lanes, and remembers
+which per browser (`tix_task_view`). The list is what an untouched install shows. Settings shows the
+remembered view from the same resolved value, as a form, since it has no listing to link to.
 
 It is one selection drawn three ways. The filter, the deadline window, the project control, the sort,
 the page size, the page position and the project visibility choice are resolved once and apply to all
 of them, so switching changes the drawing and never which tasks are on screen, and one pager walks
 them all.
+
+**The view is in the address.** Each position of the switch is a link to the same screen carrying
+the current query with its own `view` (`?q=tag:ops&sort=title&view=board`), so switching never resets
+the filter, the search text, the deadline window, the sort or the project, and works without
+scripting. The cursor and a flash are left behind, since a cursor addresses a place in one drawing's walk
+and the list narrows to open work where the board does not. A parameter the target view does not use
+stays in the link, so switching back restores it. `view` in the address wins over the remembered choice;
+following the switch on the task list also remembers it in `tix_task_view`, so the next visit to
+`/tasks` opens the same way. The filter form carries the view the address named, so Apply keeps the
+drawing. With scripting on, the filter bar narrows the listing in place as you type, and the switch is
+redrawn from the same answer so its links carry what was just typed; the live refresh still replaces only
+the summary and the listing. Settings keeps a form for the remembered view, and the command palette's
+view entries follow the switch's links when the screen has them.
 
 **Filtering by project.** The filter bar's project select is the same on the list, the board and the
 lanes. It submits `project=KEY` (several keys comma separated, `project=web,ops`), which is read as
@@ -321,9 +354,8 @@ address rather than a cookie: a filter is what a link shares, while the View pan
 visibility is the remembered, per-browser choice. A screen filtered to projects listens for changes in
 those projects only. On the board, one project draws its own workflow's columns, several projects draw
 one board when their workflows agree, and projects whose workflows disagree get the explanation below
-with the list in place of the board. That is why the
-board is on this screen. The project board at `/projects/{key}` answers a different question (one
-project, no filter), and its header's **Settings** button opens the project's settings screen.
+with the list in place of the board. The project page at
+`/projects/KEY` is this same screen narrowed to one project ([The project page](#the-project-page)).
 
 **Columns come from a workflow, and the list mixes projects.** So a board over several projects is
 only drawable when those projects agree about their states, and agreement is decided structurally,

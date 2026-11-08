@@ -37,9 +37,13 @@
     {
       "pattern": "/projects/{key}",
       "params": { "key": "project" },
-      "states": [{ "name": "lanes", "cookies": { "tix_task_view": "lanes" } }]
+      "states": [
+        { "name": "list", "query": "?view=list" },
+        { "name": "list-filtered", "query": "?view=list&q=priority:high&sort=title" },
+        { "name": "lanes", "query": "?view=lanes" }
+      ]
     },
-    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the board" },
+    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the project page" },
     { "pattern": "/projects/{key}/icon", "skip": "image file, not a screen" },
     { "pattern": "/projects/{key}/settings", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },

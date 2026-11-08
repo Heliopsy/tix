@@ -67,7 +67,6 @@ const (
 	tplTokens    = "tokens.html"
 	tplSSHKeys   = "sshkeys.html"
 	tplProjects  = "projects.html"
-	tplBoard     = "board.html"
 	tplFields    = "fields.html"
 	tplWorkflows = "workflows.html"
 	tplWorkflow  = "workflow.html"
@@ -254,7 +253,7 @@ var registry = []Operation{
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project show",
 		HTTP:  apiGet(wire.RouteProject),
-		Web:   webGet(web.RouteProject, tplBoard),
+		Web:   webGet(web.RouteProject, tplTasks),
 		// The project screen fetches the project it renders rather than reusing
 		// the row the listing held. It is the read that answers "this project,
 		// now", which a screen that edits and archives one has to show: an

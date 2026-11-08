@@ -196,7 +196,7 @@ func TestACustomColourIsSavedFromTheBrowserAndDrawn(t *testing.T) {
 	if !strings.Contains(list, "proj-custom") || !strings.Contains(list, style) {
 		t.Errorf("the project list entry is not drawn in the custom colour: %s", list)
 	}
-	card := between(t, b.page("/projects/infra"), `<article class="card`, ">")
+	card := between(t, b.page("/projects/infra"), `<article id="t-`, ">")
 	if !strings.Contains(card, "proj-custom") || !strings.Contains(card, style) {
 		t.Errorf("the board card is not drawn in the custom colour: %s", card)
 	}

@@ -473,7 +473,10 @@
           return;
         }
         var doc = new global.DOMParser().parseFromString(html, "text/html");
-        ["tasks-summary", "tasks-listing"].forEach(function (id) {
+        // The view switch is redrawn with them, so each of its links carries
+        // the filter just typed: switching after an in-place filter kept the
+        // query the page was first drawn under and dropped the new one.
+        ["tasks-summary", "tasks-listing", "tasks-views"].forEach(function (id) {
           var fresh = doc.getElementById(id);
           var here = document.getElementById(id);
           if (fresh && here) {

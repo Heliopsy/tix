@@ -14,10 +14,23 @@
      at the end of it rather than in rows of their own. */}}
 <div class="pagehead">
   <div class="pagehead-title">
+    {{/* A project's page is this screen narrowed to the project, so its
+         heading is the project and the line under it says what it runs. */}}
+    {{with $v.Scope}}
+    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "tip" (tip "Project page" "This project's tasks, as a list, a board or lanes, with the same filter, sort and View menu as the task list. The address keeps the filter and the view, so a link to it opens the same screen." "docs/web-ui.md")}}</div>
+    <p class="meta projhead-meta">{{t "Workflow %s" .Workflow.Name}} &middot; <a href="/projects/{{.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
+    {{else}}
     <h1>{{if $v.Mine}}{{t "My work"}}{{else if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
+    {{end}}
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
   </div>
   <div class="pagehead-tools">
+    {{/* A project's own actions lead: the screen is that project. */}}
+    {{with $v.Scope}}
+    {{if .Import}}<a class="btn secondary" href="/projects/{{.Project.Key}}/import">{{template "icon" "upload"}}<span class="btn-label">{{t "Import"}}</span></a>{{end}}
+    {{if .Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary" $.Here)}}{{end}}
+    <a class="btn secondary" href="/projects/{{.Project.Key}}/settings">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
+    {{end}}
     {{/* My work is always the list grouped by deadline, so the view switch
          would offer a choice it ignores. Its own switch takes in the tasks
          the reader holds a claim on, as well as the ones assigned to them. */}}
@@ -26,7 +39,7 @@
     {{else if not $v.Trash}}
     {{/* The trash is always the list: a board's columns are moves a deleted
          card cannot make, so the switch would offer a drawing it ignores. */}}
-    {{template "taskview-switch" $v.Prefs.TaskView}}
+    {{template "taskview-links" $v}}
     {{end}}
     {{/* A menu, like the columns control on every other listing and like the
          status and priority menus on a row. It was a disclosure that opened
@@ -38,7 +51,7 @@
          full. It is one button there and unchanged everywhere else. */}}
     <button type="button" class="secondary filterbtn" popovertarget="filterpop">
       <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-      {{t "Filter"}}{{if or $v.Query $v.Project}} &middot; {{t "on"}}{{end}}
+      {{t "Filter"}}{{if $v.Filtering}} &middot; {{t "on"}}{{end}}
     </button>
     <div class="colmenu listprefs">
       <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
@@ -101,6 +114,7 @@
   </div>
   {{template "help" $}}
 </div>
+{{with $v.Scope}}{{with .Export}}{{template "export-dialog" (exportDlg $ .)}}{{end}}{{end}}
 
 {{if not $v.Trash}}
 <form method="post" action="/tasks" class="quickadd">
@@ -172,7 +186,9 @@
 {{end}}
 
 <div id="filterpop" class="filterpop" popover>
-<form method="get" action="/tasks" class="filterbar">
+<form method="get" action="{{$v.Route}}" class="filterbar">
+  {{/* The view the address named rides along, so Apply keeps the drawing. */}}
+  {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
   <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
@@ -191,10 +207,12 @@
        shares, and like the deadline control it is folded into the expression
        as project: terms, so the list, the board and the lanes answer it the
        same way and the view switch, which keeps the address, keeps it. */}}
+  {{if not $v.Scope}}
   <select name="project" aria-label="{{t "Project"}}">
     <option value="">{{t "any project"}}</option>
     {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
   </select>{{template "tip" (tip "Project filter" "Shows only the tasks of the chosen project, in the list, the board and the lanes alike. On the board the columns are that project's own workflow." "docs/web-ui.md")}}
+  {{end}}
   <select name="sort" aria-label="{{t "Sort"}}">
     {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
   </select>{{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
@@ -203,13 +221,13 @@
        was to select the text in the box and delete it. A project chip on a row
        writes a filter into that box in one click, so getting out of it should
        cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if or $v.Query $v.Due $v.Project}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
+  {{if $v.Filtering}}<a class="secondary clear" href="{{$v.ClearHref}}">{{t "Clear"}}</a>{{end}}
 </form>
 {{/* Keeps what the bar is answering under a name, listed in the sidebar
      under Tasks. The button opens the naming form over the screen; the form
      itself is drawn after this menu, outside it, because a dialog inside a
      closed popover would be hidden with it. */}}
-{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
+{{if and $v.Filtering (not $v.FilterError)}}
 {{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
 {{end}}
 <button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
@@ -222,7 +240,7 @@
 {{if $v.FilterError}}
 <p class="filterfault" role="alert">{{$v.FilterError}}</p>
 {{end}}
-{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
+{{if and $v.Filtering (not $v.FilterError)}}
 {{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
 {{template "dlg-start" $sh}}
 <form method="post" class="savefilter-form" action="/filters">
@@ -261,7 +279,8 @@
      handlers and either can be used without the other. */}}
 
 
-{{if $v.Filtered}}
+{{if $v.Scope}}
+{{else if $v.Filtered}}
 <p class="lede">{{t "The filter names a project explicitly, so it is shown even though project visibility hides %d of them." $v.Hidden}}</p>
 {{else if $v.Empty}}
 <p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects above to bring one back."}}</p>
@@ -404,7 +423,7 @@
               <input type="hidden" name="ref" value="{{.Task.Ref}}">
               <input type="hidden" name="next" value="{{$v.Self}}">
               <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" (ref .Task.Ref)}}">
-                {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
+                {{range $i, $r := .Routes}}<option value="{{$r.Value}}"{{if eq $i 0}} selected{{end}}>{{$r.Option}}</option>{{end}}
               </select>
               <button type="submit">{{t "Move"}}</button>
             </form>
@@ -1265,4 +1284,82 @@
     {{else if eq .Kind "status"}}<span class="qchip-kind">{{t "Status"}}</span> {{.Value}}{{end}}
   </li>{{end}}
 </ul>{{end}}
+{{end}}
+
+{{/* Export writes this project's tasks to a file. The download streams, so
+     a project of any size costs the server a page of tasks at a time. A
+     refusal, a filter that does not parse, comes back with the dialog open,
+     every choice kept and the reason under the field. */}}
+{{define "export-dialog"}}{{$p := .Page}}{{$f := .Form}}{{$d := $p.Dialog.For "export"}}{{$e := $d.Errors}}
+{{$sh := shell "export" (t "Export tasks of %s" $p.Data.Scope.Project.Name) "wide" $p.Dialog $p.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="exportform" hx-boost="false" action="/projects/{{$p.Data.Scope.Project.Key}}/tasks/export">
+  {{template "csrf" $p.CSRF}}
+  <p class="note"><strong>{{t "Looking at one task?"}}</strong> {{t "Open it, or run tix task show REF -o json. No export needed."}}</p>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="exportgrid">
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-format">{{t "Format"}}</label></div>
+      <select id="export-format" name="format"{{$e.Attrs "format"}}>
+        {{range $f.Formats}}<option value="{{.}}"{{if $d.Chose "format" (print .)}} selected{{end}}>{{t (exportFormat .)}}</option>{{end}}
+      </select>
+      {{with $e.On "format"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-dates">{{t "Dates"}}</label></div>
+      <select id="export-dates" name="dates"{{$e.Attrs "dates"}}>
+        <option value="iso"{{if $d.Chose "dates" "iso"}} selected{{end}}>{{t "ISO 8601, for programs"}}</option>
+        <option value="date"{{if $d.Chose "dates" "date"}} selected{{end}}>{{t "Day only, YYYY-MM-DD"}}</option>
+        <option value="display"{{if $d.Chose "dates" "display"}} selected{{end}}>{{t "As I read them, for a spreadsheet"}}</option>
+      </select>
+      {{with $e.On "dates"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-delimiter">{{t "CSV separator"}}</label></div>
+      <select id="export-delimiter" name="delimiter"{{$e.Attrs "delimiter"}}>
+        {{range $f.Delimiters}}<option value="{{.}}"{{if $d.Chose "delimiter" .}} selected{{end}}>{{t (delimiterLabel .)}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="cfield">
+    <div class="cfield-label"><label for="export-q">{{t "Filter"}}</label></div>
+    <input id="export-q" name="q" class="mono" value="{{$d.Value "q"}}" placeholder="{{t "tag:infra priority:high"}}" autocomplete="off" aria-describedby="export-q-hint"{{$e.Attrs "query"}}>
+    <p class="cfield-hint" id="export-q-hint">{{t "The same filter the task list takes. Empty exports every task of the project."}}</p>
+    {{with $e.On "query"}}{{template "field-error" .}}{{end}}
+  </div>
+  <fieldset class="cform-group exportwhich">
+    <legend>{{t "Include"}}</legend>
+    <label for="export-finished"><input id="export-finished" type="checkbox" name="finished" value="1"{{if $d.Checked "finished" true}} checked{{end}}> {{t "Finished tasks"}}</label>
+    <label for="export-subtasks"><input id="export-subtasks" type="checkbox" name="subtasks" value="1"{{if $d.Checked "subtasks" true}} checked{{end}}> {{t "Subtasks"}}</label>
+    <label for="export-trashed"><input id="export-trashed" type="checkbox" name="trashed" value="1"{{if $d.Checked "trashed" false}} checked{{end}}> {{t "Tasks in the trash"}}</label>
+  </fieldset>
+  <fieldset class="cform-group exportcols"{{$e.Attrs "columns"}}>
+    <legend>{{t "Columns"}}</legend>
+    <p class="cfield-hint">{{t "Ticked columns are written in this order. Move a column up or down with its arrows."}}</p>
+    <ol class="colorder" data-colorder>
+      {{range $f.Columns}}<li><label for="export-col-{{.Key}}"><input id="export-col-{{.Key}}" type="checkbox" name="column" value="{{.Key}}"{{if $d.Refused}}{{if $d.Chose "column" .Key}} checked{{end}}{{else if .Checked}} checked{{end}}> <span>{{t .Label}}</span> <code class="meta">{{.Key}}</code></label><span class="colmove" data-needs-js><button type="button" class="ghost" data-colmove="up" aria-label="{{t "Move %s up" (t .Label)}}" title="{{t "Move up"}}">{{template "icon" "arrow-up"}}</button><button type="button" class="ghost" data-colmove="down" aria-label="{{t "Move %s down" (t .Label)}}" title="{{t "Move down"}}">{{template "icon" "arrow-down"}}</button></span></li>{{end}}
+    </ol>
+    {{with $e.On "columns"}}{{template "field-error" .}}{{end}}
+  </fieldset>
+  <p class="cfield-hint">{{t "A CSV cell that starts with = + - or @ gets a leading quote, so a spreadsheet shows it as text instead of running it."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{template "icon" "download"}}<span>{{t "Download"}}</span></button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+
+{{/* The view switch on a task screen: one link per drawing, each carrying
+     the query the screen was drawn under with its own view, so the filter,
+     the sort and the project survive the press, the address says what is
+     drawn, and it works without scripting. The settings screen keeps the
+     form that sets the remembered view (partials.html taskview-switch).
+     Replaced after an in-place filter (assets/feel.js), never by a live
+     refresh. The swap keeps the scroll where it was. */}}
+{{define "taskview-links"}}
+<nav class="viewswitch viewlinks" id="tasks-views" aria-label="{{t "How to draw the tasks"}}" hx-swap="innerHTML show:none">
+  <span class="viewswitch-label" id="viewswitch-label">{{t "View as"}}</span>
+  <div class="segmented" role="group" aria-labelledby="viewswitch-label">
+    {{range .Views}}<a class="segment{{if .Selected}} is-on{{end}}" href="{{.Href}}" data-view="{{.Value}}"{{if .Selected}} aria-current="page"{{end}}>{{t .Label}}</a>{{end}}
+  </div>
+  {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, with finished tasks ticked in place. Switching keeps the filter, the sort and the project." "docs/web-ui.md")}}
+</nav>
 {{end}}
