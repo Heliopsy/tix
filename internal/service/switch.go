@@ -31,7 +31,7 @@ func (l *Local) SwitchTenant(ctx context.Context, in core.SwitchTenantInput) (*c
 	}
 	token, ok := SessionTokenFrom(ctx)
 	if !ok || actor.SessionID == "" || actor.TokenID != "" {
-		return nil, core.Forbidden("only a browser session can switch tenant; a token stays in its own tenant")
+		return nil, core.Invalid("only a browser session can switch tenant; a token stays in its own tenant")
 	}
 	surface := in.Surface
 	if surface == "" {

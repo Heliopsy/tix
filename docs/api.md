@@ -93,7 +93,7 @@ the routes the server registers. The areas are the first segment of each operati
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
-| session | `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify` |
+| session | `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
 | stats | `GET /stats` |

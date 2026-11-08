@@ -802,6 +802,60 @@ paths:
         - session
       x-tix-openspec:
         - http-api
+  /api/v1/auth/switch:
+    post:
+      description: 'SwitchTenant moves the caller''s browser session to another tenant
+        they are a member of, served on the same host. The answer carries a session
+        for the person''s actor there, and the session presented stops working. When
+        the target requires a second factor the presented session did not pass, the
+        answer is a code challenge instead, and the same request sent again with the
+        code completes the switch. A tenant the caller is not a member of is not found,
+        the same answer as one that does not exist. A token cannot switch: tokens
+        stay in the tenant they were minted for.'
+      operationId: session.switch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchTenantInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: LoginResult is either a session or the challenge standing between
+            the caller and one. Exactly one of the two is set.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: SwitchTenant moves the caller's browser session to another tenant they
+        are a member of, served on the same host
+      tags:
+        - session
   /api/v1/auth/totp:
     delete:
       description: |-
@@ -13528,6 +13582,23 @@ components:
         swept:
           description: Swept is how many expired leases were cleared.
           type: integer
+      type: object
+    SwitchTenantInput:
+      description: SwitchTenantInput moves the caller's session to another tenant
+        served on the same host.
+      properties:
+        code:
+          description: Code is a second factor code or a recovery code, sent again
+            after a code challenge when the target requires a factor this session
+            lacks.
+          type: string
+        surface:
+          $ref: '#/components/schemas/Surface'
+          description: Surface is the sign-in path the new session is for; empty is
+            the web.
+        tenant:
+          description: Tenant is the key of the tenant to move to. Required.
+          type: string
       type: object
     SyncCredentialHint:
       description: SyncCredentialHint describes one credential stored on a sync source
