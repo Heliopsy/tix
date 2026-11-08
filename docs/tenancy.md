@@ -90,7 +90,8 @@ Over MCP the global admin tools are offered only to a token naming `global:admin
 ### The trash
 
 A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
-them back. A tenant admin can turn it off:
+them back, and `tix task purge` or the Trash's Delete permanently removes one for good before the
+housekeeping rule would. A tenant admin can turn it off:
 
 ```sh
 tix tenant edit acme --trash off       # deleting a task is permanent from now on

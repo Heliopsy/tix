@@ -301,6 +301,11 @@ deleting, and so does every delete on a tenant whose trash is off ([tenancy.md](
 soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
 deleted ones) or `--include-deleted` (alongside the rest). `tix task trash -o json` says which applies.
 
+`tix task purge` deletes tasks that are already in the trash for good, each with its trashed subtasks, and
+reports per reference like `tix task rm`. A live task is refused with exit 6 (`"reason": "not_trashed"`
+over the API): delete it first. With the trash off it is refused with exit 6 too, so what the trash held
+stays until it is back on.
+
 ## Asking what is running
 
 `tix status -o json` is the machine-readable answer to "what does this installation hold, and how many
