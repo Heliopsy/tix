@@ -395,9 +395,12 @@ var registry = []Operation{
 		Name: "task.show", Method: "GetTask",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task show",
-		HTTP:  apiGet(wire.RouteTask),
-		Web:   webGet(web.RouteTask, tplTask),
-		TUI:   "detail",
+		// tix task link prints the task's web_url, or the link under a
+		// remote context's server, in the forms the Share menu copies.
+		Formats: []string{"tix task link"},
+		HTTP:    apiGet(wire.RouteTask),
+		Web:     webGet(web.RouteTask, tplTask),
+		TUI:     "detail",
 	},
 	{
 		Name: "task.list", Method: "ListTasks", Contract: Contract{Query: httpapi.TaskListQuery{}, Resp: wire.Page[core.Task]{}, Alt: []string{wire.ContentCSV}},
