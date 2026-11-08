@@ -88,7 +88,7 @@ everything else. What keeps this from becoming a runtime path:
   (`TestTheMigrationFlagWidensNoRuntimeTransaction`). Where the role cannot be
   created, the first two points are what stand.
 
-The policy arrives with `repair_actor_links` (0.48.1) on every table that
+The policy arrives with `repair_actor_links` (0.49.0) on every table that
 predates it, ahead of that migration's own statements; a table created later
 gets it from the migration that creates it, beside its isolation policy.
 `TestEveryForcedTableAdmitsTheMigrationRunner` reads the catalogue and fails on
@@ -96,7 +96,7 @@ a forced table without it, and `TestADataStepReachesEveryTenantAsARestrictedOwne
 runs an `UPDATE`, `INSERT` and `DELETE` through the runner as a
 `NOSUPERUSER NOBYPASSRLS` owner and requires them to reach both tenants.
 
-Before 0.48.1 a data step saw no rows at all on such a role and reported
+Before 0.49.0 a data step saw no rows at all on such a role and reported
 success. What that cost, migration by migration:
 
 - `0002_project_seq` would leave every existing project's `seq_counter` at
@@ -111,7 +111,7 @@ success. What that cost, migration by migration:
 - `actor_display_name_from_account` (0.48.0) copied no name.
 
 `repair_actor_links` runs the last two again. The earlier migrations are not
-edited and still behave as they did on a database that has not reached 0.48.1,
+edited and still behave as they did on a database that has not reached 0.49.0,
 because the policy does not exist until then.
 `TestAnUpgradeFromBefore046LinksEveryAccountUnderRowLevelSecurity` rewinds to
 0034, writes the rows as 0.45 had them and migrates forward as a restricted
