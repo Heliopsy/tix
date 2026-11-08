@@ -314,3 +314,19 @@ func TestAHostedSessionIsHandedNoNotice(t *testing.T) {
 		}
 	}
 }
+
+func TestTheTransferCommandNamesOnlyAPlainUsername(t *testing.T) {
+	cases := map[string]string{
+		"acme":                  "acme",
+		"tix":                   "tix",
+		"":                      NeutralUser,
+		"evil\x1b[2J":           NeutralUser,
+		"a b":                   NeutralUser,
+		strings.Repeat("a", 65): NeutralUser,
+	}
+	for in, want := range cases {
+		if got := printableUser(in); got != want {
+			t.Errorf("printableUser(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
