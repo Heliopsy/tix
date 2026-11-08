@@ -94,9 +94,12 @@ func TestChannelsOnOneConnectionKeepTheirOwnRegistration(t *testing.T) {
 	if r := run(t, client, "task ls -p tob", nil, nil); r.code != 0 {
 		t.Fatalf("task ls exited %d: %s", r.code, r.err)
 	}
-	if n := len(reg.List(p.TenantID)); n != 1 {
-		t.Fatalf("after the quick command ended %d connections are listed, want the held one", n)
-	}
+	// The channel gives its entry back after it has sent its exit status, so
+	// the client can see the command end a moment before the entry goes. A
+	// ghost never goes, and waitFor fails on it.
+	waitFor(t, "the quick command unregistering and the held one staying", func() bool {
+		return len(reg.List(p.TenantID)) == 1
+	})
 	_ = held.Close()
 	<-done
 	waitFor(t, "the held command unregistering", func() bool { return len(reg.List(p.TenantID)) == 0 })
