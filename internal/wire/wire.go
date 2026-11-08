@@ -132,6 +132,7 @@ const (
 
 	RouteWebhooks          = APIPrefix + "/webhooks"
 	RouteWebhook           = APIPrefix + "/webhooks/{id}"
+	RouteWebhookPing       = APIPrefix + "/webhooks/{id}/ping"
 	RouteDeliveries        = APIPrefix + "/webhooks/deliveries"
 	RouteDeliveryRedeliver = APIPrefix + "/webhooks/deliveries/{id}/redeliver"
 

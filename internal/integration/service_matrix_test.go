@@ -2119,6 +2119,36 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "pinging a webhook queues one delivery to it",
+		covers: []string{"PutWebhook", "PingWebhook", "ListDeliveries"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			endpoint, err := tg.svc.PutWebhook(tg.ctx, core.WebhookInput{
+				URL: closedEndpoint, EventTypes: []string{"task.*"}, Active: true,
+			})
+			mustf(t, tg, err, "registering the endpoint")
+			d, err := tg.svc.PingWebhook(tg.ctx, endpoint.ID)
+			if err != nil {
+				return nil, err
+			}
+			listed, _, err := tg.svc.ListDeliveries(tg.ctx, core.DeliveryFilter{EndpointID: endpoint.ID})
+			mustf(t, tg, err, "listing the endpoint's deliveries")
+			return sig{
+				"to_endpoint": d.EndpointID == endpoint.ID,
+				"status":      string(d.Status),
+				"attempts":    d.Attempts,
+				"listed":      len(listed),
+			}, nil
+		},
+	},
+	{
+		name:   "pinging an unknown webhook",
+		covers: []string{"PingWebhook"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PingWebhook(tg.ctx, "nosuchendpoint00")
+			return nil, err
+		},
+	},
+	{
 		name:   "a webhook without a url is rejected",
 		covers: []string{"PutWebhook"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

@@ -372,6 +372,9 @@ func TestWebhookCrossTenantReportsNotFound(t *testing.T) {
 	if err := l.RedeliverWebhook(ctx, deliveryID); !core.IsKind(err, core.KindNotFound) {
 		t.Errorf("redelivering another tenant's delivery = %v, want not found", err)
 	}
+	if _, err := l.PingWebhook(ctx, endpointID); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("pinging another tenant's endpoint = %v, want not found", err)
+	}
 	list, err := l.ListWebhooks(ctx)
 	if err != nil {
 		t.Fatalf("ListWebhooks: %v", err)

@@ -175,7 +175,7 @@ an action unbound.
 | `←`/`h`, `→`/`l` | previous, next column | board; steps a value on settings, switches the tab on integrations, moves the cursor inside a text field |
 | `tab`, `shift+tab` | next, previous field | wherever a form is open |
 | `g`/`home`, `G`/`end` | first, last | lists |
-| `enter` | open, or apply an input; inserts a newline inside a multi-line field; redelivers, runs a source or prunes on integrations | everywhere |
+| `enter` | open, or apply an input; inserts a newline inside a multi-line field; pings an endpoint, redelivers, runs a source or prunes on integrations | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
 | `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin |
@@ -1032,7 +1032,7 @@ over them now. And the tenant itself: the screen that stated only which tenant a
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
 three, which closed nine. The people screen closed ten more: users, their invites and clearing somebody
 else's second factor. And the parts of a tenant that talk to the world outside it: the integrations view
-lists, registers, edits and deletes webhook endpoints and redelivers from their log, configures, checks,
+lists, registers, edits, pings and deletes webhook endpoints and redelivers from their log, configures, checks,
 runs and deletes external sync sources, and edits the retention windows and prunes, which closed twelve.
 
 The server and the installation have closed too. The server view reads the status report and the

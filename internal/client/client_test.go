@@ -247,6 +247,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodGet, wire.RouteDeliveries},
 		{"redeliver", func(c *Client) error { return c.RedeliverWebhook(ctx, "d1") }, http.MethodPost, "/api/v1/webhooks/deliveries/d1/redeliver"},
+		{"ping webhook", func(c *Client) error { _, err := c.PingWebhook(ctx, "w1"); return err }, http.MethodPost, "/api/v1/webhooks/w1/ping"},
 
 		{"put sync source", func(c *Client) error {
 			_, err := c.PutSyncSource(ctx, core.SyncSourceInput{System: core.SystemJira, Name: "jira"})
