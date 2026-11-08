@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/spf13/cobra"
 )
@@ -122,7 +123,8 @@ func TestTenantDialerOpensTheNamedTenant(t *testing.T) {
 	g := &globals{db: db, tenant: "default", environ: c.environ(), dir: c.home}
 	probe := &cobra.Command{}
 	probe.SetContext(context.Background())
-	conn, err := g.tenantDialer(probe)(context.Background(), "acme")
+	local := &connect.Conn{Info: connect.Info{Target: connect.Target{Mode: connect.ModeLocal}}}
+	conn, err := g.tenantDialer(probe, local)(context.Background(), "acme")
 	if err != nil {
 		t.Fatalf("dialling acme: %v", err)
 	}

@@ -156,6 +156,10 @@ type Model struct {
 	// switch that cannot happen.
 	tenantKey  string
 	dialTenant TenantDialer
+	// reachable reports whether a credential for a tenant is at hand, and
+	// overSSH marks a session whose username picked its tenant.
+	reachable TenantReachable
+	overSSH   bool
 	// admin is what the tenant screen states, adminSel indexes the domains and
 	// the members as one list, and adminOff scrolls the screen.
 	admin    *tenantInfoMsg
@@ -273,7 +277,13 @@ type Config struct {
 	// view read-only.
 	Tenant string
 	Dial   TenantDialer
-	Now    func() time.Time
+	// Reachable reports whether a credential for a tenant is at hand; nil
+	// means every tenant is, as for a database opened directly. OverSSH marks
+	// a session whose SSH username picked the tenant, which the tenant view
+	// answers with the ssh command rather than a switch.
+	Reachable TenantReachable
+	OverSSH   bool
+	Now       func() time.Time
 	// Start lands the session on the start menu rather than the project
 	// list. The SSH listener sets it for a session that named nothing.
 	Start bool
@@ -306,7 +316,7 @@ func New(cfg Config) Model {
 		view:      viewProjects, input: in, area: area, leases: map[string]string{},
 		openProject: cfg.Project, width: 80, height: 24,
 		scheme: SchemeDefault, overrides: cfg.Overrides,
-		tenantKey: cfg.Tenant, dialTenant: cfg.Dial,
+		tenantKey: cfg.Tenant, dialTenant: cfg.Dial, reachable: cfg.Reachable, overSSH: cfg.OverSSH,
 		prefs: prefs, prefSources: cfg.Sources, savePrefs: cfg.SavePrefs,
 		session:   cfg.Session,
 		autoColor: auto, profile: cfg.Profile, brand: cfg.Brand,

@@ -28,6 +28,7 @@ type TenantRowKind int
 const (
 	tenantRowDomain TenantRowKind = iota
 	tenantRowMember
+	tenantRowMembership
 )
 
 // TenantRow is one row the removal key can act on.
@@ -52,6 +53,12 @@ type TenantAdminState struct {
 	Tenants   []core.Tenant
 	Domains   []core.Domain
 	Members   []core.Membership
+	// Memberships are the reader's own tenants, listed for a switch when
+	// there is more than one. Reachable reports which a credential reaches,
+	// nil meaning all, and OverSSH answers each with the ssh command instead.
+	Memberships []core.AccountMembership
+	Reachable   TenantReachable
+	OverSSH     bool
 	// Handles maps an actor identifier to the handle a reader recognises, for
 	// every member the listing names.
 	Handles map[string]string
@@ -85,10 +92,11 @@ const attrTheme = "theme"
 const noTheme = "none"
 
 // TenantRows are the rows the cursor runs over: every domain, then every
-// member. A listing that was refused contributes none, so the cursor never
-// lands on a row the screen is not drawing.
+// member, then the reader's tenants when there is more than one. A listing
+// that was refused contributes none, so the cursor never lands on a row the
+// screen is not drawing.
 func TenantRows(state TenantAdminState) []TenantRow {
-	out := make([]TenantRow, 0, len(state.Domains)+len(state.Members))
+	out := make([]TenantRow, 0, len(state.Domains)+len(state.Members)+len(state.Memberships))
 	for _, d := range state.Domains {
 		out = append(out, TenantRow{Kind: tenantRowDomain, Key: d.Hostname, Label: d.Hostname})
 	}
@@ -96,7 +104,19 @@ func TenantRows(state TenantAdminState) []TenantRow {
 		out = append(out, TenantRow{Kind: tenantRowMember, Key: m.ActorID,
 			Label: MemberLabel(m.ActorID, state.Handles)})
 	}
+	for _, m := range listedMemberships(state) {
+		out = append(out, TenantRow{Kind: tenantRowMembership, Key: m.TenantKey, Label: m.TenantKey})
+	}
 	return out
+}
+
+// listedMemberships are the reader's tenants the screen offers, none when
+// there is only the one this session is already in.
+func listedMemberships(state TenantAdminState) []core.AccountMembership {
+	if len(state.Memberships) < 2 {
+		return nil
+	}
+	return state.Memberships
 }
 
 // MemberLabel names a member the way a reader recognises them. An identifier
@@ -122,6 +142,10 @@ func TenantAdminView(state TenantAdminState) []TenantLine {
 	out = append(out, TenantLine{})
 	out = append(out, memberLines(state, rows)...)
 	out = append(out, TenantLine{})
+	if lines := membershipLines(state, rows); len(lines) > 0 {
+		out = append(out, lines...)
+		out = append(out, TenantLine{})
+	}
 	return append(out, switchLines(state)...)
 }
 
@@ -191,6 +215,42 @@ func memberLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	return out
 }
 
+// membershipLines list the reader's tenants with the role held in each and
+// what choosing one does: switch, or the login or ssh command that reaches it.
+func membershipLines(state TenantAdminState, rows []TenantRow) []TenantLine {
+	listed := listedMemberships(state)
+	if len(listed) == 0 {
+		return nil
+	}
+	out := []TenantLine{{Text: "memberships (" + strconv.Itoa(len(listed)) + "):", Heading: true}}
+	first := len(state.Domains) + len(state.Members)
+	for i, m := range listed {
+		selected := selectedRow(rows, state.Selected) == first+i
+		out = append(out, TenantLine{
+			Text: SelectionMarker(selected) + pad(m.TenantKey, tenantLabelWidth) +
+				pad(string(m.Role), 8) + membershipNote(state, m.TenantKey),
+			Selected: selected,
+		})
+	}
+	return out
+}
+
+// membershipNote says what choosing one of the reader's tenants does.
+func membershipNote(state TenantAdminState, tenant string) string {
+	switch {
+	case strings.EqualFold(tenant, state.Current):
+		return "current"
+	case state.OverSSH:
+		return SSHTenantHint(tenant)
+	case !state.CanSwitch:
+		return "tix tenant use " + tenant
+	case state.Reachable != nil && !state.Reachable(tenant):
+		return "no credential: tix login --tenant " + tenant
+	default:
+		return "enter switches"
+	}
+}
+
 // selectedRow bounds a selection to the rows that exist, answering -1 when
 // there are none, so a stale index cannot mark a row the screen no longer draws.
 func selectedRow(rows []TenantRow, sel int) int {
@@ -233,6 +293,11 @@ func tenantAbsent(reason string, loaded bool) []TenantLine {
 // which the attributes above already state.
 func switchLines(state TenantAdminState) []TenantLine {
 	out := []TenantLine{{Text: "switch:", Heading: true}}
+	if state.OverSSH {
+		return append(out,
+			TenantLine{Text: "  Over ssh the username picks the tenant. Reconnect as", Dim: true},
+			TenantLine{Text: "  " + SSHTenantHint("TENANT") + " to work in another of your tenants.", Dim: true})
+	}
 	raw := TenantViewLines(state.Current, state.Handle, state.CanSwitch)
 	for _, l := range raw {
 		if l == "tenant" || l == "" || isTenantHeader(l) {
