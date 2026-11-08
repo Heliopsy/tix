@@ -323,6 +323,12 @@ func (f *fixture) actorFor(name string) *core.Actor {
 		return copyActor(f.actorB, []core.Scope{core.ScopeAll}, core.RoleAdmin)
 	case "viewer":
 		return copyActor(f.actorA, core.RoleViewer.Scopes(), core.RoleViewer)
+	case "session":
+		// alice signed in through a browser session, which is what puts
+		// her memberships on whoami's answer.
+		out := copyActor(f.actorA, []core.Scope{core.ScopeAll}, core.RoleAdmin)
+		out.SessionID = "session-test"
+		return out
 	case "useradmin":
 		// user:admin and nothing else. It can read the user list and cannot
 		// clear anybody's second factor, which is the pair the enrolment
