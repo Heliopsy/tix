@@ -50,6 +50,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
 | `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
 | `server.max_import_bytes` | `TIX_SERVER_MAX_IMPORT_BYTES` | `33554432` (32 MiB) |
+| `server.egress_allow_private` | `TIX_SERVER_EGRESS_ALLOW_PRIVATE` | `false` |
+| `server.egress_allow` | `TIX_SERVER_EGRESS_ALLOW` | (unset: no internal address is reachable for a tenant) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `auth.totp_key` | `TIX_AUTH_TOTP_KEY` | (unset) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
@@ -329,6 +331,26 @@ upload step of the browser's import, in bytes. Every other request answers to `t
 by default, which is sized for a form rather than a file. A larger import is refused with 413 and a message naming
 both the limit and this key. The import also has limits of its own, 64 MiB among them, so raising this key past
 that gains nothing. `tix serve` reads it and has no flag for it.
+
+`server.egress_allow_private` and `server.egress_allow` decide what a url a tenant supplies may reach: webhook
+endpoints, inbox channels and external sync sources. By default every request to such a url is refused when it
+would connect to loopback, link-local (the cloud metadata endpoint among them), a private or unique-local range,
+carrier-grade NAT, multicast, a reserved range or an IPv6 form that carries an IPv4 address. The check runs on the
+address the connection is about to use, after resolution and on every redirect hop, and only `http` and `https`
+are accepted. A refusal says "address not allowed" and nothing about what the name resolved to.
+
+`server.egress_allow` opens exceptions, each an address, a CIDR range, a host name or a `.suffix` that matches
+every name under it, for example `[10.20.0.0/16, jira.internal, .corp.example]`; in the environment, separate them
+with commas. A host name entry is matched against the url's host and then reached at whatever it resolves to, so
+list only names whose DNS you control. An entry that does not parse is refused at startup.
+`server.egress_allow_private: true` opens every internal address, which is only right when every tenant is
+trusted with the server's network.
+
+Webhooks and inbox channels are held to this on every surface, as they were before these keys existed, and
+`webhooks.allow_private_targets` still opens every internal address for them alone. External sync is held to it on
+`tix serve`; a command run against the database directly, such as `tix sync run` without a server, is the
+operator's own process and reaches what the operator's network allows. See
+[deployment.md](deployment.md#outbound-requests-to-tenant-urls) for the reasoning.
 
 `auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
 and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and

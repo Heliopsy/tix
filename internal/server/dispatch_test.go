@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/webhook"
@@ -42,7 +43,8 @@ func TestAssembledServerDeliversQueuedWebhooks(t *testing.T) {
 	}))
 	defer receiver.Close()
 
-	a := assemble(t, func(o *server.Options) { o.DispatchInterval = 10 * time.Millisecond })
+	loopback, _ := egress.New(false, []string{"127.0.0.0/8"})
+	a := assemble(t, func(o *server.Options) { o.DispatchInterval = 10 * time.Millisecond; o.Egress = loopback })
 	if err := a.srv.Listen(); err != nil {
 		t.Fatalf("listening: %v", err)
 	}
@@ -56,7 +58,7 @@ func TestAssembledServerDeliversQueuedWebhooks(t *testing.T) {
 		}
 	}()
 
-	writer := service.New(a.store, service.WithHooks(service.HookServer))
+	writer := service.New(a.store, service.WithHooks(service.HookServer), service.WithEgress(loopback))
 	writeCtx := a.conn.Context(context.Background())
 	endpoint, err := writer.PutWebhook(writeCtx, core.WebhookInput{
 		URL: receiver.URL, EventTypes: []string{"task.*"}, Active: true,

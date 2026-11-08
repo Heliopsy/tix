@@ -79,6 +79,34 @@ refused at run time. To carry on:
 - A single-tenant server that relies on `TIX_SYNC_<SOURCE>_*` sets `sync.env_sources: [default/*]`, and puts the
   url in `TIX_SYNC_<SOURCE>_URL` rather than on the source when the credentials come from the environment.
 
+### Trackers on an internal network
+
+`tix serve` reaches a source's url only if it is not internal: loopback, link-local, private and unique-local
+ranges and the like are refused unless the operator allows them, because a tenant chooses the url and a run
+imports what it reads. The check is made on the address the server connects to, on every redirect too, and a
+refused source says "address not allowed". A command run against the database directly is not held to it.
+
+#### Upgrading a server whose sources reach internal urls
+
+A source stored with an internal url is kept, and its runs are refused on the server until the operator allows
+the address. Saving a source with a literal internal address or `localhost` is refused straight away. To carry on:
+
+- Allow the tracker narrowly in the server's configuration, by name or by range, and restart `tix serve`:
+
+  ```yaml
+  server:
+    egress_allow: [jira.internal, 10.20.0.15/32]
+  ```
+
+  or `TIX_SERVER_EGRESS_ALLOW=jira.internal,10.20.0.15/32`.
+- On a server where every tenant is trusted with the network, `server.egress_allow_private: true` allows every
+  internal address instead.
+- Webhook endpoints and inbox channels already refused internal targets; the same allow list now opens them too,
+  next to `webhooks.allow_private_targets`.
+
+See [configuration.md](configuration.md#keys) and
+[deployment.md](deployment.md#outbound-requests-to-tenant-urls).
+
 ### Setting up a source
 
 ```sh

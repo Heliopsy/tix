@@ -104,6 +104,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	serverStore := openStore(t, path, clk)
 	serverSvc := service.New(serverStore,
 		service.WithClock(clk),
+		service.WithEgress(loopbackEgress),
 		service.WithHasher(auth.NewHasherWithParams(auth.TestParams())))
 
 	tenant, err := serverSvc.EnsureDefaults(ctx)
@@ -126,6 +127,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	}
 
 	srv, err := server.Assemble(server.Options{
+		Egress:            loopbackEgress,
 		Service:           serverSvc,
 		Store:             serverStore,
 		Clock:             clk,
@@ -166,6 +168,7 @@ func newHarness(t *testing.T, opts ...harnessOption) *harness {
 	direct := service.New(cliStore,
 		service.WithClock(clk),
 		service.WithHooks(cfg.directHooks),
+		service.WithEgress(loopbackEgress),
 		service.WithHasher(auth.NewHasherWithParams(auth.TestParams())))
 
 	return &harness{

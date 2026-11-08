@@ -280,7 +280,7 @@ func TestPutWebhookRejectsBadTargets(t *testing.T) {
 }
 
 func TestPutWebhookAllowsPlaintextToLoopbackOrWithOptOut(t *testing.T) {
-	l, _, _, actor := newLocal(t)
+	l, _, _, actor := newLocalWith(t, WithEgress(loopbackEgress))
 	ctx := adminCtx(actor)
 
 	for _, target := range []string{"http://127.0.0.1:8080/hooks", "http://localhost:9000/hooks", "http://[::1]:9000/hooks"} {
@@ -592,7 +592,7 @@ func allDeliveries(t *testing.T, l *Local, scope core.TenantScope) []core.Webhoo
 // hookFixture builds a service in one hook mode with a project to write into.
 func hookFixture(t *testing.T, mode HookMode) (*Local, context.Context, core.TenantScope) {
 	t.Helper()
-	l, _, scope, actor := newLocalWith(t, WithHooks(mode))
+	l, _, scope, actor := newLocalWith(t, WithHooks(mode), WithEgress(loopbackEgress))
 	seedTaskProject(t, l, scope, "infra")
 	return l, taskContext(actor), scope
 }

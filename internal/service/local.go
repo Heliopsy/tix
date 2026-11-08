@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/store"
@@ -80,6 +81,10 @@ type Local struct {
 	// syncEnvBindings its parsed environment bindings.
 	syncHost        SyncHost
 	syncEnvBindings extsync.EnvBindings
+
+	// egress is what a tenant-supplied url may reach from this process: the
+	// operator's policy, strict by default.
+	egress egress.Policy
 
 	dummyOnce sync.Once
 	dummy     string
@@ -185,6 +190,11 @@ func WithThemes(r *core.ThemeRegistry) Option { return func(l *Local) { l.themes
 func WithInsecureWebhooks(allow bool) Option {
 	return func(l *Local) { l.allowInsecureWebhooks = allow }
 }
+
+// WithEgress sets the operator's egress policy, which every outbound request
+// to a tenant-supplied url is held to. Without it the policy is strict. Sync
+// on a trusted host ignores it and reaches what the operator can.
+func WithEgress(p egress.Policy) Option { return func(l *Local) { l.egress = p } }
 
 // WithPrivateWebhookTargets allows delivery to loopback and private network
 // addresses. Off by default, and an operator decision only: a tenant supplying

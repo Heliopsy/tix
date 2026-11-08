@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 )
 
 // EnvPrefix is the environment namespace external source configuration is read
@@ -43,6 +44,9 @@ type SourceConfig struct {
 	// FileData is File's content, read by the service so it can confine
 	// where the file comes from. It is never rendered.
 	FileData []byte
+	// Egress is the policy every request to BaseURL is held to. The zero
+	// value is strict.
+	Egress egress.Policy
 
 	token    string
 	user     string

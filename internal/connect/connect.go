@@ -381,6 +381,10 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	if err := st.Migrate(ctx); err != nil {
 		return nil, closeWith(conn, err)
 	}
+	egressPolicy, err := cfg.Config.Server.Egress()
+	if err != nil {
+		return nil, closeWith(conn, err)
+	}
 	version, err := st.SchemaVersion(ctx)
 	if err != nil {
 		return nil, closeWith(conn, err)
@@ -393,6 +397,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
+		service.WithEgress(egressPolicy),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
 		service.WithSyncHost(service.SyncHost{
 			Trusted: !ov.Serving, FileRoot: expandHome(cfg.Config.Sync.FileRoot, ov.Home),

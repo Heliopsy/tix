@@ -28,6 +28,8 @@ web UI. Findings of particular interest:
   exported snapshots.
 - Injection of any kind, including into generated SQL.
 - Webhook signature forgery or replay.
+- Server-side request forgery: a tenant-supplied url (webhook, inbox channel, sync source)
+  reaching an address the egress guard should refuse.
 
 ## Deployment notes
 
@@ -36,6 +38,10 @@ web UI. Findings of particular interest:
 - Terminate TLS at the server or at a reverse proxy. Do not expose plaintext HTTP publicly.
 - A SQLite database on a network filesystem can corrupt. Use PostgreSQL for shared
   deployments; `tix doctor` reports this.
+- Webhook endpoints, inbox channels and sync sources on `tix serve` never reach loopback,
+  link-local (cloud metadata) or private addresses unless `server.egress_allow` or
+  `server.egress_allow_private` says so. Keep the allow list narrow on a shared host. See
+  [docs/deployment.md](docs/deployment.md#outbound-requests-to-tenant-urls).
 - API tokens are shown once and stored hashed. Rotate them with `tix token revoke`.
 - Every audit entry records the access channel: the token's ID and name, an opaque session
   reference, the SSH key fingerprint, the client address and a truncated user agent. Any

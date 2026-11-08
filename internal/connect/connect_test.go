@@ -506,7 +506,7 @@ func TestConfiguredDrainModeGovernsDelivery(t *testing.T) {
 			defer receiver.Close()
 
 			home := t.TempDir()
-			cfg := load(t, home, []string{"TIX_WEBHOOKS_DRAIN_MODE=" + tc.mode})
+			cfg := load(t, home, []string{"TIX_WEBHOOKS_DRAIN_MODE=" + tc.mode, "TIX_SERVER_EGRESS_ALLOW=127.0.0.0/8"})
 			conn := dialTemp(t, cfg, home)
 			ctx := conn.Context(context.Background())
 
@@ -614,6 +614,47 @@ func TestOnlyAServingProcessConfinesSyncPaths(t *testing.T) {
 				System: core.SystemGeneric, Name: "ops", MappingPath: tc.path})
 			if (err == nil) != tc.want {
 				t.Fatalf("PutSyncSource(%q) = %v, want accepted %v", tc.path, err, tc.want)
+			}
+		})
+	}
+}
+
+// egressMapping imports into a starter project with its default statuses.
+const egressMapping = "version: 1\nproject: work\nidentity:\n  id: id\n  updated_at: updated\n" +
+	"fields:\n  title: title\nstatus_field: status\nstatuses:\n  To Do: todo\ndefault_status: todo\n"
+
+// tix serve holds a tenant's sync url to the egress policy, strict unless the
+// operator opened it; a command against the database directly is the
+// operator's own and reaches what they can.
+func TestOnlyAServingProcessHoldsSyncURLsToTheEgressPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		serving bool
+		environ []string
+		want    bool
+	}{
+		{"direct", false, nil, true},
+		{"serving", true, nil, false},
+		{"serving, allow private", true, []string{"TIX_SERVER_EGRESS_ALLOW_PRIVATE=true"}, true},
+		{"serving, allowed range", true, []string{"TIX_SERVER_EGRESS_ALLOW=10.0.0.0/8"}, true},
+		{"serving, another range", true, []string{"TIX_SERVER_EGRESS_ALLOW=192.168.0.0/16"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			ctx := context.Background()
+			conn, err := Dial(ctx, load(t, home, tc.environ), Overrides{Home: home, Serving: tc.serving})
+			if err != nil {
+				t.Fatalf("Dial: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+			_, err = conn.Service.PutSyncSource(conn.Context(ctx), core.SyncSourceInput{
+				System: core.SystemJira, Name: "corp", Mapping: egressMapping,
+				Config: map[string]any{core.SyncSettingURL: "http://10.1.2.3:8080", core.SyncSettingProject: "CORP"}})
+			if tc.want && err != nil {
+				t.Fatalf("PutSyncSource = %v, want it accepted", err)
+			}
+			if !tc.want && (err == nil || !strings.Contains(err.Error(), "address not allowed")) {
+				t.Fatalf("PutSyncSource = %v, want the address refused", err)
 			}
 		})
 	}

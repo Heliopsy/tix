@@ -285,7 +285,7 @@ func TestHTTPClientDoesNotFollowARedirectOffTheConfiguredOrigin(t *testing.T) {
 
 	rec := &recorder{}
 	c, err := NewHTTPClient(HTTPOptions{
-		System: "test", BaseURL: source.URL, Sleep: rec.sleep,
+		System: "test", BaseURL: source.URL, Sleep: rec.sleep, Config: loopbackAllowed,
 		MaxRetries: 0, BaseDelay: time.Millisecond,
 	})
 	if err != nil {
@@ -315,7 +315,7 @@ func TestHTTPClientFollowsASameOriginRedirect(t *testing.T) {
 
 	rec := &recorder{}
 	c, err := NewHTTPClient(HTTPOptions{
-		System: "test", BaseURL: srv.URL, Sleep: rec.sleep,
+		System: "test", BaseURL: srv.URL, Sleep: rec.sleep, Config: loopbackAllowed,
 		MaxRetries: 0, BaseDelay: time.Millisecond,
 	})
 	if err != nil {

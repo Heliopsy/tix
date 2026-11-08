@@ -78,6 +78,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strings.Join(cfg.Server.TrustedProxies, ",")).
 			WithDetail("reason", err.Error())
 	}
+	if _, err := cfg.Server.Egress(); err != nil {
+		return invalidKey("server.egress_allow", sources).
+			WithDetail("value", strings.Join(cfg.Server.EgressAllow, ",")).
+			WithDetail("reason", err.Error())
+	}
 	// The SSH listener's list is validated separately because it is a separate
 	// key: the HTTP reverse proxy and the L4 SSH proxy need not be the same
 	// host, so neither list stands in for the other.

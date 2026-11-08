@@ -5,6 +5,7 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 )
 
 // Doer performs HTTP requests. The standard client satisfies it; a test
@@ -83,7 +85,10 @@ func NewHTTPClient(o HTTPOptions) (*HTTPClient, error) {
 		maxDelay:   o.MaxDelay,
 	}
 	if c.client == nil {
-		c.client = &http.Client{Timeout: time.Minute, CheckRedirect: sameOriginRedirect}
+		if err := o.Config.Egress.CheckURL(base); err != nil {
+			return nil, refusedAddress(o.System)
+		}
+		c.client = o.Config.Egress.Client(time.Minute, sameOriginRedirect)
 	}
 	if c.sleep == nil {
 		c.sleep = time.Sleep
@@ -155,6 +160,9 @@ func (c *HTTPClient) once(ctx context.Context, target string) ([]byte, time.Dura
 		if ctx.Err() != nil {
 			return nil, -1, ctx.Err()
 		}
+		if errors.Is(err, egress.ErrNotAllowed) {
+			return nil, -1, refusedAddress(c.system)
+		}
 		return nil, 0, core.Internal("reaching %s", c.system)
 	}
 	defer func() { _, _ = io.Copy(io.Discard, resp.Body); _ = resp.Body.Close() }()
@@ -174,6 +182,13 @@ func (c *HTTPClient) once(ctx context.Context, target string) ([]byte, time.Dura
 	default:
 		return body, 0, nil
 	}
+}
+
+// refusedAddress is the answer for a source the egress policy refused. It
+// names neither the host nor what it resolved to.
+func refusedAddress(system string) error {
+	return core.Invalid("%s base url: address not allowed; this server does not reach loopback, link-local "+
+		"or private addresses for a tenant unless its operator allows them in server.egress_allow", system)
 }
 
 // maxResponseBytes bounds a single page, so a hostile source cannot exhaust

@@ -12,6 +12,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/presence"
@@ -37,8 +38,11 @@ type Options struct {
 	// private network addresses. Off by default: a tenant-supplied URL
 	// reaching internal infrastructure is the classic request-forgery shape.
 	AllowPrivateWebhookTargets bool
-	Logger                     *slog.Logger
-	Clock                      clock.Clock
+	// Egress is the operator's policy for tenant-supplied urls, strict when
+	// zero. AllowPrivateWebhookTargets widens it for deliveries only.
+	Egress egress.Policy
+	Logger *slog.Logger
+	Clock  clock.Clock
 
 	// TenantID serves requests whose Host maps to no tenant. Leaving it empty
 	// answers an unknown host with not found instead.
@@ -272,7 +276,7 @@ func workersFor(opts Options) []Worker {
 			// operator allowed them. Without this it would build its own
 			// deny-by-default guard, which is safe but would also refuse a
 			// target an operator deliberately permitted.
-			webhook.WithGuard(webhook.NewGuard(opts.AllowPrivateWebhookTargets)),
+			webhook.WithGuard(webhookGuard(opts)),
 		)
 		workers = append(workers, DispatcherWorker(dispatcher))
 	}
@@ -308,4 +312,14 @@ func (r systemRunner) Prune(ctx context.Context, in core.PruneInput) (*core.Prun
 // RunHousekeeping applies the housekeeping policy as the system actor.
 func (r systemRunner) RunHousekeeping(ctx context.Context, in core.HousekeepingRunInput) (*core.HousekeepingResult, error) {
 	return r.service.RunHousekeeping(systemContext(ctx, r.tenantID, JobHousekeeping), in)
+}
+
+// webhookGuard is the delivery guard the operator configured: the egress
+// policy, widened to every private address when webhooks allow it.
+func webhookGuard(opts Options) webhook.Guard {
+	p := opts.Egress
+	if opts.AllowPrivateWebhookTargets {
+		p.AllowPrivate = true
+	}
+	return webhook.GuardFor(p)
 }

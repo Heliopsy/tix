@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/store"
 	extsync "github.com/heliopsy/tix/internal/sync"
 )
@@ -46,13 +47,17 @@ func WithSyncHost(h SyncHost) Option {
 type syncScope struct {
 	tenantKey string
 	trusted   bool
+	egress    egress.Policy
 	fileDir   string
 	bindings  extsync.EnvBindings
 }
 
 // syncScopeFor works out what the actor's tenant may reach.
 func (l *Local) syncScopeFor(ctx context.Context, actor *core.Actor) (syncScope, error) {
-	out := syncScope{trusted: l.syncHost.Trusted, bindings: l.syncEnvBindings}
+	out := syncScope{trusted: l.syncHost.Trusted, bindings: l.syncEnvBindings, egress: l.egress}
+	if out.trusted {
+		out.egress = egress.Permissive()
+	}
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		t, err := tx.GetTenant(ctx)
 		if err != nil {
@@ -82,6 +87,19 @@ func (s syncScope) getenv(src core.SyncSource) func(string) string {
 		return func(string) string { return "" }
 	}
 	return syncEnv
+}
+
+// checkStoredURL refuses a base url the egress policy already refuses by its
+// text alone, before it is stored. Names are not resolved here: the dialer
+// decides those on every run.
+func (s syncScope) checkStoredURL(system, raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || s.egress.CheckURL(raw) == nil {
+		return nil
+	}
+	return core.OnField(core.Invalid("%s url: address not allowed; this server does not reach loopback, "+
+		"link-local or private addresses for a tenant unless its operator allows them in server.egress_allow",
+		system), core.SyncSettingURL)
 }
 
 // confinesPaths reports whether paths stored on a source are held to the

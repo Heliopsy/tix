@@ -123,6 +123,9 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 		if err := scope.checkStoredPath(core.SyncSettingFile, "a file", settings[core.SyncSettingFile]); err != nil {
 			return nil, err
 		}
+		if err := scope.checkStoredURL(in.System, settings[core.SyncSettingURL]); err != nil {
+			return nil, err
+		}
 	}
 
 	var existing *core.SyncSource
