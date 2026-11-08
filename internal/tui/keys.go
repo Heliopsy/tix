@@ -69,6 +69,7 @@ type KeyMap struct {
 	ReadAll       key.Binding
 	Stats         key.Binding
 	Tenant        key.Binding
+	Integrations  key.Binding
 	People        key.Binding
 	Refresh       key.Binding
 	Palette       key.Binding
@@ -199,8 +200,11 @@ func DefaultKeyMap() KeyMap {
 		Tenant: key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
 		// @, the mark the interface already puts in front of a handle: every
 		// capital worth having is spoken for.
-		People:  key.NewBinding(key.WithKeys("@"), key.WithHelp("@", "people")),
-		Refresh: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
+		People: key.NewBinding(key.WithKeys("@"), key.WithHelp("@", "people")),
+		// J, for the jobs that run outside the board: deliveries, imports and
+		// pruning. Every capital nearer the meaning was spoken for.
+		Integrations: key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "integrations")),
+		Refresh:      key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh")),
 		// ctrl+k and :, the two keys nothing else was on. Not g: Top is bound
 		// to it, and gg-style motion is muscle memory for exactly the readers
 		// who would reach for a list of actions.
@@ -258,6 +262,7 @@ const (
 	doInbox
 	doStats
 	doTenant
+	doIntegrations
 	doPeople
 	doQuit
 	doInterrupt
@@ -369,6 +374,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doStats, binding: k.Stats, opens: viewStats},
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
 		{id: doInbox, binding: k.Inbox, opens: viewInbox},
+		{id: doIntegrations, binding: k.Integrations, opens: viewIntegrations},
 		{id: doPeople, binding: k.People, opens: viewPeople},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
@@ -632,6 +638,9 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
+	case viewIntegrations:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			append(k.integrationHelp(may), entry(k.Back))...)
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
@@ -779,6 +788,9 @@ type ActionContext struct {
 	// HasFilter reports a filter in force on the board, which is what saving
 	// one needs.
 	HasFilter bool
+	// Integ describes the integrations view's open tab and the row under its
+	// cursor.
+	Integ IntegrationsContext
 	// May reports whether this reader holds the authority one operation needs,
 	// asked of the capability registry. Nil offers none of the gated actions.
 	May func(string) bool
@@ -825,6 +837,9 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = append(k.peopleActions(ctx.May), entry(k.Back))
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
+	case viewIntegrations:
+		short = append([]HelpEntry{entry(k.Up), entry(k.Down)},
+			append(k.integrationShort(ctx), entry(k.Back))...)
 	default:
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}

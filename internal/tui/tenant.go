@@ -414,6 +414,7 @@ func (m Model) onTenant(msg tenantMsg) (Model, tea.Cmd) {
 	m.sel, m.rowOff, m.detail, m.detailOff = Selection{}, 0, nil, 0
 	m.leases = map[string]string{}
 	m.admin, m.adminSel, m.adminOff = nil, 0, 0
+	m.integ = integrationsState{}
 	m.people = peopleState{}
 	m.activity, m.activitySel, m.activityOff = nil, 0, 0
 	m.events, m.connected, m.lastSeq = nil, false, 0

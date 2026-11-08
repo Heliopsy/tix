@@ -25,6 +25,7 @@ const (
 	viewHistory
 	viewInbox
 	viewMenu
+	viewIntegrations
 	viewPeople
 )
 
