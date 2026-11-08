@@ -28,6 +28,7 @@ const (
 
 	RouteLogin  = APIPrefix + "/auth/login"
 	RouteLogout = APIPrefix + "/auth/logout"
+	RouteSwitch = APIPrefix + "/auth/switch"
 
 	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
 	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"

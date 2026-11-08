@@ -174,10 +174,32 @@ func (h *handler) finishSignIn(w http.ResponseWriter, r *http.Request, result *c
 			"You are signed in. Keep these codes somewhere safe: each one signs you in "+
 				"once if you lose the authenticator, and they are not shown again.")
 	}
+	if h.choosesTenant(r, session) {
+		next = RouteSwitch + "?" + url.Values{"next": {next}}.Encode()
+	}
 	// #nosec G710 -- safeNext rejects anything that is not a relative path on
 	// this origin, including protocol-relative, backslash and control forms.
 	http.Redirect(w, r, next, http.StatusSeeOther)
 	return nil
+}
+
+// choosesTenant reports whether a sign-in on a host serving several tenants
+// should land on Choose a tenant: the account belongs to more than one tenant
+// this host serves. It asks as the session just minted, which this request
+// holds the token of but did not present.
+func (h *handler) choosesTenant(r *http.Request, session *core.Session) bool {
+	served, ok := core.ServedHostFrom(r.Context())
+	if !ok || !served.Shared || session == nil {
+		return false
+	}
+	as := &core.Actor{ID: session.ActorID, TenantID: session.TenantID, Kind: core.ActorUser,
+		SessionID: auth.SessionRef(auth.HashToken(session.Token))}
+	ctx := core.WithTenant(core.WithActor(r.Context(), as), core.TenantScope{TenantID: session.TenantID})
+	me, err := h.svc.WhoAmI(ctx)
+	if err != nil {
+		return false
+	}
+	return h.switcherFor(r.WithContext(ctx), me, RouteSwitch).Choices() > 1
 }
 
 // settingsView is what the dedicated settings screen renders. TargetDescribe

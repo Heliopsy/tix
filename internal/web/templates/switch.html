@@ -1,0 +1,42 @@
+{{/*
+  Choose a tenant: where a sign-in on a host that serves several tenants
+  lands when the account belongs to more than one of them, and the code step
+  of a switch to a tenant that asks for a second factor this session did not
+  pass. Every choice is a plain form, so it works with scripting off.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    {{if $v.Code}}
+    <h1>{{t "Second factor"}}</h1>
+    <p class="lede summary">{{t "Tenant %s asks for a second factor, and this session was signed in without one." $v.Code}}</p>
+    {{else}}
+    <h1>{{t "Choose a tenant"}}</h1>
+    {{if $v.Switcher}}<p class="lede summary">{{t "You belong to more than one tenant. Pick the one to work in; the tenant button in the sidebar moves you to another at any time."}}</p>{{end}}
+    {{end}}
+  </div>
+  {{template "help" $}}
+</div>
+
+{{if $v.Code}}
+<div class="card">
+<form method="post" action="/switch" hx-boost="false" autocomplete="off">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="tenant" value="{{$v.Code}}">
+  <div class="field-label"><label for="code">{{t "Code"}}</label>{{template "tip" (tip "Second factor" "A time-based code (TOTP) from an authenticator app, asked for after your password. It changes every 30 seconds. Recovery codes stand in for it when the app is out of reach." "docs/second-factor.md")}}</div>
+  <p class="muted" id="code-help">{{t "Six digits from your authenticator app, or one of your recovery codes if you cannot reach it."}}</p>
+  <input id="code" name="code" inputmode="text" autocomplete="one-time-code"
+         spellcheck="false" autofocus required aria-describedby="code-help{{if $v.Errors.On "code"}} code-error{{end}}">
+  {{with $v.Errors.On "code"}}{{template "field-error" .}}{{end}}
+  <div class="actions">
+    <button type="submit">{{t "Switch"}}</button>
+    <a href="/projects">{{t "Cancel"}}</a>
+  </div>
+</form>
+</div>
+{{else}}
+{{with $v.Switcher}}{{template "tenant-rows" .}}{{else}}<p class="muted">{{t "You belong to one tenant only."}}</p>{{end}}
+<p><a class="btn secondary" href="{{$v.Next}}">{{t "Continue here"}}</a></p>
+{{end}}
+{{end}}

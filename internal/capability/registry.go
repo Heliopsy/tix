@@ -1305,6 +1305,15 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "session.switch", Method: "SwitchTenant",
+		HTTP: apiPost(wire.RouteSwitch),
+		Web:  webPost(web.RouteSwitch),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "a command line context holds a token, and tokens stay in the tenant they were minted for; a second tenant is a second context from tix login"),
+			off(SurfaceTUI, "the interface runs on a context's token, which cannot switch; its tenant view moves between contexts instead"),
+		},
+	},
+	{
 		Name: "totp.status", Method: "TOTPStatus",
 		CLI:  "tix user totp status",
 		HTTP: apiGet(wire.RouteTOTP),

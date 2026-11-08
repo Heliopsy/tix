@@ -57,6 +57,7 @@ var helpDocs = map[string]helpDoc{
 	"/admin/global/tenants/{key}":        {"tenancy.md", "global-admins"},
 	"/admin/global/accounts/{email}":     {"tenancy.md", "account-history"},
 	"/account":                           {"tenancy.md", "account-history"},
+	RouteSwitch:                          {"tenancy.md", "switching-tenant"},
 	"/admin/connections":                 {"web-ui.md", "server-administration"},
 	"/admin/webhooks":                    {"api.md", "webhooks"},
 	"/transfer":                          {"migrating.md", "moving-a-whole-tenant"},

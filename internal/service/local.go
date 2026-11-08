@@ -234,6 +234,9 @@ func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
 	}
 	out := *actor
 	out.GlobalAdmin = global
+	if err := l.describeAccount(ctx, &out); err != nil {
+		return nil, err
+	}
 	return &out, nil
 }
 

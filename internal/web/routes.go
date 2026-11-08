@@ -67,6 +67,7 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.switchRoutes()...)
 	out = append(out, h.totpRoutes()...)
 	out = append(out, h.calendarRoutes()...)
 	out = append(out, h.activityRoutes()...)
