@@ -754,8 +754,9 @@ task returns there too.
 
 The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
 beside it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions
-menu behind the three dots: **Copy the task id**, **Copy to…**, **Save as template**, **Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take
-a live lease, and **Delete task** with its two options. Nothing in that menu is drawn anywhere else.
+menu behind the three dots: **Copy the task id**, **Copy to…**, **Save as template**, **Snooze…** or
+**Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with its two options.
+Nothing in that menu is drawn anywhere else.
 
 On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
 task's activity, and the column on the right holds the properties: status and priority, which open the same
