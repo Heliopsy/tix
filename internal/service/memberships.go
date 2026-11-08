@@ -140,12 +140,17 @@ func StandingWithdrawn(ctx context.Context, tx store.Tx, actorID string) (bool, 
 }
 
 // describeAccount fills in what WhoAmI tells a person about themselves: their
-// tenant's key and name, their account, and for a session or a token carrying
+// tenant's key and name, their account, and for an interactive credential (a
+// session, an SSH sign-in, a shell holding the database) or a token carrying
 // account:read every tenant the account is a member of. A token without that
 // scope says nothing about its owner's other tenants, so an agent's token in
 // one tenant cannot list where else its owner works.
+//
+// A token's actor reads as an agent whoever it was minted for, so a token is
+// looked up by the actor it acts as: a person's token finds their account, an
+// agent's finds none.
 func (l *Local) describeAccount(ctx context.Context, out *core.Actor) error {
-	if out.Kind != core.ActorUser {
+	if out.Kind != core.ActorUser && out.TokenID == "" {
 		return nil
 	}
 	var account *core.User
@@ -163,7 +168,7 @@ func (l *Local) describeAccount(ctx context.Context, out *core.Actor) error {
 		return err
 	}
 	out.AccountID, out.Email = account.ID, account.Email
-	if out.SessionID == "" && !out.HasScope(core.ScopeAccountRead) {
+	if out.TokenID != "" && !out.HasScope(core.ScopeAccountRead) {
 		return nil
 	}
 	found, err := l.membershipsOf(ctx, account.ID)
