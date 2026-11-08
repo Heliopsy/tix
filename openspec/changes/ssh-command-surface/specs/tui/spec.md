@@ -33,3 +33,13 @@ path, and the registry SHALL record this as a TUI limitation rather than a gap.
 
 - **WHEN** a person opens the transfer view in an SSH session as `acme`
 - **THEN** the view shows commands such as `ssh acme@host export tasks -p KEY > FILE` and asks for no path
+
+### Requirement: Every import in the transfer view previews first
+
+A bundle or snapshot import in the transfer view SHALL first run as a preview or dry run and write
+only after the person confirms what it showed.
+
+#### Scenario: Importing a snapshot
+
+- **WHEN** a person imports `snapshot.ndjson` in merge mode
+- **THEN** the dry run's counts are shown and nothing is written until the person confirms
