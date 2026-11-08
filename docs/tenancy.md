@@ -209,6 +209,11 @@ SSH keys here stop at once, and their other tenants are untouched. Removing a pe
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
 
+A person's display name is per tenant: it lives on their actor there, and the Users screen, `tix user ls`
+and `show`, the API and the account menu all show that one. Renaming somebody changes the name in this
+tenant only; for a person who belongs to this tenant alone it also becomes the account's name, which a
+membership added later starts from.
+
 ### Account history
 
 Every change to an account is recorded in its own history, in the same transaction as the change: password
