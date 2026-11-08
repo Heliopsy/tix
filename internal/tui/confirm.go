@@ -18,6 +18,9 @@ const (
 	confirmRemoveDomain
 	confirmRemoveMember
 	confirmDeleteTemplate
+	confirmDeleteWebhook
+	confirmDeleteSyncSource
+	confirmPrune
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -31,6 +34,10 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRemoveDomain:   "remove domain",
 	confirmRemoveMember:   "remove member",
 	confirmDeleteTemplate: "delete template",
+
+	confirmDeleteWebhook:    "delete endpoint",
+	confirmDeleteSyncSource: "delete source",
+	confirmPrune:            "prune",
 }
 
 // Confirm is one destructive action held back until the reader agrees to it.
@@ -66,6 +73,10 @@ type Confirm struct {
 	actorID  string
 	// template names the task template a deletion removes.
 	template string
+	// integID addresses the endpoint or the source a deletion removes, and
+	// prune is what an agreed prune sends.
+	integID string
+	prune   core.PruneInput
 }
 
 // Open reports whether a confirmation is waiting for an answer.

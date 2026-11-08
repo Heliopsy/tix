@@ -101,6 +101,8 @@ func (m Model) viewName() string {
 		return "inbox"
 	case viewMenu:
 		return "start"
+	case viewIntegrations:
+		return "integrations"
 	case viewHelp:
 		return "help"
 	}
@@ -157,6 +159,8 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.inboxLines(layout)
 	case viewMenu:
 		return m.menuLines()
+	case viewIntegrations:
+		return m.integrationLines(layout)
 	default:
 		return m.boardLines(layout)
 	}
@@ -1051,7 +1055,7 @@ func (m Model) formPanel() Panel {
 			continue
 		}
 		value := l.Value
-		if l.Selected && l.Kind == FieldText {
+		if l.Selected && (l.Kind == FieldText || l.Kind == FieldSecret) {
 			value = m.input.View()
 		}
 		row := "  " + pad(l.Label, FormLabelWidth) + value

@@ -372,7 +372,7 @@ func contains(values []string, want string) bool {
 // from a view that does not exist.
 var tuiViews = map[string]bool{
 	"projects": true, "board": true, "detail": true, "activity": true, "tenant": true,
-	"stats": true, "project": true, "history": true, "inbox": true,
+	"stats": true, "project": true, "history": true, "inbox": true, "integrations": true,
 }
 
 // TestEveryTUIViewCarriesAnOperation is the other half of the previous guard.
@@ -516,10 +516,14 @@ func TestNoCLIGapRemains(t *testing.T) {
 // domain.remove, member.add, member.list and member.remove. tenant.create and
 // tenant.delete stay recorded, because a session pinned to one tenant is neither
 // where another is made nor where the one in use is destroyed.
+//
+// It came down from 44 with the integrations view, which closed twelve: the
+// five webhook operations, the four external sync operations and the three
+// retention operations, each on a tab its own scope gates.
 func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 	t.Parallel()
 	want := map[capability.Surface]int{
-		capability.SurfaceTUI: 44,
+		capability.SurfaceTUI: 32,
 		capability.SurfaceWeb: 2,
 		capability.SurfaceCLI: len(recordedCLIGaps),
 	}
