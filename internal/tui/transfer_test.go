@@ -30,7 +30,8 @@ func openTransferView(t *testing.T, m Model) Model {
 	return m
 }
 
-// startTransfer selects the transfer titled title and opens its form.
+// startTransfer selects the transfer titled title, counting from the top, and
+// opens its form.
 func startTransfer(t *testing.T, m Model, title string) Model {
 	t.Helper()
 	rows := m.transferRows()
@@ -38,6 +39,7 @@ func startTransfer(t *testing.T, m Model, title string) Model {
 	if at < 0 {
 		t.Fatalf("the transfer view offers no %q row", title)
 	}
+	m, _ = m.reduce(pressKey("g"))
 	for range at {
 		m, _ = m.reduce(pressKey("down"))
 	}
@@ -545,4 +547,125 @@ func TestTheHostedCommandsScrollIntoViewOnASmallTerminal(t *testing.T) {
 		t.Errorf("up after scrolling past the end moved to %d, want one above the end %d",
 			m.transferOff, m.transferScrollEnd())
 	}
+}
+
+func TestABundleOrSnapshotImportPreviewsThenWritesWhatWasExported(t *testing.T) {
+	for _, tc := range []struct {
+		name, export, imprt, note, done, preview string
+	}{
+		{"bundle", "export bundle", "import bundle", "a taken key is skipped", "skipped", "preview of bundle.json"},
+		{"snapshot", "export snapshot", "import snapshot", "merged into this tenant", "imported", "dry run of snapshot.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newLiveBoard(t)
+			path := filepath.Join(t.TempDir(), tc.name+".json")
+			m := answer(startTransfer(t, openTransferView(t, b.model), tc.export), "path", path)
+			m = submitTransfer(t, m)
+			if m.err != "" {
+				t.Fatalf("the export failed: %s", m.err)
+			}
+
+			m = answer(startTransfer(t, m, tc.imprt), "path", path)
+			m = submitTransfer(t, m)
+			if m.err != "" {
+				t.Fatalf("the preview failed: %s", m.err)
+			}
+			if !m.confirm.Open() || m.confirm.Kind != confirmImport {
+				t.Fatalf("the preview did not ask before writing; confirm %+v", m.confirm)
+			}
+			if q := m.confirm.Question(); !strings.Contains(q, filepath.Base(path)) {
+				t.Errorf("the question %q does not name the file", q)
+			}
+			if m.confirm.Note != tc.note {
+				t.Errorf("the question's note is %q, want %q", m.confirm.Note, tc.note)
+			}
+			if frame := m.Frame(); !strings.Contains(frame, tc.preview) {
+				t.Errorf("the view does not draw the %q:\n%s", tc.preview, frame)
+			}
+
+			m, cmd := m.reduce(pressKey("y"))
+			if cmd == nil {
+				t.Fatal("agreeing to the import started nothing")
+			}
+			m, _ = m.reduce(cmd())
+			if m.err != "" {
+				t.Fatalf("the import failed: %s", m.err)
+			}
+			if !strings.HasPrefix(m.status, "imported "+filepath.Base(path)+": ") || !strings.Contains(m.status, tc.done) {
+				t.Errorf("the status %q does not report the import", m.status)
+			}
+			if m.transferPlan != nil {
+				t.Error("the preview is still drawn after it was written")
+			}
+		})
+	}
+}
+
+func TestATransferFormRefusesAnEmptyPath(t *testing.T) {
+	b := newLiveBoard(t)
+	m := answer(startTransfer(t, openTransferView(t, b.model), "import tasks"), "path", "  ")
+	m, cmd := m.reduce(pressKey("enter"))
+	if cmd != nil {
+		t.Fatal("an empty path started a transfer")
+	}
+	if m.err != "a file path is required" {
+		t.Errorf("the error is %q", m.err)
+	}
+}
+
+func TestResolvePathReadsATildeAsHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory to resolve against")
+	}
+	for typed, want := range map[string]string{
+		"~":           home,
+		"~/infra.csv": filepath.Join(home, "infra.csv"),
+		"/abs/x.csv":  "/abs/x.csv",
+	} {
+		got, err := resolvePath(typed)
+		if err != nil || got != want {
+			t.Errorf("resolvePath(%q) = %q, %v; want %q", typed, got, err, want)
+		}
+	}
+	if got, err := resolvePath("rel.csv"); err != nil || !filepath.IsAbs(got) {
+		t.Errorf("a relative path was not made absolute: %q, %v", got, err)
+	}
+}
+
+func TestAPreviewNamesRenamesReasonsAndWarnings(t *testing.T) {
+	bundle := strings.Join(lineTexts(bundlePlanLines("x.bundle", &core.BundleResult{
+		BundleName: "starter",
+		Outcomes: []core.ComponentOutcome{
+			{Kind: core.ComponentProject, Key: "infra", Action: "renamed", NewKey: "infra-2"},
+			{Kind: core.ComponentTag, Key: "urgent", Action: "skipped", Reason: "already defined"},
+		},
+		Warnings: []string{"a workflow state was dropped"},
+	})), "\n")
+	for _, want := range []string{"preview of x.bundle, bundle starter", "1 renamed, 1 skipped", "as infra-2",
+		"already defined", "warnings:", "a workflow state was dropped"} {
+		if !strings.Contains(bundle, want) {
+			t.Errorf("the bundle preview does not say %q:\n%s", want, bundle)
+		}
+	}
+	snap := strings.Join(lineTexts(snapshotPlanLines("s.ndjson", &core.ImportResult{
+		Created: map[string]int{"task": 2}, Deleted: map[string]int{"tag": 1},
+	})), "\n")
+	for _, want := range []string{"dry run of s.ndjson", "2 created, 1 deleted", "2 task", "1 tag"} {
+		if !strings.Contains(snap, want) {
+			t.Errorf("the snapshot preview does not say %q:\n%s", want, snap)
+		}
+	}
+	if strings.Contains(snap, "warnings:") {
+		t.Errorf("a dry run with no warnings drew a warnings heading:\n%s", snap)
+	}
+}
+
+// lineTexts is the text of each transfer line.
+func lineTexts(lines []transferLine) []string {
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		out = append(out, l.text)
+	}
+	return out
 }
