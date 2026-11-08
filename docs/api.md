@@ -46,7 +46,8 @@ to one tenant refuses a header naming another with `403`. The tix client sends t
 `tix login --tenant`, which trades the session for a token (`POST /tokens` with the session cookie and the
 same header) and stores that. See [tenancy.md](tenancy.md#switching-tenant) for the whole resolution order.
 
-`GET /whoami` lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
+`GET /whoami` names the caller's tenant (`tenant_key`, `tenant_name`) and carries its resolved `theme` for every
+credential. It lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
 not imply it, so an agent's token does not learn where else its owner works. `POST /ssh-keys` with
 `"all_tenants": true` enrols the caller's own key in each of those tenants, one audited enrolment per tenant,
 and answers the enrolment in the caller's tenant with `enrolled_in` listing the tenants it was added to; a
