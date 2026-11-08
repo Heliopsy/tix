@@ -77,12 +77,14 @@ func syncSealContext(tenantID string, src core.SyncSource) string {
 
 // sealSyncCredentials replaces the source's stored credentials with the ones
 // the input carries, sealed under the server's key.
-func (l *Local) sealSyncCredentials(tenantID string, src *core.SyncSource, in core.SyncSourceInput) error {
+func (l *Local) sealSyncCredentials(tenantID string, src *core.SyncSource, in core.SyncSourceInput, bound bool) error {
 	if l.totpSealer == nil {
-		return core.OnField(core.Precondition(
-			"this server has no sealing key, so it cannot store credentials; its operator can set auth.totp_key "+
-				"(TIX_AUTH_TOTP_KEY), or set %s in the server's environment instead",
-			extsync.EnvName(src.Name, extsync.EnvToken)), "token")
+		msg := "this server has no sealing key, so it cannot store credentials; its operator can set auth.totp_key " +
+			"(TIX_AUTH_TOTP_KEY)"
+		if bound {
+			msg += ", or set " + extsync.EnvName(src.Name, extsync.EnvToken) + " in the server's environment instead"
+		}
+		return core.OnField(core.Precondition("%s", msg), "token")
 	}
 	creds := syncCredentials{
 		Token:    strings.TrimSpace(in.Token),
@@ -150,10 +152,12 @@ func syncNeedsCredentials(system string) bool {
 
 // resolveSync works out, on the server, which mapping, credentials and
 // settings a run of src would use, and what it lacks. It reads no credential.
-func (l *Local) resolveSync(src core.SyncSource) core.SyncResolution {
+func (l *Local) resolveSync(src core.SyncSource, scope syncScope) core.SyncResolution {
+	getenv := scope.getenv(src)
+	bound := scope.envBound(src)
 	env := func(suffix string) (string, string) {
 		name := extsync.EnvName(src.Name, suffix)
-		return name, strings.TrimSpace(syncEnv(name))
+		return name, strings.TrimSpace(getenv(name))
 	}
 	var out core.SyncResolution
 	setUsage := "tix sync source set " + src.Name
@@ -165,25 +169,25 @@ func (l *Local) resolveSync(src core.SyncSource) core.SyncResolution {
 			Detail: "the document stored on the source"}
 	case src.MappingPath != "":
 		out.Mapping = core.SyncOrigin{From: core.SyncFromPath, Detail: src.MappingPath}
+		if why := scope.storedPathUnreadable("the mapping file", src.MappingPath); why != "" {
+			out.Missing = append(out.Missing, why)
+		}
 	case mappingEnv != "":
 		out.Mapping = core.SyncOrigin{From: core.SyncFromEnv, Detail: mappingVar + "=" + mappingEnv}
-	default:
-		out.Mapping = core.SyncOrigin{From: core.SyncFromMissing}
-		out.Missing = append(out.Missing, "a mapping document (upload one with "+setUsage+
-			" --mapping-file FILE or in the source dialog, or set "+mappingVar+" to a file on the server)")
-	}
-	// A stored path came from a request, so one that climbs with ".." is
-	// reported missing rather than probed; saving such a path is refused.
-	if path := mappingFileOf(out.Mapping, src.MappingPath, mappingEnv); path != "" {
-		if strings.Contains(path, "..") {
-			out.Missing = append(out.Missing, "the mapping file "+path+" (a path with \"..\" is not read)")
-		} else if _, err := os.Stat(path); err != nil {
-			out.Missing = append(out.Missing, "the mapping file "+path+" (the server cannot read it; "+
+		if _, err := os.Stat(mappingEnv); err != nil {
+			out.Missing = append(out.Missing, "the mapping file "+mappingEnv+" (the server cannot read it; "+
 				"upload the document itself with "+setUsage+" --mapping-file FILE)")
 		}
+	default:
+		out.Mapping = core.SyncOrigin{From: core.SyncFromMissing}
+		hint := "a mapping document (upload one with " + setUsage + " --mapping-file FILE or in the source dialog"
+		if bound {
+			hint += ", or set " + mappingVar + " to a file on the server"
+		}
+		out.Missing = append(out.Missing, hint+")")
 	}
 
-	out.Credentials = l.resolveSyncCredentials(src, env, setUsage, &out.Missing)
+	out.Credentials = l.resolveSyncCredentials(src, env, bound, setUsage, &out.Missing)
 
 	for _, key := range core.SyncSettingKeys(src.System) {
 		suffix, _ := extsync.SettingEnv(key)
@@ -197,25 +201,20 @@ func (l *Local) resolveSync(src core.SyncSource) core.SyncResolution {
 		}
 		out.Settings = append(out.Settings, origin)
 	}
-	out.Missing = append(out.Missing, missingSyncSettings(src, out.Settings)...)
+	if file := src.Config[core.SyncSettingFile]; file != "" {
+		if why := scope.storedPathUnreadable("the file", file); why != "" {
+			out.Missing = append(out.Missing, why)
+		}
+	}
+	out.Missing = append(out.Missing, missingSyncSettings(src, out.Settings, bound)...)
 	return out
 }
 
-// mappingFileOf is the file a run would read the mapping from, if any.
-func mappingFileOf(origin core.SyncOrigin, stored, env string) string {
-	switch origin.From {
-	case core.SyncFromPath:
-		return stored
-	case core.SyncFromEnv:
-		return env
-	default:
-		return ""
-	}
-}
-
 // resolveSyncCredentials says where a run's credentials come from. A stored
-// set wins whole: environment credentials are not mixed into it.
-func (l *Local) resolveSyncCredentials(src core.SyncSource, env func(string) (string, string),
+// set wins whole: environment credentials are not mixed into it. Environment
+// credentials go only to the url the environment names, never to one stored
+// on the source, since that url came from a request.
+func (l *Local) resolveSyncCredentials(src core.SyncSource, env func(string) (string, string), bound bool,
 	setUsage string, missing *[]string) core.SyncOrigin {
 	if src.SealedCredentials != "" {
 		names := make([]string, 0, len(src.Credentials))
@@ -235,25 +234,46 @@ func (l *Local) resolveSyncCredentials(src core.SyncSource, env func(string) (st
 		}
 	}
 	if len(set) > 0 {
+		urlVar, envURL := env(extsync.EnvURL)
+		if !envCredentialsReach(src, envURL) {
+			*missing = append(*missing, "credentials ("+strings.Join(set, ", ")+" go only to the url in "+urlVar+
+				", and this source stores another url; store credentials on the source with "+setUsage+
+				" --token-stdin, or clear its url)")
+			return core.SyncOrigin{From: core.SyncFromMissing}
+		}
 		return core.SyncOrigin{From: core.SyncFromEnv, Detail: strings.Join(set, ", ")}
 	}
 	if !syncNeedsCredentials(src.System) {
 		return core.SyncOrigin{From: core.SyncFromNone}
 	}
-	tokenVar, _ := env(extsync.EnvToken)
-	*missing = append(*missing, "credentials (store them with "+setUsage+
-		" --token-stdin or in the source dialog, or set "+tokenVar+" in the server's environment)")
+	hint := "credentials (store them with " + setUsage + " --token-stdin or in the source dialog"
+	if bound {
+		tokenVar, _ := env(extsync.EnvToken)
+		hint += ", or set " + tokenVar + " in the server's environment"
+	}
+	*missing = append(*missing, hint+")")
 	return core.SyncOrigin{From: core.SyncFromMissing}
+}
+
+// envCredentialsReach reports whether environment credentials may be sent for
+// src: only to the environment's own url, which a stored url may repeat but
+// never replace.
+func envCredentialsReach(src core.SyncSource, envURL string) bool {
+	stored := strings.TrimRight(strings.TrimSpace(src.Config[core.SyncSettingURL]), "/")
+	return stored == "" || stored == strings.TrimRight(envURL, "/")
 }
 
 // missingSyncSettings names the settings a system's adapter refuses to start
 // without.
-func missingSyncSettings(src core.SyncSource, settings []core.SyncSettingOrigin) []string {
+func missingSyncSettings(src core.SyncSource, settings []core.SyncSettingOrigin, bound bool) []string {
 	have := map[string]core.SyncSettingOrigin{}
 	for _, s := range settings {
 		have[s.Key] = s
 	}
 	need := func(key, what string) string {
+		if !bound {
+			return what + " (set it on the source)"
+		}
 		return what + " (set it on the source, or set " + have[key].Variable + ")"
 	}
 	unset := func(key string) bool { return have[key].From == core.SyncFromMissing }
@@ -289,8 +309,8 @@ func refuseUnready(src core.SyncSource, resolved core.SyncResolution) error {
 }
 
 // loadSyncMapping reads the mapping a run uses: the stored document, else the
-// file its resolution names.
-func loadSyncMapping(src core.SyncSource, resolved core.SyncResolution) (*extsync.Mapping, error) {
+// file its resolution names, a stored path held to what the scope allows.
+func loadSyncMapping(src core.SyncSource, resolved core.SyncResolution, scope syncScope) (*extsync.Mapping, error) {
 	switch resolved.Mapping.From {
 	case core.SyncFromStored:
 		m, err := extsync.ParseMapping([]byte(src.Mapping))
@@ -299,20 +319,37 @@ func loadSyncMapping(src core.SyncSource, resolved core.SyncResolution) (*extsyn
 		}
 		return m, nil
 	case core.SyncFromPath:
-		return extsync.LoadMapping(src.MappingPath)
+		if strings.Contains(src.MappingPath, "..") {
+			return nil, core.Invalid("mapping file %q: a path with \"..\" is not read", src.MappingPath)
+		}
+		raw, err := scope.readStored("the mapping file", src.MappingPath)
+		if err != nil {
+			return nil, err
+		}
+		return extsync.ParseMapping(raw)
 	default:
-		return extsync.LoadMapping(syncEnv(extsync.EnvName(src.Name, extsync.EnvMapping)))
+		return extsync.LoadMapping(scope.getenv(src)(extsync.EnvName(src.Name, extsync.EnvMapping)))
 	}
 }
 
 // syncConfigFor builds the adapter configuration a run uses, with the stored
-// credentials in place of the environment's when the source has any.
-func (l *Local) syncConfigFor(tenantID string, src core.SyncSource) (extsync.SourceConfig, error) {
-	cfg, err := extsync.LoadSourceConfig(src.Name, extsync.StoredFirst(src, syncEnv))
+// credentials in place of the environment's when the source has any, and the
+// generic adapter's file read here, where the scope confines it.
+func (l *Local) syncConfigFor(tenantID string, src core.SyncSource, scope syncScope) (extsync.SourceConfig, error) {
+	getenv := scope.getenv(src)
+	cfg, err := extsync.LoadSourceConfig(src.Name, extsync.StoredFirst(src, getenv))
 	if err != nil {
 		return cfg, err
 	}
+	if src.System == core.SystemGeneric && cfg.File != "" {
+		if cfg.FileData, err = readSyncFile(src, cfg.File, scope); err != nil {
+			return cfg, err
+		}
+	}
 	if src.SealedCredentials == "" {
+		if !envCredentialsReach(src, getenv(extsync.EnvName(src.Name, extsync.EnvURL))) {
+			cfg = cfg.WithCredentials("", "", "")
+		}
 		return cfg, nil
 	}
 	creds, err := l.openSyncCredentials(tenantID, src)
@@ -322,12 +359,28 @@ func (l *Local) syncConfigFor(tenantID string, src core.SyncSource) (extsync.Sou
 	return cfg.WithCredentials(creds.Token, creds.User, creds.Password), nil
 }
 
+// readSyncFile reads the generic adapter's file: a stored path as the scope
+// allows, or the operator's path from the environment.
+func readSyncFile(src core.SyncSource, path string, scope syncScope) ([]byte, error) {
+	if strings.TrimSpace(src.Config[core.SyncSettingFile]) != "" {
+		return scope.readStored("the import file", path)
+	}
+	// #nosec G304 -- the path is the operator's TIX_SYNC_<SOURCE>_FILE, read
+	// only for a source the operator bound to the environment.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, core.Invalid("reading import file %q: %v", path, err)
+	}
+	return raw, nil
+}
+
 // checkSyncSource validates a source as it would be saved, against the
 // project and workflow its mapping names, and describes it. It writes nothing.
-func (l *Local) checkSyncSource(ctx context.Context, actor *core.Actor, src core.SyncSource) (*core.SyncSource, error) {
-	resolved := l.resolveSync(src)
+func (l *Local) checkSyncSource(ctx context.Context, actor *core.Actor, src core.SyncSource,
+	scope syncScope) (*core.SyncSource, error) {
+	resolved := l.resolveSync(src, scope)
 	if resolved.Mapping.From != core.SyncFromMissing {
-		mapping, err := loadSyncMapping(src, resolved)
+		mapping, err := loadSyncMapping(src, resolved, scope)
 		if err != nil {
 			return nil, core.OnField(err, "mapping")
 		}

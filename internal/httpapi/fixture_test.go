@@ -349,7 +349,7 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
 	f.local = service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
-		service.WithConnections(f.live))
+		service.WithConnections(f.live), service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir()}))
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice")
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob")
 

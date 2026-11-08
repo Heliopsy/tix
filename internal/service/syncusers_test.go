@@ -37,7 +37,7 @@ func newOpenProjectFixture(t *testing.T, unknown string) *openProjectFixture {
 	if err != nil {
 		t.Fatalf("minting key: %v", err)
 	}
-	l, _, _, actor := newLocalWith(t, WithTOTPKey(key))
+	l, _, _, actor := newLocalWith(t, WithTOTPKey(key), WithSyncHost(SyncHost{Trusted: true}))
 	ctx := core.WithActor(context.Background(), actor)
 	f := &openProjectFixture{local: l, ctx: ctx, pages: map[string]string{}}
 

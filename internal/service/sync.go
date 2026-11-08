@@ -61,6 +61,7 @@ func importerFor(system string, cfg extsync.SourceConfig, m *extsync.Mapping) (e
 	case core.SystemGeneric:
 		return generic.New(generic.Options{
 			Path:         cfg.File,
+			Data:         cfg.FileData,
 			UpdatedField: m.Identity.UpdatedAt,
 			PageSize:     cfg.PageSize,
 		})
@@ -111,6 +112,18 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	if err := checkSyncSourceInput(in); err != nil {
 		return nil, err
 	}
+	scope, err := l.syncScopeFor(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	if !in.KeepSettings {
+		if err := scope.checkStoredPath("mapping_path", "a mapping file", strings.TrimSpace(in.MappingPath)); err != nil {
+			return nil, err
+		}
+		if err := scope.checkStoredPath(core.SyncSettingFile, "a file", settings[core.SyncSettingFile]); err != nil {
+			return nil, err
+		}
+	}
 
 	var existing *core.SyncSource
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
@@ -142,13 +155,13 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	case in.ClearCredentials:
 		src.SealedCredentials, src.CredentialsNonce, src.Credentials = "", "", nil
 	case in.HasCredentials():
-		if err := l.sealSyncCredentials(actor.TenantID, &src, in); err != nil {
+		if err := l.sealSyncCredentials(actor.TenantID, &src, in, scope.envBound(src)); err != nil {
 			return nil, err
 		}
 	}
 
 	if in.Check {
-		return l.checkSyncSource(ctx, actor, src)
+		return l.checkSyncSource(ctx, actor, src, scope)
 	}
 
 	var out core.SyncSource
@@ -167,7 +180,7 @@ func (l *Local) PutSyncSource(ctx context.Context, in core.SyncSourceInput) (*co
 	if err != nil {
 		return nil, err
 	}
-	resolved := l.resolveSync(out)
+	resolved := l.resolveSync(out, scope)
 	out.Resolved = &resolved
 	return &out, nil
 }
@@ -299,8 +312,12 @@ func (l *Local) ListSyncSources(ctx context.Context) ([]core.SyncSource, error) 
 	}); err != nil {
 		return nil, err
 	}
+	scope, err := l.syncScopeFor(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
-		resolved := l.resolveSync(out[i])
+		resolved := l.resolveSync(out[i], scope)
 		out[i].Resolved = &resolved
 	}
 	return out, nil
@@ -385,15 +402,19 @@ func (l *Local) RunSync(ctx context.Context, in core.RunSyncInput) (*core.SyncRe
 		return nil, err
 	}
 
-	resolved := l.resolveSync(source)
-	if err := refuseUnready(source, resolved); err != nil {
-		return nil, err
-	}
-	cfg, err := l.syncConfigFor(actor.TenantID, source)
+	scope, err := l.syncScopeFor(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
-	mapping, err := loadSyncMapping(source, resolved)
+	resolved := l.resolveSync(source, scope)
+	if err := refuseUnready(source, resolved); err != nil {
+		return nil, err
+	}
+	cfg, err := l.syncConfigFor(actor.TenantID, source, scope)
+	if err != nil {
+		return nil, err
+	}
+	mapping, err := loadSyncMapping(source, resolved, scope)
 	if err != nil {
 		return nil, err
 	}

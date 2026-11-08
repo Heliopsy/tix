@@ -279,7 +279,10 @@ func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 	f.tenantB = seedTenant(t, st, "other", "Other Ltd")
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
 	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
-		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey))
+		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey),
+		// A shared host, as tix serve is, with a sync directory and tenant
+		// acme bound to the server's sync environment.
+		service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir(), EnvSources: []string{"acme/*"}}))
 	f.svc = newWebService(local, clk)
 	f.actorA = seedPerson(t, st, f.tenantA.ID, "alice", "alice@acme.test", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)

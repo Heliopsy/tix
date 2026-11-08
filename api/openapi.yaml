@@ -13938,7 +13938,10 @@ components:
           description: 'Config holds the source''s non-secret settings, stored and
             preferred over TIX_SYNC_<SOURCE>_* at run time: "file" and "page_size"
             for generic, "url", "project", "query" and "page_size" for jira and openproject.
-            A credential key or any other key is refused. Updating replaces them whole.'
+            A credential key or any other key is refused. Updating replaces them whole.
+            On tix serve "file" must lie in the tenant''s directory under the operator''s
+            sync.file_root, and the variables apply only to sources the operator binds
+            in sync.env_sources.'
           type: object
         id:
           description: ID names the source to update; empty registers a new one.
@@ -13953,7 +13956,8 @@ components:
           type: string
         mapping_path:
           description: MappingPath is a mapping file on the server, stored and preferred
-            over TIX_SYNC_<SOURCE>_MAPPING at run time.
+            over TIX_SYNC_<SOURCE>_MAPPING at run time. On tix serve it must lie in
+            the tenant's directory under sync.file_root; without one it is refused.
           type: string
         name:
           description: Name labels the source. Required.

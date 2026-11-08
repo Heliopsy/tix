@@ -40,6 +40,9 @@ type SourceConfig struct {
 	Query       string
 	Project     string
 	PageSize    int
+	// FileData is File's content, read by the service so it can confine
+	// where the file comes from. It is never rendered.
+	FileData []byte
 
 	token    string
 	user     string

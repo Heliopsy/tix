@@ -967,9 +967,13 @@ type SyncSourceInput struct {
 	// TIX_SYNC_<SOURCE>_* at run time: "file" and "page_size" for generic,
 	// "url", "project", "query" and "page_size" for jira and openproject. A
 	// credential key or any other key is refused. Updating replaces them whole.
+	// On tix serve "file" must lie in the tenant's directory under the
+	// operator's sync.file_root, and the variables apply only to sources the
+	// operator binds in sync.env_sources.
 	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
 	// MappingPath is a mapping file on the server, stored and preferred over
-	// TIX_SYNC_<SOURCE>_MAPPING at run time.
+	// TIX_SYNC_<SOURCE>_MAPPING at run time. On tix serve it must lie in the
+	// tenant's directory under sync.file_root; without one it is refused.
 	MappingPath string `json:"mapping_path,omitempty" yaml:"mapping_path,omitempty"`
 	// Mapping is the mapping document itself, YAML, stored on the source. It
 	// wins over MappingPath. Left empty, the stored document is kept.

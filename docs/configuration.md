@@ -55,6 +55,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
+| `sync.file_root` | `TIX_SYNC_FILE_ROOT` | (unset: `tix serve` reads no file a tenant names) |
+| `sync.env_sources` | `TIX_SYNC_ENV_SOURCES` | (unset: `tix serve` binds no source to `TIX_SYNC_<SOURCE>_*`) |
 | `discovery.enabled` | `TIX_DISCOVERY_ENABLED` | `true` |
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
 | `lease.default` | `TIX_LEASE_DEFAULT` | (unset: `30m`) |

@@ -165,13 +165,17 @@ func syncSourceAddCmd(g *globals) *cobra.Command {
 			"environment variables the source falls back to.\n\n" +
 			"Sync runs on the server. --mapping-file uploads a local mapping document and\n" +
 			"stores it on the source; --mapping instead names a file that already exists on\n" +
-			"the server. A stored document wins over --mapping. --token-stdin, --user and\n" +
+			"the server. tix serve reads --mapping and --file only from the tenant's\n" +
+			"directory under its sync.file_root, and refuses them without one. A stored\n" +
+			"document wins over --mapping. --token-stdin, --user and\n" +
 			"--password-stdin store credentials sealed with the server's key (auth.totp_key);\n" +
 			"they are never returned, only which ones are set and, for a long one, its last\n" +
 			"four characters.\n\n" +
 			"The setting flags are stored on the source and win over the matching\n" +
 			extsync.EnvPrefix + "<SOURCE>_* variable; a setting left out is read from its\n" +
-			"variable at run time. generic takes --file and --page-size; jira and\n" +
+			"variable at run time, on tix serve only for a source its sync.env_sources\n" +
+			"binds. Credentials from the environment go only to the environment's url,\n" +
+			"never to a --url stored on the source. generic takes --file and --page-size; jira and\n" +
 			"openproject take --url, --project, --query and --page-size. Updating a source\n" +
 			"replaces its stored settings and --mapping whole; the stored mapping document\n" +
 			"and credentials are kept unless given again or cleared. To change only those,\n" +
@@ -216,11 +220,11 @@ func syncSourceAddCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&id, "id", "", "identifier of the source to update")
-	f.StringVar(&mapping, "mapping", "", "path to a mapping file that is on the server")
+	f.StringVar(&mapping, "mapping", "", "path to a mapping file on the server; tix serve takes one only inside the tenant's sync.file_root directory")
 	f.StringVar(&url, "url", "", "base url of the external system (jira, openproject)")
 	f.StringVar(&project, "project", "", "external project key or identifier to import (jira, openproject)")
 	f.StringVar(&query, "query", "", "query selecting the records, such as JQL (jira, openproject)")
-	f.StringVar(&file, "file", "", "the .csv or .json file to read, on the server (generic)")
+	f.StringVar(&file, "file", "", "the .csv or .json file to read, on the server; tix serve takes one only inside the tenant's sync.file_root directory (generic)")
 	f.IntVar(&pageSize, "page-size", 0, "records per request")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	server.bind(cmd)

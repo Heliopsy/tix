@@ -52,6 +52,9 @@ type globals struct {
 	// drainMode is the webhook drain mode this process prefers while the
 	// operator has left the key on its default layer.
 	drainMode string
+	// serving marks tix serve, whose service answers other people and so
+	// confines what their sync sources reach on this host.
+	serving bool
 
 	// allowNetworkFS opts into opening a database detected on a network
 	// filesystem, which is refused by default because it corrupts SQLite.
@@ -448,6 +451,7 @@ func (g *globals) overrides() connect.Overrides {
 		Home:           lookupEnv(g.environ, "HOME"),
 		Environ:        g.environ,
 		DrainMode:      g.drainMode,
+		Serving:        g.serving,
 		AllowNetworkFS: g.allowNetworkFS,
 		ClientHint:     g.clientHint,
 	}

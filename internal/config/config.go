@@ -30,6 +30,7 @@ type Config struct {
 	Auth           Auth               `yaml:"auth"`
 	Hooks          Hooks              `yaml:"hooks"`
 	Webhooks       Webhooks           `yaml:"webhooks"`
+	Sync           Sync               `yaml:"sync"`
 	SSH            SSH                `yaml:"ssh"`
 	Discovery      Discovery          `yaml:"discovery"`
 	Lease          Lease              `yaml:"lease"`
@@ -206,6 +207,20 @@ type Webhooks struct {
 	// reaching internal infrastructure is the classic request-forgery shape,
 	// and the cloud metadata endpoint is a link-local address.
 	AllowPrivateTargets bool `yaml:"allow_private_targets"`
+}
+
+// Sync holds what external sync may reach on the host that runs it. Both keys
+// are operator settings: a tenant's sources never name a server path or
+// inherit the server's TIX_SYNC_<SOURCE>_* environment on tix serve unless
+// one of these says so.
+type Sync struct {
+	// FileRoot is the directory a tenant's sources may name files under, in a
+	// subdirectory named for the tenant key. Unset, tix serve reads no file a
+	// tenant names.
+	FileRoot string `yaml:"file_root"`
+	// EnvSources binds the TIX_SYNC_<SOURCE>_* environment to the sources
+	// that may use it on tix serve, each as TENANT/SOURCE or TENANT/*.
+	EnvSources []string `yaml:"env_sources"`
 }
 
 // Discovery holds the per-directory context discovery settings.
