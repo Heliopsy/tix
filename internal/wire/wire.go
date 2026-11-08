@@ -157,7 +157,8 @@ const (
 	RouteSyncSource  = APIPrefix + "/sync/sources/{id}"
 	RouteSyncRun     = APIPrefix + "/sync/run"
 
-	RouteEvents = APIPrefix + "/events"
+	RouteEvents     = APIPrefix + "/events"
+	RouteEventsPoll = APIPrefix + "/events/poll"
 
 	RouteConnections = APIPrefix + "/connections"
 	RouteConnection  = APIPrefix + "/connections/{id}"

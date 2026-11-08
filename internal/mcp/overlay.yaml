@@ -54,6 +54,12 @@ operations:
     hide: true
     reason: a readiness probe for a load balancer
 
+  # Polling the event log is useful to a model catching up on what happened
+  # since a cursor, but holding a tool call open for up to 25 seconds is not, so
+  # the wait parameter is left out and the poll always answers at once.
+  event.poll:
+    hide_params: [wait]
+
   task.list:
     hide_params: [format]
     description: |-

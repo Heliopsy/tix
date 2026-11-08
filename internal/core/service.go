@@ -336,6 +336,14 @@ type HistoryService interface {
 	// Subscribe streams committed events matching the filter, from the given
 	// sequence number or from now. A sequence number already pruned is invalid.
 	Subscribe(ctx context.Context, f EventFilter) (<-chan Event, error)
+	// PollEvents returns the committed events after since_seq that match the
+	// types and project_ids filters, in sequence order and at most limit
+	// (default 200, at most 1000), with next_seq to pass back as since_seq.
+	// next_seq is the last sequence number read, which is past the last event
+	// returned when later ones were filtered out. since_seq is exclusive; absent or 0 starts at the newest event. wait, up
+	// to 25s, holds an empty answer until an event commits or the wait runs out.
+	// A cursor older than the oldest retained event is invalid.
+	PollEvents(ctx context.Context, in EventPollInput) (*EventPage, error)
 	// Prune deletes events, audit entries and webhook deliveries older than the
 	// retention policy allows. A dry run reports the counts and writes nothing,
 	// not even an audit entry.

@@ -103,7 +103,7 @@ the routes the server registers. The areas are the first segment of each operati
 | connection | `GET /connections`, `DELETE /connections/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
 | domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
-| event | `GET /events` |
+| event | `GET /events`, `GET /events/poll` |
 | field | `GET /projects/{ref}/fields`, `PUT /projects/{ref}/fields`, `DELETE /projects/{ref}/fields/{key}` |
 | filter | `GET /filters`, `POST /filters`, `PUT /filters/order`, `GET /filters/{filter}`, `PATCH /filters/{filter}`, `DELETE /filters/{filter}` |
 | global_admin | `GET /global-admins`, `POST /global-admins`, `DELETE /global-admins/{email}` |
@@ -995,6 +995,49 @@ asyncio.run(main(os.environ["TIX_TOKEN"]))
 ```
 
 Persist `cursor` alongside whatever the handler wrote, and a restart loses nothing.
+
+## Following events over HTTP
+
+For a client whose network breaks WebSockets (a proxy, a captive portal, some mobile carriers),
+`GET /api/v1/events/poll` answers the same events from the same cursor over a plain request. A client can
+fall back to it after a few failed WebSocket attempts and switch back later without missing anything.
+
+```text
+GET /api/v1/events/poll?since_seq=41&types=task.*,comment.added&project_ids=ID&limit=200&wait=25s
+```
+
+```json
+{"events":[{"seq":42, ...},{"seq":44, ...}],"next_seq":47}
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `since_seq` | Exclusive cursor, as on the WebSocket. Absent or `0` starts at the newest event and returns only the cursor. |
+| `types` | Event types, comma separated or repeated, with the WebSocket's vocabulary and `*` suffix. An unknown type is `invalid`. |
+| `project_ids` | Project IDs, comma separated or repeated. |
+| `limit` | At most this many events, default 200, at most 1000. |
+| `wait` | When no event is available, hold the request this long for one: `25s`, or a number of seconds. Default `0`, at most `25s`, and shorter than the server's request timeout. |
+
+The events are the objects the WebSocket sends under `event`, in `seq` order. Pass `next_seq` back as
+`since_seq`. It is the last sequence number the server read for you, so it can be past the last event in
+`events` when the filter or your credential left later events out, and it equals `since_seq` when nothing
+followed it. Resuming from it never skips an event your filter would have matched.
+
+A poll with `wait` that finds nothing returns as soon as a matching event commits, woken by the same commit
+signal that drives the WebSocket, or after the wait with `"events":[]`. It answers at once when it has
+events or when there is more to read than one request reads.
+
+Everything else is the WebSocket's rule: `event:subscribe` and the extra scopes for administrative events,
+a project-scoped token narrowed to its project and `forbidden` for naming another, and a cursor older than
+retention refused with the same `invalid` error and message:
+
+```json
+{"error":{"code":"invalid","message":"cursor 12 is no longer available; the oldest retained event is 4000"}}
+```
+
+Switching transports is lossless both ways: subscribe with `since_seq` set to the last `next_seq`, or poll
+with `since_seq` set to the last `seq` the WebSocket delivered. `tix events` runs one poll from the command
+line, and `tix mcp` offers it without `wait`.
 
 ## Webhooks
 

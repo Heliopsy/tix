@@ -2546,6 +2546,86 @@ paths:
         sequence number or from now
       tags:
         - event
+  /api/v1/events/poll:
+    get:
+      description: |-
+        PollEvents returns the committed events after since_seq that match the types and project_ids filters, in sequence order and at most limit (default 200, at most 1000), with next_seq to pass back as since_seq. next_seq is the last sequence number read, which is past the last event returned when later ones were filtered out. since_seq is exclusive; absent or 0 starts at the newest event. wait, up to 25s, holds an empty answer until an event commits or the wait runs out. A cursor older than the oldest retained event is invalid.
+
+        Command line: `tix events`.
+      operationId: event.poll
+      parameters:
+        - description: 'SinceSeq is the exclusive cursor: events after this sequence
+            number are returned. Absent or 0 starts at the newest event.'
+          in: query
+          name: since_seq
+          schema:
+            format: int64
+            type: integer
+        - description: Types keeps events of these types, comma separated or repeated;
+            a trailing * matches a prefix, as in task.*.
+          in: query
+          name: types
+          schema:
+            items:
+              type: string
+            type: array
+        - description: ProjectIDs keeps events of these projects, comma separated
+            or repeated.
+          in: query
+          name: project_ids
+          schema:
+            items:
+              type: string
+            type: array
+        - description: 'Limit is how many events to return at most: default 200, at
+            most 1000.'
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: 'Wait is how long to hold the request when no event is available
+            yet, a duration such as 25s or a number of seconds: default 0, at most
+            25s.'
+          in: query
+          name: wait
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+          description: EventPage is one poll's events in sequence order and the cursor
+            that resumes after them.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - event:subscribe
+        - session:
+            - event:subscribe
+      summary: PollEvents returns the committed events after since_seq that match
+        the types and project_ids filters, in sequence order and at most limit (default
+        200, at most 1000), with next_seq to pass back as since_seq
+      tags:
+        - event
   /api/v1/export:
     post:
       description: |-
@@ -11879,6 +11959,99 @@ components:
           $ref: '#/components/schemas/ErrorBody'
           description: Error describes what went wrong.
       type: object
+    Event:
+      description: Event is one durable record in the outbox.
+      properties:
+        actor_id:
+          description: ActorID is the actor who caused the event. Empty for a system
+            event.
+          type: string
+        id:
+          description: ID is the event's unique identifier.
+          type: string
+        occurred_at:
+          description: OccurredAt is when the event happened, RFC 3339.
+          format: date-time
+          type: string
+        payload:
+          additionalProperties: {}
+          description: Payload carries event-specific details, including the subject's
+            ref when it has one.
+          type: object
+        project_id:
+          description: ProjectID is the project the event concerns. Empty for a tenant-level
+            event.
+          type: string
+        seq:
+          description: Seq is the event's position in the tenant's stream, increasing.
+            Resume a stream after the last Seq seen.
+          format: int64
+          type: integer
+        subject_id:
+          description: SubjectID is the ID of the record the event is about.
+          type: string
+        subject_type:
+          description: SubjectType is the kind of record the event is about, such
+            as "task".
+          type: string
+        tenant_id:
+          description: TenantID is the tenant the event belongs to.
+          type: string
+        type:
+          $ref: '#/components/schemas/EventType'
+          description: Type is the kind of event.
+        via:
+          $ref: '#/components/schemas/Via'
+          description: 'Via is the access channel the change arrived through: its
+            kind and the token''s name. Network details stay in the audit log.'
+      type: object
+    EventPage:
+      description: EventPage is one poll's events in sequence order and the cursor
+        that resumes after them.
+      properties:
+        events:
+          items:
+            $ref: '#/components/schemas/Event'
+          type:
+            - array
+            - "null"
+        next_seq:
+          format: int64
+          type: integer
+      type: object
+    EventType:
+      description: EventType names a kind of domain event.
+      enum:
+        - task.created
+        - task.updated
+        - task.transitioned
+        - task.claimed
+        - task.released
+        - task.lease_expired
+        - task.reclaimed
+        - task.deleted
+        - task.starred
+        - task.unstarred
+        - task.snoozed
+        - task.unsnoozed
+        - task.woke
+        - comment.added
+        - artifact.added
+        - dependency.added
+        - tag.added
+        - project.created
+        - project.updated
+        - workflow.updated
+        - field.updated
+        - webhook.delivered
+        - import.completed
+        - view.arranged
+        - filter.saved
+        - filter.updated
+        - filter.deleted
+        - inbox.updated
+        - template.updated
+      type: string
     ExportInput:
       description: ExportInput selects what to export.
       properties:

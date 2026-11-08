@@ -225,6 +225,10 @@ func (f *fakeService) Subscribe(context.Context, core.EventFilter) (<-chan core.
 	return f.events, nil
 }
 
+func (f *fakeService) PollEvents(context.Context, core.EventPollInput) (*core.EventPage, error) {
+	return &core.EventPage{Events: []core.Event{}}, nil
+}
+
 func (f *fakeService) WhoAmI(context.Context) (*core.Actor, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

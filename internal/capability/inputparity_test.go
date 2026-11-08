@@ -172,6 +172,9 @@ var inputReaches = []inputReach{
 		"actions": "--action", "sources": "--filter", "vias": "--via", "tokens": "--token", "since": "--since", "until": "--until",
 		"text": "--filter", "page": "--cursor",
 	}},
+	{"tix events", core.EventPollInput{}, map[string]string{
+		"since_seq": "--since", "types": "--type", "project_ids": "--project", "limit": "--limit", "wait": "--wait",
+	}},
 	{"tix watch", core.EventFilter{}, map[string]string{
 		"project_ids": "--project", "types": "--type", "since_seq": "--since",
 	}},

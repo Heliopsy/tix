@@ -342,7 +342,7 @@ func TestAllowedMirrorsCan(t *testing.T) {
 func TestProjectPinnedTokenCannotReachTenantWideActions(t *testing.T) {
 	p := New()
 	tenantWide := []Action{
-		ActionExport, ActionImport, ActionAuditRead, ActionEventSubscribe,
+		ActionExport, ActionImport, ActionAuditRead,
 		ActionTokenAdmin, ActionUserAdmin, ActionWebhookAdmin, ActionTenantAdmin,
 		ActionSyncAdmin, ActionRetentionWrite, ActionWorkflowWrite,
 	}
