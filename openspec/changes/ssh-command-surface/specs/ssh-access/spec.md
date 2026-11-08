@@ -133,6 +133,48 @@ A listener in demo mode SHALL refuse every hosted command, because a sandbox key
 - **WHEN** a client of a demo listener runs `ssh host task ls`
 - **THEN** the session is refused and nothing runs
 
+### Requirement: A hosted command whose client stops reading is stopped
+
+A hosted command SHALL be stopped and its session closed when a write of its output has waited on the
+client for longer than the listener's write stall timeout, two minutes by default.
+
+#### Scenario: A client that stopped reading an export
+
+- **WHEN** a client runs `ssh acme@host export` and reads nothing
+- **THEN** the session is closed after the write stall timeout and its slot is given back
+
+### Requirement: A running hosted command is stopped when its key loses standing
+
+The listener SHALL resolve a running command's key again at its recheck interval, 30 seconds by
+default, and SHALL stop the command with exit code 5 when the key no longer resolves to the same
+actor, tenant and role.
+
+#### Scenario: A key revoked mid-command
+
+- **GIVEN** a hosted command waiting on standard input
+- **WHEN** the key is revoked
+- **THEN** the command stops with exit code 5 within one recheck interval
+
+### Requirement: Hosted standard input and output are byte-exact
+
+A hosted command's standard input and output SHALL carry the session's bytes unchanged with or
+without a pseudo-terminal, and a prompt SHALL still see a terminal when one was requested.
+
+#### Scenario: An export under ssh -t
+
+- **WHEN** a client runs `ssh -t acme@host export tasks -p INFRA`
+- **THEN** the output is byte for byte the output without `-t`
+
+### Requirement: Each channel keeps its own state
+
+The listener SHALL keep what one session channel owns, its actor, registration and watchdogs, out of
+the connection's shared context, and SHALL end a channel's watchdogs when the channel ends.
+
+#### Scenario: Two channels on one connection
+
+- **WHEN** one connection runs a long command and a short one at once
+- **THEN** the short one's end leaves the long one registered, and the long one's end leaves none
+
 ## MODIFIED Requirements
 
 ### Requirement: An SSH session may name the board it opens

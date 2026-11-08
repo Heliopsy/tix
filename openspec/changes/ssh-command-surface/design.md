@@ -92,6 +92,16 @@ project spelled like anything. A project keyed `TASK` is opened with `ssh host T
   is registered as a live connection an administrator can end, reads at most
   `server.max_import_bytes` of standard input and is cancelled after `sshd.DefaultCommandTimeout`.
 - Audit: calls carry `via=ssh` with the key fingerprint and the client address.
+- Stalls: exports spool before writing, so a slow reader holds no store connection; a tenant runs two
+  exports at most; a command whose output nobody reads for two minutes is stopped.
+- Standing: a running command's key is resolved again every 30 seconds, without recording a use, and
+  the command stops with exit 5 when actor, tenant or role changed.
+- Channels: per-channel state (actor, registration, watchdog) lives in a value owned by the channel,
+  never on the connection's shared context, and the watchdog ends with the channel.
+- Panics: the command runs under a recover, and every goroutine a command starts goes through
+  `goGuarded`, which a test enforces.
+- Global admins: a global admin's key reaches cross-tenant administration, gated by the key and the
+  second factor where one is owed. That is the same standing the person has elsewhere.
 
 ## Risks and trade-offs
 

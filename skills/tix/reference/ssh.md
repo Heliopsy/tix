@@ -97,10 +97,14 @@ registry (`config`, `ctx`, `serve`, `init`, `claim exec`, ...), `login` and
 `-` (`--out`, `--mapping`, `--file`, a file argument): redirect instead. Every
 change is audited `via=ssh`. A second factor the board would ask for is owed
 here too: `ssh -t` to be asked, or `ssh -o SetEnv=TIX_CODE=123456` without a
-terminal. A command reads at most `server.max_import_bytes` of stdin, stops
-after 15 minutes and counts against `--rate-per-hour` (60), so a
+terminal. Stdin and stdout are byte-exact even under `-t`. A command reads at
+most `server.max_import_bytes` of stdin, stops after 15 minutes or after two
+minutes of nothing reading its output, stops with exit `5` within 30 seconds
+of its key being revoked, and counts against `--rate-per-hour` (60), so a
 loop of calls wants a token and `tix ctx add` instead. A `--demo` listener runs
-no commands. Command words are reserved like `board` and `watch`, compared
+no commands. A global admin's key administers every tenant, so guard it like
+the password. A tenant runs at most two exports at once (exit `4`). Command
+words are reserved like `board` and `watch`, compared
 exactly: `ssh ... TASK` opens project TASK, `board task` opens it in any case.
 
 Every failure leaves by the same door, so a stranger cannot use the listener to

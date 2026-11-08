@@ -22,6 +22,14 @@
 - [x] Hosted view names the `ssh` commands; registry Limitation on the six operations
 - [x] Tests for the view, local and hosted
 
+## Security review fixes
+
+- [x] Spool exports outside the read transaction; at most two exports per tenant
+- [x] Write stall watchdog, standing recheck, per-channel state and watchdog exit
+- [x] Byte-exact stdout and stdin under a pty, prompts keep their terminal
+- [x] Recover panics in goroutines hosted commands start; guard path flags passed to internal packages
+- [x] Transfer view on `V`; skill version bumped
+
 ## Docs
 
 - [x] `docs/deployment.md`: running commands over SSH, the security model

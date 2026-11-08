@@ -815,6 +815,7 @@ What runs:
 - **No file on the server.** Every flag or argument that names a path, `--out`, `--mapping`,
   `--save-mapping`, `--lines`, `--icon-file`, `--file`, `--mapping-file`, the file argument of `import tasks`,
   `bundle import` and `workflow put -f`, refuses anything but `-` with exit status 2. Redirect instead.
+  `domain add --cert` and `--key` name certificate files on the server and are refused too.
   `sync source add --mapping` and `--file`, which name files the server reads when the source runs, are
   refused for the same reason; upload the mapping with `--mapping-file -`.
 - **The same authority as everywhere else.** The key carries no scopes of its own. Every call is judged by
@@ -822,6 +823,11 @@ What runs:
   needs the person behind the key to be a global admin. A demo listener runs no commands at all, because a
   sandbox key is a stranger and a command such as `webhook put` makes the server reach out to an address the
   caller picks.
+- **A global admin's key administers every tenant.** A person who is a global admin keeps that standing
+  over ssh, so their key alone, plus the second factor where one is owed, reaches `tenant create`,
+  `tenant user ...`, `global-admin ...` and the other commands that act across tenants. Treat such a key
+  like the account's password and a second factor together: enrol it only from a machine you trust, and
+  require a second factor for ssh in the tenants global admins belong to.
 
 Every change a command makes is audited with `via=ssh`, the key's fingerprint and the client address, and
 `source=cli`.
@@ -843,10 +849,20 @@ refused in a tenant that requires one for ssh, the same as from the board.
 connection rate limit (`--rate-per-hour`, 60 an hour per address by default, which a busy script will want
 raised), shows in `tix connection ls` and ends with `tix connection kill`. It reads at most
 `server.max_import_bytes` of standard input, the limit an import over HTTP has, and fails past it rather
-than importing a file cut short. It is stopped after 15 minutes. A command line may carry 128 words of at
-most 4 KiB each; a word with a control character other than tab or newline is refused.
+than importing a file cut short. It is stopped after 15 minutes, and sooner when nothing has read its output
+for two minutes, so a client that stopped reading gives its slot back. Its key is resolved again every 30
+seconds while it runs: a revoked key, a disabled or removed person or a changed role stops it with exit
+status 5. A command line may carry 128 words of at most 4 KiB each; a word with a control character other
+than tab or newline is refused.
 
-Interactive confirmations see a terminal only with `-t`. A script passes the flag that skips them.
+An export is written to a spool, memory first and a temporary file past 8 MiB, and only then sent, over ssh
+and over HTTP alike, so a client that reads slowly holds no database connection while it does. A tenant
+runs at most two exports at once; a third is refused with exit status 4, or 409 over HTTP, until one ends.
+
+Standard input and output are passed byte for byte even under `-t`, so an export redirected to a file is the
+same file with or without a terminal. Standard error gets carriage returns under `-t`. Interactive
+confirmations see a terminal only with `-t`, and accept the enter key a raw terminal sends; a script passes
+the flag that skips them.
 
 ### The zero-configuration `local` actor cannot use the hosted listener
 
@@ -894,8 +910,9 @@ $ tix user key rm 01JB2K3M4N5P6Q7R8S9T
 sessions this key already holds end on the listener's idle timeout
 ```
 
-A held session is bounded by `--idle-timeout`, 30 minutes by default, and by the keepalive. Two ways to make
-that bound shorter or unnecessary:
+A held session is bounded by `--idle-timeout`, 30 minutes by default, and by the keepalive. A running
+[command](#commands-over-ssh) is different: its key is resolved again every 30 seconds, so it stops within
+that of the key being removed. Two ways to make the bound on a held board shorter or unnecessary:
 
 - Lower `--idle-timeout` (`--ssh-idle-timeout` on `tix serve`) for the deployment.
 - Cut the session now with `tix connection kill`. See [Live connections](#live-connections).
