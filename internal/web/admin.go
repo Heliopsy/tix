@@ -224,7 +224,7 @@ func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
 	if err != nil {
 		return row
 	}
-	list, err := h.tokenListing(r, actor)
+	list, err := h.tokenListing(r, actor, &actorFilter{})
 	if err != nil {
 		return row
 	}
@@ -604,6 +604,8 @@ type tokensView struct {
 	// the screen says the table is short rather than presenting it as every
 	// token of the tenant.
 	Whole bool
+	// Filter is the Actor control, and the actor it lists when one is named.
+	Filter actorFilter
 }
 
 // Fixed is the number of always-present columns, for the empty row's span.
@@ -722,7 +724,21 @@ func (h *handler) showTokens(w http.ResponseWriter, r *http.Request) error {
 // than one query, because the service's contract is per-actor on every
 // surface. The directory is the size of a tenant's staff and agents, and this
 // screen is read by an administrator during an incident, not in a loop.
-func (h *handler) tokenListing(r *http.Request, actor *core.Actor) (tokenList, error) {
+func (h *handler) tokenListing(r *http.Request, actor *core.Actor, filter *actorFilter) (tokenList, error) {
+	target, err := h.filterTarget(r, filter)
+	if err != nil {
+		return tokenList{}, err
+	}
+	if filter.Active() {
+		if target == nil {
+			return tokenList{Whole: true}, nil
+		}
+		tokens, err := h.svc.ListTokens(r.Context(), target.ID)
+		if err != nil {
+			return tokenList{}, err
+		}
+		return tokenList{Rows: h.labelTokens(r, actor, tokens), Owners: target.ID != actor.ID, Whole: true}, nil
+	}
 	if !actor.HasScope(core.ScopeTenantAdmin) {
 		tokens, err := h.svc.ListTokens(r.Context(), actor.ID)
 		if err != nil {
@@ -826,14 +842,15 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 	if err != nil {
 		return err
 	}
-	list, err := h.tokenListing(r, actor)
+	filter := h.actorFilterOf(r, RouteTokens)
+	list, err := h.tokenListing(r, actor, &filter)
 	if err != nil {
 		return err
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
 		Tokens: list.Rows, Picker: newScopePicker(actor, form.Scopes), Expiry: tokenExpiryChoices,
 		Secret: issuedTokenSecret(issued), Form: form, Errors: errs,
-		Owners: list.Owners, Whole: list.Whole})
+		Owners: list.Owners, Whole: list.Whole, Filter: filter})
 }
 
 // refuseToken answers a submission the reader can fix by drawing the screen
@@ -890,20 +907,37 @@ func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request) error {
 // sshKeysView is what the enrolled key screen renders.
 type sshKeysView struct {
 	Keys []core.SSHKey
+	// Filter is the Actor control, and the actor it lists when one is named.
+	Filter actorFilter
+	// Others reports that the keys listed are another actor's.
+	Others bool
 }
 
-// showSSHKeys renders the caller's own enrolled keys, revoked ones included,
-// because a key that stopped working is the one somebody came here about.
+// showSSHKeys renders the caller's own enrolled keys, or those of the actor
+// the filter names, revoked ones included, because a key that stopped working
+// is the one somebody came here about.
 func (h *handler) showSSHKeys(w http.ResponseWriter, r *http.Request) error {
 	actor, err := core.RequireActor(r.Context())
 	if err != nil {
 		return err
 	}
-	keys, err := h.svc.ListSSHKeys(r.Context(), actor.ID)
+	filter := h.actorFilterOf(r, RouteSSHKeys)
+	target, err := h.filterTarget(r, &filter)
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "sshkeys.html", "SSH keys", sshKeysView{Keys: keys})
+	data := sshKeysView{Filter: filter}
+	if filter.Active() && target == nil {
+		return h.render(w, r, "sshkeys.html", "SSH keys", data)
+	}
+	whose := actor.ID
+	if target != nil {
+		whose, data.Others = target.ID, target.ID != actor.ID
+	}
+	if data.Keys, err = h.svc.ListSSHKeys(r.Context(), whose); err != nil {
+		return err
+	}
+	return h.render(w, r, "sshkeys.html", "SSH keys", data)
 }
 
 // enrolSSHKey enrols a public key against the signed-in actor. The submission

@@ -608,6 +608,10 @@ ssh-add -L | head -1 | tix user key add --file - --actor ada
 `--dry-run` reports what would be enrolled without writing. `--label` is a note for telling one key from
 another.
 
+In the browser, `/admin/ssh-keys` lists your own keys, and its Actor box lists another actor's on the same
+`token:admin` that `tix user key ls --actor` needs: `/admin/ssh-keys?actor=ada`. Enrolling there always
+enrols against your own actor.
+
 What is stored is the parsed key alone. The comment `ssh-keygen` writes on the end is dropped, and a line
 carrying authorized_keys options such as `command=` or `no-pty` is refused rather than accepted with the
 options quietly discarded. Two spellings of one key are one identity, so re-enrolling the same key in a

@@ -780,6 +780,13 @@ the three panels stand one under another, each under its own heading.
 The star is a shape in the header; its name says whether you starred the task (Star or Unstar). A subtask
 names its parent beside its reference and in a Subtask of row.
 
+**Subtasks** draws the whole tree under the task, as `tix task tree` prints it. Three levels show on load;
+a subtask on the third level with subtasks of its own offers **Show N subtasks**, which loads three more
+levels in place from `/tasks/REF/tree`, and without scripting is a link to that subtask, whose own screen
+draws the rest. The arrow beside a subtask folds its subtasks away and back. Without scripting there is no
+arrow and the tree is open. A tree too large to walk is drawn one level deep, with a line saying so. The
+count beside the heading is the direct subtasks.
+
 When a page fails, the error screen offers the page that linked to it and the task list, each named for
 where it goes. It used to offer "the dashboard", which was `/`, a redirect to the projects list.
 
@@ -1079,6 +1086,17 @@ for.
 On the command line the same directory is `tix actor ls`, and `tix actor show` resolves one
 identifier.
 
+### The actor screen
+
+`/actors/ID` is one actor, opened from its handle in the directory, a task's assignee and creator, a
+comment's author or a token's owner. It takes a handle as readily as an identifier, as `tix actor show`
+does. It names the handle, display name, kind and identifier, links to the tasks assigned to the actor and,
+for a reader holding `token:admin`, to its API tokens and SSH keys, and lists its twenty latest audit
+entries worded as the activity feed words them, with **All activity** leading to the feed narrowed to it.
+A reader without `audit:read` is told the list needs that scope and still sees the rest. Like the
+directory it never says what the actor may do: that is its own business, and yours is in Settings under
+Profile.
+
 ## Statistics
 
 `/stats` carries the same figures as `tix stats` and the terminal interface's `S` view, over one
@@ -1369,7 +1387,7 @@ fallback stays regardless: a value that does not resolve must not take a page do
 
 ### The settings screen
 
-Settings is nine sections (Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
+Settings is ten sections (Profile, Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
 Second factor, Calendar feed, Database) with a navigation of plain anchors to each. Database, which
 names the server's database path or a redacted DSN, is drawn for a tenant administrator only, and the
 command palette offers it to nobody else either. Where the settings block has room the navigation is a
@@ -1377,6 +1395,12 @@ column that stays in view beside the sections; where it does not, it is a wrappe
 them. The choice is a container query on the block rather than a viewport breakpoint, because the
 sidebar is resizable and collapsible and the room beside it is what decides. The section last jumped
 to is marked in the navigation through `:target`, with no script.
+
+Profile is who you are signed in as, the browser's `tix whoami`: handle, display name, actor id with a
+Copy button, kind, role, tenant, whether you may act as a global admin, what this request authenticated
+with (the browser session, or an API token by name) and every scope you hold. It links to your actor
+screen. The tenant shows its key and name to a tenant administrator and its identifier to anybody else,
+because only an administrator may read the tenant record.
 
 Each setting is a row: its name and one line saying what it does on the left, its control on the
 right in a column every row shares, so selects are one width and switches line up. The longer

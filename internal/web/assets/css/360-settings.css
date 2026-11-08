@@ -43,6 +43,7 @@
 /* The section last jumped to, or returned to after a save, is marked without
    a script: the section is the :target, and the link naming it is found
    from the block that holds both. */
+.settings:has(#profile:target) .setnav a[href="#profile"],
 .settings:has(#appearance:target) .setnav a[href="#appearance"],
 .settings:has(#listings:target) .setnav a[href="#listings"],
 .settings:has(#keyboard:target) .setnav a[href="#keyboard"],

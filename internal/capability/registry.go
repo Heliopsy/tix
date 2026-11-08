@@ -65,6 +65,7 @@ const (
 	tplTasks     = "tasks.html"
 	tplTask      = "task.html"
 	tplActors    = "actors.html"
+	tplActor     = "actor.html"
 	tplActivity  = "activity.html"
 	tplStats     = "stats.html"
 	tplWebhooks  = "webhooks.html"
@@ -90,9 +91,8 @@ var registry = []Operation{
 		Name: "identity.whoami", Method: "WhoAmI",
 		CLI:  "tix whoami",
 		HTTP: apiGet(wire.RouteWhoAmI),
-		Exempt: []Exemption{
-			gap(SurfaceWeb, "GAP: no browser binding; the root route calls it for its error and discards the identity, then redirects, so no screen states who the reader is"),
-		},
+		// The Profile section of the settings screen.
+		Web: webGet(web.RouteSettings, tplSettings),
 		// The tenant view asks the tenant it is switching to who the actor is
 		// there, which is the only way to tell a tenant that does not exist
 		// from one this actor cannot see.
@@ -530,8 +530,6 @@ var registry = []Operation{
 		HTTP:  apiGet(wire.RouteTaskTree),
 		Web:   webGet(web.RouteTask, tplTask),
 		TUI:   "detail",
-		Limits: []Limitation{{SurfaceWeb,
-			"the task screen asks for depth 1, so it shows direct subtasks only where the cli and the api walk the tree to any depth"}},
 	},
 	{
 		Name: "dependency.add", Method: "AddDependency", Contract: Contract{Body: httpapi.DependencyRequest{}},
@@ -1077,9 +1075,7 @@ var registry = []Operation{
 		// The detail view resolves every identifier a task and its comments
 		// name to a handle, which is this lookup and nothing else.
 		TUI: "detail",
-		Exempt: []Exemption{
-			gap(SurfaceWeb, "GAP: no browser binding; the screens call it only to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"),
-		},
+		Web: webGet(web.RouteActor, tplActor),
 	},
 	{
 		Name: "user.create", Method: "CreateUser", Contract: Contract{Status: http.StatusCreated},
@@ -1474,9 +1470,6 @@ var registry = []Operation{
 		CLI:   "tix token ls",
 		HTTP:  apiGet(wire.RouteTokens),
 		Web:   webGet(web.RouteTokens, tplTokens),
-		Limits: []Limitation{{SurfaceWeb,
-			"the screen lists the tenant's tokens to a reader holding tenant:admin and the reader's own to anybody else, " +
-				"where the cli and the api take another actor's identifier on token:admin alone"}},
 		Exempt: []Exemption{
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no token administration view"),
 		},
@@ -1508,8 +1501,6 @@ var registry = []Operation{
 		CLI:   "tix user key ls",
 		HTTP:  apiGet(wire.RouteSSHKeys),
 		Web:   webGet(web.RouteSSHKeys, tplSSHKeys),
-		Limits: []Limitation{{SurfaceWeb,
-			"the screen lists the signed-in actor's own keys only, where the cli and the api take another actor's identifier"}},
 		Exempt: []Exemption{
 			gap(SurfaceTUI, "GAP: no tui binding yet; there is no credential administration view"),
 		},

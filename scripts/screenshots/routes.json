@@ -7,7 +7,8 @@
     "channel": { "from": "/settings/notifications", "match": "^/settings/notifications/([0-9A-Z]{26})$" },
     "filter": { "from": "/tasks", "match": "^/filters/([^/?#]+)$" },
     "tenant": { "from": "/admin/global", "match": "^/admin/global/tenants/([^/?#]+)$" },
-    "account": { "from": "/admin/global", "match": "^/admin/global/accounts/([^/?#]+)$" }
+    "account": { "from": "/admin/global", "match": "^/admin/global/accounts/([^/?#]+)$" },
+    "actor": { "from": "/actors", "match": "^/actors/([^/?#]+)$" }
   },
   "global": [
     { "name": "command-palette", "click": "[data-palette-open]", "wait": "dialog#palette[open]" },
@@ -85,8 +86,10 @@
     { "pattern": "/tasks/{ref}", "params": { "ref": "task" } },
     { "pattern": "/tasks/{ref}/live", "skip": "htmx fragment of the task screen" },
     { "pattern": "/tasks/{ref}/history", "skip": "htmx fragment of the task screen's history" },
+    { "pattern": "/tasks/{ref}/tree", "skip": "htmx fragment of the task screen's subtask tree" },
     { "pattern": "/tasks/{ref}/copy", "params": { "ref": "task" } },
     { "pattern": "/actors" },
+    { "pattern": "/actors/{id}", "params": { "id": "actor" } },
     { "pattern": "/admin/tenant" },
     { "pattern": "/admin/domains" },
     { "pattern": "/admin/users" },

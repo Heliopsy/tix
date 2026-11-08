@@ -4,6 +4,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -12,11 +13,82 @@ import (
 
 // RouteActors is the directory screen: the people and the agents of this
 // tenant, which is also what the assignee picker draws its handles from.
-const RouteActors = "/actors"
+// RouteActor is one actor's screen, by identifier or handle.
+const (
+	RouteActors = "/actors"
+	RouteActor  = "/actors/{id}"
+)
 
-// actorRoutes is the directory screen.
+// actorRoutes are the directory and the actor screen.
 func (h *handler) actorRoutes() []route {
-	return []route{get(RouteActors, "actors.html", h.showActors, "ListActors")}
+	return []route{
+		get(RouteActors, "actors.html", h.showActors, "ListActors"),
+		get(RouteActor, "actor.html", h.showActor, "GetActor", "ListAudit", "GetTask", "ListProjects"),
+	}
+}
+
+// actorRecentEntries is how many audit entries the actor screen asks for.
+const actorRecentEntries = 20
+
+// actorView is what the actor screen renders. It embeds the activity feed's
+// view so the shared activity-rows block draws the recent entries exactly as
+// the feed draws them.
+type actorView struct {
+	activityView
+	Target *core.Actor
+	// Self is the reader's own screen.
+	Self bool
+	// CanAudit and CanCredentials say whether the reader holds audit:read
+	// and token:admin, which decide the activity list and the credential
+	// links.
+	CanAudit       bool
+	CanCredentials bool
+}
+
+// TasksHref is the task list narrowed to this actor's work.
+func (v actorView) TasksHref() string {
+	return RouteTasks + "?" + url.Values{"q": {"assignee:" + v.Target.Handle}}.Encode()
+}
+
+// ActivityHref is the activity feed narrowed to this actor.
+func (v actorView) ActivityHref() string { return activityQuery{Actor: v.Target.ID}.Href("") }
+
+// TokensHref and KeysHref are the credential screens filtered to this actor.
+func (v actorView) TokensHref() string {
+	return RouteTokens + "?" + url.Values{"actor": {v.Target.ID}}.Encode()
+}
+
+// KeysHref is the SSH key screen filtered to this actor.
+func (v actorView) KeysHref() string {
+	return RouteSSHKeys + "?" + url.Values{"actor": {v.Target.ID}}.Encode()
+}
+
+// showActor renders one actor: who it is, where its work and credentials are,
+// and what it did last. GetActor answers naming fields only, so nothing here
+// says what the actor may do.
+func (h *handler) showActor(w http.ResponseWriter, r *http.Request) error {
+	target, err := h.svc.GetActor(r.Context(), r.PathValue("id"))
+	if err != nil {
+		return err
+	}
+	reader, _ := core.ActorFrom(r.Context())
+	data := actorView{Target: target,
+		Self:           reader != nil && reader.ID == target.ID,
+		CanAudit:       reader.HasScope(core.ScopeAuditRead),
+		CanCredentials: reader.HasScope(core.ScopeTokenAdmin) && target.Kind != core.ActorSystem,
+	}
+	if data.CanAudit {
+		feed, err := h.buildActivityViewFor(r, activityQuery{Actor: target.ID}, "", actorRecentEntries)
+		if err != nil {
+			return err
+		}
+		data.activityView = feed
+	}
+	title := target.Handle
+	if title == "" {
+		title = core.FriendlyName(target.ID)
+	}
+	return h.render(w, r, "actor.html", title, data)
 }
 
 // actorsView is what the directory screen renders.

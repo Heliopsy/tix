@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The subtask tree on the task screen (task.html "subtask-tree",
+   assets/tasktree.js). A node is a block holding its row and the list under
+   it, rather than the one-line flex row a dependency is, and each level is
+   indented by the width of a fold button so the references line up under
+   the title of their parent. Folded lists are hidden; deep trees still fit
+   a phone because the indent stops growing past the third level.
+   ------------------------------------------------------------------------ */
+.subtree > li.treenode {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+.treerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: var(--space-1) 0;
+  min-width: 0;
+}
+.treerow > .mono { flex: 0 0 auto; font-size: var(--text-sm); }
+.treespacer, .treetoggle { flex: 0 0 auto; width: var(--control-h-sm); }
+.treespacer { display: none; }
+.subtree:has(.treetoggle:not([hidden])) .treespacer { display: inline-block; }
+.treetoggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h-sm);
+  padding: 0;
+}
+.treetoggle[hidden] { display: none; }
+.treetoggle svg { transition: transform 120ms ease; }
+.treetoggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.subtree .subtree { padding-left: var(--space-5); }
+.subtree .subtree .subtree .subtree { padding-left: var(--space-3); }
+.subtree[hidden] { display: none; }
+.treemore { margin: 0 0 var(--space-1) var(--space-5); }
+
+@media (prefers-reduced-motion: reduce) {
+  .treetoggle svg { transition: none; }
+}

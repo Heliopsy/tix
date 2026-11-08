@@ -5,7 +5,8 @@
   {{template "help" $}}
 </div>
 {{with .Data.Secret}}{{template "secret" .}}{{end}}
-{{if .Data.Owners}}
+{{template "actor-filter" .Data.Filter}}
+{{if and .Data.Owners (not .Data.Filter.Active)}}
 {{/* Said once, above the table, because the reader needs to know that the
      rows are not all theirs before they read any of them. */}}
 <p class="meta">{{t "You hold tenant:admin, so this lists every token of the tenant and whose it is. Revoking somebody else's is recorded as such."}}</p>
@@ -25,7 +26,7 @@
       <td>{{.Name}}</td>
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
-      {{if $.Data.Owners}}<td title="{{.ActorID}}">{{.Owner}}{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
+      {{if $.Data.Owners}}<td title="{{.ActorID}}"><a class="who-name" href="{{actorHref .ActorID}}">{{.Owner}}</a>{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "scopes"}}<td class="scopecell">{{range .Scopes}}<code class="evchip">{{.}}</code>{{end}}</td>{{end}}
       {{if $.Columns.Show "tokens" "created"}}<td>{{when .CreatedAt}}</td>{{end}}
       {{/* A token with no expiry says so. An empty cell under a heading

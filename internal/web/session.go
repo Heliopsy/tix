@@ -209,6 +209,8 @@ func (h *handler) choosesTenant(r *http.Request, session *core.Session) bool {
 // action and binding tables so it can never list a key the scripted help
 // overlay does not also know about.
 type settingsView struct {
+	// Profile is who the reader is, as WhoAmI answers it.
+	Profile        profileView
 	TargetDescribe string
 	// ShowTarget draws the Database section, for a tenant administrator only.
 	ShowTarget bool
@@ -267,7 +269,12 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 	if err != nil {
 		return err
 	}
+	profile, err := h.buildProfile(r)
+	if err != nil {
+		return err
+	}
 	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
+		Profile:        profile,
 		TargetDescribe: h.targetDescribe,
 		ShowTarget:     tenantAdmin(r),
 		Shortcuts:      buildShortcutTable(),

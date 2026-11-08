@@ -37,6 +37,7 @@ func (h *handler) taskRoutes() []route {
 		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
 			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
 		get(RouteTaskHistory, "task.html", h.showTaskHistory, "GetTask", "ListAudit", "GetActor"),
+		get(RouteTaskTree, "task.html", h.showTaskTree, "TaskTree"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
@@ -113,9 +114,11 @@ type taskView struct {
 	ProjectKey string
 	// Project is the task's project, named in the Project row the way the
 	// reader's pickers name it; nil until attachProject has read it.
-	Project      *core.Project
-	Fields       []fieldValue
-	Subtasks     []core.Task
+	Project  *core.Project
+	Fields   []fieldValue
+	Subtasks []core.Task
+	// Tree is the subtask tree the Subtasks section draws.
+	Tree         subtaskTree
 	Dependencies []depRow
 	Comments     []core.Comment
 	Artifacts    []core.Artifact
@@ -394,14 +397,13 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 
 // attachRelations loads the subtasks, dependencies, comments and artifacts.
 func (h *handler) attachRelations(r *http.Request, ref core.TaskRef, data *taskView) error {
-	tree, err := h.svc.TaskTree(r.Context(), ref, 1)
+	_, tree, err := h.loadSubtaskTree(r, ref)
 	if err != nil {
 		return err
 	}
-	for _, t := range tree {
-		if t.ID != data.Task.ID {
-			data.Subtasks = append(data.Subtasks, t)
-		}
+	data.Tree = tree
+	for _, n := range tree.Nodes {
+		data.Subtasks = append(data.Subtasks, n.Task)
 	}
 	deps, err := h.svc.ListDependencies(r.Context(), ref)
 	if err != nil {
