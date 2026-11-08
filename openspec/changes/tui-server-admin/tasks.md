@@ -17,7 +17,7 @@
 - [ ] 3.2 Create and delete a tenant, own tenant refused, generated passwords shown once
 - [ ] 3.3 Create, add, edit and delete a tenant's users
 - [ ] 3.4 Grant and revoke global admin, account log by email
-- [ ] 3.5 `FieldSecret` form field kind, masked in the input and the summary
+- [ ] 3.5 the new user's password uses the form's shared `Secret` flag, masked in the input and the summary
 - [ ] 3.6 Model tests in `globaladmin_test.go`
 
 ## 4. Registry and docs

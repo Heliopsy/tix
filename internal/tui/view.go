@@ -105,6 +105,10 @@ func (m Model) viewName() string {
 		return "integrations"
 	case viewPeople:
 		return "people"
+	case viewServer:
+		return "server"
+	case viewGlobal:
+		return "global admin"
 	case viewHelp:
 		return "help"
 	}
@@ -165,6 +169,10 @@ func (m Model) bodyLines(layout Layout) []string {
 		return m.integrationLines(layout)
 	case viewPeople:
 		return m.peopleLines(layout)
+	case viewServer:
+		return m.serverLines(layout)
+	case viewGlobal:
+		return m.globalLines(layout)
 	default:
 		return m.boardLines(layout)
 	}

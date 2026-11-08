@@ -81,6 +81,7 @@ func newTUICmd(g *globals) *cobra.Command {
 					brand = reg.Resolve(tenant)
 				}
 			}
+			actor := tui.WithStanding(ctx, conn.Service, conn.Actor)
 			prefs, sources := accountTimePrefs(ctx, conn.Service, tuiPreferences(resolved, scheme), preferenceSources(resolved))
 			code := tui.Run(tui.Options{
 				Brand:     brand,
@@ -93,8 +94,8 @@ func newTUICmd(g *globals) *cobra.Command {
 				Dial:      g.tenantDialer(cmd, conn),
 				Reachable: g.tenantReachable(conn),
 				Service:   conn.Service,
-				Actor:     conn.Actor,
-				Access:    capability.TUIAccess(conn.Actor),
+				Actor:     actor,
+				Access:    capability.TUIAccess(actor),
 				Context:   ctx,
 				Project:   project,
 				Filter:    filter,

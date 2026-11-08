@@ -45,6 +45,10 @@ const (
 	formPeopleNew
 	formPeopleEdit
 	formInviteReissue
+	formGlobalAdd
+	formGlobalUserAdd
+	formGlobalUserEdit
+	formGlobalLog
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -94,7 +98,9 @@ type FormField struct {
 }
 
 // Typed reports whether a field is gathered by typing rather than by cycling.
-func (f FormField) Typed() bool { return f.Kind == FieldText || f.Kind == FieldProse }
+func (f FormField) Typed() bool {
+	return f.Kind == FieldText || f.Kind == FieldProse
+}
 
 // Form is a set of answers gathered on one screen. It is moved through and
 // cycled with the bindings the settings screen already uses, so every
