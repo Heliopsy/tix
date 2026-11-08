@@ -847,6 +847,21 @@
   </li>
 {{end}}
 </ul>
+{{/* Purging cannot be undone, so a trash row's button only asks: the
+     dialog names the task and its red button is the one that deletes it for
+     good. The dialogs sit outside the list so one drawn in place without
+     scripting is not squeezed into a row. */}}
+{{if $v.Trash}}{{range $v.Tasks}}{{if .DeletedAt}}
+{{$sh := shell (print "task-purge-" .Ref) (t "Delete %s permanently?" (ref .Ref)) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="purgeform" action="/tasks/{{.Ref}}/purge">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="next" value="{{$v.Self}}">
+  <p>{{t "%s and its subtasks in the trash are deleted for good, with their comments, links and attachments. It cannot be undone; the audit log keeps the record." (ref .Ref)}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Delete permanently"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}{{end}}{{end}}
 {{end}}
 {{end}}
 
@@ -1081,7 +1096,8 @@
       {{template "csrf" $r.CSRF}}
       <input type="hidden" name="next" value="{{$v.Self}}">
       <button type="submit" class="secondary" aria-label="{{t "Restore %s" (ref .Ref)}}">{{t "Restore"}}</button>
-    </form>{{end}}
+    </form>
+    {{template "dlg-open" ((opener (print "task-purge-" .Ref) (t "Delete permanently") "trash" "danger small purgeopen" $r.Here).Named (t "Delete %s permanently" (ref .Ref)))}}{{end}}
   </li>
 {{end}}{{end}}
 

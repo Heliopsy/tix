@@ -812,6 +812,7 @@ func TestDryRunAcrossTheMutatingSurface(t *testing.T) {
 		{"task", "mv", "infra-1", "doing", "--dry-run"},
 		{"task", "rm", "infra-1", "--dry-run"},
 		{"task", "restore", "infra-1", "--dry-run"},
+		{"task", "purge", "infra-1", "--dry-run"},
 		{"dep", "add", "infra-1", "infra-1", "--dry-run"},
 		{"dep", "rm", "infra-1", "infra-1", "--dry-run"},
 		{"tag", "add", "infra-1", "ops", "--dry-run"},

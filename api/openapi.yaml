@@ -7948,6 +7948,51 @@ paths:
         workflow allows
       tags:
         - task
+  /api/v1/tasks/{ref}/trash:
+    delete:
+      description: |-
+        PurgeTask permanently deletes a task already in the trash, with its trashed subtasks, the way the trash rule does when it expires them. A live task is refused with precondition_failed and reason not_trashed, and a tenant whose trash is off refuses it with reason trash_off.
+
+        Command line: `tix task purge`.
+      operationId: task.purge
+      parameters:
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:delete
+        - session:
+            - task:delete
+      summary: PurgeTask permanently deletes a task already in the trash, with its
+        trashed subtasks, the way the trash rule does when it expires them
+      tags:
+        - task
   /api/v1/tasks/{ref}/tree:
     get:
       description: |-

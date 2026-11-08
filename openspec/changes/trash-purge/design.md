@@ -10,7 +10,7 @@ sweep's. Comments, links, attachments, stars and history go the way they go unde
 keys on the task row decide, and the audit trail keeps its entries, which never cascade. A live child of a
 trashed task is left alone and, as under the sweep, its parent link is cleared by the schema.
 
-The record carries `purged: true` instead of the sweep's `cleanup` and `after_days`, so the trail tells a
+The event payload carries `purged: true` instead of the sweep's `cleanup` and `after_days`, so the trail tells a
 person's purge from the rule's.
 
 ## Who may purge

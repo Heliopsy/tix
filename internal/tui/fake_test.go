@@ -462,6 +462,9 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	return &core.Task{ID: ref.ID}, nil
 }
 
+// PurgeTask is never reached: the board offers no purge.
+func (f *fakeService) PurgeTask(context.Context, core.TaskRef) error { return nil }
+
 // TrashStatus reports a trash that is on and empty.
 func (f *fakeService) TrashStatus(context.Context) (*core.TrashStatus, error) {
 	return &core.TrashStatus{Enabled: true}, nil

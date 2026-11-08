@@ -1211,6 +1211,9 @@ type TrashStatus struct {
 // turned off, so a client can tell it from any other failed precondition.
 const ErrTrashOff = "trash_off"
 
+// ErrNotTrashed is the detail reason a purge of a live task carries.
+const ErrNotTrashed = "not_trashed"
+
 // TrashIsOff is the refusal for asking a tenant with no trash for its trash.
 func TrashIsOff(what string) *Error {
 	return Precondition("trash is turned off for this tenant, so %s; a tenant admin can turn it back on", what).

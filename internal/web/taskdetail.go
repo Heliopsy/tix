@@ -44,6 +44,7 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskPriority, h.setPriority, "UpdateTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
+		post(RouteTaskPurge, h.purgeTask, "PurgeTask"),
 		post(RouteTaskReclaim, h.reclaimTask, "ForceReclaim"),
 		post(RouteTaskDeps, h.addDependency, "AddDependency"),
 		post(RouteTaskDepDel, h.removeDependency, "RemoveDependency"),
@@ -998,6 +999,24 @@ func (h *handler) restoreTask(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	h.afterTransition(w, r, ref, "task restored", "")
+	return nil
+}
+
+// purgeTask permanently deletes a task in the trash. Only the confirm
+// dialog on a trash row posts here.
+func (h *handler) purgeTask(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	if err := h.svc.PurgeTask(r.Context(), ref); err != nil {
+		return err
+	}
+	back := backTo(r)
+	if next := field(r, "next"); next != "" {
+		back = safeNext(next)
+	}
+	redirect(w, r, back, "task deleted permanently")
 	return nil
 }
 

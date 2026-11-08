@@ -228,6 +228,11 @@ type TaskService interface {
 	// RestoreTask brings a task back out of the trash and returns it. It is
 	// refused with precondition_failed when the tenant keeps no trash.
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
+	// PurgeTask permanently deletes a task already in the trash, with its
+	// trashed subtasks, the way the trash rule does when it expires them. A
+	// live task is refused with precondition_failed and reason not_trashed,
+	// and a tenant whose trash is off refuses it with reason trash_off.
+	PurgeTask(ctx context.Context, ref TaskRef) error
 	// TrashStatus reports whether the tenant keeps deleted tasks in a trash, and
 	// how many it holds.
 	TrashStatus(ctx context.Context) (*TrashStatus, error)

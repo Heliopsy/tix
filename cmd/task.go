@@ -26,7 +26,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	}
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
-		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTrashCmd(g), taskTreeCmd(g),
+		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskPurgeCmd(g), taskTrashCmd(g), taskTreeCmd(g),
 		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
 		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g), taskLinkCmd(g),
@@ -832,6 +832,40 @@ func taskRestoreCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be restored without writing")
+	return cmd
+}
+
+func taskPurgeCmd(g *globals) *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "purge REF...",
+		Short: "Delete tasks in the trash permanently",
+		Long: "Delete tasks that are already in the trash for good, each with its subtasks that are in the\n" +
+			"trash too, the way the trash cleanup rule does when they expire. It cannot be undone. A live\n" +
+			"task is refused: delete it first, or use tix task rm --hard.\n\n" +
+			"Exit codes: 3 unknown reference, 5 permission denied, 6 the task is not in the trash or the\n" +
+			"tenant has its trash turned off.",
+		Example: "  tix task purge default-1\n  tix task purge default-1 default-4 --dry-run",
+		Args:    minArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			refs, err := readRefs(cmd, args)
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("task.purge", refsString(refs), nil))
+			}
+			return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+				return conn.Service.PurgeTask(ctx, ref)
+			})
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be purged without writing")
 	return cmd
 }
 
