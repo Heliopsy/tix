@@ -26,7 +26,8 @@ tenant take over a person who administers another.
   policy. A host no domain claims (the default-tenant fallback), or one whose domain a global admin marked
   shared, serves whichever tenant the session or the `X-Tix-Tenant` header names, and only to a credential
   of that tenant. Switching to a
-  tenant on its own domain with a single-use handoff ticket is a later phase.
+  tenant on its own domain with a single-use handoff ticket is a later phase, carried on by
+  `multi-tenant-followups`.
 - **Tokens and SSH keys stay per tenant actor.** No cross-tenant token is added. SSH keeps choosing the
   tenant by username.
 - **Adding an existing person to a tenant:** a global admin adds them directly; a tenant admin only
@@ -57,8 +58,8 @@ None. The behaviour extends existing capabilities.
 
 - `multi-tenancy`: account to actor link, adding people to a tenant, removal per tenant, tenant switch,
   TUI and CLI selection from memberships.
-- `auth`: who may change an account's credentials, administrative second factor reset, switch tickets,
-  per-request disable checks.
+- `auth`: who may change an account's credentials, administrative second factor reset, per-request
+  disable checks. Switch tickets moved to `multi-tenant-followups`.
 - `http-api`: memberships on whoami, tenant chosen on the shared host.
 - `web-ui`: header tenant switcher, invite acceptance for an existing account.
 - `cli`: per-tenant contexts and login.

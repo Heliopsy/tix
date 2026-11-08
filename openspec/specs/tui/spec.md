@@ -526,17 +526,17 @@ The TUI SHALL offer named keybinding schemes and per-action overrides, SHALL pro
 
 ### Requirement: Tenant switching from inside the interface
 
-The TUI SHALL offer a tenant view that names the tenant the session is working in and accepts a tenant key to switch to, SHALL validate that key by opening a connection pinned to it and asking that connection who the actor is, and SHALL NOT present a list of tenants to choose from. A session opened without a way to dial another tenant SHALL say so and name the command that can.
+The TUI SHALL offer a tenant view that names the tenant the session is working in, lists the caller's memberships and accepts a typed tenant key, and SHALL validate the chosen key by opening a connection pinned to it and asking that connection who the actor is. A session opened without a way to dial another tenant SHALL say so and name the command that can.
 
 #### Scenario: The tenant in force is stated
 
 - **WHEN** the tenant view is open
 - **THEN** it names the tenant the session is working in and the actor it is working as
 
-#### Scenario: A key is typed rather than picked from a list
+#### Scenario: A key can still be typed
 
-- **WHEN** the user asks to switch tenant
-- **THEN** the interface takes a typed key, and says that no list exists because an actor belongs to one tenant and tenant listings are scoped to it
+- **WHEN** the user asks to switch tenant to a tenant that is not in the membership list
+- **THEN** the interface takes a typed key and validates it as it would a listed one
 
 #### Scenario: A reachable tenant replaces the session
 
