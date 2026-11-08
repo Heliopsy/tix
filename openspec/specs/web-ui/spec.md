@@ -819,7 +819,9 @@ identifier presented as a destination.
 #### Scenario: A record inside a closed disclosure is still reached
 
 - **WHEN** a link from the feed addresses a record that the target screen keeps behind a disclosure
-- **THEN** that disclosure is opened and the record is marked, so the link lands somewhere visible
+  or on a tab not shown
+- **THEN** that disclosure is opened or that tab shown, and the record is marked, so the link lands
+  somewhere visible
 
 #### Scenario: An unresolvable subject is not a dead link
 
@@ -5441,3 +5443,107 @@ whose close control leads back to the screen without it.
 
 - **WHEN** the activity feed is read at `?dialog=raw-SEQ` for a row on it
 - **THEN** that row's Raw entry dialog is drawn open, with a Close link back to `/activity`
+
+### Requirement: A help button on every screen
+
+Every screen of the browser interface SHALL carry a help link at the right end of its header row,
+named "Help: " followed by the screen's title and opening in a new tab with `rel="noopener"`. It
+SHALL lead through `/docs/{page}` to the documentation section about that screen, for the running
+release. The task screen drawn in the task dialog SHALL carry none.
+
+#### Scenario: The task list's help
+
+- **GIVEN** a reader on `/tasks`
+- **WHEN** they follow the help link in the header
+- **THEN** it opens `/docs/web-ui.md?section=the-task-list` in a new tab, which redirects to that page
+  of the running release with `#the-task-list`
+
+### Requirement: The docs redirect carries a section
+
+`GET /docs/{page}` SHALL accept a `section` query parameter and SHALL append it to the redirect target
+as a fragment when it consists of lower-case letters, digits, hyphens and underscores. Any other value
+SHALL be ignored, and the redirect SHALL go to the page alone.
+
+#### Scenario: A malformed section is dropped
+
+- **GIVEN** a request for `/docs/web-ui.md?section=Bad%20Section`
+- **WHEN** the server answers
+- **THEN** it redirects to the page with no fragment
+
+### Requirement: A task's activity is tabs with counts
+
+The task screen and the task dialog SHALL show Comments, History and Artifacts as a tab strip under the
+task's dependencies, each tab naming its count and a zero count shown muted. One panel SHALL show at a
+time, the tabs SHALL follow the ARIA tabs pattern with arrow keys, Home and End, and none SHALL sit in
+an expander.
+
+#### Scenario: Switching with the keyboard
+
+- **GIVEN** a task screen showing the Comments tab
+- **WHEN** the reader focuses it and presses the right arrow
+- **THEN** the History tab is selected and focused and only its panel is shown
+
+### Requirement: The activity tab chosen is kept and addressable
+
+The browser SHALL remember the activity tab a reader last chose. A fragment naming a panel or a record
+inside one, an older page of history, or a raw entry in the address SHALL open the tab that holds it
+instead. A live update SHALL redraw the lists and counts and keep the tab shown.
+
+#### Scenario: A history link opens History
+
+- **GIVEN** a reader whose last chosen tab was Artifacts
+- **WHEN** they follow a link to the task ending in `#history`
+- **THEN** the History tab is the one shown
+
+#### Scenario: A comment arrives while History is shown
+
+- **WHEN** a live update brings a new comment
+- **THEN** the Comments count goes up and History stays the tab shown
+
+### Requirement: The activity panels all show without scripting
+
+Without scripting the tab strip SHALL NOT be drawn and every activity panel SHALL show under its own
+heading, one under another.
+
+#### Scenario: Scripting off
+
+- **WHEN** a task screen is drawn with scripting disabled
+- **THEN** Comments, History and Artifacts each show with their heading and nothing is hidden
+
+### Requirement: The task panel's due hint fits its column
+
+The due field in the task panel SHALL show a hint that fits its column whole: the date in the reader's
+format, with the words and offsets it also takes in its tip.
+
+#### Scenario: A task with no due date
+
+- **WHEN** a task with no due date is shown at any viewport
+- **THEN** its due field's hint is a whole date, not one cut off
+
+### Requirement: The Manage dialog sends only what changed
+
+Saving a user's Manage dialog on the Users screen SHALL send the service only the fields whose value
+differs from the user as stored: display name, role, disabled and the forced password change. A save that
+changes nothing SHALL make no update.
+
+#### Scenario: Renaming a person who belongs to two tenants
+
+- **GIVEN** a tenant admin who is not a global admin, and a person who is a member of that tenant and another
+- **WHEN** the admin changes only the person's display name or role in the Manage dialog and saves
+- **THEN** the change is saved and the forced password change is neither sent nor set
+
+#### Scenario: Saving the form as drawn
+
+- **WHEN** an admin saves a Manage dialog without changing anything
+- **THEN** no user update is recorded
+
+### Requirement: A cross-tenant refusal is shown on the Manage dialog
+
+When the service refuses a Manage dialog change with reason `account_in_other_tenants`, the Users screen
+SHALL be drawn again with that dialog open, holding what was submitted, and a message naming the person
+beside the control that asked: the forced password change box, or the clear second factor part.
+
+#### Scenario: Asking a two-tenant person to change their password
+
+- **WHEN** a tenant admin who is not a global admin ticks the forced password change for a person who also belongs to another tenant and saves
+- **THEN** the dialog comes back open with the typed values and says that only the person or a global admin can ask them to change their password, and nothing is changed
