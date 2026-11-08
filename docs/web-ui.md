@@ -208,6 +208,11 @@ restore route with the listing as the place to come back to, so the reader stays
 row leaves it, the count drops, and the toast says `task restored`. With scripting on, the listing and
 its count are swapped in place; without it, the form posts and the page reloads on the same trash.
 
+Beside Restore, a red Delete permanently button opens a dialog that names the task and says it cannot be
+undone. Its red button deletes the task for good, with its subtasks that are in the trash too, the way the
+trash cleanup rule would when they expire, and comes back to the trash with `task deleted permanently`.
+The same is `tix task purge` and `DELETE /api/v1/tasks/{ref}/trash`.
+
 A tenant admin can turn the trash off on the Tenant screen ([tenancy.md](tenancy.md#the-trash)). Then the
 Trash entry leaves the sidebar, and the trash's address answers the task list with "trash is turned off
 for this tenant" in its filter bar rather than an error page, since it may have been bookmarked. Every

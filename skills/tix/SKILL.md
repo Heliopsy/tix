@@ -762,6 +762,10 @@ and `--trashed` fail with exit `6`. `tix task trash -o json` answers
 `{"enabled": ..., "held": N}`; check it before deleting anything you might
 want back, and prefer cancelling a task over deleting it when it is off.
 
+`tix task purge REF` deletes a task that is already in the trash for good,
+with its trashed subtasks. A live task is exit `6` (`not_trashed`), and so is
+any purge while the trash is off. It has no way back, so only purge when asked.
+
 A tenant can also tidy up on its own: `tix cleanup show` lists the rules that
 move done and cancelled tasks to the trash after N days and empty the trash
 after N days, per tenant and per project (`--project KEY`). A task that
