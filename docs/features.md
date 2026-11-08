@@ -10,8 +10,8 @@ it is shown, because a count of tasks moved to a terminal state is not a measure
 number presented without that sentence gets read as one. [docs/statistics.md](statistics.md).
 
 **Theming.** A tenant names an accent and both the browser and the terminal render it. Palettes are
-configuration rather than rows, so an operator writes one for the whole deployment. Light, dark and a
-low-contrast scheme are a separate axis, chosen per browser, because that is a property of the person
+configuration rather than rows, so an operator writes one for the whole deployment. Light, dark, a
+true black OLED and a low-contrast scheme are a separate axis, chosen per browser, because that is a property of the person
 reading. State and priority colours are deliberately not themeable: blocked is red whatever a tenant
 brands itself. [docs/theming.md](theming.md).
 
