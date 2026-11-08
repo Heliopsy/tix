@@ -41,6 +41,7 @@
     <span class="taskhead-tools">
       {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
       {{template "dlg-open" (opener (print .IDPrefix "handoff") (t "Hand to an agent") "agent" "secondary small handoff-open" .Here)}}
+      {{template "share-open" .Data.Share}}
       <button type="button" class="taskmenu-open" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}"
               aria-label="{{t "Actions for %s" (ref $t.Ref)}}" title="{{t "Actions for %s" (ref $t.Ref)}}">
         <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
@@ -50,13 +51,13 @@
   </div>
 </header>
 
-{{/* The one menu. Copy link and Copy id copy without leaving; Copy to and
+{{/* The one menu. Copy id copies without leaving (Copy link is in the
+     Share menu beside it, templates/share.html); Copy to and
      Save as template are links, so they open in a new tab and work with
      scripting off, and data-dialog-load keeps them inside the dialog when
      the task is open in one (assets/taskopen.js). */}}
 <div id="{{.IDPrefix}}taskmenu-{{$t.Ref}}" class="flowmenu taskmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Actions for %s" (ref $t.Ref)}}</p>
-  <button type="button" class="flowgo" data-copy-link="/tasks/{{$t.Ref}}">{{t "Copy link"}}</button>
   <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
   {{if .Data.CanWrite}}
   <a class="flowgo copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>
@@ -92,6 +93,8 @@
   {{end}}
   <button type="button" class="flowclose" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
+
+{{template "share-menu" .Data.Share}}
 
 {{template "handoff-dlg" .}}
 
