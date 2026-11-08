@@ -105,7 +105,7 @@ responding with a not-found status, and SHALL document which is in effect.
 
 #### Scenario: Fallback mode
 
-- **WHEN** the setting selects fallback and a request arrives for an unmapped hostname
+- **WHEN** the setting selects fallback and a request arrives for an unmapped hostname, naming no other tenant by header or credential
 - **THEN** the request is resolved to the default tenant and served normally
 
 #### Scenario: Strict mode

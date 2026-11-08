@@ -53,12 +53,12 @@ The switcher SHALL list only tenants the reader is a member of. A global admin's
 
 ### Requirement: Users screen shows a pending invite of an existing account
 
-A pending invite addressed to an existing account SHALL appear on the inviting tenant's Users screen with its email and state, and that person SHALL NOT be offered as an assignee until accepted.
+A pending invite addressed to an existing account SHALL appear on the inviting tenant's Users screen with its email and state.
 
 #### Scenario: Pending
 
 - **WHEN** a tenant admin has invited an address that has an account and it is not accepted yet
-- **THEN** the Users screen lists the address as pending and the assignee choices do not include it
+- **THEN** the Users screen lists the address as pending
 
 ### Requirement: The Global admin area shares a tenant's domains
 

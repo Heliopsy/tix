@@ -63,7 +63,7 @@ A shared host SHALL refuse a header naming a tenant that has a domain of its own
 
 ### Requirement: Tenant switch routes
 
-The API SHALL serve `POST /auth/switch`, taking a target tenant key and an optional code, and answering with a session for the same host or a code challenge. In the later phase it SHALL also answer with a switch ticket and target address for another host, and serve `POST /auth/switch/redeem`, taking a ticket.
+The API SHALL serve `POST /auth/switch`, taking a target tenant key and an optional code, and answering with a session for the same host or a code challenge.
 
 #### Scenario: Switch on the same host
 

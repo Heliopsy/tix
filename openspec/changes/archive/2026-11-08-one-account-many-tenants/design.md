@@ -410,3 +410,11 @@ The owner answered the open questions of the first draft:
 4. The per-account change log is part of this change, readable by the person and global admins.
 5. Tokens list memberships only with `account:read`, which `*` does not imply.
 6. Removing the last membership deletes the account.
+
+## What this change left for later
+
+Archived with three tasks not built. 2.2a (a pending invitee is not assignable until accepted) was dropped:
+the owner decided the current behaviour is fine as it is. 2.6 (tenant deletion deletes accounts left with
+no actor, `tix doctor` lists orphans) and 6.1 (the cross-host switch ticket) moved to
+`multi-tenant-followups`, with the "A cross-host switch uses a single-use ticket" requirement and the
+later-phase sentence of "Tenant switch routes", so the main specs describe only what shipped.

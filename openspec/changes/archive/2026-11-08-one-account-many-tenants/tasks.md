@@ -25,8 +25,9 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
   admin (M)
 - [x] 2.2 Invites for an existing account: actor at issue, membership at acceptance, acceptance requires
   password and enrolled factor, pending row on the Users screen (M)
-- [ ] 2.2a A pending invitee is not assignable until accepted. Assignees are not membership-checked for any
-  actor today, so this is a new rule for every actor rather than part of the invite (S)
+- [x] 2.2a ~~A pending invitee is not assignable until accepted.~~ Dropped: the owner decided the current
+  behaviour is fine as it is. Assignees are not membership-checked for any actor, and a pending invitee
+  stays assignable like everyone else (S)
 - [x] 2.3 Sole-tenant rule on password, require-password-change, factor reset, disable and delete, with
   `account_in_other_tenants`; per-tenant disable and removal for everyone else. Email has no update path
   today, so there is nothing to guard (M)
@@ -34,7 +35,8 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
   membership deletes the account (S)
 - [x] 2.5 Verifiers read account and actor disabled state per request, which stops a disabled account in
   every tenant at once; the per-tenant sweep this replaced is not needed (M)
-- [ ] 2.6 Tenant deletion deletes accounts left with no actor; `tix doctor` lists orphans (S)
+- [x] 2.6 ~~Tenant deletion deletes accounts left with no actor; `tix doctor` lists orphans (S)~~ Not
+  shipped; moved to `multi-tenant-followups` (task 1)
 - [x] 2.7 Snapshot import maps an existing email only for a global admin (S); nothing to map, see the PR 5 notes
 
 ## 3. Account log (PR 3, M)
@@ -67,5 +69,6 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 6. Later phase: cross-host switch (PR 6, M)
 
-- [ ] 6.1 Switch ticket migration; ticket mint and `POST /switch/redeem` page with the confirm button;
-  log redaction; the switcher uses it for a tenant on its own domain (M)
+- [x] 6.1 ~~Switch ticket migration; ticket mint and `POST /switch/redeem` page with the confirm button;
+  log redaction; the switcher uses it for a tenant on its own domain (M)~~ Not shipped; moved to
+  `multi-tenant-followups` (task 2)
