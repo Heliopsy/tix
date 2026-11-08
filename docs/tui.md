@@ -33,7 +33,7 @@ settings all render into the same frame and recognising the body was the only wa
 | statistics | `S` | the same figures as `tix stats`, for the open project or the whole tenant |
 | tenant | `T` | the tenant in force, its domains and its members, and a key to switch this session |
 | settings | `,` | display preferences, and what this session is connected to |
-| transfer | `J` | exports and imports of the open project's tasks, a bundle or a snapshot, by file path; over SSH, the `ssh` commands that do them instead |
+| transfer | `V` | exports and imports of the open project's tasks, a bundle or a snapshot, by file path; over SSH, the `ssh` commands that do them instead |
 | help | `?` | the bindings of the view underneath, and the legends |
 
 Navigation is a stack. `esc` and `backspace` step back one level, and so does `q`: quitting from a
@@ -210,7 +210,7 @@ an action unbound.
 | `=` | show every hidden column again | board |
 | `space` | mark the selected item read, or unread | inbox |
 | `a` | mark every item read | inbox |
-| `J` | import and export: tasks, bundles and snapshots, by file path, or the `ssh` commands over SSH | everywhere |
+| `V` | import and export: tasks, bundles and snapshots, by file path, or the `ssh` commands over SSH | everywhere |
 | `y` | agree to a confirmation; writes a previewed import | wherever one is open, transfer |
 | `w` | project setup | everywhere |
 | `f` | custom field definitions | project |
@@ -223,12 +223,12 @@ an action unbound.
 | `ctrl+c` | interrupt, exit 130 | everywhere |
 
 `S` is capital because lowercase `s` is spoken for on the board, and a capital is what the other
-cross-view keys already use when their letter is taken. `J` opens transfer for the same reason, with less
+cross-view keys already use when their letter is taken. `V` opens transfer for the same reason, with less
 excuse: every letter a transfer could be named by was taken.
 
 ### Moving data in and out
 
-`J` opens the transfer view on the project the board is open on, or the row under the cursor on the project
+`V` opens the transfer view on the project the board is open on, or the row under the cursor on the project
 list. It lists the six transfers the reader's authority reaches: export and import of the project's tasks,
 of the project as a bundle, and of a snapshot of the whole tenant. `enter` opens a form that asks for a file
 path and the choices the command line offers: the format of a task export (CSV by default, JSON, NDJSON or a

@@ -22,7 +22,7 @@ import (
 // it did not open.
 func openTransferView(t *testing.T, m Model) Model {
 	t.Helper()
-	m, _ = m.reduce(pressKey("J"))
+	m, _ = m.reduce(pressKey("V"))
 	if m.view != viewTransfer {
 		t.Fatalf("J did not open the transfer view; view = %s", viewName(m.view))
 	}
@@ -451,7 +451,7 @@ func TestTheTransferViewFollowsTheReadersScopes(t *testing.T) {
 			m.project = core.Project{ID: "p1", Key: "infra"}
 			offered := slices.ContainsFunc(m.keys.PaletteActions(m.paletteContext()),
 				func(e PaletteEntry) bool { return e.Name == "import and export" })
-			next, _ := m.reduce(pressKey("J"))
+			next, _ := m.reduce(pressKey("V"))
 
 			if len(tc.rows) == 0 {
 				if m.canReach(viewTransfer) || offered || next.view == viewTransfer {

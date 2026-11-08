@@ -190,7 +190,7 @@ func DefaultKeyMap() KeyMap {
 		Inbox: key.NewBinding(key.WithKeys("I"), key.WithHelp("I", "inbox")),
 		// J, because every letter a transfer could be named by is spoken for:
 		// t and T, x and X, e and E, o and O, and i is vim's and helix's edit.
-		Transfer: key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "import and export")),
+		Transfer: key.NewBinding(key.WithKeys("V"), key.WithHelp("V", "import and export")),
 		// Space toggles the selected item and a marks everything read: the
 		// inbox's own keys, free there because the inbox acts on no task.
 		ToggleRead: key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "read/unread")),
