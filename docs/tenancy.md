@@ -401,7 +401,7 @@ The exclusions are narrow and each carries its reason next to it in `.golangci.y
 | `internal/store/postgres/schema.go` | DDL, the RLS policies themselves, and monthly partition maintenance act on the schema, not on rows |
 | `internal/store/{postgres,sqlite}/tx.go` | Transaction lifecycle, plus `set_config` and `SET LOCAL ROLE`; these install the scope every later statement runs under |
 | `internal/store/postgres/listen.go` | `LISTEN` on a dedicated connection carries a channel name, no rows |
-| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known |
+| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known, and `PRAGMA wal_checkpoint` at an embedded stop |
 | `*_test.go` | Tests build ad-hoc unscoped queries on purpose, to prove the other layers hold |
 
 **Request scoping.** In the HTTP layer, the tenant is resolved from the `Host` header before authentication
