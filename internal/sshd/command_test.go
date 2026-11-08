@@ -413,3 +413,84 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// A command waiting on standard input the client never closes is stopped at
+// the timeout, and the session gives its slot back rather than waiting on.
+func TestACommandPastItsTimeoutIsStopped(t *testing.T) {
+	_, _, client := enrolled(t, func(o *sshd.Options) { o.CommandTimeout = 300 * time.Millisecond })
+	sess, err := client.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = sess.Close() }()
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = stdin.Close() }()
+	var errw bytes.Buffer
+	sess.Stderr = &errw
+	done := make(chan error, 1)
+	go func() { done <- sess.Run("import tasks -p tob") }()
+	select {
+	case err := <-done:
+		var exit *gossh.ExitError
+		if !errors.As(err, &exit) || exit.ExitStatus() != core.ExitError || !strings.Contains(errw.String(), "ran past") {
+			t.Fatalf("a stalled import ended with %v, stderr %q", err, errw.String())
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("a command past its timeout kept the session open")
+	}
+}
+
+func TestAPanickingCommandEndsOnlyItsOwnSession(t *testing.T) {
+	calls := 0
+	_, _, client := enrolled(t, func(o *sshd.Options) {
+		o.Commands = func(ctx context.Context, inv sshd.Invocation) int {
+			calls++
+			if calls == 1 {
+				panic("boom")
+			}
+			return cmd.RunHosted(ctx, inv)
+		}
+	})
+	first := run(t, client, "task ls", nil, nil)
+	if first.code != core.ExitError || strings.Contains(first.err, "boom") {
+		t.Fatalf("a panicking command: exit %d, err %q", first.code, first.err)
+	}
+	second := run(t, client, "task ls -p tob", nil, nil)
+	if second.code != 0 {
+		t.Fatalf("the listener did not survive the panic: exit %d, err %q", second.code, second.err)
+	}
+}
+
+// Sessions running at once share nothing but the service, so each one's
+// output is its own.
+func TestConcurrentCommandsKeepTheirOwnOutput(t *testing.T) {
+	_, _, client := enrolled(t, func(o *sshd.Options) { o.MaxSessionsPerKey = 3 })
+	titles := []string{"one", "two", "three"}
+	results := make(chan result, len(titles))
+	for _, title := range titles {
+		go func() {
+			results <- run(t, client, "task add "+title+" -p tob -o json", nil, nil)
+		}()
+	}
+	seen := map[string]bool{}
+	for range titles {
+		r := <-results
+		if r.code != 0 {
+			t.Fatalf("a concurrent add exited %d: %s", r.code, r.err)
+		}
+		for _, title := range titles {
+			if strings.Contains(r.out, `"`+title+`"`) {
+				if seen[title] {
+					t.Fatalf("%q was reported twice", title)
+				}
+				seen[title] = true
+			}
+		}
+	}
+	if len(seen) != len(titles) {
+		t.Fatalf("outputs named %v", seen)
+	}
+}
