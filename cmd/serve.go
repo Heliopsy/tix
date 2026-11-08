@@ -143,6 +143,10 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
+	egressPolicy, err := resolved.Config.Server.Egress()
+	if err != nil {
+		return err
+	}
 
 	srv, err := server.Assemble(server.Options{
 		Logger:  log,
@@ -165,6 +169,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		TrustedProxies:             resolved.Config.Server.TrustedProxies,
 		CookieSecurity:             resolved.Config.Server.CookieSecurity,
 		AllowPrivateWebhookTargets: resolved.Config.Webhooks.AllowPrivateTargets,
+		Egress:                     egressPolicy,
 		SweepInterval:              o.sweepInterval,
 		PruneInterval:              o.pruneInterval,
 		DisableSweep:               o.disableSweep,

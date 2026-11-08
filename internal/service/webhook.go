@@ -59,7 +59,11 @@ func newWebhookSecret() (string, error) {
 // to. The allowance is read from the operator's construction option and is
 // never reachable from tenant input.
 func (l *Local) webhookGuard() webhook.Guard {
-	return webhook.NewGuard(l.allowPrivateWebhookTargets)
+	p := l.egress
+	if l.allowPrivateWebhookTargets {
+		p.AllowPrivate = true
+	}
+	return webhook.GuardFor(p)
 }
 
 // checkTransport refuses a plaintext target the guard has not already allowed,

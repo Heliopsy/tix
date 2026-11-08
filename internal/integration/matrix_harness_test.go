@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/heliopsy/tix/internal/client"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store/sqlite"
@@ -85,7 +87,10 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 		service.WithoutStarterProjects(),
 		// A sealing key, so the second-factor scenarios exercise enrolment
 		// rather than the refusal an installation without one gets.
-		service.WithTOTPKey(matrixTOTPKey))
+		service.WithTOTPKey(matrixTOTPKey),
+		// The operator's escape hatch, opened for loopback only, so the
+		// scenarios can deliver to and sync from an httptest server.
+		service.WithEgress(loopbackEgress))
 
 	tenant, err := svc.EnsureDefaults(ctx)
 	if err != nil {
@@ -122,6 +127,7 @@ func newMatrixHarness(t *testing.T) *matrixHarness {
 	adminCtx := core.WithSource(core.WithActor(ctx, adminActor), core.SourceCLI)
 
 	srv, err := server.Assemble(server.Options{
+		Egress:          loopbackEgress,
 		Service:         svc,
 		Store:           st,
 		Clock:           clk,
@@ -290,6 +296,11 @@ func snapshotKinds(t *testing.T, tg target, snapshot []byte) []string {
 // drain fails at connect instead of spending the dial timeout resolving a
 // name. These scenarios are about the delivery records, not about delivery.
 const closedEndpoint = "http://127.0.0.1:1/hook"
+
+// loopbackEgress is the operator's egress escape hatch opened for loopback
+// only, which is where every receiver and source in this suite listens.
+var loopbackEgress = egress.Policy{Allow: []netip.Prefix{
+	netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}}
 
 // waitForRegistration holds the harness back until its server has written its
 // row in the registry. The registrar runs as a background worker, so without

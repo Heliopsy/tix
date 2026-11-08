@@ -715,6 +715,8 @@ func TestValidationErrors(t *testing.T) {
 		{"absurd web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "100000"}, "web.page_size"},
 		{"zero import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "0"}, "server.max_import_bytes"},
 		{"negative import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "-1"}, "server.max_import_bytes"},
+		{"unreadable egress entry", "", map[string]string{"TIX_SERVER_EGRESS_ALLOW": "10.0.0.0/8,http://jira"}, "server.egress_allow"},
+		{"egress range too wide", "server:\n  egress_allow: [10.0.0.0/33]\n", nil, "server.egress_allow"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

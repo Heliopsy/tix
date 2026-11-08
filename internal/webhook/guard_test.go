@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 )
 
 // denying is the shipped policy. The zero value is used rather than
@@ -96,7 +97,7 @@ func TestGuardRefusesASchemeItCannotDeliverOver(t *testing.T) {
 }
 
 func TestOperatorOptInAllowsInternalTargets(t *testing.T) {
-	allowing := Guard{AllowPrivate: true}
+	allowing := Guard{Policy: egress.Permissive()}
 	for _, raw := range []string{
 		"http://127.0.0.1:9000/hook",
 		"http://localhost:9000/hook",
@@ -166,7 +167,7 @@ func TestGuardedClientDoesNotFollowRedirects(t *testing.T) {
 
 	// Loopback is allowed here so the redirect, not the address, is what the
 	// request is stopped by.
-	resp, err := Guard{AllowPrivate: true}.Client(DefaultTimeout).Get(outer.URL)
+	resp, err := Guard{Policy: egress.Permissive()}.Client(DefaultTimeout).Get(outer.URL)
 	if err != nil {
 		t.Fatalf("requesting the redirecting server: %v", err)
 	}

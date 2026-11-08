@@ -16,6 +16,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/store"
 )
 
@@ -76,7 +77,7 @@ func TestDeliverySucceedsAndIsSigned(t *testing.T) {
 	if queued != 1 {
 		t.Fatalf("queued = %d, want 1", queued)
 	}
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 
 	res, err := d.Drain(ctx, DefaultBound())
@@ -152,7 +153,7 @@ func TestServerErrorSchedulesRetry(t *testing.T) {
 	f.addEndpoint(t, rec.URL, "s", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	res, err := d.Drain(ctx, DefaultBound())
 	if err != nil {
@@ -202,7 +203,7 @@ func TestScheduleRunsOutAndFails(t *testing.T) {
 	f.addEndpoint(t, rec.URL, "s", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	schedule := d.Schedule()
 
@@ -253,8 +254,8 @@ func TestConcurrentDispatchersDoNotDoubleDeliver(t *testing.T) {
 		f.emit(t, core.EventTaskCreated)
 	}
 
-	first := NewDispatcher(f.store, f.scope, f.clk, WithOwner("one"))
-	second := NewDispatcher(f.store, f.scope, f.clk, WithOwner("two"))
+	first := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithOwner("one"))
+	second := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithOwner("two"))
 	defer first.Stop()
 	defer second.Stop()
 
@@ -302,7 +303,7 @@ func TestInactiveEndpointReceivesNothing(t *testing.T) {
 	f.emit(t, core.EventTaskCreated)
 	f.setActive(t, endpoint, false)
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	if _, err := d.Drain(ctx, DefaultBound()); err != nil {
 		t.Fatalf("draining: %v", err)
@@ -335,7 +336,7 @@ func TestMissingEventFailsTerminally(t *testing.T) {
 		t.Fatalf("enqueueing an orphan delivery: %v", err)
 	}
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	if _, err := d.Drain(ctx, DefaultBound()); err != nil {
 		t.Fatalf("draining: %v", err)
@@ -363,7 +364,7 @@ func TestTimeoutIsAFailure(t *testing.T) {
 	f.addEndpoint(t, srv.URL, "top-secret", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk, WithTimeout(50*time.Millisecond))
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithTimeout(50*time.Millisecond))
 	defer d.Stop()
 	res, err := d.Drain(ctx, DefaultBound())
 	if err != nil {
@@ -393,7 +394,7 @@ func TestUnreachableTargetKeepsTheSecretOut(t *testing.T) {
 	f.addEndpoint(t, url, "top-secret", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	if _, err := d.Drain(ctx, DefaultBound()); err != nil {
 		t.Fatalf("draining: %v", err)
@@ -430,7 +431,7 @@ func TestInlineDrainIsBounded(t *testing.T) {
 		f.emit(t, core.EventTaskCreated)
 	}
 
-	byCount := NewDispatcher(f.store, f.scope, f.clk)
+	byCount := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer byCount.Stop()
 	res, err := byCount.Drain(ctx, Bound{MaxDeliveries: 2})
 	if err != nil {
@@ -440,7 +441,7 @@ func TestInlineDrainIsBounded(t *testing.T) {
 		t.Fatalf("count bound not honoured: %+v, %d requests", res, rec.count())
 	}
 
-	byTime := NewDispatcher(f.store, f.scope, f.clk, WithHTTPClient(&http.Client{
+	byTime := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithHTTPClient(&http.Client{
 		Transport: advancingTransport{clk: f.clk, step: time.Second, next: http.DefaultTransport},
 	}))
 	defer byTime.Stop()
@@ -477,7 +478,7 @@ func TestDrainForMode(t *testing.T) {
 			f.addEndpoint(t, rec.URL, "s", true, "*")
 			f.emit(t, core.EventTaskCreated)
 
-			d := NewDispatcher(f.store, f.scope, f.clk)
+			d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 			defer d.Stop()
 			res, err := d.DrainFor(ctx, c.mode, DefaultBound())
 			if err != nil {
@@ -500,7 +501,7 @@ func TestRedeliverQueuesAnotherAttempt(t *testing.T) {
 	f.addEndpoint(t, rec.URL, "s", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	if _, err := d.Drain(ctx, DefaultBound()); err != nil {
 		t.Fatalf("first drain: %v", err)
@@ -545,7 +546,7 @@ func TestBacklogReport(t *testing.T) {
 	rec := newReceiver(t)
 	f.addEndpoint(t, rec.URL, "s", true, "*")
 
-	d := NewDispatcher(f.store, f.scope, f.clk)
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard))
 	defer d.Stop()
 	empty, err := d.Backlog(ctx)
 	if err != nil {
@@ -591,7 +592,7 @@ func TestRunDrainsOnEveryTick(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	d := NewDispatcher(f.store, f.scope, f.clk, WithInterval(time.Second), WithBatch(4))
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithInterval(time.Second), WithBatch(4))
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
 
@@ -613,7 +614,7 @@ func TestRunDrainsOnEveryTick(t *testing.T) {
 func TestRunWithoutIntervalWaitsForCancellation(t *testing.T) {
 	f := newFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
-	d := NewDispatcher(f.store, f.scope, f.clk, WithInterval(0))
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(loopbackGuard), WithInterval(0))
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
 	cancel()
@@ -691,7 +692,7 @@ func TestDeliveryDoesNotFollowARedirect(t *testing.T) {
 	f.addEndpoint(t, redirector.URL, "top-secret", true, "*")
 	f.emit(t, core.EventTaskCreated)
 
-	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(Guard{AllowPrivate: true}))
+	d := NewDispatcher(f.store, f.scope, f.clk, WithGuard(Guard{Policy: egress.Permissive()}))
 	defer d.Stop()
 	res, err := d.Drain(ctx, DefaultBound())
 	if err != nil {

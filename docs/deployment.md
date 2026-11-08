@@ -218,52 +218,63 @@ for the second server is told it is gone.
 Rows nobody has seen for a week are deleted by the next server to register, so an installation that restarts
 often does not accumulate them. Nothing you read depends on that having happened.
 
-## Webhook delivery targets
+## Outbound requests to tenant urls
 
-A webhook endpoint is registered by a tenant administrator, who is a lower-privilege party than whoever runs the
-server. The url they supply is a request the server makes from inside your network, so it is treated as untrusted
-input rather than as configuration.
+Three things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
+channels, and external sync sources (Jira and OpenProject). A tenant administrator is a lower-privilege party
+than whoever runs the server, and the request leaves from inside your network, so the url is untrusted input
+rather than configuration. A sync run in particular imports what it reads into tasks the tenant can see.
 
-Registration and delivery both refuse a target that resolves to:
+All three go through one egress guard (`internal/egress`). By default it refuses a destination that resolves to:
 
 - loopback, including `localhost`, `127.0.0.0/8` and `::1`
-- link-local, which is where the cloud metadata endpoint lives at `169.254.169.254` and `fe80::/10`
+- link-local, which is where the cloud metadata endpoint lives at `169.254.169.254` and `fe80::/10`, and the
+  deprecated site-local `fec0::/10`
 - RFC1918 (`10/8`, `172.16/12`, `192.168/16`) and IPv6 unique-local `fc00::/7`
-- the unspecified address, multicast, the IPv4 broadcast address, carrier-grade NAT `100.64/10`, IETF protocol
-  assignments `192.0.0.0/24`, the benchmarking range `198.18/15` and the NAT64 well-known prefixes
+- "this network" `0.0.0.0/8`, multicast, the reserved `240.0.0.0/4` and the broadcast address, carrier-grade NAT
+  `100.64/10`, IETF protocol assignments `192.0.0.0/24` and `2001::/23`, the 6to4 relay `192.88.99.0/24`, the
+  benchmarking range `198.18/15` and the IPv6 discard prefix `100::/64`
+- the IPv6 forms that carry an IPv4 address: IPv4-mapped and IPv4-compatible addresses are judged as the IPv4
+  address inside, and IPv4-translated `::ffff:0:0:0/96`, NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4
+  `2002::/16` and Teredo (inside `2001::/23`) are refused whole
 
-Three details matter, because checking the string alone is not enough:
+Only `http` and `https` urls are accepted. Four details matter, because checking the string alone is not enough:
 
-- **The address decides, not the name.** The check runs again in the dialer, immediately before connect, on the
-  address the socket is about to use. A hostname that answers publicly while the endpoint is being registered and
-  answers `127.0.0.1` when the delivery is attempted is refused at that second point, so DNS rebinding does not
-  get past it. The lookup done at registration time is a courtesy that gives an immediate error for the obvious
-  case; it is not what the guard rests on.
-- **Redirects are not followed.** A delivery that is answered with a 3xx stops there and is recorded as a failed
-  attempt carrying that status. Following it would take the signature headers to a host that passed no check,
-  which is the simplest way around any address policy. A receiver that needs to move should be re-registered at
-  its new url.
-- **No proxy is used for delivery.** `HTTP_PROXY` and friends are ignored on this path, because a proxied request
-  dials the proxy and the guard would then be inspecting the proxy's address rather than the endpoint's.
+- **The address decides, not the name.** The check runs in the dialer's control hook, immediately before connect,
+  on the address the socket is about to use. A hostname that answers publicly while the url is saved and answers
+  `127.0.0.1` when the request is made is refused at that second point, so DNS rebinding does not get past it.
+  The check done when a url is saved is a courtesy that gives an immediate error for the obvious case; it is not
+  what the guard rests on.
+- **Redirects.** A webhook or channel delivery answered with a 3xx stops there and is recorded as a failed attempt
+  carrying that status; following it would take the signature headers to a host that passed no check. A sync
+  source may redirect within its own origin, and every hop is checked again by the guard and by the dialer.
+- **No proxy.** `HTTP_PROXY` and friends are ignored on these paths, because a proxied request dials the proxy and
+  the guard would then be inspecting the proxy's address rather than the destination's.
+- **Refusals say little.** A refusal reads "address not allowed" and names neither the address a name resolved to
+  nor why a connection failed. A webhook or channel failure is recorded only as a category (`endpoint address is
+  not permitted`, `endpoint host could not be resolved`, `endpoint did not answer in time`, `endpoint could not be
+  reached`), and a sync run reports "address not allowed" or "reaching jira" rather than a transport error,
+  because a precise error turns a delivery log or a run result into a port scan of your network.
 
-A url that embeds a username or password (`https://user:pass@host/hook`) is refused outright. Send a credential in
-a header your receiver checks, or in a path segment you treat as a bearer.
-
-A delivery failure is recorded only as a category (`endpoint address is not permitted`, `endpoint host could not
-be resolved`, `endpoint did not answer in time`, `endpoint could not be reached`), because the delivery log is
-readable by the tenant who registered the endpoint, and a precise transport error turns it into a port scan of
-your network.
+A webhook or channel url that embeds a username or password (`https://user:pass@host/hook`) is refused outright.
+Send a credential in a header your receiver checks, or in a path segment you treat as a bearer.
 
 ### Allowing an internal target
 
-Some deployments do deliver to something inside the network: a queue bridge on the same host, a service on
-the cluster network. That is allowed only when the operator turns it on, never by a tenant, and it is off by
-default.
+Some deployments do reach something inside the network: a tracker on the office network, a queue bridge on the
+same host, a service on the cluster network. That is allowed only when the operator turns it on, never by a
+tenant, and it is off by default:
 
-Today the allowance is the same switch as the plaintext opt-out: the `service.WithInsecureWebhooks(true)`
-construction option. It is not yet reachable from a flag, an environment variable or the config file, so a stock
-`tix serve` refuses every internal target. If your deployment needs one, that wiring has to be added first; see
-the note in `internal/service/local.go`.
+- `server.egress_allow` lists the addresses, CIDR ranges, host names and `.suffix`es that may be reached although
+  they are internal, for every tenant. Prefer the narrowest entry that works: `10.20.0.15/32` over `10.0.0.0/8`.
+- `server.egress_allow_private: true` opens every internal address. Use it only when every tenant is trusted with
+  the server's network.
+- `webhooks.allow_private_targets: true` opens every internal address for webhooks and inbox channels alone.
+
+A command run against the database directly, such as `tix sync run` without a server, is the operator's own
+process: its sync reaches whatever the operator's network allows, whatever these keys say. Webhook and channel
+deliveries it drains stay held to them, because those urls are a tenant's whichever process sends to them. See
+[configuration.md](configuration.md#keys).
 
 ## systemd
 

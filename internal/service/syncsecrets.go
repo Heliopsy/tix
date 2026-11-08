@@ -341,6 +341,7 @@ func (l *Local) syncConfigFor(tenantID string, src core.SyncSource, scope syncSc
 	if err != nil {
 		return cfg, err
 	}
+	cfg.Egress = scope.egress
 	if src.System == core.SystemGeneric && cfg.File != "" {
 		if cfg.FileData, err = readSyncFile(src, cfg.File, scope); err != nil {
 			return cfg, err

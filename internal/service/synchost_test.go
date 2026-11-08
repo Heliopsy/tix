@@ -338,7 +338,7 @@ func TestEnvironmentCredentialsNeverReachATenantURL(t *testing.T) {
 			setOperatorEnv(t, operator.srv.URL)
 			base := newSyncFixture(t, "ops")
 			f := *base
-			f.local = New(base.local.store, WithClock(base.clock), WithSyncHost(tc.host(base)))
+			f.local = New(base.local.store, WithClock(base.clock), WithSyncHost(tc.host(base)), WithEgress(loopbackEgress))
 			useImporter(t, nil)
 
 			stored := ""

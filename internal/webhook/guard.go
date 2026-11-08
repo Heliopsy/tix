@@ -4,92 +4,42 @@ package webhook
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
 	"strings"
-	"syscall"
-	"testing"
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 )
 
 // ErrBlockedTarget is returned when a delivery would reach an address the
 // guard refuses. Its text names no address, so a tenant reading a delivery
 // failure learns nothing about the operator's network.
-var ErrBlockedTarget = errors.New("target address is not permitted")
+var ErrBlockedTarget = egress.ErrNotAllowed
 
 // resolveBudget bounds the advisory lookup a registration does, so a slow or
 // blackholed resolver cannot stall an administrative request.
 const resolveBudget = 750 * time.Millisecond
 
 // Guard decides which network destinations a delivery may reach. The zero
-// value refuses every private destination, which is the shipped policy.
+// value refuses every internal destination, which is the shipped policy.
 type Guard struct {
-	// AllowPrivate permits loopback, link-local, unique-local and RFC1918
-	// destinations. It is operator configuration. A tenant can never set it,
+	// Policy is the operator's egress setting. A tenant can never set it,
 	// because nothing on a tenant-facing path writes it.
-	AllowPrivate bool
-
-	// allowLoopback additionally permits loopback and nothing else. It is set
-	// only in a binary built by `go test`, so the suite can deliver to an
-	// httptest server, and is false in a shipped binary.
-	allowLoopback bool
+	Policy egress.Policy
 }
 
-// NewGuard builds the guard an operator configured.
+// NewGuard builds the guard for an operator who allowed internal targets or
+// did not.
 func NewGuard(allowPrivate bool) Guard {
-	return Guard{AllowPrivate: allowPrivate, allowLoopback: testing.Testing()}
+	return Guard{Policy: egress.Policy{AllowPrivate: allowPrivate}}
 }
 
-// permits reports whether one resolved address may be reached.
-func (g Guard) permits(ip netip.Addr) bool {
-	ip = ip.Unmap()
-	if !ip.IsValid() {
-		return false
-	}
-	if g.AllowPrivate {
-		return true
-	}
-	if ip.IsLoopback() {
-		return g.allowLoopback
-	}
-	return !isBlocked(ip)
-}
-
-// isBlocked reports whether an address belongs to a range a tenant-supplied
-// target must never reach. Link-local covers the cloud metadata endpoint at
-// 169.254.169.254 and its IPv6 form.
-func isBlocked(ip netip.Addr) bool {
-	switch {
-	case ip.IsLoopback(), ip.IsUnspecified(), ip.IsPrivate(),
-		ip.IsLinkLocalUnicast(), ip.IsLinkLocalMulticast(),
-		ip.IsInterfaceLocalMulticast(), ip.IsMulticast():
-		return true
-	}
-	for _, p := range blockedPrefixes {
-		if p.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-// blockedPrefixes are the ranges net/netip has no predicate for: the shared
-// carrier-grade range, IETF protocol assignments, the benchmarking range, the
-// IPv4 broadcast address, and the NAT64 well-known prefix that would otherwise
-// smuggle an IPv4 destination past an IPv6 check.
-var blockedPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("100.64.0.0/10"),
-	netip.MustParsePrefix("192.0.0.0/24"),
-	netip.MustParsePrefix("198.18.0.0/15"),
-	netip.MustParsePrefix("255.255.255.255/32"),
-	netip.MustParsePrefix("64:ff9b::/96"),
-	netip.MustParsePrefix("64:ff9b:1::/48"),
-}
+// GuardFor builds the guard the operator's egress policy describes.
+func GuardFor(p egress.Policy) Guard { return Guard{Policy: p} }
 
 // CheckURL applies the policy everything about a target that can be known
 // without connecting to it. It refuses a scheme the dispatcher cannot sign
@@ -114,25 +64,20 @@ func (g Guard) CheckURL(raw string) error {
 	if host == "" {
 		return core.Invalid("webhook url %q must name a host", raw)
 	}
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		if g.AllowPrivate || g.allowLoopback {
-			return nil
-		}
+	p := g.Policy
+	if err := p.CheckURL(raw); err != nil {
 		return g.refuse()
 	}
-	if ip, err := netip.ParseAddr(host); err == nil {
-		if !g.permits(ip) {
-			return g.refuse()
-		}
+	if _, err := netip.ParseAddr(host); err == nil {
 		return nil
 	}
-	return g.checkResolved(host)
+	return g.checkResolved(p, host)
 }
 
 // checkResolved refuses a hostname that already resolves into a blocked range.
 // A lookup that fails is not a rejection: the dial-time control still applies.
-func (g Guard) checkResolved(host string) error {
-	if g.AllowPrivate {
+func (g Guard) checkResolved(p egress.Policy, host string) error {
+	if p.AllowPrivate || p.AllowsHost(host) {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), resolveBudget)
@@ -142,7 +87,7 @@ func (g Guard) checkResolved(host string) error {
 		return nil
 	}
 	for _, ip := range addrs {
-		if !g.permits(ip) {
+		if !p.AllowsAddr(ip) {
 			return g.refuse()
 		}
 	}
@@ -151,7 +96,7 @@ func (g Guard) checkResolved(host string) error {
 
 // refuse states the policy without naming the address that tripped it.
 func (g Guard) refuse() error {
-	return core.Invalid("webhook url must not point at a loopback, link-local, " +
+	return core.Invalid("webhook url address not allowed: it must not point at a loopback, link-local, " +
 		"unique-local or otherwise private address; ask the operator to allow " +
 		"internal delivery targets if that is intended")
 }
@@ -160,43 +105,14 @@ func (g Guard) refuse() error {
 // to. The host is always a literal address at this point, so this is the
 // decision that cannot be rebound underneath.
 func (g Guard) CheckAddr(address string) error {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return ErrBlockedTarget
-	}
-	ip, err := netip.ParseAddr(host)
-	if err != nil || !g.permits(ip) {
-		return ErrBlockedTarget
-	}
-	return nil
-}
-
-// control is the dial-time hook. It runs after resolution and immediately
-// before connect, which is what closes the DNS-rebinding window: a name that
-// answered publicly during validation and privately at delivery is caught
-// here, on the address the socket is actually about to use.
-func (g Guard) control(_, address string, _ syscall.RawConn) error {
-	return g.CheckAddr(address)
-}
-
-// Dialer returns a dialer that refuses a connection to a blocked address.
-func (g Guard) Dialer() *net.Dialer {
-	return &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second, Control: g.control}
+	return g.Policy.CheckAddr(address)
 }
 
 // Transport returns a transport whose every connection passes the guard.
-// Proxying is deliberately off: a proxied request dials the proxy, so the
-// guard would inspect the proxy's address rather than the target's.
+// Proxying is off: a proxied request dials the proxy, so the guard would
+// inspect the proxy's address rather than the target's.
 func (g Guard) Transport() *http.Transport {
-	return &http.Transport{
-		Proxy:                 nil,
-		DialContext:           g.Dialer().DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          16,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: time.Second,
-	}
+	return g.Policy.Transport()
 }
 
 // Client returns the delivery client: guarded at dial time and following no

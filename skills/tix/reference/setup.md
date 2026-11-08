@@ -441,7 +441,10 @@ and the last four characters of a long one. A stored value wins over its
 `TIX_SYNC_<NAME>_*` variable, stored credentials win as a set. On `tix serve`
 those variables apply only to sources the operator binds in
 `sync.env_sources`, and environment credentials go only to the environment's
-url, never to one stored on the source.
+url, never to one stored on the source. `tix serve` refuses a source url,
+webhook or inbox channel that reaches loopback, link-local or a private
+range ("address not allowed") unless the operator lists it in
+`server.egress_allow` or sets `server.egress_allow_private`.
 `tix sync source set NAME` changes only the mapping and the credentials;
 `--check` validates on the server without saving, and `--clear-mapping` and
 `--clear-credentials` remove what is stored. A server with no

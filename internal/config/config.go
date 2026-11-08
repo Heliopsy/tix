@@ -11,6 +11,7 @@ import (
 	"github.com/heliopsy/tix/internal/output"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/webhook"
@@ -121,6 +122,21 @@ type Server struct {
 	// --max-body-bytes, which every other request answers to, is sized for a
 	// form.
 	MaxImportBytes int64 `yaml:"max_import_bytes"`
+
+	// EgressAllowPrivate lets tix serve reach loopback, link-local and private
+	// addresses on a tenant's behalf: webhook and inbox channel deliveries and
+	// external sync. Off by default, because a tenant-supplied url reaching
+	// internal infrastructure is the request-forgery case.
+	EgressAllowPrivate bool `yaml:"egress_allow_private"`
+	// EgressAllow lists the addresses, CIDR ranges, host names and .suffixes
+	// a tenant-supplied url may reach although they are internal.
+	EgressAllow []string `yaml:"egress_allow,omitempty"`
+}
+
+// Egress is the egress policy the server keys describe. Validate refuses an
+// entry it cannot read, so a resolved configuration always yields one.
+func (s Server) Egress() (egress.Policy, error) {
+	return egress.New(s.EgressAllowPrivate, s.EgressAllow)
 }
 
 // SSH holds the settings of the listener `tix ssh` runs: where it binds, the
