@@ -10,9 +10,9 @@ where somebody has to leave the browser to answer a question it should answer.
 
 ## What Changes
 
-- Settings gains a Profile section, first, stating the reader's handle, display name, actor id, kind,
-  role, tenant, scopes, whether they are a global admin and what this request authenticated with. It
-  links to the reader's own actor screen. Email and memberships follow once whoami answers them.
+- Settings gains a Profile section, first, stating the reader's handle, email, display name, actor id,
+  kind, role, tenant, memberships, scopes, whether they are a global admin and what this request
+  authenticated with. It links to the reader's own actor screen.
 - `/actors/{id}` is an actor screen: the actor's handle, name, kind and id, links to their tasks and, for
   a credential administrator, to their tokens and keys, and their recent activity for a reader holding
   `audit:read`. The directory's handles, a task's assignee and creator, a comment's author and a token's
