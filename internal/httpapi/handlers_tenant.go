@@ -24,7 +24,9 @@ func (rt *Router) registerTenantRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteDomains, rt.handleListDomains)
 	rt.mux.HandleFunc("POST "+wire.RouteDomains, rt.handleAddDomain)
 	rt.mux.HandleFunc("GET "+wire.RouteDomain, rt.handleResolveDomain)
+	rt.mux.HandleFunc("PATCH "+wire.RouteDomain, rt.handleUpdateDomain)
 	rt.mux.HandleFunc("DELETE "+wire.RouteDomain, rt.handleRemoveDomain)
+	rt.mux.HandleFunc("GET "+wire.RouteTenantDomains, rt.handleListTenantDomains)
 }
 
 // handleListTenants returns a page of tenants.
@@ -182,6 +184,30 @@ func (rt *Router) handleResolveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, tenant)
+}
+
+// handleUpdateDomain changes a domain of any tenant, for a global admin.
+func (rt *Router) handleUpdateDomain(w http.ResponseWriter, r *http.Request) {
+	var in core.UpdateDomainInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	domain, err := rt.cfg.Service.UpdateDomain(r.Context(), r.PathValue("hostname"), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, domain)
+}
+
+// handleListTenantDomains returns a named tenant's domains, for a global admin.
+func (rt *Router) handleListTenantDomains(w http.ResponseWriter, r *http.Request) {
+	domains, err := rt.cfg.Service.ListTenantDomains(r.Context(), tenantRef(r))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, domains, "")
 }
 
 // handleRemoveDomain unmaps a hostname.

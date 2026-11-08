@@ -206,19 +206,21 @@ func (t *tx) ResolveDomain(ctx context.Context, hostname string) (*core.Tenant, 
 }
 
 var domainColumns = []string{
-	"id", "tenant_id", "hostname", "verified_at", "cert_mode", "cert_path", "key_path", "created_at",
+	"id", "tenant_id", "hostname", "verified_at", "cert_mode", "cert_path", "key_path", "created_at", "shared",
 }
 
 func scanDomain(s scanner) (core.Domain, error) {
 	var (
 		d        core.Domain
 		verified sql.NullString
+		shared   int64
 		created  sql.NullString
 	)
 	if err := s.Scan(&d.ID, &d.TenantID, &d.Hostname, &verified,
-		&d.CertMode, &d.CertPath, &d.KeyPath, &created); err != nil {
+		&d.CertMode, &d.CertPath, &d.KeyPath, &created, &shared); err != nil {
 		return core.Domain{}, mapErr(err, "scanning domain")
 	}
+	d.Shared = shared != 0
 	var err error
 	if d.VerifiedAt, err = sqlb.ScanNullTime(verified); err != nil {
 		return core.Domain{}, err

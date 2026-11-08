@@ -147,3 +147,76 @@ func (l *Local) ResolveDomain(ctx context.Context, hostname string) (*core.Tenan
 	}
 	return out, nil
 }
+
+// UpdateDomain changes a domain of any tenant. Only a global admin may: a
+// shared host serves tenants other than the one owning the domain, so the
+// tenant's own administrator is not the one to decide it. Setting the value
+// the domain already holds changes nothing and records nothing.
+func (l *Local) UpdateDomain(ctx context.Context, hostname string, in core.UpdateDomainInput) (*core.Domain, error) {
+	if _, err := l.authorizeGlobal(ctx); err != nil {
+		return nil, err
+	}
+	host, err := normalizeHostname(hostname)
+	if err != nil {
+		return nil, err
+	}
+	owner, err := l.ResolveDomain(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	inner, err := l.inTenant(ctx, owner.ID)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := core.RequireActor(inner)
+	if err != nil {
+		return nil, err
+	}
+	var out *core.Domain
+	err = l.write(inner, actor, func(m *mutation) error {
+		before, err := domainNamed(inner, m.tx, host)
+		if err != nil {
+			return err
+		}
+		after := *before
+		out = &after
+		if in.Shared == nil || *in.Shared == before.Shared {
+			return nil
+		}
+		after.Shared = *in.Shared
+		if err := m.tx.SetDomainShared(inner, host, after.Shared); err != nil {
+			return err
+		}
+		return m.Record(auditDomainUpdate, eventDomainUpdated, "domain", before.ID, "",
+			map[string]any{"hostname": host, "shared": before.Shared},
+			map[string]any{"hostname": host, "shared": after.Shared},
+			map[string]any{"hostname": host, "shared": after.Shared})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListTenantDomains lists the domains of any tenant, for a global admin.
+func (l *Local) ListTenantDomains(ctx context.Context, tenant string) ([]core.Domain, error) {
+	inner, err := l.inTenant(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+	return l.ListDomains(inner)
+}
+
+// domainNamed finds one of the scoped tenant's domains by hostname.
+func domainNamed(ctx context.Context, tx store.Tx, host string) (*core.Domain, error) {
+	domains, err := tx.ListDomains(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range domains {
+		if domains[i].Hostname == host {
+			return &domains[i], nil
+		}
+	}
+	return nil, core.NotFound("domain %q", host)
+}

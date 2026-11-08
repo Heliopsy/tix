@@ -31,6 +31,7 @@
      tenant's history and figures. The reader's own views follow, and the
      screens visited least go last, folded under Admin. */}}
 <nav class="main">
+  {{template "tenant-open" .}}
   <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
   <a href="/mine" data-rail-name="{{t "My work"}}" {{if eq .Path "/mine"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#mywork"/></svg>{{template "mywork-badge" .}}<span>{{t "My work"}}</span></a>
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
@@ -1129,3 +1130,36 @@
      would give and from which level, because "Inherit" alone told nobody
      what they would get. */}}
 {{define "time-choice"}}{{t .Label}}{{with .Inherits}}: {{t .}}, {{t $.From}}{{end}}{{end}}
+
+{{/* tenant-open is the sidebar's first entry for a reader in more than one
+     tenant: the current tenant's name, opening the dialog of their tenants.
+     Without scripting it is the link to ?dialog=tenants, which draws the
+     same list in place. A reader in one tenant gets nothing here; the
+     tenant's name above is the whole story. Takes the view. */}}
+{{define "tenant-open"}}{{with .Switcher}}{{if .Many}}<a href="{{.Opener.Href}}" class="nav-tenant" data-dlg-open="tenants" aria-haspopup="dialog" data-rail-name="{{t "Switch tenant"}}" aria-label="{{t "Switch tenant, now %s" .Opener.Label}}"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{.Opener.Label}}</span></a>{{end}}{{end}}{{end}}
+
+{{/* tenant-switcher is the dialog tenant-open opens. Takes the view. */}}
+{{define "tenant-switcher"}}{{with .Switcher}}{{if .Many}}
+{{template "dlg-start" (shell "tenants" (t "Your tenants") "tenantswitch" $.Dialog $.Here)}}
+{{template "tenant-rows" .}}
+<p class="tenantswitch-more">{{if .GlobalAdmin}}<a href="/admin/global">{{t "Global admin"}}</a> &middot; {{end}}<a href="/account">{{t "Your account"}}</a></p>
+{{template "dlg-end"}}
+{{end}}{{end}}{{end}}
+
+{{/* tenant-rows lists the reader's tenants: the current one marked, one this
+     host serves with a Switch button, one at an address of its own with a
+     link to its sign-in page. Takes the switcher. */}}
+{{define "tenant-rows"}}
+<ul class="rows tenantswitch-list">
+{{range .Rows}}{{$row := .}}
+  <li class="tenantswitch-row">
+    <span class="tenantswitch-name">{{.Name}} <span class="mono muted">{{.Key}}</span></span>
+    <span class="chip">{{.Role}}</span>
+    {{if .Current}}<span class="tenantswitch-current" aria-current="true">{{t "Current"}}</span>
+    {{else if .Switch}}<form method="post" action="/switch" class="tenantswitch-form">{{template "csrf" $.CSRF}}<input type="hidden" name="to" value="{{.Key}}"><button type="submit" class="secondary" aria-label="{{t "Switch to %s" $row.Name}}">{{t "Switch"}}</button></form>
+    {{else if .Link}}<a class="btn secondary" href="{{.Link}}" aria-label="{{t "Sign in to %s" $row.Name}}">{{t "Sign in there"}}</a>
+    {{else}}<span class="muted">{{t "Served at another address"}}</span>{{end}}
+  </li>
+{{end}}
+</ul>
+{{end}}

@@ -8,6 +8,6 @@
 - [x] Sync tab: list with resolution, configure, set up, check, delete with confirmation, run form and result
 - [x] Retention tab: windows, edit form, prune form, confirmation for a prune that writes, result
 - [x] Gating of each action in the footer, help overlay and keystroke; tabs gated on their reads
-- [x] Registry: twelve gaps become `integrations` bindings; gap count 44 to 32; docs test number words
+- [x] Registry: twelve gaps become `integrations` bindings; gap count down by twelve; docs test number words
 - [x] Model tests in `internal/tui/integrations_test.go`
 - [x] docs/tui.md: views table, bindings table, the integrations section, the gap section; docs/README.md count

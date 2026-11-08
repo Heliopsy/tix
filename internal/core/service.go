@@ -119,6 +119,14 @@ type TenantService interface {
 	// ResolveDomain returns the tenant a hostname is mapped to. It runs before
 	// authentication and reads across tenants.
 	ResolveDomain(ctx context.Context, hostname string) (*Tenant, error)
+	// UpdateDomain changes a tenant domain, whichever tenant it belongs to.
+	// Marking it shared lets its host also serve the tenant a session, token or
+	// the X-Tix-Tenant header names, and its own tenant otherwise. Global admin
+	// only. An unmapped hostname is not_found.
+	UpdateDomain(ctx context.Context, hostname string, in UpdateDomainInput) (*Domain, error)
+	// ListTenantDomains lists the hostnames mapped to any tenant, each with
+	// whether it is shared. Global admin only.
+	ListTenantDomains(ctx context.Context, tenant string) ([]Domain, error)
 
 	// AddMember grants an existing actor a role (viewer, member or admin) in the
 	// current tenant. An actor who is already a member is a conflict.
@@ -400,6 +408,15 @@ type AuthService interface {
 	// Logout ends the session the caller presented. With no session to end it
 	// answers unauthenticated.
 	Logout(ctx context.Context) error
+	// SwitchTenant moves the caller's browser session to another tenant they
+	// are a member of, served on the same host. The answer carries a session
+	// for the person's actor there, and the session presented stops working.
+	// When the target requires a second factor the presented session did not
+	// pass, the answer is a code challenge instead, and the same request sent
+	// again with the code completes the switch. A tenant the caller is not a
+	// member of is not found, the same answer as one that does not exist. A
+	// token cannot switch: tokens stay in the tenant they were minted for.
+	SwitchTenant(ctx context.Context, in SwitchTenantInput) (*LoginResult, error)
 
 	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
 	// bound to this tenant and to the host the request was made to. Nothing

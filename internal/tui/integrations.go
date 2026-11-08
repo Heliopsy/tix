@@ -497,7 +497,7 @@ func WebhookForm(e *core.WebhookEndpoint) Form {
 			{Key: "url", Label: "url", Value: url, Kind: FieldText, Limit: 2048},
 			{Key: "events", Label: "event types", Value: events, Kind: FieldText, Limit: 1024},
 			{Key: "active", Label: "active", Options: switchOptions(), Value: active},
-			{Key: "secret", Label: "secret", Kind: FieldSecret, Limit: 512},
+			{Key: "secret", Label: "secret", Kind: FieldText, Secret: true, Limit: 512},
 		},
 	}
 }
@@ -555,9 +555,9 @@ func SyncSourceForm(src *core.SyncSource) Form {
 			text(core.SyncSettingPageSize, "page size", FieldCondition{}),
 			{Key: "mapping_path", Label: "mapping file", Value: mappingPath, Kind: FieldText, Limit: 1024},
 			{Key: "mapping", Label: "mapping yaml", Kind: FieldProse, Limit: 1 << 16},
-			{Key: "token", Label: "api token", Kind: FieldSecret, Limit: 1024},
+			{Key: "token", Label: "api token", Kind: FieldText, Secret: true, Limit: 1024},
 			{Key: "user", Label: "user", Kind: FieldText, Limit: 256},
-			{Key: "password", Label: "password", Kind: FieldSecret, Limit: 1024},
+			{Key: "password", Label: "password", Kind: FieldText, Secret: true, Limit: 1024},
 			{Key: "clear_mapping", Label: "clear mapping", Options: switchOptions(), Value: noValue},
 			{Key: "clear_credentials", Label: "clear creds", Options: switchOptions(), Value: noValue},
 			{Key: "check", Label: "check only", Options: switchOptions(), Value: noValue},

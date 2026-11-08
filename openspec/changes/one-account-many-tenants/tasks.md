@@ -47,12 +47,14 @@ for PRs 1 to 5, merged in order; the cross-host switch is a later phase.
 
 ## 4. Shared host, switching, whoami (PR 4, L)
 
-- [ ] 4.1 `whoami` memberships and `account_id` (registry, OpenAPI, client); `account:read` arrived with
+- [x] 4.1 `whoami` memberships and `account_id` (registry, OpenAPI, client); `account:read` arrived with
   the account log (S)
-- [ ] 4.2 `resolveTenant`: credential and `X-Tix-Tenant` on the shared host, refusal on a bound host (M)
-- [ ] 4.0 Migration: `sessions.second_factor` and `sessions.method`, written at every session mint (S)
-- [ ] 4.3 Same-host switch: `POST /switch`, factor challenge, new session, old one ended, audit (M)
-- [ ] 4.4 Web header switcher dialog, `?dialog=tenants` fallback, a tenant on its own domain listed as a
+- [x] 4.2 `resolveTenant`: credential and `X-Tix-Tenant` on the shared host, refusal on a bound host (M)
+- [x] 4.0 Migration: `sessions.second_factor` and `sessions.method`, written at every session mint (S)
+- [x] 4.3 Same-host switch: `POST /switch`, factor challenge, new session, old one ended, audit (M)
+- [x] 4.5 `shared` flag on tenant domains, global admin only, across the service, API, CLI and the Global
+  admin screen, audited; the shared host resolution covers a shared domain as it covers an unclaimed host (M)
+- [x] 4.4 Web header switcher dialog, `?dialog=tenants` fallback, a tenant on its own domain listed as a
   link to its sign-in page, Bulgarian strings, screenshots (M)
 
 ## 5. CLI, TUI, SSH, docs (PR 5, M)

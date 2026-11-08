@@ -695,6 +695,12 @@ func (f *fakeService) ListGlobalAdmins(context.Context) ([]core.User, error) { r
 func (f *fakeService) ListTenantUsers(context.Context, string, core.Page) ([]core.TenantUser, string, error) {
 	return nil, "", nil
 }
+func (f *fakeService) UpdateDomain(context.Context, string, core.UpdateDomainInput) (*core.Domain, error) {
+	return nil, nil
+}
+func (f *fakeService) ListTenantDomains(context.Context, string) ([]core.Domain, error) {
+	return nil, nil
+}
 func (f *fakeService) CreateTenantUser(context.Context, string, core.CreateUserInput) (*core.User, error) {
 	return nil, nil
 }
@@ -734,6 +740,9 @@ func (f *fakeService) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecove
 }
 func (f *fakeService) ClearUserTOTP(context.Context, string) error { return nil }
 func (f *fakeService) Logout(context.Context) error                { return nil }
+func (f *fakeService) SwitchTenant(context.Context, core.SwitchTenantInput) (*core.LoginResult, error) {
+	return nil, nil
+}
 func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core.IssuedToken, error) {
 	return nil, nil
 }

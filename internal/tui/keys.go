@@ -70,6 +70,7 @@ type KeyMap struct {
 	Stats         key.Binding
 	Tenant        key.Binding
 	Integrations  key.Binding
+	People        key.Binding
 	Refresh       key.Binding
 	Palette       key.Binding
 	Help          key.Binding
@@ -197,6 +198,9 @@ func DefaultKeyMap() KeyMap {
 		// for.
 		Stats:  key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "statistics")),
 		Tenant: key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "tenant")),
+		// @, the mark the interface already puts in front of a handle: every
+		// capital worth having is spoken for.
+		People: key.NewBinding(key.WithKeys("@"), key.WithHelp("@", "people")),
 		// J, for the jobs that run outside the board: deliveries, imports and
 		// pruning. Every capital nearer the meaning was spoken for.
 		Integrations: key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "integrations")),
@@ -259,6 +263,7 @@ const (
 	doStats
 	doTenant
 	doIntegrations
+	doPeople
 	doQuit
 	doInterrupt
 
@@ -370,6 +375,7 @@ func (k KeyMap) globalKeys() []Action {
 		{id: doTenant, binding: k.Tenant, opens: viewTenant},
 		{id: doInbox, binding: k.Inbox, opens: viewInbox},
 		{id: doIntegrations, binding: k.Integrations, opens: viewIntegrations},
+		{id: doPeople, binding: k.People, opens: viewPeople},
 		{id: doQuit, binding: k.Quit, always: true},
 		{id: doInterrupt, binding: k.Interrupt, always: true},
 	}
@@ -626,6 +632,9 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom), entry(k.Enter),
 			entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back),
 		}
+	case viewPeople:
+		return append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom)},
+			append(k.peopleActions(may), entry(k.Back))...)
 	case viewProject:
 		return append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.projectActions(may), entry(k.Back))...)
@@ -824,6 +833,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	case viewInbox:
 		short = []HelpEntry{entry(k.Enter), entry(k.ToggleRead), entry(k.ReadAll), entry(k.Back)}
+	case viewPeople:
+		short = append(k.peopleActions(ctx.May), entry(k.Back))
 	case viewProject:
 		short = append(k.projectShort(ctx), entry(k.Back))
 	case viewIntegrations:

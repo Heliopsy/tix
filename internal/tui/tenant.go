@@ -366,6 +366,7 @@ func (m Model) onTenant(msg tenantMsg) (Model, tea.Cmd) {
 	m.leases = map[string]string{}
 	m.admin, m.adminSel, m.adminOff = nil, 0, 0
 	m.integ = integrationsState{}
+	m.people = peopleState{}
 	m.activity, m.activitySel, m.activityOff = nil, 0, 0
 	m.events, m.connected, m.lastSeq = nil, false, 0
 	m.err, m.status = "", notice

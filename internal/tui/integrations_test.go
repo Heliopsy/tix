@@ -374,7 +374,7 @@ func TestASyncCredentialIsMaskedAndNeverSeeded(t *testing.T) {
 	if strings.Contains(frame, "sekrit") {
 		t.Fatalf("the form drew the typed token:\n%s", frame)
 	}
-	if !strings.Contains(frame, Masked("sekrit-token")) {
+	if !strings.Contains(frame, strings.Repeat("•", len("sekrit-token"))) {
 		t.Fatalf("the form drew no mask for the typed token:\n%s", frame)
 	}
 	if m.form.value("token") != "sekrit-token" {

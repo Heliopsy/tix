@@ -42,6 +42,9 @@ const (
 	formSyncRun
 	formRetention
 	formPrune
+	formPeopleNew
+	formPeopleEdit
+	formInviteReissue
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -56,9 +59,6 @@ const (
 	FieldChoice FieldKind = iota
 	FieldText
 	FieldProse
-	// FieldSecret is typed like FieldText and drawn masked. It is never seeded
-	// with a stored value, so a secret the service holds cannot reach a screen.
-	FieldSecret
 )
 
 // FieldCondition keeps a field off screen until another field holds a value,
@@ -88,12 +88,13 @@ type FormField struct {
 	Needs   FieldCondition
 	Kind    FieldKind
 	Limit   int
+	// Secret masks a typed answer, on the row and in the field, for a
+	// password.
+	Secret bool
 }
 
 // Typed reports whether a field is gathered by typing rather than by cycling.
-func (f FormField) Typed() bool {
-	return f.Kind == FieldText || f.Kind == FieldProse || f.Kind == FieldSecret
-}
+func (f FormField) Typed() bool { return f.Kind == FieldText || f.Kind == FieldProse }
 
 // Form is a set of answers gathered on one screen. It is moved through and
 // cycled with the bindings the settings screen already uses, so every
@@ -253,8 +254,8 @@ func (f Form) Lines() []FormLine {
 // one line and several paragraphs drawn into it is the defect this field
 // exists to fix.
 func FieldSummary(field FormField) string {
-	if field.Kind == FieldSecret {
-		return Masked(field.Value)
+	if field.Secret {
+		return strings.Repeat("•", len([]rune(field.Value)))
 	}
 	if field.Kind != FieldProse {
 		return field.Value
@@ -264,12 +265,6 @@ func FieldSummary(field FormField) string {
 		return field.Value
 	}
 	return lines[0] + " (+" + strconv.Itoa(len(lines)-1) + " more lines)"
-}
-
-// Masked draws a secret as one mark per character, so a reader can see that
-// something was typed and how long it is without the screen holding it.
-func Masked(secret string) string {
-	return strings.Repeat("•", len([]rune(secret)))
 }
 
 // hintWidth is how much room the alternatives get before a field states its

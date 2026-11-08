@@ -21,6 +21,9 @@ const (
 	confirmDeleteWebhook
 	confirmDeleteSyncSource
 	confirmPrune
+	confirmDeleteUser
+	confirmRevokeInvite
+	confirmClearTOTP
 )
 
 // confirmVerbs are what each confirmation says it will do, in the words the
@@ -34,6 +37,9 @@ var confirmVerbs = map[confirmKind]string{
 	confirmRemoveDomain:   "remove domain",
 	confirmRemoveMember:   "remove member",
 	confirmDeleteTemplate: "delete template",
+	confirmDeleteUser:     "delete user",
+	confirmRevokeInvite:   "revoke the invite for",
+	confirmClearTOTP:      "clear the second factor of",
 
 	confirmDeleteWebhook:    "delete endpoint",
 	confirmDeleteSyncSource: "delete source",
@@ -77,6 +83,9 @@ type Confirm struct {
 	// prune is what an agreed prune sends.
 	integID string
 	prune   core.PruneInput
+	// userID and inviteID address the people screen's removals.
+	userID   string
+	inviteID string
 }
 
 // Open reports whether a confirmation is waiting for an answer.

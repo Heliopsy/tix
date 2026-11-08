@@ -236,6 +236,43 @@ Reading the audit log is the clearest case. An audit entry records the tenant, t
 not a project, so there is no column to filter on; a pinned token is refused the whole listing rather than
 handed all of it.
 
+### Switching tenant
+
+A session belongs to one tenant. On a host that serves several tenants (one no domain claims, or one whose
+domain a global admin marked shared, see [Domains](#domains)), the tenant is taken once per request, before
+any credential is examined:
+
+1. The `X-Tix-Tenant` header, when sent, names it. A tenant that has an address of its own, a domain not
+   marked shared, is refused here: its sessions live at that address.
+2. Otherwise a session cookie or API token picks the tenant it was minted in, and is then checked inside that
+   tenant as anywhere else. A credential of a tenant with an address of its own is ignored here.
+3. With neither, the host serves its own tenant: the domain's, or the server's default.
+
+A host bound to one tenant keeps the strict rule: `X-Tix-Tenant` must name that tenant or be absent, and a
+credential of another tenant is refused.
+
+Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
+the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
+any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
+
+In the browser, a person in more than one tenant has the current tenant's name as the first entry of the
+sidebar. It opens a dialog of their tenants with the role in each: the current one marked, a Switch button for
+each tenant this host serves, and a link to the sign-in page of a tenant served at its own address. Without
+scripting the entry is a link to `?dialog=tenants`, which draws the same list in place. The dialog lists only
+the person's own memberships; a global admin reaches other tenants from the Global admin area, which the
+dialog links to.
+
+Switch posts to `/switch` (`POST /api/v1/auth/switch` with `{"tenant": "KEY"}` on the API). It mints a session
+for the person's actor in the target and ends the one presented. When the target requires a second factor on
+the web and the current session was signed in without one, a code is asked for first; an account with no
+second factor set up is refused with reason `second_factor_required` and sets one up under Settings. The
+switch is recorded in the target as `user.login` with method `switch`, and nothing is recorded in the tenant
+left. Only a browser session switches: a token stays in the tenant it was minted for.
+
+`GET /api/v1/whoami` reports `account_id`, `email`, `tenant_key` and `tenant_name`, and, for a session or a
+token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
+`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone.
+
 ## Domains
 
 A tenant can own hostnames. When a request arrives at `tix serve`, the `Host` header is resolved to a tenant, and
@@ -259,6 +296,31 @@ unmapped one is.
 A host that maps to no tenant falls back to the server's default tenant, which `tix serve` sets to the tenant of
 the database it opened. That is what makes a single-tenant deployment behave sensibly on `127.0.0.1` with no
 domain configured at all. A server assembled with no default answers an unmapped host as not found.
+
+### Shared domains
+
+A domain is bound to its tenant by default: its host serves that tenant alone, an `X-Tix-Tenant` header naming
+another tenant is refused, and a session or token of another tenant is refused as not valid for the host.
+
+Marking a domain shared makes its host serve several tenants, the way a host no domain claims already does. A
+request carrying a session cookie or a token of tenant T is served as T, and `X-Tix-Tenant` names a tenant for
+sign-in and for a client that keeps several contexts against one URL. A request with neither still gets the
+domain's own tenant, so an installation with one hostname keeps working as it did and can host further tenants
+beside it.
+
+```sh
+tix domain edit tix.example.com --shared
+tix domain edit tix.example.com --shared=false
+tix tenant domain ls acme
+```
+
+Only a global admin may mark a domain shared or bind it again, whichever tenant owns it: a shared host serves
+tenants other than the owner, so the owner's administrator is not the one to decide it. A tenant admin, or any
+token without `global:admin`, is refused with exit 5. The change is recorded in the owning tenant's audit log as
+`domain.update`, with the value before and after. Setting the value a domain already holds records nothing.
+`PATCH /api/v1/domains/{hostname}` and `GET /api/v1/tenants/{ref}/domains` are the same operations over HTTP, and
+the browser offers them on a tenant's screen in the Global admin area. A tenant's own Domains screen shows
+whether each domain is shared but cannot change it.
 
 ## How isolation is enforced
 

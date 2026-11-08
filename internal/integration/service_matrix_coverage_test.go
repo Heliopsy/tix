@@ -39,6 +39,8 @@ var matrixExemptions = map[string]string{
 		"internal/service/invite_test.go and cmd/user_invite_test.go cover it",
 	"PreviewInvite": "takes the secret only CreateInvite, exempt above, returns; " +
 		"internal/httpapi/handlers_invite_test.go reads it over the public route",
+	"SwitchTenant": "needs a browser session, which neither transport's admin holds, and a token is refused by " +
+		"design; internal/integration/sharedhost_test.go switches a session over HTTP",
 	"AcceptInvite": "takes the secret only CreateInvite, exempt above, returns, and uses it up, so the " +
 		"same link cannot be accepted over both transports; internal/httpapi/handlers_invite_test.go " +
 		"accepts one over the public route",

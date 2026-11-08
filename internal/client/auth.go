@@ -129,6 +129,11 @@ func (c *Client) Logout(ctx context.Context) error {
 	return callVoid(ctx, c, http.MethodPost, wire.RouteLogout, nil, nil)
 }
 
+// SwitchTenant moves the caller's session to another tenant on the same host.
+func (c *Client) SwitchTenant(ctx context.Context, in core.SwitchTenantInput) (*core.LoginResult, error) {
+	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteSwitch, nil, in)
+}
+
 // CreateToken mints an API token.
 func (c *Client) CreateToken(ctx context.Context, in core.CreateTokenInput) (*core.IssuedToken, error) {
 	return call[core.IssuedToken](ctx, c, http.MethodPost, wire.RouteTokens, nil, in)

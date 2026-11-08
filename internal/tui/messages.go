@@ -26,6 +26,7 @@ const (
 	viewInbox
 	viewMenu
 	viewIntegrations
+	viewPeople
 )
 
 // actionKind names a board action whose result is reported back.

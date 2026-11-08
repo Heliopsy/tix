@@ -26,7 +26,7 @@ with the prune that enforces it. A tenant administrator working over SSH had to 
 - Retention: the three windows. `e` edits them, a blank window keeping its value. `enter` prunes from a
   form holding dry run (on by default) and a limit; a prune that writes asks first.
 - The registry binds all twelve operations to the new view, so the parity test enforces them, and the
-  recorded terminal gap count falls from 44 to 32.
+  recorded terminal gap count falls by twelve.
 
 ## Impact
 

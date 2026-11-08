@@ -149,8 +149,9 @@ func TestAccountLookupPolicyIsNarrow(t *testing.T) {
 			}
 			got = append(got, table+":"+cmd)
 		}
-		if len(got) != 2 || got[0] != "actors:SELECT" || got[1] != "tenant_members:SELECT" {
-			t.Fatalf("account lookup policies = %v, want SELECT on actors and tenant_members", got)
+		if len(got) != 3 || got[0] != "actors:SELECT" || got[1] != "tenant_domains:SELECT" ||
+			got[2] != "tenant_members:SELECT" {
+			t.Fatalf("account lookup policies = %v, want SELECT on actors, tenant_domains and tenant_members", got)
 		}
 	})
 }

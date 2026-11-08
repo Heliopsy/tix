@@ -21,7 +21,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(
-		tenantCreateCmd(g), newTenantUserCmd(g),
+		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
 		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
 	)
 	return cmd
@@ -417,7 +417,46 @@ func newDomainCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(domainAddCmd(g), domainLsCmd(g), domainRmCmd(g))
+	cmd.AddCommand(domainAddCmd(g), domainLsCmd(g), domainEditCmd(g), domainRmCmd(g))
+	return cmd
+}
+
+func domainEditCmd(g *globals) *cobra.Command {
+	var shared, dryRun bool
+	cmd := &cobra.Command{
+		Use:   "edit HOSTNAME",
+		Short: "Change a domain of any tenant, as a global admin",
+		Long: "Change a hostname mapping, whichever tenant it belongs to. Only a global admin may.\n\n" +
+			"--shared lets the host also serve the tenant a session, a token or the X-Tix-Tenant header names, " +
+			"so several tenants work on one address; with neither it serves the domain's own tenant. " +
+			"--shared=false binds the host to its own tenant alone again.\n\n" +
+			"Exit codes: 2 invalid input, 3 unknown hostname, 5 not a global admin.",
+		Example: "  tix domain edit tix.example.com --shared\n  tix domain edit tix.example.com --shared=false",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in := core.UpdateDomainInput{}
+			if cmd.Flags().Changed("shared") {
+				in.Shared = &shared
+			}
+			if in.Shared == nil {
+				return core.Invalid("nothing to change; pass --shared or --shared=false")
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("domain.update", args[0], map[string]any{"shared": shared}))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			domain, err := conn.Service.UpdateDomain(ctx, args[0], in)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, domain)
+		},
+	}
+	cmd.Flags().BoolVar(&shared, "shared", false, "serve the tenant a credential or the X-Tix-Tenant header names on this host")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }
 

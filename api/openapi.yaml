@@ -802,6 +802,60 @@ paths:
         - session
       x-tix-openspec:
         - http-api
+  /api/v1/auth/switch:
+    post:
+      description: 'SwitchTenant moves the caller''s browser session to another tenant
+        they are a member of, served on the same host. The answer carries a session
+        for the person''s actor there, and the session presented stops working. When
+        the target requires a second factor the presented session did not pass, the
+        answer is a code challenge instead, and the same request sent again with the
+        code completes the switch. A tenant the caller is not a member of is not found,
+        the same answer as one that does not exist. A token cannot switch: tokens
+        stay in the tenant they were minted for.'
+      operationId: session.switch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchTenantInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: LoginResult is either a session or the challenge standing between
+            the caller and one. Exactly one of the two is set.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: SwitchTenant moves the caller's browser session to another tenant they
+        are a member of, served on the same host
+      tags:
+        - session
   /api/v1/auth/totp:
     delete:
       description: |-
@@ -2388,6 +2442,63 @@ paths:
         - bearer: []
         - session: []
       summary: ResolveDomain returns the tenant a hostname is mapped to
+      tags:
+        - domain
+    patch:
+      description: |-
+        UpdateDomain changes a tenant domain, whichever tenant it belongs to. Marking it shared lets its host also serve the tenant a session, token or the X-Tix-Tenant header names, and its own tenant otherwise. Global admin only. An unmapped hostname is not_found.
+
+        Command line: `tix domain edit`.
+      operationId: domain.update
+      parameters:
+        - description: Hostname, such as tix.example.com. Case, a port and a trailing
+            dot are ignored.
+          in: path
+          name: hostname
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDomainInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+          description: Domain maps a hostname to a tenant.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: UpdateDomain changes a tenant domain, whichever tenant it belongs to
       tags:
         - domain
   /api/v1/events:
@@ -8470,6 +8581,68 @@ paths:
         - tenant
       x-tix-openspec:
         - http-api
+  /api/v1/tenants/{ref}/domains:
+    get:
+      description: |-
+        ListTenantDomains lists the hostnames mapped to any tenant, each with whether it is shared. Global admin only.
+
+        Command line: `tix tenant domain ls`.
+      operationId: tenant.domain.list
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/Domain'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/Domain'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - global:admin
+        - session:
+            - global:admin
+      summary: ListTenantDomains lists the hostnames mapped to any tenant, each with
+        whether it is shared
+      tags:
+        - tenant
   /api/v1/tenants/{ref}/members:
     post:
       description: |-
@@ -10444,11 +10617,45 @@ components:
             caller reached it.'
           type: string
       type: object
+    AccountMembership:
+      description: 'AccountMembership is one tenant an account belongs to: its actor
+        there and the role its membership grants.'
+      properties:
+        actor_id:
+          description: ActorID is the account's actor in the tenant.
+          type: string
+        handle:
+          description: Handle is that actor's handle.
+          type: string
+        host:
+          description: Host is the tenant's own address, a domain not marked shared;
+            empty when it is served only on a shared host.
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role the membership grants.
+        tenant_id:
+          description: TenantID is the tenant.
+          type: string
+        tenant_key:
+          description: TenantKey is the tenant's key.
+          type: string
+        tenant_name:
+          description: TenantName is the tenant's name.
+          type: string
+      type: object
     Actor:
       description: Actor is the authenticated identity performing an operation.
       properties:
+        account_id:
+          description: AccountID is the account behind a user actor, on the answer
+            to WhoAmI.
+          type: string
         display_name:
           description: DisplayName is the human-readable name, when one is set.
+          type: string
+        email:
+          description: Email is that account's sign-in address, on the answer to WhoAmI.
           type: string
         global_admin:
           description: GlobalAdmin reports, on the answer to WhoAmI, that the actor
@@ -10464,6 +10671,12 @@ components:
         kind:
           $ref: '#/components/schemas/ActorKind'
           description: Kind says whether the actor is a user, an agent or the system.
+        memberships:
+          description: Memberships are every tenant the account is a member of, on
+            the answer to WhoAmI for a session or a token carrying account:read.
+          items:
+            $ref: '#/components/schemas/AccountMembership'
+          type: array
         project_id:
           description: ProjectID restricts the actor to one project when set, as a
             project-scoped token does.
@@ -10480,6 +10693,12 @@ components:
           type: array
         tenant_id:
           description: TenantID is the tenant the actor acts in.
+          type: string
+        tenant_key:
+          description: TenantKey and TenantName name the actor's tenant, on the answer
+            to WhoAmI.
+          type: string
+        tenant_name:
           type: string
         token_id:
           description: TokenID is the API token the request authenticated with, if
@@ -11526,6 +11745,11 @@ components:
           description: KeyPath is the server-side path of the PEM private key, set
             when CertMode is "file".
           type: string
+        shared:
+          description: Shared reports that the host also serves the tenant a credential
+            or the X-Tix-Tenant header names, as a host no domain claims does. Only
+            a global admin sets it.
+          type: boolean
         tenant_id:
           description: TenantID is the tenant the hostname resolves to.
           type: string
@@ -13478,6 +13702,23 @@ components:
           description: Swept is how many expired leases were cleared.
           type: integer
       type: object
+    SwitchTenantInput:
+      description: SwitchTenantInput moves the caller's session to another tenant
+        served on the same host.
+      properties:
+        code:
+          description: Code is a second factor code or a recovery code, sent again
+            after a code challenge when the target requires a factor this session
+            lacks.
+          type: string
+        surface:
+          $ref: '#/components/schemas/Surface'
+          description: Surface is the sign-in path the new session is for; empty is
+            the web.
+        tenant:
+          description: Tenant is the key of the tenant to move to. Required.
+          type: string
+      type: object
     SyncCredentialHint:
       description: SyncCredentialHint describes one credential stored on a sync source
         without disclosing it.
@@ -14674,6 +14915,18 @@ components:
           description: Held is how many deleted tasks the trash holds, counted even
             while the trash is off.
           type: integer
+      type: object
+    UpdateDomainInput:
+      description: UpdateDomainInput changes a tenant domain. A nil field is left
+        as it is.
+      properties:
+        shared:
+          description: 'Shared marks the domain''s host as serving several tenants:
+            the tenant a credential or the X-Tix-Tenant header names, and the domain''s
+            own tenant otherwise.'
+          type:
+            - "null"
+            - boolean
       type: object
     UpdateProjectInput:
       description: UpdateProjectInput changes a project. A pointer to an empty colour

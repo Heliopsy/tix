@@ -659,7 +659,7 @@ func TestActorsUsersSessionsAndTokens(t *testing.T) {
 		}
 
 		expiry := clk.Now().Add(time.Hour)
-		if err := tx.CreateSession(ctx, f.actor.ID, "session-hash", expiry); err != nil {
+		if err := tx.CreateSession(ctx, f.actor.ID, "session-hash", expiry, core.SessionOrigin{}); err != nil {
 			return err
 		}
 		actorID, at, err := tx.GetSessionByHash(ctx, "session-hash")
@@ -672,7 +672,7 @@ func TestActorsUsersSessionsAndTokens(t *testing.T) {
 		if _, _, err := tx.GetSessionByHash(ctx, "nope"); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("missing session = %v, want not found", err)
 		}
-		if err := tx.CreateSession(ctx, f.actor.ID, "second", clk.Now().Add(-time.Hour)); err != nil {
+		if err := tx.CreateSession(ctx, f.actor.ID, "second", clk.Now().Add(-time.Hour), core.SessionOrigin{}); err != nil {
 			return err
 		}
 		n, err := tx.DeleteExpiredSessions(ctx, clk.Now())
