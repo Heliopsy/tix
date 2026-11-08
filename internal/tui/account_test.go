@@ -129,7 +129,7 @@ func accountModel(t *testing.T) (Model, *accountFake) {
 	m, cmd := m.reduce(pressKey("$"))
 	m = runCmd(t, m, cmd)
 	if m.view != viewAccount {
-		t.Fatalf("@ did not open the account screen; view = %v", m.view)
+		t.Fatalf("$ did not open the account screen; view = %v", m.view)
 	}
 	return m, svc
 }
@@ -508,5 +508,82 @@ func TestTheAccountKeysAreDocumentedInTheHelpOverlay(t *testing.T) {
 		return e.Desc == "revoke or remove the selected row"
 	}) {
 		t.Error("a reader who may revoke nothing is offered the removal")
+	}
+}
+
+func TestAbandoningAnEnrolmentGrantsNothingAndRereads(t *testing.T) {
+	m, svc := accountModel(t)
+	m.acct.enrolment, _ = svc.BeginTOTPEnrolment(context.TODO())
+	m, _ = m.reduce(pressKey("j"))
+	if m.acct.enrolment == nil || m.acct.sel != 0 {
+		t.Fatal("a listing key reached the listing while an enrolment held the keyboard")
+	}
+	m, cmd := m.reduce(pressKey("esc"))
+	if m.acct.enrolment != nil {
+		t.Fatal("esc did not abandon the enrolment")
+	}
+	if m.view != viewAccount {
+		t.Fatalf("abandoning the enrolment left the screen; view = %s", viewName(m.view))
+	}
+	if !strings.Contains(m.status, "grants nothing") {
+		t.Errorf("the status %q does not say the abandoned enrolment grants nothing", m.status)
+	}
+	if cmd == nil {
+		t.Error("abandoning the enrolment did not read the screen again")
+	}
+	if len(svc.codes) != 0 {
+		t.Errorf("abandoning confirmed a code: %v", svc.codes)
+	}
+}
+
+func TestTheAccountCursorStaysOnItsRowsAndEscClearsAShownSecretFirst(t *testing.T) {
+	m, _ := accountModel(t)
+	rows := len(m.accountRows())
+	for _, step := range []struct {
+		key  string
+		want int
+	}{
+		{"G", rows - 1}, {"j", rows - 1}, {"k", rows - 2}, {"g", 0}, {"k", 0},
+	} {
+		m, _ = m.reduce(pressKey(step.key))
+		if m.acct.sel != step.want {
+			t.Fatalf("after %s the cursor is on row %d, want %d", step.key, m.acct.sel, step.want)
+		}
+	}
+	m.acct.reveal = &AccountReveal{}
+	m, _ = m.reduce(pressKey("esc"))
+	if m.acct.reveal != nil || m.view != viewAccount {
+		t.Fatalf("esc with a value shown did not just clear it; view %s", viewName(m.view))
+	}
+	m, _ = m.reduce(pressKey("esc"))
+	if m.view == viewAccount {
+		t.Error("a second esc did not leave the account screen")
+	}
+}
+
+func TestRemovingRefusesARowWithNothingToRemove(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		kind AccountRowKind
+		want string
+	}{
+		{"a log entry", accountRowLog, "select a token, a key or the second factor"},
+		{"a factor that is off", accountRowFactor, "no second factor is on"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, svc := accountModel(t)
+			at := slices.IndexFunc(m.accountRows(), func(r AccountRow) bool { return r.Kind == tc.kind })
+			if at < 0 {
+				t.Fatalf("no %v row on the screen", tc.kind)
+			}
+			m.acct.sel = at
+			m, _ = m.reduce(pressKey("X"))
+			if m.confirm.Open() || svc.removed != 0 {
+				t.Fatal("a row with nothing to remove was offered for removal")
+			}
+			if !strings.Contains(m.err, tc.want) {
+				t.Errorf("the refusal says %q, want %q", m.err, tc.want)
+			}
+		})
 	}
 }

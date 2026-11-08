@@ -362,3 +362,47 @@ func TestTheGlobalAdminFooterFollowsTheOpenPart(t *testing.T) {
 		t.Errorf("the users footer is %v", users)
 	}
 }
+
+func TestEnterOpensALogFromAnAdminOrAUserAndEscWalksBack(t *testing.T) {
+	svc := globalFake()
+	svc.logs["ada@acme.example"] = []core.AccountLogEntry{{Action: "role_changed", TenantKey: "acme",
+		ByEmail: "root@example.com", OccurredAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}}
+	m := globalModel(t, svc)
+
+	m = drive(t, m, pressKey("G"))
+	m = drive(t, m, pressKey("enter"))
+	if m.global.mode != globalLog {
+		t.Fatalf("enter on the global admin row opened mode %v, want the log", m.global.mode)
+	}
+	adminSection(t, m.Frame(), "account log of root@example.com (1):")
+	m = drive(t, m, pressKey("esc"))
+	if m.global.mode != globalHome {
+		t.Fatalf("esc from an admin's log went to mode %v, want the tenants", m.global.mode)
+	}
+
+	m = drive(t, m, pressKey("g"))
+	m = drive(t, m, pressKey("j"))
+	m = drive(t, m, pressKey("enter"))
+	if m.global.mode != globalUsers || m.global.tenant != "acme" {
+		t.Fatalf("enter on acme opened mode %v of %q", m.global.mode, m.global.tenant)
+	}
+	m = drive(t, m, pressKey("enter"))
+	if m.global.mode != globalLog {
+		t.Fatalf("enter on a user opened mode %v, want the log", m.global.mode)
+	}
+	if got := adminSection(t, m.Frame(), "account log of ada@acme.example (1):"); !strings.Contains(got, "role_changed") {
+		t.Errorf("the user's log does not show their entry:\n%s", got)
+	}
+	m = drive(t, m, pressKey("esc"))
+	if m.global.mode != globalUsers {
+		t.Fatalf("esc from a user's log went to mode %v, want the users", m.global.mode)
+	}
+	m = drive(t, m, pressKey("esc"))
+	if m.global.mode != globalHome || m.view != viewGlobal {
+		t.Fatalf("esc from the users went to view %v mode %v", m.view, m.global.mode)
+	}
+	m = drive(t, m, pressKey("esc"))
+	if m.view == viewGlobal {
+		t.Error("esc from the tenants did not leave the view")
+	}
+}

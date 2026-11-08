@@ -572,3 +572,17 @@ func TestTheFooterFollowsTheRowUnderTheCursor(t *testing.T) {
 		t.Error("on a delivery the footer should offer the redelivery and not the edit")
 	}
 }
+
+func TestAgreeingDeletesTheSourceAndSaysSo(t *testing.T) {
+	m, svc := integrationsModel(t)
+	m, _ = m.reduce(pressKey("right"))
+	m, _ = m.reduce(pressKey("X"))
+	m, cmd := m.reduce(pressKey("y"))
+	m = drain(t, m, cmd)
+	if len(svc.sourcesGone) != 1 {
+		t.Fatalf("agreeing deleted %v", svc.sourcesGone)
+	}
+	if !strings.Contains(m.status, "deleted source op") {
+		t.Errorf("the status %q does not name the deleted source", m.status)
+	}
+}
