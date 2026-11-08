@@ -54,6 +54,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, q url.Valu
 	if c.hint != "" {
 		req.Header.Set(wire.HeaderClient, c.hint)
 	}
+	if c.tenant != "" {
+		req.Header.Set(core.HeaderTenant, c.tenant)
+	}
 	if c.token != "" {
 		req.Header.Set(wire.HeaderAuth, "Bearer "+c.token)
 	}

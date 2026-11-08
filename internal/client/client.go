@@ -31,6 +31,7 @@ type Client struct {
 	cookie    string
 	userAgent string
 	hint      string
+	tenant    string
 	timeout   time.Duration
 	http      *http.Client
 
@@ -85,9 +86,20 @@ func (c *Client) WithSession(token string) *Client {
 		cookie:    token,
 		userAgent: c.userAgent,
 		hint:      c.hint,
+		tenant:    c.tenant,
 		timeout:   c.timeout,
 		http:      c.http,
 	}
+}
+
+// WithTenantHeader returns a copy of the client that names key in the
+// X-Tix-Tenant header on every request, so a host serving several tenants
+// knows which one a sign-in is for. A host bound to one tenant refuses a header
+// naming another.
+func (c *Client) WithTenantHeader(key string) *Client {
+	out := c.WithSession(c.cookie)
+	out.tenant = strings.TrimSpace(key)
+	return out
 }
 
 // New builds a client for the server at baseURL authenticating with token.
