@@ -23,7 +23,7 @@
   <tbody>
   {{range .Data.Tokens}}
     <tr>
-      <td>{{.Name}}</td>
+      <td class="token">{{.Name}}</td>
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
       {{if $.Data.Owners}}<td title="{{.ActorID}}"><a class="who-name" href="{{actorHref .ActorID}}">{{.Owner}}</a>{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}

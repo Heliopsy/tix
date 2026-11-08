@@ -92,7 +92,7 @@ func previewBlock(t *testing.T, page string) string {
 func sourceRow(t *testing.T, page, name string) string {
 	t.Helper()
 	table := section(t, page, "Sources")
-	start := strings.Index(table, "<td>"+name+"</td>")
+	start := strings.Index(table, `<td class="token">`+name+"</td>")
 	if start < 0 {
 		t.Fatalf("the Sources table has no row for %s", name)
 	}
@@ -125,7 +125,7 @@ func TestSyncDialogChecksAnUploadedMappingWithoutSaving(t *testing.T) {
 	if strings.Contains(page, webSecret) {
 		t.Errorf("the check result echoes the credential")
 	}
-	if strings.Contains(section(t, b.page("/sync"), "Sources"), "<td>op</td>") {
+	if strings.Contains(section(t, b.page("/sync"), "Sources"), `<td class="token">op</td>`) {
 		t.Errorf("a check saved the source")
 	}
 }

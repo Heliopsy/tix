@@ -38,8 +38,11 @@ li.recrow.is-off { color: var(--muted); }
   font-weight: 600;
   color: var(--ink);
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
+/* A title is words, so it breaks between them (080-tables.css says why not
+   anywhere); the identifier in it is a token and may break anywhere. */
+.recrow-title :is(code, .mono) { overflow-wrap: anywhere; }
 .recrow-meta {
   display: flex;
   align-items: center;

@@ -335,7 +335,7 @@ its list, and, from 640px up, an attribute cell (status, priority, tags and so o
 out of line with the same cell in the rows above. `--hostile` adds a project of tasks with long titles,
 long tags and Markdown descriptions holding headings, tables, fenced code and unbroken tokens, sorted to
 the top of `/tasks`, and the opt-in `laptop` viewport (1440x900) covers the width most of these broke
-at. `just ui-rows` runs the listings with both at phone, tablet and laptop, light and dark:
+at. `just ui-rows` runs the listings with both at phone, tablet, desktop and laptop, light and dark:
 
 ```sh
 just ui-rows
@@ -355,6 +355,21 @@ hold on any page:
 A word split is not reported when the run of characters it belongs to is wider than its box: that token
 has to break or spill, and breaking it is the right call.
 
+**List rows and table cells.** Their text (a `td`, a project's name and description, a record or person
+row) is judged without that exemption, because a collapsed cell makes every word in it "wider than its
+box": that is how a project name broken down to one letter passed. A split of a run of up to 24
+characters between spaces is reported, as `one letter left on a line` when a piece is a single
+character; a longer run is a token, and breaking it is reported only when it would have fitted. A cell
+whose content overflows it is the spill check's, below. Rendered Markdown and controls are left to the
+other checks.
+
+`--hostile` adds projects named `QA`, `Infrastructureplatform` (key as long) and
+`Инфраструктура и мрежи`. The `desktop` viewport (1280x800) is the width between the tablet and the
+laptop where the project grid had two columns and no room, and `--locale bg-BG` sends that
+`Accept-Language`, so the screens are drawn with their longer Bulgarian labels. `just ui-rows` runs the
+listings, the projects screen and the table screens at phone, tablet, desktop and laptop, then the
+projects and table screens again in Bulgarian.
+
 `--hostile` also adds, through the API after signing in, sixty-four tasks in the `web` project with long
 titles, long tags, unbroken tokens and Markdown bodies with tables, code and quotes, a project with a long
 name, a task with a long history of edits and comments, users with long names and two dozen tokens, half
@@ -368,7 +383,7 @@ green before a merge. `just ui-regression` runs the same steps locally:
 | Step | Recipe | What it runs |
 | --- | --- | --- |
 | Page check on every route | `just ui-check` | every route at `phone` and `fullhd`, light and dark, `--hostile --strict` |
-| Task rows and cards | `just ui-rows` | the listings at phone, tablet and laptop |
+| Task rows and cards | `just ui-rows` | the listings, projects and table screens at phone, tablet, desktop and laptop, and in Bulgarian |
 | Browser tests | `just ui-browser` | the Go tests named `*InABrowser`, which drive a real Chrome, and the launcher's tests |
 | JavaScript tests | `just jstest` | `internal/web/jstest` |
 

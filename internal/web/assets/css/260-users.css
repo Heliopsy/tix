@@ -55,7 +55,7 @@ li.person.is-off { background: repeating-linear-gradient(
 li.person.is-off .avatar { background: var(--line); color: var(--muted); }
 
 .person-id { grid-area: id; display: flex; flex-direction: column; min-width: 0; }
-.person-name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.person-name { font-weight: 600; color: var(--ink); overflow-wrap: break-word; }
 .person-mail { color: var(--muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
 
 .person-marks { grid-area: marks; display: flex; align-items: center; gap: 8px; }
