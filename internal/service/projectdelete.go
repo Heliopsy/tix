@@ -44,6 +44,9 @@ func (l *Local) PlanProjectDeletion(ctx context.Context, ref string, in core.Del
 		}
 		out = s.summary(in)
 		out.DryRun = true
+		if in.DeleteTasks {
+			out.WouldDelete = len(s.tasks)
+		}
 		return nil
 	})
 	if err != nil {
@@ -76,6 +79,7 @@ func (l *Local) DeleteProject(ctx context.Context, ref string, in core.DeletePro
 				err = l.moveProjectTasks(ctx, m, s)
 			case in.DeleteTasks:
 				err = recordProjectTaskDeletions(m, s)
+				out.Deleted = len(s.tasks)
 			default:
 				err = core.Precondition("project %q holds %d task(s); move them to another project or delete them with it",
 					s.project.Key, len(s.tasks)).WithDetail("tasks", len(s.tasks))
@@ -161,7 +165,7 @@ func (s *deletionScope) summary(in core.DeleteProjectInput) *core.ProjectDeletio
 	at := map[string]int{}
 	for _, t := range s.tasks {
 		if t.DeletedAt != nil {
-			out.Deleted++
+			out.Trashed++
 		} else {
 			out.Tasks++
 		}

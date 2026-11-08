@@ -289,7 +289,8 @@ why. Check both: a non-zero exit does not mean nothing happened.
 `tix project rm KEY` refuses with exit 6 while the project holds tasks, unless `--move-tasks-to OTHER` moves
 them (renumbered there, status mapped onto its workflow) or `--delete-tasks` deletes them permanently with it.
 `--dry-run` prints the count and the status mapping without writing, one `from -> to` row per status in a table
-and a `statuses` array with `"dry_run": true` in JSON.
+and a `statuses` array with `"dry_run": true` in JSON. With `--delete-tasks` the JSON counts what goes:
+`"deleted"` after the real run, and `"would_delete"` on a dry run, where `"deleted"` stays 0.
 
 `tix claim task REF` exits 6 on a snoozed task, naming the wake time; `tix task snooze REF UNTIL` exits 2 for a
 time it cannot read or one that has passed. A snoozed task is left out of `tix task ls` until it wakes;

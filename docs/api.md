@@ -222,13 +222,15 @@ query parameters, and without either the answer is `422` with code `precondition
   initial state. It needs `task:write` on the target, and an archived target is `422`.
 - `delete_tasks=true` deletes them permanently with the project.
 
-Both at once is `400`. A deletion answers `200` with what it did. `GET /projects/{ref}/deletion` takes the
-same parameters and returns the same shape without writing, which is how to see the mapping first:
+Both at once is `400`. A deletion answers `200` with what it did: `tasks` live tasks and `trashed` ones in the
+trash, and `deleted`, how many tasks it removed permanently (zero for a move). `GET /projects/{ref}/deletion`
+takes the same parameters and returns the same shape without writing, with `deleted` at zero and
+`would_delete` saying how many tasks `delete_tasks=true` would remove. It is how to see the mapping first:
 
 ```console
 $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
     'http://127.0.0.1:8080/api/v1/projects/old/deletion?move_tasks_to=ops'
-{"project":"old","tasks":3,"deleted":0,"move_to":"ops",
+{"project":"old","tasks":3,"trashed":0,"deleted":0,"move_to":"ops",
  "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}],"dry_run":true}
 ```
 
