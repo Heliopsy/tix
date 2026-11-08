@@ -58,7 +58,7 @@ func TestLinksPreferThePublicAddressOnASharedHost(t *testing.T) {
 	if dlg := dialogBlock(page, "handoff"); !strings.Contains(dlg, publicURL) || strings.Contains(dlg, f.server.URL) {
 		t.Errorf("the hand-off dialog does not name the public address:\n%s", dlg)
 	}
-	cli := connectStep(t, f.as("alice").page("/connect"), "cli")
+	cli := connectPane(t, f.as("alice").page("/connect"), "cli")
 	if !strings.Contains(cli, "--server "+publicURL+" ") {
 		t.Errorf("the Connect screen does not name the public address:\n%s", cli)
 	}
