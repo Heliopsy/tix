@@ -36,6 +36,9 @@ func readPublicKey(cmd *cobra.Command, path string) (string, error) {
 	if path == StdinMarker {
 		return body(cmd, StdinMarker)
 	}
+	if err := localFile(cmd, "--file", path); err != nil {
+		return "", err
+	}
 	b, err := os.ReadFile(path) // #nosec G304 -- the operator names the key file to enrol
 	if err != nil {
 		return "", core.Invalid("reading %s: %v", path, err)

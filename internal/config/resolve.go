@@ -83,6 +83,19 @@ func (r *Resolved) Sources() []Entry {
 	return out
 }
 
+// Defaulted returns a resolution that read nothing: every key holds its default
+// and reports the default layer. A command run on behalf of somebody else, over
+// the SSH listener, takes this one, because the files, the .env and the
+// environment of the serving machine belong to its operator and not to the
+// caller.
+func Defaulted() *Resolved {
+	r := &Resolved{Config: Defaults(), sources: make(map[string]Layer, len(keyList))}
+	for _, k := range keyList {
+		r.sources[k.Path] = LayerDefault
+	}
+	return r
+}
+
 // Load resolves configuration from flags, environment, .env, files and defaults.
 func Load(opts Options) (*Resolved, error) {
 	env := environMap(opts.Environ)

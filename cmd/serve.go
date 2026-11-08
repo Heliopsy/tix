@@ -215,6 +215,9 @@ func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions, trustedProxie
 		// reads it from the configuration like the HTTP one reads its own.
 		TrustedProxies: trustedProxies,
 		IdleTimeout:    o.sshIdleTimeout,
+		Commands:       RunHosted,
+		CommandWords:   CommandWords(),
+		MaxInputBytes:  g.maxImportBytes(),
 		TimeStyle:      g.configTimeStyle(),
 		Logger:         log,
 	})

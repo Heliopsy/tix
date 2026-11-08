@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -22,13 +23,21 @@ const (
 	SurfaceHTTP Surface = "http"
 	SurfaceWeb  Surface = "web"
 	SurfaceTUI  Surface = "tui"
+	// SurfaceSSH is the command line run over the SSH listener. It has no
+	// binding of its own: it hosts the CLI binding, less what an exemption
+	// takes away.
+	SurfaceSSH Surface = "ssh"
 )
 
 // Bound are the surfaces every operation must reach unless it is exempted.
 // The terminal interface is in this list: leaving it out was an enforcement
 // hole, not a decision, and it let the tui drift to twelve of eighty-one
 // operations with nothing failing the build.
-var Bound = []Surface{SurfaceCLI, SurfaceHTTP, SurfaceWeb, SurfaceTUI}
+//
+// SSH is in it for the same reason. It binds whatever the CLI binds, so what
+// the list holds it to is that an operation the CLI reaches and SSH does not
+// says why.
+var Bound = []Surface{SurfaceCLI, SurfaceHTTP, SurfaceWeb, SurfaceTUI, SurfaceSSH}
 
 // Route is one HTTP or browser route. Template is set only for a browser
 // screen that renders one. Query names the query parameter that picks this
@@ -191,6 +200,9 @@ func (o Operation) Binds(s Surface) bool {
 		return !o.Web.Zero()
 	case SurfaceTUI:
 		return o.TUI != ""
+	case SurfaceSSH:
+		_, exempted := o.ExemptionFor(SurfaceSSH)
+		return o.CLI != "" && !exempted
 	default:
 		return false
 	}
@@ -204,6 +216,25 @@ func (o Operation) ExemptionFor(s Surface) (Exemption, bool) {
 		}
 	}
 	return Exemption{}, false
+}
+
+// SSHCommands lists the command paths an SSH session may run, without the
+// leading "tix", sorted: the CLI binding of every operation that binds SSH.
+// It is the listener's allowlist, so a command the registry does not bind is
+// never on it, however the command tree grows.
+func SSHCommands() []string {
+	var out []string
+	for _, op := range registry {
+		if !op.Binds(SurfaceSSH) {
+			continue
+		}
+		path := strings.TrimPrefix(op.CLI, "tix ")
+		if !slices.Contains(out, path) {
+			out = append(out, path)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Operations returns the registry.

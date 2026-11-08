@@ -343,7 +343,7 @@ func (l *Local) RemoveTOTP(ctx context.Context) error {
 	// in the browser alone is not escaping anything by removing it, and
 	// refusing them would make the factor unremovable from the surface they
 	// actually use.
-	if surface, ok := core.SurfaceOf(core.SourceFrom(ctx)); ok {
+	if surface, ok := core.SurfaceFrom(ctx); ok {
 		required, err := l.tenantRequires(ctx, actor, surface)
 		if err != nil {
 			return err

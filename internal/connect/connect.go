@@ -32,6 +32,9 @@ type Mode string
 const (
 	ModeLocal  Mode = "local"
 	ModeRemote Mode = "remote"
+	// ModeSSH is a command the SSH listener runs on a caller's behalf, against
+	// the service the listener itself holds.
+	ModeSSH Mode = "ssh"
 )
 
 // Origin names the layer that decided the target.
@@ -43,6 +46,8 @@ const (
 	OriginContext Origin = "context"
 	OriginConfig  Origin = "config"
 	OriginDefault Origin = "default"
+	// OriginSSH is a target the SSH listener chose for a hosted command.
+	OriginSSH Origin = "ssh"
 )
 
 // Engine names the database engine behind a local target.
@@ -122,6 +127,8 @@ type Target struct {
 func (t Target) Describe() string {
 	endpoint := t.Path
 	switch {
+	case t.Mode == ModeSSH:
+		return "ssh session as " + t.Tenant
 	case t.Mode == ModeRemote:
 		endpoint = t.URL
 	case t.Engine == EnginePostgres:
@@ -172,6 +179,22 @@ type Conn struct {
 	Via core.Via
 
 	closers []func() error
+}
+
+// Hosted is the connection a command run over the SSH listener uses: the
+// listener's own service, the session's actor and its ssh channel. It is never
+// direct, so no call through it stands as the global admin a local store
+// grants, and it holds nothing to close.
+func Hosted(svc core.Service, actor *core.Actor, via core.Via, tenant string) *Conn {
+	return &Conn{
+		Service: svc,
+		Actor:   actor,
+		Via:     via,
+		Info: Info{
+			Target:   Target{Mode: ModeSSH, Tenant: tenant, Origin: OriginSSH},
+			TenantID: actor.TenantID,
+		},
+	}
 }
 
 // Context returns ctx carrying the connection's actor, the CLI source and

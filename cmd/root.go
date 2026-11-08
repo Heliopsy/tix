@@ -165,6 +165,12 @@ func Run(args []string, in io.Reader, out, errw io.Writer, environ []string, dir
 	if g.logCloser != nil {
 		_ = g.logCloser.Close()
 	}
+	return g.exitCode(err, errw)
+}
+
+// exitCode reports a finished invocation's error on errw and returns the
+// process exit code it stands for.
+func (g *globals) exitCode(err error, errw io.Writer) int {
 	if err == nil {
 		return core.ExitOK
 	}
@@ -252,6 +258,9 @@ var builders = []func(*globals) *cobra.Command{
 
 // validateGlobals rejects contradictory global flags before anything is opened.
 func (g *globals) validateGlobals(cmd *cobra.Command, _ []string) error {
+	if err := refuseLocalFlags(cmd); err != nil {
+		return err
+	}
 	if g.color && g.noColor {
 		return usagef(cmd, "--color and --no-color contradict each other")
 	}

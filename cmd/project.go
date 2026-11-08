@@ -34,9 +34,12 @@ func builtinIconList() string {
 
 // readIconFile loads the image --icon-file names, refusing one too large to
 // upload before it is read whole.
-func readIconFile(path string) (*core.ProjectIconFile, error) {
+func readIconFile(cmd *cobra.Command, path string) (*core.ProjectIconFile, error) {
 	if path == "" {
 		return &core.ProjectIconFile{}, nil
+	}
+	if err := localFile(cmd, "--icon-file", path); err != nil {
+		return nil, err
 	}
 	info, err := os.Stat(path)
 	if err != nil {
@@ -88,7 +91,7 @@ func projectCreateCmd(g *globals) *cobra.Command {
 			"  tix project create web Website --color '#1a7f5a'",
 		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file, err := readIconFile(iconFile)
+			file, err := readIconFile(cmd, iconFile)
 			if err != nil {
 				return err
 			}
@@ -244,7 +247,7 @@ func projectEditCmd(g *globals) *cobra.Command {
 				in.IconName = &iconName
 			}
 			if cmd.Flags().Changed("icon-file") {
-				file, err := readIconFile(iconFile)
+				file, err := readIconFile(cmd, iconFile)
 				if err != nil {
 					return err
 				}
@@ -306,6 +309,9 @@ func projectIconCmd(g *globals) *cobra.Command {
 		Example: "  tix project icon infra --out infra.png\n  tix project icon infra > infra.png",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := localFile(cmd, "--out", out); err != nil {
+				return err
+			}
 			if out == "" && writesToTerminal(cmd) {
 				return core.Invalid("standard output is a terminal; name a file with --out or redirect the output")
 			}
@@ -681,6 +687,9 @@ func readDocument(cmd *cobra.Command, path string) ([]byte, error) {
 	if path == "" || path == StdinMarker {
 		text, err := readAll(cmd.InOrStdin())
 		return []byte(text), err
+	}
+	if err := localFile(cmd, "the document", path); err != nil {
+		return nil, err
 	}
 	data, err := os.ReadFile(path) // #nosec G304 -- the path is chosen by the user
 	if err != nil {

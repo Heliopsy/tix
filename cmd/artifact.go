@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -185,10 +186,16 @@ func decodePayload(raw string) (map[string]any, error) {
 func readBlob(cmd *cobra.Command, path string) ([]byte, error) {
 	if path == StdinMarker {
 		blob, err := io.ReadAll(cmd.InOrStdin())
+		if e := (*core.Error)(nil); errors.As(err, &e) {
+			return nil, err
+		}
 		if err != nil {
 			return nil, core.Internal("reading standard input").Wrap(err)
 		}
 		return blob, nil
+	}
+	if err := localFile(cmd, "--file", path); err != nil {
+		return nil, err
 	}
 	blob, err := os.ReadFile(path) // #nosec G304 -- the path is chosen by the user
 	if err != nil {
