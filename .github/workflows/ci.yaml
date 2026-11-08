@@ -25,6 +25,11 @@ concurrency:
 # Go caches: every job restores through .github/actions/go and saves at its end
 # only on a push to main. A pull request reads main's cache and writes none.
 # Test results are never taken from it: every go test here runs with -count=1.
+#
+# Tool caches: .github/actions/just and .github/actions/toolbox follow the same
+# rule, saving only on a push to main, so a warm run downloads no tool at all.
+# A cold one fetches release assets through .github/actions/fetch-release-asset.sh,
+# which retries with a backoff and checks each against a pinned sha256.
 
 jobs:
   # The checks that need no test run, so a formatting slip or a broken build
@@ -41,20 +46,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: gate
-      # just-version, because without it the action passes an empty version
-      # specifier to setup-crate, which then lists casey/just releases and
-      # picks the newest. That lookup failed once mid-run with "no release for
-      # just matching version specifier", while 1.59.0 sat there published and
-      # not a prerelease, so it was the resolution that blinked rather than
-      # upstream. Every other job in the same run installed just fine.
-      #
-      # This repository pins every action to a commit for reproducibility and
-      # then let the tool one of them installs float, which is the same hole a
-      # layer down. An exact tag is one deterministic request instead of a
-      # list-and-match, and a bump is a one-line change somebody reviews.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
 
       - name: Verify go.sum is tidy
         run: just tidy-check
@@ -136,11 +129,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: test-${{ matrix.shard }}
-      # Pinned for the reason given in the gate job: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
 
       - name: Test with coverage
         run: just test-shard ${{ matrix.shard }}
@@ -185,10 +175,8 @@ jobs:
       - uses: ./.github/actions/go
         with:
           job: coverage
-      # Pinned for the reason given in the gate job.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           pattern: coverage-*
@@ -242,11 +230,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: macos
-      # Pinned for the reason given in the gate job: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
 
       # On a pull request HEAD is the merge commit and HEAD^1 its base.
       - name: Decide how much of the suite to run
@@ -315,11 +300,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: ui-regression
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: 22
@@ -410,11 +392,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: lint
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: ./.github/actions/toolbox
         with:
           tools: golangci-lint actionlint hadolint yamllint markdownlint
@@ -459,11 +438,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: ./.github/actions/toolbox
         with:
           tools: openspec
@@ -537,11 +513,8 @@ jobs:
         with:
           job: sca
 
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: ./.github/actions/toolbox
         with:
           tools: govulncheck gitleaks trivy
@@ -603,11 +576,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: image
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: ./.github/actions/toolbox
         with:
           tools: trivy
@@ -639,11 +609,8 @@ jobs:
         uses: ./.github/actions/go
         with:
           job: crosscompile
-      # Pinned for the reason given in ci.yaml: an unset version makes the
-      # action resolve "latest" on every run, and that resolution can blink.
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
-        with:
-          just-version: 1.59.0
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
       - uses: ./.github/actions/toolbox
         with:
           tools: goreleaser

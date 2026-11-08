@@ -2,6 +2,8 @@ name: Toolbox
 description: >-
   Install the pinned gate tools onto PATH, at the versions Containerfile.ci
   names, so a GitHub runner runs the same versions as the local container.
+  The installed tools are cached, keyed by every tool's version, and a warm
+  run downloads nothing.
 
 inputs:
   tools:
@@ -20,7 +22,14 @@ runs:
     # it finds one, and a GitHub runner has Docker. Left to itself it would
     # build the six-gigabyte toolbox image on every job. Here the tools are on
     # PATH and that is what should run.
-    - shell: bash
+    #
+    # The cache key names the tools and hashes a manifest of each one's
+    # version, plus the toolchain it is built or run with: golangci-lint built
+    # by an older Go refuses newer code, and a pipx venv points at the python
+    # that made it. No restore-keys, because an entry for other versions would
+    # put the wrong binaries on PATH.
+    - id: plan
+      shell: bash
       env:
         TOOLS: ${{ inputs.tools }}
       run: |
@@ -36,24 +45,109 @@ runs:
           printf '%s' "$v"
         }
 
-        echo "TIX_TOOL_MODE=direct" >> "$GITHUB_ENV"
-        echo "OPENSPEC_TELEMETRY=0" >> "$GITHUB_ENV"
-        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+        sorted=$(tr -s ' ' '\n' <<<"$TOOLS" | sed '/^$/d' | sort -u)
+        manifest=""
+        for tool in $sorted; do
+          case "$tool" in
+            golangci-lint) line="$(version GOLANGCI_LINT_VERSION) $(go env GOVERSION)" ;;
+            gosec)         line="$(version GOSEC_VERSION) $(go env GOVERSION)" ;;
+            govulncheck)   line="$(version GOVULNCHECK_VERSION) $(go env GOVERSION)" ;;
+            goreleaser)    line="$(version GORELEASER_VERSION) $(go env GOVERSION)" ;;
+            gitleaks)      line="$(version GITLEAKS_VERSION) $(go env GOVERSION)" ;;
+            actionlint)    line="$(version ACTIONLINT_VERSION) $(go env GOVERSION)" ;;
+            trivy)         line="$(version TRIVY_VERSION) $(version TRIVY_SHA256)" ;;
+            hadolint)      line="$(version HADOLINT_VERSION) $(version HADOLINT_SHA256)" ;;
+            markdownlint)  line="$(version MARKDOWNLINT_VERSION) $(node --version)" ;;
+            openspec)      line="$(version OPENSPEC_VERSION) $(node --version)" ;;
+            yamllint)      line="$(version YAMLLINT_VERSION) $(python3 --version)" ;;
+            *) echo "unknown tool: $tool" >&2; exit 1 ;;
+          esac
+          manifest+="${tool} ${line}"$'\n'
+        done
+        printf '%s' "$manifest"
+        hash=$(printf '%s' "$manifest" | sha256sum | cut -c1-16)
+        names=$(printf '%s' "$sorted" | tr '\n' '+')
+        {
+          echo "dir=${HOME}/.cache/tix-toolbox"
+          echo "key=toolbox-${RUNNER_OS}-${RUNNER_ARCH}-${names}-${hash}"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}
+        key: ${{ steps.plan.outputs.key }}
+
+    # A tool is installed when the restored cache does not already hold a
+    # working one, checked by path rather than by whatever the runner image
+    # has on PATH, so a cold run installs everything and a warm run nothing.
+    #
+    # trivy and hadolint are release assets. Their archives are what is cached,
+    # and the pinned sha256 from Containerfile.ci is checked on every run before
+    # they are unpacked, cache hit or not. The Go tools are verified by the
+    # module checksum database as go install builds them, and the npm and pip
+    # ones by their registries, as before.
+    - shell: bash
+      env:
+        TOOLS: ${{ inputs.tools }}
+        DIR: ${{ steps.plan.outputs.dir }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        version() {
+          sed -n "s/^ARG $1=//p" Containerfile.ci
+        }
+
+        bin="$DIR/bin"
+        mkdir -p "$bin" "$DIR/assets"
+        {
+          echo "TIX_TOOL_MODE=direct"
+          echo "OPENSPEC_TELEMETRY=0"
+        } >> "$GITHUB_ENV"
+        {
+          echo "$(go env GOPATH)/bin"
+          echo "$bin"
+          echo "$DIR/npm/bin"
+        } >> "$GITHUB_PATH"
+        export PATH="$bin:$DIR/npm/bin:$PATH"
+
+        go_tool() {
+          [ -x "$bin/$1" ] || GOBIN="$bin" go install "$2"
+        }
+
+        npm_tool() {
+          "$DIR/npm/bin/$1" --version >/dev/null 2>&1 || npm install -g --prefix "$DIR/npm" "$2"
+        }
+
+        asset() {
+          local repo=$1 tag=$2 name=$3 sum=$4
+          local file="$DIR/assets/$tag-$name"
+          if [ -f "$file" ] && [ "$(sha256sum "$file" | cut -d' ' -f1)" = "$sum" ]; then
+            printf '%s' "$file"
+            return
+          fi
+          # Explicit, because a command substitution does not inherit set -e:
+          # a failed fetch went on to print the path of a file never written.
+          "$GITHUB_ACTION_PATH/../fetch-release-asset.sh" "$repo" "$tag" "$name" "$sum" "$file" >&2 || return 1
+          printf '%s' "$file"
+        }
 
         for tool in $TOOLS; do
           case "$tool" in
             golangci-lint)
-              go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(version GOLANGCI_LINT_VERSION)" ;;
+              go_tool golangci-lint \
+                "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(version GOLANGCI_LINT_VERSION)" ;;
             gosec)
-              go install "github.com/securego/gosec/v2/cmd/gosec@$(version GOSEC_VERSION)" ;;
+              go_tool gosec "github.com/securego/gosec/v2/cmd/gosec@$(version GOSEC_VERSION)" ;;
             govulncheck)
-              go install "golang.org/x/vuln/cmd/govulncheck@$(version GOVULNCHECK_VERSION)" ;;
+              go_tool govulncheck "golang.org/x/vuln/cmd/govulncheck@$(version GOVULNCHECK_VERSION)" ;;
             goreleaser)
-              go install "github.com/goreleaser/goreleaser/v2@$(version GORELEASER_VERSION)" ;;
+              go_tool goreleaser "github.com/goreleaser/goreleaser/v2@$(version GORELEASER_VERSION)" ;;
             gitleaks)
-              go install "github.com/zricethezav/gitleaks/v8@$(version GITLEAKS_VERSION)" ;;
+              go_tool gitleaks "github.com/zricethezav/gitleaks/v8@$(version GITLEAKS_VERSION)" ;;
             actionlint)
-              go install "github.com/rhysd/actionlint/cmd/actionlint@$(version ACTIONLINT_VERSION)"
+              go_tool actionlint "github.com/rhysd/actionlint/cmd/actionlint@$(version ACTIONLINT_VERSION)"
               # actionlint shells out to shellcheck when it is present and
               # skips that integration in silence when it is not, so the gate
               # would be weaker here than in the container without saying so.
@@ -64,22 +158,32 @@ runs:
               } ;;
             trivy)
               v=$(version TRIVY_VERSION)
-              curl -sfL -o /tmp/trivy.tar.gz \
-                "https://github.com/aquasecurity/trivy/releases/download/${v}/trivy_${v#v}_Linux-64bit.tar.gz"
-              sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
-              rm -f /tmp/trivy.tar.gz ;;
+              f=$(asset aquasecurity/trivy "$v" "trivy_${v#v}_Linux-64bit.tar.gz" "$(version TRIVY_SHA256)")
+              tar -xzf "$f" -C "$bin" trivy ;;
             hadolint)
               v=$(version HADOLINT_VERSION)
-              sudo curl -sfL -o /usr/local/bin/hadolint \
-                "https://github.com/hadolint/hadolint/releases/download/${v}/hadolint-Linux-x86_64"
-              sudo chmod +x /usr/local/bin/hadolint ;;
+              f=$(asset hadolint/hadolint "$v" hadolint-linux-x86_64 "$(version HADOLINT_SHA256)")
+              install -m 0755 "$f" "$bin/hadolint" ;;
             markdownlint)
-              npm install -g "markdownlint-cli@$(version MARKDOWNLINT_VERSION)" ;;
+              npm_tool markdownlint "markdownlint-cli@$(version MARKDOWNLINT_VERSION)" ;;
             openspec)
-              npm install -g "@fission-ai/openspec@$(version OPENSPEC_VERSION)" ;;
+              npm_tool openspec "@fission-ai/openspec@$(version OPENSPEC_VERSION)" ;;
             yamllint)
-              pipx install "yamllint==$(version YAMLLINT_VERSION)" ;;
+              "$bin/yamllint" --version >/dev/null 2>&1 || \
+                PIPX_HOME="$DIR/pipx" PIPX_BIN_DIR="$bin" \
+                  pipx install --force "yamllint==$(version YAMLLINT_VERSION)" ;;
             *)
               echo "unknown tool: $tool" >&2; exit 1 ;;
           esac
         done
+
+    # Saved straight after the install, so a job that fails later still leaves
+    # the tools behind. Only a push to main writes it, as with the Go cache: a
+    # pull request reads main's and writes none.
+    - if: >-
+        steps.restore.outputs.cache-hit != 'true'
+        && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.dir }}
+        key: ${{ steps.plan.outputs.key }}
