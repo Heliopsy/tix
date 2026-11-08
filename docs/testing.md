@@ -363,7 +363,8 @@ has to break or spill, and breaking it is the right call.
 row) is judged without that exemption, because a collapsed cell makes every word in it "wider than its
 box": that is how a project name broken down to one letter passed. A split of a run of up to 24
 characters between spaces is reported, as `one letter left on a line` when a piece is a single
-character; a longer run is a token, and breaking it is reported only when it would have fitted. A cell
+character; a longer run is a token, and breaking it is reported only when it would have fitted. Only
+the lines that show are judged: a tag clamped to one line is cut short, not split. A cell
 whose content overflows it is the spill check's, below. Rendered Markdown and controls are left to the
 other checks.
 
