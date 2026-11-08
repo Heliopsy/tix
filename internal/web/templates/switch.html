@@ -23,7 +23,7 @@
 <div class="card">
 <form method="post" action="/switch" hx-boost="false" autocomplete="off">
   {{template "csrf" .CSRF}}
-  <input type="hidden" name="tenant" value="{{$v.Code}}">
+  <input type="hidden" name="to" value="{{$v.Code}}">
   <div class="field-label"><label for="code">{{t "Code"}}</label>{{template "tip" (tip "Second factor" "A time-based code (TOTP) from an authenticator app, asked for after your password. It changes every 30 seconds. Recovery codes stand in for it when the app is out of reach." "docs/second-factor.md")}}</div>
   <p class="muted" id="code-help">{{t "Six digits from your authenticator app, or one of your recovery codes if you cannot reach it."}}</p>
   <input id="code" name="code" inputmode="text" autocomplete="one-time-code"
