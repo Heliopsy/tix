@@ -182,6 +182,12 @@ A list the code already holds is asserted rather than maintained: see
 
 ## Release pull requests
 
+- CI runs only the Gate job on a release pull request and skips the rest, so
+  its checks read `pass` and `skipping`. Green there is
+  `gh pr checks N --json bucket --jq '[.[].bucket]|all(.=="pass" or .=="skipping")'`
+  with Gate among the passes. Gate fails if the pull request changes anything
+  but `CHANGELOG.md` and `.release-please-manifest.json`; never push other
+  changes to release-please's branch.
 - Approve only the runs whose head is the current one. Approving a run that is
   `action_required` replays it with the workflow file it was created against,
   so a stale run resurrects a workflow bug already fixed on `main` and reports

@@ -30,6 +30,15 @@ concurrency:
 # rule, saving only on a push to main, so a warm run downloads no tool at all.
 # A cold one fetches release assets through .github/actions/fetch-release-asset.sh,
 # which retries with a backoff and checks each against a pinned sha256.
+#
+# release-please's pull request runs the Gate job and nothing else. It changes
+# CHANGELOG.md and .release-please-manifest.json on top of code main already
+# tested, and the full run cost twelve to fifteen minutes per release. Every
+# other job carries `if: ${{ !startsWith(github.head_ref, 'release-please--') }}`,
+# and a job skipped by its `if:` reports as skipped, which a merge accepts.
+# github.head_ref is empty outside pull_request, so pushes, the nightly run and
+# tags are untouched. Gate fails a pull request on that branch that changes any
+# other file, so code cannot ride along on a release to skip the suite.
 
 jobs:
   # The checks that need no test run, so a formatting slip or a broken build
@@ -72,6 +81,14 @@ jobs:
           git fetch --no-tags --depth=1 origin '+refs/tags/v*:refs/tags/v*'
           just release-files-check "$HEAD_REF"
 
+      # The other half of the skip described at the top of this file. HEAD is
+      # the merge commit; the checkout is depth 1, so its base is fetched here.
+      - name: Release pull request changes only release files
+        if: startsWith(github.head_ref, 'release-please--')
+        run: |
+          git fetch --no-tags --depth=2 origin "$GITHUB_SHA"
+          just release-pr-files HEAD^1
+
       # The runner carries an SSH client and pseudo-terminals, so the whole
       # suite runs here rather than announcing a skipped capability.
       - name: Smoke the built binary
@@ -94,6 +111,7 @@ jobs:
   # the one the single job used to have.
   test:
     name: Test (${{ matrix.shard }})
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -157,11 +175,13 @@ jobs:
 
   # The 85% floor applies to the whole suite, so it is checked once over the
   # merged shards. It runs whenever the matrix finished, and fails rather than
-  # skips when a shard failed: a skipped required check reads as a pass.
+  # skips when a shard failed: a skipped required check reads as a pass. The
+  # one exception is release-please's pull request, where the matrix itself is
+  # skipped and there is nothing to merge (see the top of this file).
   coverage:
     name: Coverage
     needs: test
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -219,6 +239,7 @@ jobs:
   # starts failing on a morning nobody pushed anything.
   macos:
     name: Build & Test (macOS)
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: macos-15
     permissions:
       contents: read
@@ -283,6 +304,7 @@ jobs:
   # `just ui-regression` is the same gate locally.
   ui-regression:
     name: UI regression
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -383,6 +405,7 @@ jobs:
 
   lint:
     name: Lint
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -410,6 +433,9 @@ jobs:
       - name: stream filter guard
         run: just streamtest
 
+      - name: release pull request guard
+        run: just release-pr-files-test
+
       - name: scene syntax
         run: just scenecheck
 
@@ -433,6 +459,7 @@ jobs:
 
   spec:
     name: Specs & Docs
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -460,6 +487,7 @@ jobs:
 
   sast:
     name: SAST (gosec)
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -498,6 +526,7 @@ jobs:
 
   sca:
     name: SCA (govulncheck + trivy)
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -558,6 +587,7 @@ jobs:
   # nothing, so this job runs the container and asks it for things.
   image:
     name: Container image
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -600,6 +630,7 @@ jobs:
 
   crosscompile:
     name: Cross-compile (CGO_ENABLED=0)
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
