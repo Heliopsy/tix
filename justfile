@@ -460,9 +460,10 @@ lib-macos:
     #!/usr/bin/env bash
     set -euo pipefail
     dir='{{lib_out}}/macos'
+    sdk=$(xcrun --sdk macosx --show-sdk-path)
     for arch in arm64 amd64; do
-      CGO_ENABLED=1 GOOS=darwin GOARCH=$arch CC="$(xcrun -f clang)" \
-        CGO_CFLAGS="-mmacosx-version-min=11.0" CGO_LDFLAGS="-mmacosx-version-min=11.0" \
+      CGO_ENABLED=1 GOOS=darwin GOARCH=$arch CC="$(xcrun --sdk macosx -f clang)" \
+        CGO_CFLAGS="-isysroot $sdk -mmacosx-version-min=11.0" CGO_LDFLAGS="-isysroot $sdk -mmacosx-version-min=11.0" \
         go build -trimpath -buildmode=c-shared \
         -ldflags "{{ldflags}} -extldflags=-Wl,-install_name,@rpath/libtix.dylib" \
         -o "$dir/$arch/libtix.dylib" ./embedded/libtix
