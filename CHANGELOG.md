@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.47.0](https://github.com/Heliopsy/tix/compare/v0.46.1...v0.47.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **security:** tix serve refuses a sync file or mapping_path unless sync.file_root is set and the file sits in the tenant's directory, and ignores TIX_SYNC_<SOURCE>_* for sources sync.env_sources does not bind. Environment credentials are no longer sent to a url stored on the source, on any surface. See "Server files and the server's environment" in docs/migrating.md for the upgrade steps.
+
+### Features
+
+* let a global admin mark a domain shared ([39f33fc](https://github.com/Heliopsy/tix/commit/39f33fc34b6da9d81c504c2e3544d8fd41bb95d9))
+* **store:** shared domains and how each session was minted ([b985364](https://github.com/Heliopsy/tix/commit/b9853646907cef6782e6eb72fb3d07f793b16911))
+* switch tenant on a shared host, with memberships on whoami ([b148e81](https://github.com/Heliopsy/tix/commit/b148e81f46a7d9ff27498a1ca16cba113c5f88dc))
+* **tui:** administer people from the terminal ([#238](https://github.com/Heliopsy/tix/issues/238)) ([db271f4](https://github.com/Heliopsy/tix/commit/db271f42452c32d652390e124d0e15ca71c8487d))
+
+
+### Bug Fixes
+
+* **security:** confine sync server paths and bind environment credentials ([0b5802f](https://github.com/Heliopsy/tix/commit/0b5802f2ab2087d905aa350ecfb179959df2a00e))
+* **store:** mark the credential lookup names as not credentials for gosec ([81031be](https://github.com/Heliopsy/tix/commit/81031be6cb5f7ce91fd9a6548f516daa929f817d))
+
 ## [0.46.1](https://github.com/Heliopsy/tix/compare/v0.46.0...v0.46.1) (2026-11-07)
 
 
