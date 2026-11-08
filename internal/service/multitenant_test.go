@@ -134,6 +134,27 @@ func TestATenantAdminCannotChangeTheAccountOfAPersonInAnotherTenant(t *testing.T
 	}
 }
 
+// A forced password change equal to the one the person already has, or
+// already lacks, is not a change, so a client that sends every field of an
+// edit form does not have the rest of the edit refused with it.
+func TestAnUnchangedPasswordChangeIsNotRefusedForATwoTenantPerson(t *testing.T) {
+	f := newTwoTenants(t)
+	ctx := authContext(f.otherAdmin)
+	no, yes := false, true
+	role := core.RoleAdmin
+
+	got, err := f.l.UpdateUser(ctx, f.otherPat.ID, core.UpdateUserInput{Role: &role, RequirePasswordChange: &no})
+	if err != nil {
+		t.Fatalf("changing pat's role with her forced change left off = %v, want allowed", err)
+	}
+	if got.RequirePasswordChange {
+		t.Error("an unchanged forced password change was set")
+	}
+	if _, err := f.l.UpdateUser(ctx, f.otherPat.ID, core.UpdateUserInput{RequirePasswordChange: &yes}); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("turning pat's forced change on = %v, want forbidden", err)
+	}
+}
+
 func TestDisablingAPersonInOneTenantLeavesTheOther(t *testing.T) {
 	f := newTwoTenants(t)
 	yes, no := true, false
