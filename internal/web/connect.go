@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -49,7 +50,8 @@ func slotted(text string) template.HTML {
 	return template.HTML(strings.ReplaceAll(escaped, template.HTMLEscapeString(tokenSlot), tokenSlotHTML))
 }
 
-// connectTab is one tab of a tab set: a title and the snippets under it.
+// connectTab is one tab of a nested tab set: a title, the snippets under it,
+// the link that selects it and whether it is the one drawn.
 type connectTab struct {
 	ID     string
 	Title  string
@@ -57,6 +59,117 @@ type connectTab struct {
 	// Plain titles are product names, drawn as they are in every language.
 	Plain bool
 	Snips []onboard.Snippet
+	Href  string
+	On    bool
+}
+
+// connectTabSet is a nested tab strip and the query parameter naming its tab.
+type connectTabSet struct {
+	Param string
+	Label string
+	Tabs  []connectTab
+}
+
+// On is the selected tab's id.
+func (s connectTabSet) On() string {
+	for _, tab := range s.Tabs {
+		if tab.On {
+			return tab.ID
+		}
+	}
+	return ""
+}
+
+// connectPane is one of the screen's main tabs: how a reader connects.
+type connectPane struct {
+	ID    string
+	Title string
+	Help  string
+	Href  string
+	On    bool
+}
+
+// connectParams are the query parameters the screen reads, the main tab first.
+var connectParams = []string{"tab", "install", "client", "skill"}
+
+// connectPanes are the main tabs in order, each with the documentation
+// section its help link opens.
+var connectPanes = []struct {
+	ID, Title string
+	Doc       helpDoc
+}{
+	{"cli", "CLI", helpDoc{"configuration.md", "contexts"}},
+	{"mcp", "MCP", helpDoc{"mcp.md", "wiring-it-into-a-client"}},
+	{"ssh", "SSH", helpDoc{"deployment.md", "commands-over-ssh"}},
+	{"api", "API", helpDoc{"api.md", "authentication"}},
+	{"skill", "Skill", helpDoc{"agents.md", "the-shape-of-a-worker"}},
+}
+
+// connectQuery is the screen's tab selection as the address names it.
+type connectQuery url.Values
+
+// connectQueryOf keeps only the parameters the screen reads.
+func connectQueryOf(r *http.Request) connectQuery {
+	q, in := url.Values{}, r.URL.Query()
+	for _, p := range connectParams {
+		if v := in.Get(p); v != "" {
+			q.Set(p, v)
+		}
+	}
+	return connectQuery(q)
+}
+
+// pick is the tab param names when it is one of ids, else the first.
+func (q connectQuery) pick(param string, ids []string) string {
+	if v := url.Values(q).Get(param); slices.Contains(ids, v) {
+		return v
+	}
+	return ids[0]
+}
+
+// href is the screen's address with param set to id and the rest kept.
+func (q connectQuery) href(param, id string) string {
+	next := url.Values{}
+	for k, v := range q {
+		next[k] = slices.Clone(v)
+	}
+	next.Set(param, id)
+	return RouteConnect + "?" + next.Encode()
+}
+
+// self is the screen's own address, for a form that comes back to it.
+func (q connectQuery) self() string {
+	if len(q) == 0 {
+		return ""
+	}
+	return "?" + url.Values(q).Encode()
+}
+
+// tabSet marks the selected tab of a nested set and links each one.
+func (q connectQuery) tabSet(param, label string, tabs []connectTab) connectTabSet {
+	ids := make([]string, len(tabs))
+	for i, tab := range tabs {
+		ids[i] = tab.ID
+	}
+	on := q.pick(param, ids)
+	for i := range tabs {
+		tabs[i].Href, tabs[i].On = q.href(param, tabs[i].ID), tabs[i].ID == on
+	}
+	return connectTabSet{Param: param, Label: label, Tabs: tabs}
+}
+
+// panes are the main tabs with the selected one marked.
+func (q connectQuery) panes() ([]connectPane, string) {
+	ids := make([]string, len(connectPanes))
+	for i, p := range connectPanes {
+		ids[i] = p.ID
+	}
+	on := q.pick("tab", ids)
+	out := make([]connectPane, len(connectPanes))
+	for i, p := range connectPanes {
+		out[i] = connectPane{ID: p.ID, Title: p.Title, Help: p.Doc.href(), Href: q.href("tab", p.ID), On: p.ID == on}
+	}
+	return out, on
 }
 
 // connectView is what the Connect an agent screen renders.
@@ -64,14 +177,19 @@ type connectView struct {
 	URL      string
 	Tenant   string
 	Handle   string
-	Install  []connectTab
+	Panes    []connectPane
+	Tab      string
+	Self     string
+	Install  connectTabSet
 	Verify   onboard.Snippet
 	TokenCmd onboard.Snippet
+	Rotate   onboard.Snippet
 	Export   onboard.Snippet
 	CLI      []onboard.Snippet
+	Login    *onboard.Snippet
 	Preview  onboard.Snippet
-	Clients  []connectTab
-	Skill    []connectTab
+	Clients  connectTabSet
+	Skill    connectTabSet
 	SSH      []onboard.Snippet
 	REST     []onboard.Snippet
 	CanIssue bool
@@ -80,6 +198,16 @@ type connectView struct {
 	Expiry   []tokenExpiry
 	Errors   fieldErrors
 	Secret   *oneTimeSecret
+}
+
+// Pane is the main tab called id.
+func (v connectView) Pane(id string) connectPane {
+	for _, p := range v.Panes {
+		if p.ID == id {
+			return p
+		}
+	}
+	return connectPane{}
 }
 
 // sshAddress is where people reach the SSH listener: the configured public
@@ -138,26 +266,42 @@ func (h *handler) renderConnect(w http.ResponseWriter, r *http.Request, status i
 	}
 	t := onboard.Target{URL: baseURL(r), Tenant: h.tenantKey(r), Token: tokenSlot,
 		Version: h.releases.state().Running, SSH: h.sshAddress(r)}
-	v := connectView{URL: t.URL, Tenant: t.Tenant, Handle: actor.Handle,
+	q := connectQueryOf(r)
+	v := connectView{URL: t.URL, Tenant: t.Tenant, Handle: actor.Handle, Self: q.self(),
 		Verify: onboard.Verify(), Preview: onboard.MCPPreview(),
 		TokenCmd: onboard.Snippet{ID: "token-cli", Lang: "sh", Text: onboard.TokenCommand()},
+		Rotate:   onboard.Rotate(),
 		Export:   onboard.Snippet{ID: "token-export", Lang: "sh", Text: "export TIX_TOKEN=" + tokenSlot},
-		CLI:      onboard.CLI(t), SSH: onboard.SSH(t), REST: onboard.REST(t),
+		CLI:      onboard.CLI(t), Login: onboard.Login(t, h.email(r)), SSH: onboard.SSH(t), REST: onboard.REST(t),
 		CanIssue: actor.HasScope(core.ScopeTokenAdmin), Picker: newScopePicker(actor, form.Scopes),
 		Form: form, Expiry: tokenExpiryChoices, Errors: errs, Secret: issuedTokenSecret(issued)}
+	v.Panes, v.Tab = q.panes()
 	if v.Secret != nil {
 		v.Secret.ID, v.Secret.Fill = "connect-token", true
 	}
+	var install, clients, skill []connectTab
 	for _, s := range onboard.Install(t) {
-		v.Install = append(v.Install, connectTab{ID: s.ID, Title: s.Title, Snips: []onboard.Snippet{s}})
+		install = append(install, connectTab{ID: strings.TrimPrefix(s.ID, "install-"), Title: s.Title, Snips: []onboard.Snippet{s}})
 	}
 	for _, c := range onboard.MCPClients(t) {
-		v.Clients = append(v.Clients, connectTab{ID: "mcp-" + c.ID, Title: c.Name, Titled: true, Plain: true, Snips: c.Snippets})
+		clients = append(clients, connectTab{ID: c.ID, Title: c.Name, Titled: true, Plain: true, Snips: c.Snippets})
 	}
 	for _, s := range onboard.Skill() {
-		v.Skill = append(v.Skill, connectTab{ID: s.ID, Title: s.Title, Snips: []onboard.Snippet{s}})
+		skill = append(skill, connectTab{ID: strings.TrimPrefix(s.ID, "skill-"), Title: s.Title, Snips: []onboard.Snippet{s}})
 	}
+	v.Install = q.tabSet("install", "Install with", install)
+	v.Clients = q.tabSet("client", "MCP client", clients)
+	v.Skill = q.tabSet("skill", "Install for", skill)
 	return h.renderStatus(w, r, status, "connect.html", "Connect an agent", v)
+}
+
+// email is the reader's sign-in address, or "" for an actor without an account.
+func (h *handler) email(r *http.Request) string {
+	me, err := h.svc.WhoAmI(r.Context())
+	if err != nil {
+		return ""
+	}
+	return me.Email
 }
 
 // connectTokenCookie carries a token issued on this screen to the screen
@@ -176,7 +320,7 @@ func (h *handler) createConnectToken(w http.ResponseWriter, r *http.Request) err
 			// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
 			http.SetCookie(w, oneTimeCookie(connectTokenCookie, RouteConnect,
 				issuedValue(issued.Token, issued.Scopes), h.secureCookie(r)))
-			redirect(w, r, RouteConnect, "token issued")
+			redirect(w, r, RouteConnect+connectQueryOf(r).self(), "token issued")
 			return nil
 		}
 	}

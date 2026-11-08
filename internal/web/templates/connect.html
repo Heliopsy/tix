@@ -4,13 +4,18 @@
   and, once one is issued here, the token. The snippets come from
   internal/onboard, which tests hold to docs/mcp.md and to the command tree.
 
+  Three steps: 1 get a credential, 2 pick how you connect (CLI, MCP, SSH,
+  API, Skill), 3 copy the commands in that tab. The tabs are the task
+  screen's (assets/tasktabs.js) with links for tabs: each is
+  /connect?tab=NAME, and the nested ones add install=, client= or skill=,
+  so the server draws the named tab and hides the rest without scripting.
+  With scripting data-tab-param makes a click switch in place and rewrite
+  the address; nothing goes into storage.
+
   Each token position is a span reading $TIX_TOKEN. A token issued on this
   screen is drawn once, in the secret block, and assets/connect.js copies it
-  into every span. The server never writes it into a command, and it goes
-  nowhere else: not a URL, not storage.
-
-  Sections are headed steps that are always drawn. The tab sets are buttons
-  scripting wires up; without it every panel is drawn under its own heading.
+  into every span, hidden panels included. The server never writes it into a
+  command, and it goes nowhere else: not a URL, not storage.
 */}}
 {{define "snippet"}}
 <div class="snippet">
@@ -22,26 +27,27 @@
 </div>
 {{end}}
 
-{{define "connect-tabs"}}
-<div class="tabset" data-tabset>
-  <div class="tabset-list" role="tablist" data-needs-js>
-    {{range $i, $p := .}}<button type="button" role="tab" id="tab-{{.ID}}" aria-controls="panel-{{.ID}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if ne $i 0}} tabindex="-1"{{end}}>{{if .Plain}}{{.Title}}{{else}}{{t .Title}}{{end}}</button>{{end}}
+{{define "connect-tabs"}}{{$set := .}}
+<div class="tabset" data-task-tabs data-tab="{{.On}}" data-tab-forced data-tab-param="{{.Param}}">
+  <div class="tabset-list" role="tablist" aria-label="{{t .Label}}">
+    {{range .Tabs}}<a id="tab-{{$set.Param}}-{{.ID}}" aria-controls="panel-{{$set.Param}}-{{.ID}}" role="tab" href="{{.Href}}" data-tab-for="{{.ID}}" aria-selected="{{if .On}}true{{else}}false{{end}}"{{if not .On}} tabindex="-1"{{end}}>{{if .Plain}}{{.Title}}{{else}}{{t .Title}}{{end}}</a>{{end}}
   </div>
-  {{range $i, $p := .}}
-  <div class="tabpanel" role="tabpanel" id="panel-{{.ID}}" aria-labelledby="tab-{{.ID}}" data-tabpanel>
-    <h3 class="tabpanel-title">{{if .Plain}}{{.Title}}{{else}}{{t .Title}}{{end}}</h3>
+  {{range $p := .Tabs}}
+  <div class="tabpanel" role="tabpanel" id="panel-{{$set.Param}}-{{.ID}}" aria-labelledby="tab-{{$set.Param}}-{{.ID}}" data-tab-panel="{{.ID}}"{{if not .On}} hidden{{end}}>
     {{range .Snips}}{{if $p.Titled}}<h4 class="snippet-title">{{if .Path}}<code>{{.Path}}</code>{{else}}{{t .Title}}{{end}}</h4>{{end}}{{template "snippet" .}}{{end}}
   </div>
   {{end}}
 </div>
 {{end}}
 
-{{define "docs-link"}}<a class="connect-docs" href="/docs/{{.}}" target="_blank" rel="noopener">{{template "icon" "docs"}}<span>{{t "Docs"}}</span></a>{{end}}
+{{define "connect-pane-head"}}<div class="connect-head"><h2><span class="connect-num">3</span>{{t "Copy the commands: %s" (t .Title)}}</h2><a class="helplink" href="{{.Help}}" target="_blank" rel="noopener" aria-label="{{t "Help: %s" (t .Title)}}" title="{{t "Help: %s" (t .Title)}}" data-help><svg aria-hidden="true" width="18" height="18"><use href="/assets/icons.svg#help"/></svg></a></div>{{end}}
+
+{{define "connect-pane-open"}}<section class="connect-step connect-pane" role="tabpanel" id="{{.ID}}" aria-labelledby="tab-{{.ID}}" data-tab-panel="{{.ID}}"{{if not .On}} hidden{{end}}>{{template "connect-pane-head" .}}{{end}}
 
 {{define "content"}}
 {{$v := .Data}}
 <div class="pagehead">
-  <div class="pagehead-title"><div class="headtip"><h1>{{t "Connect an agent"}}</h1>{{template "tip" (tip "Connect an agent" "Every command here is filled in for this server and for you. Copy them in order, or skip to the part you need." "docs/agents.md")}}</div></div>
+  <div class="pagehead-title"><div class="headtip"><h1>{{t "Connect an agent"}}</h1>{{template "tip" (tip "Connect an agent" "Get a credential, pick how you connect, then copy the commands. Every command is filled in for this server and for you." "docs/agents.md")}}</div></div>
   {{template "help" $}}
 </div>
 <dl class="connect-facts">
@@ -50,24 +56,17 @@
   <div><dt>{{t "Signed in as"}}</dt><dd><code>{{$v.Handle}}</code></dd></div>
 </dl>
 
-<ol class="connect-steps">
-<li class="connect-step" id="install">
-  <div class="connect-head"><h2>{{t "Install the CLI"}}</h2>{{template "docs-link" "upgrading.md"}}</div>
-  <p class="meta">{{t "Install the version this server runs, so the CLI and the server agree."}}</p>
-  {{template "connect-tabs" $v.Install}}
-  {{template "snippet" $v.Verify}}
-</li>
-
-<li class="connect-step" id="token">
-  <div class="connect-head"><h2>{{t "Issue a token"}}</h2>{{template "docs-link" "agents.md"}}</div>
+<div class="connect-steps" data-task-tabs data-tab="{{$v.Tab}}" data-tab-forced data-tab-param="tab">
+<section class="connect-step" id="token">
+  <div class="connect-head"><h2><span class="connect-num">1</span>{{t "Get a credential"}}</h2></div>
   {{with $v.Secret}}
     {{template "secret" .}}
     <p class="meta" data-needs-js>{{t "Every command on this page now carries this token. Reloading the page puts $TIX_TOKEN back."}}</p>
     {{template "snippet" $v.Export}}
   {{else}}
-    <p class="meta">{{th "The commands below read <code>$TIX_TOKEN</code>. Issue a token here and the page fills it in, or set <code>TIX_TOKEN</code> in your shell to one you already have."}}</p>
+    <p class="meta">{{th "The CLI, MCP and API commands read <code>$TIX_TOKEN</code>. Issue a token here and the page fills it in, or set <code>TIX_TOKEN</code> in your shell to one you already have."}}</p>
     {{if $v.CanIssue}}
-    <form method="post" action="/connect/token" class="connect-tokenform">
+    <form method="post" action="/connect/token{{$v.Self}}" class="connect-tokenform" data-tab-keep>
       {{template "csrf" $.CSRF}}
       {{with $v.Errors.On ""}}{{template "field-error" .}}{{end}}
       <div class="connect-tokenrow">
@@ -97,38 +96,50 @@
   {{template "snippet" $v.TokenCmd}}
   <p class="meta"><a href="/admin/tokens">{{t "See and revoke your tokens"}}</a></p>
   {{end}}
-</li>
+  <h3 class="snippet-title">{{t $v.Rotate.Title}}</h3>
+  {{template "snippet" $v.Rotate}}
+  <p class="meta">{{t "The SSH tab needs no token: your enrolled SSH key is the credential."}} <a href="{{($v.Pane "ssh").Href}}">{{t "Open the SSH tab"}}</a></p>
+</section>
 
-<li class="connect-step" id="cli">
-  <div class="connect-head"><h2>{{t "Point the CLI at this server"}}</h2>{{template "docs-link" "commands.md"}}</div>
+<section class="connect-step" id="connect">
+  <div class="connect-head"><h2><span class="connect-num">2</span>{{t "Pick how you connect"}}</h2></div>
+  <div class="tabset-list connect-tablist" role="tablist" aria-label="{{t "Pick how you connect"}}">
+    {{range $v.Panes}}<a id="tab-{{.ID}}" aria-controls="{{.ID}}" role="tab" href="{{.Href}}" data-tab-for="{{.ID}}" aria-selected="{{if .On}}true{{else}}false{{end}}"{{if not .On}} tabindex="-1"{{end}}>{{t .Title}}</a>{{end}}
+  </div>
+</section>
+
+{{with $v.Pane "cli"}}{{template "connect-pane-open" .}}
+  <h3 class="snippet-title" id="install">{{t "Install the CLI"}}</h3>
+  <p class="meta">{{t "Install the version this server runs, so the CLI and the server agree."}}</p>
+  {{template "connect-tabs" $v.Install}}
   {{range $v.CLI}}<h3 class="snippet-title">{{t .Title}}</h3>{{template "snippet" .}}{{end}}
-</li>
+  {{with $v.Login}}<h3 class="snippet-title">{{t .Title}}</h3>{{template "snippet" .}}{{end}}
+</section>{{end}}
 
-<li class="connect-step" id="mcp">
-  <div class="connect-head"><h2>{{t "Add tix to an MCP client"}}</h2>{{template "docs-link" "mcp.md"}}</div>
-  <p class="meta">{{th "<code>tix mcp</code> serves the API as tools over standard input and output. A tool that deletes or cannot be undone is left out unless you add <code>--allow-destructive</code> after <code>mcp</code>."}}</p>
+{{with $v.Pane "mcp"}}{{template "connect-pane-open" .}}
+  <p class="meta">{{th "<code>tix mcp</code> serves the API as tools over standard input and output, so the CLI has to be installed first. A tool that deletes or cannot be undone is left out unless you add <code>--allow-destructive</code> after <code>mcp</code>."}} <a href="{{($v.Pane "cli").Href}}#install">{{t "Install the CLI"}}</a></p>
   {{template "connect-tabs" $v.Clients}}
+  <h3 class="snippet-title">{{t $v.Preview.Title}}</h3>
   {{template "snippet" $v.Preview}}
-</li>
+</section>{{end}}
 
-<li class="connect-step" id="skill">
-  <div class="connect-head"><h2>{{t "Install the agent skill"}}</h2>{{template "docs-link" "agents.md"}}</div>
-  <p class="meta">{{t "The skill teaches an agent the claim, lease and release loop, the exit codes and the JSON output."}}</p>
-  {{template "connect-tabs" $v.Skill}}
-</li>
-
-{{with $v.SSH}}
-<li class="connect-step" id="ssh">
-  <div class="connect-head"><h2>{{t "Use the terminal interface over SSH"}}</h2>{{template "docs-link" "tui.md"}}</div>
-  <p class="meta">{{t "Your SSH key is the credential. The tenant goes where the user name usually does."}} <a href="/admin/ssh-keys">{{t "SSH keys"}}</a></p>
+{{with $v.Pane "ssh"}}{{template "connect-pane-open" .}}
+  {{with $v.SSH}}
+  <p class="meta">{{t "Your SSH key is the credential, and nothing needs installing. The tenant goes where the user name usually does."}} <a href="/admin/ssh-keys">{{t "SSH keys"}}</a></p>
   {{range .}}<h3 class="snippet-title">{{t .Title}}</h3>{{template "snippet" .}}{{end}}
-</li>
-{{end}}
+  {{else}}
+  <p>{{th "This server runs no SSH listener. An operator turns it on with <code>tix serve --ssh-listen</code>, and <code>ssh.public_address</code> names the address people reach."}}</p>
+  {{end}}
+</section>{{end}}
 
-<li class="connect-step" id="rest">
-  <div class="connect-head"><h2>{{t "Call the REST API"}}</h2>{{template "docs-link" "api.md"}}</div>
+{{with $v.Pane "api"}}{{template "connect-pane-open" .}}
   {{range $v.REST}}<h3 class="snippet-title">{{t .Title}}</h3>{{template "snippet" .}}{{end}}
   <p class="meta">{{t "Every operation is described in the OpenAPI document, which needs no token."}} <a href="/api/v1/openapi.json" target="_blank" rel="noopener">{{t "Open the OpenAPI document"}}</a></p>
-</li>
-</ol>
+</section>{{end}}
+
+{{with $v.Pane "skill"}}{{template "connect-pane-open" .}}
+  <p class="meta">{{t "The skill teaches an agent the claim, lease and release loop, the exit codes and the JSON output."}}</p>
+  {{template "connect-tabs" $v.Skill}}
+</section>{{end}}
+</div>
 {{end}}
