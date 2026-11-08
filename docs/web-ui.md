@@ -1170,25 +1170,36 @@ you are in; enrolling one key in every tenant you belong to is `tix user key add
 MCP client or an agent at this server, filled in for it. The server address is the one the browser reached,
 with the scheme taken from `server.trusted_proxies` the way the calendar feed takes it; the tenant key is
 filled in for a reader allowed to read the tenant, and left out otherwise, since a token already names its
-tenant. The steps, each linking to its documentation:
+tenant. It reads as three steps:
 
-1. Install the CLI: `install.sh`, PowerShell, `go install` and the container image, pinned to the version the
-   server runs.
-2. Issue a token, with the scope picker below. Only a reader holding `token:admin` gets the form.
-3. Point the CLI at the server with `tix ctx add`, and check it with `tix task ls`.
-4. Register `tix mcp` with Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop, Cursor, VS Code or Zed,
-   one tab each. These are the snippets in [mcp.md](mcp.md), from one Go source a test holds to that page.
-5. Install the agent skill for Claude Code, in the project or for every project, or point another agent at it.
-6. Open the terminal interface and stream events over SSH. Shown only when `tix serve` runs with
-   `--ssh-listen`; the address is `ssh.public_address` when set ([configuration.md](configuration.md)).
-7. Call the REST API with `curl`, and open the OpenAPI document.
+1. **Get a credential.** The token form with the scope picker below, drawn once for every tab that needs a
+   token. Only a reader holding `token:admin` gets the form; it also shows `tix token create` and
+   `tix token rotate --grace 10m`. SSH needs no token, and the step says so.
+2. **Pick how you connect.** A strip of five tabs: CLI, MCP, SSH, API and Skill.
+3. **Copy the commands** in the chosen tab. Each tab has a help button (?) opening its documentation section.
+
+| Tab | Holds | Help opens |
+| --- | --- | --- |
+| CLI | the install (`install.sh`, PowerShell, `go install`, the container image, pinned to the server's version), `tix ctx add`, `tix task ls` to check, and `tix login --tenant` for a reader whose address and tenant are known | [configuration.md](configuration.md#contexts) |
+| MCP | `tix mcp` for Claude Code, Codex, OpenCode, Gemini CLI, Claude Desktop, Cursor, VS Code and Zed, a tab each, and `tix mcp --list`. These are the snippets in [mcp.md](mcp.md), from one Go source a test holds to that page | [mcp.md](mcp.md#wiring-it-into-a-client) |
+| SSH | enrolling a key, the terminal interface, a tix command over ssh (`ssh acme@host task ls -o json`), an export and the event stream. Drawn only when `tix serve` runs with `--ssh-listen`, at `ssh.public_address` when set ([configuration.md](configuration.md)); otherwise the tab says the server runs no listener | [deployment.md](deployment.md#commands-over-ssh) |
+| API | `curl` with the token, and the OpenAPI document | [api.md](api.md#authentication) |
+| Skill | installing the agent skill for Claude Code, in the project or for every project, or pointing another agent at it | [agents.md](agents.md#the-shape-of-a-worker) |
+
+Every tab is a link, `/connect?tab=mcp`, and so is each nested one: `install=`, `client=` and `skill=` name
+the install method, the MCP client and where the skill goes, so `/connect?tab=mcp&client=codex` opens the
+Codex commands. The server draws the named tab selected and hides the rest, so the page works without
+scripting, and an unknown name falls back to the first tab. With scripting the strips are the task screen's
+tabs (`assets/tasktabs.js`): a click switches without a reload, the arrow keys, Home and End move along a
+strip, and the address is rewritten to name the tab on screen. Unlike the task screen, the choice is kept in
+the address only, not in the browser. Issuing a token comes back to the tab it was issued from.
 
 Before a token is issued the commands read `$TIX_TOKEN`. Issuing one draws the value once, with the scopes it
-got, and the page's script writes it into every command. It is not stored and not put in the URL, so a reload
-puts `$TIX_TOKEN` back. Every `tix` command the screen shows is checked against the command tree by
-`cmd/connect_test.go`.
+got, and the page's script writes it into every command, in every tab. It is not stored and not put in the
+URL, so a reload puts `$TIX_TOKEN` back. Every `tix` command the screen shows, the ones run over ssh
+included, is checked against the command tree by `cmd/connect_test.go`.
 
-**Docs** in the sidebar and the account menu, and the docs link on each step, go through `/docs/PAGE`, which
+**Docs** in the sidebar and the account menu, and the help button on each tab, go through `/docs/PAGE`, which
 redirects to that page on GitHub at the running release's tag (`main` for a development build). Rendered pages
 name no external origin, and only a page that exists under `docs/` is redirected.
 
