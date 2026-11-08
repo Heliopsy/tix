@@ -187,6 +187,9 @@ type taskView struct {
 
 	// Handoff is the text that hands this task to a coding agent.
 	Handoff handoffView
+
+	// Share is the header's Share menu.
+	Share shareView
 }
 
 // backTo resolves where this screen's back link points.
@@ -356,6 +359,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 	}
 	data.BackLabel = backLabel(data.Back)
 	data.Handoff = newHandoff(r, *task)
+	data.Share = newShare(r, *task)
 	if err := h.attachRelations(r, ref, &data); err != nil {
 		return taskView{}, err
 	}

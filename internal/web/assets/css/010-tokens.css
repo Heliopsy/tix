@@ -231,9 +231,11 @@
    --on-accent) at their light-mode values, which put light-mode link and
    badge colours on a dark background -- several of them below the 4.5:1
    floor. Keep this block's non-soft values identical to the explicit dark
-   theme's. */
+   theme's. It names both OLED values among its exclusions: it outranks a
+   plain :root[data-theme="oled"] on specificity, so without them a dark
+   device would paint OLED in this block's greys. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dim"]) {
+  :root:not([data-theme="light"]):not([data-theme="dim"]):not([data-theme="oled"]):not([data-theme="system-oled"]) {
     color-scheme: dark;
     --bg: #14171b;
     --surface: #1b1f24;
@@ -245,6 +247,78 @@
     --danger-soft: #2a1613;
     --warn-soft: #2a1f10;
     --ok-soft: #10261c;
+    --accent: #2dd4bf;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --ok: #34d399;
+    --on-ok: #08231a;
+    --on-accent: #08231a;
+    --shadow: none;
+    --shadow-strong: none;
+    --proj-slate: #94a3b8;
+    --proj-red: #f87171;
+    --proj-amber: #fbbf24;
+    --proj-green: #4ade80;
+    --proj-teal: #2dd4bf;
+    --proj-blue: #60a5fa;
+    --proj-violet: #a78bfa;
+    --proj-pink: #f472b6;
+  }
+}
+
+/* OLED: a black page for screens that light every pixel they draw. The
+   surface is only just off black, so a card or a field is told apart by its
+   border rather than by a grey slab, and --line-strong clears 3:1 on both
+   because without a fill it is the only edge a field has. Ink is a shade
+   under dark's to soften the halo white text gets on black. The accents and
+   the project palette are dark's: tuned for 4.5:1 on #1b1f24, they clear it
+   by more on black. Keep this block and the system-oled one below identical,
+   and give it every token the dark block has (oled_test.go). */
+:root[data-theme="oled"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #0a0b0d;
+  --ink: #dde1e6;
+  --muted: #959eab;
+  --line: #2a2f37;
+  --line-strong: #5a636f;
+  --accent-soft: #0b2a26;
+  --danger-soft: #241010;
+  --warn-soft: #231a08;
+  --ok-soft: #0a2018;
+  --accent: #2dd4bf;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #34d399;
+  --on-ok: #08231a;
+  --on-accent: #08231a;
+  --shadow: none;
+  --shadow-strong: none;
+  --proj-slate: #94a3b8;
+  --proj-red: #f87171;
+  --proj-amber: #fbbf24;
+  --proj-green: #4ade80;
+  --proj-teal: #2dd4bf;
+  --proj-blue: #60a5fa;
+  --proj-violet: #a78bfa;
+  --proj-pink: #f472b6;
+}
+
+/* System, OLED when dark: light while the device asks for light, which the
+   plain :root above already draws, and OLED while it asks for dark. */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system-oled"] {
+    color-scheme: dark;
+    --bg: #000000;
+    --surface: #0a0b0d;
+    --ink: #dde1e6;
+    --muted: #959eab;
+    --line: #2a2f37;
+    --line-strong: #5a636f;
+    --accent-soft: #0b2a26;
+    --danger-soft: #241010;
+    --warn-soft: #231a08;
+    --ok-soft: #0a2018;
     --accent: #2dd4bf;
     --danger: #f87171;
     --warn: #fbbf24;
