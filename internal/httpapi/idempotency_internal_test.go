@@ -3,24 +3,25 @@
 package httpapi
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 )
 
 func TestFingerprintCoversMethodPathQueryAndBody(t *testing.T) {
-	base := fingerprint(httptest.NewRequest("POST", "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`))
+	base := fingerprint(httptest.NewRequest(http.MethodPost, "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`))
 	for name, got := range map[string]string{
-		"method": fingerprint(httptest.NewRequest("PUT", "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`)),
-		"path":   fingerprint(httptest.NewRequest("POST", "/api/v1/task?a=1", nil), []byte(`{"t":1}`)),
-		"query":  fingerprint(httptest.NewRequest("POST", "/api/v1/tasks?a=2", nil), []byte(`{"t":1}`)),
-		"body":   fingerprint(httptest.NewRequest("POST", "/api/v1/tasks?a=1", nil), []byte(`{"t":2}`)),
+		"method": fingerprint(httptest.NewRequest(http.MethodPut, "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`)),
+		"path":   fingerprint(httptest.NewRequest(http.MethodPost, "/api/v1/task?a=1", nil), []byte(`{"t":1}`)),
+		"query":  fingerprint(httptest.NewRequest(http.MethodPost, "/api/v1/tasks?a=2", nil), []byte(`{"t":1}`)),
+		"body":   fingerprint(httptest.NewRequest(http.MethodPost, "/api/v1/tasks?a=1", nil), []byte(`{"t":2}`)),
 	} {
 		if got == base {
 			t.Errorf("a different %s gives the same fingerprint", name)
 		}
 	}
-	same := fingerprint(httptest.NewRequest("POST", "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`))
+	same := fingerprint(httptest.NewRequest(http.MethodPost, "/api/v1/tasks?a=1", nil), []byte(`{"t":1}`))
 	if same != base {
 		t.Error("the same request gives a different fingerprint")
 	}
