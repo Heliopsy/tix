@@ -11,8 +11,8 @@ import (
 )
 
 // PutWebhook registers or updates a delivery endpoint.
-func (c *Client) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
-	return call[core.WebhookEndpoint](ctx, c, http.MethodPut, wire.RouteWebhooks, nil, in)
+func (c *Client) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
+	return call[core.IssuedWebhook](ctx, c, http.MethodPut, wire.RouteWebhooks, nil, in)
 }
 
 // ListWebhooks returns the tenant's endpoints.

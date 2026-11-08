@@ -223,7 +223,7 @@ func (s *apiService) RotateToken(ctx context.Context, id string, in core.RotateT
 	return nil, core.NotFound("token %q", id)
 }
 
-func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
 	if _, err := core.RequireActor(ctx); err != nil {
 		return nil, err
 	}
@@ -234,9 +234,30 @@ func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*cor
 	if id == "" {
 		id = "hook-1"
 	}
-	hook := &core.WebhookEndpoint{ID: id, URL: in.URL, EventTypes: in.EventTypes, Active: in.Active}
+	hook := &core.WebhookEndpoint{ID: id, URL: in.URL, Secret: in.Secret, EventTypes: in.EventTypes, Active: in.Active}
+	issued := &core.IssuedWebhook{WebhookEndpoint: *hook}
+	if hook.Secret == "" {
+		hook.Secret = fixtureWebhookSecret
+		issued.SigningSecret = fixtureWebhookSecret
+	}
+	issued.Secret = ""
 	s.hooks[id] = hook
-	return hook, nil
+	return issued, nil
+}
+
+// fixtureWebhookSecret is the secret the fixture "generates" for an endpoint
+// registered without one.
+const fixtureWebhookSecret = "fixture-generated-secret"
+
+func (s *apiService) PingWebhook(ctx context.Context, id string) (*core.WebhookDelivery, error) {
+	if _, err := core.RequireActor(ctx); err != nil {
+		return nil, err
+	}
+	if _, ok := s.hooks[id]; !ok {
+		return nil, core.NotFound("webhook %q", id)
+	}
+	return &core.WebhookDelivery{ID: "ping-1", EndpointID: id, EventSeq: 1, Attempts: 1,
+		Status: core.DeliveryDelivered, LastStatusCode: http.StatusOK}, nil
 }
 
 func (s *apiService) ListWebhooks(_ context.Context) ([]core.WebhookEndpoint, error) {

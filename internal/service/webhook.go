@@ -124,7 +124,7 @@ func webhookPayload(e core.WebhookEndpoint) map[string]any {
 // registration that supplies no secret gets a generated one, returned in the
 // result exactly once so it can be configured on the receiving end; no later
 // read ever discloses it.
-func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
 	actor, err := l.authorize(ctx, authz.ActionWebhookAdmin, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -182,9 +182,9 @@ func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.Web
 		return nil, err
 	}
 
-	result := webhook.Redact(out)
+	result := core.IssuedWebhook{WebhookEndpoint: webhook.Redact(out)}
 	if generated {
-		result.Secret = out.Secret
+		result.SigningSecret = out.Secret
 	}
 	return &result, nil
 }

@@ -731,8 +731,8 @@ func (m Model) putWebhook(in core.WebhookInput) tea.Cmd {
 			return integrationResultMsg{err: err}
 		}
 		msg := integrationResultMsg{status: "saved endpoint " + e.URL}
-		if in.Secret == "" && e.Secret != "" {
-			msg.secret, msg.secretFor = e.Secret, e.URL
+		if in.Secret == "" && e.SigningSecret != "" {
+			msg.secret, msg.secretFor = e.SigningSecret, e.URL
 		}
 		return msg
 	})

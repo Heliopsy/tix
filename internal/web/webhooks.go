@@ -87,10 +87,10 @@ func (h *handler) putWebhook(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return h.refuseIn(w, r, "webhook-new", RouteWebhooks, err, h.showWebhooks)
 	}
-	if saved != nil && saved.Secret != "" {
+	if saved != nil && saved.SigningSecret != "" {
 		// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
 		http.SetCookie(w, oneTimeCookie(generatedWebhookSecretCookie, RouteWebhooks,
-			saved.Secret, h.secureCookie(r)))
+			saved.SigningSecret, h.secureCookie(r)))
 	}
 	redirect(w, r, RouteWebhooks, "endpoint saved")
 	return nil

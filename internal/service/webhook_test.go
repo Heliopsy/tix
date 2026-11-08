@@ -20,7 +20,7 @@ func adminCtx(actor *core.Actor) context.Context {
 	return core.WithActor(context.Background(), actor)
 }
 
-func putEndpoint(t *testing.T, l *Local, ctx context.Context, in core.WebhookInput) *core.WebhookEndpoint {
+func putEndpoint(t *testing.T, l *Local, ctx context.Context, in core.WebhookInput) *core.IssuedWebhook {
 	t.Helper()
 	e, err := l.PutWebhook(ctx, in)
 	if err != nil {
@@ -160,7 +160,7 @@ func TestGeneratedSecretIsReturnedOnceAndNeverAgain(t *testing.T) {
 	ctx := adminCtx(actor)
 
 	created := putEndpoint(t, l, ctx, core.WebhookInput{URL: "https://hooks.example.com/tix", Active: true})
-	secret := created.Secret
+	secret := created.SigningSecret
 	if secret == "" {
 		t.Fatal("no secret was generated for an endpoint registered without one")
 	}
@@ -176,7 +176,7 @@ func TestGeneratedSecretIsReturnedOnceAndNeverAgain(t *testing.T) {
 	}
 
 	again := putEndpoint(t, l, ctx, core.WebhookInput{ID: created.ID, URL: created.URL, Active: true})
-	if again.Secret != "" {
+	if again.SigningSecret != "" {
 		t.Error("updating an endpoint echoed its signing secret back")
 	}
 
@@ -208,7 +208,7 @@ func TestSuppliedSecretIsNeverEchoedBack(t *testing.T) {
 	created := putEndpoint(t, l, ctx, core.WebhookInput{
 		URL: "https://hooks.example.com/tix", Secret: supplied, Active: true,
 	})
-	if created.Secret != "" {
+	if created.SigningSecret != "" {
 		t.Error("a caller-supplied secret was echoed back in the returned endpoint")
 	}
 	if history := dumpHistory(t, l, scope); strings.Contains(history, supplied) {
@@ -228,7 +228,7 @@ func TestPutWebhookKeepsTheExistingSecretOnUpdate(t *testing.T) {
 	ctx := adminCtx(actor)
 
 	created := putEndpoint(t, l, ctx, core.WebhookInput{URL: "https://hooks.example.com/tix", Active: true})
-	secret := created.Secret
+	secret := created.SigningSecret
 
 	putEndpoint(t, l, ctx, core.WebhookInput{ID: created.ID, URL: "https://hooks.example.com/moved", Active: true})
 

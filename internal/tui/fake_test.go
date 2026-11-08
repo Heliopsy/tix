@@ -772,7 +772,10 @@ func (f *fakeService) EnrolSSHKey(context.Context, core.EnrolSSHKeyInput) (*core
 func (f *fakeService) ListSSHKeys(context.Context, string) ([]core.SSHKey, error) { return nil, nil }
 func (f *fakeService) RevokeSSHKey(context.Context, string) error                 { return nil }
 
-func (f *fakeService) PutWebhook(context.Context, core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (f *fakeService) PutWebhook(context.Context, core.WebhookInput) (*core.IssuedWebhook, error) {
+	return nil, nil
+}
+func (f *fakeService) PingWebhook(context.Context, string) (*core.WebhookDelivery, error) {
 	return nil, nil
 }
 func (f *fakeService) ListWebhooks(context.Context) ([]core.WebhookEndpoint, error) { return nil, nil }
