@@ -126,6 +126,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, depHeader, v, p.depRow)
 	case []core.WebhookDelivery:
 		return renderRows(w, p, deliveryHeader, v, p.deliveryRow)
+	case *core.WebhookDelivery:
+		return renderRows(w, p, deliveryHeader, []core.WebhookDelivery{*v}, p.deliveryRow)
 	case []core.Tag:
 		return renderRows(w, p, tagHeader, v, tagRow)
 	case core.Tag:

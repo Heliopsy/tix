@@ -75,6 +75,7 @@ const (
 	integEditWebhook
 	integDeleteWebhook
 	integRedeliver
+	integPingWebhook
 	integNewSource
 	integEditSource
 	integDeleteSource
@@ -107,6 +108,7 @@ func (k KeyMap) integrationBindings() []integrationBinding {
 		act(k.New, "PutWebhook", "register endpoint", TabWebhooks, integNewWebhook, noRow),
 		act(k.Edit, "PutWebhook", "edit endpoint", TabWebhooks, integEditWebhook, rowEndpoint),
 		act(k.Delete, "DeleteWebhook", "delete endpoint", TabWebhooks, integDeleteWebhook, rowEndpoint),
+		act(k.Enter, "PingWebhook", "ping endpoint", TabWebhooks, integPingWebhook, rowEndpoint),
 		act(k.Enter, "RedeliverWebhook", "redeliver", TabWebhooks, integRedeliver, rowDelivery),
 		act(k.New, "PutSyncSource", "configure source", TabSync, integNewSource, noRow),
 		act(k.Edit, "PutSyncSource", "set up source", TabSync, integEditSource, rowSource),
@@ -277,16 +279,36 @@ func (m Model) handleIntegrationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Right):
 		return m.stepTab(1), nil
 	}
-	for _, b := range m.keys.integrationBindings() {
-		if b.tab != m.integ.tab || !key.Matches(msg, b.binding) {
-			continue
-		}
+	if b, ok := m.integrationBindingFor(msg); ok {
 		if !b.permitted(m.permits()) {
 			return m, nil
 		}
 		return m.performIntegration(b)
 	}
 	return m, nil
+}
+
+// integrationBindingFor picks the open tab's binding for a key. One key can
+// act on more than one kind of row, so the binding for the row under the
+// cursor wins, and the first one otherwise, which refuses with what it needs.
+func (m Model) integrationBindingFor(msg tea.KeyPressMsg) (integrationBinding, bool) {
+	row, hasRow := m.selectedIntegrationRow()
+	var first *integrationBinding
+	for _, b := range m.keys.integrationBindings() {
+		if b.tab != m.integ.tab || !key.Matches(msg, b.binding) {
+			continue
+		}
+		if b.row == noRow || (hasRow && row.Kind == b.row) {
+			return b, true
+		}
+		if first == nil {
+			first = &b
+		}
+	}
+	if first == nil {
+		return integrationBinding{}, false
+	}
+	return *first, true
 }
 
 // stepTab moves to the neighbouring tab this reader is offered, stopping at
@@ -333,6 +355,8 @@ func (m Model) performIntegration(b integrationBinding) (Model, tea.Cmd) {
 			"there is no endpoint named to delete")
 	case integRedeliver:
 		return m, m.redeliver(row.ID)
+	case integPingWebhook:
+		return m, m.pingWebhook(row.ID, row.Label)
 	case integNewSource:
 		m.integ.editing = ""
 		return m.openForm(SyncSourceForm(nil))
@@ -749,6 +773,18 @@ func (m Model) deleteWebhook(id, url string) tea.Cmd {
 func (m Model) redeliver(id string) tea.Cmd {
 	return m.integrationCall("redeliver", func(svc core.Service, ctx context.Context) integrationResultMsg {
 		return integrationResultMsg{status: "queued delivery " + id + " again", err: svc.RedeliverWebhook(ctx, id)}
+	})
+}
+
+// pingWebhook sends one endpoint a test delivery and says how it went; the
+// delivery tab lists it once the view reads again.
+func (m Model) pingWebhook(id, url string) tea.Cmd {
+	return m.integrationCall("ping endpoint", func(svc core.Service, ctx context.Context) integrationResultMsg {
+		d, err := svc.PingWebhook(ctx, id)
+		if err != nil {
+			return integrationResultMsg{err: err}
+		}
+		return integrationResultMsg{status: "ping to " + url + ": " + string(d.Status)}
 	})
 }
 

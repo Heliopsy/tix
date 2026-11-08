@@ -40,3 +40,23 @@ func TestRegisteringAWebhookOverHTTPReturnsTheGeneratedSecretOnce(t *testing.T) 
 		t.Errorf("the endpoint listing carries a secret: %s", body)
 	}
 }
+
+func TestPingingAWebhookAnswersItsDelivery(t *testing.T) {
+	f := newFixture(t)
+	hook := f.call(http.MethodPut, wire.RouteWebhooks,
+		core.WebhookInput{ID: "hook-9", URL: "https://example.com/hook", Active: true})
+	mustStatus(t, hook, http.StatusOK)
+	_ = hook.Body.Close()
+
+	pinged := f.call(http.MethodPost, "/api/v1/webhooks/hook-9/ping", nil)
+	mustStatus(t, pinged, http.StatusOK)
+	var d core.WebhookDelivery
+	decodeBody(t, pinged, &d)
+	if d.EndpointID != "hook-9" || d.Status != core.DeliveryDelivered {
+		t.Errorf("ping answered %+v, want the delivery to hook-9", d)
+	}
+
+	missing := f.call(http.MethodPost, "/api/v1/webhooks/nosuch/ping", nil)
+	mustStatus(t, missing, http.StatusNotFound)
+	_ = missing.Body.Close()
+}

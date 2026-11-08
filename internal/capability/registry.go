@@ -1535,6 +1535,14 @@ var registry = []Operation{
 		Web:   webPost(web.RouteRedeliver),
 		TUI:   "integrations",
 	},
+	{
+		Name: "webhook.ping", Method: "PingWebhook",
+		Scope: core.ScopeWebhookAdmin,
+		CLI:   "tix webhook ping",
+		HTTP:  apiPost(wire.RouteWebhookPing),
+		Web:   webPost(web.RouteWebhookPing),
+		TUI:   "integrations",
+	},
 
 	{
 		Name: "snapshot.export", Method: "ExportTo", Contract: Contract{OptionalBody: true, Resp: None{}, Status: http.StatusOK, Content: wire.ContentNDJSON},

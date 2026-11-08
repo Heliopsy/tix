@@ -267,6 +267,13 @@ func newFixture(t *testing.T) *fixture { t.Helper(); return newFixtureWith(t) }
 // newFixtureWith is newFixture with further options on the web handler.
 func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 	t.Helper()
+	return newFixtureHooks(t, service.HookOff, opts...)
+}
+
+// newFixtureHooks is newFixtureWith with the service queueing webhook
+// deliveries the way the mode says, for a screen that needs them queued.
+func newFixtureHooks(t *testing.T, hooks service.HookMode, opts ...web.Option) *fixture {
+	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 
@@ -283,7 +290,7 @@ func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 	f.tenantA = seedTenant(t, st, "acme", "Acme Works")
 	f.tenantB = seedTenant(t, st, "other", "Other Ltd")
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
-	local := service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
+	local := service.New(st, service.WithClock(clk), service.WithHooks(hooks),
 		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey),
 		// A shared host, as tix serve is, with a sync directory and tenant
 		// acme bound to the server's sync environment.

@@ -271,6 +271,7 @@ const (
 	RouteSSHKeyRevoke  = "/admin/ssh-keys/revoke"
 	RouteWebhooks      = "/admin/webhooks"
 	RouteWebhookDelete = "/admin/webhooks/delete"
+	RouteWebhookPing   = "/admin/webhooks/ping"
 	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"
 
 	RouteTransfer = "/transfer"

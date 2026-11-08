@@ -890,6 +890,9 @@ const (
 
 	EventWebhookDelivered EventType = "webhook.delivered"
 	EventImportCompleted  EventType = "import.completed"
+	// EventWebhookPing is the test event a ping sends to the one endpoint
+	// named, and to no other endpoint whatever its filter.
+	EventWebhookPing EventType = "webhook.ping"
 
 	// EventViewArranged records one reader changing their own arrangement of
 	// a view's groups. Like a star it changes nothing anybody else sees.
@@ -923,6 +926,7 @@ var eventTypes = []EventType{
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
 	EventInboxUpdated,
 	EventTemplateUpdated,
+	EventWebhookPing,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this

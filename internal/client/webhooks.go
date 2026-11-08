@@ -42,3 +42,8 @@ func (c *Client) RedeliverWebhook(ctx context.Context, deliveryID string) error 
 	path := routePath(wire.RouteDeliveryRedeliver, "id", deliveryID)
 	return callVoid(ctx, c, http.MethodPost, path, nil, nil)
 }
+
+// PingWebhook sends a test delivery to one endpoint.
+func (c *Client) PingWebhook(ctx context.Context, id string) (*core.WebhookDelivery, error) {
+	return call[core.WebhookDelivery](ctx, c, http.MethodPost, routePath(wire.RouteWebhookPing, "id", id), nil, nil)
+}

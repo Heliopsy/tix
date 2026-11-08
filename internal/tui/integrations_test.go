@@ -280,16 +280,26 @@ func TestTheWebhooksTabListsEndpointsThenDeliveries(t *testing.T) {
 		}
 	}
 
-	m, _ = m.reduce(pressKey("enter"))
+	m, cmd := m.reduce(pressKey("enter"))
+	m = drain(t, m, cmd)
 	if len(svc.redelivered) != 0 {
 		t.Fatalf("enter on an endpoint redelivered %v", svc.redelivered)
+	}
+	if !slices.Equal(svc.pinged, []string{"w1"}) {
+		t.Fatalf("enter on the endpoint pinged %v, want w1", svc.pinged)
+	}
+	if !strings.Contains(m.Frame(), "ping to https://hooks.example/tix: delivered") {
+		t.Errorf("the tab does not say how the ping went:\n%s", m.Frame())
 	}
 	m, _ = m.reduce(pressKey("down"))
 	if row, _ := m.selectedIntegrationRow(); row.Kind != rowDelivery || row.ID != "d1" {
 		t.Fatalf("moving down from the last endpoint selected %+v, want the first delivery", row)
 	}
-	m, cmd := m.reduce(pressKey("enter"))
+	m, cmd = m.reduce(pressKey("enter"))
 	drain(t, m, cmd)
+	if len(svc.pinged) != 1 {
+		t.Errorf("enter on a delivery pinged again: %v", svc.pinged)
+	}
 	if !slices.Equal(svc.redelivered, []string{"d1"}) {
 		t.Fatalf("enter on the delivery redelivered %v, want d1", svc.redelivered)
 	}
@@ -539,7 +549,7 @@ func TestAReadOnlyReaderIsOfferedNoWrites(t *testing.T) {
 	m.allowed = ActionAccess{"ListWebhooks": true, "ListDeliveries": true}
 	footer := m.keys.ShortHelp(viewIntegrations, m.actionContext())
 	for _, e := range footer {
-		for _, desc := range []string{"register endpoint", "edit endpoint", "delete endpoint", "redeliver"} {
+		for _, desc := range []string{"register endpoint", "edit endpoint", "delete endpoint", "redeliver", "ping endpoint"} {
 			if e.Desc == desc {
 				t.Errorf("the footer offers %q to a reader who may not", desc)
 			}
@@ -551,11 +561,14 @@ func TestAReadOnlyReaderIsOfferedNoWrites(t *testing.T) {
 			t.Errorf("%s opened something for a reader who may not write", k)
 		}
 	}
+	if _, cmd := m.reduce(pressKey("enter")); cmd != nil {
+		t.Error("enter on an endpoint made a call for a reader who may not ping")
+	}
 	m, _ = m.reduce(pressKey("down"))
 	if _, cmd := m.reduce(pressKey("enter")); cmd != nil {
 		t.Error("enter on a delivery made a call for a reader who may not redeliver")
 	}
-	if len(svc.webhookPuts)+len(svc.webhooksGone)+len(svc.redelivered) != 0 {
+	if len(svc.webhookPuts)+len(svc.webhooksGone)+len(svc.redelivered)+len(svc.pinged) != 0 {
 		t.Fatal("a write reached the service")
 	}
 }
@@ -571,12 +584,12 @@ func TestTheFooterFollowsTheRowUnderTheCursor(t *testing.T) {
 		}
 		return false
 	}
-	if !has(m, "edit endpoint") || has(m, "redeliver") {
-		t.Error("on an endpoint the footer should offer the edit and not the redelivery")
+	if !has(m, "edit endpoint") || !has(m, "ping endpoint") || has(m, "redeliver") {
+		t.Error("on an endpoint the footer should offer the edit and the ping and not the redelivery")
 	}
 	m, _ = m.reduce(pressKey("down"))
-	if has(m, "edit endpoint") || !has(m, "redeliver") {
-		t.Error("on a delivery the footer should offer the redelivery and not the edit")
+	if has(m, "edit endpoint") || has(m, "ping endpoint") || !has(m, "redeliver") {
+		t.Error("on a delivery the footer should offer the redelivery and not the edit or the ping")
 	}
 }
 

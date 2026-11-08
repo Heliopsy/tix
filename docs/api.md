@@ -131,7 +131,7 @@ the routes the server registers. The areas are the first segment of each operati
 | trash | `GET /trash` |
 | user | `GET /users`, `POST /users`, `GET /users/{id}`, `PATCH /users/{id}`, `DELETE /users/{id}` |
 | view | `GET /views/{view}/groups`, `DELETE /views/{view}/groups`, `PATCH /views/{view}/groups/{group}`, `PUT /views/{view}/order` |
-| webhook | `GET /webhooks`, `PUT /webhooks`, `GET /webhooks/deliveries`, `POST /webhooks/deliveries/{id}/redeliver`, `DELETE /webhooks/{id}` |
+| webhook | `GET /webhooks`, `PUT /webhooks`, `GET /webhooks/deliveries`, `POST /webhooks/deliveries/{id}/redeliver`, `DELETE /webhooks/{id}`, `POST /webhooks/{id}/ping` |
 | workflow | `GET /workflows`, `PUT /workflows`, `GET /workflows/{key}`, `PUT /workflows/{key}`, `DELETE /workflows/{key}` |
 <!-- END ROUTES -->
 
@@ -915,7 +915,7 @@ Event types are matched as glob patterns, so `task.*` selects every task event. 
 `task.woke`, `comment.added`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
-`inbox.updated`, `template.updated`. A type outside it is an error rather than a filter that silently matches
+`inbox.updated`, `template.updated`, `webhook.ping`. A type outside it is an error rather than a filter that silently matches
 nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
@@ -1051,6 +1051,7 @@ tix webhook put https://ci.example.com/hooks/tix --event task.created --event ta
 tix webhook ls
 tix webhook deliveries --endpoint 01J000... --status failed
 tix webhook redeliver 01J000...
+tix webhook ping 01J000...
 ```
 
 Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-Signature`, the last being
@@ -1070,6 +1071,15 @@ endpoint's fields:
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.
+
+`POST /api/v1/webhooks/ID/ping` (`tix webhook ping ID`, the Ping button on `/admin/webhooks`, `enter` on
+an endpoint in the terminal's integrations view) sends one active endpoint a test delivery: a real
+`webhook.ping` event, signed and sent by the same dispatcher as every other delivery, to that endpoint only
+and whatever its event type filter. The answer is the delivery. When the process delivers inline it has been
+attempted already, so `status` says `delivered`, or `pending` with `last_error` and `last_status_code` after a
+failed first attempt; in the server mode it is `pending` until the server's next pass. It appears in the
+delivery log and can be redelivered like any other. An inactive endpoint, or a process with delivery turned
+off, is refused with `precondition_failed`.
 
 Inbox items reach a person's own URL through their [notification channels](#notification-channels),
 not through these endpoints, which are tenant configuration filtered by event type. One subscribed to

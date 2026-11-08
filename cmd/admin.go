@@ -385,7 +385,7 @@ func newWebhookCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(webhookPutCmd(g), webhookLsCmd(g), webhookRmCmd(g),
-		webhookDeliveriesCmd(g), webhookRedeliverCmd(g))
+		webhookDeliveriesCmd(g), webhookRedeliverCmd(g), webhookPingCmd(g))
 	return cmd
 }
 
@@ -545,6 +545,31 @@ func webhookRedeliverCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be queued without writing")
 	return cmd
+}
+
+func webhookPingCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "ping ID",
+		Short: "Send a test delivery to one endpoint",
+		Long: "Queue a signed webhook.ping event to one active endpoint, whatever its event filter, and " +
+			"print the delivery. When this process delivers inline the attempt has already been made; " +
+			"otherwise the server sends it on its next pass. The delivery shows in tix webhook deliveries " +
+			"and can be redelivered.\n\nExit codes: 3 unknown endpoint, 5 permission denied, " +
+			"6 endpoint inactive or delivery turned off.",
+		Example: "  tix webhook ping 01J000000000000000000A",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			d, err := conn.Service.PingWebhook(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, d)
+		},
+	}
 }
 
 // deliveryStatuses converts flag values to delivery statuses.

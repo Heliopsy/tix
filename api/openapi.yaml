@@ -10272,6 +10272,58 @@ paths:
       summary: DeleteWebhook removes a delivery endpoint and its pending deliveries
       tags:
         - webhook
+  /api/v1/webhooks/{id}/ping:
+    post:
+      description: |-
+        PingWebhook sends one active endpoint a signed webhook.ping test event, whatever its event type filter; no other endpoint receives it. It answers the queued delivery, already attempted when this process drains inline, which the delivery log lists and redeliver repeats like any other.
+
+        Command line: `tix webhook ping`.
+      operationId: webhook.ping
+      parameters:
+        - description: Webhook endpoint ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDelivery'
+          description: WebhookDelivery tracks one event's delivery to one endpoint.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - webhook:admin
+        - session:
+            - webhook:admin
+      summary: PingWebhook sends one active endpoint a signed webhook.ping test event,
+        whatever its event type filter; no other endpoint receives it
+      tags:
+        - webhook
   /api/v1/whoami:
     get:
       description: |-
@@ -12108,6 +12160,7 @@ components:
         - field.updated
         - webhook.delivered
         - import.completed
+        - webhook.ping
         - view.arranged
         - filter.saved
         - filter.updated
