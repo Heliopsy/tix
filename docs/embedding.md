@@ -30,11 +30,14 @@ token, err := in.Token(ctx, embedded.TokenRequest{Name: "app"})
 | --- | --- |
 | `Start(ctx, Options)` | Opens or creates the database, starts the API and the workers, returns once the URL accepts connections |
 | `URL()` | The base URL, `http://127.0.0.1:PORT` |
-| `Stop(ctx)` | Drains in-flight requests, stops the workers, closes the database; a second call does nothing |
+| `Stop(ctx)` | Drains in-flight requests, stops the workers, checkpoints a WAL database into its main file, closes it; a second call does nothing |
 | `Tenants(ctx)` | Every live tenant, by key and name |
 | `CreateTenant(ctx, key, name)` | A tenant with no members, as `tix tenant create` makes one |
 | `Token(ctx, TokenRequest)` | An API token for the local owner of a tenant, as `tix token create --db` mints one |
 | `ErrorCode(err)` | The error's kind: `invalid`, `not_found`, `conflict`, `forbidden`, `internal` and the rest |
+
+`Options.JournalMode` is `wal` (the default) or `delete`; see [A database in a synced folder](#a-database-in-a-synced-folder).
+Anything else is an `invalid` error before the file is opened.
 
 `Options.InitIfMissing` creates a missing file and seeds it as `tix init` does, with the default tenant and
 its starter projects. Without it a missing file is a `not_found` error and nothing is created, so a typo in a
@@ -55,7 +58,7 @@ Arguments and answers are JSON strings; an instance is addressed by the integer 
 
 | Function | Takes | Answers |
 | --- | --- | --- |
-| `char* TixStart(const char* options)` | `{"db_path", "listen"?, "init_if_missing"?}` | `{"handle":1,"url":"http://127.0.0.1:PORT"}` |
+| `char* TixStart(const char* options)` | `{"db_path", "listen"?, "init_if_missing"?, "journal_mode"?}` | `{"handle":1,"url":"http://127.0.0.1:PORT"}` |
 | `char* TixStop(long long handle)` | a handle | `{}` |
 | `char* TixTenants(long long handle)` | a handle | `{"tenants":[{"key","name"}]}` |
 | `char* TixCreateTenant(long long handle, const char* json)` | `{"key","name"}` | `{"key","name"}` |
@@ -67,6 +70,8 @@ Any function but `TixFree` may instead answer `{"error":{"code":"...","message":
 tix error kind, as the HTTP API reports it. Malformed JSON and an unknown field are `invalid`, an unknown or
 stopped handle `not_found`, and a panic inside tix `internal`, returned like any other error rather than
 taking the calling process down.
+
+`journal_mode` is `wal` or `delete`, as `Options.JournalMode`; omitted, it is `wal`.
 
 `ttl` is a Go duration (`720h`), a number of days (`90d`) or `never`; omitted, it is 90 days. `tenant`
 omitted is the default tenant.
@@ -90,6 +95,31 @@ caller's own allocator. The generated header declares the string parameters as `
   it anyway, and the port will not answer until the app is in the foreground again.
 - Two instances in one process share one process-wide connection counter, so `tix status` against either
   file may report the other's live connection count. The data and the serving are separate.
+
+## A database in a synced folder
+
+By default the database runs in write-ahead logging (WAL) mode, as under `tix serve`: a commit is written to
+`tix.db-wal` and reaches `tix.db` at the next checkpoint. That is what lets readers run beside the writer,
+and it is the wrong shape for a folder that Nextcloud, Syncthing or iCloud Drive copies to other devices.
+Between checkpoints the main file lacks the latest commits, and a sync tool may upload `tix.db` and
+`tix.db-wal` at different moments, so the other device gets a database that is behind or a pair that does not
+belong together.
+
+Two things help:
+
+- **`journal_mode: "delete"`** uses SQLite's rollback journal instead. Each commit is written into `tix.db`
+  itself, and the short-lived `tix.db-journal` is gone when the commit returns, so the main file is whole after
+  every commit and is the only file to sync. It runs with `synchronous=FULL`, an fsync per commit, because a
+  rollback journal at SQLite's `NORMAL` can be corrupted by a power loss. Readers and the writer block each
+  other briefly instead of running side by side, which a single app does not notice.
+- **Stop** runs `PRAGMA wal_checkpoint(TRUNCATE)` before closing, so a WAL database is left as one complete
+  `tix.db` with an empty `tix.db-wal` even when something else still has the file open. If another connection
+  is mid-read and the checkpoint cannot finish, `Stop` answers a `conflict` error and still closes the
+  database; the next open replays the log.
+
+`tix serve` and the CLI always use WAL; there is no flag or configuration key for the journal mode. Two
+devices writing the same synced file at once is still a conflict the sync tool resolves by keeping one copy,
+which is a different problem and not one a journal mode solves.
 
 ## Security
 
