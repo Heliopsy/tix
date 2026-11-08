@@ -1136,6 +1136,31 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "purge a task from the trash",
+		covers: []string{"CreateProject", "CreateTask", "DeleteTask", "PurgeTask", "RestoreTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			mustf(t, tg, tg.svc.DeleteTask(tg.ctx, core.TaskRef{ID: task.ID}, core.DeleteTaskInput{}), "deleting the task")
+			if err := tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID}); err != nil {
+				return nil, err
+			}
+			_, err = tg.svc.RestoreTask(tg.ctx, core.TaskRef{ID: task.ID})
+			return sig{"restorable": err == nil, "kind": string(core.KindOf(err))}, nil
+		},
+	},
+	{
+		name:   "purging a task that is not in the trash",
+		covers: []string{"CreateProject", "CreateTask", "PurgeTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			return nil, tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID})
+		},
+	},
+	{
 		name:   "the trash is on until a tenant admin turns it off",
 		covers: []string{"TrashStatus"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
