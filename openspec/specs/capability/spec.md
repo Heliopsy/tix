@@ -49,29 +49,6 @@ several sharing a pattern. No two operations SHALL be declared at the same addre
 - **WHEN** two operations declare the same method, pattern and discriminator
 - **THEN** the guard names both and the address they share
 
-### Requirement: A binding that reaches less far than the operation records the shortfall
-
-An operation whose binding on one surface is present but narrower than the same operation elsewhere SHALL
-record that shortfall against that surface with its reason. A shortfall SHALL name a surface the operation
-binds, and SHALL NOT be recorded against a surface the operation is exempted from.
-
-#### Scenario: The browser's subtask depth is recorded
-
-- **WHEN** the registry is read
-- **THEN** the task tree operation records that the browser asks for one level of depth
-
-#### Scenario: The browser's self-scoped credential lists are recorded
-
-- **WHEN** the registry is read
-- **THEN** the ssh key list records that the browser lists the signed-in actor's own only
-
-#### Scenario: The browser's token list records the scope that widens it
-
-- **WHEN** the registry is read
-- **THEN** the token list records that the browser reaches another actor's tokens only for a reader holding
-  the tenant administration scope, where the command line and the API reach them on the token
-  administration scope alone
-
 ### Requirement: A recorded shortfall describes the narrowing the code performs
 
 A recorded shortfall SHALL describe the narrowing the code actually performs. Where a narrowing is lifted
@@ -99,23 +76,6 @@ no view is hidden from every reader.
 
 - **WHEN** a view has operations bound to it and none of them reads
 - **THEN** the guard reports that no reader can ever be offered it
-
-### Requirement: Parity gaps are recorded where they stand
-
-The registry SHALL record a missing binding as a gap on the surface that lacks it, and the recorded count
-per surface SHALL be held by a guard so it can neither grow quietly nor be mistaken for zero. A browser
-route that calls an operation only for its error, or only to decorate another screen, SHALL be recorded as a
-gap rather than as a binding.
-
-#### Scenario: The browser's two gaps are stated
-
-- **WHEN** the recorded gaps are counted by surface
-- **THEN** the browser carries two and the terminal carries fifty-eight
-
-#### Scenario: Resolving an actor identifier in the terminal is not a gap
-
-- **WHEN** the registry is read
-- **THEN** the actor lookup is bound to the terminal's detail view
 
 ### Requirement: The registry records the terminal bindings the confirmation and the form made possible
 
@@ -394,3 +354,37 @@ CLI, HTTP, web and terminal bindings.
 
 - **WHEN** the parity tests run
 - **THEN** every template method appears exactly once with a binding on every surface
+
+### Requirement: A narrower binding records its shortfall
+
+An operation whose binding on one surface is present but narrower than the same operation elsewhere SHALL
+record that shortfall against that surface with its reason. A shortfall SHALL name a surface the operation
+binds, and SHALL NOT be recorded against a surface the operation is exempted from.
+
+#### Scenario: The browser records no shortfall
+
+- **WHEN** the registry is read
+- **THEN** no operation records a shortfall against the browser
+- **AND** the task tree, token list and ssh key list operations bind the browser without one
+
+#### Scenario: A narrower terminal binding is recorded
+
+- **WHEN** the registry is read
+- **THEN** the domain add operation records that the terminal adds a hostname with no certificate of its own
+
+### Requirement: Parity gaps are recorded on the surface that lacks them
+
+The registry SHALL record a missing binding as a gap on the surface that lacks it, and the recorded count
+per surface SHALL be held by a guard so it can neither grow quietly nor be mistaken for zero. A browser
+route that calls an operation only for its error, or only to decorate another screen, SHALL be recorded as a
+gap rather than as a binding.
+
+#### Scenario: The browser carries no gap
+
+- **WHEN** the recorded gaps are counted by surface
+- **THEN** the browser carries none, and the identity and actor lookups bind browser screens
+
+#### Scenario: Resolving an actor identifier in the terminal is not a gap
+
+- **WHEN** the registry is read
+- **THEN** the actor lookup is bound to the terminal's detail view
