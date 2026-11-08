@@ -9,7 +9,7 @@
   <tbody>
   {{range .Data.Actors}}
     <tr id="actor-{{.ID}}">
-      <td>{{.Handle}}</td>
+      <td><a href="{{actorHref .ID}}">{{if .Handle}}{{.Handle}}{{else}}{{.ID}}{{end}}</a></td>
       <td><span class="chip">{{.Kind}}</span></td>
       <td>{{if .DisplayName}}{{.DisplayName}}{{else}}<span class="muted">&mdash;</span>{{end}}</td>
       <td class="mono id" title="{{.ID}}">{{.ID}}</td>

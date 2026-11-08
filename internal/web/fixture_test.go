@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,6 +53,9 @@ type webService struct {
 	// the store's ability to hold them.
 	actorPagesNeverEnd   bool
 	projectPagesNeverEnd bool
+	// auditCalls counts ListAudit calls, so a test can assert a screen never
+	// asked for the log on behalf of a reader who may not read it.
+	auditCalls atomic.Int64
 }
 
 var _ core.Service = (*webService)(nil)
@@ -217,6 +221,7 @@ func (s *webService) now() time.Time { return s.clock.Now() }
 // screen reading it cannot tell the difference; nothing else in this package
 // asks for that action, so no other test is affected.
 func (s *webService) ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEntry, string, error) {
+	s.auditCalls.Add(1)
 	if !slices.Contains(f.Actions, "sync.run") {
 		return s.Local.ListAudit(ctx, f)
 	}

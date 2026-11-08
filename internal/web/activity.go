@@ -275,8 +275,14 @@ const activityPageSize = 50
 // rows naming a handful of lists, and this is the same map, built the same
 // way, that tasks.go hands the task list for its own accent stripes.
 func (h *handler) buildActivityView(r *http.Request, cursor string) (activityView, error) {
-	query := activityQueryFrom(r)
-	entries, next, err := h.scanAudit(r, query, cursor)
+	return h.buildActivityViewFor(r, activityQueryFrom(r), cursor, activityPageSize)
+}
+
+// buildActivityViewFor is buildActivityView over a filter and a page size the
+// caller chose, which is how the actor screen draws one actor's latest entries
+// with the feed's own grouping and wording.
+func (h *handler) buildActivityViewFor(r *http.Request, query activityQuery, cursor string, limit int) (activityView, error) {
+	entries, next, err := h.scanAudit(r, query, cursor, limit)
 	if err != nil {
 		return activityView{}, err
 	}
@@ -349,9 +355,9 @@ func (h *handler) buildActivityView(r *http.Request, cursor string) (activityVie
 // than the last entry it showed, so every match beyond the screenful was
 // skipped by Next instead of waiting there. A page the store answers whole is
 // a page whose cursor is the store's own.
-func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string) ([]core.AuditEntry, string, error) {
+func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string, limit int) ([]core.AuditEntry, string, error) {
 	filter := core.AuditFilter{Text: query.Text, Page: core.Page{
-		Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: activityPageSize,
+		Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: limit,
 	}}
 	if query.Actor != "" {
 		filter.ActorIDs = []string{query.Actor}

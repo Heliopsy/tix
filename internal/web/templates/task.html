@@ -171,7 +171,7 @@
   {{if or $held $t.ClaimCount}}<div class="prop-tip">{{template "tip" (tip "Claims and leases" "A claim is how a worker, usually an agent, takes a task for itself. It holds a lease that expires unless renewed, and claiming does not change the status. When a lease lapses the task can be claimed again, and the expiry stays shown here for a while." "docs/agents.md")}}</div>{{end}}
   <dl class="props">
     <div class="prop" data-prop="assignee">
-      <dt><label for="{{.IDPrefix}}assignee">{{t "Assignee"}}</label></dt>
+      <dt><span class="proplabel"><label for="{{.IDPrefix}}assignee">{{t "Assignee"}}</label>{{if and .Data.CanWrite $t.AssigneeActorID}}<a class="proplink" href="{{actorHref $t.AssigneeActorID}}" aria-label="{{t "Open %s's page" ($.Data.Names.Label $t.AssigneeActorID)}}" title="{{t "Open %s's page" ($.Data.Names.Label $t.AssigneeActorID)}}">{{template "icon" "open"}}</a>{{end}}</span></dt>
       <dd>{{if .Data.CanWrite}}
         {{/* The handle, not the identifier: the service resolves a handle
              back to an actor on save, so what is shown is what can be typed.
@@ -185,7 +185,7 @@
           <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
-        {{else if $t.AssigneeActorID}}<span class="who-name" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</span>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
+        {{else if $t.AssigneeActorID}}<a class="who-name" href="{{actorHref $t.AssigneeActorID}}" title="{{$t.AssigneeActorID}}">{{$.Data.Names.Label $t.AssigneeActorID}}</a>{{else}}<span class="muted">{{t "unassigned"}}</span>{{end}}</dd>
     </div>
     <div class="prop" data-prop="due">
       <dt><span class="proplabel"><label for="{{.IDPrefix}}due">{{t "Due"}}</label>{{if .Data.CanWrite}}{{template "tip" (examples (tip "Due date" "A word, an offset from today or a date in your date format. Leave it empty for no due date.") dueExamples)}}{{end}}</span></dt>
@@ -329,13 +329,10 @@
   </section>
 
   <section class="tsec" id="{{.IDPrefix}}subtasks">
-    <div class="tsec-head"><h2>{{t "Subtasks"}}</h2>{{with .Data.Subtasks}}<span class="tsec-count">{{len .}}</span>{{end}}</div>
+    <div class="tsec-head"><h2>{{t "Subtasks"}}</h2>{{with .Data.Subtasks}}<span class="tsec-count" title="{{t "Direct subtasks"}}">{{len .}}</span>{{end}}{{template "tip" (tip "Subtasks" "The whole tree under this task. Three levels show at once, and a deeper level loads when you ask for it. The arrow beside a subtask folds its own subtasks away." "docs/web-ui.md")}}</div>
     {{if .Data.Subtasks}}
-    <ul class="rellist rows">
-      {{range .Data.Subtasks}}
-      <li><a class="mono" href="/tasks/{{.Ref}}">{{ref .Ref}}</a> <span class="reltitle">{{.Title}}</span> <span class="pill status {{slug .Status}}">{{.Status}}</span></li>
-      {{end}}
-    </ul>
+    {{if .Data.Tree.Shallow}}<p class="muted">{{t "This tree is too large to draw whole, so only direct subtasks are shown."}}</p>{{end}}
+    {{template "subtask-tree" (.Data.Tree.List (print .IDPrefix "subtree-" $t.Ref))}}
     {{else}}<p class="empty quiet">{{t "No subtasks."}}</p>{{end}}
   </section>
 
@@ -439,7 +436,7 @@
 {{/* The record's own facts, which nobody edits: small, last, and beside
      the properties on a wide screen. */}}
 <dl class="props propmeta">
-  <div class="prop"><dt>{{t "Created by"}}</dt><dd class="who-name" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</dd></div>
+  <div class="prop"><dt>{{t "Created by"}}</dt><dd>{{if $t.CreatorActorID}}<a class="who-name" href="{{actorHref $t.CreatorActorID}}" title="{{$t.CreatorActorID}}">{{$.Data.Names.Label $t.CreatorActorID}}</a>{{end}}</dd></div>
   <div class="prop"><dt>{{t "Created"}}</dt><dd>{{when $t.CreatedAt}}</dd></div>
   <div class="prop"><dt>{{t "Updated"}}</dt><dd>{{when $t.UpdatedAt}}</dd></div>
   {{if $t.StartedAt}}<div class="prop"><dt>{{t "Started"}}</dt><dd>{{when $t.StartedAt}}</dd></div>{{end}}
@@ -581,7 +578,7 @@
              disclosure below it: three stacked blocks per comment is why ten
              comments were a screenful of chrome. */}}
         {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
-        <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><span class="who-name" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</span> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
+        <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><a class="who-name" href="{{actorHref .AuthorActorID}}" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</a> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
@@ -692,3 +689,26 @@
 {{define "task-history-page"}}
 {{if .Data.CanAudit}}{{template "task-history-rows" .}}{{else}}<tr><td colspan="3"><p class="empty">{{t "You do not hold the audit read scope."}}</p></td></tr>{{end}}
 {{end}}
+
+{{/* subtask-tree draws one level of the subtask tree and, inside each node,
+     the levels drawn under it. A node with children carries a fold button,
+     drawn hidden and shown by assets/tasktree.js, so without scripting the
+     tree is simply open. A node on the last drawn level whose children were
+     not drawn offers them: with htmx the link swaps in that node's subtree
+     from /tasks/REF/tree, and without it the link opens the subtask, whose
+     own screen draws the rest. Takes subtaskList. */}}
+{{define "subtask-tree"}}<ul class="rellist rows subtree" id="{{.ID}}">
+{{range .Nodes}}{{$kid := print $.ID "-" .Task.Ref}}
+  <li class="treenode" data-level="{{.Level}}">
+    <div class="treerow">
+      {{if or .Children .More}}<button type="button" class="ghost small treetoggle" aria-expanded="{{if .Children}}true{{else}}false{{end}}" aria-controls="{{$kid}}" aria-label="{{t "Subtasks of %s" (ref .Task.Ref)}}" hidden>{{template "icon" "chevron-down"}}</button>{{else}}<span class="treespacer" aria-hidden="true"></span>{{end}}
+      <a class="mono" href="/tasks/{{.Task.Ref}}">{{ref .Task.Ref}}</a> <span class="reltitle">{{.Task.Title}}</span> <span class="pill status {{slug .Task.Status}}">{{.Task.Status}}</span>
+    </div>
+    {{if .Children}}{{template "subtask-tree" (.Sub $kid)}}
+    {{else if .More}}<a class="btn link small treemore" href="/tasks/{{.Task.Ref}}#subtasks" hx-get="/tasks/{{.Task.Ref}}/tree?id={{$kid}}" hx-target="this" hx-swap="outerHTML" hx-push-url="false" data-tree-load="{{$kid}}">{{tn "Show %d subtask" "Show %d subtasks" .More}}</a>{{end}}
+  </li>
+{{end}}</ul>{{end}}
+
+{{/* subtask-fragment is what /tasks/REF/tree answers: that task's subtree,
+     drawn by the same block, under the id the page asked for. */}}
+{{define "subtask-fragment"}}{{template "subtask-tree" (.Data.Tree.List .Data.ID)}}{{end}}

@@ -54,8 +54,6 @@ func Exemptions() []Exemption {
 		{"WakeSnoozed", "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
-		{"WhoAmI", "the root route calls it to bounce a visitor who is not signed in and discards the identity it answers with, so no screen states who the reader is"},
-		{"GetActor", "the screens call it to label an identifier, keeping the handle and discarding the rest, and there is no actor screen to open"},
 		{"ReadCalendarFeed", "a feed is iCalendar a calendar app reads at its address with no session; the settings screen hands that address out"},
 		{"SSHLoginChallenge", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},
 		{"SSHLogin", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},

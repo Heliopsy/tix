@@ -408,9 +408,10 @@ carol` lists hers and `tix token rm ID` ends it.
 
 In the browser, `/admin/tokens` lists the whole tenant's tokens to a reader holding `tenant:admin`, with an
 Owner column saying whose each one is, and offers the same confirming disclosure to revoke them. A reader
-without `tenant:admin` sees their own and no others, which is all the screen ever showed. That narrower view
-was decided before anybody considered incident response, and it was useless for the case the browser has to
-serve: somebody else's token leaking and needing to be dead now.
+without `tenant:admin` sees their own by default, and the Actor box above the table lists anybody else's on
+`token:admin` alone, as `--actor` does: `/admin/tokens?actor=carol`. The own-tokens-only view was decided
+before anybody considered incident response, and it was useless for the case the browser has to serve:
+somebody else's token leaking and needing to be dead now.
 
 Revoking a token that is not yours is recorded in the audit trail as `token.revoke_other` rather than
 `token.revoke`, against the actor who performed it, so an operator reading the trail afterwards can tell the
