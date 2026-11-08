@@ -627,3 +627,26 @@ func lookup(environ []string, name string) string {
 	}
 	return ""
 }
+
+// InTenant returns a connection to the same local store that acts as the local
+// actor of the tenant key names, created there on first use, as a connection
+// dialled with that tenant would. It shares the service and store and holds
+// nothing to close.
+func (c *Conn) InTenant(ctx context.Context, key string) (*Conn, error) {
+	local, ok := c.Service.(*service.Local)
+	if !ok || c.Store == nil {
+		return nil, core.Invalid("only a local database connection can act in another tenant")
+	}
+	tenant, err := resolveTenant(core.WithVia(ctx, c.Via), c.Store, local, key)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := ensureLocalActor(ctx, c.Store, core.TenantScope{TenantID: tenant.ID})
+	if err != nil {
+		return nil, err
+	}
+	out := &Conn{Service: c.Service, Store: c.Store, Actor: actor, Info: c.Info, direct: c.direct, Via: c.Via}
+	out.Info.TenantID = tenant.ID
+	out.Info.Target.Tenant = tenant.Key
+	return out, nil
+}
