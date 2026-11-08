@@ -94,6 +94,8 @@ type identity struct {
 	Role        core.Role    `json:"role,omitempty" yaml:"role,omitempty"`
 	Token       bool         `json:"token" yaml:"token"`
 	TokenSource string       `json:"token_source,omitempty" yaml:"token_source,omitempty"`
+	// Memberships are the account's tenants, when the credential lists them.
+	Memberships []membershipRow `json:"memberships,omitempty" yaml:"memberships,omitempty"`
 }
 
 // newWhoAmICmd builds the command that says where commands go and as whom.
@@ -103,6 +105,9 @@ func newWhoAmICmd(g *globals) *cobra.Command {
 		Short: "Show the server or database commands use, and who they act as",
 		Long: "Show where this command line is pointed: the server URL or the local database, the context " +
 			"that chose it, the tenant, the user, and whether an API token is presented and where it came from.\n\n" +
+			"For a person in several tenants it also lists each tenant with the role held there and the " +
+			"context holding a token for it. A server lists them to a session or to a token carrying " +
+			"account:read, which tix login --tenant mints.\n\n" +
 			"Run it before any work you expect to land on a server. \"local\" means the tasks stay in a " +
 			"database on this machine.\n\n" +
 			"Exit codes: 5 no valid token for the server, 6 no target configured, 7 server unreachable.",
@@ -149,6 +154,13 @@ func (g *globals) identity(ctx context.Context, conn *connect.Conn) identity {
 	}
 	if source := g.tokenSource(); source != "" {
 		out.Token, out.TokenSource = true, source
+	}
+	who := conn.Actor
+	if who == nil || len(who.Memberships) == 0 {
+		who, _ = conn.Service.WhoAmI(ctx)
+	}
+	if who != nil && len(who.Memberships) > 1 {
+		out.Memberships = membershipRows(who, g.tenantCredentials(conn, who.TenantKey))
 	}
 	return out
 }
@@ -207,7 +219,30 @@ func writeIdentity(w io.Writer, r identity) error {
 	if err != nil {
 		return err
 	}
+	for i, m := range r.Memberships {
+		label := ""
+		if i == 0 {
+			label = "tenants"
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", label, membershipLine(m)); err != nil {
+			return err
+		}
+	}
 	return tw.Flush()
+}
+
+// membershipLine is one of the person's tenants on the whoami report.
+func membershipLine(m membershipRow) string {
+	line := m.Key + ", " + string(m.Role) + " as " + m.Handle
+	switch {
+	case m.Current:
+		line += " (current)"
+	case m.Credential != "":
+		line += " (credential: " + m.Credential + ")"
+	default:
+		line += " (no credential: tix login --tenant " + m.Key + ")"
+	}
+	return line
 }
 
 // credentialLine says whether a token is presented and where it came from.
