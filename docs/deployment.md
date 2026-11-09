@@ -238,6 +238,45 @@ for the second server is told it is gone.
 Rows nobody has seen for a week are deleted by the next server to register, so an installation that restarts
 often does not accumulate them. Nothing you read depends on that having happened.
 
+## Password hashing memory
+
+Every password sign-in, password change, new account with a password and accepted invite runs one argon2id
+derivation, and each derivation holds its memory parameter in one allocation for the time it runs. That cost
+times the number running at once is a peak of its own on top of what the server otherwise holds:
+
+| Setting | Per hash | 1 at once | 2 at once | 4 at once |
+| --- | --- | --- | --- | --- |
+| default, m=46 MiB t=2 p=1 | 46 MiB | 46 MiB | 92 MiB | 184 MiB |
+| earlier releases, m=64 MiB t=3 p=4 | 64 MiB | 64 MiB | 128 MiB | 256 MiB |
+
+`tix serve` caps how many run at once (`auth.max_concurrent_hashes`). Left at `0`, the cap is a quarter of the
+Go runtime's soft memory limit (`GOMEMLIMIT`, or the one tix derives from the container's limit) divided by the
+per-hash memory, at least 1 and at most the number of cores; without a soft limit it is 2. A 256 MiB pod gets 1,
+a 512 MiB pod 2 and a 1 GiB pod 4. Sign-ins past the cap queue for up to ten seconds, or until their request
+ends, and are then refused with `precondition_failed` and `reason: password_hashing_busy`. Nobody is let in
+without the check. Size the container for the idle server plus the per-hash memory times the cap.
+
+In earlier releases the first sign-in after a start also minted the hash it compares unknown addresses against, so it
+derived twice. That hash is now made without deriving, and still costs a real derivation to check against, so
+an address nobody holds still takes as long as a wrong password.
+
+#### Why 46 MiB and two passes
+
+OWASP's password storage guidance lists argon2id configurations of equal strength, from m=46 MiB t=1 p=1 to
+m=7 MiB t=5 p=1, with m=19 MiB t=2 p=1 as the minimum. tix uses 46 MiB with two passes, twice the work of the
+first of those, and one lane so a single sign-in uses one core on a small server. The old setting cost an
+attacker about twice as much per guess, at 64 MiB per sign-in; it was not affordable on a 256 MiB pod, which was
+killed with about four people signing in. A guess against the new setting still costs 92 MiB-passes, double the
+OWASP option it is based on.
+
+Existing hashes keep verifying at the parameters they were stored with. Each is rehashed at the current setting
+on its owner's next successful sign-in, upward or downward, so a database converges on what the server was
+sized for. Until then an account still on the old hash takes slightly longer to check than an unknown address.
+
+Raise the cost with `auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads`, and size memory for
+it. A setting below every OWASP configuration is refused at start-up. See
+[configuration.md](configuration.md#password-hashing).
+
 ## Outbound requests to tenant urls
 
 Three things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
