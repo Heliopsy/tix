@@ -20,6 +20,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/heliopsy/tix/api"
+	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/openapi"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -117,7 +118,8 @@ func closeObjects(v any) {
 // checkContract wraps the fixture's handler. The response is held until it
 // has been checked, so a failure is reported while the test is still running.
 // A WebSocket upgrade passes straight through: the stream is not JSON over
-// HTTP and the document only names its 101.
+// HTTP and the document only names its 101. A request whose client left is
+// not checked either: its 499 is only ever logged, never read.
 func checkContract(t *testing.T, next http.Handler) http.Handler {
 	t.Helper()
 	ct, err := loadContract()
@@ -133,6 +135,9 @@ func checkContract(t *testing.T, next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(reqBody))
 		rec := httptest.NewRecorder()
 		next.ServeHTTP(rec, r)
+		if rec.Code == httpapi.StatusClientClosed {
+			return
+		}
 		for _, problem := range ct.check(r, reqBody, rec) {
 			t.Errorf("openapi contract: %s %s: %s", r.Method, r.URL.Path, problem)
 		}

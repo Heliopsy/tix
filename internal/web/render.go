@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -1041,8 +1042,12 @@ func (e errorView) BackLabel() string {
 
 // fail renders the error screen, disclosing the domain message only. An
 // internal failure is reported generically, so no query text or stack trace
-// can reach a browser.
+// can reach a browser. A browser that left before the answer gets none, and
+// its cancelled context is not logged as a fault.
 func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
 	kind := core.KindOf(err)
 	message := safeMessage(err, kind)
 	if kind == core.KindInternal {

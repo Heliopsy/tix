@@ -60,6 +60,7 @@ type apiService struct {
 	sources  map[string]*core.SyncSource
 	sessions map[string]*core.Session
 	block    chan struct{}
+	fail     error
 }
 
 var _ core.Service = (*apiService)(nil)
@@ -354,8 +355,12 @@ func (m mapTokens) TokenByHash(_ context.Context, hash string) (*core.APIToken, 
 	return m.byHash[hash], nil
 }
 
-// ListTags blocks while the fixture is exercising the request timeout.
+// ListTags blocks while the fixture is exercising the request timeout, and
+// fails with fail when one is set.
 func (s *apiService) ListTags(ctx context.Context) ([]core.Tag, error) {
+	if s.fail != nil {
+		return nil, s.fail
+	}
 	if s.block != nil {
 		select {
 		case <-ctx.Done():
