@@ -55,10 +55,12 @@ The `--log-*` flags are global rather than serve's own, so they are not in the t
 shows. Nothing needs configuring for that.
 
 Every HTTP request gets one `request` record at `info` with `request_id`, `method`, `path`, `status`,
-`duration_ms` and `tenant`. A request the client abandoned before it was answered, such as a long poll from a
-phone that dropped off the network, is recorded with status `499` and `note="client closed request"`, as nginx
-does. The client never sees that status, and it is not a server error: alert on `5xx`, not on `499`. A request
-that ran past `--request-timeout` is still a `504`.
+`duration_ms` and `tenant`, the identifier of the tenant the request was served in. `tenant` is empty only for a
+request answered before a tenant was resolved, such as one refused for naming a tenant its host does not serve,
+or on a path that belongs to no tenant, such as `/healthz`. A request the client abandoned before it was
+answered, such as a long poll from a phone that dropped off the network, is recorded with status `499` and
+`note="client closed request"`, as nginx does. The client never sees that status, and it is not a server error:
+alert on `5xx`, not on `499`. A request that ran past `--request-timeout` is still a `504`.
 
 Point `log.output` at a path instead and tix owns that file, so tix bounds it:
 
