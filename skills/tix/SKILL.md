@@ -22,6 +22,12 @@ need once in a while:
 - [reference/recovery.md](reference/recovery.md): the worked crash transcript
   this skill's claims were verified against.
 
+If the person you are helping is new to tix and has nothing set up yet, use
+the getting-started skill first
+([tix-getting-started](https://github.com/heliopsy/tix/blob/main/skills/tix-getting-started/SKILL.md)):
+it asks how they want to use tix and walks the setup. This one assumes tix is
+already reachable.
+
 The commit this file was checked against is the `verified-against` field above,
 and nowhere else. `cmd/skill_test.go` reads that field and fails if it names a
 commit that is not an ancestor of HEAD, or if any file in this skill names a
