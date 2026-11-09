@@ -152,6 +152,11 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
+	// FactorDue is when the tenant's second factor policy starts refusing a
+	// reader who holds no factor, and FactorGated whether it already does.
+	// Either draws the banner that sends them to enrolment.
+	FactorDue   *time.Time
+	FactorGated bool
 	// GlobalAdmin is whether the reader may act as a global admin, which is
 	// the only reader the sidebar offers the global admin area to.
 	GlobalAdmin bool
@@ -491,6 +496,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Actor:           actor,
 		Advanced:        advancedMode(r),
 		GlobalAdmin:     me != nil && me.GlobalAdmin,
+		FactorDue:       factorDue(me),
+		FactorGated:     me != nil && me.SecondFactorEnrollmentRequired,
 		Switcher:        h.switcherFor(r, me, here(r)),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
@@ -1051,6 +1058,9 @@ func (e errorView) BackLabel() string {
 // its cancelled context is not logged as a fault.
 func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
+	if enrolmentOwed(err) && h.toEnrolment(w, r) {
 		return
 	}
 	kind := core.KindOf(err)

@@ -657,6 +657,10 @@ func secondFactorKeyCheck(f core.TOTPReport) check {
 
 // requiredSurfaces names the surfaces a tenant demands a factor on.
 func requiredSurfaces(f core.TOTPReport) string {
+	if f.Policy == core.MFAPolicyRequired {
+		return "every surface under its policy, which also refuses tokens minted for a person without one " +
+			"(agent tokens are exempt)"
+	}
 	var on []string
 	if f.RequireWeb {
 		on = append(on, "the browser")

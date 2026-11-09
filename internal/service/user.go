@@ -337,7 +337,7 @@ func (l *Local) ListUsers(ctx context.Context, f core.UserFilter) ([]core.User, 
 				if err != nil {
 					return err
 				}
-				if !kept {
+				if !kept || f.WithoutTOTP && row.TOTPEnrolled {
 					continue
 				}
 				last = u

@@ -1819,6 +1819,16 @@ The code field also takes a recovery code. A verifier that has been locked by re
 so and says to wait, because a reader told their code is wrong tries again immediately, which is what
 the lock exists to stop.
 
+Under the tenant's second factor policy (Tenant screen, Second factor: Off or Required for everybody, with
+a grace period) the sign-in does not enrol inside the second step. A reader with no factor is signed in, and
+every screen they open sends them to `/settings/totp`, which says why, offers Set up a second factor, the
+account history and Sign out, and nothing else. An htmx request or a form post from an older page answers
+403 with `HX-Redirect: /settings/totp`. Once the code is confirmed the same session works everywhere. During
+the grace every page carries a banner naming the deadline and linking to that screen. Removing your own
+factor is not offered under the policy. The Users screen marks each person 2FA or no 2FA and can be narrowed
+to Without a second factor (`?without_totp=1`), which the Tenant screen links to beside the deadline. See
+[second-factor.md](second-factor.md#the-tenant-policy).
+
 Settings carries the rest: enrolment, how many recovery codes are unused, replacing them, and
 removing the factor where the tenant does not require one. The user administration list offers an
 administrator holding `totp:admin` the clear, which is the way back in for somebody who lost both the

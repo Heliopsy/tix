@@ -346,13 +346,22 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 	var (
 		required bool
 		enrolled bool
+		enrolNow bool
+		signIn   bool
 	)
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
 			return err
 		}
-		required = tenant.RequiresTOTP(surface)
+		required = tenant.RequiresTOTP(surface) || tenant.MFARequired()
+		enrolNow = tenant.RequiresTOTP(surface) || tenant.MFAEnforced(l.clock.Now())
+		// Under the policy the browser signs an unenrolled person in to a
+		// session the gate confines to enrolment, rather than enrolling them
+		// inside the sign-in: one path then serves a new sign-in, a session
+		// that was live when the policy went on and one whose factor was
+		// cleared since.
+		signIn = tenant.MFARequired() && surface == core.SurfaceWeb
 		enrolment, err := tx.GetUserTOTP(ctx, user.ID)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
@@ -366,6 +375,9 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		return nil, err
 	}
 	if !required && !enrolled {
+		return nil, nil
+	}
+	if !enrolled && (signIn || !enrolNow) {
 		return nil, nil
 	}
 
@@ -503,6 +515,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	out.RecoveryCodes = plain
 	return out, nil
 }
@@ -623,7 +636,11 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 	if !ok {
 		return nil, nil
 	}
-	return &core.LoginResult{Session: &minted.Session}, nil
+	out := &core.LoginResult{Session: &minted.Session}
+	if standing, err := l.factorStandingOf(ctx, actor); err == nil {
+		out.SecondFactorDue = standing.due()
+	}
+	return out, nil
 }
 
 // Logout ends the session the caller presented. It needs no authorization

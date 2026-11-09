@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
@@ -579,6 +580,12 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if in.RequireTOTPSSH != nil {
 			t.RequireTOTPSSH = *in.RequireTOTPSSH
 		}
+		if !before.MFARequired() {
+			if err := policyLeavesCallerIn(ctx, m.tx, actor, in); err != nil {
+				return err
+			}
+		}
+		applyMFAPolicy(t, in, m.now)
 		if in.TrashOff != nil {
 			t.TrashOff = *in.TrashOff
 		}
@@ -600,11 +607,18 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if before.TrashOff != t.TrashOff {
 			meta["trash"] = trashWord(!t.TrashOff)
 		}
+		if before.MFARequired() != t.MFARequired() {
+			meta["mfa_policy"] = string(t.MFAPolicy)
+		}
+		if before.MFAGrace != t.MFAGrace {
+			meta["mfa_grace"] = t.MFAGrace.String()
+		}
 		return m.Record(auditTenantUpdate, eventTenantUpdated, "tenant", t.ID, "", before, t, meta)
 	})
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	return out, nil
 }
 
@@ -746,6 +760,11 @@ func (l *Local) ResolveTheme(t *core.Tenant) core.Theme {
 // totpRequirementIsReachable refuses a requirement nobody could satisfy. Only
 // turning one on is checked: clearing one, or leaving it alone, needs no key.
 func (l *Local) totpRequirementIsReachable(in core.UpdateTenantInput) error {
+	if in.MFAPolicy != nil && *in.MFAPolicy == core.MFAPolicyRequired {
+		if _, err := l.sealer(); err != nil {
+			return err
+		}
+	}
 	for _, on := range []*bool{in.RequireTOTPWeb, in.RequireTOTPCLI, in.RequireTOTPSSH} {
 		if on != nil && *on {
 			if _, err := l.sealer(); err != nil {
@@ -755,4 +774,63 @@ func (l *Local) totpRequirementIsReachable(in core.UpdateTenantInput) error {
 		}
 	}
 	return nil
+}
+
+// applyMFAPolicy writes the policy and grace an update carries. The time the
+// policy turned required is stamped only on the change, so re-sending
+// required, or changing only the grace, moves the deadline without restarting
+// it; turning the policy off forgets it.
+func applyMFAPolicy(t *core.Tenant, in core.UpdateTenantInput, now time.Time) {
+	if in.MFAGrace != nil {
+		t.MFAGrace = *in.MFAGrace
+	}
+	if in.MFAPolicy == nil {
+		return
+	}
+	was := t.MFARequired()
+	t.MFAPolicy = *in.MFAPolicy
+	if t.MFAPolicy == "" {
+		t.MFAPolicy = core.MFAPolicyOff
+	}
+	switch {
+	case !t.MFARequired():
+		t.MFARequiredAt = nil
+	case !was || t.MFARequiredAt == nil:
+		at := now
+		t.MFARequiredAt = &at
+	}
+}
+
+// policyLeavesCallerIn refuses turning the second factor policy on for a
+// caller who would be the first person it shut out. A caller with no account
+// behind it, the machine-local actor, is not refused: the gate never applies
+// to it either. The account is global, so it is read in the caller's own
+// tenant even when a global admin edits another.
+func policyLeavesCallerIn(ctx context.Context, tx store.Tx, actor *core.Actor, in core.UpdateTenantInput) error {
+	if in.MFAPolicy == nil || *in.MFAPolicy != core.MFAPolicyRequired {
+		return nil
+	}
+	enrolled, person, err := callerFactor(ctx, tx, actor)
+	if err != nil {
+		return err
+	}
+	if person && !enrolled {
+		return core.Precondition("you hold no second factor, so requiring one would lock you out; "+
+			"enrol first with tix user totp enrol or under Settings in the browser, then turn the policy on").
+			WithDetail(core.DetailField, "mfa_policy")
+	}
+	return nil
+}
+
+// callerFactor reads whether the caller is a person and holds a factor.
+func callerFactor(ctx context.Context, tx store.Tx, actor *core.Actor) (enrolled, person bool, err error) {
+	user, err := accountOfActor(ctx, tx, actor.ID)
+	if core.IsKind(err, core.KindNotFound) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	enrolled, err = totpEnrolled(ctx, tx, user.ID)
+	return enrolled, true, err
 }

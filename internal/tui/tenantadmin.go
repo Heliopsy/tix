@@ -87,6 +87,17 @@ const tenantRowWidth = 28
 // project screen already names.
 const attrTheme = "theme"
 
+// attrMFA and attrMFAGrace are the second factor policy and its grace, both
+// answered from lists: the policy has two values, and a grace is one of a few
+// lengths anybody actually picks. Any other length is for tix tenant edit.
+const (
+	attrMFA      = "second factor"
+	attrMFAGrace = "grace"
+)
+
+// MFAGraceOptions are the grace lengths the edit form offers.
+var MFAGraceOptions = []string{"0", "1d", "3d", "7d", "14d", "30d"}
+
 // noTheme is what the theme list calls the absence of one. The service takes an
 // empty string, which no list of alternatives can show.
 const noTheme = "none"
@@ -160,7 +171,8 @@ func tenantAttributes(state TenantAdminState) []TenantLine {
 	out = append(out,
 		tenantRow("key", t.Key),
 		tenantRow("name", orNone(t.Name)),
-		tenantRow(attrTheme, orNone(t.Theme)))
+		tenantRow(attrTheme, orNone(t.Theme)),
+		tenantRow(attrMFA, mfaLine(t)))
 	if state.Handle != "" {
 		out = append(out, tenantRow("actor", "@"+state.Handle))
 	}
@@ -343,7 +355,7 @@ func ThemeValue(option string) string {
 // answered here, from the palettes the build carries; the name is free text and
 // hands over to the single-line prompt, seeded with the value it would replace.
 func TenantEditForm(t core.Tenant) Form {
-	attributes := []string{attrName, attrTheme}
+	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace}
 	theme := t.Theme
 	if _, custom := core.CustomTheme(theme); custom {
 		theme = customColour
@@ -356,6 +368,10 @@ func TenantEditForm(t core.Tenant) Form {
 			{Key: "attribute", Label: "attribute", Options: attributes, Value: attributes[0]},
 			{Key: attrTheme, Label: "theme", Options: ThemeOptions(), Value: theme,
 				Needs: FieldCondition{Key: "attribute", Value: attrTheme}},
+			{Key: attrMFA, Label: "policy", Options: mfaPolicyOptions(), Value: mfaPolicyValue(t),
+				Needs: FieldCondition{Key: "attribute", Value: attrMFA}},
+			{Key: attrMFAGrace, Label: "grace", Options: MFAGraceOptions, Value: graceValue(t),
+				Needs: FieldCondition{Key: "attribute", Value: attrMFAGrace}},
 		},
 	}
 }
@@ -426,3 +442,45 @@ func MemberForm(actors []core.Actor) Form {
 // who needs a certificate learns it here rather than by finding the domain
 // serving none.
 const DomainNote = "a certificate is a pair of paths on the server; tix domain add takes them"
+
+// mfaPolicyOptions are the policies the edit form offers, in their wire form.
+func mfaPolicyOptions() []string {
+	out := make([]string, 0, len(core.MFAPolicies))
+	for _, p := range core.MFAPolicies {
+		out = append(out, string(p))
+	}
+	return out
+}
+
+// mfaPolicyValue is the policy the form starts on.
+func mfaPolicyValue(t core.Tenant) string {
+	if t.MFARequired() {
+		return string(core.MFAPolicyRequired)
+	}
+	return string(core.MFAPolicyOff)
+}
+
+// graceValue is the grace the form starts on, the nearest it offers.
+func graceValue(t core.Tenant) string {
+	if t.MFAGrace == 0 {
+		return MFAGraceOptions[0]
+	}
+	text := t.MFAGrace.Human()
+	for _, o := range MFAGraceOptions {
+		if o == text {
+			return o
+		}
+	}
+	return MFAGraceOptions[0]
+}
+
+// mfaLine states the tenant's second factor policy on the tenant screen.
+func mfaLine(t core.Tenant) string {
+	if !t.MFARequired() {
+		return "off"
+	}
+	if t.MFAGrace == 0 {
+		return "required"
+	}
+	return "required, grace " + t.MFAGrace.Human()
+}

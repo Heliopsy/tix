@@ -108,6 +108,7 @@ func (c *Client) ListTenantUsers(ctx context.Context, tenant string, f core.User
 func userQuery(f core.UserFilter) url.Values {
 	q := pageQuery(f.Page)
 	setBool(q, "include_removed", f.IncludeRemoved)
+	setBool(q, "without_totp", f.WithoutTOTP)
 	return q
 }
 
