@@ -25,6 +25,12 @@ type PageQuery struct {
 // TaskListQuery is the task filter a task listing reads.
 type TaskListQuery struct {
 	PageQuery
+	// Page reads the listing from page N, counting from one, of limit tasks
+	// each, instead of from a cursor; the two cannot be combined. A number
+	// past the end answers the last page, and the response says which page it
+	// served. The cursor stays the way to walk a listing; this is for landing
+	// on a page a person asked for.
+	Page int `query:"page"`
 	// Project keeps tasks in a project, named by key, not case sensitive;
 	// repeat it for several. An unknown key is an error.
 	Project []string `query:"project"`

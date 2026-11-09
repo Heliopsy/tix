@@ -150,6 +150,7 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 		task.ID = id.New()
 	}
 	task.TenantID = t.scope.TenantID
+	explicit := task.Seq != 0
 	if task.Seq == 0 {
 		seq, err := t.NextSeq(ctx, task.ProjectID)
 		if err != nil {
@@ -206,6 +207,11 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 	if _, err := t.execInsert(ctx, ins, "creating task %q", task.Title); err != nil {
 		return err
 	}
+	if explicit {
+		if err := t.raiseSeqCounter(ctx, task.ProjectID, task.Seq); err != nil {
+			return err
+		}
+	}
 	if task.Ref == "" {
 		loaded, err := t.GetTask(ctx, core.TaskRef{ID: task.ID})
 		if err != nil {
@@ -216,14 +222,32 @@ func (t *tx) CreateTask(ctx context.Context, task *core.Task) error {
 	return nil
 }
 
+// nextSeqExpr advances a project's counter past both its own value and the
+// highest number its tasks hold.
+const nextSeqExpr = "GREATEST(seq_counter, " + highestSeq + ") + 1"
+
+// raiseSeqCounter moves a project's counter up to seq when a task was written
+// under a number of its own, as an import writes every task, so the next
+// number reserved is above it.
+func (t *tx) raiseSeqCounter(ctx context.Context, projectID string, seq int64) error {
+	b := t.builder("projects").
+		Where("projects.id = ?", projectID).
+		Where("projects.seq_counter < ?", seq).
+		Set("seq_counter", seq)
+	_, err := t.execUpdate(ctx, b, "raising the task number counter of project %q", projectID)
+	return err
+}
+
 // NextSeq reserves the next per-project task number by advancing the project's
-// counter, which never moves backwards however many tasks are hard deleted. The
+// counter, which never moves backwards however many tasks are hard deleted. It
+// also steps past the highest number any task of the project holds, trashed
+// ones included, so a counter left behind by an older import cannot reissue one. The
 // update takes the project's row lock, so a concurrent allocation waits for this
 // transaction and then increments the committed value rather than the same one.
 func (t *tx) NextSeq(ctx context.Context, projectID string) (int64, error) {
 	b := t.builder("projects").
 		Where("projects.id = ?", projectID).
-		SetExpr("seq_counter", "seq_counter + 1")
+		SetExpr("seq_counter", nextSeqExpr)
 	q, args, err := b.UpdateQuery()
 	if err != nil {
 		return 0, err
@@ -316,6 +340,71 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 		return nil, err
 	}
 	return out, nil
+}
+
+// CountTasks counts the tasks a filter selects, up to limit; see store.TaskTx.
+func (t *tx) CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error) {
+	f.Page, f.PageNumber = core.Page{}, 0
+	f, err := f.Validate()
+	if err != nil {
+		return 0, err
+	}
+	b := t.builder("tasks").Join(projectJoin)
+	if err := t.applyTaskFilter(b, f); err != nil {
+		return 0, err
+	}
+	return t.countUpTo(ctx, b, limit, "counting tasks")
+}
+
+// SeekTask returns the n-th task of a filter's walk; see store.TaskTx. It is
+// how a page number becomes a cursor without OFFSET: the walk is the listing's
+// own keyset ordering, star rank included, read n rows deep.
+func (t *tx) SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error) {
+	if n < 1 {
+		return nil, nil
+	}
+	f.PageNumber = 0
+	f, err := f.Validate()
+	if err != nil {
+		return nil, err
+	}
+	spec, err := resolveTaskPage(f.Page)
+	if err != nil {
+		return nil, err
+	}
+	spec.limit = n
+	b := t.builder("tasks").Select(taskColumns...).Join(projectJoin)
+	spec.ranked = sqlb.ApplyStars(b, f)
+	if err := t.applyTaskFilter(b, f); err != nil {
+		return nil, err
+	}
+	rows, err := t.query(ctx, spec.apply(b, "tasks.id"), "seeking tasks")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var last core.Task
+	seen := 0
+	for rows.Next() {
+		var extra []any
+		var starred bool
+		if spec.ranked {
+			extra = append(extra, &starred)
+		}
+		v, err := scanTaskWith(rows, extra...)
+		if err != nil {
+			return nil, err
+		}
+		v.Starred = starred
+		last, seen = v, seen+1
+	}
+	if err := mapRowsErr(rows, "seeking tasks"); err != nil {
+		return nil, err
+	}
+	if seen < n {
+		return nil, nil
+	}
+	return &last, nil
 }
 
 func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
@@ -614,7 +703,7 @@ func (t *tx) MoveTask(ctx context.Context, taskID, projectID string, seq int64, 
 	if n == 0 {
 		return core.NotFound("task %q", taskID)
 	}
-	return nil
+	return t.raiseSeqCounter(ctx, projectID, seq)
 }
 
 // RestoreTask clears a task's soft deletion.

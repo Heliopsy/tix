@@ -270,13 +270,14 @@ func buildBoard(groups []boardGroup, tasks []core.Task, moves map[string]core.Wo
 // narrowHref is the task screen filtered to the named projects, keeping the
 // reader's own filter, deadline window, sort and page size.
 //
-// The cursor and its trail are dropped: they address positions in one ordered
-// result set, and under a narrower filter they name rows this reader was
-// never on, which is why the filter form drops them too.
+// The cursor, its trail and the page number are dropped: they address
+// positions in one ordered result set, and under a narrower filter they name
+// rows this reader was never on, which is why the filter form drops them too.
 func narrowHref(r *http.Request, keys []string) string {
 	query := r.URL.Query()
 	query.Del(CursorParam)
 	query.Del(TrailParam)
+	query.Del(PageParam)
 	query.Del("flash")
 	query.Del(FlashUndoParam)
 	terms := make([]string, 0, len(keys))

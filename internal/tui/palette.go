@@ -52,6 +52,8 @@ func (c PaletteContext) offers(a Action) bool {
 		return false
 	case a.needsLeft && !c.CanLeft, a.needsRight && !c.CanRight:
 		return false
+	case a.needsNextPage && !c.HasNextPage, a.needsPrevPage && !c.HasPrevPage:
+		return false
 	case a.always:
 		return true
 	case a.opensView():

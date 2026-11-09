@@ -47,15 +47,22 @@ func (h *handler) showWebhooks(w http.ResponseWriter, r *http.Request) error {
 	for i := range endpoints {
 		endpoints[i].Secret = ""
 	}
-	deliveries, next, err := h.svc.ListDeliveries(r.Context(), core.DeliveryFilter{
-		Page: core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)}})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.WebhookDelivery, string, error) {
+		return h.svc.ListDeliveries(r.Context(), core.DeliveryFilter{Page: core.Page{Cursor: cursor, Limit: limit}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	deliveries, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	return h.render(w, r, "webhooks.html", "Webhooks",
 		webhooksView{Endpoints: endpoints, Deliveries: deliveries,
 			Secret: generatedWebhookSecret(generatedSecret(w, r)),
-			Pager:  newPager(r, RouteWebhooks, next, len(deliveries), "deliveries", SizeParam)})
+			Pager:  newPager(r, RouteWebhooks, next, len(deliveries), "deliveries", SizeParam).counted(pos, size)})
 }
 
 // generatedWebhookSecretCookie carries a generated signing secret to the

@@ -367,6 +367,19 @@ func TestCountQueryKeepsTenant(t *testing.T) {
 	}
 }
 
+func TestCappedCountQueryStopsAtTheCapAndKeepsTheTenant(t *testing.T) {
+	q, args := MustNew(Postgres, scope, "tasks").Join("JOIN projects ON projects.id = tasks.project_id").
+		Where("status = ?", "todo").OrderBy("tasks.id", core.Ascending).CappedCountQuery(101)
+	want := "SELECT COUNT(*) FROM (SELECT 1 FROM tasks JOIN projects ON projects.id = tasks.project_id " +
+		"WHERE tasks." + TenantColumn + " = $1 AND status = $2 LIMIT 101) AS counted"
+	if q != want {
+		t.Errorf("capped count\n got %s\nwant %s", q, want)
+	}
+	if len(args) != 2 || args[0] != "t1" || args[1] != "todo" {
+		t.Errorf("capped count binds %v", args)
+	}
+}
+
 func TestJoinAndSetExpr(t *testing.T) {
 	q, _ := MustNew(SQLite, scope, "tasks").
 		Join("JOIN task_tags ON task_tags.task_id = tasks.id").SelectQuery()

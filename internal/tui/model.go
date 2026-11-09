@@ -70,7 +70,10 @@ type Model struct {
 
 	filterText string
 	filter     core.TaskFilter
-	filterErr  string
+	// paged is which page of the project's tasks the board holds, of how
+	// many the listing counted.
+	paged     boardPage
+	filterErr string
 	// quickErr is why the new-task prompt's line was refused, drawn under
 	// the field while the prompt stays open on the line.
 	quickErr string
@@ -634,7 +637,7 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 
 // onBoard installs a project's workflow and first page of tasks.
 func (m Model) onBoard(msg boardMsg) (Model, tea.Cmd) {
-	m.project, m.workflow, m.arrangement = msg.project, msg.workflow, msg.prefs
+	m.project, m.workflow, m.arrangement, m.paged = msg.project, msg.workflow, msg.prefs, msg.paged
 	return m.enterView(viewBoard).installTasks(msg.tasks)
 }
 
@@ -643,6 +646,7 @@ func (m Model) onTasks(msg tasksMsg) (Model, tea.Cmd) {
 	if msg.arranged {
 		m.arrangement = msg.prefs
 	}
+	m.paged = msg.paged
 	return m.installTasks(msg.tasks)
 }
 
@@ -1141,7 +1145,7 @@ func (m Model) handleBoardKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Enter):
 		return m, m.loadDetail()
 	default:
-		if a, ok := ResolveAction(msg, append(m.keys.columnBindings(), m.keys.filterBindings()...)); ok {
+		if a, ok := ResolveAction(msg, append(append(m.keys.columnBindings(), m.keys.filterBindings()...), m.keys.pageBindings()...)); ok {
 			if !m.paletteContext().offers(a) {
 				return m, nil
 			}
@@ -1276,6 +1280,13 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 	case doSaveFilter:
 		next, cmd := m.openSaveFilter()
 		return next, cmd, true
+	case doNextPage, doPrevPage:
+		step := 1
+		if id == doPrevPage {
+			step = -1
+		}
+		m.paged.number = min(max(m.paged.number+step, 1), m.paged.pages())
+		return m, m.loadTasks(), true
 	}
 	return m.performTaskAction(id)
 }
@@ -1650,6 +1661,7 @@ func (m Model) applyFilterText(text string) Model {
 		return m
 	}
 	m.filterErr, m.filterText, m.filter = "", text, BindMe(parsed, m.actorID())
+	m.paged.number = 1
 	selected, _ := TaskAt(m.columns, m.sel)
 	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
@@ -1744,6 +1756,8 @@ func (m Model) actionContext() ActionContext {
 	}
 	ctx.HasHidden = m.view == viewBoard && len(m.hiddenCols) > 0
 	ctx.HasFilter = strings.TrimSpace(m.filterText) != ""
+	ctx.HasNextPage = m.view == viewBoard && m.paged.number < m.paged.pages()
+	ctx.HasPrevPage = m.view == viewBoard && m.paged.number > 1
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx

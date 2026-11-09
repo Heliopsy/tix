@@ -1126,6 +1126,9 @@ func (m Model) statusBar() string {
 		if start, end := VisibleRange(len(m.columns), visible, m.sel.Col); end-start < len(m.columns) {
 			count += fmt.Sprintf(", showing %d-%d", start+1, end)
 		}
+		if label := m.paged.Label(); label != "" {
+			count += ", " + label
+		}
 		segments = append(segments, m.theme.Dim.Render(count))
 	}
 	if m.view == viewProjects {

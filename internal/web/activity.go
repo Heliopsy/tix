@@ -232,10 +232,19 @@ var activitySources = []core.Source{
 
 // showActivity renders recent tenant activity, newest first.
 func (h *handler) showActivity(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildActivityView(r, r.URL.Query().Get(CursorParam))
+	query := activityQueryFrom(r)
+	pos, err := locate(r, activityPageSize, func(cursor string, limit int) (int, string, error) {
+		entries, next, err := h.scanAudit(r, query, cursor, limit)
+		return len(entries), next, err
+	})
 	if err != nil {
 		return err
 	}
+	data, err := h.buildActivityView(r, pos.Cursor)
+	if err != nil {
+		return err
+	}
+	data.Pager = data.Pager.counted(pos, activityPageSize)
 	data.attachRaw(dialogOf(r).Open)
 	return h.render(w, r, "activity.html", "Activity", data)
 }

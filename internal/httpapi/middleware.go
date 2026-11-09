@@ -25,6 +25,23 @@ type ctxKey int
 
 const ctxKeyRequestID ctxKey = iota
 
+// loggedTenantKey is the context key of the request record's tenant holder. It
+// has a type of its own so it cannot share a value with the ctxKey constants,
+// which are numbered in more than one block.
+type loggedTenantKey struct{}
+
+// loggedTenant is where resolveTenant leaves the tenant it pinned for the
+// request record. logRequest runs outside resolveTenant, so the context it
+// holds never carries the tenant itself.
+type loggedTenant struct{ id string }
+
+// noteTenant records the tenant a request was pinned to for its log record.
+func noteTenant(ctx context.Context, tenantID string) {
+	if lt, ok := ctx.Value(loggedTenantKey{}).(*loggedTenant); ok {
+		lt.id = tenantID
+	}
+}
+
 // RequestIDFrom returns the identifier assigned to the request, if any.
 func RequestIDFrom(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyRequestID).(string)
@@ -119,23 +136,21 @@ func (rt *Router) withRequestID(next http.Handler) http.Handler {
 func (rt *Router) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
+		tenant := &loggedTenant{}
+		r = r.WithContext(context.WithValue(r.Context(), loggedTenantKey{}, tenant))
 		rec := &recorder{ResponseWriter: w, ctx: r.Context(), status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		if !rec.written && clientClosed(r.Context()) {
 			rec.status = StatusClientClosed
 		}
 
-		tenant := ""
-		if scope, ok := core.TenantFrom(r.Context()); ok {
-			tenant = scope.TenantID
-		}
 		attrs := []any{
 			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
 			"path", loggedPath(r.URL.Path),
 			"status", rec.status,
 			"duration_ms", time.Since(started).Milliseconds(),
-			"tenant", tenant,
+			"tenant", tenant.id,
 		}
 		if rec.status == StatusClientClosed {
 			attrs = append(attrs, "note", "client closed request")
@@ -337,6 +352,7 @@ func (rt *Router) resolveTenant(next http.Handler) http.Handler {
 			WriteError(w, err)
 			return
 		}
+		noteTenant(r.Context(), served.tenant)
 		ctx := core.WithTenant(r.Context(), core.TenantScope{TenantID: served.tenant})
 		next.ServeHTTP(w, r.WithContext(core.WithServedHost(ctx, served.ServedHost)))
 	})

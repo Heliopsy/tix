@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -198,6 +199,36 @@ type boardMsg struct {
 	workflow *core.WorkflowDefinition
 	tasks    []core.Task
 	prefs    []core.GroupPref
+	paged    boardPage
+}
+
+// boardPage is where in a project's tasks one read of the board landed: the
+// page number answered and the total the listing counted.
+type boardPage struct {
+	number int
+	total  int
+	capped bool
+}
+
+// pages is how many board reads the counted total fills.
+func (p boardPage) pages() int { return core.PagesOf(p.total, core.MaxPageLimit) }
+
+// Label is the board's position, "page 2/7", with a trailing + on a count
+// that stopped at its cap. It is empty when the tasks fit one read.
+func (p boardPage) Label() string {
+	if p.pages() < 2 {
+		return ""
+	}
+	label := fmt.Sprintf("page %d/%d", max(p.number, 1), p.pages())
+	if p.capped {
+		label += "+"
+	}
+	return label
+}
+
+// pageOf is the position a task page answered.
+func pageOf(p core.TaskPage) boardPage {
+	return boardPage{number: max(p.Number, 1), total: p.Total, capped: p.TotalCapped}
 }
 
 // tasksMsg carries a refreshed task listing for the open project.
@@ -208,6 +239,7 @@ type tasksMsg struct {
 	// was not read, which leaves the arrangement already held in place.
 	prefs    []core.GroupPref
 	arranged bool
+	paged    boardPage
 }
 
 // detailMsg carries everything the detail view shows.

@@ -206,6 +206,7 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	}
 
 	var tasks []core.Task
+	var total, number int
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		if f.Trashed == core.Yes {
 			if off, err := trashOff(ctx, tx); err != nil {
@@ -218,6 +219,14 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 			return err
 		}
 		var err error
+		if total, err = tx.CountTasks(ctx, probe, core.TaskCountCap+1); err != nil {
+			return err
+		}
+		if f.PageNumber > 0 {
+			if number, err = seekPage(ctx, tx, &probe, total, limit); err != nil {
+				return err
+			}
+		}
 		tasks, err = tx.ListTasks(ctx, probe)
 		return err
 	}); err != nil {
@@ -231,19 +240,46 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 		more = true
 	}
 	markChecklistsIn(tasks)
-	page := core.TaskPage{Tasks: tasks}
+	page := core.TaskPage{Tasks: tasks, Total: min(total, core.TaskCountCap),
+		TotalCapped: total > core.TaskCountCap, Number: number}
 	if more && len(tasks) > 0 {
-		last := tasks[len(tasks)-1]
-		page.NextCursor = core.Cursor{
-			SortValue:  taskSortValue(f.Page.Sort, last),
-			SortValue2: taskSortValue2(f.Page.Sort, last),
-			Starred:    last.Starred,
-			ID:         last.ID,
-			Sort:       f.Page.Sort,
-			Direction:  f.Page.Direction,
-		}.Encode()
+		page.NextCursor = taskCursor(f.Page, tasks[len(tasks)-1])
 	}
 	return page, nil
+}
+
+// taskCursor is the cursor that resumes a walk under page after task.
+func taskCursor(page core.Page, task core.Task) string {
+	return core.Cursor{
+		SortValue:  taskSortValue(page.Sort, task),
+		SortValue2: taskSortValue2(page.Sort, task),
+		Starred:    task.Starred,
+		ID:         task.ID,
+		Sort:       page.Sort,
+		Direction:  page.Direction,
+	}.Encode()
+}
+
+// seekPage turns probe's page number into the cursor that page starts at, and
+// answers the page it will read. A number past the end, or past what the
+// capped count reaches, reads the last page it does reach. The cursor comes
+// from the last row of the page before, found by a keyset seek, so the page
+// itself is read exactly as Next would have read it.
+func seekPage(ctx context.Context, tx store.Tx, probe *core.TaskFilter, total, limit int) (int, error) {
+	number := min(probe.PageNumber, core.PagesOf(min(total, core.TaskCountCap), limit))
+	probe.PageNumber = 0
+	if number <= 1 {
+		return 1, nil
+	}
+	before, err := tx.SeekTask(ctx, *probe, (number-1)*limit)
+	if err != nil {
+		return 0, err
+	}
+	if before == nil {
+		return 1, nil
+	}
+	probe.Page.Cursor = taskCursor(probe.Page, *before)
+	return number, nil
 }
 
 // updateTask changes only the attributes the input supplies.
