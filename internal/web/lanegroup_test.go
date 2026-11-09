@@ -337,7 +337,10 @@ func TestALaneNameIsCutNeverSplit(t *testing.T) {
 		page := s.b.page("/tasks?view=lanes&lanes=" + by)
 		for _, key := range laneKeys(page) {
 			block := laneBlock(t, page, key)
-			head := block[:strings.Index(block, "</h2>")]
+			head, _, found := strings.Cut(block, "</h2>")
+			if !found {
+				t.Fatalf("lanes by %s: the %s lane has no heading", by, key)
+			}
 			if !regexp.MustCompile(`class="lane-name"[^>]*title="[^"]+"`).MatchString(head) {
 				t.Errorf("lanes by %s: the %s heading has no .lane-name with a title:\n%s", by, key, head)
 			}
