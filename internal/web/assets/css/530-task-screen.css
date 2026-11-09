@@ -190,17 +190,24 @@ details[open] > .editswitch .when-open { display: inline; }
 .composerform .actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-2); }
 
 /* The properties: one aligned grid of labels and values. A row is display:
-   contents so every label shares the one column and every value the other. */
+   contents so every label shares the one column and every value the other.
+   The label column was a fixed 5.5rem, and a one-word label longer than that
+   ("Environment", a custom field, or "Идентификатор") spilled out of it into
+   its value. fit-content keeps the old width for the usual labels, wraps a
+   longer label at its spaces up to the cap, and grows the column to a single
+   word that is longer still rather than letting it spill. */
 .taskprops { padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
-.props { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); column-gap: var(--space-3); margin: 0; }
+.props { display: grid; grid-template-columns: fit-content(9rem) minmax(0, 1fr); column-gap: var(--space-3); margin: 0; }
 .prop { display: contents; }
 .props dt {
   display: flex;
   align-items: center;
   align-self: start;
+  min-width: 5.5rem;
   min-height: var(--control-h);
   font-size: var(--text-sm);
   color: var(--muted);
+  overflow-wrap: normal;
 }
 .props dt label { margin: 0; font-size: inherit; font-weight: inherit; color: inherit; }
 .proplabel { display: inline-flex; align-items: center; gap: 2px; }
@@ -262,7 +269,8 @@ details[open] > .editswitch .when-open { display: inline; }
 }
 @media (max-width: 599px) {
   .taskhead-title > h1 { font-size: var(--text-xl); }
-  .props { grid-template-columns: 5rem minmax(0, 1fr); }
+  .props { grid-template-columns: fit-content(7rem) minmax(0, 1fr); }
+  .props dt { min-width: 5rem; }
   .propmeta { padding: 0; }
   .comment-body { padding-left: 0; }
 }
