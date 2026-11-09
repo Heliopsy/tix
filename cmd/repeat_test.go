@@ -53,7 +53,7 @@ func TestTaskRepeatFlags(t *testing.T) {
 
 func TestFinishingFromTheCommandLineSpawnsAndShowNamesIt(t *testing.T) {
 	c := newCLI(t)
-	c.mustRun("task", "add", "--due", "2026-11-02", "--repeat", "weekly", "water plants")
+	c.mustRun("task", "add", "--due", "2099-11-02", "--repeat", "weekly", "water plants")
 	c.mustRun("task", "mv", "default-1", "doing")
 	c.mustRun("task", "mv", "default-1", "done")
 
@@ -61,8 +61,8 @@ func TestFinishingFromTheCommandLineSpawnsAndShowNamesIt(t *testing.T) {
 	if next.Title != "water plants" || next.Recurrence != "every week" || next.Status != "todo" {
 		t.Fatalf("successor = %+v", next)
 	}
-	if next.DueAt == nil || next.DueAt.Format("2006-01-02") != "2026-11-09" {
-		t.Fatalf("successor due = %v, want 2026-11-09", next.DueAt)
+	if next.DueAt == nil || next.DueAt.Format("2006-01-02") != "2099-11-09" {
+		t.Fatalf("successor due = %v, want 2099-11-09", next.DueAt)
 	}
 	if done := showTask(t, c, "default-1"); done.RecurrenceNextID != next.ID {
 		t.Fatalf("recurrence_next_id = %q, want %q", done.RecurrenceNextID, next.ID)
