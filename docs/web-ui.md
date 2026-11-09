@@ -138,6 +138,13 @@ or open its tasks in the task list. New project in the header asks for a key, a 
 description; colour and icon are set afterwards in the project's settings. The key starts every task
 reference in the project, as in `INFRA-5`.
 
+The name has first claim on a row: when the row's links do not fit beside it, in the two-column grid
+from 1200px or with longer Bulgarian labels, they take a line of their own rather than squeeze the name,
+and a name breaks only between words unless one word is wider than the whole row. A description is cut
+at two lines and its full text is the tooltip. Table cells and the record and people lists wrap the same
+way: words break between words, and only an identifier (`code`, a monospaced value, or a cell marked
+`.token` for a name that may be one long token) breaks anywhere, so it cannot push a table past the page.
+
 `/projects/KEY` is the project's page; see [The project page](#the-project-page). Settings in its
 header opens the project's settings.
 
@@ -1498,8 +1505,17 @@ names the server's database path or a redacted DSN, is drawn for a tenant admini
 command palette offers it to nobody else either. Where the settings block has room the navigation is a
 column that stays in view beside the sections; where it does not, it is a wrapped row of links above
 them. The choice is a container query on the block rather than a viewport breakpoint, because the
-sidebar is resizable and collapsible and the room beside it is what decides. The section last jumped
-to is marked in the navigation through `:target`, with no script.
+sidebar is resizable and collapsible and the room beside it is what decides.
+
+The navigation follows the reader: as the page scrolls, the link for the section in view carries
+`aria-current="true"`, and once the page is at its end the last section's link does, however short that
+section is. A section counts as in view once its top reaches the line a jump to it lands on, so a click
+and a scroll mark the same link. Clicking a link, or pressing Enter on it, scrolls smoothly to the
+section (a jump when the system asks for reduced motion), puts its id in the address and moves focus to
+the section, so the next Tab carries on from there. This is `assets/tocspy.js`, which drives any
+`nav[data-toc]` from two IntersectionObservers and no scroll handler; the settings screen is the only
+one with such a navigation. Without scripting the links are plain anchors, and the section last jumped
+to is marked through `:target` instead.
 
 Profile is who you are signed in as, the browser's `tix whoami`: handle, email, display name, actor id
 with a Copy button, kind, role, tenant, whether you may act as a global admin, what this request

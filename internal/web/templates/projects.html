@@ -39,8 +39,8 @@
     <a class="projrow-main" href="/projects/{{.Key}}">
       <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon . true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice (key .Key) 0 1}}{{end}}</span>
       <span class="projrow-text">
-        <span class="projrow-title">{{.Name}}<span class="projrow-key mono">{{key .Key}}</span>{{if .Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
-        {{if .Description}}<span class="projrow-desc">{{.Description}}</span>{{end}}
+        <span class="projrow-title"><span class="projrow-name">{{.Name}}</span><span class="projrow-key mono">{{key .Key}}</span>{{if .Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
+        {{if .Description}}<span class="projrow-desc" title="{{.Description}}">{{.Description}}</span>{{end}}
       </span>
     </a>
     <span class="projrow-tools">

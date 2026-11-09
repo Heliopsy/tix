@@ -48,7 +48,7 @@
   <tbody>
   {{range $v.Sources}}
     <tr>
-      <td>{{.Name}}</td>
+      <td class="token">{{.Name}}</td>
       <td>{{.System}}</td>
       <td>{{when .LastRunAt}}</td>
       <td>{{if .LastStatus}}{{.LastStatus}}{{else}}{{t "never run"}}{{end}}</td>

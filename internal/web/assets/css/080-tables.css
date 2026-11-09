@@ -9,8 +9,8 @@
    every row stood 90px tall to hold values that fit on one line each.
    A table that declares a colgroup has had its columns thought about and
    keeps fixed layout; one that has not lets the browser size them from what
-   is in them. td carries overflow-wrap: anywhere either way, so nothing can
-   force the table wider than the page. */
+   is in them. An identifier in a cell breaks anywhere either way (below),
+   so nothing can force the table wider than the page. */
 table { width: 100%; border-collapse: collapse; font-size: var(--text-md); table-layout: auto; }
 table:has(colgroup) { table-layout: fixed; }
 
@@ -34,15 +34,26 @@ td {
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 tbody tr:last-child td { border-bottom: 0; }
 
-/* A cell may break a long value anywhere, because a ULID or a URL has no
-   break opportunity of its own and would otherwise push the table wider than
-   the page. A badge is a word, and inheriting that rule it came out as
-   "acti / ve" down two lines whenever its column was squeezed; a Save button
-   came out as "Sav / e". Controls, badges and chips say their own wrapping in
+/* Words in a cell break between words. A cell used to carry
+   overflow-wrap: anywhere, which also tells the table the column can shrink
+   to one letter, so a squeezed column of short words came out as "Никог"
+   over "а". break-word still breaks a word longer than its cell, and leaves
+   the column at least its longest word wide.
+
+   An identifier breaks anywhere, because a ULID or a URL has no break
+   opportunity of its own and would otherwise push the table wider than the
+   page. It is code or a monospaced value in most tables here; a cell that
+   holds a name somebody typed, which may be one long token, says so with
+   .token. A link is usually a name, so it wraps like the words around it. */
+td:is(.mono, .token), td :is(code, samp, .mono, .token) { overflow-wrap: anywhere; }
+
+/* A badge is a word, and inheriting the old rule it came out as "acti / ve"
+   down two lines whenever its column was squeezed; a Save button came out
+   as "Sav / e". Controls, badges and chips say their own wrapping in
    the one rule under the button, so nothing in a cell inherits this. */
 td a { font-weight: 500; text-decoration: none; }
 td a:hover { text-decoration: underline; }

@@ -56,6 +56,10 @@ const VIEWPORTS = {
   // A laptop, which is where the task list sits between its phone layout and
   // its widest one. Opt-in: the default four are what the docs carry.
   laptop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
+  // A small desktop. The projects screen goes to two columns at 1200px, and
+  // between there and the laptop its names broke down to one letter while
+  // every captured width looked fine. Opt-in, like laptop.
+  desktop: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
 };
 const DEFAULT_VIEWPORTS = ["phone", "tablet", "fullhd", "4k"];
 
@@ -70,6 +74,9 @@ const columnOf = (vp, theme) => (theme === "light" ? vp : `${vp}-${theme}`);
 // viewport, whatever the run's wall time.
 const RUN_CLOCK = Date.now();
 
+// The browser's language for the run, set from --locale.
+let LOCALE = "en-US";
+
 const QUIET_CSS = `*,*::before,*::after{transition:none!important;animation:none!important;
 caret-color:transparent!important;scroll-behavior:auto!important}`;
 
@@ -78,8 +85,11 @@ const USAGE = `usage: node shoot.mjs [flags]
   --tix PATH            tix binary to seed and serve a scratch database with (default mode)
   --url URL             capture a running instance instead; signs in with TIX_SHOT_EMAIL,
                         TIX_SHOT_PASSWORD and, when the tenant asks for a code, TIX_SHOT_TOTP
-  --viewports LIST      comma separated: phone,tablet,fullhd,4k,laptop (default all but laptop)
+  --viewports LIST      comma separated: phone,tablet,fullhd,4k,laptop,desktop (default the
+                        first four)
   --theme T             light, dark, oled, both (light and dark) or all three (default light)
+  --locale L            the browser's language, sent as Accept-Language, such as bg-BG
+                        (default en-US)
   --only SUBSTR         only routes whose pattern contains SUBSTR (repeatable, comma separated)
   --max-popups N        popups captured per page state, after dedupe (default 40)
   --out DIR             parent of the timestamped output directory (default out/screenshots)
@@ -89,7 +99,8 @@ const USAGE = `usage: node shoot.mjs [flags]
                         sorted to the top of /tasks, sixty more in one project, a long history,
                         long user, project and token names and many expiring tokens
   --strict              exit non-zero when the page check finds anything: a control on two lines,
-                        a word broken in the middle, a task row or card out of shape, the page
+                        a word broken in the middle, a list row or table cell that leaves one
+                        letter on a line, a task row or card out of shape, the page
                         scrolling sideways, content spilling out of its box, a <time> without
                         datetime, or a raw Go time
   --jobs N              viewport and theme combinations captured at once (default 1)
@@ -98,7 +109,7 @@ const USAGE = `usage: node shoot.mjs [flags]
 `;
 
 function parseArgs(argv) {
-  const a = { viewports: DEFAULT_VIEWPORTS, theme: "light", only: [], maxPopups: 40, out: "out/screenshots", jobs: 1 };
+  const a = { viewports: DEFAULT_VIEWPORTS, theme: "light", locale: "en-US", only: [], maxPopups: 40, out: "out/screenshots", jobs: 1 };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     const v = () => {
@@ -109,6 +120,7 @@ function parseArgs(argv) {
     else if (k === "--url") a.url = v().replace(/\/+$/, "");
     else if (k === "--viewports") a.viewports = v().split(",").map((s) => s.trim()).filter(Boolean);
     else if (k === "--theme") a.theme = v();
+    else if (k === "--locale") a.locale = v();
     else if (k === "--only") a.only.push(...v().split(",").filter(Boolean));
     else if (k === "--max-popups") a.maxPopups = Number(v());
     else if (k === "--out") a.out = v();
@@ -299,6 +311,12 @@ function seedHostile(tix, db, env, dir) {
     if (r.status !== 0) throw new Error(`tix ${argv.slice(0, 3).join(" ")} failed: ${r.stderr || r.stdout}`);
   };
   run(["project", "create", "HOSTILE", "Hostile content"]);
+  // Names a list cell has to give room to: two letters, one word of a
+  // length that fits a row but not a squeezed one (with a key as long), and
+  // a Cyrillic one. Each was broken down to its last letter on /projects.
+  run(["project", "create", "QA", "QA"]);
+  run(["project", "create", "INFRASTRUCTUREPLATFORM", "Infrastructureplatform"]);
+  run(["project", "create", "MREZHI", "Инфраструктура и мрежи", "--description", "Мрежи, DNS и балансьори на натоварването за всички среди"]);
   // A second tenant for the demo admin, named past any width a sidebar
   // entry has, so the tenant switcher and Choose a tenant are drawn.
   run(["tenant", "create", "second", "A second tenant whose name is long enough to wrap in the sidebar of a phone"]);
@@ -560,6 +578,10 @@ const LAYOUT = {
     ".evchip", ".statuspill", ".navbadge", ".pager-step", ".backlink a", "nav.tabs a", "kbd",
   ].join(","),
   words: "h1,h2,h3,h4,h5,h6,label,legend,th,dt",
+  // The text of a list row or a table cell: a name, a key, a description, a
+  // count. Rendered Markdown is prose somebody wrote and is left out.
+  cells: "td, .projrow-title, .projrow-desc, .recrow-title, .recrow-meta, .person-id, .tm",
+  prose: ".md, [contenteditable], pre",
   rows: "ul.tasklist",
   cards: "article.card",
   blocks: "p,ul,ol,h1,h2,h3,h4,h5,h6,pre,table,blockquote,hr",
@@ -572,7 +594,7 @@ const LAYOUT = {
 // heading with a word split across two lines. Lines are told apart by the
 // rectangles a Range reports for each text node, which is the only place the
 // browser says where it broke a line.
-function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFrom }) {
+function layoutFindings({ controls, words, cells, prose, rows, cards, blocks, aside, columnsFrom }) {
   const found = [];
   const shown = (el) => {
     if (el.closest("[hidden], .sr-only, [aria-hidden=true] > .sr-only")) return false;
@@ -633,6 +655,57 @@ function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFr
     }
     return "";
   };
+  // A split in a list row or table cell, judged without the too-wide
+  // exemption above. That exemption is what hid a project name broken down to
+  // one letter: the cell had collapsed, so every word in it was wider than
+  // its box. A run of up to 24 characters between spaces fits any cell that
+  // has not collapsed, so splitting one is reported, as "one letter left on
+  // a line" when a piece is a single character. A longer run is a token (an
+  // address, a hash, a pasted path) and breaking it is the cell's right call
+  // once it is wider than the cell. Lines are told apart one character at a time, since a split
+  // word is two rectangles and which characters went where is the point.
+  const SHORT_WORD = 24;
+  // A cell that truncates (a one-line clamp, a clipped box) breaks the word
+  // onto a line nobody sees; what shows is the word cut short with an
+  // ellipsis, which is the truncation asked for. Only what shows is judged.
+  const clipOf = (n) => {
+    for (let a = n.parentElement; a && a !== document.body; a = a.parentElement) {
+      if (/(hidden|clip)/.test(getComputedStyle(a).overflowY)) return a.getBoundingClientRect();
+    }
+    return null;
+  };
+  const cellSplit = (nodes) => {
+    for (const n of nodes) {
+      const clip = clipOf(n);
+      for (const m of n.nodeValue.matchAll(/[\p{L}\p{N}]{2,}/gu)) {
+        const whole = document.createRange();
+        whole.setStart(n, m.index);
+        whole.setEnd(n, m.index + m[0].length);
+        if (new Set(rects(whole).map((b) => Math.round(b.top))).size < 2) continue;
+        const parts = new Map();
+        for (let i = 0; i < m[0].length; i++) {
+          const r = document.createRange();
+          r.setStart(n, m.index + i);
+          r.setEnd(n, m.index + i + 1);
+          const b = rects(r)[0];
+          if (!b || (clip && (b.top + b.height / 2 > clip.bottom || b.top + b.height / 2 < clip.top))) continue;
+          const top = [...parts.keys()].find((t) => Math.abs(t - b.top) < b.height / 2) ?? b.top;
+          parts.set(top, (parts.get(top) || "") + m[0][i]);
+        }
+        if (parts.size < 2) continue;
+        const v = n.nodeValue;
+        let a = m.index;
+        let b = m.index + m[0].length;
+        while (a > 0 && !/\s/.test(v[a - 1])) a--;
+        while (b < v.length && !/\s/.test(v[b])) b++;
+        if (b - a > SHORT_WORD && tooWide(n, m.index)) continue;
+        const shown = [...parts.values()].join(" / ");
+        if ([...parts.values()].some((p) => p.length === 1)) return { kind: "one letter left on a line", word: shown };
+        return { kind: "word split in a list cell", word: shown };
+      }
+    }
+    return null;
+  };
   const scrolls = (el) => {
     for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
       if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(a).overflowX)) return true;
@@ -668,6 +741,12 @@ function layoutFindings({ controls, words, rows, cards, blocks, aside, columnsFr
     if (!shown(el)) continue;
     const w = broken(texts(el));
     if (w) report(el, "word split", w);
+  }
+  for (const el of document.querySelectorAll(cells)) {
+    if (!shown(el) || el.closest(prose) || el.closest(controls)) continue;
+    const nodes = texts(el).filter((n) => !n.parentElement.closest(`${controls}, ${prose}`));
+    const f = cellSplit(nodes);
+    if (f) report(el, f.kind, f.word);
   }
 
   // A task row or card is a summary of a task. Its description, rendered,
@@ -1011,6 +1090,7 @@ function plan(args, values) {
 async function newContext(browser, vp, theme, target, storageState) {
   const ctx = await browser.newContext({
     ...VIEWPORTS[vp],
+    locale: LOCALE,
     colorScheme: theme === "light" ? "light" : "dark",
     reducedMotion: "reduce",
     storageState,
@@ -1219,6 +1299,7 @@ ${sections}
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  LOCALE = args.locale;
   const started = Date.now();
   let target;
   if (args.url) {
@@ -1241,7 +1322,7 @@ async function main() {
   });
   cleanups.push(() => browser.close());
 
-  const login = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  const login = await browser.newContext({ viewport: { width: 1920, height: 1080 }, locale: LOCALE });
   const lp = await login.newPage();
   await signIn(lp, target);
   const wanted = new Set();

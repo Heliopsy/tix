@@ -40,16 +40,24 @@
   font-weight: 500;
   text-decoration: none;
 }
-/* The section last jumped to, or returned to after a save, is marked without
-   a script: the section is the :target, and the link naming it is found
-   from the block that holds both. */
-.settings:has(#profile:target) .setnav a[href="#profile"],
-.settings:has(#appearance:target) .setnav a[href="#appearance"],
-.settings:has(#listings:target) .setnav a[href="#listings"],
-.settings:has(#keyboard:target) .setnav a[href="#keyboard"],
-.settings:has(#dates:target) .setnav a[href="#dates"],
-.settings:has(#second-factor:target) .setnav a[href="#second-factor"],
-.settings:has(#database:target) .setnav a[href="#database"] {
+/* The section in view is marked by assets/tocspy.js with aria-current as
+   the reader scrolls. Without a script the section last jumped to, or
+   returned to after a save, is marked instead: the section is the :target,
+   and the link naming it is found from the block that holds both. The
+   script pushes the fragment without changing :target, so while it runs
+   (data-toc-live) the :target mark stands down rather than mark a second
+   link. */
+.setnav a[aria-current="true"],
+.settings:has(#profile:target) .setnav:not([data-toc-live]) a[href="#profile"],
+.settings:has(#appearance:target) .setnav:not([data-toc-live]) a[href="#appearance"],
+.settings:has(#listings:target) .setnav:not([data-toc-live]) a[href="#listings"],
+.settings:has(#keyboard:target) .setnav:not([data-toc-live]) a[href="#keyboard"],
+.settings:has(#dates:target) .setnav:not([data-toc-live]) a[href="#dates"],
+.settings:has(#inbox:target) .setnav:not([data-toc-live]) a[href="#inbox"],
+.settings:has(#notifications:target) .setnav:not([data-toc-live]) a[href="#notifications"],
+.settings:has(#second-factor:target) .setnav:not([data-toc-live]) a[href="#second-factor"],
+.settings:has(#calendar:target) .setnav:not([data-toc-live]) a[href="#calendar"],
+.settings:has(#database:target) .setnav:not([data-toc-live]) a[href="#database"] {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--ink);
@@ -79,6 +87,10 @@
 }
 
 .setgroup { margin: 0 0 var(--space-6); scroll-margin-top: var(--space-5); }
+/* A section the navigation moved focus to, so the next Tab starts there. A
+   ring round the whole section after a click says nothing the scroll did
+   not; after a key press it shows where focus went. */
+.setgroup:focus:not(:focus-visible) { outline: none; }
 /* Under the phone bar, a section jumped to would otherwise start behind it. */
 @media (max-width: 899px) { .setgroup { scroll-margin-top: 72px; } }
 

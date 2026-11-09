@@ -241,7 +241,9 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 }
 .delform-lead { margin: 0 0 var(--space-1); font-size: var(--text-md); font-weight: 500; }
 .delform > .cfield-hint { margin-bottom: var(--space-4); }
-.delchoices { display: flex; flex-direction: column; gap: var(--space-3); max-width: none; margin: 0; padding: 0; border: 0; background: none; }
+/* A fieldset is min-content wide by default, so the widest project name in
+   the target select pushed the whole form past a phone's edge. */
+.delchoices { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; max-width: none; margin: 0; padding: 0; border: 0; background: none; }
 .delchoices > legend { margin-bottom: var(--space-2); padding: 0; font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
 .delchoice {
   min-width: 0;

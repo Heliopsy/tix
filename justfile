@@ -87,9 +87,13 @@ screenshots *ARGS: build
     node shoot.mjs --tix ../../bin/{{binary}} --out ../../out/screenshots {{ARGS}}
 
 # Seeds tasks with long titles, tags and Markdown descriptions and fails when a
-# task row or card on the listings loses its shape, at phone, tablet and laptop.
+# task row or card on the listings loses its shape, or a list row or table cell
+# breaks a word down to a letter, at phone, tablet, 1280px and laptop. The
+# project list and the table screens run again in Bulgarian, whose longer
+# labels leave a name less room.
 ui-rows *ARGS:
-    just screenshots --hostile --strict --only /tasks,/mine,/projects/ --viewports phone,tablet,laptop --theme both --max-popups 0 {{ARGS}}
+    just screenshots --hostile --strict --only /tasks,/mine,/projects,/admin/tokens,/admin/users,/actors,/sync --viewports phone,tablet,desktop,laptop --theme both --max-popups 0 {{ARGS}}
+    just screenshots --hostile --strict --locale bg-BG --only /projects,/admin/tokens,/admin/users,/actors,/sync --viewports tablet,desktop,laptop --max-popups 0 {{ARGS}}
 
 # The UI regression gate, run exactly as CI's "UI regression" job runs it: the
 # page check over every route on the hostile seed, the task row checks, the
