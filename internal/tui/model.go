@@ -548,6 +548,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.enterView(viewProject), nil
 	case projectsMsg:
 		return m.onProjects(msg)
+	case newProjectChoiceMsg:
+		return m.openForm(NewProjectForm(msg.key, msg.name, msg.workflows, msg.templates))
 	case boardMsg:
 		return m.onBoard(msg)
 	case tasksMsg:
@@ -1480,7 +1482,7 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 	switch kind {
 	case promptNewProject:
 		key, name := SplitProjectEntry(text)
-		return m.createProject(key, name)
+		return m.startNewProject(key, name)
 	case promptProjectName:
 		return m.updateProject(core.UpdateProjectInput{Name: &text}, attrName)
 	case promptProjectKey:
@@ -2316,6 +2318,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 	switch form.Kind {
 	case formProject:
 		return m.closeForm().applyProjectEdit(form)
+	case formNewProject:
+		return m.closeForm().applyNewProject(form)
 	case formProjectRemove:
 		return m.closeForm().confirmProjectRemoval(form)
 	case formFieldPick:

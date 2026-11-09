@@ -193,6 +193,14 @@ type WorkflowService interface {
 	// workflow, and a workflow any project still uses, cannot be deleted and
 	// answer conflict.
 	DeleteWorkflow(ctx context.Context, key string) error
+	// ListWorkflowTemplates lists the built-in workflow templates: each one's
+	// key, name, one-line purpose, a summary of its states, its definition and
+	// the custom fields a project created from it gets.
+	ListWorkflowTemplates(ctx context.Context) ([]WorkflowTemplate, error)
+	// ApplyWorkflowTemplate creates a workflow from a built-in template, under
+	// the template's key or the one the input names. A key already taken is a
+	// conflict unless the input says to skip, rename or replace.
+	ApplyWorkflowTemplate(ctx context.Context, key string, in ApplyWorkflowTemplateInput) (*Workflow, error)
 }
 
 // TaskService covers tasks and everything attached to them.

@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The workflow picker in New project and Add from template: one row per
+   choice, a template's purpose first and strongest, then its name with the
+   Built-in label, its states and its fields. The list scrolls inside the
+   dialog rather than pushing the form's buttons off screen. */
+.wfpick { border: 0; margin: 0; padding: 0; min-width: 0; }
+.wfpick > legend { padding: 0; margin-bottom: var(--space-1); }
+.wfpick-list {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  max-height: 22rem; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-2);
+}
+.wfpick-group {
+  margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.wfpick-group:first-child { margin-top: 0; }
+.wfpick-opt {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  padding: var(--space-2); border-radius: var(--radius-sm); cursor: pointer;
+}
+.wfpick-opt:hover { background: var(--accent-soft); }
+.wfpick-opt:has(input:checked) { background: var(--accent-soft); outline: 1px solid var(--accent); }
+.wfpick-opt input { margin-top: .2em; flex: none; }
+.wfpick-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wfpick-purpose { color: var(--ink); font-weight: 600; }
+.wfpick-name { color: var(--ink); font-size: var(--text-sm); display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.wfpick-purpose + .wfpick-name { color: var(--muted); }
+.wfpick-builtin { font-size: var(--text-2xs); }
+.wfpick-states, .wfpick-fields { color: var(--muted); font-size: var(--text-xs); overflow-wrap: anywhere; }

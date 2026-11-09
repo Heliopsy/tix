@@ -358,7 +358,7 @@ func (l *Local) ReleaseLease(ctx context.Context, ref core.TaskRef, token string
 		if err != nil {
 			return err
 		}
-		if err := releasableStatus(wf, task, actor, in); err != nil {
+		if err := l.releasableStatus(wf, task, actor, in); err != nil {
 			return err
 		}
 
@@ -749,7 +749,7 @@ func staleLease(task *core.Task) error {
 }
 
 // releasableStatus validates the final status a release carries.
-func releasableStatus(wf *core.Workflow, task *core.Task, actor *core.Actor, in core.ReleaseInput) error {
+func (l *Local) releasableStatus(wf *core.Workflow, task *core.Task, actor *core.Actor, in core.ReleaseInput) error {
 	if in.Status == "" {
 		return nil
 	}
@@ -766,7 +766,7 @@ func releasableStatus(wf *core.Workflow, task *core.Task, actor *core.Actor, in 
 	if transition.RequiresComment && in.Comment == "" {
 		return core.Invalid("moving to %q requires a comment", in.Status)
 	}
-	if transition.RequiresScope != "" && !actor.HasScope(transition.RequiresScope) {
+	if !l.mayCross(actor, transition, task.ProjectID) {
 		return core.Forbidden("moving to %q requires scope %q", in.Status, transition.RequiresScope)
 	}
 	return nil

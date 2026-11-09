@@ -99,6 +99,11 @@ const (
 	RouteWorkflows = APIPrefix + "/workflows"
 	RouteWorkflow  = APIPrefix + "/workflows/{key}"
 
+	// RouteWorkflowTemplates lists the built-in workflow templates.
+	RouteWorkflowTemplates = APIPrefix + "/workflow-templates"
+	// RouteWorkflowTemplateApply creates a workflow from one template.
+	RouteWorkflowTemplateApply = APIPrefix + "/workflow-templates/{key}/apply"
+
 	RouteTasks          = APIPrefix + "/tasks"
 	RouteTask           = APIPrefix + "/tasks/{ref}"
 	RouteTaskTransition = APIPrefix + "/tasks/{ref}/transition"

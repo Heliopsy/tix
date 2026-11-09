@@ -485,22 +485,6 @@ func (m Model) reclaim(task core.Task) tea.Cmd {
 	}
 }
 
-// createProject adds a project from the project list.
-func (m Model) createProject(key, name string) tea.Cmd {
-	if m.svc == nil {
-		return nil
-	}
-	svc, ctx := m.svc, m.ctx
-	in := core.CreateProjectInput{Key: key, Name: name}
-	return func() tea.Msg {
-		project, err := svc.CreateProject(ctx, in)
-		if err != nil {
-			return actionMsg{kind: actionNewProject, err: err}
-		}
-		return actionMsg{kind: actionNewProject, label: output.ShowKey(project.Key)}
-	}
-}
-
 // deleteTask removes the task the reader agreed to remove, as far as they said
 // it should reach.
 func (m Model) deleteTask(c Confirm) tea.Cmd {
