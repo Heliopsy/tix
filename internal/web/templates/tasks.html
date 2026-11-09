@@ -117,9 +117,9 @@
 {{else if $v.Filtered}}
 <p class="lede">{{t "The filter names a project explicitly, so it is shown even though project visibility hides %d of them." $v.Hidden}}</p>
 {{else if $v.Empty}}
-<p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects above to bring one back."}}</p>
+<p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects under More to bring one back."}}</p>
 {{else if $v.Hidden}}
-<p class="lede">{{tn "%d project is hidden. Use Projects above to change that." "%d projects are hidden. Use Projects above to change that." $v.Hidden}}</p>
+<p class="lede">{{tn "%d project is hidden. Use Projects under More to change that." "%d projects are hidden. Use Projects under More to change that." $v.Hidden}}</p>
 {{end}}
 
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
