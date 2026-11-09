@@ -27,7 +27,7 @@ swap and for the in-place filter.
 
 ## Without scripting
 
-The toggle is a link: `?select=1` when off, the same address without it when on. The Done button in
+The toggle is a link: `?select=1` when off, the same address without it when on. The Cancel button in
 the bulk bar is the same "off" link. The boxes belong to the bar's form through `form="bulkbar"`, as
 before, so ticking and pressing an action posts the selection. The bulk route returns to `next`,
 which is the screen's own address, so the reader lands back in select mode.
@@ -46,8 +46,8 @@ address.
   Ctrl-click on a title still opens a tab. In the mode, a plain click on an empty area toggles too.
 - Long press on touch: 500ms with the finger within 10px, not on a button or field. The click the
   release would produce is swallowed. Scrolling or moving cancels it.
-- Esc (when no menu, dialog, overlay or field has it), Done, or unselecting the last selected task
-  leaves the mode. Entering with the toggle and selecting nothing stays in the mode until Done or Esc.
+- Esc (when no menu, dialog, overlay or field has it), Cancel, or unselecting the last selected task
+  leaves the mode. Entering with the toggle and selecting nothing stays in the mode until Cancel or Esc.
 
 ## Keys
 
@@ -61,6 +61,12 @@ The done key was asked for as `e`. `e` is Edit title in the default and emacs sc
 pins `e` to the terminal's edit key. Done takes `d` in every scheme instead: free everywhere, and the
 word it starts. It presses the row's round control, and does nothing on a task that is already done
 or on a board card, which has no round control.
+
+## Cancel, not Done
+
+The bar's way out was asked for as Done or Cancel. The catalog is keyed by the English text and
+"Done" is already the workflow state, translated as a task's state ("Готова"), so a Done button
+would read as a status in Bulgarian. Cancel ("Отказ") is already a button everywhere else.
 
 ## Board and lanes
 

@@ -42,6 +42,13 @@
     {{template "taskview-links" $v}}
     {{template "lanesby" $v}}
     {{end}}
+    {{/* Select mode. The boxes and the bar are drawn always and shown only
+         while this is pressed (470-bulk-select.css), so every redraw of the
+         rows keeps the mode: the toggle sits outside every swapped region.
+         A link without scripting; select.js presses it in place. */}}
+    {{if and $v.Bulk.Any $v.Tasks}}
+    <a class="btn secondary selecttoggle" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press>{{template "icon" "checklist"}}<span class="btn-label">{{t "Select"}}</span></a>
+    {{end}}
     {{/* A menu, like the columns control on every other listing and like the
          status and priority menus on a row. It was a disclosure that opened
          downwards and pushed the whole task list down by its own height, so
@@ -191,6 +198,7 @@
   {{/* The view the address named rides along, so Apply keeps the drawing. */}}
   {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
   {{with $v.LanesAsked}}<input type="hidden" name="lanes" value="{{.}}">{{end}}
+  {{if $v.Selecting}}<input type="hidden" name="select" value="1">{{end}}
   <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
@@ -300,7 +308,7 @@
 </div>
 {{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
-{{if and (eq $v.View "list") $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
+{{if and $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
 
 {{template "live-screen" $v.Live}}
 {{end}}
@@ -395,6 +403,7 @@
       {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
       {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
       <article id="t-{{.Task.Ref}}" class="card{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+        {{if $v.Bulk.Any}}{{template "rowpick" .Task.Ref}}{{end}}
         {{/* The fields under View apply to a card as they do to a row, so
              hiding tags or the star once hides them in every drawing. */}}
         {{$showPrio := and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}
@@ -497,6 +506,7 @@
            assets/lanes.js puts focus back on the pressed control, and shows a
            refusal in the card instead of letting the error page replace it. */}}
       {{$card := printf "#t-%s" .Task.Ref}}
+      {{if $v.Bulk.Any}}{{template "rowpick" .Task.Ref}}{{end}}
       {{if .Tickable}}
       <form method="post" action="/tasks/{{.Task.Ref}}/transition" class="tick"
             hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
@@ -899,7 +909,7 @@
          attribute, so ticking rows and pressing an action posts the
          selection with scripting off too. assets/select.js adds the range,
          the keys and the count. The trash has no bar. */}}
-    {{if and (eq $v.View "list") $v.Bulk.Any (not .DeletedAt)}}<input type="checkbox" class="rowpick" name="ref" value="{{.Ref}}" form="bulkbar" aria-label="{{t "Select %s" (ref .Ref)}}" data-pick>{{end}}
+    {{if and $v.Bulk.Any (not .DeletedAt)}}{{template "rowpick" .Ref}}{{end}}
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
@@ -1221,6 +1231,11 @@
      only the one the action needs is read. Drawn with scripting off and
      usable then; assets/select.js hides it until a row is selected and
      counts the selection. */}}
+{{/* rowpick is a row's or a card's selection box. It belongs to the bar's
+     form through its form attribute, so ticking and pressing an action
+     posts the selection with scripting off too. Shown only in select mode. */}}
+{{define "rowpick"}}<input type="checkbox" class="rowpick" name="ref" value="{{.}}" form="bulkbar" aria-label="{{t "Select %s" (ref .)}}" data-pick>{{end}}
+
 {{define "bulk-bar"}}{{$v := .Data}}{{$b := $v.Bulk}}
 <form id="bulkbar" class="bulkbar" method="post" action="/tasks/bulk" data-bulkbar aria-label="{{t "Selected tasks"}}">
   {{template "csrf" .CSRF}}
@@ -1285,8 +1300,8 @@
     </div>
     {{end}}
     {{if $b.Delete}}<button type="submit" class="secondary" formaction="/tasks/bulk?action=delete">{{t "Delete"}}</button>{{end}}
-    <button type="reset" class="secondary" data-bulk-clear>{{t "Clear"}}</button>
-    {{template "tip" (tip "Bulk actions" "Tick rows, or press x on a focused row; shift-click ticks a range, Ctrl+A ticks every row while the list has focus and Escape clears. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
+    <a class="btn secondary" href="{{$v.SelectHref}}" data-select-exit data-no-press>{{t "Cancel"}}</a>
+    {{template "tip" (tip "Bulk actions" "Select turns on the boxes; so do x on a focused row, Shift- or Ctrl-click on a row's empty space, and a long press on a touch screen. Shift-click ticks a range, Shift+arrows extend it, Ctrl+A ticks every row, and Escape or Cancel leaves. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
   </div>
 </form>
 {{end}}

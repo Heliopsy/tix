@@ -27,7 +27,7 @@ every row while focus is in the list, and a live refresh SHALL wait while any ro
 
 In select mode the task screen SHALL show a sticky bar naming how many tasks are selected, announced
 as a status, and offering: move to a status, priority, add tag, remove tag, assignee, star, unstar,
-copy to a project, delete and Done. Each action SHALL be one request for the whole selection, after
+copy to a project, delete and Cancel. Each action SHALL be one request for the whole selection, after
 which the screen SHALL show a toast naming how many tasks changed and each refused task with its
 reason.
 
@@ -64,7 +64,7 @@ square selection checkbox SHALL be shown beside it.
 The task screen's toolbar SHALL carry a Select toggle on the list, the board and the lanes whenever
 there is a bulk action to offer, with `aria-pressed` saying whether select mode is on. Without
 scripting it SHALL be a link to the same address with `select=1` added, or removed when on. The bar's
-Done SHALL be the same link as the toggle when on.
+Cancel SHALL be the same link as the toggle when on.
 
 #### Scenario: Turning it on without scripting
 
@@ -103,11 +103,11 @@ SHALL keep its own meaning.
 ### Requirement: Leaving select mode
 
 Select mode SHALL end, clearing the selection, on Escape when no menu, dialog or field holds it, on
-the bar's Done, on the toggle pressed again, and when the reader unselects the last selected task.
+the bar's Cancel, on the toggle pressed again, and when the reader unselects the last selected task.
 
-#### Scenario: Done leaves
+#### Scenario: Cancel leaves
 
-- **WHEN** select mode is on and the reader presses Done in the bar
+- **WHEN** select mode is on and the reader presses Cancel in the bar
 - **THEN** no row is selected and no box or bar is shown
 
 #### Scenario: Last one unselected

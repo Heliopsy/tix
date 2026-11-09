@@ -15,7 +15,7 @@ Selecting is the rarer job, so it should be something you ask for, not something
   a row's empty area, and a long press (about 500ms, without scrolling) on a touch screen.
 - In select mode every row, board card and lane card shows a square checkbox labelled "Select
   KEY-12", the bulk bar shows with "N selected", and the done circles stay but are dimmed.
-- Esc, Done in the bulk bar, or unselecting the last selected task leaves the mode.
+- Esc, Cancel in the bulk bar, or unselecting the last selected task leaves the mode.
 - Keys: `x` toggles the focused row, Shift+Up/Down extend the selection, `d` marks the focused task
   done. `e` was asked for, but it is already Edit title in the default and emacs schemes and mirrors
   the terminal's edit key, so done takes `d`. The `?` overlay lists all three.

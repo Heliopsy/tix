@@ -1035,14 +1035,30 @@ link as `web_url` while `server.public_url` is set.
 
 ## Acting on many tasks
 
-Every row of the list starts with a checkbox. Tick one and a bar appears under the list, saying how many
-are selected and offering **Move**, **Priority**, **Tag** (add or remove), **Assignee** (a handle, or empty
-to unassign), **Star**, **Unstar**, **Copy to…**, **Delete** and **Clear**. Shift-click ticks every row
-between the last box you clicked and this one; `x` toggles the focused row; Ctrl+A (Cmd+A on a Mac, `*` in
-the Emacs scheme, where Ctrl+A goes to the top) ticks every row while focus is in the list, and leaves a
-text field's own select all alone; Escape clears the selection before it does anything else, and an open
-menu or the task dialog keeps its own Escape. While anything is ticked the live refresh waits, the same
-rule that keeps it from drawing over a half typed comment.
+A row shows one round control, the tick that marks it done. Selecting rows for a bulk action is a mode
+you turn on, so the square selection boxes never sit beside the circle on every row and get pressed by
+mistake. **Select** in the screen's toolbar turns it on, on the list, the board and the lanes alike; so
+does `x` on a focused row (which also selects it), Shift-click or Ctrl/Cmd-click on a row's or card's
+empty space, and on a touch screen a long press of half a second that does not scroll. A press on a
+title, a button or a field keeps its own meaning, so Ctrl-click on a title still opens a tab.
+
+In select mode every row, board card and lane card shows a square box labelled "Select INFRA-12", the
+tick stays but is dimmed so the box reads as the control, and a bar appears under the listing saying
+how many are selected (announced to a screen reader) and offering **Move**, **Priority**, **Tag** (add
+or remove), **Assignee** (a handle, or empty to unassign), **Star**, **Unstar**, **Copy to…**,
+**Delete** and **Cancel**. Shift-click ticks every row between the last box you clicked and this one;
+`x` toggles the focused row; Shift+Up and Shift+Down extend the selection from the focused row and
+move focus with it; Ctrl+A (Cmd+A on a Mac, `*` in the Emacs scheme, where Ctrl+A goes to the top)
+ticks every row while focus is in the list, and leaves a text field's own select all alone. `d` marks
+the focused task done in any mode (`e` stays Edit title, as in the terminal). Escape, Cancel, Select
+pressed again, or unticking the last selected task leaves the mode and clears the selection; an open
+menu or the task dialog keeps its own Escape. While anything is ticked the live refresh waits, the
+same rule that keeps it from drawing over a half typed comment.
+
+The mode is the toggle's `aria-pressed`, and the boxes and the bar are always in the page, shown by
+the stylesheet only while it is pressed. The toggle sits outside everything a live refresh, a row's
+own swap or the in-place filter redraws, so none of them drops the mode, and a row redrawn while
+ticked (marked done in select mode, say) comes back ticked. Leaving the screen leaves the mode.
 
 Each action is one request for the whole selection. The server changes each task on its own, with its own
 history entry and event, so a task that cannot take the change does not hold back the rest: the toast
@@ -1051,10 +1067,12 @@ reach. Move offers every state the projects on the page run and walks each task 
 of its own workflow. A copy is linked to its original. Delete is a soft delete, and the toast's one
 **Undo** restores every task it removed in one request.
 
-The checkboxes belong to the bar's form, so all of it works with scripting off: the bar is then always
-drawn under the list, and Clear is the form's own reset. The board and the lanes have no checkboxes; their
-cards are drag targets and each carries its own menu. `tix task bulk` and `POST /api/v1/tasks/bulk` are
-the same operation.
+With scripting off, Select is a link to the same address with `select=1`, which draws the screen in
+select mode, and Cancel is the link back without it. The boxes belong to the bar's form, so ticking
+rows and pressing an action posts the selection, and the action returns to the address it came from,
+still in select mode. `select` is kept like the rest of the screen's state: by the view switch, the
+Group lanes by control, the pager, the filter form, Clear and Show all. `tix task bulk` and
+`POST /api/v1/tasks/bulk` are the same operation.
 
 ## Exporting the list
 

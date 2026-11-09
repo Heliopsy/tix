@@ -103,7 +103,10 @@ var shortcutActions = []shortcutAction{
 	{"comment", "Focus the comment field"},
 	{"transition", "Open the move menu"},
 	{"select", "Select or unselect the focused task"},
+	{"extendUp", "Extend the selection up"},
+	{"extendDown", "Extend the selection down"},
 	{"selectAll", "Select every task in the list"},
+	{"complete", "Mark the focused task done"},
 	{"filter", "Focus the filter field"},
 	{"palette", "Open the command palette"},
 	{"help", "Show this help"},
@@ -130,10 +133,14 @@ var baseKeyBindings = map[string][]string{
 	"comment":    {"m"},
 	"transition": {"t"},
 	"select":     {"x"},
+	"extendUp":   {"shift+ArrowUp"},
+	"extendDown": {"shift+ArrowDown"},
 	"selectAll":  {"ctrl+a", "meta+a"},
-	"filter":     {"/"},
-	"palette":    {"ctrl+k", "meta+k"},
-	"help":       {"?"},
+	// e is editTitle here and the terminal's edit key, so done takes d.
+	"complete": {"d"},
+	"filter":   {"/"},
+	"palette":  {"ctrl+k", "meta+k"},
+	"help":     {"?"},
 }
 
 // keySchemeOverrides are the actions each scheme rebinds away from the base,

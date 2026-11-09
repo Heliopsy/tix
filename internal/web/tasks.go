@@ -243,6 +243,11 @@ type tasksView struct {
 	// have done to it in one request.
 	Bulk bulkBar
 
+	// Selecting is set when the address turns select mode on, and SelectHref
+	// is the Select toggle's link, which turns it the other way.
+	Selecting  bool
+	SelectHref string
+
 	// Quick is what the one-line box shows under itself: what its line will
 	// set, and why a refused line was refused. QuickLine is that line, kept
 	// in the box after a refusal.
@@ -546,11 +551,12 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		named = h.namedAssignees(r, filter)
 	}
 	names := h.resolveActors(r, append(rowActors(page.Tasks), named...)...)
-	self := screenHref(r, route)
+	selfRoute := route
 	group := listGroupOf(r)
 	if mine {
-		self, group = screenHref(r, RouteMine), ListGroupDue
+		selfRoute, group = RouteMine, ListGroupDue
 	}
+	self := screenHref(r, selfRoute)
 	var listGroups []listGroup
 	var arrange arrangement
 	switch {
@@ -570,7 +576,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	if scope != nil {
 		live.Href = fragmentHref(r, scope.liveRoute())
 	}
-	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam).
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam, SelectParam).
 		counted(position{Number: page.Number, Total: page.Total, Capped: page.TotalCapped}, filter.Page.Limit)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
@@ -624,6 +630,8 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		Live:          live,
 		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
 		Bulk:          bulkBarUnlessTrash(r, page.Tasks, moves, trash),
+		Selecting:     selecting(r),
+		SelectHref:    selectToggleHref(r, selfRoute),
 		ExportHref:    csvHref(asked),
 	}, nil
 }
@@ -1070,7 +1078,7 @@ func (v tasksView) Filtering() bool {
 // sort is not a filter, and so does the view the address named.
 func clearHref(r *http.Request, route string) string {
 	query := url.Values{}
-	for _, k := range []string{"sort", ViewParam, LanesParam} {
+	for _, k := range []string{"sort", ViewParam, LanesParam, SelectParam} {
 		if v := r.URL.Query().Get(k); v != "" {
 			query.Set(k, v)
 		}

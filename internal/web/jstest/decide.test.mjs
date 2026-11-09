@@ -33,6 +33,9 @@ test("comboOf names a key the way the binding table does", () => {
     // A modifier on a named key is not a chord any shipped scheme uses.
     [{ key: "ArrowDown", ctrlKey: true }, "ArrowDown"],
     [{ key: "j", shiftKey: true }, "j"],
+    // Shift on a named key is: Shift+arrows extend the selection.
+    [{ key: "ArrowDown", shiftKey: true }, "shift+ArrowDown"],
+    [{ key: "ArrowUp", shiftKey: true }, "shift+ArrowUp"],
     [{}, ""],
   ];
   for (const [event, want] of cases) {

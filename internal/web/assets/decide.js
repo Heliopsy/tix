@@ -15,8 +15,8 @@
 
   // comboOf renders a keydown event the same way the binding table names a
   // key, so a lookup is a single map access. Ctrl and a Mac's command key
-  // are represented: none of the shipped schemes use alt or a bare shift
-  // chord. Command used to read as the bare key, so command+g jumped to the
+  // are represented, and Shift on a named key (Shift+ArrowDown extends the
+  // selection); none of the shipped schemes use alt. Command used to read as the bare key, so command+g jumped to the
   // top of a list on a Mac instead of doing what the browser does with it.
   tix.comboOf = function (event) {
     var key = event && event.key;
@@ -28,6 +28,10 @@
     }
     if (event.metaKey && key.length === 1) {
       return "meta+" + key.toLowerCase();
+    }
+    // A letter carries its shift in its case; a named key says so.
+    if (event.shiftKey && key.length > 1) {
+      return "shift+" + key;
     }
     return key;
   };

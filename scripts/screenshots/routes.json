@@ -79,7 +79,10 @@
         { "name": "lanes-project", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infra,web" },
         { "name": "lanes-priority", "cookies": { "tix_task_view": "lanes", "tix_lanes_group": "priority" } },
         { "name": "lanes-long-names", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infrastructureplatform,mrezhi,infra,web,qa" },
-        { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
+        { "name": "select-mode", "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
+        { "name": "selected", "query": "?select=1", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
+        { "name": "select-mode-board", "cookies": { "tix_task_view": "board" }, "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
+        { "name": "select-mode-lanes", "cookies": { "tix_task_view": "lanes" }, "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
         {
           "name": "task-dialog",
           "cookies": { "tix_task_open": "dialog" },
