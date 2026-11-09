@@ -325,3 +325,42 @@ func TestLanesAreArrangedPerGrouping(t *testing.T) {
 		t.Errorf("the api lane is drawn with nothing in it: %v", got)
 	}
 }
+
+// A lane heading's name is cut, never split: whatever the grouping, the
+// name sits in .lane-name, and that rule clips a word too long for the lane
+// with an ellipsis rather than letting it wrap mid-word, which is what the
+// screenshot check reports as a word split.
+func TestALaneNameIsCutNeverSplit(t *testing.T) {
+	t.Parallel()
+	s := seedLanes(t)
+	for _, by := range core.LaneGroupings {
+		page := s.b.page("/tasks?view=lanes&lanes=" + by)
+		for _, key := range laneKeys(page) {
+			block := laneBlock(t, page, key)
+			head := block[:strings.Index(block, "</h2>")]
+			if !regexp.MustCompile(`class="lane-name"[^>]*title="[^"]+"`).MatchString(head) {
+				t.Errorf("lanes by %s: the %s heading has no .lane-name with a title:\n%s", by, key, head)
+			}
+		}
+	}
+	resp := s.b.get("/assets/app.css")
+	sheet := body(t, resp)
+	var rule string
+	for _, r := range cssRules(sheet) {
+		if r.media == "" && strings.TrimSpace(r.selector) == ".lane > .grouphead > h2 > .lane-name" {
+			rule = r.body
+		}
+	}
+	if rule == "" {
+		t.Fatal("no rule for the lane name")
+	}
+	for _, want := range [][2]string{{"overflow", "hidden"}, {"text-overflow", "ellipsis"}, {"min-width", "0"},
+		{"overflow-wrap", "normal"}, {"word-break", "normal"}, {"-webkit-line-clamp", "1"}} {
+		if !declared(rule, want[0], want[1]) {
+			t.Errorf("the lane name does not declare %s: %s", want[0], want[1])
+		}
+	}
+	if strings.Contains(rule, "anywhere") || strings.Contains(rule, "break-all") {
+		t.Errorf("the lane name may still break inside a word: %s", rule)
+	}
+}

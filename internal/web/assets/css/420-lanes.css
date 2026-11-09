@@ -46,7 +46,11 @@
    beside a count that is longer in Bulgarian ("отворени: 0") was squeezed
    until it broke mid-word. The name takes what is left of the line and is
    clamped to that one line, its full text in the title; the count, the icon and
-   the star do not shrink, so each stays one unit on the line. */
+   the star do not shrink, so each stays one unit on the line. A word longer
+   than the line is clipped with an ellipsis, never broken: overflow-wrap and
+   word-break stay normal. The clamp is the stylesheet's sanctioned one-line
+   form (.card-meta > .tagref does the same); white-space: nowrap is kept for
+   control labels (TestStylesheetEmitsNoHorizontalScrollLayout). */
 .lane > .grouphead > h2 { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow-wrap: normal; }
 .lane > .grouphead > h2 > * { flex: 0 0 auto; }
 .lane > .grouphead > h2 > .lane-name {
@@ -57,7 +61,9 @@
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-overflow: ellipsis;
 }
 .lane > .grouphead a { color: var(--ink); text-decoration: none; }
 .lane > .grouphead a:hover { color: var(--accent); text-decoration: underline; }
