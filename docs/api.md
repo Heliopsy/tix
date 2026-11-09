@@ -435,6 +435,22 @@ curl -H "Authorization: Bearer $TIX_TOKEN" \
 ```
 
 Pass `next_cursor` back as `cursor` for the following page. An empty or absent `next_cursor` means the last page.
+
+The task listing also says how many tasks its filter selects:
+
+```json
+{"items":[ ... ],"next_cursor":"...","total":437}
+```
+
+`total` is counted with the same filter, tenant and token scope as the page. The count stops at 10,000; past
+that `total` is 10000 and `total_capped` is `true`, so read it as a floor. `page=N` (from 1) reads page N of
+`limit` tasks instead of starting from a cursor, and the response carries the `page` it served; a number past
+the end serves the last page. `page` and `cursor` together are `400`. A page number is found by a keyset seek
+over the same ordering, not by `OFFSET`, and its `next_cursor` continues from there like any other. A
+numbered page is a position rather than a snapshot: a task created ahead of it shifts its rows. Walk a
+listing with the cursor; use `page` to land where a person asked. Other listings carry neither field, and
+an ndjson stream carries no envelope and so no total.
+
 `due_before` and `due_after` narrow a task listing to a deadline window. Both take `YYYY-MM-DD`, `YYYY-MM-DD
 HH:MM` or RFC 3339, both ends are inclusive, and both drop a task carrying no deadline. There is no
 `overdue` parameter: a caller holds a clock, so "overdue" is `due_before` set to now. The filter expression's
@@ -446,7 +462,8 @@ shared priority, soonest deadline leading. A task with no due date sorts after e
 priority, as if its deadline were the most distant. An unparseable cursor or limit is `400` with the standard
 envelope.
 
-The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, and `--all` to follow cursors until exhausted.
+The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, `--all` to follow cursors until exhausted, and
+`--page N` on `tix task ls`, which reports `page N of M, T tasks` on standard error.
 
 ### Checklists
 

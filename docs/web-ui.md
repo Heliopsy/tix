@@ -350,8 +350,9 @@ them all.
 **The view is in the address.** Each position of the switch is a link to the same screen carrying
 the current query with its own `view` (`?q=tag:ops&sort=title&view=board`), so switching never resets
 the filter, the search text, the deadline window, the sort or the project, and works without
-scripting. The cursor and a flash are left behind, since a cursor addresses a place in one drawing's walk
-and the list narrows to open work where the board does not. A parameter the target view does not use
+scripting. The page number stays, so the reader keeps their page; the cursor, its trail and a flash are
+left behind, since a cursor addresses a place in one drawing's walk and the list narrows to open work
+where the board does not. A parameter the target view does not use
 stays in the link, so switching back restores it. `view` in the address wins over the remembered choice;
 following the switch on the task list also remembers it in `tix_task_view`, so the next visit to
 `/tasks` opens the same way. The filter form carries the view the address named, so Apply keeps the
@@ -764,36 +765,56 @@ of choices it always was.
 
 ## Walking a listing
 
-Every listing paged by a cursor renders the same control: which page the reader is on, how many rows
-it carries, and a step in each direction. There were six controls before, five of them a bare
-paragraph holding a link and one a row of actions, with two different words for the same direction
-and no styling on any of them. None said where the reader was and none offered a way back. A listing
-that fits on one page renders no control at all, rather than a pair of steps that lead nowhere.
+Every paged listing renders the same control. It says where the reader is and how much there is,
+"Page 4 of 18 · 437 tasks" in the listing's own noun, and offers First, Previous, Next and Last, the
+numbered pages around this one with a gap for each run it leaves out (`1 … 3 4 5 … 18`), and a small
+**Go to page** field. The field is a plain GET form whose hidden inputs carry the listing's own
+parameters, so it works without scripting and keeps the filter; a number past the end opens the last
+page. A listing that fits on one page renders no control at all, rather than a set of steps that lead
+nowhere. There were six controls before the shared one, five of them a bare paragraph holding a link,
+and none said where the reader was.
 
-Previous takes more work, because keyset pagination only goes forward: a cursor names where the
-next page starts and carries nothing about where the current one did, so there is no backwards cursor
-to ask the store for. The page remembers, in its own URL, the cursors it came through, and Previous
-pops the last one off:
+**The page is in the address.** Every link the control writes is `?page=N` and the listing's own
+parameters, with no cursor, so a page can be linked, reloaded and bookmarked, and page one is the bare
+listing. On the task screen the view switch and the Group lanes by control keep `page`, so a reader on
+page 3 of the list opens the board at page 3 (the board may hold different tasks, since the list
+narrows to open work, and a page past the board's end opens its last page). The filter form submits no
+page, and Clear, the links that narrow a refused board to some projects, and Show all drop it, so any
+change to the selection opens on page one.
+
+**How the count and the jump work.** Listings page by keyset and never by `OFFSET`, and that is
+unchanged. A task listing is counted by the service with the same filter, tenant scope and access as
+the page (a capped `COUNT` over the same predicates, so PostgreSQL's row-level security applies to it
+as well), and page N is turned into a cursor by a seek: the same ordering, star rank included, read
+`(N-1) × size` rows deep, and the last of them becomes the cursor the page starts from. The page itself
+is then read exactly as Next would have read it. The other paged listings (Activity, the directory,
+users, tenants, inbox, deliveries, sync runs, projects, the account log) have no count of their own, so
+the browser counts them by walking their own listing in 500-row stretches.
+
+**Caps.** The task count stops at 10,000 and the walked count at 1,000. Past the cap the control
+writes the page count and the total as floors, "Page 3 of 400+ · 10000+ tasks", leaves out Last, and
+Next keeps working beyond it with a cursor link, the way the control worked before it counted.
+
+**Live updates move rows, not the reader.** A live refresh fetches the screen's own address, so a
+reader on page 4 is redrawn on page 4 with the new total. A numbered page is a position rather than a
+snapshot: a task created ahead of page 4 shifts its rows by one, as on any numbered pager, and a page
+that no longer exists after deletions draws the last one. That is the trade-off for a page that can be
+named; a cursor still addresses an exact place.
+
+**Cursor links still work.** A link carrying `cursor` opens the page that cursor names, as before, and
+the API's cursor is unchanged. Such a link also carries a trail of the cursors it came through, which is
+how Previous worked before pages were counted:
 
 ```text
 /tasks?cursor=C3&trail=C0.C1.C2
 ```
 
-Nothing about that reaches the domain, the store or the API, and it puts the whole position in the
-URL, so a page deep in a listing can be linked, reloaded and bookmarked.
-
 The trail arrives from the address bar, so it is whatever anybody cares to type. Every entry has to
 decode as a cursor this build issues, and the whole value has to be within forty entries and 4096
 bytes. A value failing any of those is discarded entirely rather than repaired: half a trail would
 send Previous to a page the reader was never on, which is worse than sending them back to the first
-page, and an unbounded one would lengthen with every page walked. Walking past the bound keeps
-working and only shortens the memory, dropping the oldest entries, since Previous is walked from the
-newest end.
-
-Changing the filter or the sort discards the trail. Its cursors address positions in one ordered
-result set, and under a different filter, or a different ordering, they name rows that were never on
-the reader's screen. The filter form submits neither the cursor nor the trail, so submitting one is a
-return to the first page without anything having to clear it.
+page. Changing the filter or the sort discards both the cursor and the trail, since they name
+positions in one ordered result set.
 
 ## Keys in upper case
 
