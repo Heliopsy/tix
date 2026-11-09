@@ -14943,6 +14943,22 @@ components:
           description: TenantID is the tenant the membership belongs to.
           type: string
       type: object
+    NumberingLag:
+      description: NumberingLag is one project whose task number counter is behind
+        its tasks.
+      properties:
+        counter:
+          description: Counter is the last number the project's counter issued.
+          format: int64
+          type: integer
+        highest:
+          description: Highest is the highest number a task of the project holds.
+          format: int64
+          type: integer
+        project:
+          description: Project is the project's key.
+          type: string
+      type: object
     Project:
       description: Project groups tasks and is assigned exactly one workflow.
       properties:
@@ -17710,6 +17726,13 @@ components:
             sweeper has not yet cleared. They read as unclaimed already; the figure
             says how much the sweeper is behind.
           type: integer
+        numbering_behind:
+          description: NumberingBehind lists the projects whose task number counter
+            reads below the highest number one of their tasks holds, trashed ones
+            included. Empty on a sound store.
+          items:
+            $ref: '#/components/schemas/NumberingLag'
+          type: array
         projects:
           description: Projects is how many projects the tenant holds.
           type: integer
