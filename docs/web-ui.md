@@ -144,8 +144,9 @@ this project, Unstar). It is a plain form, so it works without scripting; with s
 boosted and the answer swaps in place, the sidebar with it. The projects you starred come first, under
 Starred, and the rest under Other projects, so a project is listed once; later pages list only the rest.
 All projects and Starred only above the list switch between the two, and Starred only is `?starred=1` in
-the address. The row's tools open its tasks in the task list, its fields and its settings. New project in the header asks for a key, a name, a workflow and a
-description; colour and icon are set afterwards in the project's settings. The key starts every task
+the address. The row's tools open its tasks in the task list, its fields and its settings. New project in
+the header asks for a key, a name, a workflow and a description; colour and icon are set afterwards in the
+project's settings. The key starts every task
 reference in the project, as in `INFRA-5`.
 
 The name has first claim on a row: when the row's links do not fit beside it, in the two-column grid
