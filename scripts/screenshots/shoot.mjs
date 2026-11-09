@@ -873,6 +873,16 @@ function pageFindings(shown, name, label) {
     if ([...spilled.keys()].some((o) => o !== el && el.contains(o))) continue;
     out.push({ el, kind: `content spills ${px}px out of its box` });
   }
+  // The task screens' filter toolbar is one row on a wide window, never more
+  // than an eighth of its height, and at most two rows on a phone: it used to
+  // take a third of the screen above the first task.
+  const bar = document.querySelector("[data-filter-toolbar]");
+  if (bar && shown(bar)) {
+    const h = bar.getBoundingClientRect().height;
+    const ctl = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--control-h")) || 36;
+    if (vw >= 900 && h > window.innerHeight / 8) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, over an eighth of the window` });
+    if (vw < 900 && h > 2 * ctl + 8 + SLACK) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, more than two rows` });
+  }
   for (const el of document.querySelectorAll("time")) {
     const dt = el.getAttribute("datetime");
     if (!dt) out.push({ el, kind: "time without datetime" });
@@ -1159,6 +1169,8 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
         }
         const base = join(runDir, dirName, pg.slug + (st.name ? `--${st.name}` : ""));
         await shoot(page, `${base}.png`, layout(pg, st.name));
+        const bar = await page.evaluate(toolbarHeights);
+        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, window ${bar.vh}px`);
         record(pg, st.name, "", `${base}.png`);
         if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout);
         if (!pg.public && !st.name) {
@@ -1231,6 +1243,23 @@ async function capturePopups(page, args, pg, st, base, seen, record, stats, dirN
     }
   }
   await page.evaluate(resetPopups);
+}
+
+// The filter toolbar's own height, its chips row's, and the distance from the
+// page heading to the first row, which is what the toolbar was measured by.
+function toolbarHeights() {
+  const bar = document.querySelector("[data-filter-toolbar]");
+  if (!bar) return null;
+  const chips = document.getElementById("tasks-chips");
+  const list = document.getElementById("tasks-listing");
+  const head = document.querySelector(".pagehead");
+  const h = (el) => Math.round(el ? el.getBoundingClientRect().height : 0);
+  return {
+    bar: h(bar),
+    chips: h(chips),
+    above: list && head ? Math.round(list.getBoundingClientRect().top - head.getBoundingClientRect().bottom) : 0,
+    vh: window.innerHeight,
+  };
 }
 
 // ---------------------------------------------------------------- report
@@ -1353,7 +1382,7 @@ async function main() {
   out(`capturing ${plans.pages.length} pages into ${runDir}`);
 
   const themes = THEME_SETS[args.theme];
-  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], known: [], layoutSeen: new Set() };
+  const stats = { pages: new Set(), images: 0, popups: 0, capped: 0, problems: [], layout: [], known: [], layoutSeen: new Set(), toolbar: [] };
   const combos = themes.flatMap((theme) => args.viewports.map((vp) => ({ theme, vp })));
   const columns = combos.map(({ theme, vp }) => columnOf(vp, theme));
   const results = new Array(combos.length);
@@ -1394,6 +1423,10 @@ async function main() {
     out(`problems:`);
     for (const p of stats.problems) out(`  ${p}`);
     if (args.strict && stats.problems.some((p) => / HTTP \d{3}$/.test(p))) process.exitCode = 1;
+  }
+  if (stats.toolbar.length) {
+    out(`filter toolbar:`);
+    for (const l of stats.toolbar) out(`  ${l}`);
   }
   if (stats.known.length) out(`known: ${stats.known.length} findings listed in known.json, not failing the run`);
   if (stale.length) {

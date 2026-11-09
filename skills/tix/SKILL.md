@@ -641,7 +641,8 @@ actor sees, so an agent has no reason to touch it unless asked to.
 `creator:` or `claimed-by:` is the caller, so `tix task ls --mine` (the same
 as `--filter assignee:me`) lists what is assigned to you and
 `--filter claimed-by:me` what you hold. In the browser the same list is My
-work, grouped by deadline.
+work, grouped by deadline. `@HANDLE` is short for `assignee:HANDLE`, so
+`--filter '@lena tag:ops'` is lena's ops work.
 
 **Saved filters are named filters a person keeps.** `tix filter save NAME
 --filter EXPR [--view list|board|lanes] [--sort FIELD] [--shared]` keeps one,
