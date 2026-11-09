@@ -35,7 +35,7 @@ func TestABrowserAskingForBulgarianGetsBulgarian(t *testing.T) {
 	if !strings.Contains(table, `"Collapse sidebar":"Свий страничната лента"`) {
 		t.Errorf("script table = %s", table)
 	}
-	tip := between(t, page, `<details class="field-info tip">`, "</details>")
+	tip := between(t, page, `<nav class="viewswitch viewlinks"`, "</nav>")
 	if !strings.Contains(tip, `aria-label="За „Изгледи“"`) || !strings.Contains(tip, "Едни и същи задачи") {
 		t.Errorf("view tip is not in Bulgarian:\n%s", tip)
 	}

@@ -248,6 +248,19 @@ type tasksView struct {
 	Selecting  bool
 	SelectHref string
 
+	// Chips are the terms the screen answers, each with the link that drops
+	// it, and Pickers what the Filters popover draws. Order is the sort direction the address names, and
+	// PageSize the page size it names, "" for the default.
+	Chips    []filterChip
+	Pickers  filterPickers
+	Order    string
+	PageSize string
+	AllAsked bool
+	// PageSizes are the sizes the More menu offers, and DefaultSize the
+	// one an address that names none gets.
+	PageSizes   []int
+	DefaultSize int
+
 	// Quick is what the one-line box shows under itself: what its line will
 	// set, and why a refused line was refused. QuickLine is that line, kept
 	// in the box after a refusal.
@@ -346,6 +359,9 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 
 // showTasks renders the filterable task list.
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
+	if redirectPicks(w, r, RouteTasks) {
+		return nil
+	}
 	data, err := h.buildTasksView(r)
 	if err != nil {
 		return err
@@ -440,7 +456,7 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 	filter.Page = core.Page{
 		Cursor:    query.Get(CursorParam),
 		Sort:      query.Get("sort"),
-		Direction: core.Ascending,
+		Direction: sortDirection(query),
 		Limit:     h.rowsPerPage(r),
 	}
 	if filter.Page.Sort == "" {
@@ -576,13 +592,25 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	if scope != nil {
 		live.Href = fragmentHref(r, scope.liveRoute())
 	}
-	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam, SelectParam).
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", OrderParam, DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam, SelectParam).
 		counted(position{Number: page.Number, Total: page.Total, Capped: page.TotalCapped}, filter.Page.Limit)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
 	}
+	pickers := newFilterPickers(query.Get("q"), projects, moves)
+	var chips []filterChip
+	if !mine {
+		chips = filterChips(r, route, scope != nil)
+	}
 	return tasksView{
+		Chips:         chips,
+		Pickers:       pickers,
+		Order:         query.Get(OrderParam),
+		PageSize:      r.URL.Query().Get(SizeParam),
+		AllAsked:      r.URL.Query().Get(AllParam) != "",
+		PageSizes:     pageSizes,
+		DefaultSize:   h.pageSize,
 		Mine:          mine,
 		Held:          held,
 		HeldHref:      heldHref(r, !held),
@@ -1078,7 +1106,7 @@ func (v tasksView) Filtering() bool {
 // sort is not a filter, and so does the view the address named.
 func clearHref(r *http.Request, route string) string {
 	query := url.Values{}
-	for _, k := range []string{"sort", ViewParam, LanesParam, SelectParam} {
+	for _, k := range []string{"sort", OrderParam, SizeParam, ViewParam, LanesParam, SelectParam} {
 		if v := r.URL.Query().Get(k); v != "" {
 			query.Set(k, v)
 		}

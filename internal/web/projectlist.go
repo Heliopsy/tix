@@ -70,6 +70,9 @@ func (h *handler) showProjectTasks(w http.ResponseWriter, r *http.Request) error
 	if redirectOldKey(w, r, r.PathValue("key"), &scope.Project) {
 		return nil
 	}
+	if redirectPicks(w, r, scope.route()) {
+		return nil
+	}
 	data, err := h.buildTaskScreen(r, false, scope)
 	if err != nil {
 		return err

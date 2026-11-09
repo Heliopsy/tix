@@ -168,6 +168,7 @@ func newTip(topic, text string, doc ...string) tipView {
 var jsMessages = []string{
 	"Mark unread",
 	"People to mention",
+	"Filter suggestions",
 	"Copied",
 	"Copy failed",
 	"%d new, show",

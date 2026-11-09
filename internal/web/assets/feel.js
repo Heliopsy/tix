@@ -454,7 +454,16 @@
   var filterLast = null;
   var filterRequest = 0;
   function runFilter(form) {
-    var query = new global.URLSearchParams(new global.FormData(form)).toString();
+    var pairs = [];
+    new global.FormData(form).forEach(function (value, name) {
+      if (typeof value === "string") {
+        pairs.push([name, value]);
+      }
+    });
+    if (tix.filterParams) {
+      pairs = tix.filterParams(pairs);
+    }
+    var query = new global.URLSearchParams(pairs).toString();
     if (query === filterLast) {
       return;
     }
@@ -476,7 +485,7 @@
         // The view switch is redrawn with them, so each of its links carries
         // the filter just typed: switching after an in-place filter kept the
         // query the page was first drawn under and dropped the new one.
-        ["tasks-summary", "tasks-listing", "tasks-views", "tasks-lanesby"].forEach(function (id) {
+        ["tasks-summary", "tasks-listing", "tasks-views", "tasks-lanesby", "tasks-chips", "tasks-filtercount"].forEach(function (id) {
           var fresh = doc.getElementById(id);
           var here = document.getElementById(id);
           if (fresh && here) {
@@ -527,7 +536,7 @@
   });
   document.addEventListener("change", function (event) {
     var form = filterForm(event.target);
-    if (form && event.target.tagName === "SELECT") {
+    if (form && event.target.tagName === "SELECT" && !event.target.closest("[popover]")) {
       runFilter(form);
     }
   });

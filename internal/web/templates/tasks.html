@@ -36,89 +36,7 @@
          the reader holds a claim on, as well as the ones assigned to them. */}}
     {{if $v.Mine}}
     <a class="secondary heldswitch" href="{{$v.HeldHref}}" role="switch" aria-checked="{{if $v.Held}}true{{else}}false{{end}}">{{t "Include tasks I hold"}}</a>{{template "tip" (tip "My work" "Tasks assigned to you that are still open, under a heading per deadline: overdue, today, this week, later and no date. Include tasks I hold adds the ones you have claimed. The same list is tix task ls --mine, or assignee:me in any filter." "docs/web-ui.md")}}
-    {{else if not $v.Trash}}
-    {{/* The trash is always the list: a board's columns are moves a deleted
-         card cannot make, so the switch would offer a drawing it ignores. */}}
-    {{template "taskview-links" $v}}
-    {{template "lanesby" $v}}
     {{end}}
-    {{/* Select mode. The boxes and the bar are drawn always and shown only
-         while this is pressed (470-bulk-select.css), so every redraw of the
-         rows keeps the mode: the toggle sits outside every swapped region.
-         A link without scripting; select.js presses it in place. */}}
-    {{if and $v.Bulk.Any $v.Tasks}}
-    <a class="btn secondary selecttoggle" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press>{{template "icon" "checklist"}}<span class="btn-label">{{t "Select"}}</span></a>
-    {{end}}
-    {{/* A menu, like the columns control on every other listing and like the
-         status and priority menus on a row. It was a disclosure that opened
-         downwards and pushed the whole task list down by its own height, so
-         choosing what the list shows moved the list. */}}
-    {{/* Filter opens the same form that sits inline on a wide screen. On a
-         phone that form was two rows and 80px of the 521px standing between
-         the heading and the first task, with its second row less than half
-         full. It is one button there and unchanged everywhere else. */}}
-    <button type="button" class="secondary filterbtn" popovertarget="filterpop">
-      <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-      {{t "Filter"}}{{if $v.Filtering}} &middot; {{t "on"}}{{end}}
-    </button>
-    <div class="colmenu listprefs">
-      <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
-        <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-        {{t "View"}}{{if $v.Hidden}} &middot; {{t "%d hidden" $v.Hidden}}{{end}}
-      </button>
-      <div id="viewprefs" class="flowmenu colpop viewpop" popover>
-        <div class="body viewgrid">
-          {{/* A label, not a heading. This panel is a menu that hangs off a
-               button in the page header, so its sections are not sections of
-               the document: rendered as h3 they followed the screen's h1
-               with no h2 between them, which is a reader using headings to
-               move through the page being told a level is missing. The
-               Columns menu's own heading is already a p.flowhead; this is
-               the same thing. */}}
-          {{if .ColumnForm.Configurable}}
-          <section>
-            <p class="viewhead">{{t "Columns"}}</p>
-            {{template "column-choices" .ColumnForm}}
-            {{/* Export takes what this screen shows: the filter, the
-                 deadline window, the sort, the visible projects and the
-                 columns ticked just above. */}}
-            <div class="headtip viewexport"><a class="secondary exportlink" href="{{$v.ExportHref}}" download>{{t "Export CSV"}}</a>{{template "tip" (tip "Export CSV" "Downloads every task this filter selects, up to 10000, with the title and the columns ticked above. A cell a spreadsheet would read as a formula starts with a quote." "docs/web-ui.md")}}</div>
-          </section>
-          {{end}}
-          <section class="viewstack">
-          {{if and (eq $v.View "list") (not $v.Mine)}}
-          <div class="viewblock">
-            <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
-            {{template "listgroup-switch" $v.Prefs.ListGroup}}
-          </div>
-          {{end}}
-          {{/* The groups this reader hid on the view in force, the same Show
-               forms as the Hidden control at the end of the view. Replaced
-               out of band when a heading menu changes the arrangement. */}}
-          <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
-            {{if $v.Arrange.View}}
-            <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else if eq $v.Arrange.View "mine"}}{{t "Hidden groups"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
-            {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
-            {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
-            {{if $v.Arrange.Stored}}
-            <form method="post" action="/view/reset" hx-post="/view/reset" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-swap="outerHTML" hx-select-oob="#view-groups">
-              {{template "csrf" .CSRF}}
-              <input type="hidden" name="view" value="{{$v.Arrange.View}}">
-              <input type="hidden" name="next" value="{{$v.Self}}">
-              <button type="submit" class="secondary">{{t "Reset the arrangement"}}</button>
-            </form>
-            {{end}}
-            {{end}}
-          </div>
-          <div class="viewblock">
-            <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
-            {{template "project-choices" $v.Prefs.Projects}}
-          </div>
-          </section>
-        </div>
-        <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>
-      </div>
-    </div>
   </div>
   {{template "help" $}}
 </div>
@@ -193,101 +111,7 @@
 {{end}}
 {{end}}
 
-<div id="filterpop" class="filterpop" popover>
-<form method="get" action="{{$v.Route}}" class="filterbar">
-  {{/* The view the address named rides along, so Apply keeps the drawing. */}}
-  {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
-  {{with $v.LanesAsked}}<input type="hidden" name="lanes" value="{{.}}">{{end}}
-  {{if $v.Selecting}}<input type="hidden" name="select" value="1">{{end}}
-  <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
-  {{/* The deadline control. "What is overdue" was answerable over the API and
-       nowhere a reader could click, so the one question a due date exists to
-       answer needed a filter expression typed by hand. What it selects is
-       answered as a due: term by the shared parser rather than as a bound of
-       its own, so it is sayable in the box beside it, shareable as a link, and
-       refused with the same message when it names something the language does
-       not have. */}}
-  <select name="due" aria-label="{{t "Due"}}">
-    <option value="">{{t "any deadline"}}</option>
-    {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
-  </select>{{template "tip" (tip "Deadline" "Overdue lists tasks whose deadline has passed; today, week and month look ahead from now. Tasks with no deadline are left out." "docs/filtering.md")}}
-  {{/* The project control. The board and the lanes had no way to narrow to
-       a project short of typing project:KEY into the box, which nobody looking
-       at a board thinks to do. It sits in the one filter bar every drawing
-       shares, and like the deadline control it is folded into the expression
-       as project: terms, so the list, the board and the lanes answer it the
-       same way and the view switch, which keeps the address, keeps it. */}}
-  {{if not $v.Scope}}
-  <select name="project" aria-label="{{t "Project"}}">
-    <option value="">{{t "any project"}}</option>
-    {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
-  </select>{{template "tip" (tip "Project filter" "Shows only the tasks of the chosen project, in the list, the board and the lanes alike. On the board the columns are that project's own workflow." "docs/web-ui.md")}}
-  {{end}}
-  <select name="sort" aria-label="{{t "Sort"}}">
-    {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
-  </select>{{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
-  <button class="secondary" type="submit">{{t "Apply"}}</button>
-  {{/* Clearing a filter had no control: the only way back to the whole list
-       was to select the text in the box and delete it. A project chip on a row
-       writes a filter into that box in one click, so getting out of it should
-       cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if $v.Filtering}}<a class="secondary clear" href="{{$v.ClearHref}}">{{t "Clear"}}</a>{{end}}
-</form>
-{{/* Keeps what the bar is answering under a name, listed in the sidebar
-     under Tasks. The button opens the naming form over the screen; the form
-     itself is drawn after this menu, outside it, because a dialog inside a
-     closed popover would be hidden with it. */}}
-{{if and $v.Filtering (not $v.FilterError)}}
-{{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
-{{end}}
-<button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
-</div>
-{{/* A filter that names something this tenant does not have is a typo in a
-     box, not a missing page. It used to be answered with the full-page error
-     screen, which threw the query away and made the reader retype it to find
-     out what was wrong. The message belongs under the box it is about, with
-     the expression still in the box. */}}
-{{if $v.FilterError}}
-<p class="filterfault" role="alert">{{$v.FilterError}}</p>
-{{end}}
-{{if and $v.Filtering (not $v.FilterError)}}
-{{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
-{{template "dlg-start" $sh}}
-<form method="post" class="savefilter-form" action="/filters">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="q" value="{{$v.Query}}">
-  <input type="hidden" name="due" value="{{$v.Due}}">
-  <input type="hidden" name="project" value="{{$v.Project}}">
-  <input type="hidden" name="sort" value="{{$v.Sort}}">
-  <input type="hidden" name="view" value="{{$v.View}}">
-  <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>
-  <label for="savefilter-name">{{t "Name"}}</label>
-  <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
-  <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>
-  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save"}}</button></div>
-</form>
-{{template "dlg-end"}}
-{{end}}
-
-{{/* The view switch. One screen, two drawings of the same tasks: the filter,
-     the deadline window, the sort, the page and the project visibility choice
-     are all answered once and then either listed or laid out in columns, so
-     pressing this changes how the page looks and never which tasks are on it.
-     It sits beside the filter bar rather than inside the View panel because a
-     reader looking for the board should not have to open a disclosure to find
-     out it exists; the panel below decides what is on screen, this decides
-     how it is drawn.
-
-     The switch itself is the shared partial the settings screen renders, so
-     the two cannot disagree about which position the reader is in. */}}
-
-{{/* One panel, not two. Columns and Projects were separate disclosures sitting
-     side by side, so deciding what the list shows meant opening one, applying,
-     then opening the other: two clicks and two page loads for one decision.
-     They are the same decision -- what is on screen -- so they share a panel
-     and each keeps its own form, because they are applied by different
-     handlers and either can be used without the other. */}}
-
+{{template "filter-toolbar" .}}
 
 {{if $v.Scope}}
 {{else if $v.Filtered}}
@@ -298,15 +122,6 @@
 <p class="lede">{{tn "%d project is hidden. Use Projects above to change that." "%d projects are hidden. Use Projects above to change that." $v.Hidden}}</p>
 {{end}}
 
-{{if eq $v.View "lanes"}}
-{{/* Outside the region a live refresh replaces, so its state is set once
-     per page by assets/lanes.js rather than after every refresh. Rendered
-     hidden: with scripting off it could do nothing, and finished cards are
-     shown, which is its default anyway. */}}
-<div class="lanesbar">
-  <button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>{{t "Show completed"}}</button>{{template "tip" (tip "Show completed" "Shows or hides finished cards in the lanes. The choice is remembered in this browser only." "docs/web-ui.md")}}
-</div>
-{{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
 {{if and $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
 
@@ -1422,3 +1237,249 @@
   {{end}}
 </div>
 {{end}}
+
+{{/* The filter toolbar, the one strip of controls above the task list and a
+     project's page. It replaced a filter row, a Save this filter row, a lanes
+     bar and the header's view switch, Group lanes by and View menu, which on
+     a laptop stood between the heading and the first row at the same weight
+     and on a phone wrapped into rows of their own.
+
+     One GET form (display: contents, so its box and the buttons after it are
+     one flex row). Filters is a popover inside it, so its pickers are fields of
+     the form. Sort and More are popovers outside it because they hold forms of
+     their own; the filter fields in them name the form with form="filterbar".
+     Every popover opens from popovertarget, so all of it works with scripting
+     off. The pickers that edit the expression submit pick_ fields, which the
+     screen folds into q and redirects (filterbar.go). */}}
+{{define "filter-toolbar"}}{{$v := .Data}}
+<div class="tbar" id="tasks-toolbar" data-filter-toolbar>
+<form method="get" action="{{$v.Route}}" class="filterbar" id="filterbar" role="search">
+  {{/* The view the address named rides along, so Apply keeps the drawing. */}}
+  {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
+  {{with $v.LanesAsked}}<input type="hidden" name="lanes" value="{{.}}">{{end}}
+  {{if $v.Selecting}}<input type="hidden" name="select" value="1">{{end}}
+  <span class="tbar-q">
+    <svg class="tbar-qicon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#search"/></svg>
+    <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example tag:ops due:week @raj"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter" autocomplete="off" spellcheck="false" data-suggest="filter-suggest">
+    {{/* The form's default button, so Enter in any of its fields applies. */}}
+    <button type="submit" class="sr-only">{{t "Apply"}}</button>
+  </span>
+  <button type="button" class="secondary tbar-btn filterbtn" popovertarget="fb-filters" title="{{t "Filters"}}">
+    {{template "icon" "filter"}}<span class="tbar-label">{{t "Filters"}}</span><span id="tasks-filtercount" class="tbar-countwrap">{{template "filter-count" $v}}</span>{{template "icon" "chevron-down"}}
+  </button>
+  <div id="fb-filters" class="flowmenu tbarpop" popover>
+    <p class="flowhead">{{t "Filters"}}</p>
+    <div class="tbar-fields">
+      {{/* A project's page is its project, so it offers no project. */}}
+      {{if not $v.Scope}}
+      <label class="tbar-field"><span>{{t "Project"}}</span>
+        <select name="project">
+          <option value="">{{t "any project"}}</option>
+          {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      {{end}}
+      <label class="tbar-field"><span>{{t "Assignee"}}</span>
+        <input name="pick_assignee" value="{{$v.Pickers.Assignee}}" list="fb-people" placeholder="{{t "a handle, or me"}}" autocomplete="off">
+      </label>
+      <input type="hidden" name="was_assignee" value="{{$v.Pickers.Assignee}}">
+      <datalist id="fb-people">{{range $v.Suggest.Person}}<option value="{{.}}"></option>{{end}}</datalist>
+      <label class="tbar-field"><span>{{t "Tag"}}</span>
+        <input name="pick_tag" list="fb-tags" placeholder="{{t "add a tag"}}" autocomplete="off">
+      </label>
+      <datalist id="fb-tags">{{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}</datalist>
+      <label class="tbar-field"><span>{{t "Status"}}</span>
+        <select name="pick_status">
+          <option value="">{{t "any status"}}</option>
+          {{if index $v.Pickers.Several "status"}}<option value="*" selected>{{t "as typed"}}</option>{{end}}
+          {{range $v.Pickers.Status}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <input type="hidden" name="was_status" value="{{$v.Pickers.StatusWas}}">
+      <label class="tbar-field"><span>{{t "Priority"}}</span>
+        <select name="pick_priority">
+          <option value="">{{t "any priority"}}</option>
+          {{if index $v.Pickers.Several "priority"}}<option value="*" selected>{{t "as typed"}}</option>{{end}}
+          {{range $v.Pickers.Priority}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+      </label>
+      <input type="hidden" name="was_priority" value="{{$v.Pickers.PriorityWas}}">
+      {{/* The deadline control. What it selects is answered as a due: term by
+           the shared parser, so it is sayable in the box too. */}}
+      <label class="tbar-field"><span>{{t "Due"}}</span>
+        <select name="due">
+          <option value="">{{t "any deadline"}}</option>
+          {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    {{if not (or $v.Mine $v.Trash)}}
+    <label class="tbar-check"><input type="checkbox" name="all" value="1"{{if $v.AllAsked}} checked{{end}}> {{t "Include finished tasks"}}</label>
+    {{end}}
+    {{if eq $v.View "lanes"}}
+    {{/* Rendered hidden: with scripting off it could do nothing, and finished
+         cards are shown, which is its default anyway. assets/lanes.js. */}}
+    <div class="tbar-check"><button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>{{t "Show completed"}}</button>{{template "tip" (tip "Show completed" "Shows or hides finished cards in the lanes. The choice is remembered in this browser only." "docs/web-ui.md")}}</div>
+    {{end}}
+    <div class="tbar-foot">
+      <button type="submit">{{t "Apply"}}</button>
+      {{if $v.Filtering}}<a class="secondary clear" href="{{$v.ClearHref}}">{{t "Clear all"}}</a>{{end}}
+      {{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
+    </div>
+    <button type="button" class="flowclose" popovertarget="fb-filters" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</form>
+
+<button type="button" class="secondary tbar-btn sortbtn" popovertarget="fb-sort" title="{{t "Sort"}}">
+  {{template "icon" "sort"}}<span class="tbar-label">{{t "Sort"}}</span>{{template "icon" "chevron-down"}}
+</button>
+{{/* The view switch: one selection, three drawings. The trash is always
+     the list and My work always the list by deadline, so neither has it. */}}
+{{if not (or $v.Mine $v.Trash)}}{{template "taskview-links" $v}}{{end}}
+{{/* Select mode. The boxes and the bar are drawn always and shown only
+     while this is pressed (470-bulk-select.css), so every redraw of the rows
+     keeps the mode: the toggle sits outside every swapped region. A link
+     without scripting; select.js presses it in place. */}}
+{{if and $v.Bulk.Any $v.Tasks}}
+<a class="btn secondary selecttoggle tbar-btn" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press title="{{t "Select"}}">{{template "icon" "checklist"}}<span class="btn-label tbar-label">{{t "Select"}}</span></a>
+{{end}}
+
+<div class="colmenu listprefs">
+  <button type="button" class="secondary tbar-btn colmenu-open morebtn" popovertarget="viewprefs" aria-label="{{t "More"}}" title="{{if $v.Hidden}}{{t "%d hidden" $v.Hidden}}{{else}}{{t "More"}}{{end}}">
+    {{template "icon" "more"}}{{if $v.Hidden}}<span class="tbar-count">{{$v.Hidden}}</span>{{end}}
+  </button>
+  <div id="viewprefs" class="flowmenu colpop viewpop" popover>
+    <div class="body viewgrid">
+      {{if .ColumnForm.Configurable}}
+      <section>
+        <p class="viewhead">{{t "Columns"}}</p>
+        {{template "column-choices" .ColumnForm}}
+        {{/* Export takes what this screen shows: the filter, the deadline
+             window, the sort, the visible projects and the columns ticked
+             just above. */}}
+        <div class="headtip viewexport"><a class="secondary exportlink" href="{{$v.ExportHref}}" download>{{t "Export CSV"}}</a>{{template "tip" (tip "Export CSV" "Downloads every task this filter selects, up to 10000, with the title and the columns ticked above. A cell a spreadsheet would read as a formula starts with a quote." "docs/web-ui.md")}}</div>
+      </section>
+      {{end}}
+      <section class="viewstack">
+        {{if not $v.Mine}}
+        <div class="viewblock">
+          <p class="viewhead">{{t "Page size"}}</p>
+          <div class="tbar-inline">
+            <select name="limit" form="filterbar" aria-label="{{t "Page size"}}">
+              <option value="">{{t "%d per page (default)" $v.DefaultSize}}</option>
+              {{range $v.PageSizes}}<option value="{{.}}"{{if eq (print .) $v.PageSize}} selected{{end}}>{{t "%d per page" .}}</option>{{end}}
+            </select>
+            <button type="submit" class="secondary" form="filterbar">{{t "Apply page size"}}</button>
+          </div>
+        </div>
+        {{end}}
+        <div class="viewblock">
+          <p class="viewhead">{{t "Saved filters"}}</p>
+          {{if and $v.Filtering (not $v.FilterError)}}
+          {{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
+          {{end}}
+          {{if .Saved.Items}}
+          <ul class="tbar-saved">{{range .Saved.Items}}<li><a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{.Name}}</a></li>{{end}}</ul>
+          <p class="meta">{{t "Rename, share, reorder or delete them in the sidebar, under Tasks."}}</p>
+          {{else if not (and $v.Filtering (not $v.FilterError))}}<p class="meta">{{t "Filter the list, then save it here."}}</p>{{end}}
+        </div>
+        {{/* The groups this reader hid on the view in force, the same Show
+             forms as the Hidden control at the end of the view. Replaced out
+             of band when a heading menu changes the arrangement. */}}
+        <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
+          {{if $v.Arrange.View}}
+          <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else if eq $v.Arrange.View "mine"}}{{t "Hidden groups"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
+          {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
+          {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
+          {{if $v.Arrange.Stored}}
+          <form method="post" action="/view/reset" hx-post="/view/reset" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-swap="outerHTML" hx-select-oob="#view-groups">
+            {{template "csrf" .CSRF}}
+            <input type="hidden" name="view" value="{{$v.Arrange.View}}">
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            <button type="submit" class="secondary">{{t "Reset the arrangement"}}</button>
+          </form>
+          {{end}}
+          {{end}}
+        </div>
+        <div class="viewblock">
+          <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
+          {{template "project-choices" $v.Prefs.Projects}}
+        </div>
+      </section>
+    </div>
+    <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</div>
+{{/* After the switch in the document, though it opens from Sort: a
+     popover hangs off its button wherever it is written. */}}
+<div id="fb-sort" class="flowmenu tbarpop" popover>
+  <p class="flowhead">{{t "Sort"}}</p>
+  <div class="tbar-fields">
+    <label class="tbar-field"><span>{{t "Sort by"}}</span>
+      <select name="sort" form="filterbar">
+        {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
+      </select>
+    </label>
+    <label class="tbar-field"><span>{{t "Order"}}</span>
+      <select name="order" form="filterbar">
+        <option value="">{{t "ascending"}}</option>
+        <option value="desc"{{if eq $v.Order "desc"}} selected{{end}}>{{t "descending"}}</option>
+      </select>
+    </label>
+  </div>
+  <div class="tbar-foot">
+    <button type="submit" form="filterbar">{{t "Apply"}}</button>
+    {{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
+  </div>
+  {{if and (eq $v.View "list") (not $v.Mine)}}
+  <div class="tbar-section">
+    <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
+    {{template "listgroup-switch" $v.Prefs.ListGroup}}
+  </div>
+  {{end}}
+  {{if not (or $v.Mine $v.Trash)}}{{template "lanesby" $v}}{{end}}
+  <button type="button" class="flowclose" popovertarget="fb-sort" popovertargetaction="hide">{{t "Close"}}</button>
+</div>
+
+<script type="application/json" id="filter-suggest">{{$v.Suggest}}</script>
+</div>
+<div id="tasks-chips">{{template "filter-chips" $v}}</div>
+{{/* A filter that names something this tenant does not have is a typo in a
+     box, not a missing page: the message sits under the bar, with the
+     expression still in the box. */}}
+{{if $v.FilterError}}
+<p class="filterfault" role="alert">{{$v.FilterError}}</p>
+{{end}}
+{{if and $v.Filtering (not $v.FilterError)}}
+{{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="savefilter-form" action="/filters">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="q" value="{{$v.Query}}">
+  <input type="hidden" name="due" value="{{$v.Due}}">
+  <input type="hidden" name="project" value="{{$v.Project}}">
+  <input type="hidden" name="sort" value="{{$v.Sort}}">
+  <input type="hidden" name="view" value="{{$v.View}}">
+  <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>
+  <label for="savefilter-name">{{t "Name"}}</label>
+  <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
+  <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{end}}
+
+{{/* How many terms the toolbar is answering, on the Filters button. Redrawn
+     with the listing when the box narrows it in place. */}}
+{{define "filter-count"}}{{with len .Chips}}<span class="tbar-count" aria-label="{{tn "%d filter in force" "%d filters in force" .}}">{{.}}</span>{{end}}{{end}}
+
+{{/* The terms in force, one chip each, under the toolbar. A chip's x is a
+     plain link to the same screen without that one term, so removing it
+     works without scripting and the address stays what a link shares. */}}
+{{define "filter-chips"}}{{if .Chips}}
+<ul class="fbchips" aria-label="{{t "Filters in force"}}">
+  {{range .Chips}}<li class="fbchip{{if .Negated}} is-negated{{end}}"><span class="fbchip-text">{{if eq .Key "all"}}{{t "including finished"}}{{else}}{{.Label}}{{end}}</span><a class="fbchip-x" href="{{.Href}}" aria-label="{{t "Remove %s" .Raw}}" title="{{t "Remove %s" .Raw}}">{{template "icon" "x"}}</a></li>{{end}}
+  <li><a class="fbchips-clear" href="{{.ClearHref}}">{{t "Clear all"}}</a></li>
+</ul>
+{{end}}{{end}}

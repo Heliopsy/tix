@@ -1,0 +1,179 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The filter toolbar on the task list and a project's page: the box, Filters,
+   Sort, the view switch and More on one row of --control-h controls, with
+   the terms in force as chips under it. It replaced a filter row, a Save this
+   filter row, a lanes bar and the header's switch and View menu, which
+   together stood between the heading and the first row. */
+.tbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  min-width: 0;
+}
+/* The form's box joins the row, so the box and the buttons after it wrap as
+   one strip of controls. */
+.tbar .filterbar { display: contents; }
+
+.tbar-q {
+  position: relative;
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.tbar-qicon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--muted);
+  pointer-events: none;
+}
+.tbar-q input { padding-left: calc(var(--space-3) + 16px + var(--space-2)); }
+
+.tbar-btn {
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+}
+.tbar-btn .icon { flex: 0 0 auto; }
+.tbar-btn .icon:last-child:not(:first-child) { width: 12px; height: 12px; opacity: 0.7; }
+
+/* A count on Filters and More, so a closed menu still says it is doing
+   something. */
+.tbar-countwrap:empty { display: none; }
+.tbar-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 18px;
+}
+
+/* The view switch in the row: no label, segments at the row's height. */
+.tbar .viewswitch { margin: 0; flex: 0 0 auto; gap: var(--space-1); }
+.tbar .viewswitch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.tbar .viewswitch .segment {
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(var(--control-h) - 2px);
+  padding: 0 var(--space-3);
+  text-decoration: none;
+}
+.tbar .listprefs { display: inline-block; margin: 0; flex: 0 0 auto; }
+
+/* The menus. A grid of labelled fields, Apply and Clear all at the foot. */
+.tbarpop { padding: var(--space-3); width: min(26rem, calc(100vw - 24px)); }
+.tbar-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+.tbar-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; }
+.tbar-field > span { font-size: var(--text-xs); color: var(--muted); }
+.tbar-field select { width: 100%; }
+.tbar-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+.tbar-check input { width: auto; min-height: 0; }
+.tbar-foot, .tbar-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.tbar-inline select { width: auto; max-width: 100%; }
+.tbar-section { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.tbar-section .viewswitch { margin: 0; }
+.tbarpop .lanesby { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.tbar-saved { margin: var(--space-2) 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.tbar-saved a { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.tbar-saved a[aria-current] { font-weight: 600; }
+
+/* The terms in force: small pills, the term as the language writes it, an x
+   that is a link to the screen without it. */
+.fbchips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.fbchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0 2px 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  line-height: 22px;
+}
+.fbchip.is-negated { background: var(--danger-soft); color: var(--danger); }
+.fbchip-text { min-width: 0; overflow-wrap: anywhere; font-family: var(--mono, ui-monospace, monospace); }
+.fbchip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  color: inherit;
+}
+.fbchip-x .icon { width: 12px; height: 12px; }
+.fbchip-x:hover { background: var(--bg); }
+.fbchips-clear { font-size: var(--text-xs); margin-left: var(--space-1); }
+
+/* The suggestions under the box. */
+.fbsuggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: min(16rem, 100%);
+  max-width: 100%;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+}
+.fbsuggest li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.fbsuggest li[aria-selected="true"], .fbsuggest li:hover { background: var(--accent-soft); }
+.fbsuggest .fbsuggest-note { color: var(--muted); font-size: var(--text-xs); margin-left: var(--space-2); }
+
+/* A phone: the box takes the first row and the buttons share the second, so
+   Filters, Sort and More drop their words and keep their icons and counts. */
+@media (max-width: 599px) {
+  .tbar-q { flex-basis: 100%; }
+  .tbar-btn .tbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tbar-btn { padding: 0 var(--space-2); }
+  .tbar-btn .icon:last-child:not(:first-child) { display: none; }
+  .tbar .viewswitch .segment { padding: 0 var(--space-2); font-size: var(--text-xs); }
+}
