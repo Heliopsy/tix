@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.53.0](https://github.com/Heliopsy/tix/compare/v0.52.1...v0.53.0) (2026-11-09)
+
+
+### Features
+
+* **cmd:** list one page of tasks by number with tix task ls --page ([a0d219a](https://github.com/Heliopsy/tix/commit/a0d219a7198cd7bf49f1889c03be332ed35a39f1))
+* **service:** count a task listing and start it at a page number ([1b8363d](https://github.com/Heliopsy/tix/commit/1b8363d65386d4b6d7bd337daf52d7aae4e4fda6))
+* **tui:** say which page of a long project the board holds and page it with pgdown and pgup ([b52c1dd](https://github.com/Heliopsy/tix/commit/b52c1dde791ce37653af7a30f108ff63d41c2ced))
+* **web:** number the pager, say how many pages there are and jump to one ([710d4ef](https://github.com/Heliopsy/tix/commit/710d4efae14665610f0820dc3afb909f46e30aa9))
+* **workflows:** ship twelve built-in workflow templates ([0e8ea6a](https://github.com/Heliopsy/tix/commit/0e8ea6af85fc913b526ccd116c424de94aaddc14))
+
+
+### Bug Fixes
+
+* **auth:** bound concurrent argon2id hashing by memory and refuse when busy ([#295](https://github.com/Heliopsy/tix/issues/295)) ([7589509](https://github.com/Heliopsy/tix/commit/758950958d9007c3e63c4c23d1141e1868368d71))
+* **cli:** give an invite's absolute link over SSH when the public address is set ([585ffc2](https://github.com/Heliopsy/tix/commit/585ffc26267da30e8b609c5f2ad8410891fa0135))
+* **cli:** read --password - from standard input on user and tenant user commands ([df262c9](https://github.com/Heliopsy/tix/commit/df262c96e3dba3aafd1dbfe639f061d34708de50))
+* **httpapi:** give the logged tenant holder a context key of its own ([d2938ce](https://github.com/Heliopsy/tix/commit/d2938ce82a1efc30452a22190667d2e2aa37e011))
+* **httpapi:** log the tenant a request was served in ([f904ea5](https://github.com/Heliopsy/tix/commit/f904ea5d851ae1c9dd6bc78ec0e10f3bcd0f3edb))
+* keep task numbering ahead of imported tasks ([29cf92f](https://github.com/Heliopsy/tix/commit/29cf92f24a8bb71e5b9d0045b6f225554ef769d0))
+* stop the overdue badge parsing every task's markdown, and set GOMEMLIMIT from the container ([#289](https://github.com/Heliopsy/tix/issues/289)) ([d7771f9](https://github.com/Heliopsy/tix/commit/d7771f9d062163eb0f28a2acd6b8f4d08992e209))
+* **web:** close an open (i) tip on a press outside it, Escape or another tip ([ad61f04](https://github.com/Heliopsy/tix/commit/ad61f0402c8c57da6555fab25757af311384a361))
+* **web:** draw the tenant switcher with a switch icon, not the house ([e3f99f9](https://github.com/Heliopsy/tix/commit/e3f99f9e195cefd695058df8743cead292948b6c))
+
+
+### Dependencies
+
+* **api:** regenerate the OpenAPI document for the template listing's page fields ([8dd8241](https://github.com/Heliopsy/tix/commit/8dd8241f58fcb4da2888f380cad1510bf82a00b2))
+
 ## [0.52.1](https://github.com/Heliopsy/tix/compare/v0.52.0...v0.52.1) (2026-11-09)
 
 
