@@ -407,6 +407,31 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "workflow.template.list", Method: "ListWorkflowTemplates",
+		Scope: core.ScopeWorkflowRead,
+		CLI:   "tix workflow template ls",
+		HTTP:  apiGet(wire.RouteWorkflowTemplates),
+		// The Workflows screen's Add from template dialog and the New project
+		// dialog's workflow picker both read the templates.
+		Web: webGet(web.RouteWorkflows, tplWorkflows),
+		// The project list's new project form offers the templates beside the
+		// tenant's workflows, each with its purpose first.
+		TUI: "projects",
+	},
+	{
+		Name: "workflow.template.apply", Method: "ApplyWorkflowTemplate", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeWorkflowWrite,
+		CLI:   "tix workflow template apply",
+		HTTP:  apiPost(wire.RouteWorkflowTemplateApply),
+		Web:   webPost(web.RouteWorkflowTemplateApply),
+		TUI:   "projects",
+		Limits: []Limitation{{SurfaceTUI,
+			"the terminal applies a template only while creating a project, under the template's own key " +
+				"and reusing the workflow when the tenant already holds it; another key or a collision policy " +
+				"is tix workflow template apply --as and --on-collision"}},
+	},
+
+	{
 		Name: "task.create", Method: "CreateTask", Contract: Contract{Body: httpapi.CreateTaskRequest{}, Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task add",

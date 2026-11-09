@@ -191,7 +191,7 @@ func TestLoginUpgradesAWeakHash(t *testing.T) {
 	l, _, scope, admin := newLocalWith(t, WithHasher(auth.NewHasher()))
 	user := seedUser(t, l, admin, "ada@example.com")
 
-	weak, err := auth.NewHasherWithParams(auth.TestParams()).Hash(testPassword)
+	weak, err := auth.NewHasherWithParams(auth.TestParams()).Hash(t.Context(), testPassword)
 	if err != nil {
 		t.Fatalf("minting a weak hash: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestLoginUpgradesAWeakHash(t *testing.T) {
 	if auth.NeedsRehash(upgraded, auth.DefaultParams()) {
 		t.Error("the upgraded hash is still weaker than the policy")
 	}
-	if err := auth.Verify(upgraded, testPassword); err != nil {
+	if err := auth.Verify(t.Context(), upgraded, testPassword); err != nil {
 		t.Errorf("the upgraded hash does not verify the password: %v", err)
 	}
 }
@@ -389,5 +389,63 @@ func TestNewHashesAtProductionCost(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	if got := New(st).hasher.Params(); got != auth.DefaultParams() {
 		t.Errorf("New hashes with %+v, want the production %+v", got, auth.DefaultParams())
+	}
+}
+
+// A hash stored at a costlier setting than the policy is kept on sign-in:
+// lowering the configured cost changes new hashes, never stored ones.
+func TestLoginKeepsACostlierHash(t *testing.T) {
+	policy := auth.TestParams()
+	l, _, scope, admin := newLocalWith(t, WithHasher(auth.NewHasherWithParams(policy)))
+	user := seedUser(t, l, admin, "ada@example.com")
+
+	costly := policy
+	costly.Memory, costly.Time, costly.Threads = policy.Memory*2, policy.Time+2, policy.Threads+3
+	old, err := auth.NewHasherWithParams(costly).Hash(t.Context(), testPassword)
+	if err != nil {
+		t.Fatalf("minting a costly hash: %v", err)
+	}
+	installPasswordHash(t, l, scope, user.ID, old)
+
+	if _, err := signIn(l, scope, "ada@example.com", testPassword); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if got := storedPasswordHash(t, l, "ada@example.com"); got != old {
+		t.Fatalf("a costlier hash was rehashed on sign-in: %q", got)
+	}
+}
+
+// A sign-in that cannot get a hashing slot is told the server is busy, for a
+// known and an unknown address alike, and is never let in without the check.
+func TestLoginWhenHashingIsBusy(t *testing.T) {
+	l, _, scope, admin := newLocal(t)
+	seedUser(t, l, admin, "ada@example.com")
+	release := auth.HoldHashSlotsInTests()
+	defer release()
+
+	for _, email := range []string{"ada@example.com", "nobody@example.com"} {
+		res, err := signIn(l, scope, email, testPassword)
+		if !auth.IsHashBusy(err) {
+			t.Fatalf("signing in as %s while busy = %v, %v; want the busy refusal", email, res, err)
+		}
+	}
+	release()
+	if _, err := signIn(l, scope, "ada@example.com", testPassword); err != nil {
+		t.Fatalf("signing in once hashing is free: %v", err)
+	}
+}
+
+// installPasswordHash stores hash as the password of the user.
+func installPasswordHash(t *testing.T, l *Local, scope core.TenantScope, userID, hash string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := l.store.Update(ctx, scope, func(tx store.Tx) error {
+		u, err := tx.GetUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		return tx.UpdateUser(ctx, u, hash)
+	}); err != nil {
+		t.Fatalf("installing the hash: %v", err)
 	}
 }

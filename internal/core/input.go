@@ -287,6 +287,12 @@ type CreateProjectInput struct {
 	// WorkflowKey names the workflow the project's tasks follow; empty uses the
 	// builtin workflow.
 	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
+	// WorkflowTemplate names a built-in workflow template instead of a
+	// workflow: the project runs on the workflow the template creates under
+	// its own key, reused when the tenant already holds it, and gets the
+	// template's custom fields. At most one of WorkflowKey and
+	// WorkflowTemplate may be set.
+	WorkflowTemplate string `json:"workflow_template,omitempty" yaml:"workflow_template,omitempty"`
 	// Color is a palette colour name or a custom "#rrggbb"; empty means none.
 	Color string `json:"color,omitempty" yaml:"color,omitempty"`
 	// Icon is a text icon: one emoji or a monogram of at most two characters.
@@ -308,6 +314,9 @@ func (in CreateProjectInput) Validate() error {
 	}
 	if err := ValidateProjectKey(in.Key); err != nil {
 		return OnField(err, "key")
+	}
+	if strings.TrimSpace(in.WorkflowKey) != "" && strings.TrimSpace(in.WorkflowTemplate) != "" {
+		return Invalid("name a workflow or a workflow template, not both").WithDetail(DetailField, "workflow_template")
 	}
 	if _, err := NormalizeProjectColor(in.Color); err != nil {
 		return OnField(err, "color")

@@ -146,7 +146,11 @@ Starred, and the rest under Other projects, so a project is listed once; later p
 All projects and Starred only above the list switch between the two, and Starred only is `?starred=1` in
 the address. The row's tools open its tasks in the task list, its fields and its settings. New project in
 the header asks for a key, a name, a workflow and a description; colour and icon are set afterwards in the
-project's settings. The key starts every task
+project's settings. The workflow picker lists the tenant's workflows and then the built-in templates, each
+template leading with its one-line purpose, then its name with a Built-in label, its states and its
+fields; picking a template creates its workflow if the tenant does not have it yet and adds its fields to
+the new project. The Workflows screen's Add from template does the same without a project. See
+[workflows.md](workflows.md#templates). The key starts every task
 reference in the project, as in `INFRA-5`.
 
 The name has first claim on a row: when the row's links do not fit beside it, in the two-column grid
@@ -1780,6 +1784,10 @@ and on touch. Beside a heading, a label or a setting's name the note opens under
 what follows down, rather than floating over the next row. One in a toolbar, the view switch or the
 task screen's header, floats on a wide screen with a mouse and opens under the toolbar the same way
 on a phone, a tablet or any window narrower than 900px.
+
+With scripting an open note closes when you move on: a click or tap anywhere outside it and its (i),
+Escape (which puts focus back on the (i)), or opening another tip. A click inside the note leaves it
+open.
 
 A (?) at the right end of each screen's header opens the section of these docs about that screen, in a
 new tab, for the release the server runs: it links to `/docs/PAGE?section=ANCHOR`, which redirects to the

@@ -1113,6 +1113,16 @@ func (m Model) formPanel() Panel {
 		}
 		rows = append(rows, m.fit(m.theme.Dim.Render(row)))
 	}
+	if about := m.form.About(); len(about) > 0 {
+		rows = append(rows, "")
+		for i, line := range about {
+			if i == 0 {
+				rows = append(rows, m.fit("  "+line))
+				continue
+			}
+			rows = append(rows, m.fit(m.theme.Dim.Render("  "+line)))
+		}
+	}
 	return Panel{Title: m.form.Title, Note: m.form.Note, Rows: rows, Keys: m.formHelp()}
 }
 

@@ -106,14 +106,28 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	if workflowKey == "" {
 		workflowKey = BuiltinWorkflowKey
 	}
+	var tpl *core.WorkflowTemplate
+	if ref := strings.TrimSpace(in.WorkflowTemplate); ref != "" {
+		found, err := workflowTemplate(ref)
+		if err != nil {
+			return nil, core.OnField(err, "workflow_template")
+		}
+		tpl = &found
+	}
 
 	var out *core.Project
 	err = l.write(ctx, actor, func(m *mutation) error {
 		if err := keyAvailable(ctx, m.tx, key, ""); err != nil {
 			return err
 		}
-		wf, err := lookupWorkflow(ctx, m.tx, workflowKey)
-		if err != nil {
+		var wf *core.Workflow
+		var err error
+		if tpl != nil {
+			wf, err = l.projectTemplateWorkflow(ctx, m, *tpl)
+			if err != nil {
+				return core.OnField(err, "workflow_template")
+			}
+		} else if wf, err = lookupWorkflow(ctx, m.tx, workflowKey); err != nil {
 			return core.OnField(err, "workflow_key")
 		}
 		p := &core.Project{
@@ -131,8 +145,14 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 			return err
 		}
 		out = p
-		return m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, p,
-			map[string]any{"key": p.Key, "workflow_key": wf.Key})
+		if err := m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, p,
+			map[string]any{"key": p.Key, "workflow_key": wf.Key}); err != nil {
+			return err
+		}
+		if tpl == nil {
+			return nil
+		}
+		return l.putTemplateFields(ctx, m, p, *tpl)
 	})
 	if err != nil {
 		return nil, err

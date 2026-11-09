@@ -304,3 +304,6 @@ const (
 	RouteBundleExport = "/bundles/export"
 	RouteBundleImport = "/bundles/import"
 )
+
+// RouteWorkflowTemplateApply creates a workflow from a built-in template.
+const RouteWorkflowTemplateApply = "/workflow-templates/apply"

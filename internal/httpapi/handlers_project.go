@@ -32,6 +32,8 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteWorkflow, rt.handleGetWorkflow)
 	rt.mux.HandleFunc("PUT "+wire.RouteWorkflow, rt.handlePutWorkflowByKey)
 	rt.mux.HandleFunc("DELETE "+wire.RouteWorkflow, rt.handleDeleteWorkflow)
+	rt.mux.HandleFunc("GET "+wire.RouteWorkflowTemplates, rt.handleListWorkflowTemplates)
+	rt.mux.HandleFunc("POST "+wire.RouteWorkflowTemplateApply, rt.handleApplyWorkflowTemplate)
 }
 
 // handleListProjects returns a page of projects.
@@ -270,4 +272,29 @@ func (rt *Router) handleDeleteWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleListWorkflowTemplates returns the built-in workflow templates.
+func (rt *Router) handleListWorkflowTemplates(w http.ResponseWriter, r *http.Request) {
+	templates, err := rt.cfg.Service.ListWorkflowTemplates(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, templates, "")
+}
+
+// handleApplyWorkflowTemplate creates a workflow from the template the path
+// names.
+func (rt *Router) handleApplyWorkflowTemplate(w http.ResponseWriter, r *http.Request) {
+	var in core.ApplyWorkflowTemplateInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	workflow, err := rt.cfg.Service.ApplyWorkflowTemplate(r.Context(), r.PathValue("key"), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, workflow)
 }

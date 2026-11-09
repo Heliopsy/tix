@@ -138,7 +138,7 @@ the routes the server registers. The areas are the first segment of each operati
 | user | `GET /users`, `POST /users`, `GET /users/{id}`, `PATCH /users/{id}`, `DELETE /users/{id}` |
 | view | `GET /views/{view}/groups`, `DELETE /views/{view}/groups`, `PATCH /views/{view}/groups/{group}`, `PUT /views/{view}/order` |
 | webhook | `GET /webhooks`, `PUT /webhooks`, `GET /webhooks/deliveries`, `POST /webhooks/deliveries/{id}/redeliver`, `DELETE /webhooks/{id}`, `POST /webhooks/{id}/ping` |
-| workflow | `GET /workflows`, `PUT /workflows`, `GET /workflows/{key}`, `PUT /workflows/{key}`, `DELETE /workflows/{key}` |
+| workflow | `GET /workflow-templates`, `POST /workflow-templates/{key}/apply`, `GET /workflows`, `PUT /workflows`, `GET /workflows/{key}`, `PUT /workflows/{key}`, `DELETE /workflows/{key}` |
 <!-- END ROUTES -->
 
 `GET /events` is the WebSocket event stream, see [The event stream](#the-event-stream). The calendar feed

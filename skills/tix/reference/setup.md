@@ -123,7 +123,8 @@ call `dep add` or `task add` (so, if it writes its own plan down, it needs
 `task:write`), `artifact:write` if it records artifacts, `task:delete` to
 remove tasks, `event:subscribe` for `tix watch`, and `task:reclaim` only for a
 supervisor that takes leases away from dead workers. `task:reclaim` is not
-implied by `task:claim`. An unknown scope is `invalid`, exit `2`:
+implied by `task:claim`. `task:approve` is for a reviewer who signs off work on
+an edge that names it, never for the agent doing that work. An unknown scope is `invalid`, exit `2`:
 
 ```console
 $ tix token create x --scope nosuch
@@ -239,6 +240,25 @@ TTL a claim gets when it does not ask for one. The built-in workflow ships
 30m there, but that figure is a template nobody chose, so it is ignored in
 favour of the tenant's own `lease_default`; author a workflow of your own and
 its `default_lease` outranks the tenant again.
+
+Twelve built-in templates cover the common shapes (kanban, GTD, development
+with review, bug triage, releases, an agent queue with human sign-off,
+incidents, support, approvals, sales, hiring, editorial). List them before
+writing a workflow by hand; each row leads with its one-line purpose:
+
+```sh
+tix workflow template ls -o json
+tix workflow template apply tix-agent-review            # exit 4 if the key is taken
+tix workflow template apply tix-sales --as deals --on-collision rename
+tix project create q "Agent queue" --workflow-template tix-agent-review
+```
+
+`--workflow-template` also adds the template's custom fields to the project;
+applying a template on its own creates only the workflow. Keys starting with
+`tix-` are reserved for templates, so `tix workflow put` refuses a new one
+(exit 2). In `tix-agent-review` and `tix-approval`, approving and rejecting
+need the `task:approve` scope, which an agent's token should not carry: move
+the task to `needs_review` and leave the decision to a human.
 
 Custom fields are per-project typed slots on a task:
 

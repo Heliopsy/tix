@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-approval
+name: Approval or request
+purpose: Someone asks, someone authorised decides.
+definition:
+  initial: requested
+  states:
+    - {key: requested, label: Requested, category: todo}
+    - {key: under_review, label: Under review, category: in_progress}
+    - {key: approved, label: Approved, category: done, terminal: true}
+    - {key: rejected, label: Rejected, category: cancelled, terminal: true}
+  transitions:
+    - {from: requested, to: under_review}
+    - {from: under_review, to: requested, requires_comment: true}
+    - {from: under_review, to: approved, requires_scope: "task:approve"}
+    - {from: under_review, to: rejected, requires_scope: "task:approve", requires_comment: true}
+fields:
+  - {key: requester, label: Requester, type: actor, position: 1}
+  - {key: amount, label: Amount, type: float, position: 2}

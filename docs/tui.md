@@ -715,6 +715,14 @@ Muting a kind is a setting kept with your account, set from the browser's Settin
 the terminal has no screen for it, which the registry records as an exemption rather than a gap. The
 same holds for notification channels (`tix inbox channel`).
 
+## Creating a project
+
+On the project list `n` asks for a key and a name. When the tenant has more than one workflow, or built-in
+templates to offer, a form follows that picks the workflow: the tenant's own first, then the templates. While
+a template is selected the form says what it is for first, then its name marked `[Built-in]`, its states and
+the fields the project will get. Applying a template under another key, or over one that is taken, is `tix
+workflow template apply`.
+
 ## The project screen
 
 `w` opens the project the board is on. `e` edits it: the colour and, when there is another one to move to,
@@ -1024,7 +1032,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 183
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 185
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat

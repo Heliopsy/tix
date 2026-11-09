@@ -1212,3 +1212,9 @@
 {{end}}
 </ul>
 {{end}}
+
+{{/* wfpick-template is one built-in workflow template as a picker draws it:
+     the purpose first, because that is what a reader chooses by, then the
+     name with its Built-in label, the states and the fields a project made
+     from it gets. Takes a templateCard. */}}
+{{define "wfpick-template"}}<span class="wfpick-text"><span class="wfpick-purpose">{{.Purpose}}</span><span class="wfpick-name">{{.Name}}<span class="pill wfpick-builtin">{{t "Built-in"}}</span></span><span class="wfpick-states">{{.States}}</span>{{with .Fields}}<span class="wfpick-fields">{{t "Fields"}}: {{join .}}</span>{{end}}{{if .Held}}<span class="wfpick-fields">{{t "Already in this tenant"}}</span>{{end}}</span>{{end}}

@@ -17,6 +17,10 @@ const (
 	ActionTaskClaim      Action = "task.claim"
 	ActionTaskDelete     Action = "task.delete"
 	ActionTaskReclaim    Action = "task.reclaim"
+	// ActionTaskApprove crosses a workflow edge that names task:approve: a
+	// sign-off rather than progress, which the worker doing the task must not
+	// be able to give itself.
+	ActionTaskApprove Action = "task.approve"
 	// ActionTaskStar sets or clears the caller's own star. It changes nothing
 	// anybody else sees in a listing, so reading the task is authority enough.
 	ActionTaskStar Action = "task.star"
@@ -101,6 +105,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskClaim:           core.ScopeTaskClaim,
 	ActionTaskDelete:          core.ScopeTaskDelete,
 	ActionTaskReclaim:         core.ScopeTaskReclaim,
+	ActionTaskApprove:         core.ScopeTaskApprove,
 	ActionTaskStar:            core.ScopeTaskRead,
 	ActionViewArrange:         core.ScopeTaskRead,
 	ActionFilterSave:          core.ScopeTaskRead,
@@ -167,6 +172,8 @@ var projectConfinable = map[Action]bool{
 	// be trusted with it the way it is trusted with claiming: the policy
 	// holds it inside its own project on the way through.
 	ActionTaskReclaim: true,
+	// An approval reaches one task, inside the token's own project.
+	ActionTaskApprove: true,
 	ActionTaskStar:    true,
 
 	ActionProjectRead:  true,
@@ -194,7 +201,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
-	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
+	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskApprove, ActionTaskStar, ActionViewArrange,
 	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionInboxRead,
 	ActionTemplateTenantWrite,
 	ActionProjectRead, ActionProjectWrite,

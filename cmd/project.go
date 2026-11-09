@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -81,7 +82,7 @@ func newProjectCmd(g *globals) *cobra.Command {
 }
 
 func projectCreateCmd(g *globals) *cobra.Command {
-	var description, workflow, color, icon, iconName, iconFile string
+	var description, workflow, workflowTemplate, color, icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "create KEY NAME",
@@ -89,7 +90,7 @@ func projectCreateCmd(g *globals) *cobra.Command {
 		Long:  "Create a project with a key used in task references.\n\nExit codes: 2 invalid key, 4 key already exists.",
 		Example: "  tix project create infra Infrastructure\n  tix project create infra Infrastructure --color blue --icon \U0001F680\n" +
 			"  tix project create infra Infrastructure --icon-name server\n  tix project create web Web --icon-file logo.svg\n" +
-			"  tix project create web Website --color '#1a7f5a'",
+			"  tix project create web Website --color '#1a7f5a'\n  tix project create bugs Bugs --workflow-template tix-bugs",
 		Args: exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file, err := readIconFile(cmd, iconFile)
@@ -98,7 +99,7 @@ func projectCreateCmd(g *globals) *cobra.Command {
 			}
 			in := core.CreateProjectInput{
 				Key: args[0], Name: args[1], Description: description, WorkflowKey: workflow,
-				Color: color, Icon: icon, IconName: iconName,
+				WorkflowTemplate: workflowTemplate, Color: color, Icon: icon, IconName: iconName,
 			}
 			if !file.Empty() {
 				in.IconFile = file
@@ -122,6 +123,8 @@ func projectCreateCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&description, "description", "", "project description")
 	cmd.Flags().StringVar(&workflow, "workflow", "", "workflow key or identifier to assign")
+	cmd.Flags().StringVar(&workflowTemplate, "workflow-template", "",
+		"built-in workflow template to run on, with its custom fields (see tix workflow template ls)")
 	cmd.Flags().StringVar(&color, "color", "", colorFlagUsage)
 	cmd.Flags().StringVar(&icon, "icon", "", iconFlagUsage)
 	cmd.Flags().StringVar(&iconName, "icon-name", "", iconNameUsage)
@@ -513,8 +516,105 @@ func newWorkflowCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(workflowPutCmd(g), workflowGetCmd(g), workflowLsCmd(g), workflowRmCmd(g))
+	cmd.AddCommand(workflowPutCmd(g), workflowGetCmd(g), workflowLsCmd(g), workflowRmCmd(g), workflowTemplateCmd(g))
 	return cmd
+}
+
+// workflowTemplateCmd builds the built-in workflow template group.
+func workflowTemplateCmd(g *globals) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "template",
+		Aliases: []string{"templates"},
+		Short:   "List and apply the built-in workflow templates",
+		Long: "Built-in workflow templates are ready-made workflows, each with a one-line purpose and the custom\n" +
+			"fields a project using it usually wants. Their keys start with " + core.WorkflowTemplatePrefix + ", which is reserved for them.",
+		Args: noArgs,
+		RunE: helpRunner,
+	}
+	cmd.AddCommand(workflowTemplateLsCmd(g), workflowTemplateApplyCmd(g))
+	return cmd
+}
+
+func workflowTemplateLsCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:     "ls",
+		Aliases: []string{"list"},
+		Short:   "List the built-in workflow templates",
+		Long:    "List every built-in workflow template: its purpose first, then its key, name, states and fields.\n\nExit codes: 5 permission denied.",
+		Example: "  tix workflow template ls\n  tix workflow template ls -o yaml",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			templates, err := conn.Service.ListWorkflowTemplates(ctx)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, templates)
+		},
+	}
+}
+
+func workflowTemplateApplyCmd(g *globals) *cobra.Command {
+	var as, onCollision string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "apply KEY",
+		Short: "Create a workflow from a built-in template",
+		Long: "Create a workflow from a built-in template, under the template's key or the one --as names.\n" +
+			"A key already taken is refused unless --on-collision says to skip, rename or replace.\n" +
+			"The template's custom fields belong to projects: tix project create --workflow-template adds them.\n\n" +
+			"Exit codes: 2 invalid key, 3 unknown template, 4 key already taken, 6 tasks sit in a removed state.",
+		Example: "  tix workflow template apply tix-dev-review\n  tix workflow template apply tix-sales --as deals\n" +
+			"  tix workflow template apply tix-bugs --on-collision rename",
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in := core.ApplyWorkflowTemplateInput{As: as, OnCollision: core.CollisionPolicy(onCollision)}
+			if err := in.Validate(); err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				key, err := templateTarget(ctx, conn.Service, args[0], as)
+				if err != nil {
+					return err
+				}
+				return g.render(cmd, newPlan("workflow.template.apply", key, map[string]any{"template": args[0]}))
+			}
+			wf, err := conn.Service.ApplyWorkflowTemplate(ctx, args[0], in)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, wf)
+		},
+	}
+	cmd.Flags().StringVar(&as, "as", "", "workflow key to create, instead of the template's own")
+	cmd.Flags().StringVar(&onCollision, "on-collision", "", "when the key is taken: skip, rename or replace")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
+	return cmd
+}
+
+// templateTarget is the key a template would be applied under, after checking
+// the template exists.
+func templateTarget(ctx context.Context, svc core.Service, key, as string) (string, error) {
+	templates, err := svc.ListWorkflowTemplates(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range templates {
+		if strings.EqualFold(t.Key, strings.TrimSpace(key)) {
+			if as != "" {
+				return strings.ToLower(strings.TrimSpace(as)), nil
+			}
+			return t.Key, nil
+		}
+	}
+	return "", core.NotFound("workflow template %q", key)
 }
 
 func workflowPutCmd(g *globals) *cobra.Command {

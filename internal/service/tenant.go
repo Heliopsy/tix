@@ -119,7 +119,7 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 	if err != nil {
 		return nil, err
 	}
-	admins, err := l.prepareAdmins(in.Admins, accounts)
+	admins, err := l.prepareAdmins(ctx, in.Admins, accounts)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (l *Local) existingAccounts(ctx context.Context, in []core.TenantAdminInput
 // generating one where none was given. Hashing happens here, outside any
 // transaction, because it is deliberately slow. An existing account keeps its
 // password, so supplying one for it is refused rather than ignored.
-func (l *Local) prepareAdmins(in []core.TenantAdminInput, accounts map[string]*core.User) ([]pendingAdmin, error) {
+func (l *Local) prepareAdmins(ctx context.Context, in []core.TenantAdminInput, accounts map[string]*core.User) ([]pendingAdmin, error) {
 	out := make([]pendingAdmin, 0, len(in))
 	for _, a := range in {
 		p := pendingAdmin{
@@ -212,7 +212,7 @@ func (l *Local) prepareAdmins(in []core.TenantAdminInput, accounts map[string]*c
 			}
 			password, p.generated = generated, generated
 		}
-		hash, err := l.hasher.Hash(password)
+		hash, err := l.hasher.Hash(ctx, password)
 		if err != nil {
 			return nil, err
 		}

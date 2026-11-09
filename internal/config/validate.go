@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"net"
 	"net/url"
 	"strconv"
@@ -108,6 +109,9 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		if _, err := auth.ParseTOTPKey(cfg.Auth.TOTPKey); err != nil {
 			return invalidKey("auth.totp_key", sources).WithDetail("reason", err.Error())
 		}
+	}
+	if err := validatePasswordHashing(cfg.Auth, sources); err != nil {
+		return err
 	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {
@@ -364,4 +368,36 @@ func bindingReason(err error) string {
 		return domain.Message
 	}
 	return err.Error()
+}
+
+// validatePasswordHashing refuses a negative setting, and a cost an operator
+// configured below the OWASP floor: lowering the hash cost is a decision a
+// typo must not make.
+func validatePasswordHashing(a Auth, sources map[string]Layer) error {
+	for _, n := range []struct {
+		key string
+		v   int
+		max int64
+	}{
+		{"auth.max_concurrent_hashes", a.MaxConcurrentHashes, math.MaxInt32},
+		{"auth.argon2_memory_kib", a.Argon2MemoryKiB, math.MaxUint32},
+		{"auth.argon2_time", a.Argon2Time, math.MaxUint32},
+		{"auth.argon2_threads", a.Argon2Threads, math.MaxUint8},
+	} {
+		if n.v < 0 || int64(n.v) > n.max {
+			return invalidKey(n.key, sources).WithDetail("value", strconv.Itoa(n.v)).
+				WithDetail("reason", "must be between 0 and "+strconv.FormatInt(n.max, 10))
+		}
+	}
+	if a.Argon2MemoryKiB == 0 && a.Argon2Time == 0 && a.Argon2Threads == 0 {
+		return nil
+	}
+	if err := a.PasswordParams().CheckPolicy(); err != nil {
+		key := "auth.argon2_memory_kib"
+		if a.Argon2MemoryKiB == 0 {
+			key = "auth.argon2_time"
+		}
+		return invalidKey(key, sources).WithDetail("reason", err.Error())
+	}
+	return nil
 }

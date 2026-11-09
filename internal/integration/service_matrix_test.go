@@ -1141,6 +1141,74 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "list the built-in workflow templates",
+		covers: []string{"ListWorkflowTemplates"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			all, err := tg.svc.ListWorkflowTemplates(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			first := all[0]
+			return sig{
+				"count":   len(all),
+				"key":     first.Key,
+				"purpose": first.Purpose,
+				"states":  first.States,
+				"fields":  len(all[1].Fields),
+			}, nil
+		},
+	},
+	{
+		name:   "apply a workflow template under a key of its own",
+		covers: []string{"ApplyWorkflowTemplate", "GetWorkflow"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "w" + randSuffix()
+			wf, err := tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-dev-review", core.ApplyWorkflowTemplateInput{As: key})
+			if err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetWorkflow(tg.ctx, key)
+			mustf(t, tg, err, "reading the applied workflow back")
+			return sig{
+				"same":    wf.Key == key && got.ID == wf.ID,
+				"name":    got.Name,
+				"initial": got.Definition.Initial,
+				"states":  len(got.Definition.States),
+				"edges":   len(got.Definition.Transitions),
+			}, nil
+		},
+	},
+	{
+		name:   "applying a workflow template onto a taken key is a conflict",
+		covers: []string{"ApplyWorkflowTemplate"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "w" + randSuffix()
+			_, err := tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-kanban", core.ApplyWorkflowTemplateInput{As: key})
+			mustf(t, tg, err, "applying the template the first time")
+			_, err = tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-kanban", core.ApplyWorkflowTemplateInput{As: key})
+			return nil, err
+		},
+	},
+	{
+		name:   "a project created from a workflow template gets its fields",
+		covers: []string{"CreateProject", "ListFieldDefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "p" + randSuffix()
+			p, err := tg.svc.CreateProject(tg.ctx, core.CreateProjectInput{Key: key, Name: "From a template",
+				WorkflowTemplate: "tix-sales"})
+			if err != nil {
+				return nil, err
+			}
+			fields, err := tg.svc.ListFieldDefs(tg.ctx, p.Key)
+			mustf(t, tg, err, "listing the template's fields")
+			keys := make([]string, 0, len(fields))
+			for _, f := range fields {
+				keys = append(keys, f.Key)
+			}
+			return sig{"fields": strings.Join(keys, ",")}, nil
+		},
+	},
+	{
 		name:   "a workflow whose initial state is undefined is rejected",
 		covers: []string{"PutWorkflow"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

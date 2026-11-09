@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-releases
+name: Releases
+purpose: Ship a change and prove it worked.
+definition:
+  initial: planned
+  states:
+    - {key: planned, label: Planned, category: todo}
+    - {key: staged, label: Staged, category: todo}
+    - {key: deploying, label: Deploying, category: in_progress}
+    - {key: deployed, label: Deployed, category: in_progress}
+    - {key: verified, label: Verified, category: done, terminal: true}
+    - {key: rolled_back, label: Rolled back, category: cancelled, terminal: true}
+  transitions:
+    - {from: planned, to: staged}
+    - {from: staged, to: planned}
+    - {from: staged, to: deploying}
+    - {from: deploying, to: deployed}
+    - {from: deployed, to: verified}
+    - {from: deploying, to: rolled_back, requires_comment: true}
+    - {from: deployed, to: rolled_back, requires_comment: true}
+    - {from: rolled_back, to: planned}
+fields:
+  - {key: version, label: Version, type: string, position: 1}
+  - {key: environment, label: Environment, type: enum, enum_options: [staging, production], position: 2}

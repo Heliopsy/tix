@@ -459,6 +459,7 @@ two apart by filtering on the action. The entry names the token and the actor it
 | `task:transition` | move a task between states |
 | `task:claim` | claim, renew, release |
 | `task:reclaim` | end the lease another worker holds |
+| `task:approve` | cross a workflow edge that names it, such as approving or rejecting in the `tix-agent-review` and `tix-approval` templates. No role but `admin` carries it, so the worker doing the work cannot sign it off |
 | `task:delete` | delete and restore tasks |
 | `project:read` / `project:write` | read and change projects |
 | `workflow:read` / `workflow:write` | read and change workflows |

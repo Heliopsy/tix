@@ -35,42 +35,48 @@ func (l *Local) PutFieldDef(ctx context.Context, projectRef string, in core.Fiel
 		if _, err := l.authorize(ctx, authz.ActionFieldWrite, authz.Resource{ProjectID: p.ID}); err != nil {
 			return err
 		}
-		def := &core.FieldDef{
-			ProjectID:   p.ID,
-			Key:         key,
-			Label:       label,
-			Type:        in.Type,
-			Required:    in.Required,
-			EnumOptions: in.EnumOptions,
-			Default:     in.Default,
-			Position:    in.Position,
-		}
-		if in.Default != nil {
-			value, err := coerceFieldValue(*def, in.Default)
-			if err != nil {
-				return err
-			}
-			def.Default = value
-		}
-
-		before, err := findFieldDef(ctx, m.tx, p.ID, key)
-		if err != nil {
-			return err
-		}
-		if before != nil {
-			def.ID = before.ID
-		}
-		if err := m.tx.PutFieldDef(ctx, def); err != nil {
-			return err
-		}
+		def, err := putFieldDef(ctx, m, p, key, label, in)
 		out = def
-		return m.Record(auditFieldPut, core.EventFieldUpdated, "field_def", def.ID, p.ID, before, def,
-			map[string]any{"key": def.Key, "project_id": p.ID})
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// putFieldDef writes one field definition on a project inside a mutation.
+func putFieldDef(ctx context.Context, m *mutation, p *core.Project, key, label string, in core.FieldDefInput) (*core.FieldDef, error) {
+	def := &core.FieldDef{
+		ProjectID:   p.ID,
+		Key:         key,
+		Label:       label,
+		Type:        in.Type,
+		Required:    in.Required,
+		EnumOptions: in.EnumOptions,
+		Default:     in.Default,
+		Position:    in.Position,
+	}
+	if in.Default != nil {
+		value, err := coerceFieldValue(*def, in.Default)
+		if err != nil {
+			return nil, err
+		}
+		def.Default = value
+	}
+
+	before, err := findFieldDef(ctx, m.tx, p.ID, key)
+	if err != nil {
+		return nil, err
+	}
+	if before != nil {
+		def.ID = before.ID
+	}
+	if err := m.tx.PutFieldDef(ctx, def); err != nil {
+		return nil, err
+	}
+	return def, m.Record(auditFieldPut, core.EventFieldUpdated, "field_def", def.ID, p.ID, before, def,
+		map[string]any{"key": def.Key, "project_id": p.ID})
 }
 
 // ListFieldDefs returns a project's custom field definitions in display order.
