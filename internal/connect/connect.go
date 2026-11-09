@@ -422,8 +422,11 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 	}
 	conn.Info.SchemaVersion = version
 
+	passwords := cfg.Config.Auth.PasswordParams()
+	auth.SetMaxConcurrentHashes(cfg.Config.Auth.MaxConcurrentHashes, passwords.Memory)
 	local := service.New(st,
 		service.WithClock(clk),
+		service.WithPasswordParams(passwords),
 		service.WithHooks(service.HookModeOf(mode)),
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
 		service.WithIdempotencyWindow(cfg.Config.Retention.IdempotencyKeys.D()),

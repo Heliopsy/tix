@@ -55,6 +55,10 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.egress_allow` | `TIX_SERVER_EGRESS_ALLOW` | (unset: no internal address is reachable for a tenant) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `auth.totp_key` | `TIX_AUTH_TOTP_KEY` | (unset) |
+| `auth.max_concurrent_hashes` | `TIX_AUTH_MAX_CONCURRENT_HASHES` | `0` (sized from the memory limit) |
+| `auth.argon2_memory_kib` | `TIX_AUTH_ARGON2_MEMORY_KIB` | `0` (`47104`, 46 MiB) |
+| `auth.argon2_time` | `TIX_AUTH_ARGON2_TIME` | `0` (`2`) |
+| `auth.argon2_threads` | `TIX_AUTH_ARGON2_THREADS` | `0` (`1`) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
@@ -333,6 +337,22 @@ peer is on the list, the effective scheme comes from `X-Forwarded-Proto` and the
 scheme of each request, so a deployment behind a TLS-terminating proxy gets `Secure` once that proxy is listed in
 `server.trusted_proxies`. `always` sets it unconditionally; `never` never sets it, which is only correct on a
 network that is deliberately plaintext. Serving TLS from tix itself sets it regardless of this key.
+
+### Password hashing
+
+Passwords are hashed with argon2id at 46 MiB, two passes and one lane. Each hash or check holds its memory
+for the time it runs, so `auth.max_concurrent_hashes` caps how many run at once. At `0` it is sized from the
+Go runtime's soft memory limit: a quarter of it divided by the memory one hash takes, at least 1 and at most
+the number of cores. A process with no soft limit runs two at a time. A sign-in that finds every slot taken
+waits up to ten seconds, or less if its request ends first, then gets `precondition_failed` with
+`reason: password_hashing_busy`. It is never let in without the check. See
+[deployment.md](deployment.md#password-hashing-memory) for the sizing.
+
+`auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads` raise or change the cost new hashes are
+made at; `0` keeps the default for that one. A setting below every configuration OWASP lists (under 7 MiB, or
+less than 35 MiB of memory times passes) is refused at start-up. Existing hashes keep verifying at the
+parameters they were stored with, and each is rehashed at the current setting on its owner's next successful
+sign-in, whether that makes it cheaper or dearer.
 
 ### The public web address
 
