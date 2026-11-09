@@ -62,8 +62,11 @@ func (s *Server) proveSecondFactor(sess ssh.Session, actor *core.Actor, command 
 	// rebuilt here: a factor is owed when the tenant requires one on this
 	// surface, and also when the person holds a confirmed one of their own,
 	// because a voluntary enrolment that protected no sign-in would protect
-	// nothing at all.
-	if !status.RequiredSSH && !status.Enrolled {
+	// nothing at all. Under the tenant's second factor policy, once its grace
+	// is over, a person without one owes enrolment here whatever the ssh flag
+	// says: the gate in the service would refuse everything the board asks
+	// for, so the session offers enrolment and nothing else.
+	if !status.RequiredSSH && !status.Enrolled && !status.EnrollmentRequired {
 		return nil
 	}
 	if status.VerificationLocked && status.VerificationLockEnd != nil {
