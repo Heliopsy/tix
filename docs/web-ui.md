@@ -169,6 +169,10 @@ and a link to it opens exactly that. Choosing a view here does not change the ta
 view. A board of one project draws that project's workflow, and the columns a reader arranged on the old
 project board keep their arrangement.
 
+Its lanes are grouped by assignee unless the address says otherwise (`lanes=priority`, `lanes=tag`,
+`lanes=due`): one lane per project would be a single lane here, so Project is not offered, and the page
+neither reads nor writes the grouping the task list remembers. See [Lanes](#lanes).
+
 ### Project settings
 
 `/projects/KEY/settings` has four sections, always drawn:
@@ -428,12 +432,49 @@ where a column holds more than one project's work.
 
 ## Lanes
 
-The third position of the same switch draws the page one lane per project, the way Google Tasks
-draws one column per list. It is the same selection again: one filter, one page, one visibility
-choice and one pager, except that lanes, like the board, are exempt from the list's open-work default,
-because a finished task is drawn in its lane, ticked.
+The third position of the same switch draws the page in lanes, by default one per project, the way
+Google Tasks draws one column per list. It is the same selection again: one filter, one page, one
+visibility choice and one pager, except that lanes, like the board, are exempt from the list's
+open-work default, because a finished task is drawn in its lane, ticked.
 
-Lanes follow the order the screen lists projects in, and a lane keeps the listing's sort. A project
+**Group lanes by.** Beside the switch, and only while lanes are drawn, a select picks what a lane is:
+
+| Grouping | One lane per | Order | An empty lane is drawn when |
+| --- | --- | --- | --- |
+| Project | project | the order the screen lists projects in | a `project:` term names it |
+| Assignee | person, plus Unassigned | A to Z by handle, Unassigned last | an `assignee:` term names the person |
+| Priority | priority | highest to lowest | a `priority:` term names it |
+| Tag | tag, plus No tag | tags the filter names, then A to Z, No tag last | a `tag:` term names it |
+| Due | deadline bucket | overdue, today, this week, later, no date | never |
+
+The choice is the `lanes` parameter beside `view`, so a link keeps it, and the view switch, the filter
+form, Clear, the pager, the live refresh and a card's own actions all keep it. The control is a GET form
+carrying the rest of the address: without scripting it has an Apply button, with scripting a change
+submits it. The task list opens on Project and remembers the last choice in this browser
+(`tix_lanes_group`, a cookie, removed when Project is chosen again); a project page opens on Assignee
+(see [The project page](#the-project-page)).
+
+**A task with several tags is drawn once**, in the first lane among its tags as you see them, left to
+right, after your arrangement. Tags a filter names come first, so `tag:ops` puts every card tagged ops in
+the ops lane, and starring a tag's lane pulls its cards into it; hiding one sends them to their next tag.
+Drawing a card in every tag's lane would make the lanes add up to more than the page and repeat the
+card's controls, whose forms, menus and focus are addressed by the card's id. The card still lists all
+its tags, and a line over the lanes says the rule.
+
+There is no grouping by status, on purpose: lanes by status are the board, which already merges the
+workflows of several projects, refuses the ones that disagree and moves a card by drag.
+
+Lanes have no drag and drop. A card changed in a way that moves it to another lane (a new priority in
+lanes by priority, a new assignee in lanes by assignee, a tag in lanes by tag) is swapped in place
+first and moves to its new lane with the live refresh that change triggers, as anybody else's change
+would; without scripting the page is drawn again with it in its new lane.
+
+A lane heading other than a project's is a link to the screen filtered to that lane's tasks
+(`assignee:lena`, `priority:high`, `tag:ops`), still in lanes grouped the same way, and its menu offers
+the same link. Unassigned, No tag and the deadline buckets have no filter term that says exactly them,
+so they are plain headings.
+
+Project lanes follow the order the screen lists projects in, and a lane keeps the listing's sort. A project
 gets a lane when a task on this page is in it, or when a `project:` term names it, in which case an
 empty lane says so. No other empty lane is drawn: a tenant with hundreds of projects would otherwise
 draw hundreds of columns of nothing, most of them because their tasks are on another page. A task
@@ -574,9 +615,11 @@ The arrangement is yours and kept with your account on the server, not in the br
 follows you to any browser and device, to `tix view` on the command line and to the terminal board,
 and changes nothing anybody else sees. It is kept per view: `board` is the task screen grouped by
 status (the board and the list grouped by status), `lanes` is the task screen grouped by project
-(the lanes and the list grouped by project), `mine` is My work grouped by deadline, and
+(the lanes and the list grouped by project), `lanes:assignee`, `lanes:priority`, `lanes:tag` and
+`lanes:due` are the lanes grouped those ways, `mine` is My work grouped by deadline, and
 `project:KEY` is one project's own board. A lane is kept by the project, so renaming a project's key
-keeps it.
+keeps it; a person's lane is kept by the actor and named by the handle. The other groupings are shared
+by the task list and every project page, so a person you starred is starred on both.
 
 Every action is a form, so it works without scripting. With scripting it redraws the view in place
 and puts focus back on the same heading's dots, or on Hidden after a hide. While a menu is open the

@@ -502,12 +502,12 @@ A snoozed task is not claimable: `/claims/next` skips it, and `POST /tasks/{ref}
 
 ### Arranging views
 
-Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
-the task screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the
-task screen grouped by project, groups are project keys), `lanes:assignee`, `lanes:priority`, `lanes:tag` and
-`lanes:due` (the lanes grouped by person, priority, tag or deadline; groups are handles, priority names from
-`highest` to `lowest`, tags of the tenant or deadline buckets, and `-` is the Unassigned or No tag lane),
-`mine` (My work, grouped by deadline: `overdue`, `today`, `week`, `later` and `none`) or `project:KEY` (one project's board, groups are the states of its
+Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of the task
+screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the task screen grouped
+by project, groups are project keys), `lanes:assignee`, `lanes:priority`, `lanes:tag` and `lanes:due` (the lanes
+grouped by person, priority, tag or deadline; groups are handles, priority names from `highest` to `lowest`, tags of
+the tenant or deadline buckets, and `-` is the Unassigned or No tag lane), `mine` (My work, grouped by deadline:
+`overdue`, `today`, `week`, `later` and `none`) or `project:KEY` (one project's board, groups are the states of its
 workflow). Anything else is `invalid`, and so is a group the view cannot hold.
 
 | Route | Does |
