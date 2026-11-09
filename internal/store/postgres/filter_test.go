@@ -12,7 +12,7 @@ import (
 	"github.com/heliopsy/tix/internal/store/sqltest"
 )
 
-// TestFilterConformance runs the shared corpus. The same table runs against
+// TestFilterConformance runs the shared corpus, with and without bodies. The same table runs against
 // SQLite in internal/store/sqlite, so a weak match or a negated term that
 // selected different tasks on the two engines fails here or there. It is the
 // whole reason the explicit text terms use LOWER/LIKE rather than each
@@ -27,17 +27,26 @@ func TestFilterConformance(t *testing.T) {
 
 	for _, c := range sqltest.Cases() {
 		t.Run(c.Name, func(t *testing.T) {
-			var got []core.Task
-			if err := s.View(ctx, f.scope, func(tx store.Tx) error {
-				var err error
-				got, err = tx.ListTasks(ctx, c.Filter)
-				return err
-			}); err != nil {
-				t.Fatalf("listing: %v", err)
-			}
-			want := sqltest.Sorted(c.Want)
-			if have := sqltest.Titles(got); !equalTitles(have, want) {
-				t.Errorf("postgres selected %v, want %v", have, want)
+			for _, omit := range []bool{false, true} {
+				filter := c.Filter
+				filter.OmitBody = omit
+				var got []core.Task
+				if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+					var err error
+					got, err = tx.ListTasks(ctx, filter)
+					return err
+				}); err != nil {
+					t.Fatalf("listing: %v", err)
+				}
+				want := sqltest.Sorted(c.Want)
+				if have := sqltest.Titles(got); !equalTitles(have, want) {
+					t.Errorf("postgres selected %v with OmitBody %v, want %v", have, omit, want)
+				}
+				for _, task := range got {
+					if omit && task.Body != "" {
+						t.Errorf("postgres read %q's body for a listing that omits it", task.Title)
+					}
+				}
 			}
 		})
 	}

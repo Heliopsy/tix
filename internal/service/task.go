@@ -230,7 +230,9 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	} else if limit >= core.MaxPageLimit && len(tasks) == limit {
 		more = true
 	}
-	markChecklistsIn(tasks)
+	if !f.OmitBody {
+		markChecklistsIn(tasks)
+	}
 	page := core.TaskPage{Tasks: tasks}
 	if more && len(tasks) > 0 {
 		last := tasks[len(tasks)-1]

@@ -294,7 +294,7 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 		return nil, err
 	}
 
-	b := t.builder("tasks").Select(taskColumns...).Join(projectJoin)
+	b := t.builder("tasks").Select(sqlb.TaskColumns(taskColumns, f.OmitBody)...).Join(projectJoin)
 	spec.ranked = sqlb.ApplyStars(b, f)
 	if err := t.applyTaskFilter(b, f); err != nil {
 		return nil, err

@@ -84,6 +84,9 @@ var filterExempt = map[string]string{
 	"StarredBy": "the reading actor, which the service sets from the caller and a caller never " +
 		"names: a filter that could name another actor would list by somebody else's stars. " +
 		"It is json:\"-\" so it cannot survive the wire, which is the point.",
+	"OmitBody": "not a set of tasks but what each one carries, for the browser's overdue badge, " +
+		"which counts tasks and draws none. It is json:\"-\" like StarredBy: a remote " +
+		"listing always carries bodies.",
 	"Page": "the shape of the listing rather than a set of tasks. Sort, limit, cursor " +
 		"and direction each have their own control on every surface, and the expression " +
 		"spells the first two as sort: and limit:.",
