@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.51.0](https://github.com/Heliopsy/tix/compare/v0.50.0...v0.51.0) (2026-11-09)
+
+
+### Features
+
+* **account:** list and revoke your own sessions ([e3036cd](https://github.com/Heliopsy/tix/commit/e3036cd2b642a6dfaac723842b98ef9eee5f95b3))
+* **api:** accept an Idempotency-Key on writes so a retry replays the first answer ([265f444](https://github.com/Heliopsy/tix/commit/265f4448d00d0be5e1e0daaad08adee74c9eb4f6))
+* **api:** long-poll the event log over plain HTTP ([84305d3](https://github.com/Heliopsy/tix/commit/84305d33c0f9fafa9a1e1a18a4f2b8bc63433c45))
+* **embedded:** choose the journal mode and checkpoint at stop ([fe6aed2](https://github.com/Heliopsy/tix/commit/fe6aed29572eb0ddfc157a4f1a15bc9704838c6d))
+* purge one task from the trash for good ([19c76f3](https://github.com/Heliopsy/tix/commit/19c76f3371a5df08290aa1b1c2b38c573f7ef935))
+* **server:** server.public_url gives tasks a web_url and links a public address ([818a293](https://github.com/Heliopsy/tix/commit/818a2933a303cc660a8a8cc84ccdda41320d3146))
+* **service:** tenant and resolved theme on whoami for every credential ([9df1862](https://github.com/Heliopsy/tix/commit/9df18621e1758151e8db3c4e6f032dc113925f4b))
+* **ssh:** run tix task link over ssh, from the task's web_url ([3eb967f](https://github.com/Heliopsy/tix/commit/3eb967f4eb4af43de1a4e1b9d87c8be7e2045cd0))
+* **store:** open SQLite in delete journal mode on request ([04f7045](https://github.com/Heliopsy/tix/commit/04f7045af9c5d4fb82f16bfbea6f79dff86016f9))
+* **tui:** share a task to the terminal clipboard with ^ ([3128503](https://github.com/Heliopsy/tix/commit/3128503d6a1ace2485c6652eeb60b488cb558751))
+* **web:** add an OLED colour scheme and System, OLED when dark ([1fda2ea](https://github.com/Heliopsy/tix/commit/1fda2eaf778526b788d5cd4fc4d8927477604a70))
+* **webhook:** ping one endpoint with a signed test delivery ([72e87d4](https://github.com/Heliopsy/tix/commit/72e87d405c467cd71036cc0e33a85839d6a15c0b))
+* **web:** list, board and lanes on the project page, with the filter kept across views ([2cdf666](https://github.com/Heliopsy/tix/commit/2cdf666db4158358f4221c5bfe9dda63361ee838))
+* **web:** share a task from its screen and a lane card, and print its link with tix task link ([53f75de](https://github.com/Heliopsy/tix/commit/53f75de520f8712dbbb7ba03f53de109caca80fe))
+* **web:** tabs on the Connect an agent screen ([8bc3e2b](https://github.com/Heliopsy/tix/commit/8bc3e2b84974e4da2e805243b1c33466732f3bc8))
+
+
+### Bug Fixes
+
+* **config:** read the themes block from the configuration file ([f1baec4](https://github.com/Heliopsy/tix/commit/f1baec4b83b58907abb188aa4d7412f2e5916c21))
+* **connect:** build the service with the configured themes ([0ed40af](https://github.com/Heliopsy/tix/commit/0ed40af2b815d39b579087bbcad5ee067434e5a9))
+* **i18n:** mark the session strings as interface text for gosec ([4b7fa92](https://github.com/Heliopsy/tix/commit/4b7fa92696658b62ec93bbd650fb263453d705ac))
+* leave people removed from a tenant out of its user listings ([3e07e07](https://github.com/Heliopsy/tix/commit/3e07e07ba93951edc59f1e4ab50989612ec3851d))
+* report how many tasks a project deletion removed ([9aa7659](https://github.com/Heliopsy/tix/commit/9aa7659f895d0641dad34ab25c643d8be6e087c2))
+* **webhook:** return a generated signing secret over HTTP ([7df0722](https://github.com/Heliopsy/tix/commit/7df07229c5b137bbd803522eb9f64cb59e41c4f3))
+* **web:** keep list and table words whole, and follow the scroll in the settings navigation ([#275](https://github.com/Heliopsy/tix/issues/275)) ([10ec5bb](https://github.com/Heliopsy/tix/commit/10ec5bb76ea0874af68c8d226749b654623da0ec))
+
 ## [0.50.0](https://github.com/Heliopsy/tix/compare/v0.49.0...v0.50.0) (2026-11-08)
 
 
