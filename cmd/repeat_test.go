@@ -51,6 +51,11 @@ func TestTaskRepeatFlags(t *testing.T) {
 	}
 }
 
+// TestFinishingFromTheCommandLineSpawnsAndShowNamesIt runs on the wall clock,
+// so its due date stays in the future: a successor falls after both the due
+// date and the moment of finishing, and a past due date makes the expected day
+// depend on today. Finishing late is pinned with a fake clock in internal/core
+// and internal/service.
 func TestFinishingFromTheCommandLineSpawnsAndShowNamesIt(t *testing.T) {
 	c := newCLI(t)
 	c.mustRun("task", "add", "--due", "2099-11-02", "--repeat", "weekly", "water plants")
