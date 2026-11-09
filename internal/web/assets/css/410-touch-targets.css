@@ -29,6 +29,7 @@
   details.note > summary,
   details.card-move > summary,
   .pager-step,
+  .pager-num,
   .ghostlink {
     min-height: 44px;
     display: inline-flex;

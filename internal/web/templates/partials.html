@@ -731,13 +731,30 @@
 
      Previous is absent rather than disabled on the first page, and the three
      slots are placed explicitly on the grid, so a missing control leaves the
-     other two exactly where they were rather than sliding them across. */}}
+     other two exactly where they were rather than sliding them across.
+
+     A counted listing adds First and Last beside them, the numbered pages
+     with gaps under them, and a go-to field that is a plain GET form carrying
+     the listing's own parameters, so it works without scripting. */}}
 {{define "pager"}}
 {{if .Show}}
 <nav class="pager" aria-label="{{t "Pages of this list"}}">
-  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev">{{template "icon" "arrow-left"}}<span>{{t "Previous"}}</span></a>{{end}}
-  <span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>
-  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next"><span>{{t "Next"}}</span>{{template "icon" "arrow-right"}}</a>{{end}}
+  {{if .HasPrev}}<span class="pager-back">{{if .Counted}}<a class="pager-step pager-first" href="{{.FirstHref}}">{{t "First"}}</a>{{end}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev">{{template "icon" "arrow-left"}}<span>{{t "Previous"}}</span></a></span>{{end}}
+  {{if .Counted}}<span class="pager-at">{{t "Page %d of %s" .Page .PagesLabel}} <span class="pager-count">&middot; {{.TotalLabel}} {{t .Unit}}</span></span>
+  {{else}}<span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>{{end}}
+  {{if .HasNext}}<span class="pager-forward"><a class="pager-step pager-next" href="{{.NextHref}}" rel="next"><span>{{t "Next"}}</span>{{template "icon" "arrow-right"}}</a>{{if .HasLast}}<a class="pager-step pager-last" href="{{.LastHref}}">{{t "Last"}}</a>{{end}}</span>{{end}}
+  {{if .Counted}}
+  <div class="pager-nums">
+  <ol class="pager-pages">
+    {{range .Links}}{{if .Gap}}<li class="pager-gap" aria-hidden="true">&hellip;</li>{{else if .Current}}<li><span class="pager-num" aria-current="page">{{.Number}}</span></li>{{else}}<li><a class="pager-num" href="{{.Href}}" aria-label="{{t "Page %d" .Number}}">{{.Number}}</a></li>{{end}}{{end}}
+  </ol>
+  <form class="pager-jump" method="get" action="{{.Base}}">
+    {{range .JumpFields}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+    <label>{{t "Go to page"}} <input type="number" name="page" min="1"{{if not .Capped}} max="{{.Pages}}"{{end}} value="{{.Page}}" inputmode="numeric" required></label>
+    <button type="submit" class="pager-step">{{t "Jump"}}</button>
+  </form>
+  </div>
+  {{end}}
 </nav>
 {{end}}
 {{end}}

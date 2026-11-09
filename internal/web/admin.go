@@ -483,16 +483,22 @@ type usersView struct {
 // role empty rather than failing the screen, and the edit control then says
 // so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
-	users, next, err := h.svc.ListUsers(r.Context(), core.UserFilter{Page: core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	}})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.User, string, error) {
+		return h.svc.ListUsers(r.Context(), core.UserFilter{Page: core.Page{Cursor: cursor, Limit: limit}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	users, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	roles := h.memberRoles(r)
 	actor, _ := core.ActorFrom(r.Context())
 	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
-		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam),
+		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam).counted(pos, size),
 		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin), InviteExpiries: inviteExpiryChoices,
 		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r)}
 	for _, u := range users {
