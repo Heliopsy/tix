@@ -147,6 +147,8 @@ func TestRecurrenceNext(t *testing.T) {
 		{"finished late skips missed", "every week", "2026-10-01T00:00:00Z", "2026-10-20T10:00:00Z", "2026-10-22T00:00:00Z"},
 		{"finished years late", "every day", "2020-01-01T09:00:00Z", "2026-10-20T10:00:00Z", "2026-10-21T09:00:00Z"},
 		{"finished late exactly on an occurrence", "every week", "2026-10-01T00:00:00Z", "2026-10-15T00:00:00Z", "2026-10-22T00:00:00Z"},
+		{"finished late on the day of an occurrence", "every week", "2026-11-02T00:00:00Z", "2026-11-09T10:00:00Z", "2026-11-16T00:00:00Z"},
+		{"finished late the day before an occurrence", "every week", "2026-11-02T00:00:00Z", "2026-11-08T23:00:00Z", "2026-11-09T00:00:00Z"},
 		{"every 2 days", "every 2 days", "2026-11-02T00:00:00Z", "2026-11-02T00:00:00Z", "2026-11-04T00:00:00Z"},
 		{"after done", "every 3 days after done", "2026-10-01T00:00:00Z", "2026-10-20T10:00:00Z", "2026-10-23T00:00:00Z"},
 		{"after done keeps the due clock", "every day after done", "2026-10-01T09:30:00Z", "2026-10-20T22:00:00Z", "2026-10-21T09:30:00Z"},
