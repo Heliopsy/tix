@@ -1382,7 +1382,7 @@
   <div class="segmented" role="group" aria-labelledby="viewswitch-label">
     {{range .Views}}<a class="segment{{if .Selected}} is-on{{end}}" href="{{.Href}}" data-view="{{.Value}}"{{if .Selected}} aria-current="page"{{end}}>{{t .Label}}</a>{{end}}
   </div>
-  {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, with finished tasks ticked in place. Switching keeps the filter, the sort and the project." "docs/web-ui.md")}}
+  {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, person, priority, tag or deadline, with finished tasks ticked in place. Switching keeps the filter, the sort and the project." "docs/web-ui.md")}}
 </nav>
 {{end}}
 
