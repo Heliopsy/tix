@@ -16483,6 +16483,9 @@ components:
             Without one enrolment is refused outright rather than falling back to
             plaintext.
           type: boolean
+        policy:
+          description: MFAPolicy is a tenant's second factor policy.
+          type: string
         require_cli:
           description: RequireCLI is true when the tenant requires a second factor
             for command line sign-in.

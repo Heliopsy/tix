@@ -178,7 +178,7 @@ an action unbound.
 | `enter` | open, or apply an input; inserts a newline inside a multi-line field; pings an endpoint, redelivers, runs a source or prunes on integrations | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
-| `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin |
+| `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin; on people, toggles the list to those without a second factor |
 | `C` | clear the filter, and on activity the project the start menu picked | board, activity |
 | `space` | pause the tail, holding new events back; again to resume and draw them | activity |
 | `s` | apply one of your saved filters, or one shared with the tenant | board |
@@ -739,7 +739,10 @@ a named subject rather than a typed identifier. The confirmation says the hostna
 
 `e` edits the tenant: the theme from the palettes the build carries, including the word for having none
 and `custom`, which asks for a `#rrggbb` accent at the single-line input, and the name from the
-single-line input seeded with the name it would replace. `n` asks whether a domain or a member is being
+single-line input seeded with the name it would replace, the second factor policy (`off` or `required`)
+and its grace (from `0` to `30d`; any other length is for `tix tenant edit --mfa-grace`). The screen states
+the policy beside the theme. Turning it on is refused while you hold no second factor yourself; see
+[second-factor.md](second-factor.md#the-tenant-policy). `n` asks whether a domain or a member is being
 added. A domain takes its hostname at the prompt and is added carrying no certificate
 of its own, because a certificate is a pair of paths on the server that no control here can gather;
 `tix domain add` takes them. A member is picked from the tenant's own directory, read at the keystroke
@@ -787,7 +790,12 @@ way to dial another tenant, which is what an SSH session is, says that plainly a
 whether they are active or disabled, whether they hold a second factor and whether their next sign-in must
 choose a new password. The pending invites follow, expired ones included so they can be re-issued, each with
 its role, when it stops working and who issued it. One cursor runs over both lists. It is the browser's
-Admin > Users screen and `tix user` in one place.
+Admin > Users screen and `tix user` in one place. `/` narrows the users to those holding no second factor,
+the list to work through before turning the tenant's policy on, and pressing it again lists everybody.
+
+Over SSH, a person the tenant's second factor policy gates is taken through enrolment in the terminal
+before any screen is drawn, and the session ends if they do not finish it; see
+[second-factor.md](second-factor.md#the-tenant-policy).
 
 `enter` reads the selected user in full, the way `tix user show` does. `n` opens one form for a new person,
 with a choice of how they sign in. With a password, the password is masked as it is typed and as it is

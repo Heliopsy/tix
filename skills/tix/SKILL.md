@@ -70,6 +70,13 @@ where it came from.
   `tix ctx add` line above for a server, or `tix init` for a local database.
 - **Exit `5` naming "needs an API token":** the server is set but no token is.
   Add one with `tix ctx add ... --token`, as above.
+- **Exit `5` with reason `second_factor_enrollment_required`:** the tenant's
+  second factor policy is on and the person your token belongs to has no
+  second factor. Nothing but enrolment works until they add one
+  (`tix user totp enrol` on a terminal, or `/settings/totp` in the browser);
+  the same token works again afterwards. Do not retry, tell the person. A token
+  of an agent actor is never refused this way. See
+  [reference/setup.md](reference/setup.md#the-second-factor-policy).
 - **Asked to rotate your own token:** `tix token rotate NAME --grace 10m -o json`
   prints the new value once; put it in your context before the ten minutes are
   up. No `token:admin` is needed for the token you run on. See
