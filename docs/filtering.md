@@ -104,6 +104,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `status:NAME`, `s:NAME` | workflow state, in any case | yes | no |
 | `tag:NAME` | carries the tag | yes | no |
 | `assignee:REF`, `a:REF` | assigned actor, by handle or id, or `me` | yes | no |
+| `@HANDLE` | the same as `assignee:HANDLE`, the way quick add writes it; `"@raj"` in quotes is free text | yes (`-@raj`) | no |
 | `creator:REF` | who created it, by handle or id, or `me` | yes | no |
 | `claimed-by:REF` | who holds the lease, by handle or id, or `me` | yes | no |
 | `priority:NAME` | `highest`…`lowest`, or 1 to 5 | yes | no |
