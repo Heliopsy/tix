@@ -12069,6 +12069,14 @@ paths:
                       - "null"
                   next_cursor:
                     type: string
+                  page:
+                    type: integer
+                  total:
+                    type:
+                      - "null"
+                      - integer
+                  total_capped:
+                    type: boolean
                 type: object
             application/x-ndjson:
               schema:
