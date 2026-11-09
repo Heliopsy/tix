@@ -718,6 +718,9 @@ type StatsTx interface {
 	// CountTrashed counts the soft-deleted tasks, in one project when
 	// projectID is set.
 	CountTrashed(ctx context.Context, projectID string) (int, error)
+	// NumberingBehind lists the projects, by key, whose task number counter
+	// reads below the highest number one of their tasks holds.
+	NumberingBehind(ctx context.Context) ([]core.NumberingLag, error)
 }
 
 // WorkCounts totals one tenant's work.
