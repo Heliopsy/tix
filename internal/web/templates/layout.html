@@ -140,6 +140,10 @@
     {{- if .UndoAction}}<form id="flash-undo" method="post" action="{{.UndoAction}}" hidden>{{template "csrf" .CSRF}}{{with .UndoField}}{{if index . 0}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}{{end}}{{range .UndoBulk}}<input type="hidden" name="ref" value="{{.}}">{{end}}<input type="hidden" name="next" value="{{.Here}}"></form>{{end}}{{end -}}
     </div>
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+    {{/* The second factor policy's banner. During the grace it names the
+         deadline; once the gate applies it says why every screen leads to
+         enrolment. The enrolment screen itself says so at more length. */}}
+    {{if and .FactorDue (ne .Path "/settings/totp")}}<p class="flash factorbanner" role="status">{{if .FactorGated}}{{t "This tenant requires a second factor. Set one up to go on."}}{{else}}{{tt "This tenant requires a second factor from %s." (when .FactorDue)}}{{end}} <a href="/settings/totp">{{t "Set up a second factor"}}</a></p>{{end}}
     {{block "content" .}}{{end}}
   </main>
 </div>

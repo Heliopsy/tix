@@ -538,9 +538,6 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
-	if err := l.policyLeavesCallerIn(ctx, actor, in); err != nil {
-		return nil, err
-	}
 
 	global, err := l.globalAllowed(ctx)
 	if err != nil {
@@ -582,6 +579,11 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if in.RequireTOTPSSH != nil {
 			t.RequireTOTPSSH = *in.RequireTOTPSSH
+		}
+		if !before.MFARequired() {
+			if err := policyLeavesCallerIn(ctx, m.tx, actor, in); err != nil {
+				return err
+			}
 		}
 		applyMFAPolicy(t, in, m.now)
 		if in.TrashOff != nil {
@@ -801,30 +803,33 @@ func applyMFAPolicy(t *core.Tenant, in core.UpdateTenantInput, now time.Time) {
 // policyLeavesCallerIn refuses turning the second factor policy on for a
 // caller who would be the first person it shut out. A caller with no account
 // behind it, the machine-local actor, is not refused: the gate never applies
-// to it either.
-func (l *Local) policyLeavesCallerIn(ctx context.Context, actor *core.Actor, in core.UpdateTenantInput) error {
+// to it either. The account is global, so it is read in the caller's own
+// tenant even when a global admin edits another.
+func policyLeavesCallerIn(ctx context.Context, tx store.Tx, actor *core.Actor, in core.UpdateTenantInput) error {
 	if in.MFAPolicy == nil || *in.MFAPolicy != core.MFAPolicyRequired {
 		return nil
 	}
-	lacks := false
-	if err := l.read(ctx, actor, func(tx store.Tx) error {
-		user, err := accountOfActor(ctx, tx, actor.ID)
-		if core.IsKind(err, core.KindNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		enrolled, err := totpEnrolled(ctx, tx, user.ID)
-		lacks = !enrolled
-		return err
-	}); err != nil {
+	enrolled, person, err := callerFactor(ctx, tx, actor)
+	if err != nil {
 		return err
 	}
-	if lacks {
+	if person && !enrolled {
 		return core.Precondition("you hold no second factor, so requiring one would lock you out; "+
 			"enrol first with tix user totp enrol or under Settings in the browser, then turn the policy on").
 			WithDetail(core.DetailField, "mfa_policy")
 	}
 	return nil
+}
+
+// callerFactor reads whether the caller is a person and holds a factor.
+func callerFactor(ctx context.Context, tx store.Tx, actor *core.Actor) (enrolled, person bool, err error) {
+	user, err := accountOfActor(ctx, tx, actor.ID)
+	if core.IsKind(err, core.KindNotFound) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	enrolled, err = totpEnrolled(ctx, tx, user.ID)
+	return enrolled, true, err
 }

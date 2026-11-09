@@ -10,6 +10,9 @@
       {{else}}<strong>{{$v.Active}}</strong> {{tc "count" "active"}}{{if $v.Off}} &middot; <span class="held">{{t "%d disabled" $v.Off}}</span>{{end}}
       {{end}}
     </p>
+    {{/* Who still lacks a second factor is the question asked before the
+         tenant's policy is turned on, and again during its grace. */}}
+    <p class="userfilter">{{if $v.WithoutTOTP}}<a href="/admin/users">{{t "Everybody"}}</a> &middot; <strong aria-current="true">{{t "Without a second factor"}}</strong>{{else}}<strong aria-current="true">{{t "Everybody"}}</strong> &middot; <a href="/admin/users?without_totp=1">{{t "Without a second factor"}}</a>{{end}}</p>
   </div>
   <div class="pagehead-tools">{{template "column-menu" .}}{{template "dlg-open" (opener "user-new" (t "Create a user") "plus" "" .Here)}}</div>
   {{template "help" $}}
@@ -37,6 +40,8 @@
         {{if .Disabled}}<span class="state off" title="{{t "Signed out everywhere, tokens revoked"}}">{{t "disabled"}}</span>
         {{else}}<span class="state on">{{t "active"}}</span>{{end}}
       {{end}}
+      {{if .User.TOTPEnrolled}}<span class="state on factor" title="{{t "This account holds a second factor."}}">{{t "2FA"}}</span>
+      {{else}}<span class="state off factor" title="{{t "This account holds no second factor."}}">{{t "no 2FA"}}</span>{{end}}
     </span>
     <span class="person-act">{{template "dlg-open" ((opener (print "manage-user-" .User.ID) (t "Manage") "settings" "secondary small" $.Here).Named (t "Manage %s" .Label))}}</span>
   </li>
