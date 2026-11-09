@@ -193,7 +193,7 @@ type TaskTx interface {
 	// limit; the page, its cursor and its ordering are ignored.
 	CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error)
 	// SeekTask returns the n-th task, from one, of f's walk from its cursor,
-	// without its relations, or nil when the walk holds fewer than n.
+	// without its relations or body, or nil when the walk holds fewer than n.
 	SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error)
 	UpdateTask(ctx context.Context, t *core.Task) error
 	DeleteTask(ctx context.Context, id string, hard bool) error
