@@ -131,7 +131,7 @@
     <label for="mfa_grace">{{t "Grace period"}}</label>
     {{template "field-info" "How long people without a second factor may keep working after the policy is turned on, with a banner naming the deadline. Written as a duration: 7d, 48h. Empty or 0 applies it at once."}}
   </div>
-  <input id="mfa_grace" name="mfa_grace" class="mono" value="{{if .Data.Tenant.MFAGrace}}{{.Data.Tenant.MFAGrace}}{{end}}" placeholder="0">
+  <input id="mfa_grace" name="mfa_grace" class="mono" value="{{if .Data.Tenant.MFAGrace}}{{.Data.Tenant.MFAGrace.Human}}{{end}}" placeholder="0">
   {{with .Data.Tenant.MFADeadline}}<p class="note">{{tt "People without a second factor are refused from %s." (when .)}} <a href="/admin/users?without_totp=1">{{t "Who has none yet"}}</a></p>{{end}}
 
   <p><button type="submit">{{t "Save"}}</button></p>

@@ -323,6 +323,20 @@ func (m Model) applyTenantEdit(form Form) (Model, tea.Cmd) {
 		return m, m.updateTenant(core.UpdateTenantInput{Theme: &theme}, attrTheme)
 	case attrName:
 		return m.startPrompt(promptTenantName, m.admin.tenant.Name), textinput.Blink
+	case attrMFA:
+		policy := core.MFAPolicy(form.Value(attrMFA))
+		return m, m.updateTenant(core.UpdateTenantInput{MFAPolicy: &policy}, attrMFA)
+	case attrMFAGrace:
+		var grace core.Duration
+		if v := form.Value(attrMFAGrace); v != "0" {
+			parsed, err := core.ParseDuration(v)
+			if err != nil {
+				m.err = err.Error()
+				return m, nil
+			}
+			grace = parsed
+		}
+		return m, m.updateTenant(core.UpdateTenantInput{MFAGrace: &grace}, attrMFAGrace)
 	}
 	return m, nil
 }
