@@ -2,22 +2,22 @@
 
 ## Service
 
-- [ ] `core.Tenant` `mfa_policy`, `mfa_grace`, `mfa_required_at`; `UpdateTenantInput` fields and validation
-- [ ] Migration and both stores
-- [ ] The gate in `authorize`, `authorizeGlobal`, `GetActor`, `ListActors`, `RotateToken`
-- [ ] Sign-in under the policy: browser mints the session, CLI enrols, grace signs in
-- [ ] Switch and own removal follow the policy
-- [ ] Lockout guard and the sealing key check
-- [ ] WhoAmI and TOTPStatus report the policy and the deadline
-- [ ] `UserFilter.WithoutTOTP`
-- [ ] Audit: policy metadata, rate-limited `user.totp.gate`
-- [ ] Service tests: gate, agent exempt, person token, grace, lockout guard, clear
+- [x] `core.Tenant` `mfa_policy`, `mfa_grace`, `mfa_required_at`; `UpdateTenantInput` fields and validation
+- [x] Migration and both stores
+- [x] The gate in `authorize`, `authorizeGlobal`, `GetActor`, `ListActors`, `RotateToken`
+- [x] Sign-in under the policy: browser mints the session, CLI enrols, grace signs in
+- [x] Switch and own removal follow the policy
+- [x] Lockout guard and the sealing key check
+- [x] WhoAmI and TOTPStatus report the policy and the deadline
+- [x] `UserFilter.WithoutTOTP`
+- [x] Audit: policy metadata, rate-limited `user.totp.gate`
+- [x] Service tests: gate, agent exempt, person token, grace, lockout guard, clear
 
 ## Surfaces
 
-- [ ] HTTP `without_totp`, `just openapi`
-- [ ] `tix tenant edit --mfa-policy --mfa-grace`, `tix user ls --without-2fa`, login refusal without a terminal
-- [ ] Web: enrolment screen, gate redirect and 403, grace banner, Tenant section, Users filter, Bulgarian strings
-- [ ] SSH gate and in-process test
-- [ ] TUI tenant editor attributes and people filter
-- [ ] Docs: second-factor, tenancy, web-ui, tui; skills
+- [x] HTTP `without_totp`, `just openapi`
+- [x] `tix tenant edit --mfa-policy --mfa-grace`, `tix user ls --without-2fa`, login refusal without a terminal
+- [x] Web: enrolment screen, gate redirect and 403, grace banner, Tenant section, Users filter, Bulgarian strings
+- [x] SSH gate and in-process test
+- [x] TUI tenant editor attributes and people filter
+- [x] Docs: second-factor, tenancy, web-ui, tui; skills

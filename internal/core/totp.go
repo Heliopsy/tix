@@ -239,6 +239,10 @@ type TOTPReport struct {
 	RequireCLI bool `json:"require_cli" yaml:"require_cli"`
 	// RequireSSH is true when the tenant requires a second factor over SSH.
 	RequireSSH bool `json:"require_ssh" yaml:"require_ssh"`
+	// Policy is the tenant's second factor policy, off or required. Required
+	// covers every surface and refuses tokens minted for a person without a
+	// factor; agent tokens stay exempt.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
 	// Admins is how many members of the tenant hold the admin role.
 	Admins int `json:"admins" yaml:"admins"`
 	// EnrolledAdmins is how many of those admins hold a confirmed second factor.
@@ -247,12 +251,12 @@ type TOTPReport struct {
 
 // RequiresAnywhere reports whether this tenant demands a factor on any surface.
 func (r TOTPReport) RequiresAnywhere() bool {
-	return r.RequireWeb || r.RequireCLI || r.RequireSSH
+	return r.RequireWeb || r.RequireCLI || r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // RequiresEverywhere reports whether this tenant demands a factor on all three.
 func (r TOTPReport) RequiresEverywhere() bool {
-	return r.RequireWeb && r.RequireCLI && r.RequireSSH
+	return r.RequireWeb && r.RequireCLI && r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // LockedOutRisk is the configuration that ends with nobody able to sign in: a

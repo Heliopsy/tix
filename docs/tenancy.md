@@ -87,6 +87,16 @@ the passwords a creation generated shown once with a copy button each, the globa
 Over MCP the global admin tools are offered only to a token naming `global:admin` whose actor is one; see
 [mcp.md](mcp.md).
 
+### The second factor policy
+
+A tenant can require a second factor of everybody: `tix tenant edit KEY --mfa-policy required`, optionally
+with `--mfa-grace 7d`. Once the grace is over a person with no factor can do nothing in this tenant but
+enrol, read their own account and sign out, whatever credential they present; agent tokens are not affected.
+It is set per tenant, so the same person can be gated in one tenant and work freely in another, and the
+enrolment that satisfies it is the account's, so enrolling once satisfies every tenant. A global admin
+follows the policy of the tenant they are in. The Tenant screen in the browser and `e` on the terminal's
+tenant screen set it too. See [second-factor.md](second-factor.md#the-tenant-policy).
+
 ### The trash
 
 A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
@@ -300,7 +310,8 @@ dialog links to.
 Switch posts to `/switch` (`POST /api/v1/auth/switch` with `{"tenant": "KEY"}` on the API). It mints a session
 for the person's actor in the target and ends the one presented. When the target requires a second factor on
 the web and the current session was signed in without one, a code is asked for first; an account with no
-second factor set up is refused with reason `second_factor_required` and sets one up under Settings. The
+second factor set up is refused with reason `second_factor_required` and sets one up under Settings; a target
+whose second factor policy is still inside its grace lets them in unasked. The
 switch is recorded in the target as `user.login` with method `switch`, and nothing is recorded in the tenant
 left. Only a browser session switches: a token stays in the tenant it was minted for.
 

@@ -200,6 +200,29 @@ in the audit trail, so it can be told apart from somebody rotating their own.
 identifier exits `3`. A token needs `account:read`, which `*` lacks (exit `5`);
 the token `tix login --tenant` stores has it. Session tokens are never printed.
 
+### The second factor policy
+
+`tix tenant edit KEY --mfa-policy required --mfa-grace 7d` makes a second
+factor compulsory in that tenant on every surface; `--mfa-policy off` lifts it.
+Once the grace is over, a person with no factor, and every token minted for
+them, is refused everything but enrolment with exit `5`, reason
+`second_factor_enrollment_required` (HTTP 403). Tokens of actors with no
+account behind them, agents and the machine-local actor, are exempt. Turning
+the policy on is refused, exit `6`, while you hold no factor yourself, so enrol
+first (`tix user totp enrol`, on a terminal). `tix user ls --without-2fa` lists
+who still has to enrol; `tix user ls` shows a 2FA column (`--include-removed`
+adds people removed from the tenant). The older per-surface switches
+`--require-totp-web`, `--require-totp-cli` and `--require-totp-ssh` only ask
+for a code at sign-in on that surface; they gate no token and no live session. `tix whoami -o json`
+carries `second_factor_due` while you owe one, and `tix login` warns with the
+deadline during the grace and, without a terminal, exits `5` naming
+`/settings/totp`.
+
+```sh
+tix user ls --without-2fa
+tix tenant edit acme --mfa-policy required --mfa-grace 7d
+```
+
 ## People: invites and password changes
 
 Bring a person in without choosing their password: `tix user invite EMAIL
