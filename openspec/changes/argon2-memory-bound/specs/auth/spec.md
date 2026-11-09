@@ -32,14 +32,19 @@ The system SHALL check a sign-in for an address no account holds against a dummy
 - **WHEN** a person signs in with an address nobody holds
 - **THEN** exactly one derivation runs at the current parameters and the answer is invalid credentials
 
-### Requirement: Password hash cost is configurable and migrates
+### Requirement: Password hash cost is configurable and only upgrades
 
-The default argon2id cost SHALL be m=46 MiB, t=2, p=1. `auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads` SHALL change it, and a setting below 7 MiB or below 35 MiB of memory times passes SHALL be refused at start-up. A stored hash at other parameters SHALL keep verifying with its own and SHALL be rehashed at the current setting on the next successful sign-in, cheaper or dearer.
+The default argon2id cost SHALL be m=64 MiB, t=3, p=4. `auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads` SHALL change it for new hashes, and a setting below 7 MiB or below 35 MiB of memory times passes SHALL be refused at start-up. A stored hash weaker than the setting SHALL be rehashed on the next successful sign-in, and a stronger one SHALL be kept.
 
-#### Scenario: Old hash migrates down
+#### Scenario: Weaker hash upgrades
 
-- **WHEN** an account whose hash was stored at m=64 MiB t=3 p=4 signs in successfully
-- **THEN** the sign-in succeeds and the stored hash is replaced by one at the current setting
+- **WHEN** an account whose hash is weaker than the setting signs in successfully
+- **THEN** the stored hash is replaced by one at the current setting
+
+#### Scenario: Lowered setting keeps stored hashes
+
+- **WHEN** the operator lowers the cost and an account with a 64 MiB hash signs in
+- **THEN** the sign-in succeeds and the stored hash is unchanged
 
 #### Scenario: Setting below the floor
 

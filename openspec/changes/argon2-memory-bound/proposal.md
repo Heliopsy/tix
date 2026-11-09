@@ -3,7 +3,7 @@
 ## Why
 
 The load test showed a server at about 100 MiB jump to about 255 MiB in its first second, with one person
-signing in and a live Go heap of 46 MiB. Each argon2id derivation allocates 64 MiB under the old defaults, the
+signing in and a live Go heap of 46 MiB. Each argon2id derivation allocates 64 MiB under the defaults, the
 first sign-in after a start derived twice (once to mint the dummy hash unknown addresses are checked against,
 once to check the password), and the bound on concurrent verifications was sized from the core count, not
 from memory, and did not cover minting a hash. Production at 256 MiB was killed with about four people
@@ -20,10 +20,11 @@ signing in.
   "invalid credentials", and never admit anyone unchecked.
 - The dummy hash is encoded from random bytes at the hasher's parameters, without a derivation. Checking
   against it still derives once.
-- Defaults move from m=64 MiB t=3 p=4 to m=46 MiB t=2 p=1. `auth.argon2_memory_kib`, `auth.argon2_time` and
-  `auth.argon2_threads` change them; a setting below OWASP's listed configurations is refused.
-- `NeedsRehash` reports any difference from the policy, so a stored hash moves to the current setting on the
-  next successful sign-in, cheaper or dearer.
+- The default cost stays m=64 MiB t=3 p=4: the kills came from concurrency, which the bound fixes, not from
+  the cost of one hash. `auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads` change it for
+  new hashes; a setting below OWASP's listed configurations is refused.
+- `NeedsRehash` stays upgrade-only: a stored hash weaker than the setting is rehashed on the next sign-in, a
+  stronger one is kept.
 
 ## Capabilities
 

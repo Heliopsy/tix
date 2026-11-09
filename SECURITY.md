@@ -42,7 +42,7 @@ web UI. Findings of particular interest:
   link-local (cloud metadata) or private addresses unless `server.egress_allow` or
   `server.egress_allow_private` says so. Keep the allow list narrow on a shared host. See
   [docs/deployment.md](docs/deployment.md#outbound-requests-to-tenant-urls).
-- Passwords are hashed with argon2id at m=46 MiB, t=2, p=1, above OWASP's minimum, and at most
+- Passwords are hashed with argon2id at m=64 MiB, t=3, p=4, well above OWASP's minimum, and at most
   `auth.max_concurrent_hashes` derivations run at once so sign-ins cannot exhaust memory. A sign-in that
   cannot get a slot is refused, never admitted unchecked. See
   [docs/deployment.md](docs/deployment.md#password-hashing-memory).
