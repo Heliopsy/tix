@@ -32,6 +32,12 @@ project screen. Every reference changes with it, and the old key stays an alias,
 and links keep resolving and the browser is redirected to the new address.
 [docs/workflows.md](workflows.md#changing-a-projects-key).
 
+**Workflow templates.** Twelve ready-made workflows, from a plain kanban to an agent queue with human
+sign-off, a bug triage, a sales pipeline and hiring. `tix workflow template ls` lists them purpose first,
+`tix project create --workflow-template tix-bugs` starts a project on one with its custom fields, and the
+browser's New project dialog offers them in its workflow picker.
+[docs/workflows.md](workflows.md#templates).
+
 **A status control that can move more than one step.** The status pill on a row offers the states
 that row's own workflow can reach, including ones reachable only through another state. The whole
 route is spelled out before it is applied, and each hop is an ordinary transition, so the audit trail

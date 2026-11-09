@@ -135,7 +135,11 @@ than the window leaves the spare width on its right.
 `/projects` lists the tenant's projects, each with its icon, name, key and description, linking to its
 board. An archived project stays listed with an archived mark. Each row can pin the project to the sidebar
 or open its tasks in the task list. New project in the header asks for a key, a name, a workflow and a
-description; colour and icon are set afterwards in the project's settings. The key starts every task
+description; colour and icon are set afterwards in the project's settings. The workflow picker lists the
+tenant's workflows and then the built-in templates, each template leading with its one-line purpose, then
+its name with a Built-in label, its states and its fields; picking a template creates its workflow if the
+tenant does not have it yet and adds its fields to the new project. The Workflows screen's Add from
+template does the same without a project. See [workflows.md](workflows.md#templates). The key starts every task
 reference in the project, as in `INFRA-5`.
 
 The name has first claim on a row: when the row's links do not fit beside it, in the two-column grid
