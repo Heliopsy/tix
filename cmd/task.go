@@ -177,7 +177,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 		projects, statuses, tags, assignees  []string
 		text, cursor, sort, expr             string
 		dueBefore, dueAfter                  string
-		limit                                int
+		limit, pageNumber                    int
 		desc, all, deleted                   bool
 		claimed, unclaimed, blocked, starred bool
 		overdue, recurring, trashed, mine    bool
@@ -204,6 +204,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"--saved NAME starts from one of your saved filters (see tix filter), with its sort; " +
 			"--filter and the other flags narrow it further. --mine is assignee:me, the tasks " +
 			"assigned to you; claimed-by:me in --filter selects the ones you hold.\n\n" +
+			"--page N lists one page by number instead of from a cursor, and says on standard error " +
+			"which page of how many it printed and how many tasks match; a number past the end prints " +
+			"the last page.\n\n" +
 			"Snoozed tasks are left out until they wake; --snoozed (is:snoozed) lists only them and " +
 			"--include-snoozed (snoozed:any) lists them beside the rest.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied, " +
@@ -267,7 +270,16 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if text != "" {
 				filter.Query = strings.TrimSpace(filter.Query + " " + text)
 			}
+			switch {
+			case pageNumber != 0 && cursor != "":
+				return usagef(cmd, "--page and --cursor are mutually exclusive")
+			case pageNumber != 0 && all:
+				return usagef(cmd, "--page and --all are mutually exclusive")
+			case pageNumber < 0:
+				return usagef(cmd, "--page counts from 1")
+			}
 			filter.Page.Cursor = cursor
+			filter.PageNumber = pageNumber
 			filter.Page.Direction = core.Ascending
 			if cmd.Flags().Changed("limit") {
 				filter.Page.Limit = limit
@@ -330,6 +342,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 					}
 				}
 				if !all || page.NextCursor == "" {
+					if page.Number > 0 {
+						g.diag(cmd, "%s", pagePosition(page, filter.Page.Limit))
+					}
 					if page.NextCursor != "" {
 						g.diag(cmd, "more results available; next cursor %s", page.NextCursor)
 					}
@@ -347,6 +362,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringVar(&text, "query", "", "match title and body text")
 	f.StringVar(&expr, "filter", "", "filter expression, such as 'status:todo -tag:ops title~deploy'")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
+	f.IntVar(&pageNumber, "page", 0, "list page N of --limit tasks each, counting from 1")
 	f.StringVar(&sort, "sort", core.SortUrgency, "sort field")
 	f.IntVar(&limit, "limit", config.DefaultPageSize, "maximum records per page")
 	f.BoolVar(&desc, "desc", false, "sort descending")
@@ -368,6 +384,18 @@ func taskLsCmd(g *globals) *cobra.Command {
 	_ = cmd.RegisterFlagCompletionFunc("sort", fixedCompletion(core.TaskSortFields))
 	registerCompletions(g, cmd, "project", "status", "tag")
 	return cmd
+}
+
+// pagePosition says which page of how many a numbered listing printed.
+func pagePosition(page core.TaskPage, limit int) string {
+	if limit < 1 {
+		limit = core.DefaultPageLimit
+	}
+	plus := ""
+	if page.TotalCapped {
+		plus = "+"
+	}
+	return fmt.Sprintf("page %d of %d%s, %d%s tasks", page.Number, core.PagesOf(page.Total, limit), plus, page.Total, plus)
 }
 
 // savedExpression is a saved filter's expression with its sort, followed by
