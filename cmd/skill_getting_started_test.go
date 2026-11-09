@@ -140,7 +140,7 @@ func TestGettingStartedSkillAsksFirstAndHandsOver(t *testing.T) {
 	ask := strings.Index(body, "## Step 1: ask how they want to use tix")
 	concepts := strings.Index(body, "## Step 2: explain the concepts")
 	setup := strings.Index(body, "## Step 3: set up the interface they chose")
-	if ask < 0 || concepts < 0 || setup < 0 || !(ask < concepts && concepts < setup) {
+	if ask < 0 || concepts < 0 || setup < 0 || ask >= concepts || concepts >= setup {
 		t.Errorf("the steps are missing or out of order: ask %d, concepts %d, setup %d", ask, concepts, setup)
 	}
 	for _, want := range []string{
