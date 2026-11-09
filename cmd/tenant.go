@@ -256,6 +256,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var totpWeb, totpCLI, totpSSH bool
 	var trash string
 	var timeFormat, timezone string
+	var mfaPolicy, mfaGrace string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -272,6 +273,12 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"lock anybody out: a user subject to it who holds no enrolment is taken through\n" +
 			"enrolment when they next sign in. It does need auth.totp_key set, because\n" +
 			"without somewhere to seal a secret there is no enrolment to take them through.\n\n" +
+			"--mfa-policy required is the hard policy: on every surface, a person holding no\n" +
+			"second factor can do nothing but enrol, sign out and read their own account,\n" +
+			"with a session or with a token they own. Agent tokens are exempt. --mfa-grace\n" +
+			"(such as 7d) lets people keep working that long after the policy is turned on;\n" +
+			"0, the default, gates at once. Turning the policy on is refused while you hold\n" +
+			"no second factor yourself, so enrol first (tix user totp enrol).\n\n" +
 			"--lease-default and --lease-max bound how long a claim on this tenant's\n" +
 			"tasks may hold. The default is what a claim gets when neither the claim nor\n" +
 			"the project's workflow names a ttl; the maximum is a ceiling no claim may\n" +
@@ -284,14 +291,16 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"--time-format and --timezone set the date format and zone this tenant's people\n" +
 			"read dates in unless they chose their own (tix user time). Either as \"\" falls\n" +
 			"back to the deployment's output.time_format and output.timezone.\n\n" +
-			"Exit codes: 2 --trash is not on or off, or an unknown format or timezone; 3 unknown tenant or unknown theme;\n" +
-			"6 no second factor key.",
+			"Exit codes: 2 --trash is not on or off, an unknown --mfa-policy, or an unknown format or timezone;\n" +
+			"3 unknown tenant or unknown theme; 6 no second factor key, or you hold no second factor and asked for\n" +
+			"--mfa-policy required.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
 			"  tix tenant edit acme --theme '#7a3ef0'\n" +
 			"  tix tenant edit acme --theme \"\"\n" +
 			"  tix tenant edit acme --require-totp-web\n" +
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
+			"  tix tenant edit acme --mfa-policy required --mfa-grace 7d\n" +
 			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
 			"  tix tenant edit acme --lease-max \"\"\n" +
 			"  tix tenant edit acme --trash off\n" +
@@ -354,6 +363,21 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				off := !on
 				in.TrashOff = &off
 			}
+			if cmd.Flags().Changed("mfa-policy") {
+				policy := core.MFAPolicy(strings.ToLower(strings.TrimSpace(mfaPolicy)))
+				in.MFAPolicy = &policy
+			}
+			if cmd.Flags().Changed("mfa-grace") {
+				var d core.Duration
+				if raw := strings.TrimSpace(mfaGrace); raw != "" && raw != "0" {
+					parsed, err := core.ParseDuration(raw)
+					if err != nil {
+						return core.Invalid("--mfa-grace: %v", err)
+					}
+					d = parsed
+				}
+				in.MFAGrace = &d
+			}
 			if cmd.Flags().Changed("time-format") {
 				in.TimeFormat = &timeFormat
 			}
@@ -377,6 +401,8 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			return g.render(cmd, tenant)
 		},
 	}
+	cmd.Flags().StringVar(&mfaPolicy, "mfa-policy", "", "second factor policy: off, or required on every surface")
+	cmd.Flags().StringVar(&mfaGrace, "mfa-grace", "", "how long people without a second factor may still work after the policy is turned on, such as 7d; 0 gates at once")
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&theme, "theme", "", "theme name or custom #rrggbb accent, or \"\" to use the default theme")
 	cmd.Flags().BoolVar(&totpWeb, "require-totp-web", false, "require a second factor to sign in to the browser interface")

@@ -635,7 +635,11 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 	if !ok {
 		return nil, nil
 	}
-	return &core.LoginResult{Session: &minted.Session}, nil
+	out := &core.LoginResult{Session: &minted.Session}
+	if standing, err := l.factorStandingOf(ctx, actor); err == nil {
+		out.SecondFactorDue = standing.due()
+	}
+	return out, nil
 }
 
 // Logout ends the session the caller presented. It needs no authorization

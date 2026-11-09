@@ -10324,6 +10324,12 @@ paths:
           name: include_removed
           schema:
             type: boolean
+        - description: WithoutTOTP is true to list only people who hold no confirmed
+            second factor.
+          in: query
+          name: without_totp
+          schema:
+            type: boolean
       responses:
         "200":
           content:
@@ -10935,6 +10941,12 @@ paths:
             too, each marked removed.
           in: query
           name: include_removed
+          schema:
+            type: boolean
+        - description: WithoutTOTP is true to list only people who hold no confirmed
+            second factor.
+          in: query
+          name: without_totp
           schema:
             type: boolean
       responses:
@@ -12816,6 +12828,18 @@ components:
           items:
             $ref: '#/components/schemas/Scope'
           type: array
+        second_factor_due:
+          description: SecondFactorDue is when the tenant's second factor policy starts
+            refusing this person, on the answer to WhoAmI, set while they hold no
+            factor under it.
+          format: date-time
+          type:
+            - "null"
+            - string
+        second_factor_enrollment_required:
+          description: SecondFactorEnrollmentRequired is true, on the answer to WhoAmI,
+            while the policy refuses this person everything but enrolment.
+          type: boolean
         tenant_id:
           description: TenantID is the tenant the actor acts in.
           type: string
@@ -13806,6 +13830,20 @@ components:
             a duration such as "24h". It can lower the deployment's ceiling but never
             raise it; zero or absent inherits the deployment's.
           type: string
+        mfa_grace:
+          description: MFAGrace is how long after the policy turned required an unenrolled
+            person may still work, as a duration such as "7d". Zero gates at once.
+          type: string
+        mfa_policy:
+          description: MFAPolicy is a tenant's second factor policy.
+          type: string
+        mfa_required_at:
+          description: MFARequiredAt is when the policy last turned required, RFC
+            3339. Absent while it is off.
+          format: date-time
+          type:
+            - "null"
+            - string
         name:
           description: Name is the tenant's display name.
           type: string
@@ -15082,6 +15120,15 @@ components:
           items:
             type: string
           type: array
+        second_factor_due:
+          description: 'SecondFactorDue is set on a session minted for a person who
+            holds no factor under the tenant''s second factor policy: when the policy
+            starts refusing them, RFC 3339. A time already past means the session
+            can do nothing but enrol.'
+          format: date-time
+          type:
+            - "null"
+            - string
         session:
           $ref: '#/components/schemas/Session'
           description: Session is the new session, set when sign-in is complete.
@@ -16471,11 +16518,25 @@ components:
         enrolled:
           description: Enrolled is true when the caller holds a confirmed second factor.
           type: boolean
+        enrollment_due:
+          description: EnrollmentDue is when the policy starts refusing the caller,
+            RFC 3339, set while it is required and the caller holds no factor.
+          format: date-time
+          type:
+            - "null"
+            - string
+        enrollment_required:
+          description: EnrollmentRequired is true while the policy refuses the caller
+            everything but enrolment, because they hold no factor.
+          type: boolean
         pending:
           description: Pending is an enrolment that was begun and never confirmed.
             It grants nothing; it is reported so a user who abandoned enrolment is
             told why their authenticator entry does not work.
           type: boolean
+        policy:
+          description: MFAPolicy is a tenant's second factor policy.
+          type: string
         recovery_codes_left:
           description: RecoveryCodesLeft is how many unused recovery codes the caller
             holds.
@@ -17071,6 +17132,20 @@ components:
             a duration such as "24h". It can lower the deployment's ceiling but never
             raise it; zero or absent inherits the deployment's.
           type: string
+        mfa_grace:
+          description: MFAGrace is how long after the policy turned required an unenrolled
+            person may still work, as a duration such as "7d". Zero gates at once.
+          type: string
+        mfa_policy:
+          description: MFAPolicy is a tenant's second factor policy.
+          type: string
+        mfa_required_at:
+          description: MFARequiredAt is when the policy last turned required, RFC
+            3339. Absent while it is off.
+          format: date-time
+          type:
+            - "null"
+            - string
         name:
           description: Name is the tenant's display name.
           type: string
@@ -17559,6 +17634,18 @@ components:
           description: LeaseMax is the longest lease a claim on this tenant may hold,
             a duration such as "4h". Zero clears it back to the deployment configuration
             and omitted leaves it alone.
+          type:
+            - "null"
+            - string
+        mfa_grace:
+          description: MFAGrace is how long after the policy turned required people
+            without a factor may still work, a duration such as "7d"; zero gates at
+            once and omitted leaves it.
+          type:
+            - "null"
+            - string
+        mfa_policy:
+          description: MFAPolicy is a tenant's second factor policy.
           type:
             - "null"
             - string
