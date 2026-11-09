@@ -40,6 +40,7 @@
     {{/* The trash is always the list: a board's columns are moves a deleted
          card cannot make, so the switch would offer a drawing it ignores. */}}
     {{template "taskview-links" $v}}
+    {{template "lanesby" $v}}
     {{end}}
     {{/* A menu, like the columns control on every other listing and like the
          status and priority menus on a row. It was a disclosure that opened
@@ -189,6 +190,7 @@
 <form method="get" action="{{$v.Route}}" class="filterbar">
   {{/* The view the address named rides along, so Apply keeps the drawing. */}}
   {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
+  {{with $v.LanesAsked}}<input type="hidden" name="lanes" value="{{.}}">{{end}}
   <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
   {{/* The deadline control. "What is overdue" was answerable over the API and
        nowhere a reader could click, so the one question a due date exists to
@@ -461,12 +463,15 @@
      completed choice, so the choice survives this block being replaced by a
      live refresh. */}}
 {{if $v.Lanes.Write}}<datalist id="lane-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
-<div class="lanes">
+{{/* Lanes grouped by tag draw each card once (lanegroup.go tagSlots), so
+     the rule is said where the reader sees the cards. */}}
+{{if eq $v.Lanes.By "tag"}}<p class="meta lanes-note">{{t "A task with several tags is drawn once, in the first lane among its tags. Its card lists them all."}}</p>{{end}}
+<div class="lanes" data-lanes-by="{{$v.Lanes.By}}">
 {{range $v.Lanes.Lanes}}
   {{$acc := index $v.Accent .Project.ID}}
-  <section class="lane{{with projClass $acc.Color}} {{.}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}" data-group="{{.Head.Key}}">
+  <section class="lane{{if .Project.ID}}{{with projClass $acc.Color}} {{.}}{{end}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{if .Project.ID}}{{with projStyle $acc.Color}} style="{{.}}"{{end}}{{end}} id="lane-{{.DOMKey}}" data-lane="{{.Head.Key}}" data-group="{{.Head.Key}}">
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
+      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{if .Project.ID}}{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a>{{else if .Head.Filter}}<a href="{{.Head.Filter}}" title="{{t "Only the tasks in this lane"}}">{{.Head.Name}}</a>{{else}}{{.Head.Name}}{{end}} <span class="meta">({{t "%d open" .Open}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}
@@ -1379,4 +1384,23 @@
   </div>
   {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, with finished tasks ticked in place. Switching keeps the filter, the sort and the project." "docs/web-ui.md")}}
 </nav>
+{{end}}
+
+{{/* What each lane is, only where there are lanes. A GET form carrying the
+     rest of the address, so it works without scripting and keeps the filter;
+     assets/lanes.js submits it on change and hides Apply. Beside the switch
+     rather than in it, which stays links; feel.js redraws it with the switch
+     after an in-place filter, so its fields carry what was just typed. */}}
+{{define "lanesby"}}
+<div id="tasks-lanesby" class="lanesby-wrap">
+  {{if eq .View "lanes"}}
+  <form method="get" action="{{.LanesForm.Route}}" class="lanesby" data-lanesby>
+    {{range .LanesForm.Keep}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+    <label class="viewswitch-label" for="lanesby-pick">{{t "Group lanes by"}}</label>
+    <select id="lanesby-pick" name="lanes">{{range .LanesForm.Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}</select>
+    <button type="submit" class="secondary" data-lanesby-apply>{{t "Apply"}}</button>
+    {{template "tip" (tip "Group lanes by" "Each lane is a project, a person, a priority, a tag or a deadline. A task with several tags is drawn once, in the first lane among its tags. The choice is in the address, so a link keeps it; the task list also remembers it in this browser." "docs/web-ui.md")}}
+  </form>
+  {{end}}
+</div>
 {{end}}

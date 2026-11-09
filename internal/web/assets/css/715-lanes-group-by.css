@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Group lanes by sits in the view switch, after the segments. With scripting
+   a change submits it, so Apply is for a browser without. */
+.lanesby-wrap { display: contents; }
+.lanesby { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.lanesby select { width: auto; }
+:root.js .lanesby [data-lanesby-apply] { display: none; }
+.lanes-note { margin: 0 0 var(--space-2); }

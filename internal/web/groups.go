@@ -38,6 +38,9 @@ type groupHead struct {
 	// Status the state it is added in. A project heading adds to itself.
 	Projects []core.Project
 	Status   string
+	// Filter is the screen narrowed to this group's tasks, for a lane that is
+	// not a project: "" when no filter term says the group exactly.
+	Filter string
 }
 
 // DOMID is a fragment safe for an element id, unique within one view.
@@ -397,7 +400,7 @@ func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, view, self str
 	return newArrangement(r, view, self, tasksRegion, drawnOrder(board.Columns, colHead), hidden, prefs)
 }
 
-// arrangeLanes draws the lanes as the reader arranged them.
+// arrangeLanes draws the project lanes as the reader arranged them.
 func (h *handler) arrangeLanes(r *http.Request, lanes *taskLanes, projects []core.Project, self string) arrangement {
 	prefs := h.groupPrefs(r, core.ViewLanes)
 	for i := range lanes.Lanes {
@@ -407,6 +410,18 @@ func (h *handler) arrangeLanes(r *http.Request, lanes *taskLanes, projects []cor
 	lanes.Lanes, _ = arrangeGroups(lanes.Lanes, laneHead, groupPrefIndex(prefs))
 	hidden := hiddenOf(prefs, projectNamer(projects))
 	return newArrangement(r, core.ViewLanes, self, tasksRegion, drawnOrder(lanes.Lanes, laneHead), hidden, prefs)
+}
+
+// groupedLanes builds and arranges the lanes grouped by something other than
+// the project, under that grouping's own arrangement.
+func (h *handler) groupedLanes(r *http.Request, src laneSource, self string) (taskLanes, arrangement) {
+	view := core.LanesView(src.By)
+	prefs := h.groupPrefs(r, view)
+	src.Prefs = groupPrefIndex(prefs)
+	lanes := buildGroupedLanes(src)
+	lanes.Lanes, _ = arrangeGroups(lanes.Lanes, laneHead, src.Prefs)
+	hidden := hiddenOf(prefs, laneNamer(src.By, src.Label))
+	return lanes, newArrangement(r, view, self, tasksRegion, drawnOrder(lanes.Lanes, laneHead), hidden, prefs)
 }
 
 // arrangeList groups the list's rows and arranges the groups. A list grouped

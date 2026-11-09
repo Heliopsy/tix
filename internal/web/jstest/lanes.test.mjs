@@ -351,3 +351,19 @@ test("after a delete swaps the card away, focus lands on its neighbour", () => {
   fire(listeners, "htmx:afterSettle", {});
   assert.deepEqual(focused, ["t-next"], "focus fell to the page when the card it was on went away");
 });
+
+test("picking a grouping submits its form, and no other field does", () => {
+  const { p } = load(memoryStorage());
+  let sent = 0;
+  const form = { requestSubmit() { sent++; } };
+  const pick = { name: "lanes", closest: (sel) => (sel === "form[data-lanesby]" ? form : null) };
+  const other = { name: "q", closest: () => form };
+  const stray = { name: "lanes", closest: () => null };
+  for (const fn of p.listeners.change) {
+    fn({ target: other });
+    fn({ target: stray });
+  }
+  assert.equal(sent, 0);
+  for (const fn of p.listeners.change) fn({ target: pick });
+  assert.equal(sent, 1);
+});

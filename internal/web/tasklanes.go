@@ -96,8 +96,10 @@ func (c laneCard) Journey() string {
 	return r.Path()
 }
 
-// lane is one project's column of tasks.
+// lane is one column of tasks: a project's, or a person's, a priority's, a
+// tag's or a deadline bucket's when the lanes are grouped by one of those.
 type lane struct {
+	// Project is the lane's project, zero on a lane that is not one.
 	Project core.Project
 	Cards   []laneCard
 	// Open counts the unfinished cards, for the heading.
@@ -109,12 +111,23 @@ type lane struct {
 	Head groupHead
 }
 
+// DOMKey is the lane's element id suffix: the project key, as it always was,
+// or the grouping and the group.
+func (l lane) DOMKey() string {
+	if l.Project.ID != "" {
+		return l.Project.Key
+	}
+	return l.Head.DOMID()
+}
+
 // AllFinished reports whether every card is finished, so a lane emptied by
 // Show completed can still say why it is empty.
 func (l lane) AllFinished() bool { return len(l.Cards) > 0 && l.Open == 0 }
 
 // taskLanes is the lanes view of one page.
 type taskLanes struct {
+	// By is what each lane is, one of core.LaneGroupings.
+	By    string
 	Lanes []lane
 	// Stray are tasks whose project the screen cannot name, listed rather
 	// than dropped so the lanes are never quietly short.
