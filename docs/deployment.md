@@ -553,6 +553,15 @@ See [Health checks](#health-checks).
 Keep `terminationGracePeriodSeconds` above `--shutdown-timeout` for the same reason systemd needs
 `TimeoutStopSec` above it.
 
+#### Sizing memory
+
+The example sets no memory limit, because the right one depends on your team and your data. Measure before
+you set one: `just load --users N --max-rss 0` seeds a scratch copy, drives N simulated people at it and
+reports the server's steady and peak resident memory. Set the limit above the peak, not the steady figure,
+since the kernel kills on the peak. Each password sign-in hashes with argon2id at 64 MiB, so several people
+signing in at once is a peak of its own. `just load --target URL` drives a running instance read-only while
+you watch `kubectl top pod`. See [testing.md](testing.md#load-testing).
+
 ### Building your own
 
 You can also build the image yourself, which is how you get an unreleased commit, a patched dependency, or a base

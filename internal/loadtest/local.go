@@ -148,8 +148,11 @@ func bootstrap(cli func(...string) ([]byte, error), s Seed) ([]Account, error) {
 			var tok struct {
 				Token string `json:"token"`
 			}
-			if err := json.Unmarshal(out, &tok); err != nil || tok.Token == "" {
-				return nil, fmt.Errorf("reading the token minted for %s: %v", email, err)
+			if err := json.Unmarshal(out, &tok); err != nil {
+				return nil, fmt.Errorf("reading the token minted for %s: %w", email, err)
+			}
+			if tok.Token == "" {
+				return nil, fmt.Errorf("the token minted for %s came back empty", email)
 			}
 			accounts = append(accounts, Account{Tenant: key, Email: email, Password: loadPassword, Token: tok.Token})
 		}
@@ -197,7 +200,7 @@ func serve(ctx context.Context, tix, dsn, dir string, env []string, trace bool) 
 		select {
 		case err := <-l.done:
 			l.done <- err
-			return nil, fmt.Errorf("tix serve exited before it was ready: %v\n%s", err, heap.log())
+			return nil, fmt.Errorf("tix serve exited before it was ready: %w\n%s", err, heap.log())
 		case <-ctx.Done():
 			_ = l.Stop()
 			return nil, ctx.Err()

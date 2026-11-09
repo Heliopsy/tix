@@ -410,6 +410,128 @@ by a run that opens popups, and one marked `"varies": true` depends on the fonts
 stale. CI's runner is the reference. Never add an entry to get a change of your own
 through.
 
+## Load testing
+
+`just load` starts a scratch server, seeds it, drives simulated people at it and reports latency, errors
+and, above all, the server's memory. It exits `1` when the server's peak resident memory passes the budget,
+so it can gate a change the way a test does. The tool is `internal/loadtest`, run through
+`internal/loadtest/tixload`; it is not part of the `tix` binary and goreleaser never builds it.
+
+```sh
+just load-smoke                                  # 2 users, 10s, small seed: does the tool work
+just load                                        # 4 users for 2 minutes, 128 MiB budget
+just load --users 20 --duration 5m --max-rss 256MiB
+just load --pg 'postgres://tix:tix@127.0.0.1:55432/scratch?sslmode=disable'
+just load --mix browser=0,mobile=3,agent=1 --think 500ms
+```
+
+### What a local run does
+
+1. Creates tenants `load-a`, `load-b`, ... with the tix CLI against a database in a new temporary directory,
+   one admin and some members in each (`--tenants`, `--people`), each with a password and a token.
+2. Starts a first `tix serve` and seeds through the API: projects (`--projects`), about a thousand tasks
+   (`--tasks`) with Markdown descriptions between `--body-min` and `--body-max` (5 and 50 KiB), tags,
+   assignees, comments on about a third of them, and some moved to `doing` and `done`.
+3. Stops that server and starts a fresh one on the same database, with `GODEBUG=gctrace=1`, so the
+   seeding's own allocations are not part of what is measured.
+4. Runs `--users` virtual users for `--duration`, reading the server's `/proc/PID/status` every
+   `--sample` (1s) and the live heap from the gctrace lines on its stderr.
+5. Stops the server by its own PID and removes the directory, unless `--dir` (left in place) or `--keep`.
+
+Every environment variable starting `TIX_` or `XDG_` is dropped and the XDG directories point into the scratch
+directory, so the run cannot reach a real store. `--pg` takes an empty, disposable PostgreSQL database: the run
+writes tenants and tasks into it and does not clean up.
+
+### Who the virtual users are
+
+`--mix` weights three kinds, `browser=2,mobile=1,agent=1` by default, so four users are two browsers, one
+phone and one agent. `--think` (2s) is the mean pause between two actions of one user, jittered by half
+either way.
+
+| Kind | Credential | Does |
+| --- | --- | --- |
+| `browser` | password, session cookie | signs in, opens a WebSocket on `/api/v1/events` and keeps it open, then walks `/tasks` as list, board and lanes, project pages, task pages, `/inbox`, `/mine` and `/inbox/badge`, fetching every `/assets/` file the page names with `If-None-Match` and `If-Modified-Since` after the first time |
+| `mobile` | token | long-polls `/api/v1/events/poll?wait=25s` from the cursor it last saw, as the phone app does, and reads `/inbox/count` when an event arrives |
+| `agent` | token | lists tasks, filtered by project and by search, reads tasks, creates tasks with 2 to 10 KiB descriptions, renames and reprioritises, transitions through the built-in workflow and comments |
+
+Users take accounts round-robin, so they spread over the tenants.
+
+### Reading the report
+
+The text report goes to stdout and to `out/load/report.txt`, and the JSON, with every memory sample, to
+`out/load/report.json` (`--report`). One row per route:
+
+- `p50`, `p95`, `p99` and `max` latency in milliseconds, measured from the client, so they include the
+  network and the time a request waited for a connection.
+- `errors` counts requests that got no answer or a 5xx. A 4xx is listed under `statuses` but is not an
+  error: an agent's transition the workflow refuses is ordinary traffic. The long poll is slow by design;
+  its latency is how long it waited for an event, up to 25 seconds.
+- Below the table: WebSocket opens, drops and events, and users that stopped on an error.
+
+The memory block has four numbers:
+
+- `start`, before any user starts: the idle server with the dataset opened.
+- `steady`, the median VmRSS after the first `--warmup` (25%) of the run: what the process settles at.
+- `peak`, the highest VmRSS sampled or the final VmHWM, whichever is larger. VmHWM is the kernel's high-water
+  mark, so a spike that came and went between two samples still counts. This is the number the budget is
+  checked against, because it is the number the kernel's OOM killer acts on.
+- `end`, the last reading.
+
+`live heap peak` is the largest heap that survived a collection. Peak RSS well above it points at memory
+outside the Go heap, or at garbage the collector had not reached yet.
+
+### The budget
+
+`--max-rss` is 128 MiB by default for a profile of up to four users, and unset above that. `0` turns it off.
+
+Production was OOM-killed at a 256 MiB limit with about four people signed in. Four people is the smallest
+team tix is for, and a task tracker for four should fit in a 128 MiB container with room to spare, so 128 MiB
+is the budget for four users: half the limit that failed. Larger profiles get no default because no
+measurement yet says what they should cost; run `--users 20` with `--max-rss 0`, read the steady and peak
+figures, and commit a budget only once a fix has made the number defensible.
+
+Signing in hashes the password with argon2id at 64 MiB per hash, and every browser user signs in at the start,
+together. That is real traffic and stays in the measurement.
+
+### Against a running server
+
+`--target URL` loads a server this tool did not start, such as a staging or production instance:
+
+```sh
+TIX_LOAD_TOKEN=tix_pat_... just load --target https://tix.example.com --users 4 --duration 2m
+TIX_LOAD_PASSWORD=... just load --target https://tix.example.com --token tix_pat_... \
+  --tenant ops --email load@example.com
+```
+
+- It is **read-only by default.** Agents only list, search and read; the client refuses any other method
+  before it is sent and counts it under `writes refused`. Browser users sign in, which creates a session.
+  Without `--email` and `TIX_LOAD_PASSWORD` the browser share of the mix is dropped.
+- Writes need `--allow-writes`. Agents then create tasks in one project and change only the tasks they created
+  in this run. That project is `--project KEY`, created when missing, or, with no `--project`, a new project
+  named `loadtestXXXXXXXX`; an existing project is never picked, and a random key that is already taken is
+  refused. `--project` without `--allow-writes` is refused. The scratch project stays behind for you to look
+  at and delete.
+- A banner names the target, the user count and whether writes are on, then waits five seconds
+  (`--no-delay` skips the wait).
+- Memory cannot be read from here, so the budget is not checked. Watch it alongside the run with
+  `kubectl top pod`, the container runtime's stats or the platform's metrics.
+
+### In CI
+
+The **Load** workflow (`.github/workflows/load.yaml`) runs nightly and on demand, not on pull requests: four
+users for two minutes with the 128 MiB budget, the text report in the job summary and the whole of
+`out/load/` as the `load-report` artifact. It is `continue-on-error` until the fix for the known memory spike
+is on `main`; after that the line comes out and an over-budget night turns the run red. `workflow_dispatch`
+takes `users`, `duration` and `max-rss`.
+
+### Why a Go program and not k6
+
+k6 would bring its own runtime, a JavaScript test script and a new pinned tool in the toolbox, and it still
+could not read the server's `/proc` or start and seed a scratch server; a wrapper would have to. A Go
+program does all of it in one place, uses the WebSocket library tix already depends on, shares the test
+toolchain, and the unit tests for the budget and the write guard run with the rest of the suite. The load it
+needs to generate, tens of users with think time, is far below where a Go HTTP client becomes the bottleneck.
+
 ## PostgreSQL
 
 ```sh

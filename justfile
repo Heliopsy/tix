@@ -1293,6 +1293,23 @@ bench-full ENGINE="postgres": pg-up
     TIX_BENCH_SIZE=full TIX_BENCH_ENGINE={{ENGINE}} TIX_TEST_POSTGRES_DSN='{{pg_dsn}}' \
       go test ./internal/bench/ -v -run 'Test' -count=1 -timeout 3h
 
+# ---------------------------------------------------------------- load
+
+# Seed a scratch server (three tenants, a thousand tasks with 5-50 KB
+# descriptions), drive browsers, phones and agents at it, and fail when its
+# peak RSS passes the budget: 128 MiB for the default four users. `--pg DSN`
+# serves an empty PostgreSQL database instead of SQLite, `--target URL --token
+# T` loads a running server read-only. The report lands in out/load/.
+# See docs/testing.md#load-testing.
+load *ARGS: build
+    go run ./internal/loadtest/tixload --tix bin/{{binary}} {{ARGS}}
+
+# Ten seconds, two users and a small seed: checks the tool works, not the
+# server. The budget is off here; pass --max-rss to turn it back on.
+load-smoke *ARGS: build
+    go run ./internal/loadtest/tixload --tix bin/{{binary}} --users 2 --duration 10s \
+      --tenants 2 --people 2 --tasks 120 --max-rss 0 --report out/load/smoke.json {{ARGS}}
+
 # ── Demo recording ────────────────────────────────────────────────────────────
 #
 # A re-runnable product demo: a person plans work in the browser, a real Claude

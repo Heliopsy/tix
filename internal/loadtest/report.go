@@ -143,9 +143,9 @@ func (r *Report) WriteText(w io.Writer) error {
 	fmt.Fprintf(&b, "\nrequests %d, %.1f/s, errors %d\n\n", r.Requests, r.RPS, r.Errors)
 
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "route\tcount\tp50 ms\tp95 ms\tp99 ms\tmax ms\terrors\tstatuses\t")
+	_, _ = fmt.Fprintln(tw, "route\tcount\tp50 ms\tp95 ms\tp99 ms\tmax ms\terrors\tstatuses\t")
 	for _, st := range r.Routes {
-		fmt.Fprintf(tw, "%s\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%s\t\n",
+		_, _ = fmt.Fprintf(tw, "%s\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%s\t\n",
 			st.Route, st.Count, st.P50ms, st.P95ms, st.P99ms, st.Maxms, st.Errors, statusList(st.Statuses))
 	}
 	if err := tw.Flush(); err != nil {
