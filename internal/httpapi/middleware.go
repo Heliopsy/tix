@@ -31,16 +31,33 @@ func RequestIDFrom(ctx context.Context) string {
 	return v
 }
 
-// recorder captures the status a handler wrote so it can be logged.
+// StatusClientClosed is the status recorded for a request whose client went
+// away before it was answered, after nginx's 499. No client ever reads it.
+const StatusClientClosed = 499
+
+// clientClosed reports whether the request's own context was cancelled, which
+// net/http does when the client disconnects. A server deadline is not this.
+func clientClosed(ctx context.Context) bool {
+	return ctx != nil && errors.Is(ctx.Err(), context.Canceled)
+}
+
+// recorder captures the status a handler wrote so it can be logged. Given the
+// request's context, it records a server error written after the client left
+// as StatusClientClosed and drops its body.
 type recorder struct {
 	http.ResponseWriter
+	ctx     context.Context
 	status  int
 	written bool
+	swallow bool
 }
 
 func (rec *recorder) WriteHeader(status int) {
 	if rec.written {
 		return
+	}
+	if status >= http.StatusInternalServerError && clientClosed(rec.ctx) {
+		status, rec.swallow = StatusClientClosed, true
 	}
 	rec.status = status
 	rec.written = true
@@ -50,6 +67,9 @@ func (rec *recorder) WriteHeader(status int) {
 func (rec *recorder) Write(b []byte) (int, error) {
 	if !rec.written {
 		rec.WriteHeader(http.StatusOK)
+	}
+	if rec.swallow {
+		return len(b), nil
 	}
 	return rec.ResponseWriter.Write(b)
 }
@@ -93,25 +113,34 @@ func (rt *Router) withRequestID(next http.Handler) http.Handler {
 }
 
 // logRequest emits one structured record per request. No credential material
-// is read here, so none can be logged.
+// is read here, so none can be logged. A request the client abandoned is
+// recorded as StatusClientClosed rather than as the server error its handler
+// made of the cancelled context.
 func (rt *Router) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
-		rec := &recorder{ResponseWriter: w, status: http.StatusOK}
+		rec := &recorder{ResponseWriter: w, ctx: r.Context(), status: http.StatusOK}
 		next.ServeHTTP(rec, r)
+		if !rec.written && clientClosed(r.Context()) {
+			rec.status = StatusClientClosed
+		}
 
 		tenant := ""
 		if scope, ok := core.TenantFrom(r.Context()); ok {
 			tenant = scope.TenantID
 		}
-		rt.cfg.Logger.Info("request",
+		attrs := []any{
 			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
 			"path", loggedPath(r.URL.Path),
 			"status", rec.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 			"tenant", tenant,
-		)
+		}
+		if rec.status == StatusClientClosed {
+			attrs = append(attrs, "note", "client closed request")
+		}
+		rt.cfg.Logger.Info("request", attrs...)
 	})
 }
 

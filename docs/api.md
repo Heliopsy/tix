@@ -879,7 +879,9 @@ One envelope everywhere:
 
 An empty claim queue is a `no_task_available` error rather than an empty success, matching the CLI's exit 3.
 
-Every response carries `X-Request-Id`, which also appears in the server log line for that request.
+Every response carries `X-Request-Id`, which also appears in the server log line for that request. A request
+whose client disconnected before the answer is logged with status `499` and gets no response; see
+[Logs](deployment.md#logs).
 
 Request bodies must be `application/json` (`415` otherwise) and are capped at 1 MiB by default (`413` beyond it,
 adjustable with `--max-body-bytes`). A project task import is the exception: it takes a file, and is capped by
