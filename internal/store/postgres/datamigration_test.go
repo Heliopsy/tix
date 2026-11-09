@@ -124,7 +124,7 @@ func TestAnUpgradeFromBefore046LinksEveryAccountUnderRowLevelSecurity(t *testing
 	}
 
 	hasher := auth.NewHasherWithParams(auth.TestParams())
-	hash, err := hasher.Hash("correct horse battery")
+	hash, err := hasher.Hash(t.Context(), "correct horse battery")
 	if err != nil {
 		t.Fatal(err)
 	}
