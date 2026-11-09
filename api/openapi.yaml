@@ -4584,8 +4584,8 @@ paths:
                 $ref: '#/components/schemas/IssuedInvite'
           description: IssuedInvite carries an invite together with its freshly minted
             secret. Path is the browser route that accepts it; URL is that route made
-            absolute by a surface that knows the address it was reached at, and is
-            empty otherwise.
+            absolute, under server.public_url (or the tenant's own domain) or the
+            address a request arrived at, and is empty when neither is known.
         "400":
           $ref: '#/components/responses/Error400'
         "401":
@@ -4718,8 +4718,8 @@ paths:
                 $ref: '#/components/schemas/IssuedInvite'
           description: IssuedInvite carries an invite together with its freshly minted
             secret. Path is the browser route that accepts it; URL is that route made
-            absolute by a surface that knows the address it was reached at, and is
-            empty otherwise.
+            absolute, under server.public_url (or the tenant's own domain) or the
+            address a request arrived at, and is empty when neither is known.
         "400":
           $ref: '#/components/responses/Error400'
         "401":
@@ -14667,8 +14667,8 @@ components:
     IssuedInvite:
       description: IssuedInvite carries an invite together with its freshly minted
         secret. Path is the browser route that accepts it; URL is that route made
-        absolute by a surface that knows the address it was reached at, and is empty
-        otherwise.
+        absolute, under server.public_url (or the tenant's own domain) or the address
+        a request arrived at, and is empty when neither is known.
       properties:
         accepted_at:
           description: AcceptedAt is when the link was used, RFC 3339; absent while
@@ -14729,8 +14729,7 @@ components:
             by the call that minted it.
           type: string
         url:
-          description: URL is Path made absolute, empty when the surface does not
-            know its own address.
+          description: URL is Path made absolute, empty when no web address is known.
           type: string
         user_id:
           description: UserID is the invited account, created when the invite was

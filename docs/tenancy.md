@@ -162,7 +162,8 @@ tix user invite revoke 01J0000000000000000000
 
 The account, its actor and its membership are created at once, with no password, so the person can be
 assigned work before they accept. The answer carries a single-use link, `https://HOST/invite/tix_inv_...`,
-shown once. It expires after 7 days unless `--expires` says otherwise, between one hour and 30 days.
+shown once. Over SSH or on a local database, HOST is `server.public_url` (or the tenant's own domain);
+without it only the path is printed, with a reminder to put the address in front. It expires after 7 days unless `--expires` says otherwise, between one hour and 30 days.
 Opening it shows a page to choose a password and a display name, and accepting signs the person in,
 second factor rules included. An address of this tenant's user who holds no membership is granted one and
 keeps their password, which they confirm on the page instead. An address that belongs to a member who can

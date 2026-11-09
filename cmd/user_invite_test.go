@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -128,6 +129,35 @@ func TestUserInviteManagesPendingInvites(t *testing.T) {
 	c.mustRun("user", "invite", "revoke", next.ID)
 	if listed := c.mustRun("user", "invite", "ls", "-o", "json").out; strings.Contains(listed, "ada@example.com") {
 		t.Fatalf("a revoked invite is still listed: %s", listed)
+	}
+}
+
+// A local database with server.public_url configured knows the address
+// people open tix at, so the invite prints the absolute link, gives it as url
+// in JSON beside path, and drops the hint to put an address in front.
+func TestUserInviteWithAPublicAddressPrintsTheAbsoluteLink(t *testing.T) {
+	c := newCLI(t)
+	env := append(c.environ(), "TIX_SERVER_PUBLIC_URL=https://tix.z09.org")
+	runWith := func(args ...string) result {
+		var out, errb bytes.Buffer
+		code := Run(args, strings.NewReader(""), &out, &errb, env, c.home)
+		return result{code: code, out: out.String(), err: errb.String()}
+	}
+	got := runWith("user", "invite", "ada@example.com", "--role", "admin", "-o", "json")
+	var issued core.IssuedInvite
+	if err := json.Unmarshal([]byte(got.out), &issued); err != nil {
+		t.Fatalf("user invite: exit %d, %v\n%s\n%s", got.code, err, got.out, got.err)
+	}
+	if want := "https://tix.z09.org/invite/" + issued.Token; issued.URL != want || issued.Path != "/invite/"+issued.Token {
+		t.Fatalf("url %q, path %q; want url %q and the path kept", issued.URL, issued.Path, want)
+	}
+	if strings.Contains(got.err, "local database") {
+		t.Fatalf("the local database hint was printed with a public address set: %q", got.err)
+	}
+
+	plain := c.mustRun("user", "invite", "bob@example.com", "-o", "json")
+	if strings.Contains(plain.out, `"url"`) || !strings.Contains(plain.err, "local database") {
+		t.Fatalf("without server.public_url: out %q, err %q; want no url and the hint", plain.out, plain.err)
 	}
 }
 
