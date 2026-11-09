@@ -102,7 +102,7 @@ func (h *handler) switcherFor(r *http.Request, me *core.Actor, here string) *ten
 		}
 		out.Rows = append(out.Rows, row)
 	}
-	out.Opener = newOpener(switcherDialog, name, "tenant", "", here)
+	out.Opener = newOpener(switcherDialog, name, "tenant-switch", "", here)
 	return out
 }
 
