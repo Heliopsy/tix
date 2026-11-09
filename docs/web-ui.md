@@ -1770,6 +1770,10 @@ what follows down, rather than floating over the next row. One in a toolbar, the
 task screen's header, floats on a wide screen with a mouse and opens under the toolbar the same way
 on a phone, a tablet or any window narrower than 900px.
 
+With scripting an open note closes when you move on: a click or tap anywhere outside it and its (i),
+Escape (which puts focus back on the (i)), or opening another tip. A click inside the note leaves it
+open.
+
 A (?) at the right end of each screen's header opens the section of these docs about that screen, in a
 new tab, for the release the server runs: it links to `/docs/PAGE?section=ANCHOR`, which redirects to the
 page on GitHub at the running version's tag (or `main` for a development build) with `#ANCHOR` on the end.
