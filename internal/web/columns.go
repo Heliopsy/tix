@@ -74,6 +74,7 @@ var columnSets = map[string][]Column{
 		{Key: "name", Label: "Name", Default: true},
 		{Key: "role", Label: "Role", Default: true},
 		{Key: "state", Label: "State", Default: true},
+		{Key: "factor", Label: "Second factor", Default: true},
 	},
 	"tokens": {
 		{Key: "scopes", Label: "Scopes", Default: true},
