@@ -128,7 +128,7 @@ func sizeInt(s string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if n > maxBody {
+	if n < 0 || n > maxBody {
 		return 0, fmt.Errorf("size %q is larger than the %s a description may be", s, FormatSize(maxBody))
 	}
 	return int(n), nil
