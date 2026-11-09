@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.52.0](https://github.com/Heliopsy/tix/compare/v0.51.0...v0.52.0) (2026-11-09)
+
+
+### Features
+
+* **view:** arrange lanes grouped by assignee, priority, tag or due ([2f28862](https://github.com/Heliopsy/tix/commit/2f288623e226373aaee61102a0a2643db4207826))
+* **web:** group lanes by assignee, priority, tag or due ([c494ef1](https://github.com/Heliopsy/tix/commit/c494ef189299e04777960034033c629da2c25d49))
+
+
+### Bug Fixes
+
+* **web:** clip a long lane name with an ellipsis instead of breaking it ([27e27f1](https://github.com/Heliopsy/tix/commit/27e27f18c8f5fdb0afe501632f28ea4cde3e8926))
+* **web:** keep a lane heading's name and count whole ([3331081](https://github.com/Heliopsy/tix/commit/3331081bc0922e6ab449678dab8f597afb7c8cf6))
+* **web:** let a task property label fit its column instead of spilling ([fba6e94](https://github.com/Heliopsy/tix/commit/fba6e94c043887f857ffc6471d9609b18cc9ca72))
+
 ## [0.51.0](https://github.com/Heliopsy/tix/compare/v0.50.0...v0.51.0) (2026-11-09)
 
 
