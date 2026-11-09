@@ -214,6 +214,11 @@ type TaskFilter struct {
 	// listing with no reader neither groups nor filters by stars.
 	StarredBy string `json:"-" yaml:"-"`
 
+	// OmitBody leaves each task's Body and Checklist empty, for an in-process
+	// caller that only counts the tasks: a description can be a megabyte. It
+	// does not travel on the wire, so a remote listing always carries bodies.
+	OmitBody bool `json:"-" yaml:"-"`
+
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 
 	// Text holds the explicit title and body predicates: exact equality, or

@@ -99,7 +99,7 @@ func tenantUserLsCmd(g *globals) *cobra.Command {
 }
 
 func tenantUserCreateCmd(g *globals) *cobra.Command {
-	var password, display, handle, role string
+	var pass, display, handle, role string
 	var dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "create KEY EMAIL",
@@ -107,11 +107,15 @@ func tenantUserCreateCmd(g *globals) *cobra.Command {
 		Long: "Create a credentialed human in the tenant named by KEY.\n\n" +
 			"--require-password-change makes the first password sign-in choose a new password before it is let in.\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown tenant, 4 email already used, 5 not a global admin.",
-		Example: "  tix tenant user create acme ada@example.com --role admin --password '...'",
+		Example: "  tix tenant user create acme ada@example.com --role admin --password -",
 		Args:    exactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			secret, err := passwordArg(cmd, pass)
+			if err != nil {
+				return err
+			}
 			in := core.CreateUserInput{
-				Email: args[1], Password: password, DisplayName: display,
+				Email: args[1], Password: secret, DisplayName: display,
 				Handle: handle, Role: core.Role(role), RequirePasswordChange: mustChange,
 			}
 			if err := in.Validate(); err != nil {
@@ -132,7 +136,7 @@ func tenantUserCreateCmd(g *globals) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&password, "password", "", "initial password")
+	f.StringVar(&pass, "password", "", "initial password, or - to read standard input")
 	f.StringVar(&display, "display-name", "", "display name")
 	f.StringVar(&handle, "handle", "", "actor handle")
 	f.StringVar(&role, "role", "", "role in that tenant")
@@ -181,7 +185,7 @@ func tenantUserAddCmd(g *globals) *cobra.Command {
 }
 
 func tenantUserEditCmd(g *globals) *cobra.Command {
-	var display, password, role string
+	var display, pass, role string
 	var disabled, dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "edit KEY ID",
@@ -198,7 +202,11 @@ func tenantUserEditCmd(g *globals) *cobra.Command {
 				in.DisplayName = &display
 			}
 			if cmd.Flags().Changed("password") {
-				in.Password = &password
+				secret, err := passwordArg(cmd, pass)
+				if err != nil {
+					return err
+				}
+				in.Password = &secret
 			}
 			if cmd.Flags().Changed("role") {
 				r := core.Role(role)
@@ -226,7 +234,7 @@ func tenantUserEditCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&display, "display-name", "", "new display name")
-	f.StringVar(&password, "password", "", "new password")
+	f.StringVar(&pass, "password", "", "new password, or - to read standard input")
 	f.StringVar(&role, "role", "", "new role")
 	f.BoolVar(&disabled, "disabled", false, "disable or re-enable the user")
 	f.BoolVar(&mustChange, "require-password-change", false, "make the next password sign-in choose a new password")

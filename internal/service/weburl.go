@@ -61,6 +61,16 @@ func (l *Local) linkTasks(ctx context.Context, tasks ...*core.Task) {
 	}
 }
 
+// linkInvite sets an issued invite's url, its path under the same address a
+// task's web_url is built under, when there is one. A surface that knows the
+// address it was reached at, the HTTP API or the browser, may set its own.
+func (l *Local) linkInvite(ctx context.Context, issued *core.IssuedInvite) {
+	if l.publicURL == "" || issued == nil || issued.Path == "" {
+		return
+	}
+	issued.URL = strings.TrimRight(l.webBase(ctx), "/") + issued.Path
+}
+
 // linked returns t with web_url set, passing an error through.
 func (l *Local) linked(ctx context.Context, t *core.Task, err error) (*core.Task, error) {
 	if err == nil {

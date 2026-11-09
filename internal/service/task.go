@@ -239,7 +239,9 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	} else if limit >= core.MaxPageLimit && len(tasks) == limit {
 		more = true
 	}
-	markChecklistsIn(tasks)
+	if !f.OmitBody {
+		markChecklistsIn(tasks)
+	}
 	page := core.TaskPage{Tasks: tasks, Total: min(total, core.TaskCountCap),
 		TotalCapped: total > core.TaskCountCap, Number: number}
 	if more && len(tasks) > 0 {
@@ -519,7 +521,7 @@ func (l *Local) transitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 		if len(comment) > core.MaxCommentLength {
 			return core.Invalid("comment must be at most %d characters", core.MaxCommentLength)
 		}
-		if edge.RequiresScope != "" && !actor.HasScope(edge.RequiresScope) {
+		if !l.mayCross(actor, edge, task.ProjectID) {
 			return core.Forbidden("moving from %q to %q requires scope %q",
 				task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
 		}
@@ -1304,4 +1306,20 @@ func resolveAssigneeRefs(ctx context.Context, tx store.Tx, refs []string, cache 
 		out = append(out, resolved)
 	}
 	return out, nil
+}
+
+// mayCross reports whether the actor may move a task across an edge. An edge
+// naming task:approve is the policy's task.approve decision, which also holds
+// a pinned token inside its own project; any other scope an edge names only
+// has to be held.
+func (l *Local) mayCross(actor *core.Actor, edge core.Transition, projectID string) bool {
+	switch edge.RequiresScope {
+	case "":
+		return true
+	case core.ScopeTaskApprove:
+		res := authz.Resource{TenantID: actor.TenantID, ProjectID: projectID}
+		return l.policy.Can(actor, authz.ActionTaskApprove, res) == nil
+	default:
+		return actor.HasScope(edge.RequiresScope)
+	}
 }

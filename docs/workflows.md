@@ -15,6 +15,149 @@ States: `todo`, `doing`, `blocked`, `done`, `cancelled`. `done` and `cancelled` 
 
 There is no `todo` to `done` edge. Work goes through `doing`. That is why `tix claim exec` takes `--on-start`.
 
+## Templates
+
+tix ships twelve ready-made workflows. Each one leads with a one-line purpose, which is what every list and
+picker shows first, then its name, its states and the custom fields a project using it usually wants.
+
+```sh
+tix workflow template ls                                   # purpose first
+tix workflow template apply tix-dev-review                 # creates the workflow tix-dev-review
+tix workflow template apply tix-sales --as deals           # the same workflow under another key
+tix workflow template apply tix-bugs --on-collision rename # tix-bugs-2 when tix-bugs is taken
+tix project create web "Website" --workflow-template tix-dev-review
+```
+
+Applying a template creates a workflow, nothing more. A key that is already taken is refused (exit 4) unless
+`--on-collision` says to `skip` it, `rename` the new one to the next free `KEY-2`, or `replace` the existing
+definition; replacing is refused for `default`, and like `tix workflow put` it is refused while tasks sit in a
+state the template does not have.
+
+Custom fields belong to projects, not to workflows, so a template carries its fields in a `fields` section
+beside the definition. They are added when a project is created from the template: `tix project create
+--workflow-template`, the browser's New project dialog and the terminal's new project form all do that. The
+project runs on the workflow under the template's key, created the first time and reused after, so ten
+projects made from `tix-bugs` share one workflow. A project that already exists gets the fields with `tix field
+put`.
+
+The `tix-` prefix is reserved for the templates. `tix workflow put` refuses a new workflow whose key starts
+with it (exit 2), so a key that does start with it always came from a template. A workflow a template created
+can still be edited by key, and `--as` can put a template's workflow under any key you like. Display names
+carry no prefix; the pickers mark a template with a Built-in label instead. `default` stays the default
+workflow of a project created without one.
+
+The browser lists the templates in the New project dialog's workflow picker and in the Workflows screen's Add
+from template dialog; both work without scripting. Names, purposes and state labels are translated into
+Bulgarian there. The files themselves are plain YAML in `internal/workflows/templates/`, in the format `tix
+workflow put` reads plus `key`, `name`, `purpose` and `fields`, so one is a starting point for a workflow of
+your own: copy it, change the key and put it.
+
+Edges not listed below are refused, as in any workflow. Every template allows the obvious back moves (sending
+work back a step, reopening something finished) unless it says otherwise, and every state has a route to a
+final one.
+
+### Simple Kanban (`tix-kanban`)
+
+Move cards left to right, nothing else.
+
+States: `backlog` → `todo` → `doing` → `done` (final). Each step goes forward or back one column, and `done`
+reopens to `doing`. No rules. No fields.
+
+### Personal (GTD) (`tix-gtd`)
+
+Capture everything, decide later, do the next thing.
+
+States: `inbox` → `next` → `waiting` → `someday` → `done` (final). The inbox is triaged into any of the
+others, including straight to `done`. `waiting` is in the `waiting` category: it is stalled on something
+outside the board. No rules. Fields: `context` (enum: home, work, errand).
+
+### Development with review (`tix-dev-review`)
+
+Code goes through review and QA before it's done.
+
+States: `triage` → `ready` → `in_progress` → `in_review` → `qa` → `done` / `cancelled` (final). An expired
+lease in `in_progress` moves the task back to `ready`. Sending work back from `in_review` or from `qa` to
+`in_progress` needs a comment. Every open state can be cancelled; `done` reopens to `ready` and `cancelled` to
+`triage`. Fields: `pr` (string, the PR link), `size` (enum: xs, s, m, l, xl).
+
+### Bug triage (`tix-bugs`)
+
+Confirm bugs before anyone fixes them.
+
+States: `new` → `triaged` → `confirmed` → `fixing` → `fixed` → `verified` / `wontfix` / `duplicate`
+(final). There is no path to `fixing` that skips `confirmed`. `wontfix` and `duplicate` are in the `cancelled`
+category and both need a comment, as do a failed verification (`fixed` back to `fixing`) and a regression
+(`verified` back to `confirmed`). Fields: `severity` (enum: critical, major, minor, trivial),
+`affected_version` (string), `reproducible` (bool).
+
+### Releases (`tix-releases`)
+
+Ship a change and prove it worked.
+
+States: `planned` → `staged` → `deploying` → `deployed` → `verified` / `rolled_back` (final). Rolling back,
+from `deploying` or `deployed`, needs a comment; a rolled back release can be planned again. Fields: `version`
+(string), `environment` (enum: staging, production).
+
+### Agent queue with sign-off (`tix-agent-review`)
+
+Agents do the work, a human approves it.
+
+States: `queued` → `claimed` → `needs_review` → `approved` / `rejected` (final). An expired lease in `claimed`
+puts the task back in `queued`. Approving and rejecting need the `task:approve` scope, which no role but admin
+carries: an agent's token does the work and cannot sign it off. Putting a rejected task back in the queue needs
+a comment saying what to change. Fields: `agent` (actor), `output` (string, a link to the result).
+
+### Incident (`tix-incident`)
+
+Restore service first, learn from it after.
+
+States: `detected` → `investigating` → `mitigated` → `resolved` → `postmortem_done` (final). A mitigation that
+does not hold goes back to `investigating`, as does a resolved incident that recurs. No rules. Fields:
+`severity` (enum: sev1 to sev4), `impact` (text), `started_at` (datetime).
+
+### Support tickets (`tix-support`)
+
+Answer people and close the loop.
+
+States: `new` → `open` → `waiting` → `resolved` → `closed` (final). `waiting` is waiting on the customer, in the
+`waiting` category. `resolved` is in the `done` category but not final, so a reply reopens it to `open`; so can
+a closed ticket. No rules. Fields: `customer` (string), `channel` (enum: email, chat, phone, web), `urgency`
+(enum: urgent, high, normal, low, default normal).
+
+### Approval or request (`tix-approval`)
+
+Someone asks, someone authorised decides.
+
+States: `requested` → `under_review` → `approved` / `rejected` (final). Approving and rejecting need the
+`task:approve` scope, and rejecting needs a comment. A reviewer who needs more information sends the request
+back to `requested` with a comment. Fields: `requester` (actor), `amount` (float).
+
+### Sales or BizDev pipeline (`tix-sales`)
+
+Track deals from first contact to signed.
+
+States: `lead` → `contacted` → `qualified` → `proposal` → `negotiation` → `won` / `lost` (final). A deal can
+be won from `proposal` or `negotiation`, and lost from any open stage; losing one needs a comment saying why.
+A lost deal can come back as a lead. Fields: `company` (string), `deal_value` (float), `expected_close` (date).
+
+### Hiring (`tix-hiring`)
+
+Move candidates through interviews to a decision.
+
+States: `applied` → `screening` → `interview` → `offer` → `hired` / `rejected` / `withdrew` (final).
+Rejecting a candidate, from any open stage, needs a comment; a candidate can withdraw from any open stage
+without one. Fields: `role` (string), `source` (enum: referral, job-board, agency, direct), `salary_range`
+(string).
+
+### Content or editorial (`tix-content`)
+
+Turn ideas into published pieces.
+
+States: `idea` → `drafting` → `editing` → `approved` → `published` / `dropped` (final). Editing sends a piece
+back to `drafting`, and an approved piece back to `editing`. Any open piece can be dropped, and a dropped one
+can return as an idea. No rules. Fields: `channel` (enum: blog, newsletter, social, docs), `publish_date`
+(date).
+
 ## Defining a workflow
 
 `tix workflow put` reads a YAML or JSON document from a file or standard input:
@@ -299,3 +442,8 @@ tix bundle import review.bundle --on-collision rename
 
 Bundles carry workflows, field definitions, tags, project templates and webhook endpoints: the way of working,
 never the work itself. See [migrating.md](migrating.md).
+
+A workflow made from a built-in template travels like any other, key and all. Another installation already has
+the same templates, so `tix workflow template apply` there is usually the shorter way to the same workflow; a
+bundle is for one you changed after applying it. Importing a `tix-` workflow is allowed, because the key says
+it came from a template wherever it was made.

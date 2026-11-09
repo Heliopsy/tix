@@ -25,6 +25,7 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeTaskClaim:      "Claim tasks, renew the lease and release it.",
 	core.ScopeTaskDelete:     "Delete tasks and restore them from the trash.",
 	core.ScopeTaskReclaim:    "End a lease another worker holds.",
+	core.ScopeTaskApprove:    "Approve or reject work on a workflow edge that asks for it.",
 	core.ScopeProjectRead:    "Read projects.",
 	core.ScopeProjectWrite:   "Create and change projects.",
 	core.ScopeWorkflowRead:   "Read workflows.",
@@ -48,7 +49,7 @@ var ScopeNotes = map[core.Scope]string{
 // ScopeGroups orders the scopes the way a person looks for them.
 var ScopeGroups = []ScopeGroup{
 	{"tasks", "Tasks", []core.Scope{core.ScopeTaskRead, core.ScopeTaskWrite, core.ScopeTaskTransition,
-		core.ScopeTaskClaim, core.ScopeTaskDelete, core.ScopeTaskReclaim}},
+		core.ScopeTaskClaim, core.ScopeTaskDelete, core.ScopeTaskReclaim, core.ScopeTaskApprove}},
 	{"projects", "Projects", []core.Scope{core.ScopeProjectRead, core.ScopeProjectWrite}},
 	{"workflows", "Workflows", []core.Scope{core.ScopeWorkflowRead, core.ScopeWorkflowWrite}},
 	{"comments", "Comments and artifacts", []core.Scope{core.ScopeCommentWrite, core.ScopeArtifactWrite}},

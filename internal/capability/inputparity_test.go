@@ -41,7 +41,11 @@ var inputReaches = []inputReach{
 	}},
 	{"tix project create", core.CreateProjectInput{}, map[string]string{
 		"key": "arg", "name": "arg", "description": "--description", "workflow_key": "--workflow",
-		"color": "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
+		"workflow_template": "--workflow-template",
+		"color":             "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
+	}},
+	{"tix workflow template apply", core.ApplyWorkflowTemplateInput{}, map[string]string{
+		"as": "--as", "on_collision": "--on-collision",
 	}},
 	{"tix project edit", core.UpdateProjectInput{}, map[string]string{
 		"key": "--key", "name": "--name", "description": "--description", "workflow_key": "--workflow",

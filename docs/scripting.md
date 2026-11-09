@@ -355,6 +355,9 @@ Four things about that document are worth relying on:
   about somebody else's sockets.
 - **`servers` is `[]`, never `null`.** Iterate it without checking.
 - **`work` is your tenant**, except `tenants`, which is the number of tenants you could already list.
+  `numbering_behind`, present only when it is not empty, lists each project whose task number counter reads
+  below the highest number its tasks hold, with `project`, `counter` and `highest`. `tix doctor` warns about
+  the same projects.
 
 The exit code is zero whenever the report was produced. A server that stopped heartbeating is information,
 not a failure: use `tix doctor` when you want a check that fails.

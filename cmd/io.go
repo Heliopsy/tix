@@ -187,6 +187,24 @@ func body(cmd *cobra.Command, value string) (string, error) {
 	return readAll(cmd.InOrStdin())
 }
 
+// passwordArg returns value, or what standard input holds when value is "-",
+// less one trailing newline. Empty input is refused rather than sent on as a
+// password nobody typed.
+func passwordArg(cmd *cobra.Command, value string) (string, error) {
+	if value != StdinMarker {
+		return value, nil
+	}
+	read, err := readAll(cmd.InOrStdin())
+	if err != nil {
+		return "", err
+	}
+	read = strings.TrimSuffix(strings.TrimSuffix(read, "\n"), "\r")
+	if read == "" {
+		return "", usagef(cmd, "--password -: standard input held no password")
+	}
+	return read, nil
+}
+
 // readRefs parses positional task references, expanding "-" from standard input.
 func readRefs(cmd *cobra.Command, args []string) ([]core.TaskRef, error) {
 	raw := make([]string, 0, len(args))

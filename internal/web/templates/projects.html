@@ -90,21 +90,40 @@
         <input id="name" class="cform-lead" name="name" value="{{$f.Name}}" placeholder="{{t "For example, Website relaunch"}}" autocomplete="off" required autofocus data-key-source{{$e.Attrs "name"}}>
         {{with $e.On "name"}}{{template "field-error" .}}{{end}}
       </div>
-      <div class="cform-pair">
-        <div class="cfield">
-          <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "A short code for the project, such as INFRA. Every task reference starts with it, as in INFRA-5.")}}</div>
-          <input id="key" class="mono" name="key" value="{{$f.Key}}" placeholder="{{t "key"}}" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required data-key-target data-taken="{{range $i, $k := $v.Taken}}{{if $i}} {{end}}{{$k}}{{end}}" aria-describedby="key-hint{{with $e.On "key"}} {{.ID}}{{end}}"{{if $e.On "key"}} aria-invalid="true"{{end}}>
-          <p class="cfield-hint" id="key-hint">{{t "Letters, digits, - and _. Tasks are numbered"}} <span class="mono" data-key-preview>{{key (or $f.Key (t "key"))}}-1</span>.</p>
-          {{with $e.On "key"}}{{template "field-error" .}}{{end}}
-        </div>
-        <div class="cfield">
-          <div class="cfield-label"><label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</div>
-          <select id="workflow_key" name="workflow_key"{{$e.Attrs "workflow_key"}}>
-            {{range $v.Workflows}}<option value="{{.Key}}"{{if eq .Key $f.Workflow}} selected{{end}}>{{.Name}}</option>{{end}}
-          </select>
-          {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
-        </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "A short code for the project, such as INFRA. Every task reference starts with it, as in INFRA-5.")}}</div>
+        <input id="key" class="mono" name="key" value="{{$f.Key}}" placeholder="{{t "key"}}" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required data-key-target data-taken="{{range $i, $k := $v.Taken}}{{if $i}} {{end}}{{$k}}{{end}}" aria-describedby="key-hint{{with $e.On "key"}} {{.ID}}{{end}}"{{if $e.On "key"}} aria-invalid="true"{{end}}>
+        <p class="cfield-hint" id="key-hint">{{t "Letters, digits, - and _. Tasks are numbered"}} <span class="mono" data-key-preview>{{key (or $f.Key (t "key"))}}-1</span>.</p>
+        {{with $e.On "key"}}{{template "field-error" .}}{{end}}
       </div>
+      {{/* The workflow picker. A select could show a name and nothing else,
+           and a name says little about a template, so each choice is a row:
+           a template leads with its purpose, then its name, its Built-in
+           label and its states. Radios submit without scripting. */}}
+      {{$chosen := or $f.Workflow "default"}}
+      <fieldset class="cfield wfpick" id="workflow_key"{{$e.Attrs "workflow_key"}}>
+        <legend class="cfield-label"><span class="cfield-name">{{t "Workflow"}}</span>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</legend>
+        {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
+        {{with $e.On "workflow_template"}}{{template "field-error" .}}{{end}}
+        <div class="wfpick-list">
+          <p class="wfpick-group">{{t "Workflows in this tenant"}}</p>
+          {{range $v.Workflows}}
+          <label class="wfpick-opt">
+            <input type="radio" name="workflow_key" value="{{.Key}}"{{if eq .Key $chosen}} checked{{end}}>
+            <span class="wfpick-text"><span class="wfpick-name">{{.Name}}</span><span class="wfpick-states">{{.Definition.StatesSummary}}</span></span>
+          </label>
+          {{end}}
+          {{with $v.Templates}}
+          <p class="wfpick-group">{{t "Built-in templates"}}</p>
+          {{range .}}
+          <label class="wfpick-opt">
+            <input type="radio" name="workflow_key" value="{{.Choice}}"{{if eq .Choice $chosen}} checked{{end}}>
+            {{template "wfpick-template" .}}
+          </label>
+          {{end}}
+          {{end}}
+        </div>
+      </fieldset>
       <div class="cfield cfield-grow">
         <div class="cfield-label"><label for="description">{{t "Description"}}</label></div>
         <textarea id="description" name="description" rows="4" placeholder="{{t "What the project is for, in a sentence or two"}}">{{$f.Description}}</textarea>

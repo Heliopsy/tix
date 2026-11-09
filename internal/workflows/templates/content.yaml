@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-content
+name: Content or editorial
+purpose: Turn ideas into published pieces.
+definition:
+  initial: idea
+  states:
+    - {key: idea, label: Idea, category: todo}
+    - {key: drafting, label: Drafting, category: in_progress}
+    - {key: editing, label: Editing, category: in_progress}
+    - {key: approved, label: Approved, category: in_progress}
+    - {key: published, label: Published, category: done, terminal: true}
+    - {key: dropped, label: Dropped, category: cancelled, terminal: true}
+  transitions:
+    - {from: idea, to: drafting}
+    - {from: drafting, to: idea}
+    - {from: drafting, to: editing}
+    - {from: editing, to: drafting}
+    - {from: editing, to: approved}
+    - {from: approved, to: editing}
+    - {from: approved, to: published}
+    - {from: idea, to: dropped}
+    - {from: drafting, to: dropped}
+    - {from: editing, to: dropped}
+    - {from: approved, to: dropped}
+    - {from: dropped, to: idea}
+fields:
+  - {key: channel, label: Channel, type: enum, enum_options: [blog, newsletter, social, docs], position: 1}
+  - {key: publish_date, label: Publish date, type: date, position: 2}

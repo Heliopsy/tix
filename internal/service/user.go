@@ -193,7 +193,7 @@ func (l *Local) CreateUser(ctx context.Context, in core.CreateUserInput) (*core.
 
 	hash := ""
 	if in.Password != "" {
-		if hash, err = l.hasher.Hash(in.Password); err != nil {
+		if hash, err = l.hasher.Hash(ctx, in.Password); err != nil {
 			return nil, err
 		}
 	}
@@ -394,7 +394,7 @@ func (l *Local) UpdateUser(ctx context.Context, id string, in core.UpdateUserInp
 
 	hash := ""
 	if in.Password != nil {
-		if hash, err = l.hasher.Hash(*in.Password); err != nil {
+		if hash, err = l.hasher.Hash(ctx, *in.Password); err != nil {
 			return nil, err
 		}
 	}

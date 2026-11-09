@@ -59,6 +59,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, workflowHeader, deref(v), p.workflowRow)
 	case core.Workflow:
 		return renderRows(w, p, workflowHeader, []core.Workflow{v}, p.workflowRow)
+	case []core.WorkflowTemplate:
+		return renderRows(w, p, workflowTemplateHeader, v, workflowTemplateRow)
 	case []core.Comment:
 		return renderRows(w, p, commentHeader, v, p.commentRow)
 	case []*core.Comment:
@@ -593,6 +595,19 @@ func (p Painter) projectRow(project core.Project) table.Row {
 		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}
+}
+
+// workflowTemplateHeader leads with the purpose, which is what a reader picks a
+// template by.
+var workflowTemplateHeader = table.Row{"PURPOSE", "KEY", "NAME", "STATES", "FIELDS"}
+
+// workflowTemplateRow renders one built-in workflow template.
+func workflowTemplateRow(t core.WorkflowTemplate) table.Row {
+	fields := make([]string, 0, len(t.Fields))
+	for _, f := range t.Fields {
+		fields = append(fields, f.Key)
+	}
+	return table.Row{t.Purpose, t.Key, t.Name, t.States, strings.Join(fields, ", ")}
 }
 
 func (p Painter) workflowRow(wf core.Workflow) table.Row {

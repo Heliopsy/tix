@@ -207,6 +207,7 @@ func (h *handler) overdueCount(r *http.Request) int {
 	}
 	filter.Statuses = open
 	filter.Page.Limit = overdueCap + 1
+	filter.OmitBody = true
 	page, err := h.svc.ListTasks(r.Context(), filter)
 	if err != nil {
 		return 0

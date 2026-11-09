@@ -55,6 +55,7 @@ const (
 	formTOTPCode
 	formRotateToken
 	formTransfer
+	formNewProject
 )
 
 // FieldKind says what a form field gathers. A field drawn from a fixed set is
@@ -101,6 +102,10 @@ type FormField struct {
 	// Secret masks a typed answer, on the row and in the field, for a
 	// password.
 	Secret bool
+	// About describes each option, keyed by the option, in lines drawn under
+	// the form while the field holds it. A choice whose name says little,
+	// such as a workflow template, is read by what it is for.
+	About map[string][]string
 }
 
 // Typed reports whether a field is gathered by typing rather than by cycling.
@@ -121,6 +126,18 @@ type Form struct {
 	// Sel indexes the visible fields, not Fields, so a hidden field is never
 	// the selected one.
 	Sel int
+	// Carry holds answers gathered before the form opened, such as the key
+	// and name of the project a form picks a workflow for.
+	Carry map[string]string
+}
+
+// About is what the visible fields say about the options they hold now.
+func (f Form) About() []string {
+	var out []string
+	for _, field := range f.Visible() {
+		out = append(out, field.About[field.Value]...)
+	}
+	return out
 }
 
 // Open reports whether a form is gathering answers.

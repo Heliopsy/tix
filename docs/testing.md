@@ -491,7 +491,10 @@ measurement yet says what they should cost; run `--users 20` with `--max-rss 0`,
 figures, and commit a budget only once a fix has made the number defensible.
 
 Signing in hashes the password with argon2id at 64 MiB per hash, and every browser user signs in at the start,
-together. That is real traffic and stays in the measurement.
+together. That is real traffic and stays in the measurement. The server runs only as many hashes at once as its
+slot gate allows, sized from the soft memory limit, and queues the rest; a sign-in refused as
+`password_hashing_busy` shows as a 422 on `POST /auth/login` and that user stops. See
+[deployment.md](deployment.md#password-hashing-memory).
 
 ### Against a running server
 

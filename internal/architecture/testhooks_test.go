@@ -16,6 +16,7 @@ var testOnlyHooks = []struct {
 	defines string
 }{
 	{call: "UseCheapHashingInTests(", defines: "internal/service/local.go"},
+	{call: "HoldHashSlotsInTests(", defines: "internal/auth/gate.go"},
 }
 
 // TestTestHooksStayInTests keeps cheap password hashing out of the product.

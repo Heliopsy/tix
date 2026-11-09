@@ -63,7 +63,9 @@ func newDoctorCmd(g *globals) *cobra.Command {
 				return g.reportChecks(cmd, checks)
 			}
 			checks = append(checks, check{Name: "identity", Status: checkOK, Detail: actor.Handle})
-			checks = append(checks, secondFactorChecks(ctx, conn)...)
+			report, err := conn.Service.Status(ctx)
+			checks = append(checks, secondFactorChecks(report, err)...)
+			checks = append(checks, numberingCheck(report, err))
 			return g.reportChecks(cmd, checks)
 		},
 	}
@@ -581,6 +583,27 @@ func deliveryStatuses(values []string) []core.DeliveryStatus {
 	return out
 }
 
+// numberingCheck reports the projects whose task number counter is behind
+// the numbers their tasks hold. Creating a task there still works, because
+// the next number steps past the highest one held, so this warns rather than
+// fails.
+func numberingCheck(report *core.StatusReport, err error) check {
+	const name = "task-numbering"
+	if err != nil {
+		return check{Name: name, Status: checkOK, Detail: "not visible to this account: " + err.Error()}
+	}
+	behind := report.Work.NumberingBehind
+	if len(behind) == 0 {
+		return check{Name: name, Status: checkOK, Detail: "every project's counter is at or above its highest task number"}
+	}
+	parts := make([]string, len(behind))
+	for i, b := range behind {
+		parts[i] = fmt.Sprintf("%s counter %d, highest task %d", b.Project, b.Counter, b.Highest)
+	}
+	return check{Name: name, Status: checkWarn, Detail: "project counters behind their tasks: " + strings.Join(parts, "; ") +
+		"; the next task created in each still steps past the highest number"}
+}
+
 // secondFactorChecks reports the state of TOTP: whether a key is configured,
 // how many enrolments depend on it, and whether this tenant is one restart
 // away from having nobody able to sign in.
@@ -588,8 +611,7 @@ func deliveryStatuses(values []string) []core.DeliveryStatus {
 // It reads the status report rather than a diagnostic of its own, so there is
 // one place the facts come from and doctor cannot drift from what `tix status`
 // says.
-func secondFactorChecks(ctx context.Context, conn *connect.Conn) []check {
-	report, err := conn.Service.Status(ctx)
+func secondFactorChecks(report *core.StatusReport, err error) []check {
 	if err != nil {
 		// Not a failure of the installation. A reader without server:read
 		// cannot see this, and doctor is useful to them for everything else.

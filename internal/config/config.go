@@ -5,11 +5,13 @@
 package config
 
 import (
+	"math"
 	"sort"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/output"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/lease"
@@ -222,6 +224,30 @@ type Auth struct {
 	// secret is undecryptable, and each user has to be cleared by an
 	// administrator and enrol again.
 	TOTPKey string `yaml:"totp_key" secret:"opaque"`
+	// MaxConcurrentHashes caps how many argon2id derivations run at once.
+	// 0 sizes it from the soft memory limit; see auth.ConcurrencyFor.
+	MaxConcurrentHashes int `yaml:"max_concurrent_hashes"`
+	// Argon2MemoryKiB, Argon2Time and Argon2Threads override the password
+	// hash cost new hashes are minted at, 0 for the built-in default each.
+	Argon2MemoryKiB int `yaml:"argon2_memory_kib"`
+	Argon2Time      int `yaml:"argon2_time"`
+	Argon2Threads   int `yaml:"argon2_threads"`
+}
+
+// PasswordParams is the argon2id policy these settings ask for: the built-in
+// default with any configured field replacing its own.
+func (a Auth) PasswordParams() auth.Params {
+	p := auth.DefaultParams()
+	if a.Argon2MemoryKiB > 0 && int64(a.Argon2MemoryKiB) <= math.MaxUint32 {
+		p.Memory = uint32(a.Argon2MemoryKiB) // #nosec G115 -- bounded above
+	}
+	if a.Argon2Time > 0 && int64(a.Argon2Time) <= math.MaxUint32 {
+		p.Time = uint32(a.Argon2Time) // #nosec G115 -- bounded above
+	}
+	if a.Argon2Threads > 0 && int64(a.Argon2Threads) <= math.MaxUint8 {
+		p.Threads = uint8(a.Argon2Threads) // #nosec G115 -- bounded above
+	}
+	return p
 }
 
 // Hooks holds the git hook settings.
