@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Keeps an open (i) note on screen.
+// Keeps an open (i) note on screen, and closes it when the reader is done.
 //
 // The note of a tip or a field-info (templates/partials.html) is CSS: it
 // floats under its circle, anchored at the circle's left edge, or its right
@@ -11,6 +11,14 @@
 // inside the window, narrowing it first if the window is narrower than the
 // note. A note laid out in the flow (a heading's or a label's) is left alone.
 // Without a script the note is drawn where CSS puts it.
+//
+// A <details> only closes from its own summary, so a reader who opened a
+// note and moved on found it still open three tips later. With a script a
+// note is light-dismissed the way a popover is: a press anywhere outside it
+// and its circle closes it, Escape closes it and puts focus back on the
+// circle, and opening one note closes any other. A press inside the note, on
+// its doc name or a link, leaves it open. The summary's aria-expanded follows
+// the note.
 (function (global) {
   "use strict";
   var tix = global.tix = global.tix || {};
@@ -47,11 +55,54 @@
     if (fit.shift) note.style.setProperty("--tip-shift", fit.shift + "px");
   }
 
+  var TIP = "details.field-info";
+
+  function summary(tip) {
+    return tip.querySelector(":scope > summary");
+  }
+
+  function mark(tip) {
+    var s = summary(tip);
+    if (s) s.setAttribute("aria-expanded", tip.open ? "true" : "false");
+  }
+
+  function shutExcept(keep) {
+    var open = doc.querySelectorAll(TIP + "[open]");
+    var shut = [];
+    for (var i = 0; i < open.length; i++) {
+      if (open[i] === keep) continue;
+      open[i].open = false;
+      mark(open[i]);
+      shut.push(open[i]);
+    }
+    return shut;
+  }
+
+  function tipOf(node) {
+    return node && typeof node.closest === "function" ? node.closest(TIP) : null;
+  }
+
   var doc = global.document;
   if (!doc || !doc.addEventListener) return;
   doc.addEventListener("toggle", function (event) {
     var tip = event.target;
-    if (!tip || !tip.matches || !tip.matches("details.field-info") || !tip.open) return;
+    if (!tip || !tip.matches || !tip.matches(TIP)) return;
+    mark(tip);
+    if (!tip.open) return;
+    shutExcept(tip);
     place(tip);
+  }, true);
+  doc.addEventListener("pointerdown", function (event) {
+    shutExcept(tipOf(event.target));
+  }, true);
+  doc.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    var focused = tipOf(doc.activeElement);
+    var shut = shutExcept(null);
+    if (!shut.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    var back = summary(focused && shut.indexOf(focused) !== -1 ? focused : shut[shut.length - 1]);
+    if (back && back.focus) back.focus();
   }, true);
 })(window);
