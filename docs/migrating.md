@@ -399,6 +399,11 @@ that reference is a per-project counter, and two databases can independently min
 unrelated tasks. A record with no identifier, or whose identifier belongs to a task in a different project, is
 never merged into anything; it is created as its own task, renumbered if its sequence number is already taken.
 
+An imported task keeps its number, and each project's counter is raised to the highest number its tasks hold,
+trashed ones included, in the same transaction. The next task created there continues above them. Imports made
+before this was fixed left the counter behind; the upgrade repairs it, and `tix doctor` names any project whose
+counter still reads below its tasks.
+
 Every matched record is compared against what is already there by its `updated_at`. An import never lets an
 older record overwrite something newer:
 
