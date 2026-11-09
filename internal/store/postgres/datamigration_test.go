@@ -370,3 +370,37 @@ func TestOnlyTheRunnerSetsTheMigrationFlag(t *testing.T) {
 		}
 	}
 }
+
+// TestRepairTaskNumberCountersReachesEveryTenantAsARestrictedOwner runs the
+// counter repair the way production does: as an owner the forced policies
+// apply to, with no tenant set. Without the migration flag it would update no
+// project and leave every imported tenant refusing new tasks.
+func TestRepairTaskNumberCountersReachesEveryTenantAsARestrictedOwner(t *testing.T) {
+	ctx := context.Background()
+	db := newRestrictedDB(t)
+	clk := clock.NewFakeAt()
+	s := openStore(t, db.dsn, clk)
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatalf("migrating: %v", err)
+	}
+	requireRestricted(t, s)
+	want := map[string]int64{}
+	for key, highest := range map[string]int64{"one": 95, "two": 868} {
+		f := seed(t, s, clk, key)
+		f.numberedTask(t, f.project.ID, highest, true)
+		want[f.project.ID] = highest
+	}
+
+	rewindTo(t, s, migrationNamed(t, "repair_task_number_counters")-1)
+	if _, err := db.admin.ExecContext(ctx, `UPDATE projects SET seq_counter = 0`); err != nil {
+		t.Fatalf("winding the counters back as an import left them: %v", err)
+	}
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatalf("migrating forward: %v", err)
+	}
+	for id, highest := range want {
+		if got := seqCounter(t, db.admin, id); got != highest {
+			t.Errorf("counter of project %s after the repair = %d, want %d", id, got, highest)
+		}
+	}
+}

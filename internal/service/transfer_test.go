@@ -1884,3 +1884,44 @@ func TestImportedTagWritesAuditAndEvent(t *testing.T) {
 		t.Error("an imported tag emitted no event")
 	}
 }
+
+// An import writes every task under the number it had at the source, so the
+// target project's counter has to end at least as high as the highest of them,
+// trashed ones included. Before it did, the first task created after importing
+// into a fresh tenant reused an imported number and was refused as a conflict.
+func TestTaskCreatedAfterAnImportTakesTheNextNumber(t *testing.T) {
+	for _, mode := range core.ImportModes {
+		t.Run(string(mode), func(t *testing.T) {
+			l, _, _, actor := newLocal(t)
+			source := core.WithActor(context.Background(), actor)
+			seed(t, l, source, "infra")
+			var last *core.Task
+			for _, title := range []string{"third", "fourth", "fifth"} {
+				task, err := l.CreateTask(source, core.CreateTaskInput{ProjectRef: "infra", Title: title})
+				if err != nil {
+					t.Fatalf("creating %s: %v", title, err)
+				}
+				last = task
+			}
+			if last.Seq != 5 {
+				t.Fatalf("test setup: the last task is numbered %d, want 5", last.Seq)
+			}
+			if err := l.DeleteTask(source, core.TaskRef{ID: last.ID}, core.DeleteTaskInput{}); err != nil {
+				t.Fatalf("trashing the highest task: %v", err)
+			}
+			snapshot := exportBytes(t, l, source, core.ExportInput{})
+
+			target, _, _ := newTenant(t, l, "beta")
+			if _, err := l.ImportFrom(target, bytes.NewReader(snapshot), core.ImportInput{Mode: mode}); err != nil {
+				t.Fatalf("import: %v", err)
+			}
+			created, err := l.CreateTask(target, core.CreateTaskInput{ProjectRef: "infra", Title: "after the import"})
+			if err != nil {
+				t.Fatalf("creating a task after the import: %v", err)
+			}
+			if created.Seq != 6 {
+				t.Errorf("task created after the import is numbered %d, want 6", created.Seq)
+			}
+		})
+	}
+}

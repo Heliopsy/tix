@@ -86,6 +86,9 @@ func (l *Local) Status(ctx context.Context) (*core.StatusReport, error) {
 		out.Work.LeasesExpiredUnswept = counts.LeasesExpiredUnswept
 		out.Work.WebhooksPending = counts.WebhooksPending
 		out.Work.WebhooksFailed = counts.WebhooksFailed
+		if out.Work.NumberingBehind, err = tx.NumberingBehind(ctx); err != nil {
+			return err
+		}
 		return l.readSecondFactor(ctx, tx, tenant, &out.SecondFactor)
 	})
 	if err != nil {
