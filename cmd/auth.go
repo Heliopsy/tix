@@ -66,7 +66,7 @@ func newUserCmd(g *globals) *cobra.Command {
 }
 
 func userCreateCmd(g *globals) *cobra.Command {
-	var password, display, handle, role string
+	var pass, display, handle, role string
 	var dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "create EMAIL",
@@ -80,8 +80,12 @@ func userCreateCmd(g *globals) *cobra.Command {
 			"  tix user create ada@example.com --password - --require-password-change",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			secret, err := passwordArg(cmd, pass)
+			if err != nil {
+				return err
+			}
 			in := core.CreateUserInput{
-				Email: args[0], Password: password, DisplayName: display,
+				Email: args[0], Password: secret, DisplayName: display,
 				Handle: handle, Role: core.Role(role), RequirePasswordChange: mustChange,
 			}
 			if err := in.Validate(); err != nil {
@@ -102,7 +106,7 @@ func userCreateCmd(g *globals) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&password, "password", "", "initial password")
+	f.StringVar(&pass, "password", "", "initial password, or - to read standard input")
 	f.StringVar(&display, "display-name", "", "display name")
 	f.StringVar(&handle, "handle", "", "actor handle")
 	f.StringVar(&role, "role", "", "role in the current tenant")
@@ -172,7 +176,7 @@ func userShowCmd(g *globals) *cobra.Command {
 }
 
 func userEditCmd(g *globals) *cobra.Command {
-	var display, password, role string
+	var display, pass, role string
 	var disabled, dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "edit ID",
@@ -190,7 +194,11 @@ func userEditCmd(g *globals) *cobra.Command {
 				in.DisplayName = &display
 			}
 			if cmd.Flags().Changed("password") {
-				in.Password = &password
+				secret, err := passwordArg(cmd, pass)
+				if err != nil {
+					return err
+				}
+				in.Password = &secret
 			}
 			if cmd.Flags().Changed("role") {
 				r := core.Role(role)
@@ -218,7 +226,7 @@ func userEditCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&display, "display-name", "", "new display name")
-	f.StringVar(&password, "password", "", "new password")
+	f.StringVar(&pass, "password", "", "new password, or - to read standard input")
 	f.StringVar(&role, "role", "", "new role")
 	f.BoolVar(&disabled, "disabled", false, "disable or re-enable the user")
 	f.BoolVar(&mustChange, "require-password-change", false,
