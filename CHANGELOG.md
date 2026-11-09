@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.54.0](https://github.com/Heliopsy/tix/compare/v0.53.0...v0.54.0) (2026-11-09)
+
+
+### Features
+
+* **query:** read [@handle](https://github.com/handle) as an assignee term ([54fe936](https://github.com/Heliopsy/tix/commit/54fe936a12a048829c02318bcea4829354e30879))
+* **web:** make row selection a mode so the done circle is the only tick by default ([c4f7c54](https://github.com/Heliopsy/tix/commit/c4f7c54ed44cff5e958a5d94245e5a9edb281383))
+* **web:** one compact filter toolbar with chips, pickers and suggestions on the task screens ([9c7b0ea](https://github.com/Heliopsy/tix/commit/9c7b0eaf1b18699b875c3da60f3d065553a36756))
+* **web:** put the Select toggle in the filter toolbar and keep select mode through a filter ([d9cea16](https://github.com/Heliopsy/tix/commit/d9cea1635a3c12bf4c7872777e423d92d73e55ac))
+
+
+### Bug Fixes
+
+* **loadtest:** stop the seed workers copying the pool while it grows ([d8825eb](https://github.com/Heliopsy/tix/commit/d8825eb393d4f975ea8210808010fe96fbd40529))
+* **web:** keep the Bulgarian toolbar to two rows on a phone; lint the spec ([f72ffc8](https://github.com/Heliopsy/tix/commit/f72ffc8d17fa87a66b9ebb39035b3e93e2a7a06f))
+* **web:** point the hidden projects notice at the More menu, larger chip targets on touch ([2eb7ba4](https://github.com/Heliopsy/tix/commit/2eb7ba4ddc2770a543040006bd8d15f00550bd82))
+* **web:** settle the toolbar's CI findings: row count, view tip on a phone, suggestion rows, lint ([0ac169b](https://github.com/Heliopsy/tix/commit/0ac169bf0a5bbc5b554dbd348e575995ccb7eeb9))
+
 ## [0.53.0](https://github.com/Heliopsy/tix/compare/v0.52.1...v0.53.0) (2026-11-09)
 
 
