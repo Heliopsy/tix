@@ -616,7 +616,8 @@ there will be two. Moving it to `cancelled` ends the series instead.
 --hidden`, `tix view set lanes homelab --starred`, `tix view set board doing
 --collapsed` (each flag takes `=false` to undo it), `tix view order lanes work
 homelab` and `tix view reset board` change how the caller's own boards and
-lanes are drawn (views `board`, `lanes`, `mine`, `project:KEY`), and `tix view ls
+lanes are drawn (views `board`, `lanes`, `lanes:assignee`, `lanes:priority`,
+`lanes:tag`, `lanes:due`, `mine`, `project:KEY`), and `tix view ls
 board -o json` lists it. It reorders no listing and changes nothing another
 actor sees, so an agent has no reason to touch it unless asked to.
 
