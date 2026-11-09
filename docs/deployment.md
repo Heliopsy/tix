@@ -624,6 +624,17 @@ a container, get no soft limit unless `GOMEMLIMIT` gives one.
 The soft limit is not a cap. A server whose live heap really does need more than the container allows is still
 killed, after spending its last stretch collecting; give it a larger limit.
 
+#### Sizing memory
+
+The example sets no memory limit, because the right one depends on your team and your data. Measure before
+you set one: `just load --users N --max-rss 0` seeds a scratch copy, drives N simulated people at it and
+reports the server's steady and peak resident memory. Set the limit above the peak, not the steady figure,
+since the kernel kills on the peak. Each password sign-in holds 64 MiB of argon2id memory while it runs, and
+the number allowed at once is sized from the soft limit above, so the limit you set also decides how many
+sign-ins run together: see [Password hashing memory](#password-hashing-memory). `just load --target URL`
+drives a running instance read-only while you watch `kubectl top pod`. See
+[testing.md](testing.md#load-testing).
+
 ### Building your own
 
 You can also build the image yourself, which is how you get an unreleased commit, a patched dependency, or a base
