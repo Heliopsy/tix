@@ -522,6 +522,9 @@ spec:
             httpGet: { path: /healthz, port: 8080 }
           readinessProbe:
             httpGet: { path: /readyz, port: 8080 }
+          resources:
+            requests: { memory: 128Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -554,6 +557,28 @@ See [Health checks](#health-checks).
 
 Keep `terminationGracePeriodSeconds` above `--shutdown-timeout` for the same reason systemd needs
 `TimeoutStopSec` above it.
+
+### Memory limit
+
+`tix serve` reads the container's memory limit at start, from cgroup v2's `/sys/fs/cgroup/memory.max` or
+cgroup v1's `memory.limit_in_bytes`, and sets the Go runtime's soft memory limit to 85% of it. Without that the
+collector lets the heap grow to twice what is live before it runs, so a burst of requests that each allocate
+briefly can take the process past the container's limit and have the kernel kill it while most of that memory
+was already garbage. With the soft limit the collector runs harder as the heap nears it instead. The other 15%
+is for what the container is charged and the runtime does not count, such as the binary and socket buffers.
+
+The start log says what was chosen:
+
+```text
+level=INFO msg="memory limit" soft_limit_bytes=456340275 container_limit_bytes=536870912 reason="85% of the container's limit in /sys/fs/cgroup/memory.max"
+```
+
+Set `GOMEMLIMIT` to choose the limit yourself, for example `GOMEMLIMIT=400MiB`, or `GOMEMLIMIT=off` for none.
+When it is set the runtime reads it and tix leaves it alone. A container without a limit, and a process outside
+a container, get no soft limit unless `GOMEMLIMIT` gives one.
+
+The soft limit is not a cap. A server whose live heap really does need more than the container allows is still
+killed, after spending its last stretch collecting; give it a larger limit.
 
 ### Building your own
 

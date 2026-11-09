@@ -13,6 +13,7 @@ import (
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/memlimit"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/serving"
 	"github.com/heliopsy/tix/internal/sshd"
@@ -131,6 +132,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
+	applyMemoryLimit(log)
 	sshListener, err := buildServeSSH(conn, g, o, resolved.Config.SSH.TrustedProxies, log)
 	if err != nil {
 		return err
@@ -165,6 +167,13 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 			_, _ = fmt.Fprintf(w, "tix ssh listening on %s\n", addr)
 		}
 	})
+}
+
+// applyMemoryLimit sets the runtime's soft memory limit from the container's
+// and logs what it chose.
+func applyMemoryLimit(log *slog.Logger) {
+	d := memlimit.Apply()
+	log.Info("memory limit", "soft_limit_bytes", d.Limit, "container_limit_bytes", d.Container, "reason", d.Reason)
 }
 
 // buildServeSSH constructs the SSH listener the serve command runs beside the
