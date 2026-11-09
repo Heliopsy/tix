@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The priority cell is sized for the longest English label, "highest", and
+   a cell is meant to fit the longest thing it usually holds (180-task-list).
+   In Bulgarian that is "най-висок", 14px wider, which spilled out of the
+   cell into the tags beside it on every row. The label is one of five words,
+   so the cell takes their width rather than cutting a word that short. */
+@media (min-width: 640px) {
+  :root[lang="bg"] .tm-prio { width: 88px; }
+}
