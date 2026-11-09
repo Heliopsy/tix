@@ -504,8 +504,9 @@ type AuthService interface {
 type WebhookService interface {
 	// PutWebhook registers an https delivery endpoint, or updates one by
 	// identifier. A registration with no secret gets a generated one, returned
-	// only in this response.
-	PutWebhook(ctx context.Context, in WebhookInput) (*WebhookEndpoint, error)
+	// as secret in this response and never again; a supplied or kept secret is
+	// not returned.
+	PutWebhook(ctx context.Context, in WebhookInput) (*IssuedWebhook, error)
 	// ListWebhooks lists this tenant's delivery endpoints, without their secrets.
 	ListWebhooks(ctx context.Context) ([]WebhookEndpoint, error)
 	// DeleteWebhook removes a delivery endpoint and its pending deliveries.
@@ -517,6 +518,11 @@ type WebhookService interface {
 	// the same endpoint with the same event. The attempt happens on the next
 	// delivery run, not inside this call.
 	RedeliverWebhook(ctx context.Context, deliveryID string) error
+	// PingWebhook sends one active endpoint a signed webhook.ping test event,
+	// whatever its event type filter; no other endpoint receives it. It answers
+	// the queued delivery, already attempted when this process drains inline,
+	// which the delivery log lists and redeliver repeats like any other.
+	PingWebhook(ctx context.Context, id string) (*WebhookDelivery, error)
 }
 
 // TransferService covers snapshot export and import.

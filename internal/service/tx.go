@@ -33,7 +33,13 @@ type mutation struct {
 // Event queues a domain event. It is written before commit, in this same
 // transaction, so an event can never exist without the rows it describes.
 func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID string, payload map[string]any) {
-	m.events = append(m.events, &core.Event{
+	m.events = append(m.events, m.newEvent(typ, subjectType, subjectID, projectID, payload))
+}
+
+// newEvent builds an event attributed to this mutation's actor and channel,
+// without queueing it.
+func (m *mutation) newEvent(typ core.EventType, subjectType, subjectID, projectID string, payload map[string]any) *core.Event {
+	return &core.Event{
 		Type:        typ,
 		ProjectID:   projectID,
 		SubjectType: subjectType,
@@ -42,7 +48,7 @@ func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID s
 		Payload:     m.withActor(payload),
 		Via:         new(m.via),
 		OccurredAt:  m.now,
-	})
+	}
 }
 
 // withActor names the actor in the payload. ActorID alone is a ULID, and a

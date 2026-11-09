@@ -10037,7 +10037,7 @@ paths:
         - webhook
     put:
       description: |-
-        PutWebhook registers an https delivery endpoint, or updates one by identifier. A registration with no secret gets a generated one, returned only in this response.
+        PutWebhook registers an https delivery endpoint, or updates one by identifier. A registration with no secret gets a generated one, returned as secret in this response and never again; a supplied or kept secret is not returned.
 
         Command line: `tix webhook put`.
       operationId: webhook.put
@@ -10052,8 +10052,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebhookEndpoint'
-          description: WebhookEndpoint is a registered delivery target.
+                $ref: '#/components/schemas/IssuedWebhook'
+          description: 'IssuedWebhook is an endpoint as PutWebhook answers it: the
+            only answer that can carry a signing secret, and only one tix generated
+            for that call.'
         "400":
           $ref: '#/components/responses/Error400'
         "401":
@@ -10268,6 +10270,58 @@ paths:
         - session:
             - webhook:admin
       summary: DeleteWebhook removes a delivery endpoint and its pending deliveries
+      tags:
+        - webhook
+  /api/v1/webhooks/{id}/ping:
+    post:
+      description: |-
+        PingWebhook sends one active endpoint a signed webhook.ping test event, whatever its event type filter; no other endpoint receives it. It answers the queued delivery, already attempted when this process drains inline, which the delivery log lists and redeliver repeats like any other.
+
+        Command line: `tix webhook ping`.
+      operationId: webhook.ping
+      parameters:
+        - description: Webhook endpoint ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDelivery'
+          description: WebhookDelivery tracks one event's delivery to one endpoint.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - webhook:admin
+        - session:
+            - webhook:admin
+      summary: PingWebhook sends one active endpoint a signed webhook.ping test event,
+        whatever its event type filter; no other endpoint receives it
       tags:
         - webhook
   /api/v1/whoami:
@@ -12106,6 +12160,7 @@ components:
         - field.updated
         - webhook.delivered
         - import.completed
+        - webhook.ping
         - view.arranged
         - filter.saved
         - filter.updated
@@ -13011,6 +13066,41 @@ components:
         token:
           description: Token is the secret bearer value. It is returned only when
             the token is issued and cannot be read again.
+          type: string
+      type: object
+    IssuedWebhook:
+      description: 'IssuedWebhook is an endpoint as PutWebhook answers it: the only
+        answer that can carry a signing secret, and only one tix generated for that
+        call.'
+      properties:
+        active:
+          description: Active turns deliveries on. An inactive endpoint receives nothing.
+          type: boolean
+        created_at:
+          description: CreatedAt is when the endpoint was registered, RFC 3339.
+          format: date-time
+          type: string
+        event_types:
+          description: EventTypes are the event types delivered, exact or with a trailing
+            "*" such as "task.*". Empty delivers every event.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        id:
+          description: ID is the endpoint's unique identifier.
+          type: string
+        secret:
+          description: SigningSecret is the secret tix generated for an endpoint saved
+            without one, returned this once. Absent when the caller supplied or kept
+            one.
+          type: string
+        tenant_id:
+          description: TenantID is the tenant that owns the endpoint.
+          type: string
+        url:
+          description: URL is where deliveries are POSTed.
           type: string
       type: object
     Kind:

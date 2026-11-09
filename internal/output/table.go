@@ -89,6 +89,11 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, endpointHeader, deref(v), p.endpointRow)
 	case core.WebhookEndpoint:
 		return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v}, p.endpointRow)
+	case *core.IssuedWebhook:
+		if v.SigningSecret == "" {
+			return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v.WebhookEndpoint}, p.endpointRow)
+		}
+		return renderRows(w, p, issuedEndpointHeader, []core.IssuedWebhook{*v}, p.issuedEndpointRow)
 	case []core.Tenant:
 		return renderRows(w, p, tenantHeader, v, p.tenantRow)
 	case []*core.Tenant:
@@ -121,6 +126,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, depHeader, v, p.depRow)
 	case []core.WebhookDelivery:
 		return renderRows(w, p, deliveryHeader, v, p.deliveryRow)
+	case *core.WebhookDelivery:
+		return renderRows(w, p, deliveryHeader, []core.WebhookDelivery{*v}, p.deliveryRow)
 	case []core.Tag:
 		return renderRows(w, p, tagHeader, v, tagRow)
 	case core.Tag:
@@ -206,6 +213,7 @@ var (
 	inboxHeader           = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
 	channelHeader         = table.Row{"ID", "NAME", "FORMAT", "KINDS", "ON", "URL", "CREATED"}
 	issuedChannelHeader   = table.Row{"ID", "NAME", "FORMAT", "SECRET"}
+	issuedEndpointHeader  = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED", "SECRET"}
 	channelDeliveryHeader = table.Row{"ID", "WHAT", "STATUS", "ATTEMPTS", "CODE", "ERROR", "CREATED"}
 	tagHeader             = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
@@ -637,6 +645,12 @@ func (p Painter) endpointRow(e core.WebhookEndpoint) table.Row {
 		e.ID, truncate(e.URL, 60), strings.Join(e.EventTypes, ", "),
 		yesNo(e.Active), p.style.Format(e.CreatedAt),
 	}
+}
+
+// issuedEndpointRow is an endpoint as saved, the one time a generated secret
+// is shown.
+func (p Painter) issuedEndpointRow(e core.IssuedWebhook) table.Row {
+	return append(p.endpointRow(e.WebhookEndpoint), e.SigningSecret)
 }
 
 func (p Painter) tenantRow(t core.Tenant) table.Row {

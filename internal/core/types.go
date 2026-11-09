@@ -890,6 +890,9 @@ const (
 
 	EventWebhookDelivered EventType = "webhook.delivered"
 	EventImportCompleted  EventType = "import.completed"
+	// EventWebhookPing is the test event a ping sends to the one endpoint
+	// named, and to no other endpoint whatever its filter.
+	EventWebhookPing EventType = "webhook.ping"
 
 	// EventViewArranged records one reader changing their own arrangement of
 	// a view's groups. Like a star it changes nothing anybody else sees.
@@ -923,6 +926,7 @@ var eventTypes = []EventType{
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
 	EventInboxUpdated,
 	EventTemplateUpdated,
+	EventWebhookPing,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this
@@ -997,7 +1001,8 @@ type WebhookEndpoint struct {
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
 	// URL is where deliveries are POSTed.
 	URL string `json:"url" yaml:"url"`
-	// Secret signs each delivery. It is never returned.
+	// Secret signs each delivery. It is never serialised; a generated one
+	// reaches its registrar once, through IssuedWebhook.
 	Secret string `json:"-" yaml:"-"`
 	// EventTypes are the event types delivered, exact or with a trailing "*"
 	// such as "task.*". Empty delivers every event.
@@ -1006,6 +1011,15 @@ type WebhookEndpoint struct {
 	Active bool `json:"active" yaml:"active"`
 	// CreatedAt is when the endpoint was registered, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+}
+
+// IssuedWebhook is an endpoint as PutWebhook answers it: the only answer that
+// can carry a signing secret, and only one tix generated for that call.
+type IssuedWebhook struct {
+	WebhookEndpoint `yaml:",inline"`
+	// SigningSecret is the secret tix generated for an endpoint saved without
+	// one, returned this once. Absent when the caller supplied or kept one.
+	SigningSecret string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }
 
 // DeliveryStatus is the state of one webhook delivery attempt chain.

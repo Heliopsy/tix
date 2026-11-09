@@ -479,8 +479,13 @@ tix webhook ls -o json
 tix webhook put https://example.test/hook --event task.released
 tix webhook put https://example.test/hook --event task.released --inactive
 tix webhook redeliver DELIVERYID
+tix webhook ping ENDPOINTID
 ```
 
-`--inactive` registers the endpoint without arming it. `tix status` reports
+`--inactive` registers the endpoint without arming it. A `put` without
+`--secret` prints the generated signing secret once, as `secret`; nothing
+shows it again. `ping` sends one signed `webhook.ping` delivery to that
+endpoint only and prints the delivery, so you can check a receiver before
+any real event; an inactive endpoint is exit `6`. `tix status` reports
 pending and failed deliveries, and `tix serve` is what dispatches them: with
 no server running, a registered webhook fires nothing.

@@ -14,6 +14,7 @@ func (rt *Router) registerWebhookRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteWebhooks, rt.handleListWebhooks)
 	rt.mux.HandleFunc("PUT "+wire.RouteWebhooks, rt.handlePutWebhook)
 	rt.mux.HandleFunc("DELETE "+wire.RouteWebhook, rt.handleDeleteWebhook)
+	rt.mux.HandleFunc("POST "+wire.RouteWebhookPing, rt.handlePingWebhook)
 	rt.mux.HandleFunc("GET "+wire.RouteDeliveries, rt.handleListDeliveries)
 	rt.mux.HandleFunc("POST "+wire.RouteDeliveryRedeliver, rt.handleRedeliver)
 }
@@ -77,4 +78,14 @@ func (rt *Router) handleRedeliver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handlePingWebhook sends a test delivery to one endpoint.
+func (rt *Router) handlePingWebhook(w http.ResponseWriter, r *http.Request) {
+	d, err := rt.cfg.Service.PingWebhook(r.Context(), r.PathValue("id"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, d)
 }

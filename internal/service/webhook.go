@@ -12,6 +12,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/authz"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/outbox"
 	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 	"github.com/heliopsy/tix/internal/webhook"
@@ -29,6 +30,7 @@ const (
 	auditWebhookPut       = "webhook.put"
 	auditWebhookDelete    = "webhook.delete"
 	auditWebhookRedeliver = "webhook.redeliver"
+	auditWebhookPing      = "webhook.ping"
 )
 
 // webhookSecretBytes is the entropy behind a generated signing secret.
@@ -124,7 +126,7 @@ func webhookPayload(e core.WebhookEndpoint) map[string]any {
 // registration that supplies no secret gets a generated one, returned in the
 // result exactly once so it can be configured on the receiving end; no later
 // read ever discloses it.
-func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
 	actor, err := l.authorize(ctx, authz.ActionWebhookAdmin, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -182,9 +184,9 @@ func (l *Local) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.Web
 		return nil, err
 	}
 
-	result := webhook.Redact(out)
+	result := core.IssuedWebhook{WebhookEndpoint: webhook.Redact(out)}
 	if generated {
-		result.Secret = out.Secret
+		result.SigningSecret = out.Secret
 	}
 	return &result, nil
 }
@@ -326,6 +328,56 @@ func (l *Local) RedeliverWebhook(ctx context.Context, deliveryID string) error {
 				"event_seq":   requeued.EventSeq,
 			})
 	})
+}
+
+// PingWebhook queues one webhook.ping event to one active endpoint and answers
+// the delivery as it stands once this process has drained. The event is
+// appended and queued here rather than through the mutation's fan-out, which
+// would also hand it to every other endpoint subscribed to it.
+func (l *Local) PingWebhook(ctx context.Context, id string) (*core.WebhookDelivery, error) {
+	actor, err := l.authorize(ctx, authz.ActionWebhookAdmin, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil, core.Invalid("webhook identifier is required")
+	}
+	if l.hooks == HookOff {
+		return nil, core.Precondition("webhook delivery is turned off in this process, so a ping would never be sent")
+	}
+	var d core.WebhookDelivery
+	err = l.write(ctx, actor, func(m *mutation) error {
+		endpoint, err := m.tx.GetWebhook(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !endpoint.Active {
+			return core.Precondition("webhook %q is inactive; turn it on to ping it", endpoint.ID)
+		}
+		payload := webhookPayload(*endpoint)
+		payload["endpoint_id"] = endpoint.ID
+		e := m.newEvent(core.EventWebhookPing, webhookSubject, endpoint.ID, "", payload)
+		if err := outbox.Append(ctx, m.tx, l.ids, m.now, e); err != nil {
+			return err
+		}
+		d = core.WebhookDelivery{EndpointID: endpoint.ID, EventSeq: e.Seq, Status: core.DeliveryPending}
+		if err := m.tx.EnqueueDelivery(ctx, &d); err != nil {
+			return err
+		}
+		m.queued++
+		return m.Audit(auditWebhookPing, webhookSubject, endpoint.ID, nil, d)
+	})
+	if err != nil {
+		return nil, err
+	}
+	var out *core.WebhookDelivery
+	if err := l.read(ctx, actor, func(tx store.Tx) error {
+		out, err = tx.GetDelivery(ctx, d.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // hookQueue lists a tenant's endpoints once per transaction, since every event

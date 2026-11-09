@@ -14,6 +14,7 @@ func (h *handler) webhookRoutes() []route {
 		get(RouteWebhooks, "webhooks.html", h.showWebhooks, "ListWebhooks", "ListDeliveries"),
 		post(RouteWebhooks, h.putWebhook, "PutWebhook"),
 		post(RouteWebhookDelete, h.deleteWebhook, "DeleteWebhook"),
+		post(RouteWebhookPing, h.pingWebhook, "PingWebhook"),
 		post(RouteRedeliver, h.redeliver, "RedeliverWebhook"),
 	}
 }
@@ -87,10 +88,10 @@ func (h *handler) putWebhook(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return h.refuseIn(w, r, "webhook-new", RouteWebhooks, err, h.showWebhooks)
 	}
-	if saved != nil && saved.Secret != "" {
+	if saved != nil && saved.SigningSecret != "" {
 		// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
 		http.SetCookie(w, oneTimeCookie(generatedWebhookSecretCookie, RouteWebhooks,
-			saved.Secret, h.secureCookie(r)))
+			saved.SigningSecret, h.secureCookie(r)))
 	}
 	redirect(w, r, RouteWebhooks, "endpoint saved")
 	return nil
@@ -112,4 +113,27 @@ func (h *handler) redeliver(w http.ResponseWriter, r *http.Request) error {
 	}
 	redirect(w, r, RouteWebhooks, "redelivery queued")
 	return nil
+}
+
+// pingWebhook sends one endpoint a test delivery and says how it went. The
+// delivery itself is in the log below, with the endpoint's answer.
+func (h *handler) pingWebhook(w http.ResponseWriter, r *http.Request) error {
+	d, err := h.svc.PingWebhook(r.Context(), field(r, "id"))
+	if err != nil {
+		return err
+	}
+	redirect(w, r, RouteWebhooks, pingFlash(d.Status))
+	return nil
+}
+
+// pingFlash is what the screen says about a ping's delivery.
+func pingFlash(s core.DeliveryStatus) string {
+	switch s {
+	case core.DeliveryDelivered:
+		return "ping delivered"
+	case core.DeliveryFailed:
+		return "ping failed"
+	default:
+		return "ping queued"
+	}
 }
