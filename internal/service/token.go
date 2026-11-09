@@ -280,6 +280,9 @@ func (l *Local) RotateToken(ctx context.Context, ref string, in core.RotateToken
 	if err != nil {
 		return nil, err
 	}
+	if err := l.requireFactor(ctx, actor); err != nil {
+		return nil, err
+	}
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return nil, core.Invalid("token identifier or name is required")

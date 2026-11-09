@@ -108,6 +108,14 @@ type TOTPStatus struct {
 	RequiredCLI bool `json:"required_cli" yaml:"required_cli"`
 	// RequiredSSH is true when the tenant requires a second factor over SSH.
 	RequiredSSH bool `json:"required_ssh" yaml:"required_ssh"`
+	// Policy is the tenant's second factor policy, off or required.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
+	// EnrollmentRequired is true while the policy refuses the caller
+	// everything but enrolment, because they hold no factor.
+	EnrollmentRequired bool `json:"enrollment_required" yaml:"enrollment_required"`
+	// EnrollmentDue is when the policy starts refusing the caller, RFC 3339,
+	// set while it is required and the caller holds no factor.
+	EnrollmentDue *time.Time `json:"enrollment_due,omitempty" yaml:"enrollment_due,omitempty"`
 	// VerificationLocked is true while too many wrong codes have locked verification.
 	VerificationLocked bool `json:"verification_locked" yaml:"verification_locked"`
 	// VerificationLockEnd is when the lock lifts, RFC 3339, set only while locked.

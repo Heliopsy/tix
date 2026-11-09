@@ -23,6 +23,20 @@ const (
 // admin right now. The flag is read from the store on every call, so a revoke
 // reaches a live session or token at once.
 func (l *Local) authorizeGlobal(ctx context.Context) (*core.Actor, error) {
+	actor, err := l.globalStanding(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := l.requireFactor(ctx, actor); err != nil {
+		return nil, err
+	}
+	return actor, nil
+}
+
+// globalStanding is authorizeGlobal without the second factor gate, for the
+// question of whether the caller is a global admin rather than the act of
+// being one.
+func (l *Local) globalStanding(ctx context.Context) (*core.Actor, error) {
 	actor, err := core.RequireActor(ctx)
 	if err != nil {
 		return nil, err
@@ -42,7 +56,7 @@ func (l *Local) authorizeGlobal(ctx context.Context) (*core.Actor, error) {
 // globalAllowed reports whether the caller may act as a global admin, for the
 // operations that widen for one rather than refuse everybody else.
 func (l *Local) globalAllowed(ctx context.Context) (bool, error) {
-	_, err := l.authorizeGlobal(ctx)
+	_, err := l.globalStanding(ctx)
 	switch {
 	case err == nil:
 		return true, nil

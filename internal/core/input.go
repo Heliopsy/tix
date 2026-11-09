@@ -213,6 +213,14 @@ type UpdateTenantInput struct {
 	// RequireTOTPSSH turns the second-factor requirement for SSH sign-in on or
 	// off; omitted leaves it alone.
 	RequireTOTPSSH *bool `json:"require_totp_ssh,omitempty" yaml:"require_totp_ssh,omitempty"`
+	// MFAPolicy sets the second factor policy, "off" or "required"; omitted
+	// leaves it. Turning it required is refused while the caller is a person
+	// who holds no second factor, so nobody locks themselves out.
+	MFAPolicy *MFAPolicy `json:"mfa_policy,omitempty" yaml:"mfa_policy,omitempty"`
+	// MFAGrace is how long after the policy turned required people without a
+	// factor may still work, a duration such as "7d"; zero gates at once and
+	// omitted leaves it.
+	MFAGrace *Duration `json:"mfa_grace,omitempty" yaml:"mfa_grace,omitempty"`
 	// LeaseDefault is the lease a claim on this tenant gets when nothing more
 	// specific names one, a duration such as "30m". Zero clears it back to the
 	// deployment configuration and omitted leaves it alone. A default longer
@@ -239,6 +247,13 @@ type UpdateTenantInput struct {
 func (in UpdateTenantInput) Validate() error {
 	if err := ValidateTimePrefs(in.TimeFormat, in.Timezone); err != nil {
 		return err
+	}
+	if in.MFAPolicy != nil && !in.MFAPolicy.Valid() {
+		return Invalid("second factor policy %q is not one of off, required", *in.MFAPolicy).
+			WithDetail(DetailField, "mfa_policy")
+	}
+	if in.MFAGrace != nil && *in.MFAGrace < 0 {
+		return Invalid("second factor grace must not be negative").WithDetail(DetailField, "mfa_grace")
 	}
 	if in.LeaseDefault != nil && *in.LeaseDefault < 0 {
 		return Invalid("lease default must not be negative")

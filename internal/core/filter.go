@@ -437,6 +437,8 @@ type ProjectFilter struct {
 // tenant are left out unless IncludeRemoved asks for them.
 type UserFilter struct {
 	IncludeRemoved bool `json:"include_removed,omitempty" yaml:"include_removed,omitempty"`
+	// WithoutTOTP lists only people who hold no confirmed second factor.
+	WithoutTOTP bool `json:"without_totp,omitempty" yaml:"without_totp,omitempty"`
 	Page           Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 

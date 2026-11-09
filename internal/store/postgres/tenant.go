@@ -19,6 +19,7 @@ var tenantColumns = []string{
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
+	"mfa_policy", "mfa_grace", "mfa_required_at",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -30,11 +31,14 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		deletedAt sql.NullTime
 		leaseDef  sql.NullString
 		leaseMax  sql.NullString
+		mfaGrace  string
+		mfaAt     sql.NullTime
 	)
 	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
 		&t.RequireTOTPWeb, &t.RequireTOTPCLI, &t.RequireTOTPSSH,
 		&leaseDef, &leaseMax, &t.TrashOff,
 		&t.TimeFormat, &t.Timezone,
+		&t.MFAPolicy, &mfaGrace, &mfaAt,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
@@ -45,6 +49,10 @@ func scanTenant(s scanner) (core.Tenant, error) {
 	if t.LeaseMax, err = sqlb.ScanDuration(sqlb.Text(leaseMax), "tenant lease maximum"); err != nil {
 		return core.Tenant{}, err
 	}
+	if t.MFAGrace, err = sqlb.ScanDuration(mfaGrace, "tenant second factor grace"); err != nil {
+		return core.Tenant{}, err
+	}
+	t.MFARequiredAt = scanNullTime(mfaAt)
 	t.CreatedAt = scanTime(created)
 	t.UpdatedAt = scanTime(updated)
 	t.DeletedAt = scanNullTime(deletedAt)
@@ -130,6 +138,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("trash_off", in.TrashOff).
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
+		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
+		Set("mfa_required_at", nullTimeArg(in.MFARequiredAt)).
 		Set("created_at", timeArg(in.CreatedAt)).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
@@ -153,6 +164,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("trash_off", in.TrashOff).
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
+		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
+		Set("mfa_required_at", nullTimeArg(in.MFARequiredAt)).
 		Set("updated_at", timeArg(in.UpdatedAt)).
 		Set("deleted_at", nullTimeArg(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)
@@ -374,4 +388,13 @@ func (t *tx) RemoveMember(ctx context.Context, actorID string) error {
 		return core.NotFound("actor %q is not a member of this tenant", actorID)
 	}
 	return nil
+}
+
+// mfaPolicyOf is the policy a tenant row stores; a tenant built without one
+// is off, which is what the column defaults to.
+func mfaPolicyOf(t *core.Tenant) core.MFAPolicy {
+	if t.MFAPolicy == "" {
+		return core.MFAPolicyOff
+	}
+	return t.MFAPolicy
 }

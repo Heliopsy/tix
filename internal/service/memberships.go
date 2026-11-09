@@ -172,6 +172,12 @@ func (l *Local) describeAccount(ctx context.Context, out *core.Actor) error {
 		return err
 	}
 	out.AccountID, out.Email = account.ID, account.Email
+	standing, err := l.factorStandingOf(ctx, out)
+	if err != nil {
+		return err
+	}
+	out.SecondFactorDue = standing.due()
+	out.SecondFactorEnrollmentRequired = standing.gated(l.clock.Now())
 	if out.TokenID != "" && !out.HasScope(core.ScopeAccountRead) {
 		return nil
 	}

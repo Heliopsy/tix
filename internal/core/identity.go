@@ -198,6 +198,13 @@ type Actor struct {
 	// Memberships are every tenant the account is a member of, on the answer
 	// to WhoAmI for a session or a token carrying account:read.
 	Memberships []AccountMembership `json:"memberships,omitempty" yaml:"memberships,omitempty"`
+	// SecondFactorDue is when the tenant's second factor policy starts
+	// refusing this person, on the answer to WhoAmI, set while they hold no
+	// factor under it.
+	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
+	// SecondFactorEnrollmentRequired is true, on the answer to WhoAmI, while
+	// the policy refuses this person everything but enrolment.
+	SecondFactorEnrollmentRequired bool `json:"second_factor_enrollment_required,omitempty" yaml:"second_factor_enrollment_required,omitempty"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
