@@ -52,6 +52,7 @@ func (k KeyMap) peopleBindings() []viewAction {
 		{gatedAction{binding: k.Edit, methods: []string{"UpdateUser"}}, "edit user"},
 		{gatedAction{binding: k.Renew, methods: []string{"ReissueInvite"}}, "re-issue invite"},
 		{gatedAction{binding: k.Reclaim, methods: []string{"ClearUserTOTP"}}, "clear second factor"},
+		{gatedAction{binding: k.Filter, methods: []string{"ListUsers"}}, "only people without 2FA, or everybody"},
 		{gatedAction{binding: k.Delete, methods: []string{"DeleteUser", "RevokeInvite"}},
 			"delete user or revoke invite"},
 	}
@@ -75,7 +76,7 @@ func (k KeyMap) peopleActions(may func(string) bool) []HelpEntry {
 func peopleActionNames() []string {
 	return []string{
 		"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter",
-		"New", "Edit", "Renew", "Reclaim", "Delete", "Back",
+		"New", "Edit", "Renew", "Reclaim", "Filter", "Delete", "Back",
 	}
 }
 
@@ -98,10 +99,11 @@ func (m Model) loadPeople() tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, mayRoles := m.svc, m.ctx, m.mayPerform("ListMembers")
+	svc, ctx, mayRoles, without := m.svc, m.ctx, m.mayPerform("ListMembers"), m.people.withoutTOTP
 	return func() tea.Msg {
 		out := peopleMsg{}
-		if users, next, err := svc.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: peopleLimit}}); err != nil {
+		filter := core.UserFilter{WithoutTOTP: without, Page: core.Page{Limit: peopleLimit}}
+		if users, next, err := svc.ListUsers(ctx, filter); err != nil {
 			out.usersErr = err.Error()
 		} else {
 			out.users, out.more = users, next != ""
@@ -225,6 +227,10 @@ func (m Model) handlePeopleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openReissue()
 	case key.Matches(msg, m.keys.Reclaim):
 		return m.confirmClearTOTP()
+	case key.Matches(msg, m.keys.Filter):
+		m.people.withoutTOTP = !m.people.withoutTOTP
+		m.people.sel, m.people.off, m.people.shown = 0, 0, nil
+		return m, m.loadPeople()
 	case key.Matches(msg, m.keys.Delete):
 		return m.confirmPeopleRemoval()
 	}

@@ -50,9 +50,16 @@ func newPeopleFake() *peopleFake {
 	}
 }
 
-func (f *peopleFake) ListUsers(context.Context, core.UserFilter) ([]core.User, string, error) {
+func (f *peopleFake) ListUsers(_ context.Context, filter core.UserFilter) ([]core.User, string, error) {
 	f.listed++
-	return append([]core.User(nil), f.users...), "", nil
+	out := []core.User{}
+	for _, u := range f.users {
+		if filter.WithoutTOTP && u.TOTPEnrolled {
+			continue
+		}
+		out = append(out, u)
+	}
+	return out, "", nil
 }
 
 func (f *peopleFake) GetUser(_ context.Context, id string) (*core.User, error) {
@@ -383,4 +390,15 @@ func TestPeopleKeysAreGatedOnTheOperationTheyCall(t *testing.T) {
 			t.Errorf("the footer offers %s to a reader who may not press it", e.Keys)
 		}
 	}
+}
+
+func TestThePeopleScreenFiltersPeopleWithoutAFactor(t *testing.T) {
+	m, _ := peopleModel(t)
+	m = pressAll(t, m, "/")
+	users := peopleSection(t, m, "users without a second factor (1):")
+	if !strings.Contains(users, "grace@example.com") || strings.Contains(users, "ada@example.com") {
+		t.Fatalf("the filtered users = %s, want grace alone", users)
+	}
+	m = pressAll(t, m, "/")
+	peopleSection(t, m, "users (2):")
 }
