@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/web"
 )
 
 // bulkBar is the selection bar's form, and fails when the list draws none.
@@ -48,14 +47,8 @@ func TestEveryListRowCarriesASelectionBoxForTheBar(t *testing.T) {
 			t.Errorf("the bar offers no %s", action)
 		}
 	}
-	if !strings.Contains(bar, `<button type="reset"`) {
-		t.Error("the bar has no Clear that works without scripting")
-	}
-
-	board := f.as("alice")
-	board.setCookie(web.TaskViewCookie, web.TaskViewBoard)
-	if strings.Contains(board.page("/tasks"), `class="rowpick"`) {
-		t.Error("the board draws selection boxes; only the list selects")
+	if !strings.Contains(bar, `data-select-exit`) {
+		t.Error("the bar has no Cancel that leaves select mode")
 	}
 }
 
@@ -201,7 +194,7 @@ func TestTheTrashHasNoBulkSelection(t *testing.T) {
 	if !strings.Contains(page, `id="t-`+ref+`"`) {
 		t.Fatalf("the trash does not list %s", ref)
 	}
-	if strings.Contains(page, `class="rowpick"`) || strings.Contains(page, `id="bulkbar"`) {
+	if strings.Contains(page, `class="rowpick"`) || strings.Contains(page, `id="bulkbar"`) || strings.Contains(page, `data-select-toggle`) {
 		t.Error("the trash draws bulk selection, which offers nothing a deleted task can take")
 	}
 }

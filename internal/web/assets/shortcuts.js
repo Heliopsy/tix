@@ -257,6 +257,9 @@
     // key then keeps whatever the browser does with it.
     select: function () { return typeof tix.togglePick === "function" && tix.togglePick(); },
     selectAll: function () { return typeof tix.pickAll === "function" && tix.pickAll(); },
+    extendUp: function () { return typeof tix.extendPick === "function" && tix.extendPick(-1); },
+    extendDown: function () { return typeof tix.extendPick === "function" && tix.extendPick(1); },
+    complete: function () { return typeof tix.completeFocused === "function" && tix.completeFocused(); },
     filter: function () { focusTarget("filter"); },
     palette: function () {
       if (typeof tix.openPalette === "function") {
