@@ -180,6 +180,7 @@ func (m *mutation) flush(ctx context.Context) error {
 // before commit. Every mutating service method goes through here; there is no
 // other way to reach a writable transaction.
 func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation) error) error {
+	l.warmFactor(ctx, actor)
 	scope := core.TenantScope{TenantID: actor.TenantID}
 	queued := 0
 	err := l.store.Update(ctx, scope, func(tx store.Tx) error {
@@ -212,5 +213,6 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 
 // read runs fn inside a read-only transaction.
 func (l *Local) read(ctx context.Context, actor *core.Actor, fn func(store.Tx) error) error {
+	l.warmFactor(ctx, actor)
 	return l.store.View(ctx, core.TenantScope{TenantID: actor.TenantID}, fn)
 }

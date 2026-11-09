@@ -515,6 +515,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	out.RecoveryCodes = plain
 	return out, nil
 }

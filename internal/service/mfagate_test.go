@@ -208,6 +208,7 @@ func TestGateRefusalsAreAuditedOnceAnHour(t *testing.T) {
 	setMFAPolicy(t, l, admin, core.MFAPolicyRequired, 0)
 
 	count := func() int {
+		l.gates.pending.Wait()
 		n := 0
 		for _, e := range auditEntries(t, l, admin) {
 			if e.Action == auditTOTPGate {
