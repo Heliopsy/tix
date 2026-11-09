@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 23
+version: 24
 verified-against: tix 7be6cf4a (2026-11-06)
 ---
 
@@ -21,6 +21,12 @@ need once in a while:
   `tix login --ssh-key`.
 - [reference/recovery.md](reference/recovery.md): the worked crash transcript
   this skill's claims were verified against.
+
+If the person you are helping is new to tix and has nothing set up yet, use
+the getting-started skill first
+([tix-getting-started](https://github.com/heliopsy/tix/blob/main/skills/tix-getting-started/SKILL.md)):
+it asks how they want to use tix and walks the setup. This one assumes tix is
+already reachable.
 
 The commit this file was checked against is the `verified-against` field above,
 and nowhere else. `cmd/skill_test.go` reads that field and fails if it names a

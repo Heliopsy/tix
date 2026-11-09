@@ -47,6 +47,12 @@ everywhere, and a durable event stream. Both work the same tasks in the same sto
 > run by anyone but its author, so expect the rough edges of a first release. The
 > [v1 task list](openspec/changes/archive/2026-10-10-tix-v1/tasks.md) says what is done and what is not.
 
+**New to tix, or helping someone who is?** Start with the getting-started skill,
+[skills/tix-getting-started/SKILL.md](skills/tix-getting-started/SKILL.md). It asks how the person wants to use
+tix (desktop or mobile app, browser, CLI, TUI, SSH or an AI agent), explains instances, tenants, projects and
+workflows with one example, and walks the setup and a first task. Agents already set up use the main
+[skills/tix/SKILL.md](skills/tix/SKILL.md).
+
 ## How it works
 
 ```text

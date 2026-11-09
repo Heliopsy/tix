@@ -6,6 +6,11 @@ tix.
 
 `tix <command> --help` documents every flag, and `tix docs` emits the whole command tree as Markdown.
 
+**New to tix, or helping someone who is?** Start with the getting-started skill,
+[skills/tix-getting-started/SKILL.md](../skills/tix-getting-started/SKILL.md): it asks how the person wants to
+use tix, explains instances, tenants, projects and workflows, and walks the setup for each interface and a first
+task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent already working a queue.
+
 ## Guides
 
 | Guide | Covers |
@@ -42,6 +47,7 @@ tix.
 
 ## Where to start
 
+- New to tix: [the getting-started skill](../skills/tix-getting-started/SKILL.md), then the guides below.
 - Running an AI agent against tix: [agents.md](agents.md), then [scripting.md](scripting.md), or
   [mcp.md](mcp.md) for an MCP client.
 - Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
