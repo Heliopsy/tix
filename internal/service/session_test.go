@@ -392,10 +392,9 @@ func TestNewHashesAtProductionCost(t *testing.T) {
 	}
 }
 
-// A hash stored at a costlier setting than the policy, such as the 64 MiB
-// defaults tix shipped before, is rehashed down to the policy on the next
-// successful sign-in rather than keeping its memory cost forever.
-func TestLoginMigratesACostlierHashDown(t *testing.T) {
+// A hash stored at a costlier setting than the policy is kept on sign-in:
+// lowering the configured cost changes new hashes, never stored ones.
+func TestLoginKeepsACostlierHash(t *testing.T) {
 	policy := auth.TestParams()
 	l, _, scope, admin := newLocalWith(t, WithHasher(auth.NewHasherWithParams(policy)))
 	user := seedUser(t, l, admin, "ada@example.com")
@@ -411,12 +410,8 @@ func TestLoginMigratesACostlierHashDown(t *testing.T) {
 	if _, err := signIn(l, scope, "ada@example.com", testPassword); err != nil {
 		t.Fatalf("Login: %v", err)
 	}
-	migrated := storedPasswordHash(t, l, "ada@example.com")
-	if migrated == old || auth.NeedsRehash(migrated, policy) {
-		t.Fatalf("the costly hash was not moved to the policy: %q", migrated)
-	}
-	if err := auth.Verify(t.Context(), migrated, testPassword); err != nil {
-		t.Fatalf("the migrated hash does not verify: %v", err)
+	if got := storedPasswordHash(t, l, "ada@example.com"); got != old {
+		t.Fatalf("a costlier hash was rehashed on sign-in: %q", got)
 	}
 }
 

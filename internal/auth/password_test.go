@@ -140,16 +140,10 @@ func TestNeedsRehash(t *testing.T) {
 	}
 }
 
-// legacyParams are the defaults tix shipped before 46 MiB: hashes stored with
-// them are in every existing database.
-var legacyParams = Params{Memory: 64 * 1024, Time: 3, Threads: 4, SaltLength: 16, KeyLength: 32}
-
-// TestCostlierHashesMigrateDown pins that a hash stored at a costlier setting
-// than the policy still verifies with its own parameters, is reported for a
-// rehash, and that the rehash lands on the policy and verifies. The legacy
-// shape is scaled down so the test stays cheap; what matters is that it is
-// stronger than the policy in every dimension.
-func TestCostlierHashesMigrateDown(t *testing.T) {
+// TestCostlierHashesAreKept pins that a hash stored at a costlier setting
+// than the policy still verifies and is not rehashed down: an operator who
+// lowers the cost changes new hashes only.
+func TestCostlierHashesAreKept(t *testing.T) {
 	policy := TestParams()
 	costly := Params{Memory: policy.Memory * 2, Time: policy.Time + 2, Threads: policy.Threads + 3,
 		SaltLength: policy.SaltLength, KeyLength: policy.KeyLength}
@@ -161,21 +155,15 @@ func TestCostlierHashesMigrateDown(t *testing.T) {
 	if err := Verify(t.Context(), stored, testPassword); err != nil {
 		t.Fatalf("a hash at its own parameters stopped verifying: %v", err)
 	}
-	if !NeedsRehash(stored, policy) {
-		t.Fatal("a costlier hash than the policy was not reported for a rehash")
+	if NeedsRehash(stored, policy) {
+		t.Fatal("a costlier hash than the policy was reported for a rehash down")
 	}
-	rehashed, err := NewHasherWithParams(policy).Hash(t.Context(), testPassword)
-	if err != nil {
-		t.Fatalf("rehash: %v", err)
+	weaker := Params{Memory: 46 * 1024, Time: 2, Threads: 1, SaltLength: 16, KeyLength: 32}
+	if NeedsRehash(encodeFor(t, DefaultParams()), weaker) {
+		t.Fatal("a hash at the 64 MiB defaults would be rehashed down to 46 MiB")
 	}
-	if NeedsRehash(rehashed, policy) {
-		t.Fatal("a fresh hash at the policy is reported for another rehash")
-	}
-	if err := Verify(t.Context(), rehashed, testPassword); err != nil {
-		t.Fatalf("the rehashed password does not verify: %v", err)
-	}
-	if !NeedsRehash(encodeFor(t, legacyParams), DefaultParams()) {
-		t.Fatal("a hash at the legacy 64 MiB defaults is not migrated to the new ones")
+	if !NeedsRehash(encodeFor(t, weaker), DefaultParams()) {
+		t.Fatal("a 46 MiB hash is not upgraded to the 64 MiB defaults")
 	}
 }
 
@@ -192,7 +180,7 @@ func encodeFor(t *testing.T, p Params) string {
 
 func TestDefaultParamsAreStrong(t *testing.T) {
 	p := DefaultParams()
-	if p.Memory != 46*1024 || p.Time != 2 || p.Threads != 1 {
+	if p.Memory != 64*1024 || p.Time != 3 || p.Threads != 4 {
 		t.Fatalf("unexpected production parameters: %+v", p)
 	}
 	if err := p.CheckPolicy(); err != nil {
@@ -214,8 +202,8 @@ func TestCheckPolicy(t *testing.T) {
 		{"default", base, true},
 		{"OWASP m=19 MiB t=2", with(19*1024, 2), true},
 		{"OWASP m=7 MiB t=5", with(7*1024, 5), true},
-		{"legacy 64 MiB t=3", legacyParams, true},
-		{"m=46 MiB t=0", with(46*1024, 0), false},
+		{"OWASP m=46 MiB t=1", with(46*1024, 1), true},
+		{"m=64 MiB t=0", with(64*1024, 0), false},
 		{"m=19 MiB t=1", with(19*1024, 1), false},
 		{"m=6 MiB t=10", with(6*1024, 10), false},
 		{"test params", TestParams(), false},

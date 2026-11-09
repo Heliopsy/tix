@@ -30,11 +30,11 @@ type Params struct {
 	KeyLength  uint32
 }
 
-// DefaultParams returns the production cost parameters: 46 MiB, two passes,
-// one lane. That is twice the passes of OWASP's m=46 MiB, t=1 option; see
-// docs/deployment.md#password-hashing-memory for why not 64 MiB.
+// DefaultParams returns the production cost parameters: 64 MiB, three passes,
+// four lanes, well above OWASP's minimum. Memory is bounded by how many run at
+// once, not by a cheaper hash; see docs/deployment.md#password-hashing-memory.
 func DefaultParams() Params {
-	return Params{Memory: 46 * 1024, Time: 2, Threads: 1, SaltLength: 16, KeyLength: 32}
+	return Params{Memory: 64 * 1024, Time: 3, Threads: 4, SaltLength: 16, KeyLength: 32}
 }
 
 // Floors on operator-chosen parameters. Every configuration OWASP lists for
@@ -181,16 +181,24 @@ func Verify(ctx context.Context, encoded, password string) error {
 	return nil
 }
 
-// NeedsRehash reports whether a stored hash was made with other parameters
-// than the wanted policy, stronger or weaker. A hash at a costlier setting is
-// rehashed down too: its cost is memory every sign-in holds, and the policy
-// is what the operator sized the server for.
+// NeedsRehash reports whether a stored hash is weaker than the wanted policy
+// in any dimension. A costlier hash is kept: lowering the policy never
+// weakens a hash already stored.
 func NeedsRehash(encoded string, want Params) bool {
 	params, _, _, err := decode(encoded)
 	if err != nil {
 		return true
 	}
-	return params != want
+	return params.weakerThan(want)
+}
+
+// weakerThan reports whether p is cheaper than want in any dimension.
+func (p Params) weakerThan(want Params) bool {
+	return p.Memory < want.Memory ||
+		p.Time < want.Time ||
+		p.Threads < want.Threads ||
+		p.SaltLength < want.SaltLength ||
+		p.KeyLength < want.KeyLength
 }
 
 // derivation is derive, as a variable so a test can watch it run.

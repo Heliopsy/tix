@@ -348,8 +348,9 @@ func TestConcurrencyFor(t *testing.T) {
 		{"no limit, one core", math.MaxInt64, 1, 1},
 		{"unset", 0, 8, unboundedConcurrency},
 		{"256 MiB pod at 85%", 217 * mib, 8, 1},
-		{"512 MiB pod at 85%", 435 * mib, 8, 2},
-		{"1 GiB pod at 85%", 870 * mib, 8, 4},
+		{"512 MiB pod at 85%", 435 * mib, 8, 1},
+		{"1 GiB pod at 85%", 870 * mib, 8, 3},
+		{"2 GiB pod at 85%", 1741 * mib, 8, 6},
 		{"tiny limit still admits one", 32 * mib, 8, 1},
 		{"capped at the cores", 64 << 30, 4, 4},
 	}
