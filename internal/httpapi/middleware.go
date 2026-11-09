@@ -23,10 +23,12 @@ const HeaderRequestID = "X-Request-Id"
 
 type ctxKey int
 
-const (
-	ctxKeyRequestID ctxKey = iota
-	ctxKeyLoggedTenant
-)
+const ctxKeyRequestID ctxKey = iota
+
+// loggedTenantKey is the context key of the request record's tenant holder. It
+// has a type of its own so it cannot share a value with the ctxKey constants,
+// which are numbered in more than one block.
+type loggedTenantKey struct{}
 
 // loggedTenant is where resolveTenant leaves the tenant it pinned for the
 // request record. logRequest runs outside resolveTenant, so the context it
@@ -35,7 +37,7 @@ type loggedTenant struct{ id string }
 
 // noteTenant records the tenant a request was pinned to for its log record.
 func noteTenant(ctx context.Context, tenantID string) {
-	if lt, ok := ctx.Value(ctxKeyLoggedTenant).(*loggedTenant); ok {
+	if lt, ok := ctx.Value(loggedTenantKey{}).(*loggedTenant); ok {
 		lt.id = tenantID
 	}
 }
@@ -135,7 +137,7 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		tenant := &loggedTenant{}
-		r = r.WithContext(context.WithValue(r.Context(), ctxKeyLoggedTenant, tenant))
+		r = r.WithContext(context.WithValue(r.Context(), loggedTenantKey{}, tenant))
 		rec := &recorder{ResponseWriter: w, ctx: r.Context(), status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		if !rec.written && clientClosed(r.Context()) {
