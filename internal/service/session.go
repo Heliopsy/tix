@@ -38,15 +38,11 @@ func errInvalidCredentials() error { return core.Unauthenticated("invalid creden
 
 // dummyHash is verified against when no account matches, so that a login for an
 // address nobody holds costs the same as a login with the wrong password. It is
-// per service because the hasher's cost is configurable.
-func (l *Local) dummyHash() string {
-	l.dummyOnce.Do(func() {
-		h, err := l.hasher.Hash(strings.Repeat("tix-absent-", 4))
-		if err == nil {
-			l.dummy = h
-		}
-	})
-	return l.dummy
+// per service because the hasher's cost is configurable. It is minted without
+// a derivation, so the first sign-in does not pay for two.
+func (l *Local) dummyHash() (string, error) {
+	l.dummyOnce.Do(func() { l.dummy, l.dummyErr = l.hasher.Dummy() })
+	return l.dummy, l.dummyErr
 }
 
 // sessionCtxKey carries the session token a caller presented.
@@ -242,16 +238,20 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		}
 		scope = core.TenantScope{TenantID: cand.tenant}
 	}
-	stored := l.dummyHash()
-	if cand.hash != "" {
-		stored = cand.hash
+	stored := cand.hash
+	if stored == "" {
+		if stored, err = l.dummyHash(); err != nil {
+			return nil, err
+		}
 	}
-	verified := auth.Verify(stored, in.Password) == nil
-	if !verified || !cand.usable() {
+	if err := auth.Verify(ctx, stored, in.Password); err != nil || !cand.usable() {
+		if auth.IsHashBusy(err) {
+			return nil, err
+		}
 		return nil, errInvalidCredentials()
 	}
 
-	changed, err := l.replacementPassword(cand.user, in)
+	changed, err := l.replacementPassword(ctx, cand.user, in)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 
 	rehashed := ""
 	if changed == "" && auth.NeedsRehash(cand.hash, l.hasher.Params()) {
-		if rehashed, err = l.hasher.Hash(in.Password); err != nil {
+		if rehashed, err = l.hasher.Hash(ctx, in.Password); err != nil {
 			return nil, err
 		}
 	}
@@ -296,7 +296,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 // one was accepted. It answers "" when none was sent. A new password is taken
 // only from an account required to change it: this is not a general way to
 // change a password, and accepting one here would make it one.
-func (l *Local) replacementPassword(user *core.User, in core.LoginInput) (string, error) {
+func (l *Local) replacementPassword(ctx context.Context, user *core.User, in core.LoginInput) (string, error) {
 	if in.NewPassword == "" {
 		return "", nil
 	}
@@ -312,7 +312,7 @@ func (l *Local) replacementPassword(user *core.User, in core.LoginInput) (string
 		return "", core.Invalid("the new password must differ from the current one").
 			WithDetail(core.DetailField, "new_password")
 	}
-	return l.hasher.Hash(in.NewPassword)
+	return l.hasher.Hash(ctx, in.NewPassword)
 }
 
 // recordPasswordChange stores a required password change and clears the

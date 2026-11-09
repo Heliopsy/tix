@@ -99,6 +99,7 @@ type Local struct {
 
 	dummyOnce sync.Once
 	dummy     string
+	dummyErr  error
 
 	// The key SSH sign-in challenges are signed under, derived on first use.
 	nonceOnce     sync.Once
@@ -164,6 +165,18 @@ func WithLeaseDefaults(p lease.Policy) Option {
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
+
+// WithPasswordParams sets the argon2id policy new hashes are minted at, and
+// that a successful sign-in migrates a stored hash to. Under
+// UseCheapHashingInTests it is ignored, so wiring a test reaches through
+// cannot put production cost back.
+func WithPasswordParams(p auth.Params) Option {
+	return func(l *Local) {
+		if !cheapHashing.Load() {
+			l.hasher = auth.NewHasherWithParams(p)
+		}
+	}
+}
 
 // cheapHashing makes New start every service with auth.TestParams. Only
 // UseCheapHashingInTests sets it, and TestNewHashesAtProductionCost and the

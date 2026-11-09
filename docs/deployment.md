@@ -238,6 +238,50 @@ for the second server is told it is gone.
 Rows nobody has seen for a week are deleted by the next server to register, so an installation that restarts
 often does not accumulate them. Nothing you read depends on that having happened.
 
+## Password hashing memory
+
+Every password sign-in, password change, new account with a password and accepted invite runs one argon2id
+derivation, and each derivation holds its memory parameter in one allocation for the time it runs. That cost
+times the number running at once is a peak of its own on top of what the server otherwise holds. At the
+default of m=64 MiB, t=3, p=4:
+
+| Slots | Hashing peak |
+| --- | --- |
+| 1 | 64 MiB |
+| 2 | 128 MiB |
+| 3 | 192 MiB |
+| 4 | 256 MiB |
+
+`tix serve` caps how many run at once (`auth.max_concurrent_hashes`). Left at `0`, the cap is a quarter of the
+Go runtime's soft memory limit (`GOMEMLIMIT`, or the one tix derives from the container's limit) divided by the
+per-hash memory, at least 1 and at most the number of cores; without a soft limit it is 2. At 64 MiB and 85% of
+the container's limit that is 1 slot on 256 MiB and 512 MiB pods, 3 on 1 GiB and 6 on 2 GiB. Sign-ins past the
+cap queue for up to ten seconds, or until their request ends, and are then refused with `precondition_failed`
+and `reason: password_hashing_busy`. Nobody is let in without the check.
+
+Size the container for the idle server plus 64 MiB times the cap. A 256 MiB pod with one slot has its idle
+server, about 100 MiB with a modest dataset, plus 64 MiB for one sign-in at a time; give it more if sign-ins
+queue, or set `auth.max_concurrent_hashes` once you have measured with `just load`.
+
+In earlier releases the first sign-in after a start also minted the hash it compares unknown addresses against,
+so it derived twice. That hash is now made without deriving, and still costs a real derivation to check against,
+so an address nobody holds still takes as long as a wrong password.
+
+### Why the cost was kept
+
+OWASP's password storage guidance lists argon2id configurations of equal strength, from m=46 MiB t=1 p=1 to
+m=7 MiB t=5 p=1, with m=19 MiB t=2 p=1 as the minimum. The default of 64 MiB with three passes is about four
+times the work per guess of the first of those. The out-of-memory kills came from how many hashes ran at once,
+not from the cost of one, so the fix bounds concurrency and leaves the cost of a stolen hash where it was. A
+cheaper default would have weakened every hash in every database to save memory a cap already saves.
+
+An operator on a very small server can lower the cost for new hashes with `auth.argon2_memory_kib`,
+`auth.argon2_time` and `auth.argon2_threads`, for example m=46 MiB t=1 (`47104` and `1`) or m=19 MiB t=2
+(`19456` and `2`), and should raise `auth.max_concurrent_hashes` only with memory to match. A setting below
+every OWASP configuration is refused at start-up. Stored hashes are never rehashed down: a hash weaker than the
+setting is upgraded on its owner's next sign-in, and a stronger one is kept. See
+[configuration.md](configuration.md#password-hashing).
+
 ## Outbound requests to tenant urls
 
 Three things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox

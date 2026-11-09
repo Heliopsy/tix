@@ -18,7 +18,7 @@ import (
 func seedLinkedPerson(t *testing.T, l *Local, scope core.TenantScope, email string) (*core.User, *core.Actor) {
 	t.Helper()
 	ctx := context.Background()
-	hash, err := l.hasher.Hash(testPassword)
+	hash, err := l.hasher.Hash(t.Context(), testPassword)
 	if err != nil {
 		t.Fatalf("hashing: %v", err)
 	}

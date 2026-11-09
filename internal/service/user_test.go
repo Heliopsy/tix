@@ -135,7 +135,7 @@ func TestCreateUserStoresOnlyAHash(t *testing.T) {
 	if !strings.HasPrefix(hash, "$argon2id$") {
 		t.Errorf("stored hash = %q, want an argon2id encoding", hash)
 	}
-	if err := auth.Verify(hash, testPassword); err != nil {
+	if err := auth.Verify(t.Context(), hash, testPassword); err != nil {
 		t.Errorf("the stored hash does not verify the password: %v", err)
 	}
 }
@@ -279,7 +279,7 @@ func TestUpdateUserReplacesThePasswordHash(t *testing.T) {
 	if strings.Contains(after, next) {
 		t.Fatal("the plaintext password reached the database")
 	}
-	if err := auth.Verify(after, next); err != nil {
+	if err := auth.Verify(t.Context(), after, next); err != nil {
 		t.Errorf("the new hash does not verify the new password: %v", err)
 	}
 }
