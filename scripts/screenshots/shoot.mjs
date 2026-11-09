@@ -876,12 +876,20 @@ function pageFindings(shown, name, label) {
   // The task screens' filter toolbar is one row on a wide window, never more
   // than an eighth of its height, and at most two rows on a phone: it used to
   // take a third of the screen above the first task.
+  // Rows are counted from the controls themselves, and not while an (i) in
+  // the bar is open, which is meant to push the row apart.
   const bar = document.querySelector("[data-filter-toolbar]");
-  if (bar && shown(bar)) {
+  if (bar && shown(bar) && !bar.querySelector("details[open]")) {
     const h = bar.getBoundingClientRect().height;
-    const ctl = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--control-h")) || 36;
+    const tops = [];
+    for (const c of bar.querySelectorAll("input:not([type=hidden]), button, a.btn, .segmented, summary")) {
+      if (c.closest("[popover], .sr-only") || !shown(c)) continue;
+      const r = c.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      if (!tops.some((t) => Math.abs(t - mid) < r.height / 2)) tops.push(mid);
+    }
     if (vw >= 900 && h > window.innerHeight / 8) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, over an eighth of the window` });
-    if (vw < 900 && h > 2 * ctl + 8 + SLACK) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, more than two rows` });
+    if (tops.length > (vw >= 900 ? 1 : 2)) out.push({ el: bar, kind: `filter toolbar on ${tops.length} rows` });
   }
   for (const el of document.querySelectorAll("time")) {
     const dt = el.getAttribute("datetime");

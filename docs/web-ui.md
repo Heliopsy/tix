@@ -253,7 +253,8 @@ the direction, the view, the lanes grouping, the page size and select mode, and 
 submitted form, a chip, Clear all) drops the cursor and the page number, so it starts at page one.
 
 `scripts/screenshots/shoot.mjs` prints the toolbar's height on every task screen it captures, and its
-strict check fails a toolbar over an eighth of a desktop window or over two rows on a phone.
+strict check fails a toolbar over an eighth of a desktop window, on more than one row of controls on a
+desktop, or on more than two below 900px.
 
 **Adding a task.** The one-line box and Add with details both create the task and leave you on the
 listing, filter, sort, view and page as they were. The toast says `task created` and links the new task,

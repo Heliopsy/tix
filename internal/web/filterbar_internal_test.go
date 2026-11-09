@@ -3,6 +3,7 @@
 package web
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
@@ -40,7 +41,7 @@ func TestFoldPicksReplacesOnlyWhatChanged(t *testing.T) {
 
 func TestEachChipRemovesExactlyItsOwnTerm(t *testing.T) {
 	t.Parallel()
-	r := httptest.NewRequest("GET", "/tasks?"+url.Values{
+	r := httptest.NewRequest(http.MethodGet, "/tasks?"+url.Values{
 		"q": {`tag:ops -tag:chore title:"two words" @raj`}, "due": {"week"}, "project": {"web,ops"},
 		"all": {"1"}, "sort": {"title"}, "order": {"desc"}, "view": {"board"}, "page": {"3"}, "cursor": {"abc"},
 	}.Encode(), nil)
@@ -91,7 +92,7 @@ func TestEachChipRemovesExactlyItsOwnTerm(t *testing.T) {
 
 func TestAProjectPageHasNoProjectChip(t *testing.T) {
 	t.Parallel()
-	r := httptest.NewRequest("GET", "/projects/infra?project=web&q=tag:ops", nil)
+	r := httptest.NewRequest(http.MethodGet, "/projects/infra?project=web&q=tag:ops", nil)
 	chips := filterChips(r, "/projects/infra", true)
 	if len(chips) != 1 || chips[0].Key != "tag" {
 		t.Fatalf("project page chips = %+v, want only the tag", chips)
