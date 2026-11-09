@@ -136,7 +136,7 @@
      field here a person wrote, and the state only when it is not the
      ordinary one. The star leads the row and is always drawn. */}}
 {{define "project-row"}}{{$p := .P}}
-  <li id="p-{{key $p.Key}}" class="projrow{{with projClass $p.Color}} {{.}}{{end}}{{if $p.Archived}} is-archived{{end}}{{if $p.Starred}} is-starred{{end}}"{{with projStyle $p.Color}} style="{{.}}"{{end}}>
+  <li class="projrow{{with projClass $p.Color}} {{.}}{{end}}{{if $p.Archived}} is-archived{{end}}{{if $p.Starred}} is-starred{{end}}"{{with projStyle $p.Color}} style="{{.}}"{{end}} id="p-{{key $p.Key}}">
     {{template "project-star" .}}
     <a class="projrow-main" href="/projects/{{$p.Key}}">
       <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon $p true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice (key $p.Key) 0 1}}{{end}}</span>

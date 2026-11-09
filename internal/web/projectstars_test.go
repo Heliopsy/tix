@@ -17,8 +17,8 @@ func projectList(page, name string) string {
 	if start < 0 {
 		return ""
 	}
-	rest := page[start:]
-	return rest[:strings.Index(rest, "</ul>")]
+	list, _, _ := strings.Cut(page[start:], "</ul>")
+	return list
 }
 
 // TestTheProjectsScreenListsStarredProjectsFirst pins the order and the
@@ -38,17 +38,17 @@ func TestTheProjectsScreenListsStarredProjectsFirst(t *testing.T) {
 	if projectList(page, "starred") != "" || strings.Contains(page, `id="projs-starred"`) {
 		t.Error("a reader with no stars gets a Starred section")
 	}
-	if all := projectList(page, "all"); strings.Count(all, `<li id="p-`) != 3 {
+	if all := projectList(page, "all"); strings.Count(all, `" id="p-`) != 3 {
 		t.Errorf("the projects are not all listed:\n%s", all)
 	}
 
 	starProject(t, b, "web", true)
 	page = b.page("/projects")
 	starred, rest := projectList(page, "starred"), projectList(page, "all")
-	if !strings.Contains(starred, `id="p-WEB"`) || strings.Count(starred, `<li id="p-`) != 1 {
+	if !strings.Contains(starred, `id="p-WEB"`) || strings.Count(starred, `" id="p-`) != 1 {
 		t.Errorf("Starred does not hold WEB alone:\n%s", starred)
 	}
-	if strings.Contains(rest, `id="p-WEB"`) || strings.Count(rest, `<li id="p-`) != 2 {
+	if strings.Contains(rest, `id="p-WEB"`) || strings.Count(rest, `" id="p-`) != 2 {
 		t.Errorf("the rest repeats the starred project or lost one:\n%s", rest)
 	}
 	if s, a := strings.Index(page, `data-projlist="starred"`), strings.Index(page, `data-projlist="all"`); s < 0 || a < s {
