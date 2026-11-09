@@ -95,6 +95,10 @@ const (
 	// RouteProjectDeletion plans a project's deletion without performing it.
 	RouteProjectDeletion = APIPrefix + "/projects/{ref}/deletion"
 	RouteProjectField    = APIPrefix + "/projects/{ref}/fields/{key}"
+	// RouteProjectStar sets (PUT) and clears (DELETE) the caller's own star.
+	RouteProjectStar = APIPrefix + "/projects/{ref}/star"
+	// RouteStarredProjects lists the projects the caller starred.
+	RouteStarredProjects = APIPrefix + "/me/starred-projects"
 
 	RouteWorkflows = APIPrefix + "/workflows"
 	RouteWorkflow  = APIPrefix + "/workflows/{key}"

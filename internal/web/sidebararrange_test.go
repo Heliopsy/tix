@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -99,35 +100,51 @@ func TestMyWorkCountsTheReadersOverdueOpenTasks(t *testing.T) {
 	}
 }
 
-// pinProject posts the projects screen's Pin to sidebar form.
-func pinProject(t *testing.T, b *browser, key, value string) {
+// starProject posts a project's star toggle, as the projects screen's form
+// does without scripting, and returns where it redirected to.
+func starProject(t *testing.T, b *browser, key string, star bool) string {
 	t.Helper()
-	resp := b.post(web.RouteViewGroup, url.Values{
-		"view": {core.ViewLanes}, "group": {key}, "set": {"starred"}, "value": {value}, "next": {"/projects"},
-	})
+	route := web.RouteProjectUnstar
+	if star {
+		route = web.RouteProjectStar
+	}
+	resp := b.post(strings.Replace(route, "{key}", key, 1), url.Values{"next": {"/projects"}})
 	_ = resp.Body.Close()
 	wantStatus(t, resp, http.StatusSeeOther)
+	return resp.Header.Get("Location")
 }
 
-// pins is the sidebar's list of pinned projects, empty when there is none.
+// pins is the sidebar's list of starred projects, empty when there is none.
 func pins(t *testing.T, page string) string {
 	t.Helper()
 	return between(t, nav(t, page), `<ul class="side-pins"`, "</ul>")
 }
 
-// TestAPinnedProjectIsListedUnderProjects pins the round trip: the projects
-// screen offers the pin, the sidebar lists the project under Projects
+// starForm is one project's star toggle on a page, cut at its form's end.
+func starForm(t *testing.T, page, key string) string {
+	t.Helper()
+	for _, action := range []string{"/projects/" + key + "/star\"", "/projects/" + key + "/star/remove\""} {
+		if strings.Contains(page, `<form method="post" class="projstar" action="`+action) {
+			return between(t, page, `<form method="post" class="projstar" action="`+action, "</form>")
+		}
+	}
+	t.Fatalf("no star toggle for %s", key)
+	return ""
+}
+
+// TestAStarredProjectIsListedUnderProjects pins the round trip: the projects
+// screen offers the star, the sidebar lists the project under Projects
 // linking to its board, the lane star is the same mark, and another reader's
 // sidebar is untouched.
-func TestAPinnedProjectIsListedUnderProjects(t *testing.T) {
+func TestAStarredProjectIsListedUnderProjects(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
 
-	row := between(t, b.page("/projects"), `<form method="post" action="/view/group" class="projpin">`, "</form>")
-	for _, want := range []string{`name="view" value="lanes"`, `name="group" value="infra"`, `name="set" value="starred"`, `name="value" value="1"`, ">Pin to sidebar</button>"} {
+	row := starForm(t, b.page("/projects"), "infra")
+	for _, want := range []string{`name="next" value="/projects"`, `aria-pressed="false"`, `aria-label="Star INFRA"`, `title="Star this project"`, `#star-outline"`} {
 		if !strings.Contains(row, want) {
-			t.Errorf("the projects screen's pin form lacks %s:\n%s", want, row)
+			t.Errorf("the projects screen's star toggle lacks %s:\n%s", want, row)
 		}
 	}
 	collapse := b.post(web.RouteViewGroup, url.Values{
@@ -136,44 +153,107 @@ func TestAPinnedProjectIsListedUnderProjects(t *testing.T) {
 	_ = collapse.Body.Close()
 	wantStatus(t, collapse, http.StatusSeeOther)
 	if got := pins(t, b.page("/tasks")); got != "" {
-		t.Fatalf("a lane folded but not starred is pinned:\n%s", got)
+		t.Fatalf("a lane folded but not starred is listed:\n%s", got)
 	}
 
-	pinProject(t, b, "infra", "1")
+	if loc := starProject(t, b, "infra", true); !strings.HasPrefix(loc, "/projects?flash=") || !strings.HasSuffix(loc, "#p-INFRA") {
+		t.Errorf("starring without scripting does not return to the row: %q", loc)
+	}
 	page := b.page("/tasks")
 	list := pins(t, page)
+	if !strings.Contains(list, `aria-label="Starred projects"`) {
+		t.Errorf("the sidebar list is not named Starred projects:\n%s", list)
+	}
 	if !strings.Contains(list, `<a href="/projects/infra" data-rail-name="INFRA (INFRA)"`) || !strings.Contains(list, `<span>INFRA (INFRA)</span></a>`) {
-		t.Errorf("the pinned project is not listed with its board and its label:\n%s", list)
+		t.Errorf("the starred project is not listed with its board and its label:\n%s", list)
 	}
 	if !strings.Contains(list, `<span class="side-pin-mark nav-icon" aria-hidden="true">I</span>`) {
-		t.Errorf("the pinned project has no mark:\n%s", list)
+		t.Errorf("the starred project has no mark:\n%s", list)
 	}
 	links := nav(t, page)
 	if at, pin, after := strings.Index(links, `href="/projects" `), strings.Index(links, `class="side-pins"`), strings.Index(links, `href="/activity"`); at < 0 || pin < at || after < pin {
-		t.Errorf("the pinned projects are not between Projects and Activity (%d %d %d)", at, pin, after)
+		t.Errorf("the starred projects are not between Projects and Activity (%d %d %d)", at, pin, after)
 	}
 	if !strings.Contains(pins(t, b.page("/projects/infra")), `aria-current="page"`) {
-		t.Error("the pinned project is not marked current on its board")
+		t.Error("the starred project is not marked current on its board")
 	}
 	b.setCookie(web.ProjectLabelCookie, web.ProjectLabelKey)
 	if list := pins(t, b.page("/tasks")); !strings.Contains(list, `<span>INFRA</span></a>`) {
-		t.Errorf("the pinned project ignores the reader's label preference:\n%s", list)
+		t.Errorf("the starred project ignores the reader's label preference:\n%s", list)
 	}
 
 	if prefs, err := f.svc.ListGroupPrefs(aliceCtx(f), core.ViewLanes); err != nil || len(prefs) != 1 || !prefs[0].Starred || !prefs[0].Collapsed {
-		t.Errorf("pinning is not the lane star: %+v %v", prefs, err)
+		t.Errorf("a project star is not the lane star: %+v %v", prefs, err)
 	}
-	row = between(t, b.page("/projects"), `<form method="post" action="/view/group" class="projpin">`, "</form>")
-	if !strings.Contains(row, `name="value" value="0"`) || !strings.Contains(row, ">Unpin</button>") || !strings.Contains(row, `aria-pressed="true"`) {
-		t.Errorf("a pinned project's row does not offer Unpin:\n%s", row)
+	row = starForm(t, b.page("/projects"), "infra")
+	for _, want := range []string{`action="/projects/infra/star/remove"`, `aria-pressed="true"`, `title="Unstar"`, `#star-filled"`} {
+		if !strings.Contains(`action="/projects/infra/star/remove"`+row, want) {
+			t.Errorf("a starred project's toggle lacks %s:\n%s", want, row)
+		}
 	}
-	if got := pins(t, f.as("member:someone-else").page("/tasks")); got != "" {
-		t.Errorf("another reader's sidebar lists the pin:\n%s", got)
+	other := f.as("member:someone-else")
+	if got := pins(t, other.page("/tasks")); got != "" {
+		t.Errorf("another reader's sidebar lists the star:\n%s", got)
+	}
+	if theirs := other.page("/projects"); strings.Contains(theirs, `id="projs-starred"`) || strings.Contains(starForm(t, theirs, "infra"), `aria-pressed="true"`) {
+		t.Error("another reader's projects screen shows the star")
 	}
 
-	pinProject(t, b, "infra", "0")
+	starProject(t, b, "infra", false)
 	if got := pins(t, b.page("/tasks")); got != "" {
-		t.Errorf("an unpinned project is still listed:\n%s", got)
+		t.Errorf("an unstarred project is still listed:\n%s", got)
+	}
+}
+
+// TestALaneStarMadeBeforeStarsIsAProjectStar is the back-compat guard: a pin
+// was written as the lanes view's star, and that row is what a project star
+// reads, so nothing a reader pinned is lost.
+func TestALaneStarMadeBeforeStarsIsAProjectStar(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	resp := b.post(web.RouteViewGroup, url.Values{
+		"view": {core.ViewLanes}, "group": {"infra"}, "set": {"starred"}, "value": {"1"}, "next": {"/projects"},
+	})
+	_ = resp.Body.Close()
+	wantStatus(t, resp, http.StatusSeeOther)
+	page := b.page("/projects")
+	section := between(t, page, `<ul class="projlist rows" data-projlist="starred">`, "</ul>")
+	if !strings.Contains(section, `id="p-INFRA"`) {
+		t.Errorf("the old pin is not under Starred:\n%s", section)
+	}
+	if !strings.Contains(starForm(t, b.page("/projects/infra"), "infra"), `aria-pressed="true"`) {
+		t.Error("the project page's header does not show the old pin as a star")
+	}
+}
+
+// TestTheSidebarEndsALongStarredListWithShowAll pins the cap: twelve starred
+// projects drawn, then Show all to the starred filter.
+func TestTheSidebarEndsALongStarredListWithShowAll(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	ctx := aliceCtx(f)
+	for i := range 13 {
+		key := fmt.Sprintf("p%02d", i)
+		if _, err := f.svc.CreateProject(ctx, core.CreateProjectInput{Key: key, Name: key, WorkflowKey: "default"}); err != nil {
+			t.Fatal(err)
+		}
+		if i < 12 {
+			if err := f.svc.StarProject(ctx, key); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	b := f.as("alice")
+	if list := pins(t, b.page("/tasks")); strings.Count(list, `<li class="side-pin`) != 12 || strings.Contains(list, "/projects?starred=1") {
+		t.Errorf("twelve starred projects are not drawn whole:\n%s", list)
+	}
+	if err := f.svc.StarProject(ctx, "p12"); err != nil {
+		t.Fatal(err)
+	}
+	list := pins(t, b.page("/tasks"))
+	if strings.Count(list, `<a href="/projects/p`) != 12 || !strings.Contains(list, `<a href="/projects?starred=1"`) {
+		t.Errorf("thirteen starred projects do not end with Show all:\n%s", list)
 	}
 }
 

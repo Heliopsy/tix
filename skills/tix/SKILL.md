@@ -1,8 +1,8 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 24
-verified-against: tix 7be6cf4a (2026-11-06)
+version: 25
+verified-against: tix e3f99f9e (2026-11-09)
 ---
 
 # tix
@@ -573,6 +573,7 @@ tix task ls --snoozed                # only snoozed tasks, hidden by default
 tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
 tix project ls -o json               # the project keys, if you do not know them
+tix project ls --starred             # only the projects you starred (tix project star KEY)
 ```
 
 When the server sets `server.public_url`, every task in `-o json` output (and
@@ -599,7 +600,9 @@ lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
 one, `--all` follows them for you. Tasks the caller starred (`tix task star
 REF`) list first under every sort; a star is per actor, so another worker's
 stars never reorder your queue, and a token that stars nothing sees the plain
-order. The whole filter language, deadlines and sorting are in
+order. Projects take a star the same way (`tix project star KEY`, `tix project
+unstar KEY`): yours alone, it lists the project first for you and sets
+`starred` in its JSON. The whole filter language, deadlines and sorting are in
 [reference/queries.md](reference/queries.md).
 
 A project's JSON may carry an icon as one of `icon` (an emoji or monogram),

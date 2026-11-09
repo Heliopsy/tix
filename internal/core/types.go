@@ -314,6 +314,11 @@ type Project struct {
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// UpdatedAt is when the project was last changed, RFC 3339.
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
+
+	// Starred is the reading actor's own star on the project, never anybody
+	// else's. Only a read that knows its reader sets it, so it is omitted
+	// rather than false wherever nobody asked.
+	Starred bool `json:"starred,omitempty" yaml:"starred,omitempty"`
 }
 
 // Archived reports whether the project is archived.

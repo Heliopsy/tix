@@ -119,7 +119,7 @@ the routes the server registers. The areas are the first segment of each operati
 | inbox | `POST /channel-deliveries/{id}/redeliver`, `GET /channels`, `POST /channels`, `PATCH /channels/{id}`, `DELETE /channels/{id}`, `GET /channels/{id}/deliveries`, `POST /channels/{id}/test`, `GET /inbox`, `GET /inbox/count`, `GET /inbox/prefs`, `PUT /inbox/prefs`, `POST /inbox/read-all`, `PUT /inbox/{id}/read`, `DELETE /inbox/{id}/read` |
 | invite | `GET /auth/invites/{token}`, `POST /auth/invites/{token}`, `GET /invites`, `POST /invites`, `DELETE /invites/{id}`, `POST /invites/{id}/reissue` |
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
-| project | `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon` |
+| project | `GET /me/starred-projects`, `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon`, `PUT /projects/{ref}/star`, `DELETE /projects/{ref}/star` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
@@ -497,6 +497,13 @@ continues into the unstarred one without skipping or repeating a row. A task sta
 somebody pages moves between the groups, like a task whose priority changed under a priority sort: the cursor
 stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
 among the unstarred tasks.
+
+Projects take a star the same way. `PUT /projects/{ref}/star` stars a project for the caller and
+`DELETE /projects/{ref}/star` clears it, both answering `204`; `GET /me/starred-projects` lists the
+caller's starred projects in the order their lanes are drawn. A project read carries `"starred": true`
+for the caller who starred it and omits the field otherwise. A project star is the `starred` flag of the
+caller's `lanes` group preference for that project (see `/views/lanes/groups`), so a change writes the
+same `view.group.set` audit entry and `view.arranged` event a lane star does.
 
 ### Snoozing
 

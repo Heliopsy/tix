@@ -28,7 +28,7 @@ Continue here.
 
 The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
 toggle, then Search (ctrl+k). Then Inbox with its unread badge, My work with a badge counting your open
-tasks that are overdue, Tasks, Projects with the projects you pinned under it, Activity, Statistics,
+tasks that are overdue, Tasks, Projects with the projects you starred under it, Activity, Statistics,
 Connect an agent and Docs.
 Your own views follow, Saved filters and Recently viewed, then Admin, and at the foot your account menu
 with the version under it.
@@ -48,13 +48,18 @@ both, and a task assigned to you or one of yours changing status is an inbox ite
 both. A deadline passing is not an event; the next navigation, or the page becoming visible again,
 redraws it.
 
-**Pinned projects.** Pin to sidebar, on each row of the projects screen, lists the project under
-Projects: its icon, or the first letter of its key, in its colour, and its name the way you asked
-projects to be named in Settings, Listings, the key upper-cased. It links to the project's board and is
-marked current there. Pinning is the star a project's lane already has in the lane menu (the `lanes`
-view's group preferences, see Arranging columns and lanes), not a second mark: pinning a project moves its
-lane to the front, and starring a lane pins it. Pins are yours alone. At most twelve are listed, in the
-lanes' order; an archived project, or one you can no longer read, is left out.
+**Starred projects.** The star beside a project's name, on each row of the projects screen and in the
+project page's header, lists the project under Projects: its icon, or the first letter of its key, in
+its colour, and its name the way you asked projects to be named in Settings, Listings, the key
+upper-cased. It links to the project's board and is marked current there. A star is the one a project's
+lane already has in the lane menu (the `lanes` view's group preferences, see Arranging columns and
+lanes), not a second mark: starring a project moves its lane to the front, and starring a lane lists it
+here. Pin to sidebar, which wrote the same mark before it was called a star, is gone, and every project
+pinned with it is starred. Stars are yours alone, kept with your account in this tenant; nobody else sees
+them on any screen, and the API and `tix project ls` mark only your own. The first twelve are listed, in
+the lanes' order, then Show all, which opens the projects screen with only the starred ones; each listed
+project is a lookup on every page, and a longer list is what that screen is for. An archived project, or
+one you can no longer read, is left out.
 
 **Admin** holds Trash and the screens Configure and Data used to: Workflows, Templates, Tenant, Domains,
 Users, Tokens, SSH keys, Status, Connections, Webhooks, Import and export, and Sync. The configuration
@@ -82,7 +87,7 @@ tab order: the arrow keys move it 16px (64px with Shift), Home and End jump to t
 or a double-click puts it back to the default width.
 
 Dragging it below 120px, pressing the left arrow at the minimum, or pressing the button beside the
-brand collapses it to a 64px rail holding the logo, the navigation icons, each pinned project's mark
+brand collapses it to a 64px rail holding the logo, the navigation icons, each starred project's mark
 and your initials, which open the account menu. The labels are clipped rather than removed, so every
 entry keeps its accessible name, and each gets a tooltip while the rail is showing. The same button, or
 the right arrow on the edge, expands it to the width it had.
@@ -133,13 +138,19 @@ than the window leaves the spare width on its right.
 ## Projects
 
 `/projects` lists the tenant's projects, each with its icon, name, key and description, linking to its
-board. An archived project stays listed with an archived mark. Each row can pin the project to the sidebar
-or open its tasks in the task list. New project in the header asks for a key, a name, a workflow and a
-description; colour and icon are set afterwards in the project's settings. The workflow picker lists the
-tenant's workflows and then the built-in templates, each template leading with its one-line purpose, then
-its name with a Built-in label, its states and its fields; picking a template creates its workflow if the
-tenant does not have it yet and adds its fields to the new project. The Workflows screen's Add from
-template does the same without a project. See [workflows.md](workflows.md#templates). The key starts every task
+board. An archived project stays listed with an archived mark. Each row starts with a star, always drawn:
+an outline to star the project, filled to unstar it, with `aria-pressed` saying which and a tooltip (Star
+this project, Unstar). It is a plain form, so it works without scripting; with scripting the page is
+boosted and the answer swaps in place, the sidebar with it. The projects you starred come first, under
+Starred, and the rest under Other projects, so a project is listed once; later pages list only the rest.
+All projects and Starred only above the list switch between the two, and Starred only is `?starred=1` in
+the address. The row's tools open its tasks in the task list, its fields and its settings. New project in
+the header asks for a key, a name, a workflow and a description; colour and icon are set afterwards in the
+project's settings. The workflow picker lists the tenant's workflows and then the built-in templates, each
+template leading with its one-line purpose, then its name with a Built-in label, its states and its
+fields; picking a template creates its workflow if the tenant does not have it yet and adds its fields to
+the new project. The Workflows screen's Add from template does the same without a project. See
+[workflows.md](workflows.md#templates). The key starts every task
 reference in the project, as in `INFRA-5`.
 
 The name has first claim on a row: when the row's links do not fit beside it, in the two-column grid
@@ -598,7 +609,7 @@ keep apart lists, and is drawn by `assets/recent.js`; with scripting off it is n
 list is `tix.recentTasks()` for other scripts, an array of `{ref, title, href, at}` newest first,
 and the document receives a `tix:recent` event whenever it changes.
 
-On the collapsed rail My work, each pinned project and each saved filter are icons with their names
+On the collapsed rail My work, each starred project and each saved filter are icons with their names
 kept as accessible names and tooltips, the menus are put away, and Recently viewed folds to a clock that opens the
 sidebar with the list unfolded.
 

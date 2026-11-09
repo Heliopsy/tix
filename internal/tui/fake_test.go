@@ -42,11 +42,13 @@ type fakeService struct {
 	untagged []string
 	deps     []core.TaskRef
 	starred  []core.TaskRef
-	snoozes  []core.SnoozeInput
-	unsnooze []core.TaskRef
-	unstars  []core.TaskRef
-	checks   []core.CheckItemInput
-	copies   []copyCall
+	// projectStars names every project StarProject or UnstarProject reached.
+	projectStars []string
+	snoozes      []core.SnoozeInput
+	unsnooze     []core.TaskRef
+	unstars      []core.TaskRef
+	checks       []core.CheckItemInput
+	copies       []copyCall
 
 	groupPrefs map[string][]core.GroupPref
 	// savedFilters are the reader's saved filters, and savedInputs what
@@ -582,6 +584,41 @@ func (f *fakeService) UnstarTask(_ context.Context, ref core.TaskRef) error {
 	defer f.mu.Unlock()
 	f.unstars = append(f.unstars, ref)
 	return nil
+}
+
+func (f *fakeService) ListStarredProjects(context.Context) ([]core.Project, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := []core.Project{}
+	for _, p := range f.projects {
+		if p.Starred {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeService) StarProject(_ context.Context, ref string) error {
+	return f.markProject(ref, true)
+}
+
+func (f *fakeService) UnstarProject(_ context.Context, ref string) error {
+	return f.markProject(ref, false)
+}
+
+// markProject sets a listed project's star, as the service's would be read
+// back on the next listing.
+func (f *fakeService) markProject(ref string, starred bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.projects {
+		if f.projects[i].Key == ref || f.projects[i].ID == ref {
+			f.projects[i].Starred = starred
+			f.projectStars = append(f.projectStars, ref)
+			return nil
+		}
+	}
+	return core.NotFound("project %q", ref)
 }
 
 func (f *fakeService) CheckTaskItem(_ context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {

@@ -87,7 +87,8 @@ subscribe and a reconnect resumes from a cursor without gaps.
 ### For humans
 
 The same data, with a board, custom workflows, custom fields, dependencies, comments, history, and a personal
-star that keeps the tasks you are watching at the top of your own listings. The columns and lanes are yours to
+star that keeps the tasks you are watching at the top of your own listings, and the projects you work in at
+the top of the projects screen and the sidebar (`tix project star`). The columns and lanes are yours to
 arrange too: hide, star, collapse or move any of them from the three dots on its heading, kept with your
 account so it follows you everywhere (`tix view`). A filter you use every day is saved under a name in the
 sidebar, for you or the whole team (`tix filter`), My work lists what is yours by deadline (`assignee:me`),
