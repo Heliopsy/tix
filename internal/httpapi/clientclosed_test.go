@@ -190,3 +190,18 @@ func TestAWebSocketClientThatDropsLogsNoError(t *testing.T) {
 		t.Errorf("logged status = %s, want 101", got)
 	}
 }
+
+// The request record names the tenant the request was served in. The record
+// is written outside the middleware that resolves the tenant, so it used to
+// read a context the tenant was never put on and logged it empty.
+func TestTheRequestLineNamesTheResolvedTenant(t *testing.T) {
+	sink := newLogSink()
+	f := newFixtureWith(t, withLogSink(sink))
+
+	resp := f.call(http.MethodGet, wire.RouteLabels, nil)
+	mustStatus(t, resp, http.StatusOK)
+	_ = resp.Body.Close()
+	if got := sink.requestLine(t, wire.RouteLabels).attrs["tenant"]; got != f.tenantA.ID {
+		t.Errorf("logged tenant = %q, want the tenant served, %q", got, f.tenantA.ID)
+	}
+}
