@@ -40,7 +40,8 @@
       "states": [
         { "name": "list", "query": "?view=list" },
         { "name": "list-filtered", "query": "?view=list&q=priority:high&sort=title" },
-        { "name": "lanes", "query": "?view=lanes" }
+        { "name": "lanes", "query": "?view=lanes" },
+        { "name": "lanes-tag", "query": "?view=lanes&lanes=tag" }
       ]
     },
     { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the project page" },
@@ -75,6 +76,7 @@
         { "name": "lanes", "cookies": { "tix_task_view": "lanes" } },
         { "name": "board-project", "cookies": { "tix_task_view": "board" }, "query": "?project=infra" },
         { "name": "lanes-project", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infra,web" },
+        { "name": "lanes-priority", "query": "?view=lanes&lanes=priority" },
         { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
         {
           "name": "task-dialog",
