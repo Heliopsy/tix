@@ -639,7 +639,8 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string][]capability.Surface{
-	"PutArtifact": {capability.SurfaceTUI},
+	"PutArtifact":           {capability.SurfaceTUI},
+	"ApplyWorkflowTemplate": {capability.SurfaceTUI},
 	// Over SSH the transfer view names the ssh command instead of a path.
 	"ExportTo":     {capability.SurfaceTUI},
 	"ImportFrom":   {capability.SurfaceTUI},

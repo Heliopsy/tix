@@ -13,7 +13,7 @@ import (
 // projectRoutes are the project list, board and field definition screens.
 func (h *handler) projectRoutes() []route {
 	return []route{
-		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
+		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows", "ListWorkflowTemplates"),
 		post(RouteProjects, h.createProject, "CreateProject"),
 		get(RouteProject, "tasks.html", h.showProjectTasks, "GetProject", "ListTasks", "ListProjects", "ListTags",
 			"ListGroupPrefs", "ListSavedFilters", "ListTemplates", "TrashStatus"),
@@ -45,6 +45,9 @@ func (h *handler) projectRoutes() []route {
 type projectsView struct {
 	Projects  []core.Project
 	Workflows []core.Workflow
+	// Templates are the built-in workflow templates the New project picker
+	// offers beside the tenant's workflows.
+	Templates []templateCard
 	Colors    []core.ProjectColor
 	Picker    iconPicker
 	Pager     pager
@@ -91,6 +94,10 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	if err != nil {
 		return projectsView{}, err
 	}
+	templates, err := h.svc.ListWorkflowTemplates(r.Context())
+	if err != nil {
+		return projectsView{}, err
+	}
 	all, _, err := h.allProjects(r, true)
 	if err != nil {
 		return projectsView{}, err
@@ -106,7 +113,8 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 		}
 	}
 	return projectsView{Projects: projects, Workflows: workflows,
-		Colors: core.ProjectColors(), Taken: taken, Pinned: pinned,
+		Templates: templateCards(langOf(r), templates, workflows),
+		Colors:    core.ProjectColors(), Taken: taken, Pinned: pinned,
 		Picker: newIconPicker(core.Project{}),
 		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam).counted(pos, size)}, nil
 }
@@ -150,12 +158,14 @@ func (h *handler) allProjects(r *http.Request, includeArchived bool) ([]core.Pro
 // createProject creates a project from the list screen's form.
 func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 	form := readProjectForm(r)
+	workflow, template := splitWorkflowChoice(form.Workflow)
 	in := core.CreateProjectInput{
-		Key:         form.Key,
-		Name:        form.Name,
-		Description: form.Description,
-		WorkflowKey: form.Workflow,
-		Color:       form.Color,
+		Key:              form.Key,
+		Name:             form.Name,
+		Description:      form.Description,
+		WorkflowKey:      workflow,
+		WorkflowTemplate: template,
+		Color:            form.Color,
 	}
 	choice, err := iconChoiceOf(r, false)
 	if err != nil {

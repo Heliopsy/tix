@@ -13,7 +13,8 @@ import (
 // workflowRoutes are the workflow list and editor screens.
 func (h *handler) workflowRoutes() []route {
 	return []route{
-		get(RouteWorkflows, "workflows.html", h.showWorkflows, "ListWorkflows"),
+		get(RouteWorkflows, "workflows.html", h.showWorkflows, "ListWorkflows", "ListWorkflowTemplates"),
+		post(RouteWorkflowTemplateApply, h.applyWorkflowTemplate, "ApplyWorkflowTemplate"),
 		post(RouteWorkflows, h.putWorkflow, "PutWorkflow"),
 		get(RouteWorkflow, "workflow.html", h.showWorkflow, "GetWorkflow"),
 		post(RouteWorkflowDel, h.deleteWorkflow, "DeleteWorkflow"),
@@ -23,15 +24,24 @@ func (h *handler) workflowRoutes() []route {
 // workflowsView is what the workflow list renders.
 type workflowsView struct {
 	Workflows []core.Workflow
+	// Templates are the built-in templates the Add from template dialog
+	// offers.
+	Templates []templateCard
 }
 
-// showWorkflows renders every workflow the tenant defines.
+// showWorkflows renders every workflow the tenant defines, and the built-in
+// templates a new one can be added from.
 func (h *handler) showWorkflows(w http.ResponseWriter, r *http.Request) error {
 	workflows, err := h.svc.ListWorkflows(r.Context())
 	if err != nil {
 		return err
 	}
-	return h.render(w, r, "workflows.html", "Workflows", workflowsView{Workflows: workflows})
+	templates, err := h.svc.ListWorkflowTemplates(r.Context())
+	if err != nil {
+		return err
+	}
+	return h.render(w, r, "workflows.html", "Workflows", workflowsView{
+		Workflows: workflows, Templates: templateCards(langOf(r), templates, workflows)})
 }
 
 // workflowView is what the workflow editor renders.

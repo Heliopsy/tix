@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-gtd
+name: Personal (GTD)
+purpose: Capture everything, decide later, do the next thing.
+definition:
+  initial: inbox
+  states:
+    - {key: inbox, label: Inbox, category: todo}
+    - {key: next, label: Next, category: todo}
+    - {key: waiting, label: Waiting, category: waiting}
+    - {key: someday, label: Someday, category: todo}
+    - {key: done, label: Done, category: done, terminal: true}
+  transitions:
+    - {from: inbox, to: next}
+    - {from: inbox, to: waiting}
+    - {from: inbox, to: someday}
+    - {from: inbox, to: done}
+    - {from: next, to: waiting}
+    - {from: next, to: someday}
+    - {from: next, to: done}
+    - {from: waiting, to: next}
+    - {from: waiting, to: done}
+    - {from: someday, to: next}
+    - {from: done, to: next}
+fields:
+  - {key: context, label: Context, type: enum, enum_options: [home, work, errand]}

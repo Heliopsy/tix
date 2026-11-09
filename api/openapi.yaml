@@ -12048,6 +12048,131 @@ paths:
         - identity
       x-tix-openspec:
         - http-api
+  /api/v1/workflow-templates:
+    get:
+      description: |-
+        ListWorkflowTemplates lists the built-in workflow templates: each one's key, name, one-line purpose, a summary of its states, its definition and the custom fields a project created from it gets.
+
+        Command line: `tix workflow template ls`.
+      operationId: workflow.template.list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/WorkflowTemplate'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplate'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - workflow:read
+        - session:
+            - workflow:read
+      summary: 'ListWorkflowTemplates lists the built-in workflow templates: each
+        one''s key, name, one-line purpose, a summary of its states, its definition
+        and the custom fields a project created from it gets'
+      tags:
+        - workflow
+  /api/v1/workflow-templates/{key}/apply:
+    post:
+      description: |-
+        ApplyWorkflowTemplate creates a workflow from a built-in template, under the template's key or the one the input names. A key already taken is a conflict unless the input says to skip, rename or replace.
+
+        Command line: `tix workflow template apply`.
+      operationId: workflow.template.apply
+      parameters:
+        - description: Custom field key, as the project defines it.
+          in: path
+          name: key
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyWorkflowTemplateInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+          description: Workflow is a named state machine owned by a tenant and assigned
+            to projects.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - workflow:write
+        - session:
+            - workflow:write
+      summary: ApplyWorkflowTemplate creates a workflow from a built-in template,
+        under the template's key or the one the input names
+      tags:
+        - workflow
   /api/v1/workflows:
     get:
       description: |-
@@ -12751,6 +12876,19 @@ components:
           $ref: '#/components/schemas/Role'
           description: Role is the role granted in the tenant; empty means "viewer".
       type: object
+    ApplyWorkflowTemplateInput:
+      description: ApplyWorkflowTemplateInput creates a workflow from a built-in template.
+      properties:
+        as:
+          description: As is the key the workflow is created under; empty uses the
+            template's own key.
+          type: string
+        on_collision:
+          $ref: '#/components/schemas/CollisionPolicy'
+          description: 'OnCollision decides what happens when the key is taken: skip
+            keeps the existing workflow, rename picks the next free key, replace redefines
+            the existing one. Empty refuses with a conflict.'
+      type: object
     Artifact:
       description: Artifact is structured output attached to a task by a worker.
       properties:
@@ -13198,6 +13336,14 @@ components:
             Omitted takes the configured default; a value above the maximum is refused.
           type: string
       type: object
+    CollisionPolicy:
+      description: CollisionPolicy decides what an import does when a component's
+        key is taken.
+      enum:
+        - skip
+        - rename
+        - replace
+      type: string
     Comment:
       description: Comment is a message on a task.
       properties:
@@ -13441,6 +13587,13 @@ components:
         workflow_key:
           description: WorkflowKey names the workflow the project's tasks follow;
             empty uses the builtin workflow.
+          type: string
+        workflow_template:
+          description: 'WorkflowTemplate names a built-in workflow template instead
+            of a workflow: the project runs on the workflow the template creates under
+            its own key, reused when the tenant already holds it, and gets the template''s
+            custom fields. At most one of WorkflowKey and WorkflowTemplate may be
+            set.'
           type: string
       type: object
     CreateTaskRequest:
@@ -15515,6 +15668,7 @@ components:
         - task:claim
         - task:delete
         - task:reclaim
+        - task:approve
         - project:read
         - project:write
         - workflow:read
@@ -17809,25 +17963,56 @@ components:
           description: Name is the workflow's display name.
           type: string
       type: object
+    WorkflowTemplate:
+      description: WorkflowTemplate is a ready-made workflow shipped with tix, with
+        the custom fields a project using it usually wants.
+      properties:
+        definition:
+          $ref: '#/components/schemas/WorkflowDefinition'
+          description: Definition is the workflow the template creates.
+        fields:
+          description: Fields are the custom fields a project created from the template
+            gets. Fields belong to projects, not workflows, so applying the template
+            on its own creates only the workflow.
+          items:
+            $ref: '#/components/schemas/FieldDefInput'
+          type: array
+        key:
+          description: Key identifies the template and is the key of the workflow
+            it creates unless another is chosen.
+          type: string
+        name:
+          description: Name is the template's display name.
+          type: string
+        purpose:
+          description: Purpose says in one line what the workflow is for, and is shown
+            first wherever templates are listed.
+          type: string
+        states:
+          description: States is a one-line summary of the states, in order, the final
+            ones joined by a slash.
+          type: string
+      type: object
   securitySchemes:
     bearer:
       description: 'An API token, `Authorization: Bearer TOKEN`. Each operation lists
         the scope it needs; an empty list needs an authenticated actor and nothing
         more. The scopes are `task:read`, `task:write`, `task:transition`, `task:claim`,
-        `task:delete`, `task:reclaim`, `project:read`, `project:write`, `workflow:read`,
-        `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`, `user:admin`,
-        `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`, `sync:admin`,
-        `audit:read`, `export`, `import`, `global:admin`, `account:read`.'
+        `task:delete`, `task:reclaim`, `task:approve`, `project:read`, `project:write`,
+        `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
+        `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
+        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`.'
       scheme: bearer
       type: http
     session:
       description: The browser session cookie `POST /api/v1/auth/login` sets. Each
         operation lists the scope it needs; an empty list needs an authenticated actor
         and nothing more. The scopes are `task:read`, `task:write`, `task:transition`,
-        `task:claim`, `task:delete`, `task:reclaim`, `project:read`, `project:write`,
-        `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
-        `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
-        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`.
+        `task:claim`, `task:delete`, `task:reclaim`, `task:approve`, `project:read`,
+        `project:write`, `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`,
+        `event:subscribe`, `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`,
+        `tenant:admin`, `sync:admin`, `audit:read`, `export`, `import`, `global:admin`,
+        `account:read`.
       in: cookie
       name: tix_session
       type: apiKey

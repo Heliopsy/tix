@@ -51,6 +51,14 @@ const (
 	// so an on-call operator can be given it without being given the tenant.
 	ScopeTaskReclaim Scope = "task:reclaim"
 
+	// ScopeTaskApprove is the authority a workflow edge names when moving a
+	// task across it is a decision rather than progress: approving work or a
+	// request, or rejecting it. It is separate from task:transition because
+	// every member holds that one, and the point of a sign-off edge is that
+	// the person doing the work is not the one who approves it. No role but
+	// admin carries it; a reviewer's token is given it by name.
+	ScopeTaskApprove Scope = "task:approve"
+
 	ScopeProjectRead  Scope = "project:read"
 	ScopeProjectWrite Scope = "project:write"
 
@@ -94,7 +102,7 @@ const (
 // AllScopes is the complete vocabulary, excluding ScopeAll.
 var AllScopes = []Scope{
 	ScopeTaskRead, ScopeTaskWrite, ScopeTaskTransition, ScopeTaskClaim, ScopeTaskDelete,
-	ScopeTaskReclaim,
+	ScopeTaskReclaim, ScopeTaskApprove,
 	ScopeProjectRead, ScopeProjectWrite,
 	ScopeWorkflowRead, ScopeWorkflowWrite,
 	ScopeCommentWrite, ScopeArtifactWrite,

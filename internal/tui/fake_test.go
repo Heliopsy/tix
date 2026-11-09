@@ -80,6 +80,7 @@ type fakeService struct {
 	claimedNext  bool
 	renewed      int
 	projectsMade []core.CreateProjectInput
+	templates    []core.WorkflowTemplate
 
 	actors        map[string]*core.Actor
 	actorsQueried []string
@@ -151,6 +152,16 @@ func (f *fakeService) ListWorkflows(context.Context) ([]core.Workflow, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.workflows, nil
+}
+
+func (f *fakeService) ListWorkflowTemplates(context.Context) ([]core.WorkflowTemplate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.templates, nil
+}
+
+func (f *fakeService) ApplyWorkflowTemplate(context.Context, string, core.ApplyWorkflowTemplateInput) (*core.Workflow, error) {
+	return nil, core.Invalid("the terminal applies templates through project creation")
 }
 
 // ListTasks answers the page a filter's limit and page number name, the
