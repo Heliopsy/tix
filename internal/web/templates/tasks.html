@@ -463,6 +463,9 @@
      completed choice, so the choice survives this block being replaced by a
      live refresh. */}}
 {{if $v.Lanes.Write}}<datalist id="lane-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
+{{/* A lane heading never splits a word: the name takes the line and is cut
+     with an ellipsis, its full text in the title, and the count is one unit
+     beside it (420-lanes.css). */}}
 {{/* Lanes grouped by tag draw each card once (lanegroup.go tagSlots), so
      the rule is said where the reader sees the cards. */}}
 {{if eq $v.Lanes.By "tag"}}<p class="meta lanes-note">{{t "A task with several tags is drawn once, in the first lane among its tags. Its card lists them all."}}</p>{{end}}
@@ -471,7 +474,7 @@
   {{$acc := index $v.Accent .Project.ID}}
   <section class="lane{{if .Project.ID}}{{with projClass $acc.Color}} {{.}}{{end}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{if .Project.ID}}{{with projStyle $acc.Color}} style="{{.}}"{{end}}{{end}} id="lane-{{.DOMKey}}" data-lane="{{.Head.Key}}" data-group="{{.Head.Key}}">
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{if .Project.ID}}{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a>{{else if .Head.Filter}}<a href="{{.Head.Filter}}" title="{{t "Only the tasks in this lane"}}">{{.Head.Name}}</a>{{else}}{{.Head.Name}}{{end}} <span class="meta">({{t "%d open" .Open}})</span></h2>
+      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{if .Project.ID}}{{template "proj-icon" (projIcon $acc true)}}<a class="lane-name" href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a>{{else if .Head.Filter}}<a class="lane-name" href="{{.Head.Filter}}" title="{{t "Only tasks in %s" .Head.Name}}">{{.Head.Name}}</a>{{else}}<span class="lane-name" title="{{.Head.Name}}">{{.Head.Name}}</span>{{end}} <span class="meta lane-count">({{t "%d open" .Open}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}
