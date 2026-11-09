@@ -177,3 +177,9 @@
   .tbar-btn .icon:last-child:not(:first-child) { display: none; }
   .tbar .viewswitch .segment { padding: 0 var(--space-2); font-size: var(--text-xs); }
 }
+
+/* A finger needs more than a 20px cross; the chip grows round it. */
+@media (pointer: coarse) {
+  .fbchip-x { width: 32px; height: 32px; }
+  .fbchip { line-height: 32px; }
+}
