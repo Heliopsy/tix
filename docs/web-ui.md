@@ -469,7 +469,9 @@ lanes by priority, a new assignee in lanes by assignee, a tag in lanes by tag) i
 first and moves to its new lane with the live refresh that change triggers, as anybody else's change
 would; without scripting the page is drawn again with it in its new lane.
 
-A lane heading other than a project's is a link to the screen filtered to that lane's tasks
+A lane heading never splits a word: a name too long for the lane is cut short with an ellipsis, its
+full text in the tooltip, and the open count beside it stays whole. A lane heading other than a
+project's is a link to the screen filtered to that lane's tasks
 (`assignee:lena`, `priority:high`, `tag:ops`), still in lanes grouped the same way, and its menu offers
 the same link. Unassigned, No tag and the deadline buckets have no filter term that says exactly them,
 so they are plain headings.

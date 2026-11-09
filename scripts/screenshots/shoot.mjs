@@ -579,8 +579,10 @@ const LAYOUT = {
   ].join(","),
   words: "h1,h2,h3,h4,h5,h6,label,legend,th,dt",
   // The text of a list row or a table cell: a name, a key, a description, a
-  // count. Rendered Markdown is prose somebody wrote and is left out.
-  cells: "td, .projrow-title, .projrow-desc, .recrow-title, .recrow-meta, .person-id, .tm",
+  // count. Rendered Markdown is prose somebody wrote and is left out. A lane
+  // heading is judged the same way: its name is a flex item that shrank, so
+  // the heading check's too-wide exemption let a project name split mid-word.
+  cells: "td, .projrow-title, .projrow-desc, .recrow-title, .recrow-meta, .person-id, .tm, .lane > .grouphead > h2",
   prose: ".md, [contenteditable], pre",
   rows: "ul.tasklist",
   cards: "article.card",

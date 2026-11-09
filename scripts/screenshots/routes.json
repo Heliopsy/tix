@@ -77,6 +77,7 @@
         { "name": "board-project", "cookies": { "tix_task_view": "board" }, "query": "?project=infra" },
         { "name": "lanes-project", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infra,web" },
         { "name": "lanes-priority", "cookies": { "tix_task_view": "lanes", "tix_lanes_group": "priority" } },
+        { "name": "lanes-long-names", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infrastructureplatform,mrezhi,infra,web,qa" },
         { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
         {
           "name": "task-dialog",

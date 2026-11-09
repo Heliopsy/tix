@@ -42,7 +42,23 @@
   padding: var(--space-3) var(--space-2) var(--space-2) var(--space-3);
   background: var(--surface);
 }
-.lane > .grouphead > h2 { display: flex; align-items: baseline; gap: 6px; }
+/* The heading never splits a word. A long name, a project's or a person's,
+   beside a count that is longer in Bulgarian ("отворени: 0") was squeezed
+   until it broke mid-word. The name takes what is left of the line and is
+   clamped to that one line, its full text in the title; the count, the icon and
+   the star do not shrink, so each stays one unit on the line. */
+.lane > .grouphead > h2 { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow-wrap: normal; }
+.lane > .grouphead > h2 > * { flex: 0 0 auto; }
+.lane > .grouphead > h2 > .lane-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .lane > .grouphead a { color: var(--ink); text-decoration: none; }
 .lane > .grouphead a:hover { color: var(--accent); text-decoration: underline; }
 .lane .lane-card {
