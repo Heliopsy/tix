@@ -74,12 +74,29 @@ func resolveGroup(ctx context.Context, tx store.Tx, v arrangedView, group string
 			return "", "", err
 		}
 		return p.ID, p.Key, nil
-	case core.ViewMine:
+	case core.ViewMine, core.LanesView(core.LanesByDue):
 		key := strings.ToLower(group)
 		if !slices.Contains(core.DueBuckets, key) {
-			return "", "", core.Invalid("%s has no group %q; use one of %s", core.ViewMine, group, strings.Join(core.DueBuckets, ", "))
+			return "", "", core.Invalid("%s has no group %q; use one of %s", v.shown, group, strings.Join(core.DueBuckets, ", "))
 		}
 		return key, key, nil
+	case core.LanesView(core.LanesByPriority):
+		key := strings.ToLower(group)
+		if !slices.Contains(core.PriorityKeys, key) {
+			return "", "", core.Invalid("%s has no group %q; use one of %s", v.shown, group, strings.Join(core.PriorityKeys, ", "))
+		}
+		return key, key, nil
+	case core.LanesView(core.LanesByAssignee):
+		if group == core.GroupNone {
+			return group, group, nil
+		}
+		a, err := lookupActor(ctx, tx, group)
+		if err != nil {
+			return "", "", err
+		}
+		return a.ID, a.Handle, nil
+	case core.LanesView(core.LanesByTag):
+		return resolveTagGroup(ctx, tx, group)
 	case core.ViewProjectPrefix:
 		if !v.def.HasState(group) {
 			return "", "", core.Invalid("%s has no state %q", v.shown, group)
@@ -99,9 +116,37 @@ func resolveGroup(ctx context.Context, tx store.Tx, v arrangedView, group string
 	}
 }
 
+// resolveTagGroup names a tag lane: a tag of the tenant, spelled as the
+// tenant spells it, or the No tag lane.
+func resolveTagGroup(ctx context.Context, tx store.Tx, group string) (string, string, error) {
+	if group == core.GroupNone {
+		return group, group, nil
+	}
+	tags, err := tx.ListTags(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	for _, t := range tags {
+		if strings.EqualFold(t.Name, group) {
+			return t.Name, t.Name, nil
+		}
+	}
+	return "", "", core.Invalid("no tag %q", group)
+}
+
 // shownGroup is how a stored group is named back to a reader. A lane whose
-// project is gone keeps its identifier, so it can still be reset.
+// project or actor is gone keeps its identifier, so it can still be reset.
 func shownGroup(ctx context.Context, tx store.Tx, v arrangedView, stored string) (string, error) {
+	if v.kind == core.LanesView(core.LanesByAssignee) && stored != core.GroupNone {
+		a, err := tx.GetActor(ctx, stored)
+		if err != nil {
+			if core.IsKind(err, core.KindNotFound) {
+				return stored, nil
+			}
+			return "", err
+		}
+		return a.Handle, nil
+	}
 	if v.kind != core.ViewLanes {
 		return stored, nil
 	}
