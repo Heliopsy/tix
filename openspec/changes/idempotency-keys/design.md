@@ -69,3 +69,18 @@ table is tenant scoped, so PostgreSQL gives it row-level security from the migra
 The CLI and `internal/client` do not retry, so they send no key. `tix mcp` does not offer the header as a
 tool argument: a model's tool call is not replayed by a queue, and a key it invented would only add a way
 to fail.
+
+## Known follow-ups
+
+Two gaps are left open on purpose and should be closed in later changes:
+
+- **Writes through the unscoped door do not mark the row.** Tenant and account administration commit
+  outside `Local.write`, so the claim is never marked `executed`. If such a request commits and then
+  answers a `5xx`, the key is released as if nothing ran; if its response is lost, the row stays
+  `reserved` until the lease lapses. Either way a retry runs the write again.
+  Closing it means marking the claim from the unscoped transaction helper as well, with the tenant the
+  claim was reserved in.
+- **Bulk and import mark only their first transaction.** A request that commits in several transactions
+  marks the row in the first one. A crash after a later commit and before the response is kept still
+  answers `409` without `Retry-After`, which is safe, but the kept outcome cannot say how far the request
+  got. Closing it means either one transaction per request or recording progress on the claim.
