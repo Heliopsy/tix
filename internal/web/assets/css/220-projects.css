@@ -124,7 +124,6 @@
 .projrow-tools { display: flex; flex-wrap: wrap; gap: var(--space-1); flex: 0 0 auto; margin-inline-start: auto; opacity: 0; transition: opacity 120ms ease; }
 .projrow:hover .projrow-tools, .projrow:focus-within .projrow-tools { opacity: 1; }
 @media (hover: none) { .projrow-tools { opacity: 1; } }
-.projpin { margin: 0; display: inline-flex; }
 /* A phone has no room for the name beside four links, so they take their own
    line under it, lined up with the name. */
 @media (max-width: 639px) {

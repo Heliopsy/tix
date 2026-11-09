@@ -331,7 +331,7 @@ adding a task can leave you on the list you were adding to.
 #### A sidebar that fits how it is used
 
 The sidebar resizes, collapses to a rail and folds its groups, and it is ordered by use: Search, Inbox,
-My work, Tasks and Projects first, with pinned projects under Projects and the configuration screens in
+My work, Tasks and Projects first, with starred projects under Projects and the configuration screens in
 one folded group.
 
 #### A settings screen

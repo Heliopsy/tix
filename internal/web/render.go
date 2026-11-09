@@ -209,9 +209,11 @@ type view struct {
 	// Overdue is how many of the reader's open tasks are late, which My
 	// work's badge shows; see sidebar.go.
 	Overdue int
-	// Pinned are the projects the reader pinned under Projects.
-	Pinned []pinnedProject
-	Data   any
+	// Pinned are the projects the reader starred, listed under Projects, and
+	// PinnedMore says the reader starred more than the sidebar draws.
+	Pinned     []pinnedProject
+	PinnedMore bool
+	Data       any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -300,6 +302,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"age":              humanDuration,
 		"claim":            claimState,
 		"star":             newStarControl,
+		"projectStar":      newProjectStar,
 		"titleLink":        newTitleLink,
 		"groupMenu":        newGroupMenu,
 		"groupHeadNone":    noGroupHead,
@@ -461,6 +464,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
 	me := h.whoAmI(r)
+	pinned, pinnedMore := h.pinnedProjects(r)
 	return view{
 		Title:           title,
 		Lang:            langOf(r),
@@ -474,7 +478,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Upgrade:         h.releases.state(),
 		Inbox:           h.unreadCount(r),
 		Overdue:         h.overdueCount(r),
-		Pinned:          h.pinnedProjects(r),
+		Pinned:          pinned,
+		PinnedMore:      pinnedMore,
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),

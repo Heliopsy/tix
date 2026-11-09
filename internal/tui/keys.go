@@ -660,10 +660,10 @@ func (k KeyMap) taskActions(may func(string) bool) []HelpEntry {
 func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	switch v {
 	case viewProjects:
-		return []HelpEntry{
+		return append([]HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
 			entry(k.Enter), entry(k.NewProject),
-		}
+		}, k.projectStarHelp(may)...)
 	case viewBoard:
 		return append([]HelpEntry{
 			entry(k.Left), entry(k.Right), entry(k.Up), entry(k.Down), entry(k.Enter),
@@ -722,6 +722,18 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
+}
+
+// projectStarHelp is the projects view's star and starred filter. The filter
+// reads stars the listing already carries, so it is always offered; the star
+// only to a reader who may set one.
+func (k KeyMap) projectStarHelp(may func(string) bool) []HelpEntry {
+	out := []HelpEntry{{Keys: k.Filter.Help().Key, Desc: "starred only"}}
+	star := gatedAction{binding: k.Star, methods: []string{"StarProject", "UnstarProject"}}
+	if star.permitted(may) {
+		out = append([]HelpEntry{{Keys: k.Star.Help().Key, Desc: "star project"}}, out...)
+	}
+	return out
 }
 
 // viewAction is one of a configuration screen's bindings: the key it borrows
@@ -902,7 +914,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 	var short []HelpEntry
 	switch v {
 	case viewProjects:
-		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.NewProject)}
+		short = append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.NewProject)},
+			k.projectStarHelp(ctx.May)...)
 	case viewSettings:
 		short = append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.settingHelp(), entry(k.Back))...)

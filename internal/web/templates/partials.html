@@ -27,7 +27,7 @@
 
 {{define "nav"}}
 {{/* The entries in the order they are used: what came in, what is mine, every
-     task, the projects with the ones the reader pinned under them, then the
+     task, the projects with the ones the reader starred under them, then the
      tenant's history and figures. The reader's own views follow, and the
      screens visited least go last, folded under Admin. */}}
 <nav class="main">
@@ -83,14 +83,16 @@
 </nav>
 {{end}}
 
-{{/* pinned-projects are the projects the reader pinned, under Projects: each
-     its icon, or its key's first letter, in its colour, and its name the way
-     the reader asked projects to be named. A link to its board like every
-     other entry, so the rail draws the mark and keeps the name. See
-     pinnedProjects in sidebar.go. */}}
+{{/* pinned-projects are the projects the reader starred, under Projects:
+     each its icon, or its key's first letter, in its colour, and its name the
+     way the reader asked projects to be named. A link to its board like every
+     other entry, so the rail draws the mark and keeps the name. Past twelve
+     the list ends with Show all, the projects screen filtered to the starred
+     ones. See pinnedProjects in sidebar.go. */}}
 {{define "pinned-projects"}}{{with .Pinned}}
-<ul class="side-pins" aria-label="{{t "Pinned projects"}}">
+<ul class="side-pins" aria-label="{{t "Starred projects"}}">
 {{range .}}  <li class="side-pin{{with .Class}} {{.}}{{end}}"{{with .Style}} style="{{.}}"{{end}}><a href="/projects/{{.Key}}" data-rail-name="{{.Label}}" {{if .Current}}aria-current="page"{{end}}><span class="side-pin-mark nav-icon" aria-hidden="true">{{if .Mark.Any}}{{template "proj-icon" .Mark}}{{else}}{{slice (key .Key) 0 1}}{{end}}</span><span>{{.Label}}</span></a></li>
+{{end}}{{if $.PinnedMore}}  <li class="side-pin side-pin-more"><a href="/projects?starred=1" data-rail-name="{{t "Show all starred projects"}}"><span class="side-pin-mark nav-icon" aria-hidden="true"><svg width="16" height="16"><use href="/assets/icons.svg#star-filled"/></svg></span><span>{{t "Show all"}}</span></a></li>
 {{end}}</ul>
 {{end}}{{end}}
 
@@ -261,6 +263,19 @@
   <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
           aria-label="{{if .Starred}}{{t "Unstar %s" (ref .Ref)}}{{else}}{{t "Star %s" (ref .Ref)}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
+  </button>
+</form>{{end}}
+
+{{/* project-star is the reader's own star on one project: an outline star
+     to star it, a filled one to unstar it. A plain form, so it works without
+     scripting; the page is boosted, so with htmx the answer swaps in place,
+     the sidebar's starred list with it. */}}
+{{define "project-star"}}<form method="post" class="projstar" action="{{.Action}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Next}}">
+  <button type="submit" class="star projstar-btn{{if .Starred}} is-starred{{end}}" data-focus="projstar" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
+          aria-label="{{if .Starred}}{{t "Unstar %s" .Name}}{{else}}{{t "Star %s" .Name}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star this project"}}{{end}}">
+    <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{if .Starred}}star-filled{{else}}star-outline{{end}}"/></svg>
   </button>
 </form>{{end}}
 

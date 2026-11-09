@@ -149,8 +149,15 @@ func (l *Local) GetProject(ctx context.Context, ref string) (*core.Project, erro
 	var out *core.Project
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		p, err := lookupProject(ctx, tx, ref)
-		out = p
-		return err
+		if err != nil {
+			return err
+		}
+		one := []core.Project{*p}
+		if err := markProjectsStarred(ctx, tx, actor.ID, one); err != nil {
+			return err
+		}
+		out = &one[0]
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -174,8 +181,11 @@ func (l *Local) ListProjects(ctx context.Context, f core.ProjectFilter) ([]core.
 	out := []core.Project{}
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		found, err := tx.ListProjects(ctx, f)
+		if err != nil {
+			return err
+		}
 		out = found
-		return err
+		return markProjectsStarred(ctx, tx, actor.ID, out)
 	}); err != nil {
 		return nil, "", err
 	}

@@ -76,6 +76,9 @@ operations:
   task.unstar:
     destructive: false
     reason: unstarring is undone by starring
+  project.unstar:
+    destructive: false
+    reason: unstarring a project is undone by starring it
   task.unsnooze:
     destructive: false
     reason: waking a task early is undone by snoozing it again

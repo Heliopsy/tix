@@ -189,12 +189,15 @@ func (m Model) bodyLines(layout Layout) []string {
 // projectLines renders the project picker, scrolled so the selection is always
 // on screen and so a list that runs past the terminal says that it does.
 func (m Model) projectLines() []string {
+	if m.starredOnly && len(m.projects) == 0 && len(m.allProjects) > 0 {
+		return m.emptyLines(StarredEmptyState(m.keys.Filter.Help().Key, m.keys.Star.Help().Key))
+	}
 	if empty := ProjectsEmptyState(len(m.projects)); !empty.Zero() {
 		return m.emptyLines(empty)
 	}
 	// A count, because a scrolling list with no total cannot tell you whether
 	// you have seen all of it.
-	head := []string{m.theme.Header.Render(fmt.Sprintf("  %d projects", len(m.projects))), ""}
+	head := []string{m.theme.Header.Render(ProjectsHeading(len(m.projects), m.starredOnly)), ""}
 	rows := m.projectRows()
 	offset := ScrollWindow(m.projectOff, m.projectSel, rows, len(m.projects))
 	lines := make([]string, 0, rows+1)
@@ -306,7 +309,7 @@ func ProjectKeyColumn(projects []core.Project) int {
 
 // projectRow renders one project of the picker.
 func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
-	label := SelectionMarker(selected) + ProjectIcon(p) + pad(output.ShowKey(p.Key), keyCol) + "  " + p.Name
+	label := SelectionMarker(selected) + ProjectStarMark(p) + ProjectIcon(p) + pad(output.ShowKey(p.Key), keyCol) + "  " + p.Name
 	if p.Archived() {
 		label += "  (archived)"
 	}
@@ -315,6 +318,24 @@ func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
 		return m.selection().Render(label)
 	}
 	return m.theme.Project(p.Color).Render(label)
+}
+
+// ProjectStarMark leads a project's row: a star when the reader starred it,
+// the same width of space when not, so the keys stay in one column.
+func ProjectStarMark(p core.Project) string {
+	if p.Starred {
+		return "★ "
+	}
+	return "  "
+}
+
+// ProjectsHeading counts the projects listed and says when only the starred
+// ones are.
+func ProjectsHeading(n int, starredOnly bool) string {
+	if starredOnly {
+		return fmt.Sprintf("  %d starred projects", n)
+	}
+	return fmt.Sprintf("  %d projects", n)
 }
 
 // emptyLines fills a body with an empty state, centred enough to read as a

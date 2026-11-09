@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,7 +14,7 @@ import (
 // projectRoutes are the project list, board and field definition screens.
 func (h *handler) projectRoutes() []route {
 	return []route{
-		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
+		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListStarredProjects", "ListWorkflows"),
 		post(RouteProjects, h.createProject, "CreateProject"),
 		get(RouteProject, "tasks.html", h.showProjectTasks, "GetProject", "ListTasks", "ListProjects", "ListTags",
 			"ListGroupPrefs", "ListSavedFilters", "ListTemplates", "TrashStatus"),
@@ -26,6 +27,8 @@ func (h *handler) projectRoutes() []route {
 		post(RouteProjectLease, h.updateProjectLease, "UpdateProject"),
 		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
+		post(RouteProjectStar, h.starProject, "StarProject"),
+		post(RouteProjectUnstar, h.unstarProject, "UnstarProject"),
 		get(RouteProjectDel, "projectdelete.html", h.showProjectDelete,
 			"GetProject", "ListProjects", "PlanProjectDeletion"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
@@ -52,9 +55,11 @@ type projectsView struct {
 	// Taken is every key in use, so the key the form suggests from a name is
 	// one the service will accept.
 	Taken []string
-	// Pinned are the keys the reader pinned to the sidebar, upper-cased: a
-	// project lane the reader starred (see pinnedProjects).
-	Pinned map[string]bool
+	// Starred are the reader's starred projects, drawn first, on the first
+	// page or when StarredOnly asks for nothing else. Projects then leaves
+	// them out, so a project is listed once.
+	Starred     []core.Project
+	StarredOnly bool
 	// Form, Errors and Refused redraw a refused create in place, holding what
 	// was typed.
 	Form    projectForm
@@ -99,16 +104,86 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	for _, p := range all {
 		taken = append(taken, p.Key)
 	}
-	pinned := map[string]bool{}
-	for _, p := range h.groupPrefs(r, core.ViewLanes) {
-		if p.Starred {
-			pinned[strings.ToUpper(p.Group)] = true
+	starredOnly := r.URL.Query().Get(StarredParam) == "1"
+	var starred []core.Project
+	if starredOnly || pos.Cursor == "" {
+		if starred, err = h.svc.ListStarredProjects(r.Context()); err != nil {
+			return projectsView{}, err
 		}
 	}
-	return projectsView{Projects: projects, Workflows: workflows,
-		Colors: core.ProjectColors(), Taken: taken, Pinned: pinned,
+	rest := make([]core.Project, 0, len(projects))
+	for _, p := range projects {
+		if !p.Starred && !starredOnly {
+			rest = append(rest, p)
+		}
+	}
+	pg := newPager(r, RouteProjects, next, len(projects), "projects", SizeParam).counted(pos, size)
+	if starredOnly {
+		pg = pager{}
+	}
+	return projectsView{Projects: rest, Workflows: workflows,
+		Colors: core.ProjectColors(), Taken: taken,
+		Starred: starred, StarredOnly: starredOnly,
 		Picker: newIconPicker(core.Project{}),
-		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam).counted(pos, size)}, nil
+		Pager:  pg}, nil
+}
+
+// StarredParam asks the projects screen for the reader's starred projects
+// alone.
+const StarredParam = "starred"
+
+// starProject sets the reader's own star on a project.
+func (h *handler) starProject(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleProjectStar(w, r, h.svc.StarProject, "starred ")
+}
+
+// unstarProject clears the reader's own star on a project.
+func (h *handler) unstarProject(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleProjectStar(w, r, h.svc.UnstarProject, "unstarred ")
+}
+
+// toggleProjectStar applies one star call and sends the reader back to the
+// screen the toggle was on, at the project's row. The page is boosted, so
+// with scripting the answer swaps in place, sidebar included.
+func (h *handler) toggleProjectStar(w http.ResponseWriter, r *http.Request, call func(context.Context, string) error, verb string) error {
+	key := r.PathValue("key")
+	if err := call(r.Context(), key); err != nil {
+		return err
+	}
+	back := safeNext(field(r, "next"))
+	if back == RouteProjects && field(r, "next") != RouteProjects {
+		back = strings.Replace(RouteProject, "{key}", key, 1)
+	}
+	if (back == RouteProjects || strings.HasPrefix(back, RouteProjects+"?")) && !strings.Contains(back, "#") {
+		back += "#p-" + url.PathEscape(strings.ToUpper(key))
+	}
+	redirectTo(w, r, back, "", verb+strings.ToUpper(key))
+	return nil
+}
+
+// projectStar is what the "project-star" partial draws: one project's star
+// toggle, the state it shows and where pressing it returns the reader to.
+type projectStar struct {
+	P       core.Project
+	Key     string
+	Name    string
+	Starred bool
+	Next    string
+	CSRF    string
+}
+
+// Action is the route the toggle posts to: a starred project's unstars it.
+func (s projectStar) Action() string {
+	route := RouteProjectStar
+	if s.Starred {
+		route = RouteProjectUnstar
+	}
+	return strings.Replace(route, "{key}", s.Key, 1)
+}
+
+// newProjectStar builds a project's star toggle for a template.
+func newProjectStar(p core.Project, next, csrf string) projectStar {
+	return projectStar{P: p, Key: p.Key, Name: p.Name, Starred: p.Starred, Next: next, CSRF: csrf}
 }
 
 // projectScanPages bounds how many pages allProjects will walk. At
@@ -474,6 +549,3 @@ func (h *handler) deleteField(w http.ResponseWriter, r *http.Request) error {
 	redirect(w, r, RouteProjects+"/"+key+"/fields", "field deleted")
 	return nil
 }
-
-// IsPinned reports whether the reader pinned a project to the sidebar.
-func (v projectsView) IsPinned(key string) bool { return v.Pinned[strings.ToUpper(key)] }

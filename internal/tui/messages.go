@@ -80,6 +80,8 @@ const (
 	actionRemoveMember
 	actionSaveFilter
 	actionCheck
+	actionStarProject
+	actionUnstarProject
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -137,6 +139,9 @@ var actionLabels = map[actionKind][2]string{
 	actionRemoveMember: {"remove the member", "removed member"},
 
 	actionSaveFilter: {"save the filter", "saved filter"},
+
+	actionStarProject:   {"star the project", "starred"},
+	actionUnstarProject: {"unstar the project", "unstarred"},
 }
 
 // Label renders an action for a message.

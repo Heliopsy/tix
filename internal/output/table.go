@@ -552,7 +552,8 @@ func joinScopes(scopes []core.Scope) string {
 	return truncate(strings.Join(out, ", "), 40)
 }
 
-// StarMarker leads the reference of a task the reader has starred.
+// StarMarker leads the reference of a task, or the key of a project, the
+// reader has starred.
 const StarMarker = "* "
 
 func (p Painter) taskRow(t core.Task) table.Row {
@@ -588,8 +589,12 @@ func projectIconCell(p core.Project) string {
 }
 
 func (p Painter) projectRow(project core.Project) table.Row {
+	key := ShowKey(project.Key)
+	if project.Starred {
+		key = StarMarker + key
+	}
 	return table.Row{
-		ShowKey(project.Key), truncate(project.Name, 40), project.WorkflowID,
+		key, truncate(project.Name, 40), project.WorkflowID,
 		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}

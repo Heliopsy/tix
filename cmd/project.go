@@ -75,7 +75,8 @@ func newProjectCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(projectCreateCmd(g), projectLsCmd(g), projectShowCmd(g),
-		projectEditCmd(g), projectIconCmd(g), projectArchiveCmd(g), projectRmCmd(g))
+		projectEditCmd(g), projectIconCmd(g), projectArchiveCmd(g), projectRmCmd(g),
+		projectStarCmd(g, true), projectStarCmd(g, false))
 	return cmd
 }
 
@@ -130,7 +131,7 @@ func projectCreateCmd(g *globals) *cobra.Command {
 }
 
 func projectLsCmd(g *globals) *cobra.Command {
-	var archived bool
+	var archived, starred bool
 	var limit int
 	var cursor string
 	var keys []string
@@ -138,8 +139,10 @@ func projectLsCmd(g *globals) *cobra.Command {
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List projects",
-		Long:    "List projects in the tenant.\n\nExit codes: 5 permission denied.",
-		Example: "  tix project ls\n  tix project ls --include-archived -o json\n  tix project ls --key infra --key web",
+		Long: "List projects in the tenant. A project you starred is marked * in the table and carries " +
+			"starred in structured output; --starred lists only those, in the order their lanes are drawn." +
+			"\n\nExit codes: 5 permission denied.",
+		Example: "  tix project ls\n  tix project ls --starred\n  tix project ls --include-archived -o json\n  tix project ls --key infra --key web",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -149,6 +152,22 @@ func projectLsCmd(g *globals) *cobra.Command {
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
+			}
+			if starred {
+				projects, err := conn.Service.ListStarredProjects(ctx)
+				if err != nil {
+					return err
+				}
+				out := newList[core.Project](g, cmd)
+				for _, p := range projects {
+					if !archived && p.Archived() {
+						continue
+					}
+					if err := out.Write(p); err != nil {
+						return out.fail(err)
+					}
+				}
+				return out.Close()
 			}
 			projects, next, err := conn.Service.ListProjects(ctx, core.ProjectFilter{
 				Keys:            keys,
@@ -171,6 +190,7 @@ func projectLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&archived, "include-archived", false, "include archived projects")
+	cmd.Flags().BoolVar(&starred, "starred", false, "list only the projects you starred")
 	cmd.Flags().StringSliceVar(&keys, "key", nil, "restrict to projects with these keys, repeatable")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
@@ -368,6 +388,62 @@ func projectArchiveCmd(g *globals) *cobra.Command {
 				return err
 			}
 			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
+		},
+		ValidArgsFunction: g.completeProjectKeys,
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	return cmd
+}
+
+func projectStarCmd(g *globals, star bool) *cobra.Command {
+	var dryRun bool
+	use, short, action := "unstar", "Clear your star on projects", "project.unstar"
+	if star {
+		use, short, action = "star", "Star projects so they list first for you", "project.star"
+	}
+	cmd := &cobra.Command{
+		Use:   use + " KEY...",
+		Short: short,
+		Long: short + ". A star is yours alone: it lists the project first on the projects screen and in " +
+			"the sidebar, leads its lane, and changes nothing anybody else sees. Starring a starred " +
+			"project, or unstarring one that is not, succeeds and changes nothing.\n\n" +
+			"Exit codes: 3 unknown project, 5 permission denied.",
+		Example: "  tix project " + use + " infra\n  tix project " + use + " infra web",
+		Args:    minArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			call := conn.Service.UnstarProject
+			if star {
+				call = conn.Service.StarProject
+			}
+			results := make([]outcome, 0, len(args))
+			var failure error
+			for _, key := range args {
+				var err error
+				if dryRun {
+					_, err = conn.Service.GetProject(ctx, key)
+				} else {
+					err = call(ctx, key)
+				}
+				if err != nil {
+					results = append(results, outcome{Ref: key, Status: statusFailed, Code: string(core.KindOf(err)), Error: err.Error()})
+					if failure == nil {
+						failure = err
+					}
+					continue
+				}
+				results = append(results, outcome{Ref: key, Status: statusOK})
+			}
+			if dryRun && failure == nil {
+				return g.render(cmd, newPlan(action, strings.Join(args, ","), nil))
+			}
+			if err := g.render(cmd, results); err != nil {
+				return err
+			}
+			return failure
 		},
 		ValidArgsFunction: g.completeProjectKeys,
 	}

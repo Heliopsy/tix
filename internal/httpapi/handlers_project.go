@@ -19,6 +19,9 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("DELETE "+wire.RouteProject, rt.handleDeleteProject)
 	rt.mux.HandleFunc("GET "+wire.RouteProjectIcon, rt.handleGetProjectIcon)
 	rt.mux.HandleFunc("GET "+wire.RouteProjectDeletion, rt.handlePlanProjectDeletion)
+	rt.mux.HandleFunc("GET "+wire.RouteStarredProjects, rt.handleListStarredProjects)
+	rt.mux.HandleFunc("PUT "+wire.RouteProjectStar, rt.handleStarProject)
+	rt.mux.HandleFunc("DELETE "+wire.RouteProjectStar, rt.handleUnstarProject)
 
 	rt.mux.HandleFunc("GET "+wire.RouteProjectFields, rt.handleListFieldDefs)
 	rt.mux.HandleFunc("PUT "+wire.RouteProjectFields, rt.handlePutFieldDef)
@@ -49,6 +52,34 @@ func (rt *Router) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeList(w, r, projects, next)
+}
+
+// handleListStarredProjects returns the projects the caller starred.
+func (rt *Router) handleListStarredProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := rt.cfg.Service.ListStarredProjects(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, projects, "")
+}
+
+// handleStarProject sets the caller's own star on a project.
+func (rt *Router) handleStarProject(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.StarProject(r.Context(), r.PathValue("ref")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleUnstarProject clears the caller's own star on a project.
+func (rt *Router) handleUnstarProject(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.UnstarProject(r.Context(), r.PathValue("ref")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
 }
 
 // handleCreateProject creates a project.

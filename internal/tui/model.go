@@ -47,9 +47,13 @@ type Model struct {
 	width  int
 	height int
 
-	projects   []core.Project
-	projectSel int
-	projectOff int
+	projects []core.Project
+	// allProjects is the whole listing, and starredOnly narrows projects to
+	// the reader's starred ones.
+	allProjects []core.Project
+	starredOnly bool
+	projectSel  int
+	projectOff  int
 
 	project  core.Project
 	workflow *core.WorkflowDefinition
@@ -617,10 +621,11 @@ func (m Model) onResize(msg tea.WindowSizeMsg) Model {
 
 // onProjects installs a project listing and opens a board when one was asked for.
 func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
-	m.projects = msg.projects
-	if m.projectSel >= len(m.projects) {
-		m.projectSel = max(0, len(m.projects)-1)
+	m.allProjects = msg.projects
+	if m.openProject != "" {
+		m.starredOnly = false
 	}
+	m = m.showProjects()
 	if m.openProject == "" {
 		return m, nil
 	}
@@ -633,6 +638,40 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 	m.err = "project " + m.openProject + " is not accessible"
 	m.openProject = ""
 	return m, nil
+}
+
+// showProjects draws the listing the starred filter asks for, keeping the
+// selection on the project it was on where that project is still listed.
+func (m Model) showProjects() Model {
+	selected := ""
+	if m.projectSel < len(m.projects) {
+		selected = m.projects[m.projectSel].ID
+	}
+	m.projects = StarredProjects(m.allProjects, m.starredOnly)
+	for i, p := range m.projects {
+		if p.ID == selected {
+			m.projectSel = i
+		}
+	}
+	if m.projectSel >= len(m.projects) {
+		m.projectSel = max(0, len(m.projects)-1)
+	}
+	return m
+}
+
+// StarredProjects is the projects view's listing: every project, or only the
+// reader's starred ones.
+func StarredProjects(all []core.Project, starredOnly bool) []core.Project {
+	if !starredOnly {
+		return all
+	}
+	out := make([]core.Project, 0, len(all))
+	for _, p := range all {
+		if p.Starred {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // onBoard installs a project's workflow and first page of tasks.
@@ -754,7 +793,7 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 		delete(m.leases, msg.ref.ID)
 	}
 	m.status, m.err = msg.statusText(), ""
-	if msg.kind == actionNewProject {
+	if msg.kind == actionNewProject || msg.kind == actionStarProject || msg.kind == actionUnstarProject {
 		return m, m.loadProjects()
 	}
 	// A deleted task has no detail view to go back to, so the interface leaves
@@ -1096,6 +1135,13 @@ func (m Model) handleProjectsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.projectSel = max(0, len(m.projects)-1)
 	case key.Matches(msg, m.keys.New):
 		return m.openPrompt(promptNewProject)
+	case key.Matches(msg, m.keys.Star):
+		if m.projectSel < len(m.projects) && m.mayPerform("StarProject") && m.mayPerform("UnstarProject") {
+			return m, m.toggleProjectStar(m.projects[m.projectSel])
+		}
+	case key.Matches(msg, m.keys.Filter):
+		m.starredOnly = !m.starredOnly
+		m = m.showProjects()
 	case key.Matches(msg, m.keys.Enter):
 		if m.projectSel < len(m.projects) {
 			m.err = ""

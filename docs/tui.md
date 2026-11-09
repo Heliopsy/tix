@@ -24,7 +24,7 @@ was the only way to tell where you were.
 | View | Opened by | Shows |
 | --- | --- | --- |
 | start | `~`, and a hosted SSH session that named nothing starts here | one row per interface a session can host: Boards and Watch, Watch with a project picker |
-| projects | `W`, and every local session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in) |
+| projects | `W`, and every local session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in), the ones you starred marked `★` |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
 | project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
@@ -92,6 +92,10 @@ set it with `tix task edit --repeat` or in the browser.
 the same task unstarred and in its usual place, while on your board a starred card leads its column ahead of
 the priority order. It is stored on the server, so the star you set here is the one `tix task ls` and the
 browser show you too, and `is:starred` in the filter narrows the board to them.
+
+On the projects view `★` leads a project you starred, `*` stars or unstars the selected one and `/`
+lists only the starred ones, saying so in the count above the list. A project star is the one the
+browser's projects screen and sidebar draw and `tix project star` sets, yours alone like a task's.
 
 `zz` marks a snoozed task. Snoozed tasks are off the board until they wake, so the marker shows only
 under `is:snoozed` or `snoozed:any`. `b` on a card asks when it should wake (`later`, `tomorrow`,
@@ -178,7 +182,7 @@ an action unbound.
 | `enter` | open, or apply an input; inserts a newline inside a multi-line field; pings an endpoint, redelivers, runs a source or prunes on integrations | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
-| `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin |
+| `/` | filter; shows only your starred projects, and again every project, on projects | board, activity, projects; cycles the window on statistics; asks for an email whose account log to read on global admin |
 | `C` | clear the filter, and on activity the project the start menu picked | board, activity |
 | `space` | pause the tail, holding new events back; again to resume and draw them | activity |
 | `s` | apply one of your saved filters, or one shared with the tenant | board |
@@ -202,7 +206,7 @@ an action unbound.
 | `-` | remove one of the dependencies the task waits on | detail |
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
-| `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
+| `*` | star the task, or unstar a starred one; starred cards lead their column; stars the selected project on projects | board, detail, projects |
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
@@ -1020,7 +1024,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 180
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 183
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat

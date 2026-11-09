@@ -158,6 +158,10 @@ const (
 	RouteProjectArch     = "/projects/{key}/archive"
 	RouteProjectDel      = "/projects/{key}/delete"
 	RouteProjectIcon     = "/projects/{key}/icon"
+	// RouteProjectStar and RouteProjectUnstar set and clear the reader's own
+	// star on a project.
+	RouteProjectStar   = "/projects/{key}/star"
+	RouteProjectUnstar = "/projects/{key}/star/remove"
 	// RouteProjectHousekeeping saves a project's cleanup overrides and
 	// RouteProjectHousekeepingRun applies the rules to that project once.
 	RouteProjectHousekeeping    = "/projects/{key}/housekeeping"

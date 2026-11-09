@@ -4753,6 +4753,68 @@ paths:
         - invite
       x-tix-openspec:
         - http-api
+  /api/v1/me/starred-projects:
+    get:
+      description: |-
+        ListStarredProjects lists the projects the caller starred, in the order their lanes are drawn. A star is the caller's own: nobody else's is ever listed, and a project the caller can no longer read is left out.
+
+        Command line: `tix project ls`.
+      operationId: project.starred
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/Project'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                  page:
+                    type: integer
+                  total:
+                    type:
+                      - "null"
+                      - integer
+                  total_capped:
+                    type: boolean
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/Project'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - project:read
+        - session:
+            - project:read
+      summary: ListStarredProjects lists the projects the caller starred, in the order
+        their lanes are drawn
+      tags:
+        - project
   /api/v1/me/time:
     get:
       description: |-
@@ -5772,6 +5834,120 @@ paths:
         - project
       x-tix-openspec:
         - http-api
+  /api/v1/projects/{ref}/star:
+    delete:
+      description: |-
+        UnstarProject clears the caller's own star on a project. A project that is not starred is left as it is, with nothing written.
+
+        Command line: `tix project unstar`.
+      operationId: project.unstar
+      parameters:
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - project:read
+        - session:
+            - project:read
+      summary: UnstarProject clears the caller's own star on a project
+      tags:
+        - project
+    put:
+      description: |-
+        StarProject stars a project for the caller alone, which lists it first on the projects screen and in the sidebar and leads its lane. Starring a starred project writes nothing.
+
+        Command line: `tix project star`.
+      operationId: project.star
+      parameters:
+        - description: Project key, such as infra, not case sensitive, or the project's
+            ID.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - project:read
+        - session:
+            - project:read
+      summary: StarProject stars a project for the caller alone, which lists it first
+        on the projects screen and in the sidebar and leads its lane
+      tags:
+        - project
   /api/v1/projects/{ref}/tasks/export:
     post:
       description: |-
@@ -14998,6 +15174,11 @@ components:
         name:
           description: Name is the project's display name.
           type: string
+        starred:
+          description: Starred is the reading actor's own star on the project, never
+            anybody else's. Only a read that knows its reader sets it, so it is omitted
+            rather than false wherever nobody asked.
+          type: boolean
         tenant_id:
           description: TenantID is the tenant that owns the project.
           type: string
