@@ -356,6 +356,9 @@ With it set:
   every task `tix mcp` returns, `-o json` output and the terminal interface. It is set on reads, never
   stored, so audit entries, events and exports do not carry it. Unset, no task carries it.
 - `tix task link` runs over SSH and needs no `--base` against a local database configured with the key.
+- `tix user invite` and `tix user invite reissue`, over SSH or against a local database configured with
+  the key, and the terminal interface's people view, print the invite's absolute link and give it as
+  `url` beside `path` in `-o json`, under the tenant's own domain when it has one.
 - The links a page draws from a request (the Share menu, the hand-off dialog, calendar feed addresses,
   invite links, the Connect screen) use it on a host serving several tenants. On a tenant's own domain they
   stay on that domain ([tenancy.md](tenancy.md#switching-tenant)).

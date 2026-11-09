@@ -95,6 +95,7 @@ func (l *Local) CreateInvite(ctx context.Context, in core.CreateInviteInput) (*c
 	if err != nil {
 		return nil, err
 	}
+	l.linkInvite(ctx, out)
 	return out, nil
 }
 
@@ -364,6 +365,7 @@ func (l *Local) ReissueInvite(ctx context.Context, inviteID string, in core.Reis
 	if err != nil {
 		return nil, err
 	}
+	l.linkInvite(ctx, out)
 	return out, nil
 }
 

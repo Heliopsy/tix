@@ -63,8 +63,9 @@ func (i Invite) Pending(now time.Time) bool {
 }
 
 // IssuedInvite carries an invite together with its freshly minted secret. Path
-// is the browser route that accepts it; URL is that route made absolute by a
-// surface that knows the address it was reached at, and is empty otherwise.
+// is the browser route that accepts it; URL is that route made absolute, under
+// server.public_url (or the tenant's own domain) or the address a request
+// arrived at, and is empty when neither is known.
 type IssuedInvite struct {
 	Invite
 	// Token is the secret that accepts the invite, returned only by the call
@@ -72,7 +73,7 @@ type IssuedInvite struct {
 	Token string `json:"token" yaml:"token"`
 	// Path is the browser route the invited person opens: /invite/TOKEN.
 	Path string `json:"path" yaml:"path"`
-	// URL is Path made absolute, empty when the surface does not know its own address.
+	// URL is Path made absolute, empty when no web address is known.
 	URL string `json:"url,omitempty" yaml:"url,omitempty"`
 }
 
