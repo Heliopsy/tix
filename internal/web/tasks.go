@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -170,6 +171,10 @@ type tasksView struct {
 	// Lanes are the same page drawn one lane per project, built only when
 	// that is the view being drawn.
 	Lanes taskLanes
+	// LanesAsked is the grouping the address named, which the filter form
+	// carries like ViewAsked, and LanesForm the Group lanes by control.
+	LanesAsked string
+	LanesForm  lanesControl
 
 	// ListGroup is how the list groups its rows, and ListGroups the groups
 	// it draws, only when the list is drawn grouped.
@@ -341,6 +346,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	h.rememberTaskView(w, r)
+	h.rememberLanesGroup(w, r)
 	title := "Tasks"
 	if data.Trash {
 		title = "Trash"
@@ -528,10 +534,16 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 			return tasksView{}, err
 		}
 	}
+	lanesBy := lanesGroupOf(r, scope)
 	var lanes taskLanes
-	if view == TaskViewLanes {
+	if view == TaskViewLanes && lanesBy == core.LanesByProject {
 		lanes = buildLanes(projects, filter, page.Tasks, laneMoves{Workflows: moves, HasScope: readerHasScope(r)})
 	}
+	var named []string
+	if view == TaskViewLanes && lanesBy == core.LanesByAssignee {
+		named = h.namedAssignees(r, filter)
+	}
+	names := h.resolveActors(r, append(rowActors(page.Tasks), named...)...)
 	self := screenHref(r, route)
 	group := listGroupOf(r)
 	if mine {
@@ -542,18 +554,21 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	switch {
 	case view == TaskViewBoard && board.Agreed:
 		arrange = h.arrangeBoard(r, &board, scope.boardView(), self)
-	case view == TaskViewLanes:
+	case view == TaskViewLanes && lanesBy == core.LanesByProject:
 		arrange = h.arrangeLanes(r, &lanes, projects, self)
+	case view == TaskViewLanes:
+		lanes, arrange = h.groupedLanes(r, h.laneSource(r, lanesBy, route, filter, page.Tasks, moves, named, names), self)
 	case mine && refused == "":
 		listGroups, arrange = h.arrangeMine(r, page.Tasks, self)
 	case view == TaskViewList && group != ListGroupNone && refused == "":
 		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
 	}
+	lanes.By = lanesBy
 	live := h.liveTasks(r, liveProjectIDs(projects, filter))
 	if scope != nil {
 		live.Href = fragmentHref(r, scope.liveRoute())
 	}
-	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam)
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
@@ -586,12 +601,14 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		Accent:        projectAccents(projects),
 		Summary:       summarise(page.Tasks, complete, time.Now()),
 		FilterError:   refused,
-		Names:         h.resolveActors(r, rowActors(page.Tasks)...),
+		Names:         names,
 		Moves:         moves,
 		Prefs:         prefs,
 		View:          view,
 		Board:         board,
 		Lanes:         lanes,
+		LanesAsked:    lanesParam(r, scope),
+		LanesForm:     newLanesControl(r, route, lanesBy, scope),
 		ListGroup:     group,
 		ListGroups:    listGroups,
 		Arrange:       arrange,
@@ -606,6 +623,20 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		Bulk:          bulkBarUnlessTrash(r, page.Tasks, moves, trash),
 		ExportHref:    csvHref(asked),
 	}, nil
+}
+
+// laneSource is what grouping this page into lanes other than projects
+// needs: the reader's time zone for the deadline buckets, their language for
+// the fixed headings, and the people the filter names.
+func (h *handler) laneSource(r *http.Request, by, route string, filter core.TaskFilter, tasks []core.Task,
+	moves map[string]core.WorkflowDefinition, named []string, names actorNames) laneSource {
+	lang, now, zone := langOf(r), time.Now(), h.readerZone(r)
+	return laneSource{
+		By: by, Route: route, Tasks: tasks, Filter: filter, Named: named, Names: names,
+		Moves:  laneMoves{Workflows: moves, HasScope: readerHasScope(r)},
+		Bucket: func(t core.Task) string { return core.DueBucketOf(t.DueAt, now, zone) },
+		Label:  func(text string) string { return i18n.T(lang, text) },
+	}
 }
 
 // inTrash reports whether a request is for the task list showing the trash,
@@ -1036,7 +1067,7 @@ func (v tasksView) Filtering() bool {
 // sort is not a filter, and so does the view the address named.
 func clearHref(r *http.Request, route string) string {
 	query := url.Values{}
-	for _, k := range []string{"sort", ViewParam} {
+	for _, k := range []string{"sort", ViewParam, LanesParam} {
 		if v := r.URL.Query().Get(k); v != "" {
 			query.Set(k, v)
 		}

@@ -939,10 +939,11 @@
       <input type="hidden" name="set" value="hidden">
       <button type="submit" name="value" value="1" class="flowgo">{{template "icon" "circle-slash"}}{{t "Hide"}}</button>
     </form>
-    {{if ne $g.Kind "due"}}
+    {{if eq $g.Kind "project" "status"}}
     <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
     {{end}}
-    {{if eq $g.Kind "due"}}
+    {{if not (eq $g.Kind "project" "status")}}
+    {{with $g.Filter}}<a class="flowgo" href="{{.}}">{{template "icon" "filter"}}{{t "Show only these tasks"}}</a>{{end}}
     {{else if eq $g.Kind "project"}}
     <a class="flowgo" href="/projects/{{$g.Key}}">{{template "icon" "arrow-up-right"}}{{t "Open the project"}}</a>
     <a class="flowgo" href="/tasks?q=project:{{$g.Key}}">{{template "icon" "filter"}}{{t "Show only this project"}}</a>

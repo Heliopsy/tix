@@ -169,6 +169,14 @@
     return out;
   }
 
+  // lanesByForm is the Group lanes by form a change came from, or null for
+  // any other field. Picking a grouping submits it, so Apply is only for a
+  // browser without scripting.
+  tix.lanesByForm = function (target) {
+    if (!target || target.name !== "lanes" || typeof target.closest !== "function") return null;
+    return target.closest("form[data-lanesby]");
+  };
+
   tix.lanesApply();
 
   var doc = global.document;
@@ -179,6 +187,16 @@
     var target = event.target;
     var toggle = target && target.closest ? target.closest("[data-lanes-completed]") : null;
     if (toggle) tix.lanesToggle();
+  });
+
+  doc.addEventListener("change", function (event) {
+    var form = tix.lanesByForm(event.target);
+    if (!form) return;
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    } else {
+      form.submit();
+    }
   });
 
   // A lane menu answers the arrow keys, and the more actions menu takes
