@@ -103,6 +103,8 @@ func redirectPicks(w http.ResponseWriter, r *http.Request, route string) bool {
 	if len(out) > 0 {
 		target += "?" + out.Encode()
 	}
+	// #nosec G710 -- the target is this screen's own route, a constant or a
+	// project key the router already resolved, with an encoded query.
 	http.Redirect(w, r, target, http.StatusSeeOther)
 	return true
 }

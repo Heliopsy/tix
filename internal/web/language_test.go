@@ -66,7 +66,7 @@ func TestABrowserAskingForNothingGetsEnglish(t *testing.T) {
 		if strings.Contains(page, `id="tix-i18n"`) {
 			t.Errorf("%q: an English page carries a script table", lang)
 		}
-		tip := between(t, page, `<details class="field-info tip">`, "</details>")
+		tip := between(t, page, `<nav class="viewswitch viewlinks"`, "</nav>")
 		if !strings.Contains(tip, `aria-label="About Views"`) {
 			t.Errorf("%q: view tip = %s", lang, tip)
 		}

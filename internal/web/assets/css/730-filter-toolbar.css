@@ -159,14 +159,14 @@
   background: var(--surface);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
 }
-.fbsuggest li {
+.fbsuggest [role="option"] {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: pointer;
   overflow-wrap: anywhere;
 }
-.fbsuggest li[aria-selected="true"], .fbsuggest li:hover { background: var(--accent-soft); }
+.fbsuggest [role="option"][aria-selected="true"], .fbsuggest [role="option"]:hover { background: var(--accent-soft); }
 .fbsuggest .fbsuggest-note { color: var(--muted); font-size: var(--text-xs); margin-left: var(--space-2); }
 
 /* A phone: the box takes the first row and the buttons share the second, so
@@ -177,6 +177,10 @@
   .tbar-btn, .tbar .selecttoggle { padding: 0 var(--space-2); }
   .tbar-btn .icon:last-child:not(:first-child) { display: none; }
   .tbar .viewswitch .segment { padding: 0 var(--space-2); font-size: var(--text-xs); }
+  /* An open (i) on the switch spans the row under it rather than widening
+     the switch past the screen. */
+  .tbar .viewswitch { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; }
+  .tbar .viewswitch:has(> .tip[open]) { flex-basis: 100%; }
 }
 
 /* A finger needs more than a 20px cross; the chip grows round it. */

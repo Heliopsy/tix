@@ -113,6 +113,11 @@ details.panel.columns { margin-bottom: 18px; }
   list-style: none;
 }
 .cform-more > summary::-webkit-details-marker { display: none; }
+/* On a phone the list of what is folded inside ran the summary onto a second
+   line in Bulgarian; the fold names them itself once it is open. */
+@media (max-width: 599px) {
+  .cform-more > summary .muted { display: none; }
+}
 .cform-more > summary::before { --mark: var(--mark-chevron-right); color: var(--muted); transition: transform 120ms ease; }
 .cform-more[open] > summary::before { transform: rotate(90deg); }
 .cform-more > summary .muted { font-weight: 400; font-size: var(--text-xs); }
