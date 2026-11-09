@@ -184,6 +184,16 @@ func (t *tx) count(ctx context.Context, b *sqlb.Builder, what string, whatArgs .
 	return n, nil
 }
 
+// countUpTo is count stopped at limit rows; see sqlb.Builder.CappedCountQuery.
+func (t *tx) countUpTo(ctx context.Context, b *sqlb.Builder, limit int, what string, whatArgs ...any) (int, error) {
+	q, args := b.CappedCountQuery(limit)
+	var n int
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&n); err != nil {
+		return 0, mapErr(err, what, whatArgs...)
+	}
+	return n, nil
+}
+
 func rowsAffected(res sql.Result, what string) (int64, error) {
 	n, err := res.RowsAffected()
 	if err != nil {
