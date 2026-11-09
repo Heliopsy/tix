@@ -247,3 +247,24 @@ func TestTheSuggestionsComeFromTheTenant(t *testing.T) {
 		t.Error("a live refresh carries the suggestion data, so it lists the directory for nothing")
 	}
 }
+
+func TestTheSelectToggleIsInTheToolbarAndTheModeSurvivesAFilter(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "one task")
+	page := b.page("/tasks?select=1&q=one")
+	if bar := toolbar(t, page); !strings.Contains(bar, `data-select-toggle`) {
+		t.Error("the Select toggle is not in the toolbar")
+	}
+	form := between(t, page, `<form method="get" action="/tasks" class="filterbar"`, "</form>")
+	if !strings.Contains(form, `<input type="hidden" name="select" value="1">`) {
+		t.Error("the filter form drops select mode")
+	}
+	chips := between(t, page, `<ul class="fbchips"`, "</ul>")
+	for _, m := range regexp.MustCompile(`class="fbchip(?:-x|s-clear)" href="([^"]+)"`).FindAllStringSubmatch(chips, -1) {
+		if !strings.Contains(html.UnescapeString(m[1]), "select=1") {
+			t.Errorf("a chip link drops select mode: %s", m[1])
+		}
+	}
+}

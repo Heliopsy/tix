@@ -38,6 +38,7 @@
   padding: 0 var(--space-3);
 }
 .tbar-btn .icon { flex: 0 0 auto; }
+.tbar .selecttoggle { flex: 0 0 auto; gap: var(--space-1); padding: 0 var(--space-3); }
 .tbar-btn .icon:last-child:not(:first-child) { width: 12px; height: 12px; opacity: 0.7; }
 
 /* A count on Filters and More, so a closed menu still says it is doing
@@ -172,8 +173,8 @@
    Filters, Sort and More drop their words and keep their icons and counts. */
 @media (max-width: 599px) {
   .tbar-q { flex-basis: 100%; }
-  .tbar-btn .tbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .tbar-btn { padding: 0 var(--space-2); }
+  .tbar-btn .tbar-label, .tbar .selecttoggle .tbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tbar-btn, .tbar .selecttoggle { padding: 0 var(--space-2); }
   .tbar-btn .icon:last-child:not(:first-child) { display: none; }
   .tbar .viewswitch .segment { padding: 0 var(--space-2); font-size: var(--text-xs); }
 }

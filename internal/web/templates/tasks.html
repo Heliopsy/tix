@@ -1341,7 +1341,7 @@
      keeps the mode: the toggle sits outside every swapped region. A link
      without scripting; select.js presses it in place. */}}
 {{if and $v.Bulk.Any $v.Tasks}}
-<a class="btn secondary selecttoggle tbar-btn" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press title="{{t "Select"}}">{{template "icon" "checklist"}}<span class="btn-label tbar-label">{{t "Select"}}</span></a>
+<a class="btn secondary selecttoggle" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press title="{{t "Select"}}">{{template "icon" "checklist"}}<span class="btn-label tbar-label">{{t "Select"}}</span></a>
 {{end}}
 
 <div class="colmenu listprefs">
