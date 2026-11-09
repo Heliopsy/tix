@@ -276,7 +276,10 @@ func New(st store.Store, opts ...Option) *Local {
 }
 
 // Close releases the underlying store.
-func (l *Local) Close() error { return l.store.Close() }
+func (l *Local) Close() error {
+	l.gates.pending.Wait()
+	return l.store.Close()
+}
 
 // WhoAmI returns the authenticated actor.
 func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {

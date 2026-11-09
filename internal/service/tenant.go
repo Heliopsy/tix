@@ -618,6 +618,7 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	return out, nil
 }
 
