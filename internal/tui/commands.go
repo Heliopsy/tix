@@ -36,7 +36,11 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, filter, arranges := m.svc, m.ctx, m.taskFilter(p.Key), m.arranges()
+	page := m.paged.number
+	if p.ID != m.project.ID {
+		page = 1
+	}
+	svc, ctx, filter, arranges := m.svc, m.ctx, m.taskFilterAt(p.Key, page), m.arranges()
 	return func() tea.Msg {
 		def, err := workflowOf(ctx, svc, p)
 		if err != nil {
@@ -47,7 +51,7 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 			return errMsg{err: err}
 		}
 		prefs, _ := readArrangement(ctx, svc, p.Key, arranges)
-		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs}
+		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs, paged: pageOf(page)}
 	}
 }
 
@@ -71,25 +75,29 @@ func (m Model) loadTasks() tea.Cmd {
 	if m.svc == nil || m.project.ID == "" {
 		return nil
 	}
-	svc, ctx, filter, key, arranges := m.svc, m.ctx, m.taskFilter(m.project.Key), m.project.Key, m.arranges()
+	svc, ctx, filter, key, arranges := m.svc, m.ctx, m.taskFilterAt(m.project.Key, m.paged.number), m.project.Key, m.arranges()
 	return func() tea.Msg {
 		page, err := svc.ListTasks(ctx, filter)
 		if err != nil {
 			return errMsg{err: err}
 		}
 		prefs, arranged := readArrangement(ctx, svc, key, arranges)
-		return tasksMsg{tasks: page.Tasks, prefs: prefs, arranged: arranged}
+		return tasksMsg{tasks: page.Tasks, prefs: prefs, arranged: arranged, paged: pageOf(page)}
 	}
 }
 
-// taskFilter scopes the active filter to one project.
-func (m Model) taskFilter(key string) core.TaskFilter {
+// taskFilter scopes the active filter to one project, read from its first page.
+func (m Model) taskFilter(key string) core.TaskFilter { return m.taskFilterAt(key, 1) }
+
+// taskFilterAt is taskFilter read from page number page.
+func (m Model) taskFilterAt(key string, page int) core.TaskFilter {
 	f := m.filter
 	if len(f.ProjectKeys) == 0 {
 		f.ProjectKeys = []string{key}
 	}
 	f.Page.Limit = core.MaxPageLimit
 	f.Page.Cursor = ""
+	f.PageNumber = max(page, 1)
 	return f
 }
 

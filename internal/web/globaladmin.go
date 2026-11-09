@@ -62,14 +62,20 @@ func (h *handler) showGlobal(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tenants, next, err := h.svc.ListTenants(r.Context(), core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.Tenant, string, error) {
+		return h.svc.ListTenants(r.Context(), core.Page{Cursor: cursor, Limit: limit})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	tenants, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	actor, _ := core.ActorFrom(r.Context())
-	data := globalView{Admins: admins, Pager: newPager(r, RouteGlobal, next, len(tenants), "tenants", SizeParam),
+	data := globalView{Admins: admins, Pager: newPager(r, RouteGlobal, next, len(tenants), "tenants", SizeParam).counted(pos, size),
 		Credentials: credentialSecrets(readOneTimeCookie(w, r, initialCredentialsCookie, RouteGlobal))}
 	for _, t := range tenants {
 		row := globalTenantRow{Tenant: t, Own: actor != nil && t.ID == actor.TenantID}
@@ -212,9 +218,15 @@ func globalUsersPath(tenant string) string {
 // showGlobalUsers renders the users of the tenant named in the path.
 func (h *handler) showGlobalUsers(w http.ResponseWriter, r *http.Request) error {
 	key := strings.TrimSpace(r.PathValue("key"))
-	users, next, err := h.svc.ListTenantUsers(r.Context(), key, core.UserFilter{Page: core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	}})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.TenantUser, string, error) {
+		return h.svc.ListTenantUsers(r.Context(), key, core.UserFilter{Page: core.Page{Cursor: cursor, Limit: limit}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	users, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
@@ -227,7 +239,7 @@ func (h *handler) showGlobalUsers(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 	data := globalUsersView{Tenant: *tenant, Roles: core.Roles, Domains: domains,
-		Pager: newPager(r, globalUsersPath(tenant.Key), next, len(users), "users", SizeParam)}
+		Pager: newPager(r, globalUsersPath(tenant.Key), next, len(users), "users", SizeParam).counted(pos, size)}
 	for _, u := range users {
 		data.Users = append(data.Users, userRow{User: u.User, Role: u.Role})
 	}

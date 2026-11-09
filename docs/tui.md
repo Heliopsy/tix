@@ -215,6 +215,7 @@ an action unbound.
 | `z` | collapse the selected column to its name and count, or expand it | board |
 | `<`, `>` | move the selected column left, right | board |
 | `=` | show every hidden column again | board |
+| `pgdown`, `pgup` | next, previous page of the project's tasks, when it holds more than one read | board |
 | `space` | mark the selected item read, or unread; tick a scope in the token scope picker | inbox, account |
 | `a` | mark every item read; tick or clear a whole group in the token scope picker | inbox, account |
 | `V` | import and export: tasks, bundles and snapshots, by file path, or the `ssh` commands over SSH | everywhere |
@@ -506,6 +507,17 @@ heading carries `▸` and a starred one `★`, so neither depends on colour.
 
 A reader without the authority to read the arrangement gets the board in workflow order, and the keys are
 neither drawn nor sent.
+
+### Paging a long project
+
+One read of the board is 500 tasks, the most one page of a listing holds. The listing counts every task the
+filter selects, so a project holding more says where you are in the status bar:
+`500 tasks in 5 columns, page 1/3`. A count that stopped at its cap of 10,000 is written as a floor,
+`page 1/20+`. `pgdown` reads the next 500 and `pgup` the previous, by page number, the way `page=N` does in
+the browser; both are offered only where there is a page to go to, and in the palette. A new filter or
+another project starts on page 1, and a live refresh rereads the page you are on. A project that fits one
+read draws no indicator and offers neither key. There is no typed jump: at 500 a page, a project that needs
+one is rare.
 
 ### Rebinding one action
 

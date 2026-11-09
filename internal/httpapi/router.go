@@ -318,11 +318,19 @@ func wantsNDJSON(r *http.Request) bool {
 
 // writeList renders a page of items, streaming as ndjson when negotiated.
 func writeList[T any](w http.ResponseWriter, r *http.Request, items []T, next string) {
+	writePage(w, r, wire.Page[T]{Items: items, NextCursor: next})
+}
+
+// writePage renders a whole page envelope, streaming its items as ndjson when
+// negotiated, which carries no envelope and so no total.
+func writePage[T any](w http.ResponseWriter, r *http.Request, page wire.Page[T]) {
+	items := page.Items
 	if items == nil {
 		items = []T{}
 	}
 	if !wantsNDJSON(r) {
-		WriteJSON(w, http.StatusOK, wire.Page[T]{Items: items, NextCursor: next})
+		page.Items = items
+		WriteJSON(w, http.StatusOK, page)
 		return
 	}
 	w.Header().Set(wire.HeaderContentType, wire.ContentNDJSON)

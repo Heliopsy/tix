@@ -131,6 +131,27 @@ func (p Page) Normalize() (Page, error) {
 type TaskPage struct {
 	Tasks      []Task `json:"tasks" yaml:"tasks"`
 	NextCursor string `json:"next_cursor,omitempty" yaml:"next_cursor,omitempty"`
+	// Total is how many tasks the filter selects, counted up to TaskCountCap.
+	Total int `json:"total" yaml:"total"`
+	// TotalCapped is true when the count stopped at TaskCountCap, so Total is
+	// a floor rather than the whole.
+	TotalCapped bool `json:"total_capped,omitempty" yaml:"total_capped,omitempty"`
+	// Number is the page answered, from one, when the filter asked by
+	// PageNumber; a number past the end is answered with the last page.
+	Number int `json:"page,omitempty" yaml:"page,omitempty"`
+}
+
+// TaskCountCap is where a task listing's count stops. Past it a total is
+// reported as a floor, and a page number cannot reach further than it.
+const TaskCountCap = 10000
+
+// PagesOf is how many pages of size a listing of total rows fills, never
+// fewer than one.
+func PagesOf(total, size int) int {
+	if size < 1 || total <= size {
+		return 1
+	}
+	return (total + size - 1) / size
 }
 
 // TriState expresses an optional boolean filter, distinguishing "not filtered"
@@ -222,6 +243,11 @@ type TaskFilter struct {
 	IncludeSnoozed bool     `json:"include_snoozed,omitempty" yaml:"include_snoozed,omitempty"`
 
 	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
+
+	// PageNumber reads the listing from page N, counting from one, instead of
+	// from Page.Cursor. The service seeks the cursor that page starts at, so
+	// the page is still keyset-addressed. Zero reads from the cursor.
+	PageNumber int `json:"page_number,omitempty" yaml:"page_number,omitempty"`
 }
 
 // ListsDeleted reports whether the filter admits soft-deleted tasks.
@@ -295,6 +321,12 @@ func (f TaskFilter) Validate() (TaskFilter, error) {
 		return f, err
 	}
 	f.Page = page
+	if f.PageNumber < 0 {
+		return f, Invalid("page number must not be negative")
+	}
+	if f.PageNumber > 0 && f.Page.Cursor != "" {
+		return f, Invalid("a page number and a cursor are mutually exclusive")
+	}
 
 	if f.Page.Cursor != "" {
 		c, err := DecodeCursor(f.Page.Cursor)

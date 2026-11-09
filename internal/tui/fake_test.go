@@ -27,6 +27,8 @@ type fakeService struct {
 	reclaimErr    error
 	transitionErr error
 	listErr       error
+	// listed is every filter ListTasks was asked with.
+	listed []core.TaskFilter
 
 	claimed     []core.TaskRef
 	released    []core.TaskRef
@@ -151,13 +153,22 @@ func (f *fakeService) ListWorkflows(context.Context) ([]core.Workflow, error) {
 	return f.workflows, nil
 }
 
-func (f *fakeService) ListTasks(context.Context, core.TaskFilter) (core.TaskPage, error) {
+// ListTasks answers the page a filter's limit and page number name, the
+// whole listing when it names no limit, and counts every task it holds.
+func (f *fakeService) ListTasks(_ context.Context, filter core.TaskFilter) (core.TaskPage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.listed = append(f.listed, filter)
 	if f.listErr != nil {
 		return core.TaskPage{}, f.listErr
 	}
-	return core.TaskPage{Tasks: f.tasks}, nil
+	page := core.TaskPage{Tasks: f.tasks, Total: len(f.tasks)}
+	if size := filter.Page.Limit; size > 0 && len(f.tasks) > size {
+		page.Number = min(max(filter.PageNumber, 1), core.PagesOf(len(f.tasks), size))
+		start := (page.Number - 1) * size
+		page.Tasks = f.tasks[start:min(start+size, len(f.tasks))]
+	}
+	return page, nil
 }
 
 func (f *fakeService) TaskLease(context.Context, core.TaskRef) (*core.LeaseGrant, error) {

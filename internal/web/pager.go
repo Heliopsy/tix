@@ -5,6 +5,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -107,6 +108,23 @@ type pager struct {
 	// this page actually carries, and what they are called.
 	Count int
 	Unit  string
+
+	// Counted is set when the listing was counted, which is what turns the
+	// control from Previous and Next into numbered pages. Total is how many
+	// rows the listing holds, a floor when Capped, and Size how many one page
+	// holds. At is the page a numbered address landed on, after clamping, and
+	// zero for a cursor-addressed page.
+	Counted bool
+	Total   int
+	Capped  bool
+	Size    int
+	At      int
+}
+
+// counted is the pager with the listing's count and the page it landed on.
+func (p pager) counted(pos position, size int) pager {
+	p.Counted, p.Total, p.Capped, p.Size, p.At = true, pos.Total, pos.Capped, size, pos.Number
+	return p
 }
 
 // newPager reads the position out of a request and pairs it with the cursor
@@ -187,7 +205,7 @@ func (p pager) Show() bool { return p.HasPrev() || p.HasNext() }
 
 // HasPrev reports whether there is a page before this one. The first page has
 // no cursor, which is exactly what makes it the first page.
-func (p pager) HasPrev() bool { return p.Cursor != "" }
+func (p pager) HasPrev() bool { return p.Cursor != "" || p.At > 1 }
 
 // HasNext reports whether the listing returned a cursor to carry on from.
 func (p pager) HasNext() bool { return p.Next != "" }
@@ -197,6 +215,9 @@ func (p pager) HasNext() bool { return p.Next != "" }
 // so it is right for any URL this control produced; a link edited by hand to
 // drop either loses the count along with the history it was recording.
 func (p pager) Page() int {
+	if p.At > 0 {
+		return p.At
+	}
 	if p.Cursor == "" {
 		return 1
 	}
@@ -207,6 +228,9 @@ func (p pager) Page() int {
 // that cursor popped off, or the cursorless first page once the trail is
 // empty.
 func (p pager) PrevHref() string {
+	if p.Counted {
+		return p.PageHref(p.Page() - 1)
+	}
 	if len(p.Trail) == 0 {
 		return p.href("", nil, 1)
 	}
@@ -217,6 +241,9 @@ func (p pager) PrevHref() string {
 // NextHref is the following page, with this page's cursor pushed onto the
 // trail so Previous can come back to it.
 func (p pager) NextHref() string {
+	if p.Counted && p.Page() < p.Pages() {
+		return p.PageHref(p.Page() + 1)
+	}
 	trail := p.Trail
 	if p.Cursor != "" {
 		trail = append(append(make([]string, 0, len(p.Trail)+1), p.Trail...), p.Cursor)
@@ -253,4 +280,222 @@ func (p pager) href(cursor string, trail []string, page int) string {
 		return p.Base
 	}
 	return p.Base + "?" + values.Encode()
+}
+
+// Pages is how many pages the counted listing fills, never fewer than the
+// page on screen: a capped count can be passed by walking Next.
+func (p pager) Pages() int {
+	return max(core.PagesOf(p.Total, p.Size), p.Page())
+}
+
+// PagesLabel is the page count as the indicator writes it, a floor with a
+// plus sign when the count was capped.
+func (p pager) PagesLabel() string { return p.floor(p.Pages()) }
+
+// TotalLabel is the row count as the indicator writes it.
+func (p pager) TotalLabel() string { return p.floor(p.Total) }
+
+func (p pager) floor(n int) string {
+	if p.Capped {
+		return strconv.Itoa(n) + "+"
+	}
+	return strconv.Itoa(n)
+}
+
+// HasLast reports whether a Last control leads anywhere: the count is exact
+// and the reader is not already on the last page.
+func (p pager) HasLast() bool { return p.Counted && !p.Capped && p.Page() < p.Pages() }
+
+// FirstHref and LastHref are the two ends of a counted listing.
+func (p pager) FirstHref() string { return p.PageHref(1) }
+
+// LastHref is the last page of a counted listing; see HasLast.
+func (p pager) LastHref() string { return p.PageHref(p.Pages()) }
+
+// PageHref is page n of this listing, addressed by number. Page one is the
+// bare listing, so the address a filter form produces and the one this
+// writes for the first page are the same address.
+func (p pager) PageHref(n int) string {
+	values := p.values()
+	if n > 1 {
+		values.Set(PageParam, strconv.Itoa(n))
+	}
+	if len(values) == 0 {
+		return p.Base
+	}
+	return p.Base + "?" + values.Encode()
+}
+
+func (p pager) values() url.Values {
+	values := url.Values{}
+	for name, vs := range p.Params {
+		for _, v := range vs {
+			values.Add(name, v)
+		}
+	}
+	return values
+}
+
+// pageLink is one entry of the numbered run: a page, or the gap between two.
+type pageLink struct {
+	Number  int
+	Href    string
+	Current bool
+	Gap     bool
+}
+
+// pageWindow is how many pages either side of the current one are linked.
+const pageWindow = 1
+
+// Links is the numbered run: the first page, the pages beside this one, the
+// last page when the count is exact, and a gap for each stretch left out. A
+// gap of one page is drawn as that page, since an ellipsis standing for one
+// number takes the same room and says less.
+func (p pager) Links() []pageLink {
+	if !p.Counted {
+		return nil
+	}
+	current, last := p.Page(), p.Pages()
+	shown := []int{1}
+	for n := current - pageWindow; n <= current+pageWindow; n++ {
+		if n > 1 && n <= last {
+			shown = append(shown, n)
+		}
+	}
+	if !p.Capped && last > shown[len(shown)-1] {
+		shown = append(shown, last)
+	}
+	out := make([]pageLink, 0, len(shown)+2)
+	prev := 0
+	for _, n := range shown {
+		switch {
+		case n == prev+2:
+			out = append(out, pageLink{Number: prev + 1, Href: p.PageHref(prev + 1)})
+		case n > prev+2:
+			out = append(out, pageLink{Gap: true})
+		}
+		out = append(out, pageLink{Number: n, Href: p.PageHref(n), Current: n == current})
+		prev = n
+	}
+	return out
+}
+
+// JumpFields are the listing's own parameters, for the go-to form to carry
+// beside the page number it asks for, in a stable order.
+func (p pager) JumpFields() []hiddenField {
+	names := make([]string, 0, len(p.Params))
+	for name := range p.Params {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := []hiddenField{}
+	for _, name := range names {
+		for _, v := range p.Params[name] {
+			out = append(out, hiddenField{name, v})
+		}
+	}
+	return out
+}
+
+// walkCountCap bounds how far a listing with no count of its own is walked
+// to count it. Past it the page count is written as a floor.
+const walkCountCap = 1000
+
+// walkStretch is how many rows one step of that walk reads, the most the
+// contract hands back in one page.
+const walkStretch = core.MaxPageLimit
+
+// walkFunc reads limit rows of one listing from cursor, answering how many it
+// held and the cursor after them, empty at the end.
+type walkFunc func(cursor string, limit int) (rows int, next string, err error)
+
+// walkOf adapts a listing's own read to the walk locate takes.
+func walkOf[T any](read func(cursor string, limit int) ([]T, string, error)) walkFunc {
+	return func(cursor string, limit int) (int, string, error) {
+		rows, next, err := read(cursor, limit)
+		return len(rows), next, err
+	}
+}
+
+// position is where a request lands in a listing: the cursor its page starts
+// at, the page number when it was addressed by one, and the listing's count.
+type position struct {
+	Cursor string
+	Number int
+	Total  int
+	Capped bool
+}
+
+// requestedPage is the page number a request addresses, zero when it carries
+// a cursor, which wins: a cursor link names an exact place in the walk.
+func requestedPage(r *http.Request) int {
+	query := r.URL.Query()
+	if query.Get(CursorParam) != "" {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(query.Get(PageParam)))
+	if err != nil || n < 1 {
+		return 1
+	}
+	return min(n, maxPage)
+}
+
+// locate counts a listing by walking it and finds where the request's page
+// starts, for a listing whose service call returns no count of its own.
+//
+// The walk reads the listing's own keyset query in stretches of walkStretch,
+// so it neither skips nor repeats under the same ordering, and stops at
+// walkCountCap; a page beyond the cap is reached by Next, not by number.
+func locate(r *http.Request, size int, walk walkFunc) (position, error) {
+	number := requestedPage(r)
+	pos := position{Cursor: r.URL.Query().Get(CursorParam), Number: number}
+	skip := (number - 1) * size
+	var cursor string
+	walked, seekFound := 0, number <= 1
+	for walked < walkCountCap {
+		limit := walkStretch
+		if !seekFound {
+			limit = min(limit, skip-walked)
+		}
+		limit = min(limit, walkCountCap-walked)
+		rows, next, err := walk(cursor, limit)
+		if err != nil {
+			return position{}, err
+		}
+		walked += rows
+		cursor = next
+		if !seekFound && walked == skip && next != "" {
+			pos.Cursor, seekFound = next, true
+		}
+		if next == "" || rows == 0 {
+			break
+		}
+	}
+	pos.Total, pos.Capped = min(walked, walkCountCap), walked >= walkCountCap && cursor != ""
+	if number > 0 && !seekFound {
+		last := core.PagesOf(pos.Total, size)
+		pos.Number = last
+		pos.Cursor = ""
+		if last > 1 {
+			return seekTo(pos, (last-1)*size, walk)
+		}
+	}
+	return pos, nil
+}
+
+// seekTo finds the cursor after skip rows by walking from the start.
+func seekTo(pos position, skip int, walk walkFunc) (position, error) {
+	var cursor string
+	for walked := 0; walked < skip; {
+		rows, next, err := walk(cursor, min(walkStretch, skip-walked))
+		if err != nil {
+			return position{}, err
+		}
+		walked, cursor = walked+rows, next
+		if next == "" || rows == 0 {
+			break
+		}
+	}
+	pos.Cursor = cursor
+	return pos, nil
 }

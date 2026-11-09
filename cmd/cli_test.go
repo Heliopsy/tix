@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -1023,4 +1024,44 @@ func (c *cli) assertAnUnknownFilterReferenceIsNotAnEmptyList() {
 	} {
 		c.mustRun(args...)
 	}
+}
+
+// A project whose counter reads below its highest task number is what an
+// import left behind before it raised the counter. Doctor names it.
+func TestDoctorWarnsAboutAProjectCounterBehindItsTasks(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("task", "add", "numbered")
+	if got := doctorCheck(t, c, "task-numbering"); got.Status != checkOK {
+		t.Fatalf("task-numbering on a sound store = %+v, want ok", got)
+	}
+	db, err := sql.Open("sqlite", c.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE projects SET seq_counter = 0`); err != nil {
+		t.Fatalf("winding the counter back: %v", err)
+	}
+	_ = db.Close()
+
+	got := doctorCheck(t, c, "task-numbering")
+	if got.Status != checkWarn || !strings.Contains(got.Detail, "counter 0, highest task 1") {
+		t.Fatalf("task-numbering = %+v, want a warning naming counter 0 and highest task 1", got)
+	}
+}
+
+// doctorCheck runs doctor and returns the one check of that name.
+func doctorCheck(t *testing.T, c *cli, name string) check {
+	t.Helper()
+	got := c.mustRun("doctor", "-o", "json")
+	var checks []check
+	if err := json.Unmarshal([]byte(got.out), &checks); err != nil {
+		t.Fatalf("doctor output: %v\n%s", err, got.out)
+	}
+	for _, ch := range checks {
+		if ch.Name == name {
+			return ch
+		}
+	}
+	t.Fatalf("doctor reported no %s check: %s", name, got.out)
+	return check{}
 }

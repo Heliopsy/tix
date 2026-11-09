@@ -24,11 +24,15 @@ func (c *Client) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, err
 
 // ListTasks returns one page of tasks.
 func (c *Client) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
-	items, next, err := list[core.Task](ctx, c, wire.RouteTasks, taskFilterQuery(f))
+	page, err := call[wire.Page[core.Task]](ctx, c, http.MethodGet, wire.RouteTasks, taskFilterQuery(f), nil)
 	if err != nil {
 		return core.TaskPage{}, err
 	}
-	return core.TaskPage{Tasks: items, NextCursor: next}, nil
+	out := core.TaskPage{Tasks: page.Items, NextCursor: page.NextCursor, TotalCapped: page.TotalCapped, Number: page.Page}
+	if page.Total != nil {
+		out.Total = *page.Total
+	}
+	return out, nil
 }
 
 // UpdateTask changes a task.
@@ -207,6 +211,9 @@ func taskPath(pattern string, ref core.TaskRef) string {
 
 func taskFilterQuery(f core.TaskFilter) url.Values {
 	q := pageQuery(f.Page)
+	if f.PageNumber > 0 {
+		q.Set("page", strconv.Itoa(f.PageNumber))
+	}
 	setStrings(q, "project_id", f.ProjectIDs)
 	setStrings(q, "project", f.ProjectKeys)
 	setStrings(q, "status", f.Statuses)

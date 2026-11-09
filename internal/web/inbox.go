@@ -42,8 +42,15 @@ type inboxRow struct {
 // showInbox renders one page of the reader's inbox, newest first.
 func (h *handler) showInbox(w http.ResponseWriter, r *http.Request) error {
 	unread := r.URL.Query().Get("show") == "unread"
-	items, next, err := h.svc.ListInbox(r.Context(), core.InboxFilter{Unread: unread,
-		Page: core.Page{Limit: h.rowsPerPage(r), Cursor: r.URL.Query().Get(CursorParam)}})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.InboxItem, string, error) {
+		return h.svc.ListInbox(r.Context(), core.InboxFilter{Unread: unread, Page: core.Page{Limit: limit, Cursor: cursor}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	items, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
@@ -59,7 +66,7 @@ func (h *handler) showInbox(w http.ResponseWriter, r *http.Request) error {
 			Filter:  liveFilter(nil, []core.EventType{core.EventInboxUpdated}),
 			Regions: "inbox-bar inbox-list", Window: liveListWindow},
 		Items: rows, Unread: unread, Count: h.unreadCount(r), Here: here(r),
-		Pager: newPager(r, RouteInbox, next, len(rows), "items", "show"),
+		Pager: newPager(r, RouteInbox, next, len(rows), "items", "show").counted(pos, size),
 	})
 }
 
