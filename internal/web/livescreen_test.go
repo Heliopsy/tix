@@ -113,11 +113,11 @@ func TestTheTaskListFragmentKeepsThePageTheReaderIsOn(t *testing.T) {
 	first := b.page("/tasks?limit=1")
 	next := strings.ReplaceAll(between(t, first, `class="pager-step pager-next" href="`, `"`), "&amp;", "&")
 	if next == "" {
-		t.Fatal("the list does not page, so there is no cursor to preserve")
+		t.Fatal("the list does not page, so there is no position to preserve")
 	}
 	second := b.page(next)
 	href := liveAttr(t, second, "data-live")
-	if !strings.Contains(href, "cursor=") || !strings.Contains(href, "limit=1") {
+	if !strings.Contains(href, "page=2") || !strings.Contains(href, "limit=1") {
 		t.Fatalf("a refresh from page two would jump back to page one: %q", href)
 	}
 	if !sameRows(b.page(href), second) {

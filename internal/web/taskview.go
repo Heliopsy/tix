@@ -141,8 +141,10 @@ type viewLink struct {
 // its trail address a position in one drawing's walk, and the list narrows to
 // open work where the board does not; the flash and an open dialog belong to
 // the page they were drawn on. Everything else stays, including a filter the
-// target view does not use, so switching back restores it.
-var viewDropped = []string{CursorParam, TrailParam, PageParam, "flash", "flashref", FlashUndoParam, DialogParam}
+// target view does not use, so switching back restores it, and the page
+// number: the reader stays on the page they chose, clamped to the last page
+// of the view they switch to.
+var viewDropped = []string{CursorParam, TrailParam, "flash", "flashref", FlashUndoParam, DialogParam}
 
 // viewLinks is the view switch: one link per drawing to route, each carrying
 // the request's query with its own view.

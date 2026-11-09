@@ -74,11 +74,16 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 // buildProjectsView answers the project list, for the page and for a refused
 // create drawn over it.
 func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
-	filter := core.ProjectFilter{
-		IncludeArchived: true,
-		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)},
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.Project, string, error) {
+		return h.svc.ListProjects(r.Context(), core.ProjectFilter{
+			IncludeArchived: true, Page: core.Page{Cursor: cursor, Limit: limit}})
 	}
-	projects, next, err := h.svc.ListProjects(r.Context(), filter)
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return projectsView{}, err
+	}
+	projects, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return projectsView{}, err
 	}
@@ -103,7 +108,7 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	return projectsView{Projects: projects, Workflows: workflows,
 		Colors: core.ProjectColors(), Taken: taken, Pinned: pinned,
 		Picker: newIconPicker(core.Project{}),
-		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)}, nil
+		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam).counted(pos, size)}, nil
 }
 
 // projectScanPages bounds how many pages allProjects will walk. At

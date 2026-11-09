@@ -479,6 +479,8 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 			filter.Page.Sort = core.SortDueAt
 		}
 		filter.Page.Cursor, filter.Page.Limit = "", myWorkLimit
+	} else {
+		filter.PageNumber = requestedPage(asked)
 	}
 	expression := foldControls(query.Get("q"), due, projectPick(query))
 	projects, whole, err := h.allProjects(r, false)
@@ -568,7 +570,8 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	if scope != nil {
 		live.Href = fragmentHref(r, scope.liveRoute())
 	}
-	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam)
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam).
+		counted(position{Number: page.Number, Total: page.Total, Capped: page.TotalCapped}, filter.Page.Limit)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}

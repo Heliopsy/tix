@@ -462,15 +462,21 @@ type syncRunsView struct {
 // stands now, and it is the only thing that reports a run that failed --
 // see the note the template carries, and syncRun's own comment, for why.
 func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
-	cursor := r.URL.Query().Get(CursorParam)
-	entries, next, err := h.svc.ListAudit(r.Context(), core.AuditFilter{
-		SubjectType: syncSubjectType,
-		Actions:     []string{auditSyncRunAction},
-		Page: core.Page{
-			Cursor: cursor, Sort: "seq",
-			Direction: core.Descending, Limit: syncRunsPageSize,
-		},
-	})
+	read := func(cursor string, limit int) ([]core.AuditEntry, string, error) {
+		return h.svc.ListAudit(r.Context(), core.AuditFilter{
+			SubjectType: syncSubjectType,
+			Actions:     []string{auditSyncRunAction},
+			Page: core.Page{
+				Cursor: cursor, Sort: "seq",
+				Direction: core.Descending, Limit: limit,
+			},
+		})
+	}
+	pos, err := locate(r, syncRunsPageSize, walkOf(read))
+	if err != nil {
+		return err
+	}
+	entries, next, err := read(pos.Cursor, syncRunsPageSize)
 	if err != nil {
 		return err
 	}
@@ -481,7 +487,7 @@ func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
 
 	data := syncRunsView{
 		Runs: make([]syncRun, 0, len(entries)), Sources: sources.Sources,
-		Pager: newPager(r, RouteSyncRuns, next, len(entries), "runs"),
+		Pager: newPager(r, RouteSyncRuns, next, len(entries), "runs").counted(pos, syncRunsPageSize),
 	}
 	actors := make([]string, 0, len(entries))
 	for _, entry := range entries {
