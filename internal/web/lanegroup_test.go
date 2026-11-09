@@ -237,7 +237,7 @@ func TestTheLanesGroupingStaysInTheAddress(t *testing.T) {
 				t.Errorf("%s: the view switch link %s drops the grouping", route, m[1])
 			}
 		}
-		filter := regexp.MustCompile(`(?s)class="filterbar">(.*?)</form>`).FindString(page)
+		filter := regexp.MustCompile(`(?s)class="filterbar"[^>]*>(.*?)</form>`).FindString(page)
 		if !strings.Contains(filter, `<input type="hidden" name="lanes" value="priority">`) {
 			t.Errorf("%s: the filter form does not carry the grouping:\n%s", route, filter)
 		}

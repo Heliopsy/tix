@@ -731,6 +731,167 @@
     return { value: head + rest, caret: head.length };
   };
 
+  // The filter box's suggestions. filterTokenAt finds the word the caret is
+  // in: its span, a leading minus, and the key it names ("" for a bare word,
+  // "@" for an @handle), with the part typed after the key. A word inside an
+  // open quote is free text and gets nothing.
+  var filterAliases = { p: "project", s: "status", a: "assignee", prio: "priority" };
+  tix.filterTokenAt = function (text, caret) {
+    var value = String(text || "");
+    var at = typeof caret === "number" ? caret : value.length;
+    if ((value.slice(0, at).match(/"/g) || []).length % 2 === 1) {
+      return null;
+    }
+    var start = value.lastIndexOf(" ", at - 1) + 1;
+    var end = value.indexOf(" ", at);
+    if (end < 0) {
+      end = value.length;
+    }
+    var word = value.slice(start, end);
+    var neg = word.charAt(0) === "-";
+    if (neg) {
+      word = word.slice(1);
+    }
+    if (word.charAt(0) === "@") {
+      return { start: start, end: end, neg: neg, key: "@", typed: word.slice(1) };
+    }
+    var colon = word.indexOf(":");
+    if (colon < 0) {
+      return { start: start, end: end, neg: neg, key: "", typed: word };
+    }
+    var key = word.slice(0, colon).toLowerCase();
+    return { start: start, end: end, neg: neg, key: filterAliases[key] || key, typed: word.slice(colon + 1) };
+  };
+
+  function rank(values, typed, show) {
+    var q = String(typed || "").toLowerCase();
+    var starts = [];
+    var inside = [];
+    for (var i = 0; i < values.length; i++) {
+      var v = values[i];
+      var hay = (v.match || v.value).toLowerCase();
+      var at = hay.indexOf(q);
+      if (at === 0 || (q && hay.indexOf(" " + q) > 0)) {
+        starts.push(show(v));
+      } else if (q && at > 0) {
+        inside.push(show(v));
+      }
+    }
+    return starts.concat(inside);
+  }
+
+  // filterSuggest lists what a token completes to, from the data the page
+  // carries: each a label and the text that replaces the word. A word that is
+  // already exactly its only suggestion gets nothing, so Enter applies it.
+  tix.filterSuggest = function (data, tok, limit) {
+    if (!data || !tok) {
+      return [];
+    }
+    var list = function (name) {
+      return (data[name] || []).map(function (v) { return { value: String(v) }; });
+    };
+    var out;
+    var keyed = function (key) {
+      return function (v) { return { label: key + ":" + v.value, insert: key + ":" + quoted(v.value), note: v.note || "" }; };
+    };
+    if (tok.key === "") {
+      if (!tok.typed) {
+        return [];
+      }
+      out = rank(list("keys"), tok.typed, function (v) { return { label: v.value + ":", insert: v.value + ":", note: "" }; });
+    } else if (tok.key === "@") {
+      out = rank(list("person"), tok.typed, function (v) { return { label: "@" + v.value, insert: "@" + v.value, note: "" }; });
+    } else if (tok.key === "project") {
+      var projects = (data.project || []).map(function (p) {
+        return { value: p.k, note: p.n, match: p.k + " " + p.n };
+      });
+      out = rank(projects, tok.typed, keyed("project"));
+    } else if (tok.key === "assignee" || tok.key === "creator" || tok.key === "claimed-by") {
+      out = rank(list("person").concat([{ value: "me" }]), tok.typed, keyed(tok.key));
+    } else if (data[tok.key]) {
+      out = rank(list(tok.key), tok.typed, keyed(tok.key));
+    } else {
+      return [];
+    }
+    out = out.slice(0, limit || 8);
+    var word = (tok.key === "" ? "" : tok.key === "@" ? "@" : tok.key + ":") + tok.typed;
+    if (out.length === 1 && out[0].insert.toLowerCase() === word.toLowerCase()) {
+      return [];
+    }
+    return out;
+  };
+
+  function quoted(v) {
+    return /[\s"]/.test(v) ? '"' + v.replace(/"/g, "") + '"' : v;
+  }
+
+  // filterInsert is the box once a suggestion is taken: the word replaced,
+  // its minus kept, a space after a whole term but not after a bare key, and
+  // the caret at the end of what was inserted.
+  tix.filterInsert = function (text, tok, insert) {
+    var value = String(text || "");
+    var term = (tok.neg ? "-" : "") + insert;
+    var tail = value.slice(tok.end).replace(/^\s/, "");
+    var gap = /:$/.test(insert) ? "" : " ";
+    var head = value.slice(0, tok.start) + term + gap;
+    return { value: head + tail, caret: head.length };
+  };
+
+  // filterKey decides what a key press in the box does while suggestions are
+  // listed: move, take, close or nothing. Enter takes only an option an arrow
+  // reached, so Enter on its own still applies the filter.
+  tix.filterKey = function (key, open, count, index) {
+    if (!open || !count) {
+      return key === "ArrowDown" && count ? { act: "move", index: 0 } : { act: "none" };
+    }
+    switch (key) {
+    case "ArrowDown":
+      return { act: "move", index: index < 0 ? 0 : (index + 1) % count };
+    case "ArrowUp":
+      return { act: "move", index: index <= 0 ? count - 1 : index - 1 };
+    case "Enter":
+      return index >= 0 ? { act: "take", index: index } : { act: "none" };
+    case "Tab":
+      return { act: "take", index: index >= 0 ? index : 0 };
+    case "Escape":
+      return { act: "close" };
+    }
+    return { act: "none" };
+  };
+
+  // filterParams is what the box's in-place filter asks for: the form's
+  // fields less the empty ones and the pickers nobody touched, whose
+  // pick_KEY still equals the was_KEY it was drawn with. A changed picker
+  // keeps both, which the server folds into the expression.
+  tix.filterParams = function (pairs) {
+    var was = {};
+    var pick = {};
+    for (var i = 0; i < pairs.length; i++) {
+      var name = pairs[i][0];
+      if (name.indexOf("was_") === 0) {
+        was[name.slice(4)] = pairs[i][1];
+      } else if (name.indexOf("pick_") === 0) {
+        pick[name.slice(5)] = pairs[i][1];
+      }
+    }
+    var out = [];
+    for (var j = 0; j < pairs.length; j++) {
+      var n = pairs[j][0];
+      var v = pairs[j][1];
+      var key = n.indexOf("pick_") === 0 ? n.slice(5) : n.indexOf("was_") === 0 ? n.slice(4) : null;
+      if (key !== null && (pick[key] === undefined ? true : pick[key] === (was[key] === undefined ? "" : was[key]))) {
+        continue;
+      }
+      if (String(v).trim() === "") {
+        if (key === null) {
+          continue;
+        }
+      }
+      out.push([n, v]);
+    }
+    return out;
+  };
+
   // freshIDs lists the identifiers in after that were not in before, in the
   // order after holds them: the rows a redraw brought.
   tix.freshIDs = function (before, after) {

@@ -296,7 +296,7 @@ func csvColumns(prefs columnPrefs) []output.TaskColumn {
 // since the export walks every page.
 func csvHref(r *http.Request) string {
 	query := url.Values{}
-	for _, key := range []string{"q", DueParam, ProjectParam, "sort", AllParam} {
+	for _, key := range []string{"q", DueParam, ProjectParam, "sort", OrderParam, AllParam} {
 		if v := r.URL.Query().Get(key); v != "" {
 			query.Set(key, v)
 		}
