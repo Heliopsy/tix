@@ -153,6 +153,10 @@ type User struct {
 	// RequirePasswordChange reports whether the next password sign-in must
 	// choose a new password before a session is minted.
 	RequirePasswordChange bool `json:"require_password_change" yaml:"require_password_change"`
+	// Removed reports that the person was removed from this tenant: their
+	// actor stays so history still names them, but they hold no membership.
+	// A listing returns such a person only when asked to include them.
+	Removed bool `json:"removed,omitempty" yaml:"removed,omitempty"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.
@@ -639,6 +643,12 @@ type Task struct {
 	// from the body, so it is absent from audit snapshots and exports, and nil
 	// when the description has no items.
 	Checklist *Checklist `json:"checklist,omitempty" yaml:"checklist,omitempty"`
+
+	// WebURL is the address of the task's screen in the browser interface,
+	// set when the server is configured with the address it is reached at
+	// (server.public_url). Only a read sets it, so it is absent from audit
+	// snapshots, events and exports.
+	WebURL string `json:"web_url,omitempty" yaml:"web_url,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.
@@ -1200,6 +1210,9 @@ type TrashStatus struct {
 // ErrTrashOff is the detail key a refusal carries when the tenant's trash is
 // turned off, so a client can tell it from any other failed precondition.
 const ErrTrashOff = "trash_off"
+
+// ErrNotTrashed is the detail reason a purge of a live task carries.
+const ErrNotTrashed = "not_trashed"
 
 // TrashIsOff is the refusal for asking a tenant with no trash for its trash.
 func TrashIsOff(what string) *Error {

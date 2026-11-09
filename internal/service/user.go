@@ -247,19 +247,67 @@ func (l *Local) GetUser(ctx context.Context, id string) (*core.User, error) {
 			return err
 		}
 		out = asMember(u, a)
-		return nil
+		out.Removed, err = removedMember(ctx, tx, a.ID)
+		return err
 	}); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ListUsers returns the users of this tenant, keyset paginated.
-func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, string, error) {
+// removedMember reports whether an actor of this tenant has lost its
+// membership: a person removed from the tenant, kept for history.
+func removedMember(ctx context.Context, tx store.Tx, actorID string) (bool, error) {
+	_, err := tx.GetMember(ctx, actorID)
+	switch {
+	case core.IsKind(err, core.KindNotFound):
+		return true, nil
+	case err != nil:
+		return false, err
+	}
+	return false, nil
+}
+
+// listedUser is a user as this tenant's listing shows it, and whether the
+// listing keeps it. A user with no actor here belongs to another tenant; one
+// whose membership here is gone was removed and is kept only on request; one
+// invited here and not yet accepted is an invite, listed with the invites.
+func listedUser(ctx context.Context, tx store.Tx, u core.User, includeRemoved bool) (core.User, bool, error) {
+	a, err := tx.GetActorByUser(ctx, u.ID)
+	switch {
+	case core.IsKind(err, core.KindNotFound):
+		return core.User{}, false, nil
+	case err != nil:
+		return core.User{}, false, err
+	}
+	removed, err := removedMember(ctx, tx, a.ID)
+	if err != nil || (removed && !includeRemoved) {
+		return core.User{}, false, err
+	}
+	if removed {
+		switch _, err := tx.PendingInviteFor(ctx, a.ID); {
+		case err == nil:
+			return core.User{}, false, nil
+		case !core.IsKind(err, core.KindNotFound):
+			return core.User{}, false, err
+		}
+	}
+	if u.TOTPEnrolled, err = totpEnrolled(ctx, tx, u.ID); err != nil {
+		return core.User{}, false, err
+	}
+	row := *asMember(&u, a)
+	row.Removed = removed
+	return row, true, nil
+}
+
+// ListUsers returns the users of this tenant, keyset paginated. People
+// removed from the tenant are left out unless the filter asks for them.
+func (l *Local) ListUsers(ctx context.Context, f core.UserFilter) ([]core.User, string, error) {
 	actor, err := l.authorize(ctx, authz.ActionUserAdmin, authz.Resource{})
 	if err != nil {
 		return nil, "", err
 	}
+	page := f.Page
 	if page.Sort == "" {
 		page.Sort = core.SortCreatedAt
 	}
@@ -285,20 +333,17 @@ func (l *Local) ListUsers(ctx context.Context, page core.Page) ([]core.User, str
 				return err
 			}
 			for _, u := range found {
-				switch a, err := tx.GetActorByUser(ctx, u.ID); {
-				case err == nil:
-					enrolled, err := totpEnrolled(ctx, tx, u.ID)
-					if err != nil {
-						return err
-					}
-					u.TOTPEnrolled = enrolled
-					last = u
-					out = append(out, *asMember(&u, a))
-					if len(out) == page.Limit {
-						return nil
-					}
-				case !core.IsKind(err, core.KindNotFound):
+				row, kept, err := listedUser(ctx, tx, u, f.IncludeRemoved)
+				if err != nil {
 					return err
+				}
+				if !kept {
+					continue
+				}
+				last = u
+				out = append(out, row)
+				if len(out) == page.Limit {
+					return nil
 				}
 			}
 			if len(found) < scan.Limit {

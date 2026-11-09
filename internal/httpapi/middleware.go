@@ -515,6 +515,7 @@ func IsPublicPath(path string) bool {
 const (
 	ctxKeyClientIP ctxKey = iota + 1
 	ctxKeyScheme
+	ctxKeyPublicURL
 	ctxKeyRevalidate
 )
 
@@ -555,6 +556,7 @@ func (rt *Router) withForwarded(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), ctxKeyClientIP, rt.proxies.ClientIP(r))
 		ctx = context.WithValue(ctx, ctxKeyScheme, rt.proxies.Scheme(r))
+		ctx = WithPublicURL(ctx, rt.publicURL)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r.WithContext(core.WithVia(ctx, baseVia(r))))
 	})

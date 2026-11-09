@@ -208,6 +208,29 @@ func TestWhoAmIReportsTheLocalDatabase(t *testing.T) {
 	}
 }
 
+// TestWhoAmIPrintsTheTenantTheme pins the theme line and the theme in JSON,
+// read from the one line rather than the whole report.
+func TestWhoAmIPrintsTheTenantTheme(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("tenant", "edit", "default", "--theme", "ocean")
+	var line string
+	for _, l := range strings.Split(c.mustRun("whoami").out, "\n") {
+		if strings.HasPrefix(l, "theme ") {
+			line = strings.TrimSpace(strings.TrimPrefix(l, "theme"))
+		}
+	}
+	if line != "ocean (#0b7285, dark #67e8f9)" {
+		t.Errorf("theme line = %q, want ocean with both accents", line)
+	}
+	var report identity
+	if err := json.Unmarshal([]byte(c.mustRun("whoami", "-o", "json").out), &report); err != nil {
+		t.Fatalf("whoami -o json: %v", err)
+	}
+	if report.Theme == nil || report.Theme.Name != "ocean" || report.Theme.AccentSoftDark != "#0e3440" {
+		t.Fatalf("whoami -o json theme = %+v", report.Theme)
+	}
+}
+
 // authRecorder sits in front of a real tix serve and keeps the Authorization
 // header of every request that passes through it.
 type authRecorder struct {

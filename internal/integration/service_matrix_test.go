@@ -1136,6 +1136,31 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "purge a task from the trash",
+		covers: []string{"CreateProject", "CreateTask", "DeleteTask", "PurgeTask", "RestoreTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			mustf(t, tg, tg.svc.DeleteTask(tg.ctx, core.TaskRef{ID: task.ID}, core.DeleteTaskInput{}), "deleting the task")
+			if err := tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID}); err != nil {
+				return nil, err
+			}
+			_, err = tg.svc.RestoreTask(tg.ctx, core.TaskRef{ID: task.ID})
+			return sig{"restorable": err == nil, "kind": string(core.KindOf(err))}, nil
+		},
+	},
+	{
+		name:   "purging a task that is not in the trash",
+		covers: []string{"CreateProject", "CreateTask", "PurgeTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			return nil, tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID})
+		},
+	},
+	{
 		name:   "the trash is on until a tenant admin turns it off",
 		covers: []string{"TrashStatus"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1539,7 +1564,7 @@ var serviceScenarios = []svcScenario{
 			}
 			got, err := tg.svc.GetUser(tg.ctx, created.ID)
 			mustf(t, tg, err, "reading the user back")
-			users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: 50})
+			users, _, err := tg.svc.ListUsers(tg.ctx, core.UserFilter{Page: core.Page{Limit: 50}})
 			mustf(t, tg, err, "listing users")
 			return sig{"email": got.Email, "display_name": got.DisplayName, "count": len(users)}, nil
 		},
@@ -2358,7 +2383,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2392,14 +2417,14 @@ var serviceScenarios = []svcScenario{
 			if _, err := tg.svc.UpdateTenantUser(tg.ctx, key, u.ID, core.UpdateUserInput{Role: &role}); err != nil {
 				return nil, err
 			}
-			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
 			if err := tg.svc.DeleteTenantUser(tg.ctx, key, u.ID); err != nil {
 				return nil, err
 			}
-			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2423,7 +2448,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}

@@ -603,10 +603,10 @@ type HousekeepingTx interface {
 	ExpiredTrash(ctx context.Context, projectID string, before time.Time, limit int) ([]core.Task, error)
 	CountExpiredTrash(ctx context.Context, projectID string, before time.Time) (int, error)
 	// TrashedChildren returns a task's children soft deleted before the
-	// cutoff.
+	// cutoff, or at any time when the cutoff is zero.
 	TrashedChildren(ctx context.Context, parentID string, before time.Time) ([]core.Task, error)
 	// PurgeTrashed permanently deletes one task if it is still in the trash
-	// and was deleted before the cutoff.
+	// and was deleted before the cutoff, or at any time when it is zero.
 	PurgeTrashed(ctx context.Context, taskID string, before time.Time) (bool, error)
 }
 

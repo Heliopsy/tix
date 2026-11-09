@@ -67,7 +67,6 @@ const (
 	tplTokens    = "tokens.html"
 	tplSSHKeys   = "sshkeys.html"
 	tplProjects  = "projects.html"
-	tplBoard     = "board.html"
 	tplFields    = "fields.html"
 	tplWorkflows = "workflows.html"
 	tplWorkflow  = "workflow.html"
@@ -254,7 +253,7 @@ var registry = []Operation{
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project show",
 		HTTP:  apiGet(wire.RouteProject),
-		Web:   webGet(web.RouteProject, tplBoard),
+		Web:   webGet(web.RouteProject, tplTasks),
 		// The project screen fetches the project it renders rather than reusing
 		// the row the listing held. It is the read that answers "this project,
 		// now", which a screen that edits and archives one has to show: an
@@ -395,9 +394,12 @@ var registry = []Operation{
 		Name: "task.show", Method: "GetTask",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task show",
-		HTTP:  apiGet(wire.RouteTask),
-		Web:   webGet(web.RouteTask, tplTask),
-		TUI:   "detail",
+		// tix task link prints the task's web_url, or the link under a
+		// remote context's server, in the forms the Share menu copies.
+		Formats: []string{"tix task link"},
+		HTTP:    apiGet(wire.RouteTask),
+		Web:     webGet(web.RouteTask, tplTask),
+		TUI:     "detail",
 	},
 	{
 		Name: "task.list", Method: "ListTasks", Contract: Contract{Query: httpapi.TaskListQuery{}, Resp: wire.Page[core.Task]{}, Alt: []string{wire.ContentCSV}},
@@ -454,6 +456,16 @@ var registry = []Operation{
 		// is:deleted term `tix task ls --filter` takes, and a deleted card is
 		// marked. The restore key is offered on that card and nowhere else.
 		TUI: "board",
+	},
+	{
+		Name: "task.purge", Method: "PurgeTask",
+		Scope: core.ScopeTaskDelete,
+		CLI:   "tix task purge",
+		HTTP:  apiDelete(wire.RouteTaskTrash),
+		Web:   webPost(web.RouteTaskPurge),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the board reveals deleted cards and offers restore on them, but a permanent delete there would need its own confirmation flow; purging is on the web Trash, the command line and the API"),
+		},
 	},
 	{
 		Name: "trash.status", Method: "TrashStatus",
@@ -1108,7 +1120,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "user.list", Method: "ListUsers",
+		Name: "user.list", Method: "ListUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeUserAdmin,
 		CLI:   "tix user ls",
 		HTTP:  apiGet(wire.RouteUsers),
@@ -1132,7 +1144,7 @@ var registry = []Operation{
 		TUI:   "people",
 	},
 	{
-		Name: "tenant.user.list", Method: "ListTenantUsers",
+		Name: "tenant.user.list", Method: "ListTenantUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix tenant user ls",
 		HTTP:  apiGet(wire.RouteTenantUsers),

@@ -99,6 +99,26 @@ func TokenCommand() string {
 	return b.String()
 }
 
+// Rotate replaces the agent token, keeping the old value working for ten
+// minutes so a running agent can pick up the new one.
+func Rotate() Snippet {
+	return Snippet{ID: "token-rotate", Title: "Rotate it later", Lang: "sh",
+		Text: "tix token rotate " + TokenName + " --grace 10m",
+		Note: "Issues a new value with the same name and scopes, and keeps the old one working for ten minutes so a running agent is not cut off."}
+}
+
+// Login signs in with a password and stores a token for the tenant on a
+// context named after it, or nil when the tenant or the address is unknown.
+func Login(t Target, email string) *Snippet {
+	if t.Tenant == "" || email == "" {
+		return nil
+	}
+	return &Snippet{ID: "cli-login", Title: "Or sign in with your password", Lang: "sh",
+		Text: "tix --server " + shellWord(t.URL) + " login --tenant " + shellWord(t.Tenant) +
+			" --email " + shellWord(email) + " --password -",
+		Note: "Asks for your password, then mints a token with every scope you hold and saves it on a context named after the tenant. It needs the admin role here; add --ssh-key in place of --email and --password to sign in with an enrolled key."}
+}
+
 // release matches a version that names a published release.
 var release = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
 
@@ -280,8 +300,12 @@ func SSH(t Target) []Snippet {
 	dest += user + "@" + host
 	return []Snippet{
 		{ID: "ssh-key", Title: "Enrol your key", Lang: "sh", Text: "tix user key add --file ~/.ssh/id_ed25519.pub",
-			Note: "Once, from a configured CLI. The SSH keys screen does the same in the browser."},
+			Note: "Once, from a configured CLI. Add --all-tenants to enrol it in every tenant you belong to. The SSH keys screen does the same in the browser."},
 		{ID: "ssh-tui", Title: "Open the terminal interface", Lang: "sh", Text: dest},
+		{ID: "ssh-cmd", Title: "Run a tix command", Lang: "sh", Text: dest + " task ls -o json",
+			Note: "Runs on the server as you, with nothing installed or configured here. The server reads no file of yours: redirect with < and > instead."},
+		{ID: "ssh-export", Title: "Export over SSH", Lang: "sh", Text: dest + " export > snapshot.ndjson",
+			Note: "Streams the tenant's snapshot to your machine. It needs the export scope."},
 		{ID: "ssh-watch", Title: "Stream events", Lang: "sh", Text: dest + " watch -o ndjson",
 			Note: "One JSON event per line, for a script. Add -t after ssh for the coloured view a person reads."},
 	}

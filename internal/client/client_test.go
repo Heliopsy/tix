@@ -77,7 +77,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPatch, "/api/v1/tenants/acme"},
 		{"delete tenant", func(c *Client) error { return c.DeleteTenant(ctx, "acme") }, http.MethodDelete, "/api/v1/tenants/acme"},
-		{"list tenant users", func(c *Client) error { _, _, err := c.ListTenantUsers(ctx, "acme", core.Page{}); return err },
+		{"list tenant users", func(c *Client) error { _, _, err := c.ListTenantUsers(ctx, "acme", core.UserFilter{}); return err },
 			http.MethodGet, "/api/v1/tenants/acme/users"},
 		{"create tenant user", func(c *Client) error {
 			_, err := c.CreateTenantUser(ctx, "acme", core.CreateUserInput{Email: "a@b.test"})
@@ -161,6 +161,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		}, http.MethodPost, "/api/v1/tasks/infra-1/transition"},
 		{"delete task", func(c *Client) error { return c.DeleteTask(ctx, ref("infra-1"), core.DeleteTaskInput{Hard: true}) }, http.MethodDelete, "/api/v1/tasks/infra-1"},
 		{"restore task", func(c *Client) error { _, err := c.RestoreTask(ctx, ref("infra-1")); return err }, http.MethodPost, "/api/v1/tasks/infra-1/restore"},
+		{"purge task", func(c *Client) error { return c.PurgeTask(ctx, ref("infra-1")) }, http.MethodDelete, "/api/v1/tasks/infra-1/trash"},
 		{"task tree", func(c *Client) error { _, err := c.TaskTree(ctx, ref("infra-1"), 2); return err }, http.MethodGet, "/api/v1/tasks/infra-1/tree"},
 		{"add dependency", func(c *Client) error { return c.AddDependency(ctx, ref("infra-1"), ref("infra-2")) }, http.MethodPost, "/api/v1/tasks/infra-1/deps"},
 		{"remove dependency", func(c *Client) error { return c.RemoveDependency(ctx, ref("infra-1"), ref("infra-2")) }, http.MethodDelete, "/api/v1/tasks/infra-1/deps/infra-2"},
@@ -205,7 +206,7 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 			return err
 		}, http.MethodPost, wire.RouteUsers},
 		{"get user", func(c *Client) error { _, err := c.GetUser(ctx, "u1"); return err }, http.MethodGet, "/api/v1/users/u1"},
-		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteUsers},
+		{"list users", func(c *Client) error { _, _, err := c.ListUsers(ctx, core.UserFilter{}); return err }, http.MethodGet, wire.RouteUsers},
 		{"list actors", func(c *Client) error { _, _, err := c.ListActors(ctx, core.Page{}); return err }, http.MethodGet, wire.RouteActors},
 		{"update user", func(c *Client) error { _, err := c.UpdateUser(ctx, "u1", core.UpdateUserInput{}); return err }, http.MethodPatch, "/api/v1/users/u1"},
 		{"delete user", func(c *Client) error { return c.DeleteUser(ctx, "u1") }, http.MethodDelete, "/api/v1/users/u1"},

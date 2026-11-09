@@ -90,6 +90,7 @@ type startRequest struct {
 	DBPath        string `json:"db_path"`
 	Listen        string `json:"listen"`
 	InitIfMissing bool   `json:"init_if_missing"`
+	JournalMode   string `json:"journal_mode"`
 }
 
 type started struct {
@@ -97,8 +98,8 @@ type started struct {
 	URL    string `json:"url"`
 }
 
-// Start starts an instance from {"db_path","listen","init_if_missing"} and
-// answers {"handle","url"}.
+// Start starts an instance from {"db_path","listen","init_if_missing",
+// "journal_mode"} and answers {"handle","url"}.
 func Start(options string) string {
 	return call(func() (any, error) {
 		var req startRequest
@@ -107,6 +108,7 @@ func Start(options string) string {
 		}
 		in, err := embedded.Start(context.Background(), embedded.Options{
 			DBPath: req.DBPath, Listen: req.Listen, InitIfMissing: req.InitIfMissing,
+			JournalMode: req.JournalMode,
 		})
 		if err != nil {
 			return nil, err

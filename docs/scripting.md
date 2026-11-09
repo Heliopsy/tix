@@ -289,7 +289,8 @@ why. Check both: a non-zero exit does not mean nothing happened.
 `tix project rm KEY` refuses with exit 6 while the project holds tasks, unless `--move-tasks-to OTHER` moves
 them (renumbered there, status mapped onto its workflow) or `--delete-tasks` deletes them permanently with it.
 `--dry-run` prints the count and the status mapping without writing, one `from -> to` row per status in a table
-and a `statuses` array with `"dry_run": true` in JSON.
+and a `statuses` array with `"dry_run": true` in JSON. With `--delete-tasks` the JSON counts what goes:
+`"deleted"` after the real run, and `"would_delete"` on a dry run, where `"deleted"` stays 0.
 
 `tix claim task REF` exits 6 on a snoozed task, naming the wake time; `tix task snooze REF UNTIL` exits 2 for a
 time it cannot read or one that has passed. A snoozed task is left out of `tix task ls` until it wakes;
@@ -299,6 +300,11 @@ time it cannot read or one that has passed. A snoozed task is left out of `tix t
 deleting, and so does every delete on a tenant whose trash is off ([tenancy.md](tenancy.md#the-trash)); a
 soft delete is reversible with `tix task restore` and visible with `tix task ls --trashed` (only the
 deleted ones) or `--include-deleted` (alongside the rest). `tix task trash -o json` says which applies.
+
+`tix task purge` deletes tasks that are already in the trash for good, each with its trashed subtasks, and
+reports per reference like `tix task rm`. A live task is refused with exit 6 (`"reason": "not_trashed"`
+over the API): delete it first. With the trash off it is refused with exit 6 too, so what the trash held
+stays until it is back on.
 
 ## Asking what is running
 

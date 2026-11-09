@@ -43,3 +43,29 @@ func TestTheTrashTurnsOffOverTheAPI(t *testing.T) {
 			envelope.Error, core.ErrTrashOff)
 	}
 }
+
+func TestATrashedTaskIsPurgedOverTheAPI(t *testing.T) {
+	f := newFixture(t)
+	task := f.createTask("purged")
+	route := "/api/v1/tasks/" + task.Ref + "/trash"
+
+	live := f.call(http.MethodDelete, route, nil)
+	mustStatus(t, live, http.StatusUnprocessableEntity)
+	var envelope wire.ErrorEnvelope
+	decodeBody(t, live, &envelope)
+	if envelope.Error.Code != core.KindPrecondition || envelope.Error.Details["reason"] != core.ErrNotTrashed {
+		t.Errorf("purging a live task answered %+v, want precondition_failed with reason %s",
+			envelope.Error, core.ErrNotTrashed)
+	}
+
+	deleted := f.call(http.MethodDelete, "/api/v1/tasks/"+task.Ref, nil)
+	mustStatus(t, deleted, http.StatusNoContent)
+	_ = deleted.Body.Close()
+	purged := f.call(http.MethodDelete, route, nil)
+	mustStatus(t, purged, http.StatusNoContent)
+	_ = purged.Body.Close()
+
+	restore := f.call(http.MethodPost, "/api/v1/tasks/"+task.Ref+"/restore", nil)
+	mustStatus(t, restore, http.StatusNotFound)
+	_ = restore.Body.Close()
+}

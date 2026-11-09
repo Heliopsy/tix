@@ -36,6 +36,13 @@ type hostedListener struct {
 
 func newHostedListener(t *testing.T, tune func(*sshd.Options)) hostedListener {
 	t.Helper()
+	return newHostedListenerWith(t, tune)
+}
+
+// newHostedListenerWith is newHostedListener over a service built with
+// further options, as connect.Dial builds it from the server's configuration.
+func newHostedListenerWith(t *testing.T, tune func(*sshd.Options), with ...service.Option) hostedListener {
+	t.Helper()
 	ctx := context.Background()
 	clk := clock.New()
 	st, err := sqlite.Open(sqlitetest.Path(t), clk)
@@ -46,7 +53,7 @@ func newHostedListener(t *testing.T, tune func(*sshd.Options)) hostedListener {
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatalf("migrating: %v", err)
 	}
-	svc := service.New(st, service.WithClock(clk), service.WithTOTPKey(sshd.FactorTestKey))
+	svc := service.New(st, append([]service.Option{service.WithClock(clk), service.WithTOTPKey(sshd.FactorTestKey)}, with...)...)
 	t.Cleanup(func() { _ = svc.Close() })
 
 	opts := sshd.Options{

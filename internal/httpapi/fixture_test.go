@@ -95,7 +95,7 @@ func (s *apiService) GetUser(_ context.Context, id string) (*core.User, error) {
 	return u, nil
 }
 
-func (s *apiService) ListUsers(_ context.Context, _ core.Page) ([]core.User, string, error) {
+func (s *apiService) ListUsers(_ context.Context, _ core.UserFilter) ([]core.User, string, error) {
 	out := make([]core.User, 0, len(s.users))
 	for _, u := range s.users {
 		out = append(out, *u)
@@ -352,6 +352,12 @@ func newFixture(t *testing.T) *apiFixture { return newFixtureWith(t) }
 // adjust before the server starts.
 func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)) *apiFixture {
 	t.Helper()
+	return newFixtureOver(t, nil, mutators...)
+}
+
+// newFixtureOver is newFixtureWith over a service built with further options.
+func newFixtureOver(t *testing.T, with []service.Option, mutators ...func(*apiFixture, *httpapi.Config)) *apiFixture {
+	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 
@@ -369,8 +375,8 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 	f.tenantB = seedTenant(t, st, "other", "Other", f.hostB)
 
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
-	f.local = service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
-		service.WithConnections(f.live), service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir()}))
+	f.local = service.New(st, append([]service.Option{service.WithClock(clk), service.WithHooks(service.HookOff),
+		service.WithConnections(f.live), service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir()})}, with...)...)
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice")
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob")
 

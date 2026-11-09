@@ -12,9 +12,9 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// CopyTask creates a copy of a task, with its subtasks, comments and
+// copyTask creates a copy of a task, with its subtasks, comments and
 // dependencies when asked, in one transaction.
-func (l *Local) CopyTask(ctx context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
+func (l *Local) copyTask(ctx context.Context, ref core.TaskRef, in core.CopyTaskInput) (*core.Task, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	in.ProjectRef = strings.TrimSpace(in.ProjectRef)
 	if err := in.Validate(); err != nil {

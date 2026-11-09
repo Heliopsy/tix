@@ -37,9 +37,13 @@
     {
       "pattern": "/projects/{key}",
       "params": { "key": "project" },
-      "states": [{ "name": "lanes", "cookies": { "tix_task_view": "lanes" } }]
+      "states": [
+        { "name": "list", "query": "?view=list" },
+        { "name": "list-filtered", "query": "?view=list&q=priority:high&sort=title" },
+        { "name": "lanes", "query": "?view=lanes" }
+      ]
     },
-    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the board" },
+    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the project page" },
     { "pattern": "/projects/{key}/icon", "skip": "image file, not a screen" },
     { "pattern": "/projects/{key}/settings", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },
@@ -97,7 +101,15 @@
     { "pattern": "/admin/global/tenants/{key}", "params": { "key": "tenant" } },
     { "pattern": "/admin/global/accounts/{email}", "params": { "email": "account" } },
     { "pattern": "/admin/tokens" },
-    { "pattern": "/connect" },
+    {
+      "pattern": "/connect",
+      "states": [
+        { "name": "tab-mcp-codex", "query": "?tab=mcp&client=codex" },
+        { "name": "tab-ssh", "query": "?tab=ssh" },
+        { "name": "tab-api", "query": "?tab=api" },
+        { "name": "tab-skill", "query": "?tab=skill" }
+      ]
+    },
     { "pattern": "/docs", "skip": "redirects to the documentation, off this server" },
     { "pattern": "/docs/{page}", "skip": "redirects to one documentation page, off this server" },
     { "pattern": "/admin/ssh-keys" },

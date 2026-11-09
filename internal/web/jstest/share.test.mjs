@@ -88,3 +88,12 @@ test("a dismissed sheet does nothing, a refused one copies the link", async () =
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(outcomes.sort(), ["denied", "threw"]);
 });
+
+test("shareOrigin prefers the public address the server drew", () => {
+  const tix = loaded();
+  const root = (value) => ({ getAttribute: (name) => (name === "data-share-origin" ? value : null) });
+  assert.equal(tix.shareOrigin(root("https://tix.example.com"), "http://tix.lan:8080"), "https://tix.example.com");
+  assert.equal(tix.shareOrigin(root(null), "http://tix.lan:8080"), "http://tix.lan:8080");
+  assert.equal(tix.shareOrigin(root(""), "http://tix.lan:8080"), "http://tix.lan:8080");
+  assert.equal(tix.shareOrigin(null, "http://tix.lan:8080"), "http://tix.lan:8080");
+});

@@ -16,8 +16,8 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-// CreateTask creates a task, defaulting every attribute except its title.
-func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
+// createTask creates a task, defaulting every attribute except its title.
+func (l *Local) createTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -147,8 +147,8 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 	return out, nil
 }
 
-// GetTask returns one live task by identifier or human reference.
-func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+// getTask returns one live task by identifier or human reference.
+func (l *Local) getTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -179,8 +179,8 @@ func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, erro
 	return out, nil
 }
 
-// ListTasks returns one keyset-paginated page of tasks.
-func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
+// listTasks returns one keyset-paginated page of tasks.
+func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return core.TaskPage{}, err
@@ -246,8 +246,8 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	return page, nil
 }
 
-// UpdateTask changes only the attributes the input supplies.
-func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
+// updateTask changes only the attributes the input supplies.
+func (l *Local) updateTask(ctx context.Context, ref core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -442,8 +442,8 @@ func changedTaskFields(before, after *core.Task) []string {
 	return out
 }
 
-// TransitionTask moves a task along an edge its project's workflow permits.
-func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
+// transitionTask moves a task along an edge its project's workflow permits.
+func (l *Local) transitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
@@ -547,7 +547,7 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 	return out, nil
 }
 
-// TransitionRoute walks a task through a route of states, one ordinary
+// transitionRoute walks a task through a route of states, one ordinary
 // transition per hop.
 //
 // Each hop is its own TransitionTask call and therefore its own transaction,
@@ -559,7 +559,7 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 // A route that stops halfway is not an error. The hops that landed are real
 // and the task is somewhere, so the result names where it stopped and why, and
 // only a route whose very first hop is refused comes back as a failure.
-func (l *Local) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
+func (l *Local) transitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
@@ -695,8 +695,8 @@ func deleteOrder(ctx context.Context, tx store.Tx, root *core.Task) ([]core.Task
 // unbounded number of rows inside a write transaction.
 const maxSubtreeSize = 10000
 
-// RestoreTask clears a task's soft deletion.
-func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+// restoreTask clears a task's soft deletion.
+func (l *Local) restoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskDelete, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -731,8 +731,8 @@ func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, 
 	return out, nil
 }
 
-// TaskTree returns a task and its live descendants in pre-order.
-func (l *Local) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]core.Task, error) {
+// taskTree returns a task and its live descendants in pre-order.
+func (l *Local) taskTree(ctx context.Context, ref core.TaskRef, depth int) ([]core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return nil, err

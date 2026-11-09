@@ -57,7 +57,7 @@ details.panel.columns { margin-bottom: 18px; }
 }
 
 /* The create and settings forms: Add with details, New project and a
-   project's settings (templates/tasks.html, projects.html, board.html).
+   project's settings (templates/tasks.html, projects.html).
 
    One layout for all three. What a person writes -- a title, a name, a
    description -- runs down the left; what they pick sits in a column on the

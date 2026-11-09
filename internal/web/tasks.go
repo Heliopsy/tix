@@ -114,6 +114,19 @@ type tasksView struct {
 
 	Pager pager
 
+	// Scope is the project this screen is narrowed to, nil on the task list.
+	// Route is the screen's own path, which every link it writes back to
+	// itself uses, and Views the view switch: one link per drawing, each
+	// carrying the query the screen was drawn under.
+	Scope *taskScope
+	Route string
+	Views []viewLink
+	// ViewAsked is the view the address named, "" when it named none, which
+	// the filter form carries so Apply keeps the drawing. ClearHref drops the
+	// filter and keeps the sort and the view.
+	ViewAsked string
+	ClearHref string
+
 	// Self is this screen's own URL, query string and all, so a row action
 	// can return to the list the reader was actually looking at.
 	Self string
@@ -327,6 +340,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	h.rememberTaskView(w, r)
 	title := "Tasks"
 	if data.Trash {
 		title = "Trash"
@@ -427,20 +441,24 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 // buildTasksView answers one request for the task screen, for the page and
 // for its live fragment alike.
 func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
-	return h.buildTaskScreen(r, false)
+	return h.buildTaskScreen(r, false, nil)
 }
 
 // buildTaskScreen answers the task screen, or with mine the reader's own
 // work: the tasks assigned to them, and with held=1 the ones they hold too,
 // grouped by deadline. My work asks its fixed question through the same
 // listingFilter, on a copy of the request that carries it.
-func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error) {
+func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) (tasksView, error) {
 	held := mine && r.URL.Query().Get(HeldParam) != ""
 	asked := r
-	view := taskViewOf(r)
-	if mine {
+	view := screenView(r, scope)
+	switch {
+	case mine:
 		asked, view = myWorkRequest(r), TaskViewList
+	case scope != nil:
+		asked = scopedRequest(r, scope.Project.Key)
 	}
+	route := scope.route()
 	query := asked.URL.Query()
 	filter, due, refused, openOnly, err := h.listingFilter(asked, view)
 	if err != nil {
@@ -514,7 +532,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 	if view == TaskViewLanes {
 		lanes = buildLanes(projects, filter, page.Tasks, laneMoves{Workflows: moves, HasScope: readerHasScope(r)})
 	}
-	self := screenHref(r, RouteTasks)
+	self := screenHref(r, route)
 	group := listGroupOf(r)
 	if mine {
 		self, group = screenHref(r, RouteMine), ListGroupDue
@@ -523,7 +541,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 	var arrange arrangement
 	switch {
 	case view == TaskViewBoard && board.Agreed:
-		arrange = h.arrangeBoard(r, &board, self)
+		arrange = h.arrangeBoard(r, &board, scope.boardView(), self)
 	case view == TaskViewLanes:
 		arrange = h.arrangeLanes(r, &lanes, projects, self)
 	case mine && refused == "":
@@ -532,7 +550,10 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
 	}
 	live := h.liveTasks(r, liveProjectIDs(projects, filter))
-	pageNav := newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam)
+	if scope != nil {
+		live.Href = fragmentHref(r, scope.liveRoute())
+	}
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam, ViewParam)
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
@@ -552,6 +573,11 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		Sort:          filter.Page.Sort,
 		Due:           due,
 		DueWindows:    FilterDueWindows,
+		Scope:         scope,
+		Route:         route,
+		Views:         viewLinks(r, route, view),
+		ViewAsked:     viewParam(r),
+		ClearHref:     clearHref(r, route),
 		Project:       strings.Join(projectPick(query), ","),
 		ProjectPicks:  projectPickOptions(projects, projectPick(query)),
 		Pager:         pageNav,
@@ -572,7 +598,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
-		AllHref:       showAllHref(r),
+		AllHref:       showAllHref(r, route),
 		Trash:         trash,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          live,
@@ -935,7 +961,7 @@ func (h *handler) unfinishedStatuses(ctx context.Context) ([]string, error) {
 // its trail go, for narrowHref's reason in reverse: they address positions in
 // the narrowed walk, and carrying one onto the wider set names rows this
 // reader was never on.
-func showAllHref(r *http.Request) string {
+func showAllHref(r *http.Request, route string) string {
 	query := r.URL.Query()
 	query.Del(CursorParam)
 	query.Del(TrailParam)
@@ -944,7 +970,7 @@ func showAllHref(r *http.Request) string {
 	query.Del("flashref")
 	query.Del(FlashUndoParam)
 	query.Set(AllParam, "1")
-	return RouteTasks + "?" + query.Encode()
+	return route + "?" + query.Encode()
 }
 
 // projectPickOption is one option of the project control.
@@ -998,4 +1024,25 @@ func liveProjectIDs(projects []core.Project, filter core.TaskFilter) []string {
 		ids = append(ids, found)
 	}
 	return ids
+}
+
+// Filtering reports whether the filter bar narrows the screen. The project a
+// project page is scoped to is the screen, not a filter on it.
+func (v tasksView) Filtering() bool {
+	return v.Query != "" || v.Due != "" || (v.Project != "" && v.Scope == nil)
+}
+
+// clearHref is the screen with the filter dropped: the sort stays, because a
+// sort is not a filter, and so does the view the address named.
+func clearHref(r *http.Request, route string) string {
+	query := url.Values{}
+	for _, k := range []string{"sort", ViewParam} {
+		if v := r.URL.Query().Get(k); v != "" {
+			query.Set(k, v)
+		}
+	}
+	if len(query) == 0 {
+		return route
+	}
+	return route + "?" + query.Encode()
 }

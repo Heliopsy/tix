@@ -96,6 +96,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", cfg.SSH.PublicAddress).
 			WithDetail("reason", err.Error())
 	}
+	if err := checkPublicURL(cfg.Server.PublicURL); err != nil {
+		return invalidKey("server.public_url", sources).
+			WithDetail("value", cfg.Server.PublicURL).
+			WithDetail("reason", err.Error())
+	}
 	// The sealing key is checked here so a malformed value fails at start-up
 	// rather than at the first enrolment, which is months later and is the
 	// moment the operator least wants to learn about it.
@@ -322,6 +327,33 @@ func checkPublicAddress(addr string) error {
 		}
 	}
 	return nil
+}
+
+// checkPublicURL accepts an absolute http or https address with at most a
+// base path. Every task link is built by appending to it, so a query, a
+// fragment or a user would end up inside links people paste elsewhere.
+func checkPublicURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	switch {
+	case err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Opaque != "":
+		return errors.New("want an absolute http or https address, such as https://tix.example.com")
+	case u.User != nil:
+		return errors.New("the address must not carry a user or password")
+	case u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(raw, "#"):
+		return errors.New("the address must not carry a query or fragment")
+	case u.Port() != "" && !validPort(u.Port()):
+		return errors.New("the port must be a number from 1 to 65535")
+	}
+	return nil
+}
+
+// validPort reports whether p is a port number in range.
+func validPort(p string) bool {
+	n, err := strconv.Atoi(p)
+	return err == nil && n >= 1 && n <= 65535
 }
 
 // bindingReason is a binding error's message without its kind.

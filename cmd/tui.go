@@ -90,6 +90,7 @@ func newTUICmd(g *globals) *cobra.Command {
 				Sources:   sources,
 				SavePrefs: g.savePreferences(),
 				Session:   g.sessionInfo(resolved),
+				WebBase:   remoteWebBase(conn.Info.Target),
 				Tenant:    resolved.Config.Tenant,
 				Dial:      g.tenantDialer(cmd, conn),
 				Reachable: g.tenantReachable(conn),
@@ -321,4 +322,13 @@ func (g *globals) savePreferences() tui.PreferenceWriter {
 		}
 		return nil
 	}
+}
+
+// remoteWebBase is the server a remote context talks to, which is where its
+// browser interface is reached, or "" for a local database.
+func remoteWebBase(target connect.Target) string {
+	if target.Mode != connect.ModeRemote {
+		return ""
+	}
+	return target.URL
 }

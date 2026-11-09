@@ -46,7 +46,8 @@ to one tenant refuses a header naming another with `403`. The tix client sends t
 `tix login --tenant`, which trades the session for a token (`POST /tokens` with the session cookie and the
 same header) and stores that. See [tenancy.md](tenancy.md#switching-tenant) for the whole resolution order.
 
-`GET /whoami` lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
+`GET /whoami` names the caller's tenant (`tenant_key`, `tenant_name`) and carries its resolved `theme` for every
+credential. It lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
 not imply it, so an agent's token does not learn where else its owner works. `POST /ssh-keys` with
 `"all_tenants": true` enrols the caller's own key in each of those tenants, one audited enrolment per tenant,
 and answers the enrolment in the caller's tenant with `enrolled_in` listing the tenants it was added to; a
@@ -121,7 +122,7 @@ the routes the server registers. The areas are the first segment of each operati
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
-| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
+| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
 | tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
@@ -222,13 +223,15 @@ query parameters, and without either the answer is `422` with code `precondition
   initial state. It needs `task:write` on the target, and an archived target is `422`.
 - `delete_tasks=true` deletes them permanently with the project.
 
-Both at once is `400`. A deletion answers `200` with what it did. `GET /projects/{ref}/deletion` takes the
-same parameters and returns the same shape without writing, which is how to see the mapping first:
+Both at once is `400`. A deletion answers `200` with what it did: `tasks` live tasks and `trashed` ones in the
+trash, and `deleted`, how many tasks it removed permanently (zero for a move). `GET /projects/{ref}/deletion`
+takes the same parameters and returns the same shape without writing, with `deleted` at zero and
+`would_delete` saying how many tasks `delete_tasks=true` would remove. It is how to see the mapping first:
 
 ```console
 $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
     'http://127.0.0.1:8080/api/v1/projects/old/deletion?move_tasks_to=ops'
-{"project":"old","tasks":3,"deleted":0,"move_to":"ops",
+{"project":"old","tasks":3,"trashed":0,"deleted":0,"move_to":"ops",
  "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}],"dry_run":true}
 ```
 

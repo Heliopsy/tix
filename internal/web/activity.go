@@ -566,7 +566,7 @@ func (h *handler) userNames(r *http.Request, groups []historyGroup) map[string]c
 	if !anySubject(groups, "user") {
 		return nil
 	}
-	users, _, err := h.svc.ListUsers(r.Context(), core.Page{Limit: core.MaxPageLimit})
+	users, _, err := h.svc.ListUsers(r.Context(), core.UserFilter{IncludeRemoved: true, Page: core.Page{Limit: core.MaxPageLimit}})
 	if err != nil {
 		return nil
 	}

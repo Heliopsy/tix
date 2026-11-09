@@ -108,6 +108,26 @@ func TestSSHHostsEveryCLIBindingNotExempted(t *testing.T) {
 				op.Name, op.CLI)
 		}
 	}
+	derived := map[string]bool{}
+	for _, op := range capability.Operations() {
+		if !op.Binds(capability.SurfaceSSH) {
+			continue
+		}
+		for _, cli := range append([]string{op.CLI}, op.Formats...) {
+			derived[cli] = true
+			if !hosted[cli] {
+				t.Errorf("%s: %q formats or binds an ssh-bound operation and is not on the ssh allowlist", op.Name, cli)
+			}
+		}
+	}
+	for path := range hosted {
+		if !derived[path] {
+			t.Errorf("%q is on the ssh allowlist and no ssh-bound operation binds or formats it", path)
+		}
+	}
+	if !hosted["tix task link"] {
+		t.Error("tix task link formats task.show and is not hosted over ssh")
+	}
 	for _, path := range []string{"tix login", "tix logout"} {
 		if hosted[path] {
 			t.Errorf("%q signs a local command line in or out and must not be hosted", path)
@@ -128,6 +148,11 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		names[op.Name] = true
 		if op.CLI != "" && !strings.HasPrefix(op.CLI, "tix ") {
 			t.Errorf("%s: cli binding %q is not a tix command path", op.Name, op.CLI)
+		}
+		for _, f := range op.Formats {
+			if !strings.HasPrefix(f, "tix ") || op.CLI == "" || f == op.CLI {
+				t.Errorf("%s: format %q is not a further tix command beside a cli binding", op.Name, f)
+			}
 		}
 		for _, route := range []capability.Route{op.HTTP, op.Web} {
 			if route.Zero() {

@@ -206,6 +206,7 @@ an action unbound.
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
+| `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token or key | board, detail, project, tenant, people, integrations, server, global admin, account |
@@ -438,6 +439,23 @@ dependencies. Link to the original starts on, and records on the copy which task
 Description, priority, tags, the custom fields the target defines, the repeat rule, the due date and the
 assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
 since it may have landed in a project the board is not showing.
+
+### Sharing a task
+
+`^` shares the selected card, or the task on screen, the way the web's Share menu does. A picker offers
+`1` the link, `2` the Markdown link, `[INFRA-12 Fix the build](https://tix.example.com/tasks/infra-12)`,
+with `\`, `[` and `]` escaped, and `3` the key and title, `INFRA-12 Fix the build`. The pick goes to the
+clipboard of the terminal you are sitting at, through the OSC 52 escape sequence, so it works the same in a
+local terminal and over SSH, where the clipboard is still your own.
+
+Not every terminal honours OSC 52 (some ask first, some need it turned on, tmux needs `set-clipboard on`),
+and nothing reports whether it arrived. So the copied text is also drawn in full under the board, wrapped
+rather than cut, and stays until the next key: select it with the mouse if the clipboard stayed empty.
+
+The link is the task's `web_url`, which a server configured with `server.public_url` sets on every task
+([configuration.md](configuration.md#the-public-web-address)), else the server a remote context talks to.
+A local database or an SSH listener without the key has no web address, so the picker offers the key and
+title and the Markdown label without a link, and says it has no link and why.
 
 ### Task templates
 
@@ -969,6 +987,9 @@ session belonging to a listener rather than to a shell:
 - **Colour comes from what the client said its terminal is.** Each session builds its own renderer from
   its own environment, so one client's colour depth cannot be applied to another's.
 
+The clipboard is the same as locally: `^` copies through your own terminal with OSC 52, so a link copied
+from a board on a server lands on the machine you are typing at ([sharing a task](#sharing-a-task)).
+
 A demo sandbox prints one line on disconnect, after the alternate screen is gone: the board is owned by
 that key, reconnecting with the same key finds it as it was, and it is deleted after a period without a
 visit.
@@ -982,7 +1003,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 176
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 177
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat

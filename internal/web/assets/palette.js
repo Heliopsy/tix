@@ -656,8 +656,8 @@
     if (action === "view-list" || action === "view-board" || action === "view-lanes") {
       var view = action.slice(5);
       close(false);
-      var segment = doc.querySelector('form.viewswitch button[name="view"][value="' + view + '"]');
-      if (segment && global.location.pathname === "/tasks") {
+      var segment = doc.querySelector('#tasks-views a[data-view="' + view + '"]');
+      if (segment) {
         segment.click();
         return;
       }

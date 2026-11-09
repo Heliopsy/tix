@@ -196,11 +196,11 @@ func TestTheBoardFragmentIsOnlyTheColumns(t *testing.T) {
 
 	page := b.page("/projects/infra")
 	href := liveAttr(t, page, "data-live")
-	if href != "/projects/infra/live" {
+	if href != "/projects/infra/live" && !strings.HasPrefix(href, "/projects/infra/live?") {
 		t.Fatalf("the board refreshes from %q", href)
 	}
 	fragment := b.page(href)
-	if !strings.Contains(fragment, `id="project-board"`) || !strings.Contains(fragment, ref) {
+	if !strings.Contains(fragment, `id="tasks-listing"`) || !strings.Contains(fragment, ref) {
 		t.Fatal("the board fragment does not carry the columns")
 	}
 	for _, kept := range []string{"Project settings", "Danger zone"} {

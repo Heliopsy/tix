@@ -293,12 +293,20 @@ func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) erro
 }
 
 func (p Painter) userRow(u core.User) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
+	name := truncate(u.DisplayName, 30)
+	if u.Removed {
+		name = strings.TrimSpace(name + " (removed)")
+	}
+	return table.Row{u.ID, u.Email, name,
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
 func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), string(u.Role), yesNo(u.GlobalAdmin),
+	role := string(u.Role)
+	if u.Removed {
+		role = "removed"
+	}
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), role, yesNo(u.GlobalAdmin),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
@@ -957,7 +965,8 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.DryRun && d.MoveTo != "":
 		return fmt.Sprintf("Dry run, planned only: deleting %s would move its %s to %s; nothing was written.", d.Project, n, d.MoveTo)
 	case d.DryRun && d.DeleteTasks:
-		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.", d.Project, n)
+		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.",
+			d.Project, countOf(d.WouldDelete, "task", "tasks"))
 	case d.DryRun:
 		return fmt.Sprintf("Dry run, planned only: %s holds %s; pass --move-tasks-to KEY or --delete-tasks; nothing was written.",
 			d.Project, n)
@@ -966,7 +975,7 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.MoveTo != "":
 		return fmt.Sprintf("Deleted project %s and moved its %s to %s.", d.Project, n, d.MoveTo)
 	default:
-		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, n)
+		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, countOf(d.Deleted, "task", "tasks"))
 	}
 }
 

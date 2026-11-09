@@ -50,11 +50,14 @@ type Config struct {
 	Themes map[string]Theme `yaml:"themes,omitempty"`
 }
 
-// Theme is one custom palette. Both colours must be #rrggbb; they end up
-// inside a stylesheet, so core validates them before anything renders.
+// Theme is one custom palette. Every colour must be #rrggbb; they end up
+// inside a stylesheet, so core validates them before anything renders. The
+// dark pair is optional and falls back to the light one.
 type Theme struct {
-	Accent     string `yaml:"accent"`
-	AccentSoft string `yaml:"accent_soft"`
+	Accent         string `yaml:"accent"`
+	AccentSoft     string `yaml:"accent_soft"`
+	AccentDark     string `yaml:"accent_dark,omitempty"`
+	AccentSoftDark string `yaml:"accent_soft_dark,omitempty"`
 }
 
 // ThemeRegistry builds the resolver every surface reads a tenant's accent
@@ -79,6 +82,7 @@ func (c *Config) ThemeRegistry() (*core.ThemeRegistry, error) {
 		t := c.Themes[name]
 		custom = append(custom, core.Theme{
 			Name: name, Accent: t.Accent, AccentSoft: t.AccentSoft,
+			AccentDark: t.AccentDark, AccentSoftDark: t.AccentSoftDark,
 		})
 	}
 	return core.NewThemeRegistry(custom)
@@ -107,6 +111,12 @@ type Server struct {
 	Listen string `yaml:"listen"`
 	Token  string `yaml:"token" secret:"opaque"`
 
+	// PublicURL is where people reach the browser interface, an absolute
+	// http or https address with at most a base path, when that is not the
+	// address a request arrives at: a proxy's name for a server bound to a
+	// private port. Task links are built under it. It is shown, never bound.
+	PublicURL string `yaml:"public_url"`
+
 	// TrustedProxies lists the reverse proxies, as IPs or CIDR blocks, whose
 	// X-Forwarded-Proto and X-Forwarded-For are believed. Any client can send
 	// those headers, so an empty list believes neither from anybody.
@@ -131,6 +141,12 @@ type Server struct {
 	// EgressAllow lists the addresses, CIDR ranges, host names and .suffixes
 	// a tenant-supplied url may reach although they are internal.
 	EgressAllow []string `yaml:"egress_allow,omitempty"`
+}
+
+// PublicBase is PublicURL without its trailing slash, the base a task's path
+// is appended to, or "" when none is set.
+func (s Server) PublicBase() string {
+	return strings.TrimRight(strings.TrimSpace(s.PublicURL), "/")
 }
 
 // Egress is the egress policy the server keys describe. Validate refuses an

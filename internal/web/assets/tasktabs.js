@@ -14,6 +14,15 @@
 // panels sit outside every region, so a refresh redraws the lists and the
 // counts and leaves the chosen tab as it was. Without scripting the strip is
 // not drawn and every panel shows.
+//
+// The Connect an agent screen (templates/connect.html) uses the same boxes
+// with two differences. Its tabs are links to ?PARAM=NAME, which the server
+// draws without scripting, so a click here prevents the navigation and
+// switches in place. Its boxes carry data-tab-param, so the choice goes into
+// the address with history.replaceState instead of into localStorage, every
+// other tab link is rewritten to keep it, and a form marked data-tab-keep
+// posts back to it. Boxes nest: a box owns only the tabs and panels whose
+// nearest box it is.
 (function (global) {
   "use strict";
   var tix = (global.tix = global.tix || {});
@@ -46,6 +55,14 @@
       default:
         return -1;
     }
+  };
+
+  // tabSearch is the query string search becomes with param set to name,
+  // every other parameter kept in its place.
+  tix.tabSearch = function (search, param, name) {
+    var params = new global.URLSearchParams(search || "");
+    params.set(param, name);
+    return "?" + params.toString();
   };
 
   var doc = global.document;
@@ -81,8 +98,47 @@
     }
   }
 
+  function ownedBy(box) {
+    return function (el) {
+      return el.closest("[data-task-tabs]") === box;
+    };
+  }
+
   function tabs(box) {
-    return Array.prototype.slice.call(box.querySelectorAll('[role="tab"][data-tab-for]'));
+    return Array.prototype.slice.call(box.querySelectorAll('[role="tab"][data-tab-for]')).filter(ownedBy(box));
+  }
+
+  // keepInAddress writes a data-tab-param box's choice into the address and
+  // points every tab link and data-tab-keep form at the address it makes.
+  function keepInAddress(box, name) {
+    var loc = global.location;
+    var history = global.history;
+    if (!loc || !history || typeof history.replaceState !== "function") {
+      return;
+    }
+    var search = tix.tabSearch(loc.search, box.getAttribute("data-tab-param"), name);
+    if (search !== loc.search) {
+      history.replaceState(history.state, "", loc.pathname + search + loc.hash);
+    }
+    var links = doc.querySelectorAll('[data-task-tabs][data-tab-param] a[role="tab"][data-tab-for]');
+    for (var i = 0; i < links.length; i++) {
+      var owner = links[i].closest("[data-task-tabs]");
+      links[i].setAttribute("href", loc.pathname + tix.tabSearch(search, owner.getAttribute("data-tab-param"), links[i].getAttribute("data-tab-for")));
+    }
+    var forms = doc.querySelectorAll("form[data-tab-keep]");
+    for (var j = 0; j < forms.length; j++) {
+      forms[j].setAttribute("action", (forms[j].getAttribute("action") || "").split("?")[0] + search);
+    }
+  }
+
+  // choose shows name in box and keeps the choice where the box keeps it.
+  function choose(box, name, focus) {
+    select(box, name, focus);
+    if (box.hasAttribute("data-tab-param")) {
+      keepInAddress(box, name);
+    } else {
+      remember(name);
+    }
   }
 
   function names(box) {
@@ -115,7 +171,10 @@
   // panelOf names the panel of box an element sits in, or "".
   function panelOf(box, el) {
     var panel = el && el.closest ? el.closest("[data-tab-panel]") : null;
-    return panel && panel.parentNode === box ? panel.getAttribute("data-tab-panel") : "";
+    while (panel && panel.parentNode !== box) {
+      panel = panel.parentNode && panel.parentNode.closest ? panel.parentNode.closest("[data-tab-panel]") : null;
+    }
+    return panel ? panel.getAttribute("data-tab-panel") : "";
   }
 
   function hashTarget() {
@@ -134,7 +193,13 @@
   function setUp(box) {
     var fromHash = panelOf(box, hashTarget());
     var forced = box.hasAttribute("data-tab-forced") ? box.getAttribute("data-tab") : "";
-    select(box, tix.taskTabPick(names(box), fromHash, forced, stored(), box.getAttribute("data-tab") || ""), false);
+    var drawn = box.getAttribute("data-tab") || "";
+    var keep = box.hasAttribute("data-tab-param") ? "" : stored();
+    var name = tix.taskTabPick(names(box), fromHash, forced, keep, drawn);
+    select(box, name, false);
+    if (name !== drawn && box.hasAttribute("data-tab-param")) {
+      keepInAddress(box, name);
+    }
   }
 
   function init(root) {
@@ -163,9 +228,13 @@
     if (!tab) {
       return;
     }
-    var name = tab.getAttribute("data-tab-for");
-    select(tab.closest("[data-task-tabs]"), name, false);
-    remember(name);
+    if (tab.tagName === "A") {
+      if (event.button || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      event.preventDefault();
+    }
+    choose(tab.closest("[data-task-tabs]"), tab.getAttribute("data-tab-for"), false);
   });
 
   doc.addEventListener("keydown", function (event) {
@@ -180,9 +249,7 @@
       return;
     }
     event.preventDefault();
-    var name = list[next].getAttribute("data-tab-for");
-    select(box, name, true);
-    remember(name);
+    choose(box, list[next].getAttribute("data-tab-for"), true);
   });
 
   global.addEventListener("hashchange", function () {

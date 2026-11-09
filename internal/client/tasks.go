@@ -54,6 +54,11 @@ func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delet
 	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTask, ref), q, nil)
 }
 
+// PurgeTask permanently deletes a task in the trash.
+func (c *Client) PurgeTask(ctx context.Context, ref core.TaskRef) error {
+	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTaskTrash, ref), nil, nil)
+}
+
 // RestoreTask undoes a soft delete.
 func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRestore, ref), nil, nil)

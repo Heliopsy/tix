@@ -87,6 +87,10 @@ type Overrides struct {
 	// operator decision through a different layer.
 	AllowNetworkFS bool
 
+	// JournalMode is the SQLite journal mode, wal or delete; empty means wal.
+	// Only the embedded package sets it, for a database a sync tool copies.
+	JournalMode string
+
 	// Clock replaces the wall clock this connection runs on. It exists for
 	// `tix demo seed`, which replays months of history through the ordinary
 	// service calls rather than writing rows behind them: without a clock it
@@ -393,7 +397,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		clk = ov.Clock
 	}
 	allowNetworkFS := cfg.Config.Database.AllowNetworkFS || ov.AllowNetworkFS
-	st, err := openStore(target, clk, allowNetworkFS, cfg.Config.Database.ConnectTimeout.D())
+	st, err := openStore(target, clk, allowNetworkFS, ov.JournalMode, cfg.Config.Database.ConnectTimeout.D())
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +409,10 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		return nil, closeWith(conn, err)
 	}
 	egressPolicy, err := cfg.Config.Server.Egress()
+	if err != nil {
+		return nil, closeWith(conn, err)
+	}
+	themes, err := cfg.Config.ThemeRegistry()
 	if err != nil {
 		return nil, closeWith(conn, err)
 	}
@@ -421,7 +429,9 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
+		service.WithPublicURL(cfg.Config.Server.PublicURL),
 		service.WithTOTPKey(cfg.Config.Auth.TOTPKey),
+		service.WithThemes(themes),
 		service.WithSyncHost(service.SyncHost{
 			Trusted: !ov.Serving, FileRoot: expandHome(cfg.Config.Sync.FileRoot, ov.Home),
 			EnvSources: cfg.Config.Sync.EnvSources}),
@@ -478,9 +488,10 @@ func drainMode(cfg *config.Resolved, ov Overrides) (webhook.Mode, error) {
 // openStore opens the engine the target names. allowNetworkFS carries the
 // operator's explicit opt-in past SQLite's refusal to open a database
 // detected on a network filesystem; it does nothing for PostgreSQL.
-// connectTimeout bounds PostgreSQL's startup reachability check, and does
-// nothing for SQLite, which has no connection to wait for.
-func openStore(target Target, clk clock.Clock, allowNetworkFS bool, connectTimeout time.Duration) (store.Store, error) {
+// journalMode picks SQLite's journal mode. connectTimeout bounds PostgreSQL's
+// startup reachability check, and does nothing for SQLite, which has no
+// connection to wait for.
+func openStore(target Target, clk clock.Clock, allowNetworkFS bool, journalMode string, connectTimeout time.Duration) (store.Store, error) {
 	if target.Engine == EnginePostgres {
 		return postgres.Open(target.DSN, clk, postgres.WithConnectTimeout(connectTimeout))
 	}
@@ -489,7 +500,7 @@ func openStore(target Target, clk clock.Clock, allowNetworkFS bool, connectTimeo
 			return nil, core.Internal("creating database directory %q", dir).Wrap(err)
 		}
 	}
-	return sqlite.Open(target.Path, clk, sqlite.WithAllowNetworkFS(allowNetworkFS))
+	return sqlite.Open(target.Path, clk, sqlite.WithAllowNetworkFS(allowNetworkFS), sqlite.WithJournalMode(journalMode))
 }
 
 // resolveTenant returns the tenant the target selects. The default tenant is

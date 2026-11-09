@@ -49,6 +49,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
 | `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
 | `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
+| `server.public_url` | `TIX_SERVER_PUBLIC_URL` | (unset: links follow the host each request arrived at) |
 | `server.max_import_bytes` | `TIX_SERVER_MAX_IMPORT_BYTES` | `33554432` (32 MiB) |
 | `server.egress_allow_private` | `TIX_SERVER_EGRESS_ALLOW_PRIVATE` | `false` |
 | `server.egress_allow` | `TIX_SERVER_EGRESS_ALLOW` | (unset: no internal address is reachable for a tenant) |
@@ -325,6 +326,36 @@ peer is on the list, the effective scheme comes from `X-Forwarded-Proto` and the
 scheme of each request, so a deployment behind a TLS-terminating proxy gets `Secure` once that proxy is listed in
 `server.trusted_proxies`. `always` sets it unconditionally; `never` never sets it, which is only correct on a
 network that is deliberately plaintext. Serving TLS from tix itself sets it regardless of this key.
+
+### The public web address
+
+`server.public_url` (`TIX_SERVER_PUBLIC_URL`) is the address people reach the browser interface at, when
+that is not the address a request arrives at: a server bound to `127.0.0.1:8080` behind a proxy that
+answers as `https://tix.example.com`. Nothing binds it, and `tix serve` has no flag for it, the same as
+`ssh.public_address`.
+
+```sh
+TIX_SERVER_PUBLIC_URL=https://tix.example.com tix serve --listen 127.0.0.1:8080
+```
+
+It must be an absolute `http` or `https` address. A path is kept as a base path, for a proxy serving tix
+under one (`https://example.com/tix`), and a trailing slash is dropped. A user, a query, a fragment or a
+port outside 1 to 65535 is refused at startup, naming the key, because the value ends up inside every link
+people paste.
+
+With it set:
+
+- Every task the API returns carries `web_url`, the task's screen in the browser interface, and so does
+  every task `tix mcp` returns, `-o json` output and the terminal interface. It is set on reads, never
+  stored, so audit entries, events and exports do not carry it. Unset, no task carries it.
+- `tix task link` runs over SSH and needs no `--base` against a local database configured with the key.
+- The links a page draws from a request (the Share menu, the hand-off dialog, calendar feed addresses,
+  invite links, the Connect screen) use it on a host serving several tenants. On a tenant's own domain they
+  stay on that domain ([tenancy.md](tenancy.md#switching-tenant)).
+- Notification channel messages link every task, under the tenant's own domain when it has one and under
+  this address otherwise. Without the key only a tenant with a domain gets links.
+
+Unset, links follow the host each request arrived at, as they always have.
 
 `server.max_import_bytes` caps the body of a project task import, `POST /v1/projects/{ref}/tasks/import` and the
 upload step of the browser's import, in bytes. Every other request answers to `tix serve --max-body-bytes`, 1 MiB
@@ -646,6 +677,7 @@ target  server https://tix.internal.example.com (context work)
 tenant  acme
 user    ada (Ada Lovelace), admin
 token   yes, from context work
+theme   ocean (#0b7285, dark #67e8f9)
 ```
 
 Up to 0.43.0 that held only for some commands. `task ls` and `task add` read the configuration before

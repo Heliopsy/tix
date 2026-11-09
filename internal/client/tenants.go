@@ -5,6 +5,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -99,8 +100,15 @@ func (c *Client) RemoveMember(ctx context.Context, actorID string) error {
 }
 
 // ListTenantUsers returns one page of a tenant's users.
-func (c *Client) ListTenantUsers(ctx context.Context, tenant string, page core.Page) ([]core.TenantUser, string, error) {
-	return list[core.TenantUser](ctx, c, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), pageQuery(page))
+func (c *Client) ListTenantUsers(ctx context.Context, tenant string, f core.UserFilter) ([]core.TenantUser, string, error) {
+	return list[core.TenantUser](ctx, c, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), userQuery(f))
+}
+
+// userQuery is a user listing's filter as query parameters.
+func userQuery(f core.UserFilter) url.Values {
+	q := pageQuery(f.Page)
+	setBool(q, "include_removed", f.IncludeRemoved)
+	return q
 }
 
 // CreateTenantUser creates a user in a tenant.

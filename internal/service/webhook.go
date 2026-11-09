@@ -363,7 +363,7 @@ func (l *Local) drainHooks(ctx context.Context, scope core.TenantScope, queued i
 		return
 	}
 	d := webhook.NewDispatcher(l.store, scope, l.clock,
-		webhook.WithInterval(0), webhook.WithGuard(l.webhookGuard()))
+		webhook.WithInterval(0), webhook.WithGuard(l.webhookGuard()), webhook.WithPublicURL(l.publicURL))
 	defer d.Stop()
 	_, _ = d.DrainFor(ctx, l.hooks.drainMode(), webhook.DefaultBound())
 }

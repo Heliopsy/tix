@@ -7,6 +7,7 @@
 package tasklink
 
 import (
+	"net"
 	"net/url"
 	"strings"
 )
@@ -29,7 +30,28 @@ func Text(ref, title string) string {
 // Markdown is a link to address labelled with the reference and the title.
 // The label escapes what would end it or the link early.
 func Markdown(ref, title, address string) string {
-	return "[" + mdEscape.Replace(Text(ref, title)) + "](" + address + ")"
+	return "[" + Label(ref, title) + "](" + address + ")"
+}
+
+// Label is the reference and the title escaped for Markdown, what Markdown
+// links: on its own, the form shared where there is no address to link to.
+func Label(ref, title string) string { return mdEscape.Replace(Text(ref, title)) }
+
+// Rehost is base with its host name replaced by host, keeping the scheme,
+// the port and the base path: the address a tenant served on a domain of its
+// own is reached at, when base is the server's public address. It returns
+// base unchanged when either is empty or base does not parse.
+func Rehost(base, host string) string {
+	u, err := url.Parse(base)
+	if err != nil || host == "" || u.Host == "" {
+		return base
+	}
+	if port := u.Port(); port != "" {
+		u.Host = net.JoinHostPort(host, port)
+	} else {
+		u.Host = host
+	}
+	return strings.TrimRight(u.String(), "/")
 }
 
 var mdEscape = strings.NewReplacer(`\`, `\\`, `[`, `\[`, `]`, `\]`)

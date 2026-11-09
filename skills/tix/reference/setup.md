@@ -40,6 +40,7 @@ target  server https://tix.example.com (context work)
 tenant  default
 user    ci-agent
 token   yes, from context work
+theme   default (#0f766e, dark #2dd4bf)
 ```
 
 ### Connecting to a server

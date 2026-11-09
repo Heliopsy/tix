@@ -90,7 +90,8 @@ Over MCP the global admin tools are offered only to a token naming `global:admin
 ### The trash
 
 A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
-them back. A tenant admin can turn it off:
+them back, and `tix task purge` or the Trash's Delete permanently removes one for good before the
+housekeeping rule would. A tenant admin can turn it off:
 
 ```sh
 tix tenant edit acme --trash off       # deleting a task is permanent from now on
@@ -209,6 +210,11 @@ SSH keys here stop at once, and their other tenants are untouched. Removing a pe
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
 
+A removed person's actor stays in the tenant so history still names them, but they are no longer one of its
+users: the Users screens, the TUI people view, `tix user ls`, `tix tenant user ls` and the API listings leave
+them out. `--include-removed` on either command, or `include_removed=true` on the API, lists them too, each
+marked `removed`.
+
 A person's display name is per tenant: it lives on their actor there, and the Users screen, `tix user ls`
 and `show`, the API and the account menu all show that one. Renaming somebody changes the name in this
 tenant only; for a person who belongs to this tenant alone it also becomes the account's name, which a
@@ -264,6 +270,14 @@ interface refuses a request that names one. On a shared host it opens for whoeve
 their session is in, so a member of the same tenant signed in to it there sees the task, and a person in
 several tenants switches first ([web-ui.md](web-ui.md#sharing-a-task)).
 
+With `server.public_url` set, a link is built for the tenant it belongs to. A tenant served on a domain of
+its own, one not marked shared, links under that domain, with the public address's scheme, port and path:
+`https://tix.example.com/tix` and tenant acme bound to `tix.acme.example` give
+`https://tix.acme.example/tix/tasks/acme-3`. Every other tenant links under the public address itself. This
+holds wherever the link is built: a page, the API's `web_url`, `tix task link` over SSH, the terminal
+interface and a notification channel message. Without the key, a page links under the host it was reached
+at, and nothing outside a request builds a link.
+
 Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
 the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
 any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
@@ -282,9 +296,11 @@ second factor set up is refused with reason `second_factor_required` and sets on
 switch is recorded in the target as `user.login` with method `switch`, and nothing is recorded in the tenant
 left. Only a browser session switches: a token stays in the tenant it was minted for.
 
-`GET /api/v1/whoami` reports `account_id`, `email`, `tenant_key` and `tenant_name`, and, for a session or a
-token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
-`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone. A token
+`GET /api/v1/whoami` reports `tenant_key`, `tenant_name` and `theme` (the tenant's resolved palette, see
+[theming.md](theming.md#reading-the-theme-from-a-client)) for every credential, an agent's token included.
+For a person it adds `account_id` and `email`, and, for a session or a token carrying `account:read`,
+`memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`, `handle` and `host`, the
+tenant's own address or empty when it is served on a shared host alone. A token
 lists them only with `account:read`, whoever it was minted for; an SSH session lists them as a browser
 session does.
 
@@ -401,7 +417,7 @@ The exclusions are narrow and each carries its reason next to it in `.golangci.y
 | `internal/store/postgres/schema.go` | DDL, the RLS policies themselves, and monthly partition maintenance act on the schema, not on rows |
 | `internal/store/{postgres,sqlite}/tx.go` | Transaction lifecycle, plus `set_config` and `SET LOCAL ROLE`; these install the scope every later statement runs under |
 | `internal/store/postgres/listen.go` | `LISTEN` on a dedicated connection carries a channel name, no rows |
-| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known |
+| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known, and `PRAGMA wal_checkpoint` at an embedded stop |
 | `*_test.go` | Tests build ad-hoc unscoped queries on purpose, to prove the other layers hold |
 
 **Request scoping.** In the HTTP layer, the tenant is resolved from the `Host` header before authentication

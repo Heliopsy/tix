@@ -60,6 +60,11 @@ themes:
 
 Then `tix tenant edit acme --theme acme`.
 
+A per-directory configuration file may define themes too, and its definitions win over the global file's
+name by name. Up to 0.50.0 the `themes` block was refused as an unknown key when configuration loaded, and the
+command line and the API checked a theme name against the built-ins alone, so no configured palette could be
+set.
+
 Themes are configuration rather than rows in the database. A palette is something an operator writes once
 for a whole deployment; a per-tenant table of colours would need its own commands, authorization and audit
 trail to express the same thing. The tenant record stores only the name.
@@ -70,6 +75,29 @@ Every colour must be `#rrggbb`. Anything else is refused when configuration load
 the value ends up inside a stylesheet where escaping is suppressed, so this is the boundary that keeps a
 configuration file out of the CSS. Three-digit hex, `rgb()` and colour names are all rejected, and hex is
 required because the terminal interface parses the same value.
+
+## Reading the theme from a client
+
+`GET /api/v1/whoami` carries `theme`, the palette the browser paints for the caller's tenant, to every
+credential in it. Reading the tenant record needs `tenant:admin`; the accent does not, because every member
+sees it on every page anyway, and nothing else about the tenant comes with it.
+
+```json
+"theme": {
+  "name": "ocean",
+  "accent": "#0b7285",
+  "accent_soft": "#e6f4f6",
+  "accent_dark": "#67e8f9",
+  "accent_soft_dark": "#0e3440",
+  "built_in": true
+}
+```
+
+It is already resolved: a custom accent arrives as its derived colours with `name` set to the `#rrggbb` it
+was given as, a configured theme with no dark pair arrives with the light pair copied into it, and a name
+configuration no longer defines arrives as `default`. All four colours are always set, so a client paints
+`accent` and `accent_soft` on a light scheme and `accent_dark` and `accent_soft_dark` on a dark one without
+repeating any of those rules. `tix whoami` prints the name and both accents on a `theme` line.
 
 ## A tenant that names nothing
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/handoff"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -30,7 +29,7 @@ func newHandoff(r *http.Request, t core.Task) handoffView {
 	task := handoff.Task{
 		Ref:    output.ShowRef(t.Ref),
 		Title:  t.Title,
-		Server: httpapi.SchemeFrom(r.Context()) + "://" + r.Host,
+		Server: baseURL(r),
 	}
 	return handoffView{
 		Server:   task.Server,
