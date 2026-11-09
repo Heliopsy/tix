@@ -120,9 +120,18 @@ func parse(args []string, stderr io.Writer, getenv func(string) string) (*option
 	return o, o.cfg.Validate()
 }
 
+// maxBody bounds a seeded description, and keeps the conversion to int safe on 32-bit builds.
+const maxBody = 64 << 20
+
 func sizeInt(s string) (int, error) {
 	n, err := ParseSize(s)
-	return int(n), err
+	if err != nil {
+		return 0, err
+	}
+	if n > maxBody {
+		return 0, fmt.Errorf("size %q is larger than the %s a description may be", s, FormatSize(maxBody))
+	}
+	return int(n), nil
 }
 
 // budgetFor is the memory budget a run enforces: what --max-rss says, or the
@@ -191,12 +200,9 @@ func runLocal(ctx context.Context, o *options, logf func(string, ...any)) (Repor
 	} else if entries, err := os.ReadDir(dir); err != nil || len(entries) > 0 {
 		return Report{}, fmt.Errorf("--dir %s must be an existing, empty directory; it is left in place afterwards", dir)
 	}
-	tix, err := filepath.Abs(o.tix)
+	tix, err := TixBinary(o.tix)
 	if err != nil {
-		return Report{}, fmt.Errorf("resolving --tix: %w", err)
-	}
-	if _, err := os.Stat(tix); err != nil {
-		return Report{}, fmt.Errorf("no tix binary at %s: run `just build` first or pass --tix", tix)
+		return Report{}, err
 	}
 	l, err := StartLocal(ctx, LocalOptions{Tix: tix, Dir: dir, DSN: o.pg, Seed: o.cfg.Seed, Logf: logf})
 	if err != nil {
@@ -246,9 +252,11 @@ func writeReports(r *Report, path string, stdout io.Writer) error {
 	if path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	path = filepath.Clean(path)
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("making the report directory: %w", err)
 	}
+	// #nosec G304 -- the path is the operator's own --report flag, and the file is written, never read.
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating the report: %w", err)
@@ -260,6 +268,7 @@ func writeReports(r *Report, path string, stdout io.Writer) error {
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("closing the report: %w", err)
 	}
+	// #nosec G304 -- beside the operator's own --report file, written, never read.
 	txt, err := os.Create(strings.TrimSuffix(path, filepath.Ext(path)) + ".txt")
 	if err != nil {
 		return fmt.Errorf("creating the text report: %w", err)

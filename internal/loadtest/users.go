@@ -137,7 +137,10 @@ func (u *user) browse(ctx context.Context) error {
 }
 
 func (u *user) nextPage() (route, path string, cookies []*http.Cookie) {
-	view := func(v string) []*http.Cookie { return []*http.Cookie{{Name: "tix_task_view", Value: v}} }
+	view := func(v string) []*http.Cookie {
+		// #nosec G124 -- a request cookie sent by the test client, not set by a server; attributes would not be sent.
+		return []*http.Cookie{{Name: "tix_task_view", Value: v}}
+	}
 	project := u.pick(u.pool.Projects)
 	task := u.pick(u.pool.Tasks)
 	switch n := u.rng.IntN(10); {

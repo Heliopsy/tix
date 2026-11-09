@@ -134,3 +134,28 @@ func TestRunRejectsBadFlags(t *testing.T) {
 		t.Errorf("a missing tix binary: exit %d, want %d", code, ExitSetup)
 	}
 }
+
+func TestTixBinaryMustBeAnExecutableFile(t *testing.T) {
+	dir := t.TempDir()
+	plain := filepath.Join(dir, "tix")
+	if err := os.WriteFile(plain, []byte("not a program"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{plain, dir, filepath.Join(dir, "missing")} {
+		if _, err := TixBinary(path); err == nil {
+			t.Errorf("TixBinary(%q) accepted something that is not an executable file", path)
+		}
+	}
+	if got, err := TixBinary(os.Args[0]); err != nil || !filepath.IsAbs(got) {
+		t.Fatalf("TixBinary(test binary) = %q, %v; want an absolute path", got, err)
+	}
+}
+
+func TestBodySizesAreBounded(t *testing.T) {
+	if _, err := sizeInt("65MiB"); err == nil {
+		t.Fatal("a 65 MiB description was accepted")
+	}
+	if n, err := sizeInt("50KiB"); err != nil || n != 50<<10 {
+		t.Fatalf("sizeInt(50KiB) = %d, %v", n, err)
+	}
+}

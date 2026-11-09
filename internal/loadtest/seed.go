@@ -133,9 +133,10 @@ func SeedTenant(ctx context.Context, base string, acct Account, s Seed, tasks in
 	var mu sync.Mutex
 	var firstErr error
 	var wg sync.WaitGroup
-	for w := range 4 {
+	for w := range uint64(4) {
 		wg.Go(func() {
-			rng := rand.New(rand.NewPCG(rngSeed, uint64(w)))
+			// #nosec G404 -- seeded, reproducible test content, not a secret.
+			rng := rand.New(rand.NewPCG(rngSeed, w))
 			for i := range jobs {
 				ref, err := seedTask(ctx, c, rng, s, pool, i)
 				mu.Lock()

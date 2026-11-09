@@ -66,7 +66,8 @@ func Run(ctx context.Context, cfg Config, tgt Target, probe Probe, base Report, 
 		acct := tgt.Accounts[i%len(tgt.Accounts)]
 		u := &user{
 			id: i, kind: k, acct: acct, tgt: tgt,
-			c:     newClient(tgt, acct, rec, requestTimeout),
+			c: newClient(tgt, acct, rec, requestTimeout),
+			// #nosec G404 G115 -- think times and page choices, not a secret; a wrapped seed is still a seed.
 			rng:   rand.New(rand.NewPCG(uint64(i)+1, uint64(start.UnixNano()))),
 			think: cfg.Think,
 		}

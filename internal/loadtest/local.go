@@ -50,6 +50,11 @@ const loadPassword = "tixload-scratch-password"
 // through a first server, then starts a fresh server to measure, so the
 // seeding's own allocations are not part of the measurement.
 func StartLocal(ctx context.Context, o LocalOptions) (*Local, error) {
+	tix, err := TixBinary(o.Tix)
+	if err != nil {
+		return nil, err
+	}
+	o.Tix = tix
 	env := isolatedEnv(o.Dir)
 	dsn, engine := filepath.Join(o.Dir, "tix.db"), "sqlite"
 	if o.DSN != "" {
@@ -61,6 +66,7 @@ func StartLocal(ctx context.Context, o LocalOptions) (*Local, error) {
 	}
 	cli := func(args ...string) ([]byte, error) {
 		full := append([]string{"--db", dsn, "--no-discovery", "--log-level", "warn"}, args...)
+		// #nosec G204 -- o.Tix passed TixBinary, and the arguments are this tool's own CLI calls; no shell is involved.
 		cmd := exec.CommandContext(ctx, o.Tix, full...)
 		cmd.Env, cmd.Dir = env, o.Dir
 		var stderr bytes.Buffer
@@ -104,6 +110,23 @@ func StartLocal(ctx context.Context, o LocalOptions) (*Local, error) {
 		o.Seed.Tenants, o.Seed.Tenants*o.Seed.UsersPerTenant, o.Seed.Tasks, o.Seed.MinBody>>10, o.Seed.MaxBody>>10)
 	logf("measuring server pid %d at %s", l.cmd.Process.Pid, l.Base)
 	return l, nil
+}
+
+// TixBinary resolves the tix binary a local run executes and checks it is an
+// executable regular file, so only a real program is ever started.
+func TixBinary(path string) (string, error) {
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return "", fmt.Errorf("resolving --tix %q: %w", path, err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("no tix binary at %s: run `just build` first or pass --tix", abs)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		return "", fmt.Errorf("--tix %s is not an executable file", abs)
+	}
+	return abs, nil
 }
 
 // isolatedEnv drops every TIX_ variable and points the XDG directories into
@@ -177,6 +200,7 @@ func serve(ctx context.Context, tix, dsn, dir string, env []string, trace bool) 
 		return nil, err
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	// #nosec G204 -- tix passed TixBinary in StartLocal, and the arguments are fixed flags; no shell is involved.
 	cmd := exec.Command(tix, "serve", "--db", dsn, "--no-discovery", "--listen", addr, "--log-level", "warn")
 	cmd.Env, cmd.Dir = env, dir
 	l := &Local{Base: "http://" + addr, cmd: cmd, done: make(chan error, 1)}
