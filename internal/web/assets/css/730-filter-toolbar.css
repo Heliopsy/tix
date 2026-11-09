@@ -176,11 +176,13 @@
   .tbar-btn .tbar-label, .tbar .selecttoggle .tbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .tbar-btn, .tbar .selecttoggle { padding: 0 var(--space-2); }
   .tbar-btn .icon:last-child:not(:first-child) { display: none; }
-  .tbar .viewswitch .segment { padding: 0 var(--space-2); font-size: var(--text-xs); }
-  /* An open (i) on the switch spans the row under it rather than widening
-     the switch past the screen. */
-  .tbar .viewswitch { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; }
-  .tbar .viewswitch:has(> .tip[open]) { flex-basis: 100%; }
+  .tbar { gap: var(--space-1); }
+  .tbar .viewswitch .segment { padding: 0 6px; font-size: var(--text-xs); }
+  /* The switch's (i) grows a 44px tap zone on a touch screen, which is what
+     pushed the Bulgarian row onto a third line. The same words are behind
+     the (?) help, and the switch's three words say what it is. */
+  .tbar .viewswitch > .tip { display: none; }
+  .tbar .viewswitch { flex: 0 1 auto; min-width: 0; }
 }
 
 /* A finger needs more than a 20px cross; the chip grows round it. */

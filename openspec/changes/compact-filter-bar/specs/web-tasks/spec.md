@@ -132,7 +132,7 @@ take the active one, and Escape SHALL close the list.
 
 - **GIVEN** a tenant with a project whose key is fidaro
 - **WHEN** the reader types `pro`, presses Down to reach `project:` and Tab, then types `fi` and takes `project:fidaro`
-- **THEN** the box reads `project:fidaro ` with the caret after the space
+- **THEN** the box reads `project:fidaro` followed by a space, with the caret after it
 
 ### Requirement: The toolbar stays compact
 

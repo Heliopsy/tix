@@ -217,7 +217,8 @@ a sort is not a filter. The box and its menus are the [filter toolbar](#the-filt
 
 One row above the list on a desktop, at most two on a phone, and the same on the task list and a
 project's page: the filter box, **Filters**, **Sort**, the List, Board and Lanes switch, **Select**
-where the screen has it, and **More** (the three dots). With a filter in force, a slim row of chips
+where the screen has it, and **More** (the three dots). On a phone, Filters, Sort and Select keep their icons and
+counts and drop their words, and the switch drops its (i). With a filter in force, a slim row of chips
 under it names each term, and Clear all ends it.
 
 - **The box** takes the filter language and applies on Enter. With scripting on it narrows the list
