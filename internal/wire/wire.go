@@ -272,6 +272,15 @@ type ErrorEnvelope struct {
 type Page[T any] struct {
 	Items      []T    `json:"items"`
 	NextCursor string `json:"next_cursor,omitempty"`
+	// Total is how many items the listing's filter selects, on a listing
+	// that counts (the task listing). It is absent where nothing is counted.
+	Total *int `json:"total,omitempty"`
+	// TotalCapped is true when the count stopped at its cap, 10000 tasks, so
+	// total is a floor rather than the whole.
+	TotalCapped bool `json:"total_capped,omitempty"`
+	// Page is the page number served, from one, when the request asked by
+	// page; a number past the end is served as the last page.
+	Page int `json:"page,omitempty"`
 }
 
 // Route patterns for component sharing, which moves reusable configuration

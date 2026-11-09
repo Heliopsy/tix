@@ -101,7 +101,9 @@ func (rt *Router) handleListTasks(w http.ResponseWriter, r *http.Request) {
 		rt.writeTaskCSV(w, r, page)
 		return
 	}
-	writeList(w, r, page.Tasks, page.NextCursor)
+	total := page.Total
+	writePage(w, r, wire.Page[core.Task]{Items: page.Tasks, NextCursor: page.NextCursor,
+		Total: &total, TotalCapped: page.TotalCapped, Page: page.Number})
 }
 
 // wantsCSV reports whether the client asked for the listing as CSV, by the
@@ -186,6 +188,13 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Trashed:        triState(q.Get("trashed")),
 		Page:           page,
+	}
+	if raw := q.Get("page"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			return core.TaskFilter{}, core.Invalid("page %q is not a page number from 1", raw)
+		}
+		f.PageNumber = n
 	}
 	if f.Snoozed, f.IncludeSnoozed, err = snoozedParam(q.Get("snoozed")); err != nil {
 		return core.TaskFilter{}, err

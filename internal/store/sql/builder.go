@@ -340,6 +340,21 @@ func (b *Builder) CountQuery() (string, []any) {
 	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
 }
 
+// CappedCountQuery renders a COUNT over the same predicates that stops reading
+// after limit rows, so its answer is min(rows, limit) and a large selection
+// costs no more than limit index entries. Ordering is irrelevant to a count
+// and is not rendered.
+func (b *Builder) CappedCountQuery(limit int) (string, []any) {
+	var sb strings.Builder
+	sb.WriteString("SELECT COUNT(*) FROM (SELECT 1 FROM " + b.table)
+	for _, j := range b.joins {
+		sb.WriteString(" " + j)
+	}
+	b.writeWhere(&sb)
+	sb.WriteString(" LIMIT " + strconv.Itoa(max(limit, 1)) + ") AS counted")
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
+}
+
 func (b *Builder) writeWhere(sb *strings.Builder) {
 	if len(b.wheres) > 0 {
 		sb.WriteString(" WHERE " + strings.Join(b.wheres, " AND "))

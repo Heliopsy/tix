@@ -87,6 +87,9 @@ var filterExempt = map[string]string{
 	"Page": "the shape of the listing rather than a set of tasks. Sort, limit, cursor " +
 		"and direction each have their own control on every surface, and the expression " +
 		"spells the first two as sort: and limit:.",
+	"PageNumber": "a position in the listing rather than a set of tasks, like Page: the HTTP API " +
+		"reads it as page, tix task ls as --page, the browser as page= in the address and the " +
+		"terminal board as its page keys.",
 }
 
 // cliFlagExempt names the fields reachable only through --filter, with the

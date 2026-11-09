@@ -189,6 +189,12 @@ type TaskTx interface {
 	CreateTask(ctx context.Context, t *core.Task) error
 	GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error)
 	ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, error)
+	// CountTasks counts what ListTasks would select under f, stopping at
+	// limit; the page, its cursor and its ordering are ignored.
+	CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error)
+	// SeekTask returns the n-th task, from one, of f's walk from its cursor,
+	// without its relations, or nil when the walk holds fewer than n.
+	SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error)
 	UpdateTask(ctx context.Context, t *core.Task) error
 	DeleteTask(ctx context.Context, id string, hard bool) error
 	RestoreTask(ctx context.Context, id string) error

@@ -328,6 +328,71 @@ func (t *tx) ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, err
 	return out, nil
 }
 
+// CountTasks counts the tasks a filter selects, up to limit; see store.TaskTx.
+func (t *tx) CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error) {
+	f.Page, f.PageNumber = core.Page{}, 0
+	f, err := f.Validate()
+	if err != nil {
+		return 0, err
+	}
+	b := t.builder("tasks").Join(projectJoin)
+	if err := t.applyTaskFilter(b, f); err != nil {
+		return 0, err
+	}
+	return t.countUpTo(ctx, b, limit, "counting tasks")
+}
+
+// SeekTask returns the n-th task of a filter's walk; see store.TaskTx. It is
+// how a page number becomes a cursor without OFFSET: the walk is the listing's
+// own keyset ordering, star rank included, read n rows deep.
+func (t *tx) SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error) {
+	if n < 1 {
+		return nil, nil
+	}
+	f.PageNumber = 0
+	f, err := f.Validate()
+	if err != nil {
+		return nil, err
+	}
+	spec, err := resolveTaskPage(f.Page)
+	if err != nil {
+		return nil, err
+	}
+	spec.limit = n
+	b := t.builder("tasks").Select(taskColumns...).Join(projectJoin)
+	spec.ranked = sqlb.ApplyStars(b, f)
+	if err := t.applyTaskFilter(b, f); err != nil {
+		return nil, err
+	}
+	rows, err := t.query(ctx, spec.apply(b, "tasks.id"), "seeking tasks")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var last core.Task
+	seen := 0
+	for rows.Next() {
+		var extra []any
+		var starred bool
+		if spec.ranked {
+			extra = append(extra, &starred)
+		}
+		v, err := scanTaskWith(rows, extra...)
+		if err != nil {
+			return nil, err
+		}
+		v.Starred = starred
+		last, seen = v, seen+1
+	}
+	if err := mapRowsErr(rows, "seeking tasks"); err != nil {
+		return nil, err
+	}
+	if seen < n {
+		return nil, nil
+	}
+	return &last, nil
+}
+
 func (t *tx) applyTaskFilter(b *sqlb.Builder, f core.TaskFilter) error {
 	switch {
 	case !f.ListsDeleted():
