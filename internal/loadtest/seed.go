@@ -129,6 +129,9 @@ func SeedTenant(ctx context.Context, base string, acct Account, s Seed, tasks in
 		return pool, fmt.Errorf("seeding %s: no project to put tasks in", acct.Tenant)
 	}
 
+	// The workers read the projects and actors from a copy taken now; pool
+	// itself grows its Tasks under mu while they run.
+	fixed := Pool{Projects: pool.Projects, Actors: pool.Actors}
 	jobs := make(chan int)
 	var mu sync.Mutex
 	var firstErr error
@@ -138,7 +141,7 @@ func SeedTenant(ctx context.Context, base string, acct Account, s Seed, tasks in
 			// #nosec G404 -- seeded, reproducible test content, not a secret.
 			rng := rand.New(rand.NewPCG(rngSeed, w))
 			for i := range jobs {
-				ref, err := seedTask(ctx, c, rng, s, pool, i)
+				ref, err := seedTask(ctx, c, rng, s, fixed, i)
 				mu.Lock()
 				if err != nil && firstErr == nil {
 					firstErr = err
