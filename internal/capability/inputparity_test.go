@@ -32,8 +32,8 @@ var inputReaches = []inputReach{
 	{"tix tenant edit", core.UpdateTenantInput{}, map[string]string{
 		"name": "--name", "theme": "--theme",
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
-		"require_totp_ssh": "--require-totp-ssh",
-		"lease_default":    "--lease-default", "lease_max": "--lease-max",
+		"require_totp_ssh": "--require-totp-ssh", "mfa_policy": "--mfa-policy", "mfa_grace": "--mfa-grace",
+		"lease_default": "--lease-default", "lease_max": "--lease-max",
 		"trash_off": "--trash", "time_format": "--time-format", "timezone": "--timezone",
 	}},
 	{"tix domain add", core.AddDomainInput{}, map[string]string{

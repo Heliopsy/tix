@@ -114,14 +114,15 @@ func userCreateCmd(g *globals) *cobra.Command {
 func userLsCmd(g *globals) *cobra.Command {
 	var limit int
 	var cursor string
-	var removed bool
+	var removed, without2FA bool
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List users",
 		Long: "List the tenant's users. People removed from the tenant keep their actor for history but are left\n" +
-			"out; --include-removed lists them too, marked removed.\n\nExit codes: 5 permission denied.",
-		Example: "  tix user ls -o json\n  tix user ls --include-removed",
+			"out; --include-removed lists them too, marked removed. The 2FA column says who holds a second\n" +
+			"factor, and --without-2fa lists only those who do not.\n\nExit codes: 5 permission denied.",
+		Example: "  tix user ls -o json\n  tix user ls --include-removed\n  tix user ls --without-2fa",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -133,7 +134,7 @@ func userLsCmd(g *globals) *cobra.Command {
 				return err
 			}
 			users, next, err := conn.Service.ListUsers(ctx, core.UserFilter{
-				IncludeRemoved: removed, Page: core.Page{Limit: size, Cursor: cursor},
+				IncludeRemoved: removed, WithoutTOTP: without2FA, Page: core.Page{Limit: size, Cursor: cursor},
 			})
 			if err != nil {
 				return err
@@ -145,6 +146,7 @@ func userLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&removed, "include-removed", false, "include people removed from the tenant")
+	cmd.Flags().BoolVar(&without2FA, "without-2fa", false, "list only people who hold no second factor")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
@@ -448,8 +450,13 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"the token on the context --context names, or on the current context, or on a new context named " +
 			"after the tenant. Run it once per tenant to hold one context for each; tix tenant ls marks which " +
 			"of your tenants have one.\n\n" +
-			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials, " +
-			"6 no terminal to prompt for a code or a new password.",
+			"Under a tenant's second factor policy (tix tenant edit --mfa-policy required), an account " +
+			"with no second factor is taken through enrolment here on a terminal; without one the sign-in " +
+			"is refused with exit code 5 and reason second_factor_enrollment_required, naming the web " +
+			"enrolment screen. During the policy's grace the sign-in completes with a warning naming the " +
+			"deadline.\n\n" +
+			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials or a second " +
+			"factor to enrol with no terminal, 6 no terminal to prompt for a code or a new password.",
 		Example: "  tix login --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --tenant test --context test --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --ssh-key\n" +
@@ -551,6 +558,10 @@ func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.
 		return core.Internal("the sign-in finished without a session")
 	}
 	showRecoveryCodes(cmd, result.RecoveryCodes)
+	if due := result.SecondFactorDue; due != nil {
+		g.diag(cmd, "this tenant requires a second factor from %s and you have none yet; "+
+			"enrol with tix user totp enrol, or under Settings in the browser", due.UTC().Format(time.RFC3339))
+	}
 	if tl != nil {
 		return g.storeTenantLogin(cmd, ctx, tl, result.Session)
 	}
@@ -620,6 +631,9 @@ func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx cont
 	challenge *core.TOTPChallenge,
 ) (*core.LoginResult, error) {
 	if !onATerminal(cmd) {
+		if challenge.Kind == core.ChallengeEnrol {
+			return nil, errEnrolElsewhere()
+		}
 		return nil, errNoTerminal("this tenant requires a second factor on the command line, which")
 	}
 	if challenge.Kind == core.ChallengeEnrol {
@@ -636,6 +650,16 @@ func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx cont
 	return svc.Login(ctx, core.LoginInput{
 		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code,
 	})
+}
+
+// errEnrolElsewhere refuses a sign-in that has to enrol a second factor when
+// there is no terminal to show the enrolment on. It is the policy's own
+// refusal, so a script reads the same reason and exit code a refused request
+// gives.
+func errEnrolElsewhere() error {
+	return core.Forbidden("this tenant requires a second factor and this account has none yet; "+
+		"sign in to the web interface and open /settings/totp, or run tix login on a terminal to enrol here").
+		WithDetail("reason", core.ReasonSecondFactorEnrollmentRequired)
 }
 
 // toScopes converts flag strings to scopes.

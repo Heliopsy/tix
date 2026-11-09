@@ -210,6 +210,11 @@ type LoginResult struct {
 	// RecoveryCodes is set once, when a sign-in completed by enrolling. The
 	// caller must show them and cannot ask for them again.
 	RecoveryCodes []string `json:"recovery_codes,omitempty" yaml:"recovery_codes,omitempty"`
+	// SecondFactorDue is set on a session minted for a person who holds no
+	// factor under the tenant's second factor policy: when the policy starts
+	// refusing them, RFC 3339. A time already past means the session can do
+	// nothing but enrol.
+	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no
