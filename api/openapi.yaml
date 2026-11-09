@@ -13726,7 +13726,9 @@ components:
           type: boolean
         group:
           description: 'Group names the group on that view: a state key on a board,
-            a project key on lanes, or a deadline bucket on mine.'
+            a project key on lanes, a handle, priority, tag or deadline bucket on
+            the other lanes (- for no assignee or no tag), or a deadline bucket on
+            mine.'
           type: string
         hidden:
           description: Hidden leaves the group out of the view.
@@ -13739,7 +13741,8 @@ components:
           description: Starred moves the group ahead of the unstarred ones.
           type: boolean
         view:
-          description: 'View names the view: board, lanes, mine or project:KEY.'
+          description: 'View names the view: board, lanes, lanes:assignee, lanes:priority,
+            lanes:tag, lanes:due, mine or project:KEY.'
           type: string
       type: object
     GroupPrefInput:
