@@ -41,6 +41,8 @@ stays on the section last clicked while the reader scrolls through the others.
 
 ## Impact
 
-`internal/web/assets/css` (220-projects, 080-tables, 260-users, 380-record-list, 360-settings),
+`internal/web/assets/css` (220-projects, 080-tables, 130-quick-add-and-filters, 210-page-header-and-create-forms,
+260-users, 380-record-list, 360-settings, and 710-list-wrapping for the Bulgarian priority cell),
 `internal/web/assets/tocspy.js`, `internal/web/templates/projects.html`, `settings.html`, `layout.html`,
+`actors.html`, `tokens.html`, `sync.html`, `syncruns.html`,
 `scripts/screenshots/shoot.mjs`, `justfile`, `docs/web-ui.md`, `docs/testing.md`.
