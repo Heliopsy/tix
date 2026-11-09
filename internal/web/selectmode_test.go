@@ -28,8 +28,11 @@ func attr(t *testing.T, tag, name string) string {
 	if at < 0 {
 		t.Fatalf("%s carries no %s:\n%s", tag, name, tag)
 	}
-	rest := tag[at+len(name)+3:]
-	return html.UnescapeString(rest[:strings.Index(rest, `"`)])
+	value, _, ok := strings.Cut(tag[at+len(name)+3:], `"`)
+	if !ok {
+		t.Fatalf("%s has an unterminated %s:\n%s", tag, name, tag)
+	}
+	return html.UnescapeString(value)
 }
 
 // selectSheet is the stylesheet, for the rules that show the boxes.
