@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.1](https://github.com/Heliopsy/tix/compare/v0.52.0...v0.52.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **httpapi:** log a request the client abandoned as 499, not 500 ([2cfce72](https://github.com/Heliopsy/tix/commit/2cfce72e2d90ebdfcde3ccc3b09f6df247862b93))
+
 ## [0.52.0](https://github.com/Heliopsy/tix/compare/v0.51.0...v0.52.0) (2026-11-09)
 
 
