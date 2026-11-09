@@ -267,7 +267,7 @@ In earlier releases the first sign-in after a start also minted the hash it comp
 so it derived twice. That hash is now made without deriving, and still costs a real derivation to check against,
 so an address nobody holds still takes as long as a wrong password.
 
-#### Why the cost was kept
+### Why the cost was kept
 
 OWASP's password storage guidance lists argon2id configurations of equal strength, from m=46 MiB t=1 p=1 to
 m=7 MiB t=5 p=1, with m=19 MiB t=2 p=1 as the minimum. The default of 64 MiB with three passes is about four
