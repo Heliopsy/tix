@@ -3,10 +3,12 @@
 package web
 
 import (
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 )
@@ -41,10 +43,16 @@ const (
 	totpCodesTemplate = "totpcodes.html"
 )
 
+// totpRequiredTemplate is the screen the second factor policy sends a reader
+// without a factor to: the one place, beside signing out and their own
+// account, that a session confined by the policy can reach.
+const totpRequiredTemplate = "totprequired.html"
+
 // totpRoutes are enrolment, recovery codes and removal, plus the
 // administrative clear.
 func (h *handler) totpRoutes() []route {
 	return []route{
+		get(RouteTOTPSetup, totpRequiredTemplate, h.showTOTPRequired, "TOTPStatus"),
 		post(RouteTOTPSetup, h.beginTOTP, "BeginTOTPEnrolment"),
 		post(RouteTOTPConfirm, h.confirmTOTP, "ConfirmTOTPEnrolment"),
 		post(RouteTOTPCodes, h.regenerateRecoveryCodes, "RegenerateRecoveryCodes"),
@@ -267,7 +275,8 @@ func (s totpSection) Available() bool { return s.Status != nil }
 // that requires a factor in the browser is not offered the control: removing
 // it there only means the next sign-in walks them through enrolment again.
 func (s totpSection) Removable() bool {
-	return s.Status != nil && s.Status.Enrolled && !s.Status.RequiredWeb
+	return s.Status != nil && s.Status.Enrolled && !s.Status.RequiredWeb &&
+		s.Status.Policy != core.MFAPolicyRequired
 }
 
 // totpFor reads the caller's enrolment for the settings screen. A caller with
@@ -282,4 +291,58 @@ func (h *handler) totpFor(r *http.Request) (totpSection, error) {
 		return totpSection{}, err
 	}
 	return totpSection{Status: status}, nil
+}
+
+// enrolmentOwed reports whether err is the second factor policy refusing a
+// reader who holds no factor.
+func enrolmentOwed(err error) bool {
+	var domain *core.Error
+	return errors.As(err, &domain) && domain.Details["reason"] == core.ReasonSecondFactorEnrollmentRequired
+}
+
+// toEnrolment answers a request the policy refused. A page asked for by
+// navigation goes to the enrolment screen; anything else, an htmx swap or a
+// form post, is a 403 that names the screen in HX-Redirect, so a fragment is
+// never swapped in with a refusal where the page should have gone. It reports
+// false when the caller should draw the refusal itself.
+func (h *handler) toEnrolment(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodGet && r.Header.Get("HX-Request") == "" {
+		http.Redirect(w, r, RouteTOTPSetup, http.StatusSeeOther)
+		return true
+	}
+	w.Header().Set("HX-Redirect", RouteTOTPSetup)
+	data := errorView{Heading: "Set up a second factor",
+		Message: "This tenant requires a second factor, and this account has none yet.",
+		Hint:    "Set one up under Settings, Second factor, then try again.", Back: RouteTOTPSetup}
+	if err := h.renderStatus(w, r, http.StatusForbidden, "error.html", data.Heading, data); err != nil {
+		http.Error(w, "second factor enrollment required", http.StatusForbidden)
+	}
+	return true
+}
+
+// factorDue is the policy deadline a reader without a factor is shown.
+func factorDue(me *core.Actor) *time.Time {
+	if me == nil {
+		return nil
+	}
+	return me.SecondFactorDue
+}
+
+// totpRequiredView is the enrolment screen the policy sends a reader to.
+type totpRequiredView struct {
+	Status *core.TOTPStatus
+}
+
+// showTOTPRequired draws the enrolment screen. A reader who already holds a
+// factor has nothing to do here and goes to their settings.
+func (h *handler) showTOTPRequired(w http.ResponseWriter, r *http.Request) error {
+	status, err := h.svc.TOTPStatus(r.Context())
+	if err != nil {
+		return err
+	}
+	if status.Enrolled {
+		http.Redirect(w, r, RouteSettings+"#second-factor", http.StatusSeeOther)
+		return nil
+	}
+	return h.render(w, r, totpRequiredTemplate, "Set up a second factor", totpRequiredView{Status: status})
 }

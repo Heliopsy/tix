@@ -1,0 +1,32 @@
+{{/*
+  Where the tenant's second factor policy sends a reader who holds no factor.
+  Once the grace is over this is, with signing out and the account history,
+  everything the session reaches: every other screen redirects here. The
+  button starts the enrolment the settings screen starts, so there is one
+  enrolment flow and not two.
+*/}}
+{{define "content"}}
+{{$s := .Data.Status}}
+<div class="headtip"><h1>{{t "Set up a second factor"}}</h1>{{template "tip" (tip "Second factor" "A time-based code (TOTP) from an authenticator app, asked for after your password. It changes every 30 seconds. Recovery codes stand in for it when the app is out of reach." "docs/second-factor.md")}}</div>
+{{if $s.EnrollmentRequired}}
+<p class="lede">{{t "This tenant requires a second factor, and this account has none yet. Until you add one you can only set it up, read your account's history or sign out."}}</p>
+{{else if $s.EnrollmentDue}}
+<p class="lede">{{tt "This tenant requires a second factor from %s. Add one now and nothing changes for you then." (when $s.EnrollmentDue)}}</p>
+{{else}}
+<p class="lede">{{t "A second factor asks for a code from your phone after your password, so a leaked password alone does not sign anybody in."}}</p>
+{{end}}
+<div class="card">
+<form method="post" action="/settings/totp" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  <p class="muted">{{t "You need an authenticator app on your phone, such as one from your phone's maker or any TOTP app."}}</p>
+  <div class="actions">
+    <button type="submit">{{t "Set up a second factor"}}</button>
+    <a href="/account">{{t "Your account's history"}}</a>
+  </div>
+</form>
+</div>
+<form method="post" action="/logout" class="actions">
+  {{template "csrf" .CSRF}}
+  <button class="secondary" type="submit">{{t "Sign out"}}</button>
+</form>
+{{end}}

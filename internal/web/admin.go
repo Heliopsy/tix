@@ -275,6 +275,21 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 		off := true
 		in.TrashOff = &off
 	}
+	if r.PostForm.Has("mfa_policy") {
+		policy := core.MFAPolicy(field(r, "mfa_policy"))
+		in.MFAPolicy = &policy
+	}
+	if r.PostForm.Has("mfa_grace") {
+		var d core.Duration
+		if raw := strings.TrimSpace(field(r, "mfa_grace")); raw != "" && raw != "0" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("grace period: %v", err)
+			}
+			d = parsed
+		}
+		in.MFAGrace = &d
+	}
 	if r.PostForm.Has("time_format") {
 		v := field(r, "time_format")
 		in.TimeFormat = &v
@@ -476,7 +491,14 @@ type usersView struct {
 	InviteExpiries []inviteExpiry
 	// IssuedInvite is the link just issued, shown once; nil otherwise.
 	IssuedInvite *issuedInviteLink
+	// WithoutTOTP is set while the listing shows only people who hold no
+	// second factor.
+	WithoutTOTP bool
 }
+
+// WithoutTOTPParam filters the Users screen to people without a second
+// factor, the list an administrator needs before turning the policy on.
+const WithoutTOTPParam = "without_totp"
 
 // showUsers renders the tenant's users, each with the role its membership
 // grants. A membership listing the caller may not read leaves every row's
@@ -484,8 +506,10 @@ type usersView struct {
 // so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 	size := h.rowsPerPage(r)
+	without := r.URL.Query().Get(WithoutTOTPParam) != ""
 	read := func(cursor string, limit int) ([]core.User, string, error) {
-		return h.svc.ListUsers(r.Context(), core.UserFilter{Page: core.Page{Cursor: cursor, Limit: limit}})
+		return h.svc.ListUsers(r.Context(), core.UserFilter{WithoutTOTP: without,
+			Page: core.Page{Cursor: cursor, Limit: limit}})
 	}
 	pos, err := locate(r, size, walkOf(read))
 	if err != nil {
@@ -500,7 +524,7 @@ func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
 	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
 		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam).counted(pos, size),
 		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin), InviteExpiries: inviteExpiryChoices,
-		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r)}
+		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r), WithoutTOTP: without}
 	for _, u := range users {
 		row := userRow{User: u, Role: roles[u.ID]}
 		if actor != nil && actor.ID == u.ID {

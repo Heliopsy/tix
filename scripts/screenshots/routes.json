@@ -22,6 +22,7 @@
     { "pattern": "/account" },
     { "pattern": "/switch" },
     { "pattern": "/settings/notifications" },
+    { "pattern": "/settings/totp", "skip": "the second factor policy's enrolment screen: an enrolled reader is redirected to /settings, and the web tests draw it for one without a factor" },
     { "pattern": "/release" },
     {
       "pattern": "/activity",
