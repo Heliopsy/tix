@@ -244,6 +244,9 @@ type UserListQuery struct {
 	// IncludeRemoved is true to list people removed from the tenant too,
 	// each marked removed.
 	IncludeRemoved bool `query:"include_removed"`
+	// WithoutTOTP is true to list only people who hold no confirmed second
+	// factor.
+	WithoutTOTP bool `query:"without_totp"`
 }
 
 // ProjectDeleteQuery is how a project deletion is asked for.

@@ -184,13 +184,17 @@ func (l *Local) switchFactor(ctx context.Context, actor, target *core.Actor, use
 		if err != nil {
 			return err
 		}
-		required = t.RequiresTOTP(surface)
 		e, err := tx.GetUserTOTP(ctx, user.ID)
-		if core.IsKind(err, core.KindNotFound) {
-			return nil
+		if err != nil && !core.IsKind(err, core.KindNotFound) {
+			return err
 		}
 		enrolment = e
-		return err
+		// Under the policy an enrolled person proves the factor to come in,
+		// and an unenrolled one is refused once the grace is over; inside it
+		// they come in as they would sign in, unasked.
+		required = t.RequiresTOTP(surface) ||
+			t.MFARequired() && (t.MFAEnforced(l.clock.Now()) || enrolment.Confirmed())
+		return nil
 	})
 	return origin, required, enrolment, err
 }

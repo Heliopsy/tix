@@ -115,6 +115,25 @@
   </select>
   <p class="note" id="tenant-zone-help">{{t "Tenant default in use:"}} <strong class="timeeff">{{t .Data.DateZone.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateZone.Source)}}</span></p>
 
+  {{/* The hard second factor policy. It sits with the other tenant-wide
+       settings rather than on the Users screen because it is one: it changes
+       what every person and every token of theirs may do here. */}}
+  <h2 id="second-factor">{{t "Second factor"}}</h2>
+  <div class="field-label">
+    <label for="mfa_policy">{{t "Second factor policy"}}</label>
+    {{template "field-info" "Required: on every surface, a person with no second factor can only set one up, read their own account or sign out, with a session or with a token of theirs. Tokens of agents are not affected. You need a second factor yourself before you can turn it on."}}
+  </div>
+  <select id="mfa_policy" name="mfa_policy">
+    <option value="off"{{if not .Data.Tenant.MFARequired}} selected{{end}}>{{t "Off: each person chooses"}}</option>
+    <option value="required"{{if .Data.Tenant.MFARequired}} selected{{end}}>{{t "Required for everybody"}}</option>
+  </select>
+  <div class="field-label">
+    <label for="mfa_grace">{{t "Grace period"}}</label>
+    {{template "field-info" "How long people without a second factor may keep working after the policy is turned on, with a banner naming the deadline. Written as a duration: 7d, 48h. Empty or 0 applies it at once."}}
+  </div>
+  <input id="mfa_grace" name="mfa_grace" class="mono" value="{{if .Data.Tenant.MFAGrace}}{{.Data.Tenant.MFAGrace.Human}}{{end}}" placeholder="0">
+  {{with .Data.Tenant.MFADeadline}}<p class="note">{{tt "People without a second factor are refused from %s." (when .)}} <a href="/admin/users?without_totp=1">{{t "Who has none yet"}}</a></p>{{end}}
+
   <p><button type="submit">{{t "Save"}}</button></p>
 </form>
 

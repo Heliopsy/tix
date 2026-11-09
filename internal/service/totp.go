@@ -94,6 +94,7 @@ func (l *Local) TOTPStatus(ctx context.Context) (*core.TOTPStatus, error) {
 		return nil, err
 	}
 	out := &core.TOTPStatus{}
+	standing := factorStanding{person: true}
 	err = l.read(ctx, actor, func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
@@ -102,6 +103,11 @@ func (l *Local) TOTPStatus(ctx context.Context) (*core.TOTPStatus, error) {
 		out.RequiredWeb = tenant.RequireTOTPWeb
 		out.RequiredCLI = tenant.RequireTOTPCLI
 		out.RequiredSSH = tenant.RequireTOTPSSH
+		out.Policy = tenant.MFAPolicy
+		if out.Policy == "" {
+			out.Policy = core.MFAPolicyOff
+		}
+		standing.tenant = tenant
 
 		enrolment, err := tx.GetUserTOTP(ctx, user.ID)
 		if core.IsKind(err, core.KindNotFound) {
@@ -131,6 +137,9 @@ func (l *Local) TOTPStatus(ctx context.Context) (*core.TOTPStatus, error) {
 	if err != nil {
 		return nil, err
 	}
+	standing.enrolled = out.Enrolled
+	out.EnrollmentDue = standing.due()
+	out.EnrollmentRequired = standing.gated(l.clock.Now())
 	return out, nil
 }
 
@@ -238,6 +247,7 @@ func (l *Local) ConfirmTOTPEnrolment(ctx context.Context, code string) (*core.TO
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	return codes, nil
 }
 
@@ -343,6 +353,14 @@ func (l *Local) RemoveTOTP(ctx context.Context) error {
 	// in the browser alone is not escaping anything by removing it, and
 	// refusing them would make the factor unremovable from the surface they
 	// actually use.
+	standing, err := l.factorStandingOf(ctx, actor)
+	if err != nil {
+		return err
+	}
+	if standing.tenant != nil && standing.tenant.MFARequired() {
+		return core.Precondition("this tenant requires a second factor of everybody, so the enrolment cannot be " +
+			"removed; an administrator can clear it, which asks for a new one before anything else")
+	}
 	if surface, ok := core.SurfaceFrom(ctx); ok {
 		required, err := l.tenantRequires(ctx, actor, surface)
 		if err != nil {
@@ -410,6 +428,7 @@ func (l *Local) ClearUserTOTP(ctx context.Context, userID string) error {
 
 // clearEnrolment removes one user's enrolment and recovery codes together.
 func (l *Local) clearEnrolment(ctx context.Context, actor *core.Actor, userID, action string, event core.EventType) error {
+	defer l.gates.forget()
 	return l.write(ctx, actor, func(m *mutation) error {
 		if err := m.tx.DeleteUserTOTP(ctx, userID); err != nil {
 			if core.IsKind(err, core.KindNotFound) {

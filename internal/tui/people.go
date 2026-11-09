@@ -44,6 +44,9 @@ type peopleState struct {
 	// minted by the last action, held until the reader acts again or leaves.
 	shown  *core.User
 	issued *core.IssuedInvite
+	// withoutTOTP narrows the users to those who hold no second factor, the
+	// list an administrator works through before and during the policy.
+	withoutTOTP bool
 }
 
 // PeopleRowKind names what a selectable row of the people screen stands for.
@@ -102,7 +105,11 @@ func PeopleView(s peopleState, style output.TimeStyle, now time.Time) []TenantLi
 
 // userLines list the tenant's users with role, state and second factor.
 func userLines(s peopleState) []TenantLine {
-	out := []TenantLine{{Text: "users (" + strconv.Itoa(len(s.users)) + "):", Heading: true}}
+	heading := "users"
+	if s.withoutTOTP {
+		heading = "users without a second factor"
+	}
+	out := []TenantLine{{Text: heading + " (" + strconv.Itoa(len(s.users)) + "):", Heading: true}}
 	if len(s.users) == 0 {
 		return append(out, tenantAbsent(s.usersErr, s.loaded)...)
 	}

@@ -163,6 +163,10 @@ func (l *Local) readSecondFactor(ctx context.Context, tx store.Tx, tenant *core.
 	out.RequireWeb = tenant.RequireTOTPWeb
 	out.RequireCLI = tenant.RequireTOTPCLI
 	out.RequireSSH = tenant.RequireTOTPSSH
+	out.Policy = tenant.MFAPolicy
+	if out.Policy == "" {
+		out.Policy = core.MFAPolicyOff
+	}
 
 	enrolments, err := tx.CountConfirmedTOTP(ctx)
 	if err != nil {

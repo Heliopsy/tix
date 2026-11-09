@@ -206,8 +206,8 @@ var (
 	tenantHeader          = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
 	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
 	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
-	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
-	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "CREATED", "DISABLED"}
+	userHeader            = table.Row{"ID", "EMAIL", "NAME", "2FA", "CREATED", "DISABLED"}
+	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "2FA", "CREATED", "DISABLED"}
 	accountLogHeader      = table.Row{"WHEN", "ACTION", "TENANT", "BY", "VIA", "DETAIL"}
 	sessionHeader         = table.Row{"ID", "CREATED", "EXPIRES", "METHOD", "2FA", "CURRENT", "USER AGENT"}
 	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
@@ -310,7 +310,7 @@ func (p Painter) userRow(u core.User) table.Row {
 	if u.Removed {
 		name = strings.TrimSpace(name + " (removed)")
 	}
-	return table.Row{u.ID, u.Email, name,
+	return table.Row{u.ID, u.Email, name, yesNo(u.TOTPEnrolled),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
@@ -319,7 +319,7 @@ func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
 	if u.Removed {
 		role = "removed"
 	}
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), role, yesNo(u.GlobalAdmin),
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), role, yesNo(u.GlobalAdmin), yesNo(u.TOTPEnrolled),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
@@ -554,7 +554,8 @@ func joinScopes(scopes []core.Scope) string {
 	return truncate(strings.Join(out, ", "), 40)
 }
 
-// StarMarker leads the reference of a task the reader has starred.
+// StarMarker leads the reference of a task, or the key of a project, the
+// reader has starred.
 const StarMarker = "* "
 
 func (p Painter) taskRow(t core.Task) table.Row {
@@ -590,8 +591,12 @@ func projectIconCell(p core.Project) string {
 }
 
 func (p Painter) projectRow(project core.Project) table.Row {
+	key := ShowKey(project.Key)
+	if project.Starred {
+		key = StarMarker + key
+	}
 	return table.Row{
-		ShowKey(project.Key), truncate(project.Name, 40), project.WorkflowID,
+		key, truncate(project.Name, 40), project.WorkflowID,
 		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}

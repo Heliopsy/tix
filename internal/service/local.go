@@ -105,6 +105,9 @@ type Local struct {
 	nonceOnce     sync.Once
 	nonceKeyBytes []byte
 	nonceKeyErr   error
+
+	// gates throttles how often a second factor policy refusal is audited.
+	gates gateLog
 }
 
 // HookMode selects who delivers webhooks after a mutation commits.
@@ -273,7 +276,10 @@ func New(st store.Store, opts ...Option) *Local {
 }
 
 // Close releases the underlying store.
-func (l *Local) Close() error { return l.store.Close() }
+func (l *Local) Close() error {
+	l.gates.pending.Wait()
+	return l.store.Close()
+}
 
 // WhoAmI returns the authenticated actor.
 func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
@@ -304,6 +310,9 @@ func (l *Local) authorize(ctx context.Context, action authz.Action, res authz.Re
 		res.TenantID = actor.TenantID
 	}
 	if err := l.policy.Can(actor, action, res); err != nil {
+		return nil, err
+	}
+	if err := l.requireFactor(ctx, actor); err != nil {
 		return nil, err
 	}
 	return actor, nil

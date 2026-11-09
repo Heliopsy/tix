@@ -154,6 +154,9 @@ row, a card or the task screen in the browser, `*` in the terminal interface, `t
 yours alone, stored with your actor rather than in a cookie, so it follows you between the browser, the
 terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
 every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
+Projects star too: the star beside a project's name in the browser lists it first on the projects screen
+and under Projects in the sidebar, `*` stars one in the terminal's projects view, and `tix project star`,
+`tix project ls --starred` and `PUT /api/v1/projects/{ref}/star` do the same from a script.
 
 **Snooze.** Snooze a task until later and it leaves every default listing, for everybody, until that
 moment, then comes back by itself; nothing has to run for that, because listings compare the wake time

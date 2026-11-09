@@ -152,6 +152,11 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
+	// FactorDue is when the tenant's second factor policy starts refusing a
+	// reader who holds no factor, and FactorGated whether it already does.
+	// Either draws the banner that sends them to enrolment.
+	FactorDue   *time.Time
+	FactorGated bool
 	// GlobalAdmin is whether the reader may act as a global admin, which is
 	// the only reader the sidebar offers the global admin area to.
 	GlobalAdmin bool
@@ -209,9 +214,11 @@ type view struct {
 	// Overdue is how many of the reader's open tasks are late, which My
 	// work's badge shows; see sidebar.go.
 	Overdue int
-	// Pinned are the projects the reader pinned under Projects.
-	Pinned []pinnedProject
-	Data   any
+	// Pinned are the projects the reader starred, listed under Projects, and
+	// PinnedMore says the reader starred more than the sidebar draws.
+	Pinned     []pinnedProject
+	PinnedMore bool
+	Data       any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -300,6 +307,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"age":              humanDuration,
 		"claim":            claimState,
 		"star":             newStarControl,
+		"projectStar":      newProjectStar,
 		"titleLink":        newTitleLink,
 		"groupMenu":        newGroupMenu,
 		"groupHeadNone":    noGroupHead,
@@ -461,6 +469,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
 	me := h.whoAmI(r)
+	pinned, pinnedMore := h.pinnedProjects(r)
 	return view{
 		Title:           title,
 		Lang:            langOf(r),
@@ -474,7 +483,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Upgrade:         h.releases.state(),
 		Inbox:           h.unreadCount(r),
 		Overdue:         h.overdueCount(r),
-		Pinned:          h.pinnedProjects(r),
+		Pinned:          pinned,
+		PinnedMore:      pinnedMore,
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),
@@ -486,6 +496,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Actor:           actor,
 		Advanced:        advancedMode(r),
 		GlobalAdmin:     me != nil && me.GlobalAdmin,
+		FactorDue:       factorDue(me),
+		FactorGated:     me != nil && me.SecondFactorEnrollmentRequired,
 		Switcher:        h.switcherFor(r, me, here(r)),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
@@ -1046,6 +1058,9 @@ func (e errorView) BackLabel() string {
 // its cancelled context is not logged as a fault.
 func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
+	if enrolmentOwed(err) && h.toEnrolment(w, r) {
 		return
 	}
 	kind := core.KindOf(err)

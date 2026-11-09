@@ -47,6 +47,12 @@ everywhere, and a durable event stream. Both work the same tasks in the same sto
 > run by anyone but its author, so expect the rough edges of a first release. The
 > [v1 task list](openspec/changes/archive/2026-10-10-tix-v1/tasks.md) says what is done and what is not.
 
+**New to tix, or helping someone who is?** Start with the getting-started skill,
+[skills/tix-getting-started/SKILL.md](skills/tix-getting-started/SKILL.md). It asks how the person wants to use
+tix (desktop or mobile app, browser, CLI, TUI, SSH or an AI agent), explains instances, tenants, projects and
+workflows with one example, and walks the setup and a first task. Agents already set up use the main
+[skills/tix/SKILL.md](skills/tix/SKILL.md).
+
 ## How it works
 
 ```text
@@ -81,7 +87,8 @@ subscribe and a reconnect resumes from a cursor without gaps.
 ### For humans
 
 The same data, with a board, custom workflows, custom fields, dependencies, comments, history, and a personal
-star that keeps the tasks you are watching at the top of your own listings. The columns and lanes are yours to
+star that keeps the tasks you are watching at the top of your own listings, and the projects you work in at
+the top of the projects screen and the sidebar (`tix project star`). The columns and lanes are yours to
 arrange too: hide, star, collapse or move any of them from the three dots on its heading, kept with your
 account so it follows you everywhere (`tix view`). A filter you use every day is saved under a name in the
 sidebar, for you or the whole team (`tix filter`), My work lists what is yours by deadline (`assignee:me`),

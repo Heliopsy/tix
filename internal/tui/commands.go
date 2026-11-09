@@ -894,6 +894,22 @@ func (m Model) toggleStar(task core.Task) tea.Cmd {
 	}
 }
 
+// toggleProjectStar sets the reader's own star on a project, or clears it when
+// the project already carries one.
+func (m Model) toggleProjectStar(p core.Project) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, key, label := m.svc, m.ctx, p.Key, output.ShowKey(p.Key)
+	call, kind := svc.StarProject, actionStarProject
+	if p.Starred {
+		call, kind = svc.UnstarProject, actionUnstarProject
+	}
+	return func() tea.Msg {
+		return actionMsg{kind: kind, label: label, err: call(ctx, key)}
+	}
+}
+
 // putArtifact records structured output on a task.
 func (m Model) putArtifact(task core.Task, in core.ArtifactInput) tea.Cmd {
 	if m.svc == nil {

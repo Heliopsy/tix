@@ -401,6 +401,38 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "project star round-trip",
+		covers: []string{"CreateProject", "StarProject", "UnstarProject", "ListStarredProjects", "GetProject"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			for range 2 {
+				if err := tg.svc.StarProject(tg.ctx, p.Key); err != nil {
+					return nil, err
+				}
+			}
+			starred, err := tg.svc.ListStarredProjects(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			listed := 0
+			for _, s := range starred {
+				if s.ID == p.ID && s.Starred {
+					listed++
+				}
+			}
+			read, err := tg.svc.GetProject(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the starred project")
+			if err := tg.svc.UnstarProject(tg.ctx, p.Key); err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetProject(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the project back")
+			missing := tg.svc.StarProject(tg.ctx, "no-such-project")
+			return sig{"listed": listed, "starred": read.Starred, "starred_after_unstar": after.Starred,
+				"missing": core.KindOf(missing)}, nil
+		},
+	},
+	{
 		name:   "project icon round-trip",
 		covers: []string{"CreateProject", "UpdateProject", "GetProjectIcon"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

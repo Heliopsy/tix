@@ -108,6 +108,14 @@ type TOTPStatus struct {
 	RequiredCLI bool `json:"required_cli" yaml:"required_cli"`
 	// RequiredSSH is true when the tenant requires a second factor over SSH.
 	RequiredSSH bool `json:"required_ssh" yaml:"required_ssh"`
+	// Policy is the tenant's second factor policy, off or required.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
+	// EnrollmentRequired is true while the policy refuses the caller
+	// everything but enrolment, because they hold no factor.
+	EnrollmentRequired bool `json:"enrollment_required" yaml:"enrollment_required"`
+	// EnrollmentDue is when the policy starts refusing the caller, RFC 3339,
+	// set while it is required and the caller holds no factor.
+	EnrollmentDue *time.Time `json:"enrollment_due,omitempty" yaml:"enrollment_due,omitempty"`
 	// VerificationLocked is true while too many wrong codes have locked verification.
 	VerificationLocked bool `json:"verification_locked" yaml:"verification_locked"`
 	// VerificationLockEnd is when the lock lifts, RFC 3339, set only while locked.
@@ -202,6 +210,11 @@ type LoginResult struct {
 	// RecoveryCodes is set once, when a sign-in completed by enrolling. The
 	// caller must show them and cannot ask for them again.
 	RecoveryCodes []string `json:"recovery_codes,omitempty" yaml:"recovery_codes,omitempty"`
+	// SecondFactorDue is set on a session minted for a person who holds no
+	// factor under the tenant's second factor policy: when the policy starts
+	// refusing them, RFC 3339. A time already past means the session can do
+	// nothing but enrol.
+	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no
@@ -226,6 +239,10 @@ type TOTPReport struct {
 	RequireCLI bool `json:"require_cli" yaml:"require_cli"`
 	// RequireSSH is true when the tenant requires a second factor over SSH.
 	RequireSSH bool `json:"require_ssh" yaml:"require_ssh"`
+	// Policy is the tenant's second factor policy, off or required. Required
+	// covers every surface and refuses tokens minted for a person without a
+	// factor; agent tokens stay exempt.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
 	// Admins is how many members of the tenant hold the admin role.
 	Admins int `json:"admins" yaml:"admins"`
 	// EnrolledAdmins is how many of those admins hold a confirmed second factor.
@@ -234,12 +251,12 @@ type TOTPReport struct {
 
 // RequiresAnywhere reports whether this tenant demands a factor on any surface.
 func (r TOTPReport) RequiresAnywhere() bool {
-	return r.RequireWeb || r.RequireCLI || r.RequireSSH
+	return r.RequireWeb || r.RequireCLI || r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // RequiresEverywhere reports whether this tenant demands a factor on all three.
 func (r TOTPReport) RequiresEverywhere() bool {
-	return r.RequireWeb && r.RequireCLI && r.RequireSSH
+	return r.RequireWeb && r.RequireCLI && r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // LockedOutRisk is the configuration that ends with nobody able to sign in: a

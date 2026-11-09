@@ -4,7 +4,6 @@ package web
 
 import (
 	"html/template"
-	"math"
 	"net/http"
 	"net/url"
 	"slices"
@@ -129,11 +128,12 @@ func newNavGroup(side sidebarState, name, label, icon string) navGroupHead {
 	}
 }
 
-// sidebarPinLimit is the most pinned projects the sidebar draws. Each is one
-// lookup on every page, and a list longer than this is the projects screen.
+// sidebarPinLimit is the most starred projects the sidebar draws. A list
+// longer than this ends with Show all, which opens the projects screen
+// filtered to the starred ones.
 const sidebarPinLimit = 12
 
-// pinnedProject is one project the reader pinned, as the sidebar draws it.
+// pinnedProject is one project the reader starred, as the sidebar draws it.
 type pinnedProject struct {
 	Key     string
 	Label   string
@@ -143,45 +143,36 @@ type pinnedProject struct {
 	Current bool
 }
 
-// pinnedProjects are the projects the reader starred as lanes, which is what
-// pinning one to the sidebar is: one per-reader mark, so a project pinned
-// here leads the lanes and a lane starred there is pinned here. A project the
-// reader may no longer read, or one archived since, is left out rather than
-// refusing the page.
-func (h *handler) pinnedProjects(r *http.Request) []pinnedProject {
+// pinnedProjects are the projects the reader starred, which is the star a
+// project's lane carries too: one per-reader mark, so a project starred here
+// leads the lanes and a lane starred there is listed here. An archived
+// project is left out, and more reports that the reader starred more than the
+// sidebar draws.
+func (h *handler) pinnedProjects(r *http.Request) (out []pinnedProject, more bool) {
 	if _, ok := core.ActorFrom(r.Context()); !ok {
-		return nil
+		return nil, false
 	}
-	prefs := slices.Clone(h.groupPrefs(r, core.ViewLanes))
-	slices.SortStableFunc(prefs, func(a, b core.GroupPref) int { return pinRank(a) - pinRank(b) })
+	starred, err := h.svc.ListStarredProjects(r.Context())
+	if err != nil {
+		return nil, false
+	}
 	style := projectLabelOf(r)
-	var out []pinnedProject
-	for _, pref := range prefs {
-		if !pref.Starred || len(out) == sidebarPinLimit {
+	for _, p := range starred {
+		if p.Archived() {
 			continue
 		}
-		p, err := h.svc.GetProject(r.Context(), pref.Group)
-		if err != nil || p.Archived() {
-			continue
+		if len(out) == sidebarPinLimit {
+			return out, true
 		}
-		plain := *p
+		plain := p
 		plain.Icon = ""
 		out = append(out, pinnedProject{
-			Key: p.Key, Label: projectLabel(style, plain), Mark: markOf(*p, true),
+			Key: p.Key, Label: projectLabel(style, plain), Mark: markOf(p, true),
 			Class: projClass(p.Color), Style: projStyle(p.Color),
 			Current: strings.EqualFold(r.URL.Path, strings.Replace(RouteProject, "{key}", p.Key, 1)),
 		})
 	}
-	return out
-}
-
-// pinRank orders pinned projects the way the lanes draw them: those the
-// reader moved, by where they moved them, then the rest as stored.
-func pinRank(p core.GroupPref) int {
-	if p.Position > 0 {
-		return p.Position
-	}
-	return math.MaxInt32
+	return out, false
 }
 
 // overdueCap is the largest count My work's badge spells out; past it the

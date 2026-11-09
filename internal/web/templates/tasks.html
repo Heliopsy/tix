@@ -17,7 +17,7 @@
     {{/* A project's page is this screen narrowed to the project, so its
          heading is the project and the line under it says what it runs. */}}
     {{with $v.Scope}}
-    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "tip" (tip "Project page" "This project's tasks, as a list, a board or lanes, with the same filter, sort and View menu as the task list. The address keeps the filter and the view, so a link to it opens the same screen." "docs/web-ui.md")}}</div>
+    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "project-star" (projectStar .Project $.Here $.CSRF)}}{{template "tip" (tip "Project page" "This project's tasks, as a list, a board or lanes, with the same filter, sort and View menu as the task list. The address keeps the filter and the view, so a link to it opens the same screen." "docs/web-ui.md")}}</div>
     <p class="meta projhead-meta">{{t "Workflow %s" .Workflow.Name}} &middot; <a href="/projects/{{.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
     {{else}}
     <h1>{{if $v.Mine}}{{t "My work"}}{{else if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>

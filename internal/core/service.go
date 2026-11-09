@@ -169,6 +169,18 @@ type ProjectService interface {
 	// PlanProjectDeletion reports what DeleteProject would do, writing nothing.
 	PlanProjectDeletion(ctx context.Context, ref string, in DeleteProjectInput) (*ProjectDeletion, error)
 
+	// ListStarredProjects lists the projects the caller starred, in the order
+	// their lanes are drawn. A star is the caller's own: nobody else's is ever
+	// listed, and a project the caller can no longer read is left out.
+	ListStarredProjects(ctx context.Context) ([]Project, error)
+	// StarProject stars a project for the caller alone, which lists it first on
+	// the projects screen and in the sidebar and leads its lane. Starring a
+	// starred project writes nothing.
+	StarProject(ctx context.Context, ref string) error
+	// UnstarProject clears the caller's own star on a project. A project that is
+	// not starred is left as it is, with nothing written.
+	UnstarProject(ctx context.Context, ref string) error
+
 	// PutFieldDef creates or replaces a custom field definition on a project,
 	// keyed by its field key. A default value must fit the field's type.
 	PutFieldDef(ctx context.Context, projectRef string, in FieldDefInput) (*FieldDef, error)
