@@ -373,6 +373,7 @@ other checks.
 laptop where the project grid had two columns and no room, and `--locale bg-BG` sends that
 `Accept-Language`, so the screens are drawn with their longer Bulgarian labels. `just ui-rows` runs the
 listings, the projects screen and the table screens at phone, tablet, desktop and laptop, then the
+task list, the task screen and its dialog (whose property labels are single long words in Bulgarian), the
 projects and table screens again in Bulgarian.
 
 `--hostile` also adds, through the API after signing in, sixty-four tasks in the `web` project with long
@@ -388,7 +389,7 @@ green before a merge. `just ui-regression` runs the same steps locally:
 | Step | Recipe | What it runs |
 | --- | --- | --- |
 | Page check on every route | `just ui-check` | every route at `phone` and `fullhd`, light and dark, `--hostile --strict` |
-| Task rows and cards | `just ui-rows` | the listings, projects and table screens at phone, tablet, desktop and laptop, and in Bulgarian |
+| Task rows and cards | `just ui-rows` | the listings, projects and table screens at phone, tablet, desktop and laptop, and with the task screen in Bulgarian |
 | Browser tests | `just ui-browser` | the Go tests named `*InABrowser`, which drive a real Chrome, and the launcher's tests |
 | JavaScript tests | `just jstest` | `internal/web/jstest` |
 

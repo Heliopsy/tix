@@ -93,7 +93,7 @@ screenshots *ARGS: build
 # labels leave a name less room.
 ui-rows *ARGS:
     just screenshots --hostile --strict --only /tasks,/mine,/projects,/admin/tokens,/admin/users,/actors,/sync --viewports phone,tablet,desktop,laptop --theme both --max-popups 0 {{ARGS}}
-    just screenshots --hostile --strict --locale bg-BG --only /projects,/admin/tokens,/admin/users,/actors,/sync --viewports tablet,desktop,laptop --max-popups 0 {{ARGS}}
+    just screenshots --hostile --strict --locale bg-BG --only /tasks,/projects,/admin/tokens,/admin/users,/actors,/sync --viewports tablet,desktop,laptop --max-popups 0 {{ARGS}}
 
 # The UI regression gate, run exactly as CI's "UI regression" job runs it: the
 # page check over every route on the hostile seed, the task row checks, the
