@@ -31,6 +31,16 @@ type Tenant struct {
 	// RequireTOTPSSH requires a second factor when opening the board over SSH,
 	// on top of the key. Defaults to false.
 	RequireTOTPSSH bool `json:"require_totp_ssh" yaml:"require_totp_ssh"`
+	// MFAPolicy is the tenant's second factor policy: "off", or "required",
+	// under which a person holding no factor can do nothing but enrol, on any
+	// surface and with any credential of theirs, once the grace has passed.
+	MFAPolicy MFAPolicy `json:"mfa_policy" yaml:"mfa_policy"`
+	// MFAGrace is how long after the policy turned required an unenrolled
+	// person may still work, as a duration such as "7d". Zero gates at once.
+	MFAGrace Duration `json:"mfa_grace,omitempty" yaml:"mfa_grace,omitempty"`
+	// MFARequiredAt is when the policy last turned required, RFC 3339. Absent
+	// while it is off.
+	MFARequiredAt *time.Time `json:"mfa_required_at,omitempty" yaml:"mfa_required_at,omitempty"`
 	// LeaseDefault is how long a claim on this tenant's tasks holds when the
 	// claim, task, project and workflow name none, as a duration such as "4h".
 	// Zero or absent defers to the deployment configuration, then the built-in
@@ -72,6 +82,49 @@ func (t Tenant) RequiresTOTP(s Surface) bool {
 	default:
 		return false
 	}
+}
+
+// MFAPolicy is a tenant's second factor policy.
+type MFAPolicy string
+
+// The second factor policies.
+const (
+	MFAPolicyOff      MFAPolicy = "off"
+	MFAPolicyRequired MFAPolicy = "required"
+)
+
+// MFAPolicies lists every second factor policy.
+var MFAPolicies = []MFAPolicy{MFAPolicyOff, MFAPolicyRequired}
+
+// Valid reports whether p is a known policy. The empty policy is off.
+func (p MFAPolicy) Valid() bool { return p == "" || slices.Contains(MFAPolicies, p) }
+
+// ReasonSecondFactorEnrollmentRequired is the detail a request refused by the
+// second factor policy carries.
+const ReasonSecondFactorEnrollmentRequired = "second_factor_enrollment_required"
+
+// MFARequired reports whether the tenant's second factor policy is required.
+func (t Tenant) MFARequired() bool { return t.MFAPolicy == MFAPolicyRequired }
+
+// MFADeadline is when the policy starts refusing people without a factor:
+// when it turned required plus the grace. Nil while the policy is off.
+func (t Tenant) MFADeadline() *time.Time {
+	if !t.MFARequired() {
+		return nil
+	}
+	var from time.Time
+	if t.MFARequiredAt != nil {
+		from = *t.MFARequiredAt
+	}
+	at := from.Add(time.Duration(t.MFAGrace))
+	return &at
+}
+
+// MFAEnforced reports whether, at now, the policy refuses a person who holds
+// no second factor.
+func (t Tenant) MFAEnforced(now time.Time) bool {
+	d := t.MFADeadline()
+	return d != nil && !now.Before(*d)
 }
 
 // CertMode describes how a domain obtains its TLS certificate.
