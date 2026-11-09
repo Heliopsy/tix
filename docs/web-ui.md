@@ -166,13 +166,14 @@ header opens the project's settings.
 ### The project page
 
 The project page is the task screen narrowed to one project, not a second listing: the same handler and
-template draw it, so it has the List, Board and Lanes views, the filter bar with its search, deadline
-window and sort, Save this filter, the View panel with its columns, grouping and arrangement, the bulk
+template draw it, so it has the List, Board and Lanes views, the [filter toolbar](#the-filter-toolbar)
+with its box, Filters, Sort and More menus and the chips of the terms in force, the bulk
 bar, quick add (set to the project), the pager and the live refresh. Its header is the project's own: its
 icon and name, the workflow it runs with links to the field definitions and the workflow editor, and
 Import, Export and Settings.
 
-The project comes from the path, so the filter bar has no project select, and a `project` parameter
+The project comes from the path, so the Filters menu has no project picker and no chip names the
+project, and a `project` parameter
 carried over from the task list is ignored rather than added to it. Everything the screen writes back to
 itself stays on the project page: the filter form, Clear, the pager, show finished too, a row's way back,
 and the view switch. Its live refresh fetches `/projects/KEY/live` with the page's own query and listens
@@ -209,8 +210,50 @@ projects they span, how many an agent is holding, how many are blocked.
 **Filtering.** The box takes the same expression language the CLI takes, documented in
 [filtering.md](filtering.md), through the same parser, so an expression that selects a set of tasks
 here selects the same set from a shell. A project chip on a row writes a filter into that box in one
-click, so there is a Clear control to get back out in one click. Clear keeps the sort, because a sort
-is not a filter.
+click, so there is a Clear all control to get back out in one click. Clear all keeps the sort, because
+a sort is not a filter. The box and its menus are the [filter toolbar](#the-filter-toolbar).
+
+### The filter toolbar
+
+One row above the list on a desktop, at most two on a phone, and the same on the task list and a
+project's page: the filter box, **Filters**, **Sort**, the List, Board and Lanes switch, **Select**
+where the screen has it, and **More** (the three dots). With a filter in force, a slim row of chips
+under it names each term, and Clear all ends it.
+
+- **The box** takes the filter language and applies on Enter. With scripting on it narrows the list
+  as you type, and it suggests what the word under the caret completes to: a term key for a bare word
+  (`pr` offers `project:` and `priority:`), a handle after `@`, and the tenant's own values after
+  `project:`, `tag:`, `assignee:`, `status:`, `priority:`, `due:` and `is:`. The suggestions come from
+  the projects, tags, people and workflows the page already loaded, so typing sends nothing extra. Down
+  and Up move through them, Enter or Tab takes the one reached, Escape closes the list. Nothing is
+  reached until an arrow is pressed, so Enter on its own still applies what you typed. `@raj` is
+  `assignee:raj` ([filtering.md](filtering.md)).
+- **Filters** opens pickers for the project (not on a project page), assignee, tag, status, priority,
+  the deadline window and Include finished tasks, with Apply and Clear all. The count on the button is
+  the number of terms in force. A picked status, priority or assignee replaces the box's terms of that
+  key (negated ones are left alone), the empty choice removes them, and a tag is added; the server
+  writes the result into `q` and redirects, so the address stays the expression and a link shares it.
+  A picker you did not touch changes nothing, so a term typed into the box in the same go wins. When
+  the box holds several terms of one key the picker says "as typed" and leaves them be. The deadline
+  window and the project stay the `due` and `project` parameters they always were, and Include
+  finished tasks is `all=1`.
+- **Sort** holds the sort field, the direction (`order=desc`), Group the list on the list, and Group
+  lanes by on the lanes. Stars still lead under every sort.
+- **More** holds the columns and Export CSV, the page size (`limit`), Save this filter while one is in
+  force, the saved filters as links (renamed, shared, moved and deleted in the sidebar), the hidden
+  columns, lanes or groups with Reset the arrangement, and project visibility.
+- **Chips.** One per term, in order: the deadline window, each project of the project control, each
+  word of the box as typed, and Include finished. A chip's × is a plain link to the same screen
+  without that one term, so it works without scripting and the other terms keep their quoting and
+  negation.
+
+Every control is a link or a GET form. The menus are popovers opened with `popovertarget`, so they work
+with scripting off and close on Escape or a press outside. Every link the toolbar writes keeps the sort,
+the direction, the view, the lanes grouping, the page size and select mode, and a change of filter (a
+submitted form, a chip, Clear all) drops the cursor and the page number, so it starts at page one.
+
+`scripts/screenshots/shoot.mjs` prints the toolbar's height on every task screen it captures, and its
+strict check fails a toolbar over an eighth of a desktop window or over two rows on a phone.
 
 **Adding a task.** The one-line box and Add with details both create the task and leave you on the
 listing, filter, sort, view and page as they were. The toast says `task created` and links the new task,
@@ -302,7 +345,7 @@ that failed to load. The handle is a link that filters the listing to that actor
 resolved once for the page rather than once per row, so the column costs one lookup pass whatever the
 page size.
 
-**The View panel** holds two choices that are really one decision, which columns the listing shows
+**More** holds two choices that are really one decision, which columns the listing shows
 and which projects it includes. They were two separate disclosures and deciding what was on screen
 cost two openings and two page loads. Both are per browser, stored in cookies, and both record what
 is *hidden* rather than what is shown, so a project created tomorrow, or a column a later release
@@ -353,7 +396,7 @@ Fifteen checkboxes popping in sequence on load says fifteen things just happened
 
 ## List, board or lanes
 
-The switch beside the filter bar draws the same tasks as rows, as columns or as lanes, and remembers
+The switch in the filter toolbar draws the same tasks as rows, as columns or as lanes, and remembers
 which per browser (`tix_task_view`). The list is what an untouched install shows. Settings shows the
 remembered view from the same resolved value, as a form, since it has no listing to link to.
 
@@ -376,13 +419,13 @@ redrawn from the same answer so its links carry what was just typed; the live re
 the summary and the listing. Settings keeps a form for the remembered view, and the command palette's
 view entries follow the switch's links when the screen has them.
 
-**Filtering by project.** The filter bar's project select is the same on the list, the board and the
+**Filtering by project.** The Filters menu's project picker is the same on the list, the board and the
 lanes. It submits `project=KEY` (several keys comma separated, `project=web,ops`), which is read as
 `project:` terms ahead of whatever is in the box, the way the deadline select is read as a `due:` term,
 so `?project=web` and `?q=project:web` answer the same question. The view switch returns to the same
 address, so the choice follows you between List, Board and Lanes, and the pager, a live refresh, Export
 CSV and Save this filter keep it (a saved filter stores it as `project:` terms). It is part of the
-address rather than a cookie: a filter is what a link shares, while the View panel's project
+address rather than a cookie: a filter is what a link shares, while the More menu's project
 visibility is the remembered, per-browser choice. A screen filtered to projects listens for changes in
 those projects only. On the board, one project draws its own workflow's columns, several projects draw
 one board when their workflows agree, and projects whose workflows disagree get the explanation below
@@ -453,7 +496,7 @@ Google Tasks draws one column per list. It is the same selection again: one filt
 visibility choice and one pager, except that lanes, like the board, are exempt from the list's
 open-work default, because a finished task is drawn in its lane, ticked.
 
-**Group lanes by.** Beside the switch, and only while lanes are drawn, a select picks what a lane is:
+**Group lanes by.** In the Sort menu, and only while lanes are drawn, a select picks what a lane is:
 
 | Grouping | One lane per | Order | An empty lane is drawn when |
 | --- | --- | --- | --- |
@@ -531,7 +574,7 @@ Focus returns to the control that was pressed, on the new card. A refusal, say b
 moved the task meanwhile, leaves the card where it is and says why underneath the title rather than
 swapping the error page in, which used to make the card disappear.
 
-**More actions.** Every lane card has three dots in its corner, drawn whatever the View menu hides.
+**More actions.** Every lane card has three dots in its corner, drawn whatever the More menu hides.
 They open a menu with the whole task in it: open the task (in the dialog when Task opens in is set
 to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
 tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
@@ -591,8 +634,8 @@ headings carry the same three dots as any list group and are kept per reader as 
 there are more, linking the full listing. The filter box reads `assignee:me`, so Apply takes you to
 the task list on the same question and Save keeps it.
 
-**Saved filters.** With an expression or a deadline window in the filter bar, **Save this filter** in the
-filter menu opens a dialog that asks for a name and whether to share it with everyone in the tenant, and
+**Saved filters.** With an expression or a deadline window in the filter toolbar, **Save this filter** in the
+More menu opens a dialog that asks for a name and whether to share it with everyone in the tenant, and
 keeps the expression, the deadline window, the sort and the view the screen is drawn in. The filter is
 listed in the sidebar, your own in your order and then the ones others shared; opening it sets the view
 switch to its view and lands on the task screen filtered and sorted the same way, marked current there.
@@ -624,8 +667,8 @@ menu behind them acts on that group:
   column still takes a card dragged onto it.
 - **Move left** and **Move right** (up and down in a list) swap the group with its neighbour. A
   starred group moves among the starred ones and the rest among the rest.
-- **Hide** stops drawing the group. **Hidden: N** at the end of the view, and the View menu, list
-  every hidden group with a Show button; the View menu also resets the whole arrangement.
+- **Hide** stops drawing the group. **Hidden: N** at the end of the view, and the More menu, list
+  every hidden group with a Show button; the More menu also resets the whole arrangement.
 - A project heading opens the project, shows only its tasks and adds a task to it. A status heading
   shows only that status and adds a task in that state, to a project the board draws.
 
@@ -1076,7 +1119,7 @@ Group lanes by control, the pager, the filter form, Clear and Show all. `tix tas
 
 ## Exporting the list
 
-**Export CSV** under the Columns choices in the View menu downloads the listing you are looking at: the
+**Export CSV** under the Columns choices in the More menu downloads the listing you are looking at: the
 filter, the deadline window, the sort, the open work default and the projects you have not put away, every
 page of it up to 10000 rows. The columns are the title and then whichever columns are ticked just above,
 in the order the list draws them. Cells are quoted the RFC 4180 way, and a cell starting with `=`, `+`,
