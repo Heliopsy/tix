@@ -232,6 +232,17 @@ paths:
           required: true
           schema:
             type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
       responses:
         "204":
           description: No Content
@@ -9045,6 +9056,17 @@ paths:
           required: true
           schema:
             type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
       responses:
         "204":
           description: No Content
@@ -11636,6 +11658,17 @@ paths:
           name: id
           required: true
           schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
             type: string
       responses:
         "200":
