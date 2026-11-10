@@ -669,6 +669,11 @@ func (f *fakeService) ListArtifacts(context.Context, core.TaskRef) ([]core.Artif
 	return nil, nil
 }
 
+func (f *fakeService) ArtifactLimits(context.Context) (*core.ArtifactLimits, error) {
+	l := core.EffectiveArtifactLimits(core.DefaultArtifactMaxBytes, core.DefaultArtifactTypes, core.Tenant{})
+	return &l, nil
+}
+
 func (f *fakeService) ClaimNext(context.Context, core.ClaimNextInput) (*core.Claim, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
