@@ -112,6 +112,8 @@ var unshadowedKeys = map[string]string{
 	"ssh.public_address":             "runServe, into web.WithSSH; shown on the connect screen, never bound, so no flag",
 	"server.public_url":              "connect.Dial and serving.Build, into service.WithPublicURL and server.Options; shown in links, never bound, so no flag",
 	"web.page_size":                  "runServe, into web.WithPageSize; tix serve has no flag for it",
+	"artifacts.max_bytes":            "connect.Dial and serving.Build, into service.WithArtifactLimits and the artifact body limit; tix serve --artifact-max-bytes joins the flag layer only when Changed",
+	"artifacts.allowed_types":        "connect.Dial, into service.WithArtifactLimits; tix serve --artifact-allowed-types joins the flag layer only when Changed",
 }
 
 // TestEveryConfigKeyIsClassified stops the suite on a new configuration key

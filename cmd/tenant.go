@@ -257,6 +257,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var trash string
 	var timeFormat, timezone string
 	var mfaPolicy, mfaGrace string
+	var artifactMax, artifactTypes string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -285,6 +286,12 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"pass. Either as \"\" falls back to the deployment setting (lease.default and\n" +
 			"lease.max, or TIX_LEASE_DEFAULT and TIX_LEASE_MAX) and then to the built-in\n" +
 			"15m and 24h. A tenant may lower the deployment ceiling but never raise it.\n\n" +
+			"--artifact-max-bytes and --artifact-types tighten what a new artifact file\n" +
+			"may be on this tenant: its size, such as 512KiB or 5MiB, and its media types,\n" +
+			"comma separated, such as image/*,application/pdf. Neither can go past the\n" +
+			"server's artifacts.max_bytes and artifacts.allowed_types; a value that would is\n" +
+			"refused with the server's limit named. \"\" returns either to the server's.\n" +
+			"Artifacts already attached are not judged again.\n\n" +
 			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
 			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
 			"stay there untouched, and --trash on brings them back into reach.\n\n" +
@@ -304,6 +311,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
 			"  tix tenant edit acme --lease-max \"\"\n" +
 			"  tix tenant edit acme --trash off\n" +
+			"  tix tenant edit acme --artifact-max-bytes 5MiB --artifact-types 'image/*,application/pdf'\n" +
 			"  tix tenant edit acme --time-format dotted --timezone Europe/Sofia",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -378,6 +386,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				}
 				in.MFAGrace = &d
 			}
+			if err := artifactLimitFlags(cmd, artifactMax, artifactTypes, &in); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("time-format") {
 				in.TimeFormat = &timeFormat
 			}
@@ -412,6 +423,10 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"how long a claim holds when nothing else says, or \"\" to use the deployment setting")
 	cmd.Flags().StringVar(&leaseMax, "lease-max", "",
 		"the longest lease any claim may take, or \"\" to use the deployment setting")
+	cmd.Flags().StringVar(&artifactMax, "artifact-max-bytes", "",
+		"the largest artifact blob, such as 5MiB, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&artifactTypes, "artifact-types", "",
+		"comma separated media types an artifact blob may carry, within the server's; \"\" uses the server's")
 	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
@@ -702,4 +717,26 @@ func parseOnOff(cmd *cobra.Command, flag, v string) (bool, error) {
 		return false, nil
 	}
 	return false, usagef(cmd, "--%s takes on or off, not %q", flag, v)
+}
+
+// artifactLimitFlags reads --artifact-max-bytes and --artifact-types. As with
+// the lease bounds, "" hands a limit back to the server, so an empty value has
+// to be told apart from an absent flag.
+func artifactLimitFlags(cmd *cobra.Command, maxBytes, types string, in *core.UpdateTenantInput) error {
+	if cmd.Flags().Changed("artifact-max-bytes") {
+		var n int64
+		if raw := strings.TrimSpace(maxBytes); raw != "" {
+			parsed, err := core.ParseByteSize(raw)
+			if err != nil {
+				return core.Invalid("--artifact-max-bytes: %v", err)
+			}
+			n = parsed
+		}
+		in.ArtifactMaxBytes = &n
+	}
+	if cmd.Flags().Changed("artifact-types") {
+		list := strings.Split(types, ",")
+		in.ArtifactTypes = &list
+	}
+	return nil
 }
