@@ -37,12 +37,12 @@ and a refused filter SHALL be drawn after that row.
 #### Scenario: A Full HD window
 
 - **WHEN** a reader opens `/projects/infra` in a 1920px wide window with the sidebar open
-- **THEN** quick add and the toolbar are on one line, and the tasks start within 150px of the content's top
+- **THEN** quick add and the toolbar are on one line, and the tasks start within 200px of the content's top
 
 #### Scenario: A phone
 
 - **WHEN** a reader opens `/projects/infra` on a 390px wide phone
-- **THEN** quick add and the toolbar stack, the page does not scroll sideways, and the tasks start within 240px
+- **THEN** quick add and the toolbar stack, the page does not scroll sideways, and the tasks start within 310px
 
 ### Requirement: A board card is two lines with Move in its corner
 

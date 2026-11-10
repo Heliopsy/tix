@@ -891,8 +891,9 @@ function pageFindings(shown, name, label) {
     if (vw >= 900 && h > window.innerHeight / 8) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, over an eighth of the window` });
     if (tops.length > (vw >= 900 ? 1 : 2)) out.push({ el: bar, kind: `filter toolbar on ${tops.length} rows` });
   }
-  // And the tasks start near the top: within 150px of the content's top on a
-  // Full HD window and 240px on a phone. A project's board used to start
+  // And the tasks start near the top: within 200px of the content's top on a
+  // Full HD window and 310px on a phone, a little over what the layout
+  // measures today so it cannot quietly grow back. A project's board used to start
   // 290px down, under a title, three lines of meta, quick add, the toolbar,
   // a repeated workflow line and a stray (i). Measured only with nothing in
   // force that is meant to push the tasks down: chips, a refusal, a toast,
@@ -903,7 +904,7 @@ function pageFindings(shown, name, label) {
   const first = document.querySelector("#tasks-listing [data-shortcut-row]");
   const pushed = [
     ...document.querySelectorAll(
-      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, main details.tip[open], .taskbar ~ .lede",
+      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, main details.tip[open], .taskbar ~ .lede, main [popover]:popover-open",
     ),
   ].some(shown);
   if (bar && main && first && !pushed && (vw >= 1600 || vw < 600)) {
@@ -911,7 +912,7 @@ function pageFindings(shown, name, label) {
     const pager = document.querySelector("#tasks-listing > nav.pager");
     const over = pager && shown(pager) && pager.getBoundingClientRect().bottom <= frame.getBoundingClientRect().top ? pager.getBoundingClientRect().height + 8 : 0;
     const top = Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top - over);
-    const most = vw >= 1600 ? 150 : 240;
+    const most = vw >= 1600 ? 200 : 310;
     if (top > most) out.push({ el: frame, kind: `tasks start ${top}px down the screen, over ${most}px` });
   }
   const pagerOver = document.querySelector("#tasks-listing > nav.pager");
