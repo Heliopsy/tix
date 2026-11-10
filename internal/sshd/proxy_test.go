@@ -499,7 +499,9 @@ func handshakeBehind(t *testing.T, addr string, header []byte) error {
 	if err != nil {
 		return err
 	}
-	return gossh.NewClient(client, chans, reqs).Close()
+	c := gossh.NewClient(client, chans, reqs)
+	defer func() { _ = c.Close() }()
+	return throttleRefusal(t, c)
 }
 
 // heldHandler stops the one log record this test cares about and keeps the

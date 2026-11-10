@@ -899,6 +899,25 @@ tix: this key is not enrolled here: ask an operator to enrol it with `tix user k
 Naming a tenant that exists and naming one that does not are answered the same way, and the ambiguity message
 names only tenants that key is already enrolled in.
 
+A global admin is no exception: the flag does not make them a member of any tenant, so their key is "not
+enrolled here" in a tenant until they join it and enrol the key there. See
+[Global admins](tenancy.md#global-admins).
+
+Connections are rate limited per source address: a burst of 5 back to back, then one more a minute (60 an
+hour), set with `--rate-per-hour` and `--rate-burst`. A connection over the limit still authenticates and is
+then refused with exit status 1 and how long to wait:
+
+```console
+$ ssh -p 2222 acme@tix.example.com
+tix: too many connections from this address; try again in 42 seconds
+```
+
+Every connection counts, enrolled key or not, including each `ssh host COMMAND`. The wait is until the next
+token, so a script that opens a connection per command and hits the limit can run one more command a minute
+until it stops for a few minutes. Raise `--rate-burst` and `--rate-per-hour` for such a script.
+Behind a load balancer, name it in `ssh.trusted_proxies` so the limit counts clients and not the balancer
+(see below).
+
 ### Commands over ssh
 
 An enrolled key can run tix commands with nothing configured on the client: no context, no token. The

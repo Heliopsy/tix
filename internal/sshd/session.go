@@ -70,6 +70,12 @@ func (s *Server) handle(sess ssh.Session) {
 		fatalf(sess, "tix needs a public key to know who you are; ssh with a key, not a password")
 		return
 	}
+	if wait := throttled(sess.Context()); wait > 0 {
+		s.log.Warn("refusing an ssh session over the rate limit",
+			"source", sourceOf(sess.RemoteAddr()), "retry_after", wait.String())
+		fatalf(sess, "%s", throttleMessage(wait))
+		return
+	}
 	fingerprint := auth.Fingerprint(key)
 	if err := s.live.reserve(fingerprint); err != nil {
 		s.log.Warn("refusing an ssh session over the concurrency cap",

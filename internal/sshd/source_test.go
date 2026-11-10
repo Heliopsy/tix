@@ -3,11 +3,14 @@
 package sshd
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,5 +136,26 @@ func handshake(t *testing.T, addr string) error {
 	if err != nil {
 		return err
 	}
-	return client.Close()
+	defer func() { _ = client.Close() }()
+	return throttleRefusal(t, client)
+}
+
+// throttleRefusal runs one session that the listener refuses quickly either
+// way, and returns an error carrying the refusal when it was the rate limit.
+// A throttled connection still authenticates, so the session is where the
+// limit shows.
+func throttleRefusal(t *testing.T, client *gossh.Client) error {
+	t.Helper()
+	sess, err := client.NewSession()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = sess.Close() }()
+	var stderr bytes.Buffer
+	sess.Stderr = &stderr
+	_ = sess.Run("no such interface")
+	if strings.Contains(stderr.String(), "too many connections") {
+		return errors.New(stderr.String())
+	}
+	return nil
 }
