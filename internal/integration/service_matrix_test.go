@@ -1141,6 +1141,21 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "read the artifact limits in force",
+		covers: []string{"ArtifactLimits"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			lim, err := tg.svc.ArtifactLimits(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"max":    lim.MaxBytes,
+				"server": lim.ServerMaxBytes,
+				"types":  lim.AllowedTypes,
+			}, nil
+		},
+	},
+	{
 		name:   "list the built-in workflow templates",
 		covers: []string{"ListWorkflowTemplates"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
