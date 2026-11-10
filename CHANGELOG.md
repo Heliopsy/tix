@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1](https://github.com/Heliopsy/tix/compare/v0.56.0...v0.56.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **sshd:** tell a throttled connection why instead of failing its key ([bbdd6d4](https://github.com/Heliopsy/tix/commit/bbdd6d4f0df351c8a20354ec94f589241ed05fb9))
+
 ## [0.56.0](https://github.com/Heliopsy/tix/compare/v0.55.0...v0.56.0) (2026-11-10)
 
 
