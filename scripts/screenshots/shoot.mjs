@@ -891,6 +891,23 @@ function pageFindings(shown, name, label) {
     if (vw >= 900 && h > window.innerHeight / 8) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, over an eighth of the window` });
     if (tops.length > (vw >= 900 ? 1 : 2)) out.push({ el: bar, kind: `filter toolbar on ${tops.length} rows` });
   }
+  // And the tasks start near the top: within 150px of the content's top on a
+  // Full HD window and 240px on a phone. A project's board used to start
+  // 290px down, under a title, three lines of meta, quick add, the toolbar,
+  // a repeated workflow line and a stray (i). Measured only with nothing in
+  // force that is meant to push the tasks down: chips, a refusal, a toast,
+  // the lanes-by-tag note or an open (i).
+  const main = document.querySelector("main.wrap");
+  const first = document.querySelector("#tasks-listing [data-shortcut-row]");
+  const pushed = document.querySelector(
+    ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview:not(:empty), main details.tip[open], .taskbar ~ .lede",
+  );
+  if (bar && main && first && !pushed && (vw >= 1600 || vw < 600)) {
+    const frame = first.closest(".board, .lanes") || first;
+    const top = Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top);
+    const most = vw >= 1600 ? 150 : 240;
+    if (top > most) out.push({ el: frame, kind: `tasks start ${top}px down the screen, over ${most}px` });
+  }
   for (const el of document.querySelectorAll("time")) {
     const dt = el.getAttribute("datetime");
     if (!dt) out.push({ el, kind: "time without datetime" });
