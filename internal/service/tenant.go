@@ -583,6 +583,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 				"lease default %s is longer than the lease maximum %s",
 				t.LeaseDefault, t.LeaseMax)
 		}
+		if err := l.tightenArtifactLimits(t, in); err != nil {
+			return err
+		}
 		if in.RequireTOTPWeb != nil {
 			t.RequireTOTPWeb = *in.RequireTOTPWeb
 		}

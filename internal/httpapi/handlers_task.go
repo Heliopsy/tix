@@ -81,6 +81,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("DELETE "+wire.RouteComment, rt.handleDeleteComment)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskArtifacts, rt.handleListArtifacts)
+	rt.mux.HandleFunc("GET "+wire.RouteArtifactLimits, rt.handleArtifactLimits)
 	rt.mux.HandleFunc("PUT "+wire.RouteTaskArtifacts, rt.handlePutArtifact)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskAudit, rt.handleTaskAudit)
 }
@@ -867,6 +868,16 @@ func (rt *Router) handleListArtifacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeList(w, r, artifacts, "")
+}
+
+// handleArtifactLimits reports the bounds a new artifact blob is held to.
+func (rt *Router) handleArtifactLimits(w http.ResponseWriter, r *http.Request) {
+	limits, err := rt.cfg.Service.ArtifactLimits(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, limits)
 }
 
 // handlePutArtifact records structured output on a task.

@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/authz"
 	"github.com/heliopsy/tix/internal/core"
@@ -38,6 +39,13 @@ func (l *Local) PutArtifact(ctx context.Context, ref core.TaskRef, in core.Artif
 			return err
 		}
 		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
+			return err
+		}
+		limits, err := l.artifactLimits(ctx, m.tx)
+		if err != nil {
+			return err
+		}
+		if err := limits.Check(in.ContentType, in.Blob); err != nil {
 			return err
 		}
 		a := &core.Artifact{
@@ -84,6 +92,60 @@ func (l *Local) ListArtifacts(ctx context.Context, ref core.TaskRef) ([]core.Art
 		return nil, err
 	}
 	return out, nil
+}
+
+// ArtifactLimits reports the bounds a new artifact blob is held to here.
+func (l *Local) ArtifactLimits(ctx context.Context) (*core.ArtifactLimits, error) {
+	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
+	if err != nil {
+		return nil, err
+	}
+	var out core.ArtifactLimits
+	err = l.read(ctx, actor, func(tx store.Tx) error {
+		out, err = l.artifactLimits(ctx, tx)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// artifactLimits are the server's limits narrowed by the current tenant's.
+func (l *Local) artifactLimits(ctx context.Context, tx store.Tx) (core.ArtifactLimits, error) {
+	t, err := tx.GetTenant(ctx)
+	if err != nil {
+		return core.ArtifactLimits{}, err
+	}
+	return core.EffectiveArtifactLimits(l.artifactMaxBytes, l.artifactTypes, *t), nil
+}
+
+// tightenArtifactLimits applies a tenant's artifact settings, refusing any
+// that would loosen the server's. Existing artifacts are never re-judged.
+func (l *Local) tightenArtifactLimits(t *core.Tenant, in core.UpdateTenantInput) error {
+	if in.ArtifactMaxBytes != nil {
+		if n := *in.ArtifactMaxBytes; n > l.artifactMaxBytes {
+			return core.Invalid("artifact size limit %s is above this server's limit of %s; "+
+				"a tenant can only lower it", core.ByteSize(n), core.ByteSize(l.artifactMaxBytes)).
+				WithDetail(core.DetailField, "artifact_max_bytes")
+		}
+		t.ArtifactMaxBytes = *in.ArtifactMaxBytes
+	}
+	if in.ArtifactTypes != nil {
+		types, err := core.ParseArtifactTypes(*in.ArtifactTypes)
+		if err != nil {
+			return err
+		}
+		for _, p := range types {
+			if !core.ArtifactTypeCovered(l.artifactTypes, p) {
+				return core.Invalid("artifact type %q is not accepted by this server, which accepts: %s; "+
+					"a tenant can only narrow the list", p, strings.Join(l.artifactTypes, ", ")).
+					WithDetail(core.DetailField, "artifact_types")
+			}
+		}
+		t.ArtifactTypes = types
+	}
+	return nil
 }
 
 // artifactSummary describes an artifact for the audit log without its blob,

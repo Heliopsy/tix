@@ -431,6 +431,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithRetentionDefaults(cfg.Config.Retention.Policy("")),
 		service.WithIdempotencyWindow(cfg.Config.Retention.IdempotencyKeys.D()),
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
+		service.WithArtifactLimits(cfg.Config.Artifacts.MaxBytes, artifactTypes(cfg.Config.Artifacts.AllowedTypes)),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
 		service.WithPublicURL(cfg.Config.Server.PublicURL),
@@ -664,4 +665,11 @@ func (c *Conn) InTenant(ctx context.Context, key string) (*Conn, error) {
 	out.Info.TenantID = tenant.ID
 	out.Info.Target.Tenant = tenant.Key
 	return out, nil
+}
+
+// artifactTypes is the configured list in its normal form. Configuration
+// validation already refused one that does not parse.
+func artifactTypes(list []string) []string {
+	out, _ := core.ParseArtifactTypes(list)
+	return out
 }

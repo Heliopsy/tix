@@ -58,6 +58,12 @@ type Config struct {
 	MaxImportBytes int64
 	ImportRoutes   []string
 
+	// MaxArtifactBytes is the largest artifact blob the service takes. The
+	// artifact route and ArtifactRoutes accept a body sized to carry one, so
+	// --max-body-bytes never refuses an upload the limit would allow.
+	MaxArtifactBytes int64
+	ArtifactRoutes   []string
+
 	// SecureCookies forces the session and CSRF cookies Secure regardless of
 	// the scheme a request arrived on. It is the floor, not the ceiling: a
 	// request whose effective scheme is https gets a Secure cookie anyway.
@@ -104,6 +110,8 @@ type Router struct {
 	handler   http.Handler
 	// imports matches the routes that take MaxImportBytes; it serves nothing.
 	imports *http.ServeMux
+	// artifacts matches the routes that carry an artifact blob.
+	artifacts *http.ServeMux
 }
 
 // routeMux is a ServeMux that remembers every pattern registered on it, so
@@ -148,6 +156,9 @@ func New(cfg Config) (*Router, error) {
 	if cfg.MaxImportBytes <= 0 {
 		cfg.MaxImportBytes = config.DefaultMaxImportBytes
 	}
+	if cfg.MaxArtifactBytes <= 0 {
+		cfg.MaxArtifactBytes = core.DefaultArtifactMaxBytes
+	}
 	if cfg.RequestTimeout <= 0 {
 		cfg.RequestTimeout = DefaultRequestTimeout
 	}
@@ -171,6 +182,10 @@ func New(cfg Config) (*Router, error) {
 		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/")}
 	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
 		rt.imports.Handle(pattern, http.NotFoundHandler())
+	}
+	rt.artifacts = http.NewServeMux()
+	for _, pattern := range append([]string{http.MethodPut + " " + wire.RouteTaskArtifacts}, cfg.ArtifactRoutes...) {
+		rt.artifacts.Handle(pattern, http.NotFoundHandler())
 	}
 	rt.register()
 	rt.handler = chain(rt.mux,

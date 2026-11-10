@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -64,6 +65,11 @@ type Local struct {
 	// under whatever the tenant has chosen for itself. A tenant narrows them;
 	// see lease.Policy.Narrow for which way each bound moves.
 	leaseDefaults lease.Policy
+
+	// artifactMaxBytes and artifactTypes are the server's artifact limits,
+	// which a tenant may tighten and never loosen.
+	artifactMaxBytes int64
+	artifactTypes    []string
 
 	// timeDefaults are the deployment's date format and timezone, under the
 	// tenant's and each person's own.
@@ -165,6 +171,19 @@ func WithLeaseDefaults(p lease.Policy) Option {
 	return func(l *Local) { l.leaseDefaults = p }
 }
 
+// WithArtifactLimits sets the server's artifact size limit and accepted media
+// types. Zero and an empty list keep the built-in defaults.
+func WithArtifactLimits(maxBytes int64, types []string) Option {
+	return func(l *Local) {
+		if maxBytes > 0 {
+			l.artifactMaxBytes = maxBytes
+		}
+		if len(types) > 0 {
+			l.artifactTypes = slices.Clone(types)
+		}
+	}
+}
+
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
@@ -260,6 +279,8 @@ func New(st store.Store, opts ...Option) *Local {
 		conns:  connections.Default,
 
 		idempotencyWindow: DefaultIdempotencyWindow,
+		artifactMaxBytes:  core.DefaultArtifactMaxBytes,
+		artifactTypes:     core.DefaultArtifactTypes,
 	}
 	for _, opt := range opts {
 		opt(l)

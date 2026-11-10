@@ -34,6 +34,7 @@ var inputReaches = []inputReach{
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
 		"require_totp_ssh": "--require-totp-ssh", "mfa_policy": "--mfa-policy", "mfa_grace": "--mfa-grace",
 		"lease_default": "--lease-default", "lease_max": "--lease-max",
+		"artifact_max_bytes": "--artifact-max-bytes", "artifact_types": "--artifact-types",
 		"trash_off": "--trash", "time_format": "--time-format", "timezone": "--timezone",
 	}},
 	{"tix domain add", core.AddDomainInput{}, map[string]string{

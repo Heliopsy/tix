@@ -526,6 +526,49 @@ paths:
         - actor
       x-tix-openspec:
         - http-api
+  /api/v1/artifact-limits:
+    get:
+      description: |-
+        ArtifactLimits reports the size and media types a new artifact blob is held to on the current tenant: the server's artifacts.max_bytes and artifacts.allowed_types, narrowed by the tenant's own settings.
+
+        Command line: `tix artifact limits`.
+      operationId: artifact.limits
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactLimits'
+          description: ArtifactLimits are the bounds a new artifact blob is held to
+            on a tenant.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:read
+        - session:
+            - task:read
+      summary: 'ArtifactLimits reports the size and media types a new artifact blob
+        is held to on the current tenant: the server''s artifacts.max_bytes and artifacts.allowed_types,
+        narrowed by the tenant''s own settings'
+      tags:
+        - artifact
   /api/v1/audit:
     get:
       description: |-
@@ -13105,8 +13148,8 @@ components:
             claim holder.
           type: string
         blob:
-          description: Blob is inline content, base64 in JSON, at most 1 MiB. Larger
-            content belongs elsewhere, referenced from Payload.
+          description: Blob is inline content, base64 in JSON, within the tenant's
+            artifact limits. Larger content belongs elsewhere, referenced from Payload.
           format: base64
           type: string
         content_type:
@@ -13142,8 +13185,9 @@ components:
         token.
       properties:
         blob:
-          description: Blob is inline content, base64 in JSON, at most 1 MiB; larger
-            content belongs elsewhere, referenced from Payload.
+          description: Blob is inline content, base64 in JSON, held to the tenant's
+            artifact limits on size and media type; larger content belongs elsewhere,
+            referenced from Payload.
           format: base64
           type: string
         content_type:
@@ -13172,6 +13216,37 @@ components:
         - file
         - metric
       type: string
+    ArtifactLimits:
+      description: ArtifactLimits are the bounds a new artifact blob is held to on
+        a tenant.
+      properties:
+        allowed_types:
+          description: AllowedTypes are the media types and patterns such as "image/*"
+            a blob may carry, the tenant's own list where it set one.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        max_bytes:
+          description: MaxBytes is the largest blob accepted, the lower of the tenant's
+            own limit and the server's.
+          format: int64
+          type: integer
+        server_allowed_types:
+          description: ServerAllowedTypes is the server's list, which a tenant may
+            only narrow.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        server_max_bytes:
+          description: ServerMaxBytes is the server's limit, which a tenant may only
+            lower.
+          format: int64
+          type: integer
+      type: object
     AuditEntry:
       description: AuditEntry is one append-only record of a change.
       properties:
@@ -13969,6 +14044,19 @@ components:
             order they were named.
           items:
             $ref: '#/components/schemas/CreatedAdmin'
+          type: array
+        artifact_max_bytes:
+          description: ArtifactMaxBytes is the largest artifact blob this tenant accepts.
+            It can lower the server's artifacts.max_bytes but never raise it; zero
+            inherits.
+          format: int64
+          type: integer
+        artifact_types:
+          description: ArtifactTypes are the media types and patterns an artifact
+            blob may carry on this tenant, within the server's artifacts.allowed_types;
+            empty inherits.
+          items:
+            type: string
           type: array
         created_at:
           description: CreatedAt is when the tenant was created, RFC 3339.
@@ -17287,6 +17375,19 @@ components:
     Tenant:
       description: Tenant is the top-level isolation boundary.
       properties:
+        artifact_max_bytes:
+          description: ArtifactMaxBytes is the largest artifact blob this tenant accepts.
+            It can lower the server's artifacts.max_bytes but never raise it; zero
+            inherits.
+          format: int64
+          type: integer
+        artifact_types:
+          description: ArtifactTypes are the media types and patterns an artifact
+            blob may carry on this tenant, within the server's artifacts.allowed_types;
+            empty inherits.
+          items:
+            type: string
+          type: array
         created_at:
           description: CreatedAt is when the tenant was created, RFC 3339.
           format: date-time
@@ -17805,6 +17906,23 @@ components:
     UpdateTenantInput:
       description: UpdateTenantInput changes a tenant.
       properties:
+        artifact_max_bytes:
+          description: ArtifactMaxBytes lowers the largest artifact blob this tenant
+            accepts below the server's limit. Zero inherits the server's and omitted
+            leaves it; a value above the server's is refused.
+          type:
+            - "null"
+            - integer
+        artifact_types:
+          description: ArtifactTypes narrows the media types an artifact blob may
+            carry, such as ["image/*", "application/pdf"]. An empty list inherits
+            the server's and omitted leaves it; a type the server does not accept
+            is refused.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
         lease_default:
           description: LeaseDefault is the lease a claim on this tenant gets when
             nothing more specific names one, a duration such as "30m". Zero clears

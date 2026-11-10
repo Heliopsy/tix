@@ -169,14 +169,6 @@ func TestArtifactInputValidate(t *testing.T) {
 	if err := (ArtifactInput{}).Validate(); err == nil {
 		t.Error("an artifact with no kind must be rejected")
 	}
-	big := ArtifactInput{Kind: ArtifactFile, Blob: make([]byte, MaxBlobSize+1)}
-	if err := big.Validate(); err == nil {
-		t.Error("an over-large inline blob must be rejected")
-	}
-	atLimit := ArtifactInput{Kind: ArtifactFile, Blob: make([]byte, MaxBlobSize)}
-	if err := atLimit.Validate(); err != nil {
-		t.Errorf("a blob at the limit should be accepted, got %v", err)
-	}
 }
 
 func TestCreateUserInputValidate(t *testing.T) {

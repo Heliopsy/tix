@@ -246,6 +246,9 @@ func (rt *Router) limitBody(next http.Handler) http.Handler {
 		if _, pattern := rt.imports.Handler(r); pattern != "" {
 			limit = rt.cfg.MaxImportBytes
 			r = withTooLargeMessage(r, config.ImportLimitRefusal(limit))
+		} else if _, pattern := rt.artifacts.Handler(r); pattern != "" {
+			limit = config.ArtifactBodyLimit(rt.cfg.MaxArtifactBytes, limit)
+			r = withTooLargeMessage(r, config.ArtifactLimitRefusal(rt.cfg.MaxArtifactBytes))
 		}
 		if r.ContentLength > limit {
 			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid, tooLargeMessage(r))

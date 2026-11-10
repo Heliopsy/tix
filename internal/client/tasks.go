@@ -205,6 +205,11 @@ func (c *Client) ListArtifacts(ctx context.Context, ref core.TaskRef) ([]core.Ar
 	return listAll[core.Artifact](ctx, c, taskPath(wire.RouteTaskArtifacts, ref), nil)
 }
 
+// ArtifactLimits reads the bounds a new artifact blob is held to.
+func (c *Client) ArtifactLimits(ctx context.Context) (*core.ArtifactLimits, error) {
+	return call[core.ArtifactLimits](ctx, c, http.MethodGet, wire.RouteArtifactLimits, nil, nil)
+}
+
 func taskPath(pattern string, ref core.TaskRef) string {
 	return routePath(pattern, "ref", ref.String())
 }
