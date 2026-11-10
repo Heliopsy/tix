@@ -968,6 +968,13 @@ and a raw entry the address names each open the tab holding it. A live update re
 counts but never the tabs, so the one you are reading stays. With scripting off there is no strip:
 the three panels stand one under another, each under its own heading.
 
+The Artifacts tab's form can attach a file. Above the button it states the largest file and the types this
+tenant accepts, and the file picker offers only those types. A file over the limit or of another type is
+refused with both named. An attached file has a Download link, and it is always a download: an HTML or SVG
+file is never opened as a page. A tenant administrator sets the tenant's own limits under Tenant settings,
+Largest artifact file and Accepted artifact types, each empty to use the server's (shown greyed) and never
+past it.
+
 The star is a shape in the header; its name says whether you starred the task (Star or Unstar). A subtask
 names its parent beside its reference and in a Subtask of row.
 

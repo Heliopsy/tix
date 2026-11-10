@@ -68,6 +68,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
 | `lease.default` | `TIX_LEASE_DEFAULT` | (unset: `30m`) |
 | `lease.max` | `TIX_LEASE_MAX` | (unset: `24h`) |
+| `artifacts.max_bytes` | `TIX_ARTIFACTS_MAX_BYTES` | `1048576` (1 MiB) |
+| `artifacts.allowed_types` | `TIX_ARTIFACTS_ALLOWED_TYPES` | common images, PDF, text, CSV, JSON, YAML, archives |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
@@ -392,6 +394,27 @@ upload step of the browser's import, in bytes. Every other request answers to `t
 by default, which is sized for a form rather than a file. A larger import is refused with 413 and a message naming
 both the limit and this key. The import also has limits of its own, 64 MiB among them, so raising this key past
 that gains nothing. `tix serve` reads it and has no flag for it.
+
+`artifacts.max_bytes` and `artifacts.allowed_types` bound the file a new task artifact may carry, in bytes and
+as media types or patterns such as `image/*` (`*/*` accepts anything). `tix serve --artifact-max-bytes` and
+`--artifact-allowed-types` set them too and win over the file and the environment when typed. The default list is
+`image/png`, `image/jpeg`, `image/gif`, `image/webp`, `image/avif`, `application/pdf`, `text/plain`,
+`text/markdown`, `text/csv`, `application/json`, `application/x-ndjson`, `application/yaml`, `application/zip`,
+`application/gzip`, `application/x-tar` and `application/octet-stream`, which is also what a blob sent without a
+type is judged as. HTML, SVG and scripts are not on it. Whatever the list says, the browser only ever offers an
+artifact file as a download (`Content-Disposition: attachment`, `nosniff`, a sandboxing policy), never as a page.
+
+A tenant administrator can tighten both for their tenant (`tix tenant edit --artifact-max-bytes 5MiB
+--artifact-types 'image/*,application/pdf'`, the tenant settings screen, or `PATCH /v1/tenants/{ref}`), and can
+loosen neither: a value past the server's is refused with the server's limit named. Unset inherits. The limits
+apply to new uploads; artifacts already stored are not judged again. `tix artifact limits` and
+`GET /v1/artifact-limits` report the limits in force.
+
+The blob travels inside the request, so the artifact upload routes, `PUT /v1/tasks/{ref}/artifacts` and the
+browser's artifact form, take a body large enough for `artifacts.max_bytes` once base64 encoded, plus 1 MiB for
+the rest of the request, whatever `--max-body-bytes` says. Raising `artifacts.max_bytes` is therefore enough on
+its own; `--max-body-bytes` never refuses an upload under it. Over SSH, standard input for a hosted command is
+bounded by the larger of this and `server.max_import_bytes`.
 
 `server.egress_allow_private` and `server.egress_allow` decide what a url a tenant supplies may reach: webhook
 endpoints, inbox channels and external sync sources. By default every request to such a url is refused when it
