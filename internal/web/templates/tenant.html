@@ -78,6 +78,26 @@
          placeholder="{{.Data.LeaseMax}}">
   <p class="note">{{t "Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less."}}</p>
 
+  {{/* Artifact limits only tighten the server's: a figure above the
+       server's, or a type it does not accept, is refused with the server's
+       value named. Files already attached are never judged again. */}}
+  <div class="field-label">
+    <label for="artifact_max_bytes">{{t "Largest artifact file"}}</label>
+    {{template "field-info" "The largest file an artifact may carry on this tenant, such as 512KiB or 5MiB. It can be lower than the server's limit but not higher. Files already attached stay as they are."}}
+  </div>
+  <input id="artifact_max_bytes" name="artifact_max_bytes" class="mono"
+         value="{{if .Data.Tenant.ArtifactMaxBytes}}{{bytesize .Data.Tenant.ArtifactMaxBytes}}{{end}}"
+         placeholder="{{bytesize .Data.Artifacts.ServerMaxBytes}}">
+
+  <div class="field-label">
+    <label for="artifact_types">{{t "Accepted artifact types"}}</label>
+    {{template "field-info" "The media types an artifact file may have on this tenant, separated by commas, such as image/*, application/pdf. Only types the server accepts can be listed. Whatever the type, a file is always offered as a download and never opened in the browser."}}
+  </div>
+  <input id="artifact_types" name="artifact_types" class="mono"
+         value="{{range $i, $p := .Data.Tenant.ArtifactTypes}}{{if $i}}, {{end}}{{$p}}{{end}}"
+         placeholder="{{range $i, $p := .Data.Artifacts.ServerAllowedTypes}}{{if $i}}, {{end}}{{$p}}{{end}}">
+  <p class="note">{{t "Leave either empty to use the server's limit, shown greyed."}}</p>
+
   {{/* Whether a delete can be taken back. Off is permanent deletion
        everywhere: no undo toast, a confirmation instead, no Trash in the
        sidebar. Turning it off never empties the trash: what is already there

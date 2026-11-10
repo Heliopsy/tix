@@ -50,6 +50,7 @@
     },
     { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the project page" },
     { "pattern": "/projects/{key}/icon", "skip": "image file, not a screen" },
+    { "pattern": "/tasks/{ref}/artifacts/{id}/file", "skip": "a download, not a screen" },
     { "pattern": "/projects/{key}/settings", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/fields", "params": { "key": "project" } },

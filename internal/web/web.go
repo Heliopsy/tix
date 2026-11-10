@@ -155,6 +155,20 @@ func WithImportLimit(limit int64) Option {
 // so the server's body limit gives them the import limit too.
 func ImportRoutes() []string { return []string{http.MethodPost + " " + RouteProjectImport} }
 
+// WithArtifactLimit sets artifacts.max_bytes, which sizes the body the
+// artifact upload form takes.
+func WithArtifactLimit(limit int64) Option {
+	return func(h *handler) {
+		if limit > 0 {
+			h.artifactLimit = limit
+		}
+	}
+}
+
+// ArtifactRoutes are the mux patterns of the routes that carry an artifact
+// file, so the server's body limit makes room for one too.
+func ArtifactRoutes() []string { return []string{http.MethodPost + " " + RouteTaskArts} }
+
 // WithPageSize sets how many rows one page of a listing carries. A value
 // outside 1..core.MaxPageLimit is ignored, leaving the shipped default: this
 // option is reached from configuration, which refuses such a value with the
@@ -192,20 +206,22 @@ type handler struct {
 	sshPublic      string
 	imports        *importStages
 	importLimit    int64
+	artifactLimit  int64
 }
 
 // Handler returns an http.Handler serving the browser interface.
 func Handler(svc core.Service, opts ...Option) http.Handler {
 	h := &handler{
-		releases:    newReleaseWatch(),
-		svc:         svc,
-		mux:         http.NewServeMux(),
-		logger:      slog.New(slog.NewTextHandler(discard{}, nil)),
-		eventsPath:  DefaultEventsPath,
-		pageSize:    core.DefaultDisplayLimit,
-		leases:      lease.DefaultPolicy(),
-		imports:     newImportStages(),
-		importLimit: config.DefaultMaxImportBytes,
+		releases:      newReleaseWatch(),
+		svc:           svc,
+		mux:           http.NewServeMux(),
+		logger:        slog.New(slog.NewTextHandler(discard{}, nil)),
+		eventsPath:    DefaultEventsPath,
+		pageSize:      core.DefaultDisplayLimit,
+		leases:        lease.DefaultPolicy(),
+		imports:       newImportStages(),
+		importLimit:   config.DefaultMaxImportBytes,
+		artifactLimit: core.DefaultArtifactMaxBytes,
 	}
 	for _, opt := range opts {
 		opt(h)

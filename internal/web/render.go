@@ -283,6 +283,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"stamp":            style.FormatPtr,
 		"absolute":         style.Absolute,
 		"join":             joinValues,
+		"bytesize":         core.ByteSize,
 		"scopes":           joinScopes,
 		"counts":           formatCounts,
 		"envName":          envName,

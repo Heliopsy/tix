@@ -3,12 +3,17 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,9 +38,11 @@ func (h *handler) taskRoutes() []route {
 		// rather than the whole page. See showTasksLive and showTaskLive.
 		get(RouteTasksLive, "tasks.html", h.showTasksLive, "ListTasks", "ListProjects", "ListTags"),
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease",
+			"ArtifactLimits"),
 		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease",
+			"ArtifactLimits"),
 		get(RouteTaskHistory, "task.html", h.showTaskHistory, "GetTask", "ListAudit", "GetActor"),
 		get(RouteTaskTree, "task.html", h.showTaskTree, "TaskTree"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
@@ -62,6 +69,7 @@ func (h *handler) taskRoutes() []route {
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
 		post(RouteTaskArts, h.putArtifact, "PutArtifact"),
+		getFile(RouteTaskArtFile, h.downloadArtifact, "ListArtifacts"),
 	}
 }
 
@@ -135,10 +143,13 @@ type taskView struct {
 	Routes        []flowRoute
 	Priorities    []priorityChoice
 	ArtifactKinds []core.ArtifactKind
-	CanWrite      bool
-	CanComment    bool
-	CanDelete     bool
-	CanAudit      bool
+	// ArtifactLimits are what a file attached here is held to, stated beside
+	// the file input; nil when they could not be read.
+	ArtifactLimits *core.ArtifactLimits
+	CanWrite       bool
+	CanComment     bool
+	CanDelete      bool
+	CanAudit       bool
 	// CanReclaim is the reader's authority to end somebody else's lease. The
 	// control is drawn only when a lease is live, so the field alone does not
 	// decide whether it appears.
@@ -419,7 +430,11 @@ func (h *handler) attachRelations(r *http.Request, ref core.TaskRef, data *taskV
 		return err
 	}
 	data.Artifacts, err = h.svc.ListArtifacts(r.Context(), ref)
-	return err
+	if err != nil {
+		return err
+	}
+	data.ArtifactLimits, _ = h.svc.ArtifactLimits(r.Context())
+	return nil
 }
 
 // namedDependencies resolves each dependency to the reference and title a
@@ -1173,9 +1188,70 @@ func (h *handler) putArtifact(w http.ResponseWriter, r *http.Request) error {
 		Name:    field(r, "name"),
 		Payload: pairs(field(r, "payload")),
 	}
+	if err := attachedFile(r, &in); err != nil {
+		return err
+	}
 	if _, err := h.svc.PutArtifact(r.Context(), ref, in); err != nil {
 		return err
 	}
 	redirect(w, r, taskPath(r), "artifact attached")
 	return nil
+}
+
+// attachedFile reads the artifact form's file, if one was chosen, into the
+// blob. Its type is the browser's, or the extension's when the browser sent
+// none; the service decides whether it is accepted.
+func attachedFile(r *http.Request, in *core.ArtifactInput) error {
+	if r.MultipartForm == nil || len(r.MultipartForm.File["file"]) == 0 {
+		return nil
+	}
+	part := r.MultipartForm.File["file"][0]
+	if part.Size == 0 && part.Filename == "" {
+		return nil
+	}
+	f, err := part.Open()
+	if err != nil {
+		return core.Invalid("the attached file could not be read: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	if in.Blob, err = io.ReadAll(f); err != nil {
+		return core.Invalid("the attached file could not be read: %v", err)
+	}
+	in.ContentType = part.Header.Get("Content-Type")
+	if t := mime.TypeByExtension(filepath.Ext(part.Filename)); t != "" &&
+		(in.ContentType == "" || in.ContentType == core.UntypedArtifact) {
+		in.ContentType = t
+	}
+	if in.Name == "" {
+		in.Name = filepath.Base(part.Filename)
+	}
+	return nil
+}
+
+// downloadArtifact answers an artifact's blob as a file to save, never as a
+// page: whatever type it claims, it is sent as an attachment, nosniff, under
+// a policy that runs nothing, so an HTML or SVG file cannot act on the site.
+func (h *handler) downloadArtifact(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	list, err := h.svc.ListArtifacts(r.Context(), ref)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(list, func(a core.Artifact) bool { return a.ID == r.PathValue("id") })
+	if i < 0 || len(list[i].Blob) == 0 {
+		return core.NotFound("artifact file %q", r.PathValue("id"))
+	}
+	a := list[i]
+	contentType := core.UntypedArtifact
+	if media := core.ArtifactMediaType(a.ContentType); media != "" {
+		contentType = media
+	}
+	name := a.Name
+	if name == "" {
+		name = "artifact-" + a.ID
+	}
+	return writeAttachment(w, contentType, name, bytes.NewReader(a.Blob))
 }
