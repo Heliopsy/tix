@@ -19,7 +19,8 @@ import (
 func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
-			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings"),
+			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings",
+			"ArtifactLimits"),
 		post(RouteTenant, h.updateTenant, "UpdateTenant"),
 		post(RouteMembers, h.addMember, "AddMember"),
 		post(RouteMemberRemove, h.removeMember, "RemoveMember"),
@@ -58,7 +59,10 @@ type tenantView struct {
 	// ambiguous between "no bound" and "the one you cannot see from here".
 	LeaseDefault core.Duration
 	LeaseMax     core.Duration
-	Tenants      []core.Tenant
+	// Artifacts are this tenant's artifact limits with the server's beside
+	// them, the server's shown as the placeholder of each empty box.
+	Artifacts core.ArtifactLimits
+	Tenants   []core.Tenant
 	// Trash is whether deleted tasks are kept, and how many are held, so
 	// turning it off can say what stays behind.
 	Trash core.TrashStatus
@@ -135,6 +139,10 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	artifacts, err := h.svc.ArtifactLimits(r.Context())
+	if err != nil {
+		return err
+	}
 	actors := make([]string, 0, len(members))
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
@@ -144,6 +152,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 		DateFormat: dateFormat, DateZone: dateZone,
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
+		Artifacts: *artifacts,
 		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
 		Housekeeping: newHousekeepingForm(housekeeping),
 		Names:        h.resolveActors(r, actors...)})
@@ -267,6 +276,9 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 			d = parsed
 		}
 		*f.into = &d
+	}
+	if err := artifactSettings(r, &in); err != nil {
+		return err
 	}
 	switch field(r, "trash") {
 	case "on":
@@ -1048,4 +1060,28 @@ func firstLetter(s string) string {
 		}
 	}
 	return ""
+}
+
+// artifactSettings reads the tenant's artifact limits. Like the lease bounds,
+// an empty box hands the limit back to the server, so a form carrying the
+// fields always applies them.
+func artifactSettings(r *http.Request, in *core.UpdateTenantInput) error {
+	if r.PostForm.Has("artifact_max_bytes") {
+		var n int64
+		if raw := strings.TrimSpace(field(r, "artifact_max_bytes")); raw != "" {
+			parsed, err := core.ParseByteSize(raw)
+			if err != nil {
+				return core.Invalid("artifact size limit: %v", err).WithDetail(core.DetailField, "artifact_max_bytes")
+			}
+			n = parsed
+		}
+		in.ArtifactMaxBytes = &n
+	}
+	if r.PostForm.Has("artifact_types") {
+		types := strings.FieldsFunc(field(r, "artifact_types"), func(c rune) bool {
+			return c == ',' || c == '\n' || c == ' '
+		})
+		in.ArtifactTypes = &types
+	}
+	return nil
 }

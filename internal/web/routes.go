@@ -204,6 +204,7 @@ const (
 	RouteCommentEdit     = "/tasks/{ref}/comments/edit"
 	RouteCommentDel      = "/tasks/{ref}/comments/delete"
 	RouteTaskArts        = "/tasks/{ref}/artifacts"
+	RouteTaskArtFile     = "/tasks/{ref}/artifacts/{id}/file"
 	RouteTemplates       = "/templates"
 	RouteTemplateNew     = "/templates/new"
 	RouteTemplate        = "/templates/{id}"

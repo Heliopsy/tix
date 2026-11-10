@@ -415,7 +415,7 @@
       <div class="tsec-head ttab-head"><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}</div>
       <ul class="rellist rows" id="task-artifacts">{{template "task-artifacts" .}}</ul>
       {{if .Data.CanComment}}
-      <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
+      <form method="post" action="/tasks/{{$t.Ref}}/artifacts" enctype="multipart/form-data">
         {{template "csrf" .CSRF}}
         <div class="row">
           <div>
@@ -428,6 +428,9 @@
         </div>
         <label for="{{.IDPrefix}}artifact-payload">{{t "Payload, one key=value per line"}}</label>
         <textarea id="{{.IDPrefix}}artifact-payload" name="payload"></textarea>
+        <label for="{{.IDPrefix}}artifact-file">{{t "File"}}</label>
+        <input id="{{.IDPrefix}}artifact-file" name="file" type="file"{{with .Data.ArtifactLimits}}{{with .Accept}} accept="{{.}}"{{end}}{{end}}{{with .Data.ArtifactLimits}} aria-describedby="{{$.IDPrefix}}artifact-limits"{{end}}>
+        {{with .Data.ArtifactLimits}}<p class="note" id="{{$.IDPrefix}}artifact-limits">{{t "Files up to %s. Accepted types: %s." (bytesize .MaxBytes) (join .AllowedTypes)}}</p>{{end}}
         <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
       </form>
       {{end}}
@@ -492,7 +495,7 @@
 {{define "task-count-artifacts"}}<span class="tsec-count{{if not .Data.Artifacts}} is-zero{{end}}" id="task-count-artifacts">{{len .Data.Artifacts}}</span>{{end}}
 
 {{define "task-artifacts"}}
-      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
+      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span>{{if .Blob}} <a href="/tasks/{{$.Data.Task.Ref}}/artifacts/{{.ID}}/file" download>{{t "Download"}}</a>{{end}}</li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
 {{end}}
 
 {{/* task-pills is the top of the properties: status, priority and the state
