@@ -246,11 +246,23 @@ func emailFree(ctx context.Context, u store.UnscopedTx, email string) error {
 }
 
 // seedTenant gives a new tenant the builtin workflow, without which it could
-// hold no projects, and its admins, in one transaction scoped to it.
+// hold no projects, its Default project and its admins, in one transaction scoped to it.
 func (l *Local) seedTenant(ctx context.Context, tenant *core.Tenant, admins []pendingAdmin) (*core.CreatedTenant, error) {
 	out := &core.CreatedTenant{Tenant: *tenant}
 	err := l.write(ctx, core.SystemActor(tenant.ID), func(m *mutation) error {
-		if _, err := ensureBuiltinWorkflow(ctx, m); err != nil {
+		wf, err := ensureBuiltinWorkflow(ctx, m)
+		if err != nil {
+			return err
+		}
+		// A new tenant opens on its Default list, with the same icon and
+		// colour a fresh installation gives it, rather than on an empty
+		// sidebar.
+		switch _, err := m.tx.GetProject(ctx, DefaultProjectKey); {
+		case core.IsKind(err, core.KindNotFound):
+			if err := l.createStarterProjects(ctx, m, wf, starterProjects[:1]); err != nil {
+				return err
+			}
+		case err != nil:
 			return err
 		}
 		u, err := asUnscoped(m.tx)
