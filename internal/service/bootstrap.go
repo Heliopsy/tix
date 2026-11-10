@@ -98,6 +98,12 @@ func (l *Local) seedProjects(ctx context.Context, m *mutation, wf *core.Workflow
 	if l.noStarterProjects {
 		wanted = starterProjects[:1]
 	}
+	return l.createStarterProjects(ctx, m, wf, wanted)
+}
+
+// createStarterProjects writes the given starter lists on wf, each with an
+// audit entry and event marked as seeded.
+func (l *Local) createStarterProjects(ctx context.Context, m *mutation, wf *core.Workflow, wanted []core.Project) error {
 	for _, seed := range wanted {
 		p := seed
 		p.WorkflowID = wf.ID

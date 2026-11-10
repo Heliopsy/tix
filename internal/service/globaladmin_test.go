@@ -633,3 +633,22 @@ func TestAGeneratedFirstAdminPasswordMustBeChanged(t *testing.T) {
 		t.Fatalf("a supplied password was flagged too: %v", err)
 	}
 }
+
+// A new tenant opens on a Default project that carries the same icon and
+// colour a fresh installation gives it, not on an empty sidebar.
+func TestCreateTenantSeedsItsDefaultProject(t *testing.T) {
+	l, _, _, actor := newLocal(t)
+	ctx, _ := globalAdmin(t, l, actor, "root@acme.test")
+	created, err := l.CreateTenant(ctx, core.CreateTenantInput{Key: "fresh", Name: "Fresh"})
+	if err != nil {
+		t.Fatalf("CreateTenant: %v", err)
+	}
+	projects, _, err := l.ListProjects(core.WithActor(context.Background(), core.SystemActor(created.ID)), core.ProjectFilter{})
+	if err != nil {
+		t.Fatalf("ListProjects: %v", err)
+	}
+	want := starterProjects[0]
+	if len(projects) != 1 || projects[0].Key != want.Key || projects[0].Icon != want.Icon || projects[0].Color != want.Color {
+		t.Fatalf("projects = %+v, want only %s with icon %q and colour %q", projects, want.Key, want.Icon, want.Color)
+	}
+}
