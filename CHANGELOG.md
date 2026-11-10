@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.56.0](https://github.com/Heliopsy/tix/compare/v0.55.0...v0.56.0) (2026-11-10)
+
+
+### Features
+
+* **cli:** tenant artifact limits, tix artifact limits and serve flags for them ([c6d58a4](https://github.com/Heliopsy/tix/commit/c6d58a4030119456dd6c868371f461f75b192c27))
+* **service:** configurable artifact size and type limits, tightened per tenant ([8c72a26](https://github.com/Heliopsy/tix/commit/8c72a266a2addfab5d81689a96ac80fd579ef95a))
+* **tui:** show and edit the tenant's artifact limits ([6f2f49f](https://github.com/Heliopsy/tix/commit/6f2f49f909d29c0533ccbeabb19f21abedf68918))
+* **web:** attach artifact files within the limits and download them as attachments ([953af40](https://github.com/Heliopsy/tix/commit/953af408936573d4968342f7ee5d0610586cd3f1))
+* **web:** reload an open tab into a new release when it is safe ([1bd9879](https://github.com/Heliopsy/tix/commit/1bd98791704f723ea05796676a42ad9dc4649a52))
+
 ## [0.55.0](https://github.com/Heliopsy/tix/compare/v0.54.0...v0.55.0) (2026-11-10)
 
 
