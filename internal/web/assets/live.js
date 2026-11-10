@@ -83,6 +83,7 @@
     var deferred = null;
     var live = false;
     var again = false;
+    var dropped = false;
 
     // A refresh asked for while one is still on its way is run again when
     // that one lands, never dropped. The coalescer's trailing run used to
@@ -219,7 +220,16 @@
       }
       socket = null;
       live = false;
+      dropped = true;
       later();
+    }
+
+    // reconnected tells assets/deploy.js the socket came back after a drop,
+    // which is what a server restart for a new release looks like from here.
+    function reconnected() {
+      if (typeof window.CustomEvent === "function" && document.dispatchEvent) {
+        document.dispatchEvent(new window.CustomEvent("tix:live-reconnected"));
+      }
     }
 
     function connect() {
@@ -245,6 +255,10 @@
         stopPolling();
         announce();
         subscribe(opening);
+        if (dropped) {
+          dropped = false;
+          reconnected();
+        }
       });
       opening.addEventListener("message", function (message) {
         if (socket !== opening) {

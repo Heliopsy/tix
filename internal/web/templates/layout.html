@@ -39,6 +39,7 @@
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
 <script src="/assets/live.js" defer></script>
+<script src="/assets/deploy.js" defer></script>
 <script src="/assets/shortcuts.js" defer></script>
 <script src="/assets/tasktabs.js" defer></script>
 <script src="/assets/tasktree.js" defer></script>
@@ -66,7 +67,9 @@
 <script src="/assets/scopes.js" defer></script>
 <script src="/assets/connect.js" defer></script>
 </head>
-<body hx-boost="true">
+{{/* data-build is the release that drew the page; assets/deploy.js reloads
+     the tab when /healthz reports a different one. */}}
+<body hx-boost="true"{{with .Build}} data-build="{{.}}"{{end}}>
 {{if .Actor}}
 <script id="tix-shortcuts-data" type="application/json">{{.ShortcutsJSON}}</script>
 <script id="tix-palette-data" type="application/json">{{.PaletteJSON}}</script>

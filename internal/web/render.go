@@ -22,6 +22,7 @@ import (
 	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/quickadd"
+	"github.com/heliopsy/tix/internal/version"
 )
 
 // layoutFiles are parsed into every screen.
@@ -137,7 +138,10 @@ type view struct {
 	// its scripts need; see i18n.go.
 	Lang   string
 	JSText template.JS
-	Flash  string
+	// Build is the release this server runs, drawn on <body data-build> for
+	// assets/deploy.js to compare with /healthz.
+	Build string
+	Flash string
 	// FlashRef is the task the flash is about, when it is about one. The
 	// toast used to name a ref as plain text ("links-4 moved to doing") on a
 	// screen the reader had just been returned to, so the one thing they
@@ -474,6 +478,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Title:           title,
 		Lang:            langOf(r),
 		JSText:          jsMessagesFor(langOf(r)),
+		Build:           version.Version,
 		Path:            r.URL.Path,
 		Help:            h.helpFor(r),
 		Dialog:          dialogOf(r),

@@ -1256,6 +1256,15 @@ same rule everywhere (`tix.focusMemo` in `decide.js`, used by live updates, lane
 actions): the nearest id and the control's `data-focus` name, and a choice made in a menu counts as
 the button that opened it. A refresh that keeps the focused element leaves focus alone.
 
+**A new release** reaches an open tab by itself. Each page names its build on `<body data-build>`,
+and the tab compares it with the `version` from `/healthz` when the live connection comes back after
+a drop, when you return to the tab, and every seven minutes. If the server runs a newer build and
+nothing on the page would be lost, the tab reloads, keeps its scroll position and says
+**Updated to vX** for a few seconds. If you are typing, have changed a field, have a dialog or menu
+open, are waiting on a request or have rows selected, a bar says **A new version is available** with
+a **Reload** button instead, and the tab reloads by itself once you have sent or left what you were
+doing. Without scripting the next page you open is simply the new build.
+
 **A pressed button** says so in the same frame: its spinner takes its icon's place and the label stays
 readable, or, on a button of text alone, takes the label's place with the label hidden but still
 holding the width, so nothing moves. Nothing about it fades in, which is what used to leave the
