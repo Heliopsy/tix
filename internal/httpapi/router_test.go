@@ -10,6 +10,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/httpapi"
+	"github.com/heliopsy/tix/internal/version"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -336,6 +337,9 @@ func TestHealthWorksWithTheDatabaseClosed(t *testing.T) {
 	decodeBody(t, resp, &body)
 	if body.Status != "ok" {
 		t.Errorf("status = %q, want ok", body.Status)
+	}
+	if body.Version != version.Version {
+		t.Errorf("version = %q, want %q: the web UI compares it with <body data-build>", body.Version, version.Version)
 	}
 }
 

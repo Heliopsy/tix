@@ -230,6 +230,10 @@ var jsMessages = []string{
 	"Checklist item",
 	"The rich text editor could not be loaded. Your text is unchanged.",
 	"This text uses Markdown the rich text editor cannot keep exactly, so it stays in Markdown.",
+	"Updated to %s",
+	"A new version is available.",
+	"Reload",
+	"Close",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

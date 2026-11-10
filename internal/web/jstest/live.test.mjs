@@ -585,3 +585,19 @@ test("a refresh asked for during a fetch runs when the fetch lands", async () =>
   c.clock.fire();
   assert.equal(c.ctx.tix.liveSettled(), true, "the screen never said it had drawn everything");
 });
+
+// assets/deploy.js checks for a new release when the socket comes back,
+// because a server restarted for a deploy looks exactly like that from here.
+// The first connection of a page is not a comeback and asks nothing.
+test("a socket that comes back after a drop says so, and the first one does not", () => {
+  const c = liveContext();
+  const said = [];
+  c.ctx.CustomEvent = function (type) { this.type = type; };
+  c.ctx.document.dispatchEvent = (event) => { said.push(event.type); };
+  c.sockets[0].emit("open", {});
+  assert.deepEqual(said, [], "the first connection was announced as a reconnect");
+  c.sockets[0].emit("close", {});
+  c.clock.fire();
+  c.sockets[1].emit("open", {});
+  assert.deepEqual(said, ["tix:live-reconnected"]);
+});

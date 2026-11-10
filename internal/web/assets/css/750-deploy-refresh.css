@@ -1,0 +1,39 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The bar a tab shows when the server runs a newer release and reloading now
+   would lose something, and the note it shows after reloading into one
+   (assets/deploy.js). Both sit fixed at the foot of the window, like the
+   live stale notice, so neither moves anything on the page. */
+.deploybar,
+.deploynote {
+  position: fixed;
+  bottom: var(--gutter);
+  left: 50%;
+  z-index: 20;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(560px, calc(100vw - 2 * var(--gutter)));
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: var(--shadow-strong);
+  font-size: var(--text-sm);
+  padding: 6px 10px;
+}
+
+.deploybar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deploybar[hidden] { display: none; }
+
+.deploybar-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 4px;
+}
