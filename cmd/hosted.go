@@ -195,11 +195,21 @@ func CommandWords() []string {
 	return words
 }
 
-// maxImportBytes is the most standard input a hosted command may read: the
-// same server.max_import_bytes an import over HTTP answers to.
+// maxImportBytes is the same server.max_import_bytes an import over HTTP
+// answers to.
 func (g *globals) maxImportBytes() int64 {
 	if g.resolved == nil {
 		return config.DefaultMaxImportBytes
 	}
 	return g.resolved.Config.Server.MaxImportBytes
+}
+
+// maxInputBytes is the most standard input a hosted command may read: the
+// import limit, or artifacts.max_bytes where that is larger, so tix artifact
+// put --file - is never refused a file the artifact limit allows.
+func (g *globals) maxInputBytes() int64 {
+	if g.resolved == nil {
+		return max(config.DefaultMaxImportBytes, core.DefaultArtifactMaxBytes)
+	}
+	return max(g.maxImportBytes(), g.resolved.Config.Artifacts.MaxBytes)
 }

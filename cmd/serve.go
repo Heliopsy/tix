@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,26 @@ type serveOptions struct {
 	sshHostKey     string
 	sshAllowPublic bool
 	sshIdleTimeout time.Duration
+
+	artifactMaxBytes int64
+	artifactTypes    []string
+}
+
+// serveConfigFlags are the serve flags that set a configuration key, each
+// only when typed, so a flag nobody gave never outranks the file or
+// environment.
+func serveConfigFlags(cmd *cobra.Command) map[string]string {
+	out := map[string]string{}
+	f := cmd.Flags()
+	if f.Changed("artifact-max-bytes") {
+		n, _ := f.GetInt64("artifact-max-bytes")
+		out["artifacts.max_bytes"] = strconv.FormatInt(n, 10)
+	}
+	if f.Changed("artifact-allowed-types") {
+		types, _ := f.GetStringSlice("artifact-allowed-types")
+		out["artifacts.allowed_types"] = strings.Join(types, ",")
+	}
+	return out
 }
 
 // fromConfig lays the resolved configuration under the flags: server.listen is
@@ -84,7 +105,12 @@ func newServeCmd(g *globals) *cobra.Command {
 	f.StringVar(&o.keyFile, "tls-key", "", "path to the tls key")
 	f.BoolVar(&o.insecure, "insecure-no-tls", false,
 		"allow binding a non-loopback address without tls")
-	f.Int64Var(&o.maxBody, "max-body-bytes", 0, "maximum request body size")
+	f.Int64Var(&o.maxBody, "max-body-bytes", 0,
+		"maximum request body size; artifact uploads take enough more to carry artifacts.max_bytes")
+	f.Int64Var(&o.artifactMaxBytes, "artifact-max-bytes", core.DefaultArtifactMaxBytes,
+		"largest artifact blob accepted, in bytes (artifacts.max_bytes); a tenant may only lower it")
+	f.StringSliceVar(&o.artifactTypes, "artifact-allowed-types", core.DefaultArtifactTypes,
+		"media types and patterns such as image/* an artifact blob may carry (artifacts.allowed_types)")
 	f.DurationVar(&o.requestTimeout, "request-timeout", 0, "per-request timeout")
 	f.DurationVar(&o.shutdownTimeout, "shutdown-timeout", 0,
 		"how long shutdown waits for in-flight requests")
@@ -116,6 +142,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		g.drainMode = connect.DrainModeServer
 	}
 	g.serving = true
+	g.configFlags = serveConfigFlags(cmd)
 	conn, _, err := g.dial(cmd)
 	if err != nil {
 		return err
@@ -203,7 +230,7 @@ func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions, trustedProxie
 		IdleTimeout:    o.sshIdleTimeout,
 		Commands:       RunHosted,
 		CommandWords:   CommandWords(),
-		MaxInputBytes:  g.maxImportBytes(),
+		MaxInputBytes:  g.maxInputBytes(),
 		TimeStyle:      g.configTimeStyle(),
 		Logger:         log,
 	})

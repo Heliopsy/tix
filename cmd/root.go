@@ -35,7 +35,10 @@ const EnvToken = "TIX_TOKEN"
 // environment so the whole tree can be exercised without touching the machine.
 type globals struct {
 	// clientHint names this process to a remote server; tix mcp sets mcp.
-	clientHint  string
+	clientHint string
+	// configFlags are command flags that set a configuration key, laid in
+	// the flag layer only when typed: tix serve's --artifact-* flags.
+	configFlags map[string]string
 	configPath  string
 	contextName string
 	db          string
@@ -306,6 +309,9 @@ func (g *globals) resolve() (*config.Resolved, error) {
 		flags[config.KeyOutputColor] = mode
 	}
 	for key, value := range g.log.values() {
+		flags[key] = value
+	}
+	for key, value := range g.configFlags {
 		flags[key] = value
 	}
 	resolved, err := config.Load(config.Options{
