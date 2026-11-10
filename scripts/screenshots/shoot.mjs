@@ -1178,7 +1178,7 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
         const base = join(runDir, dirName, pg.slug + (st.name ? `--${st.name}` : ""));
         await shoot(page, `${base}.png`, layout(pg, st.name));
         const bar = await page.evaluate(toolbarHeights);
-        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, window ${bar.vh}px`);
+        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, tasks start ${bar.top}px, window ${bar.vh}px`);
         record(pg, st.name, "", `${base}.png`);
         if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout);
         if (!pg.public && !st.name) {
@@ -1262,10 +1262,16 @@ function toolbarHeights() {
   const list = document.getElementById("tasks-listing");
   const head = document.querySelector(".pagehead");
   const h = (el) => Math.round(el ? el.getBoundingClientRect().height : 0);
+  // How far below the top of the content column the tasks begin: the board
+  // or the lanes as a whole, or the first row of the list. -1 when none.
+  const main = document.querySelector("main.wrap");
+  const row = document.querySelector("#tasks-listing [data-shortcut-row]");
+  const frame = row && (row.closest(".board, .lanes") || row);
   return {
     bar: h(bar),
     chips: h(chips),
     above: list && head ? Math.round(list.getBoundingClientRect().top - head.getBoundingClientRect().bottom) : 0,
+    top: main && frame ? Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top) : -1,
     vh: window.innerHeight,
   };
 }
