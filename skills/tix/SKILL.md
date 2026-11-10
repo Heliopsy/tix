@@ -165,6 +165,11 @@ tix artifact put default-2 --kind log --file ./test-output.txt --content-type te
 (Once you have *claimed* default-2, `artifact put` also needs
 `--lease-token "$token"`; see "Leases" below. `comment add` never does.)
 
+A file has to fit the tenant's artifact limits, 1 MiB and common document,
+data and image types unless the operator or tenant changed them.
+`tix artifact limits` prints the ones in force; a refusal names them too.
+Without `--content-type` the type comes from the file's extension.
+
 For small steps that do not each deserve a task, a checklist in the
 description is enough. A description is Markdown, and `- [ ]` lines are items:
 
