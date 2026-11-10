@@ -904,7 +904,7 @@ function pageFindings(shown, name, label) {
   const first = document.querySelector("#tasks-listing [data-shortcut-row]");
   const pushed = [
     ...document.querySelectorAll(
-      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, main details.tip[open], .taskbar ~ .lede, main [popover]:popover-open",
+      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, details.tip[open], .taskbar ~ .lede, [popover]:popover-open",
     ),
   ].some(shown);
   if (bar && main && first && !pushed && (vw >= 1600 || vw < 600)) {
