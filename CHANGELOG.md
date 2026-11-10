@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.55.0](https://github.com/Heliopsy/tix/compare/v0.54.0...v0.55.0) (2026-11-10)
+
+
+### Features
+
+* **service:** give a new tenant its Default project with an icon and colour ([62bc7f2](https://github.com/Heliopsy/tix/commit/62bc7f206e73a09c2b61369d46c9e403e3731208))
+* **web:** a compact header on the task screens ([#300](https://github.com/Heliopsy/tix/issues/300)) ([26e7b4b](https://github.com/Heliopsy/tix/commit/26e7b4b1c6828bc1459714535cbd0b6f06219018))
+
 ## [0.54.0](https://github.com/Heliopsy/tix/compare/v0.53.0...v0.54.0) (2026-11-09)
 
 
