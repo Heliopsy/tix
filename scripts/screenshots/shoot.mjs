@@ -907,7 +907,10 @@ function pageFindings(shown, name, label) {
       ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, details.tip[open], .taskbar ~ .lede, [popover]:popover-open",
     ),
   ].some(shown);
-  if (bar && main && first && !pushed && (vw >= 1600 || vw < 600)) {
+  // An (i) opened on purpose pushes the tasks down wherever it sits, so the
+  // gate stays out of those shots.
+  const tipOpen = !!document.querySelector("details.field-info[open], details.tip[open]");
+  if (bar && main && first && !pushed && !tipOpen && (vw >= 1600 || vw < 600)) {
     const frame = first.closest(".board, .lanes") || first;
     const pager = document.querySelector("#tasks-listing > nav.pager");
     const over = pager && shown(pager) && pager.getBoundingClientRect().bottom <= frame.getBoundingClientRect().top ? pager.getBoundingClientRect().height + 8 : 0;
