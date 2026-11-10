@@ -55,6 +55,19 @@ works.
 A global admin administers the installation rather than one tenant: they create tenants, list, rename and delete
 any tenant, and manage the users of any tenant. Every other tenant admin stays confined to their own tenant.
 
+Being a global admin does not put you inside a tenant. It lets you list, create and delete tenants and manage
+their members (`tix tenant user ls`, `add`, `create`, `edit`, `rm`), but to see a tenant's tasks or reach it
+over ssh (`ssh TENANT@host`) you must be a member first. Add yourself and enrol your key there:
+
+```sh
+tix tenant user add TENANT you@example.com --role admin
+tix user key add --all-tenants
+```
+
+Until then ssh answers "this key is not enrolled here" for that tenant. A tenant can also end up with no
+members at all, for instance one created without a first admin. Nobody can sign in to it, and
+`tix tenant user ls TENANT` prints an empty list. The fix is the same `tix tenant user add`.
+
 ```sh
 tix --db /var/lib/tix/tix.db global-admin grant ada@example.com   # the first one, from the server's shell
 tix global-admin ls
@@ -203,6 +216,9 @@ tix tenant user add test villy@example.com --role admin
 
 The browser offers the same as Add an existing person on a tenant's users screen in the Global admin area,
 and `POST /api/v1/tenants/{ref}/members` on the API.
+
+That includes the global admin's own account: the flag alone makes them a member of no tenant, so they add
+themselves the same way before they can open a tenant's board or ssh into it.
 
 A tenant admin cannot add somebody else's account to their tenant. `tix user create` with such an address is
 refused as a conflict. `tix user invite` sends an invite instead, and the person holds no membership here
@@ -359,6 +375,10 @@ or where your role may not enrol keys, is passed over, and the answer lists the 
 Tenants are written one after another, so an error part way leaves the earlier ones enrolled and a second run
 passes over them. It takes no `--actor`, and a token needs `account:read` for it. Over HTTP it is
 `POST /api/v1/ssh-keys` with `"all_tenants": true`.
+
+"Every tenant you belong to" means memberships, not what a global admin can administer. A tenant you are not a
+member of is not touched, and `ssh TENANT@host` there still says "this key is not enrolled here". Run
+`tix tenant user add TENANT you@example.com --role admin` first, then `tix user key add --all-tenants` again.
 
 ## Domains
 
