@@ -323,6 +323,10 @@ func (m Model) applyTenantEdit(form Form) (Model, tea.Cmd) {
 		return m, m.updateTenant(core.UpdateTenantInput{Theme: &theme}, attrTheme)
 	case attrName:
 		return m.startPrompt(promptTenantName, m.admin.tenant.Name), textinput.Blink
+	case attrArtifactMax:
+		return m.startPrompt(promptTenantArtifactMax, artifactMaxLine(*m.admin.tenant)), textinput.Blink
+	case attrArtifactTypes:
+		return m.startPrompt(promptTenantArtifactTypes, strings.Join(m.admin.tenant.ArtifactTypes, ",")), textinput.Blink
 	case attrMFA:
 		policy := core.MFAPolicy(form.Value(attrMFA))
 		return m, m.updateTenant(core.UpdateTenantInput{MFAPolicy: &policy}, attrMFA)
@@ -480,4 +484,25 @@ func (m Model) submitTenant(text string) (Model, tea.Cmd) {
 	next := m.closePrompt()
 	next.status, next.err = "reaching tenant "+key+"...", ""
 	return next, next.switchTenant(key)
+}
+
+// updateArtifactLimit sends one of the tenant's artifact limits typed at the
+// prompt. Empty returns it to the server's; the service refuses one past it.
+func (m Model) updateArtifactLimit(kind promptKind, text string) tea.Cmd {
+	text = strings.TrimSpace(text)
+	if kind == promptTenantArtifactTypes {
+		types := strings.Split(text, ",")
+		return m.updateTenant(core.UpdateTenantInput{ArtifactTypes: &types}, attrArtifactTypes)
+	}
+	var n int64
+	if text != "" {
+		parsed, err := core.ParseByteSize(text)
+		if err != nil {
+			return func() tea.Msg {
+				return actionMsg{kind: actionEditTenant, label: m.tenantKey, err: err}
+			}
+		}
+		n = parsed
+	}
+	return m.updateTenant(core.UpdateTenantInput{ArtifactMaxBytes: &n}, attrArtifactMax)
 }

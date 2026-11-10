@@ -93,6 +93,9 @@ const attrTheme = "theme"
 const (
 	attrMFA      = "second factor"
 	attrMFAGrace = "grace"
+
+	attrArtifactMax   = "artifact size"
+	attrArtifactTypes = "artifact types"
 )
 
 // MFAGraceOptions are the grace lengths the edit form offers.
@@ -172,7 +175,9 @@ func tenantAttributes(state TenantAdminState) []TenantLine {
 		tenantRow("key", t.Key),
 		tenantRow("name", orNone(t.Name)),
 		tenantRow(attrTheme, orNone(t.Theme)),
-		tenantRow(attrMFA, mfaLine(t)))
+		tenantRow(attrMFA, mfaLine(t)),
+		tenantRow(attrArtifactMax, orInherit(artifactMaxLine(t))),
+		tenantRow(attrArtifactTypes, orInherit(strings.Join(t.ArtifactTypes, ", "))))
 	if state.Handle != "" {
 		out = append(out, tenantRow("actor", "@"+state.Handle))
 	}
@@ -355,7 +360,7 @@ func ThemeValue(option string) string {
 // answered here, from the palettes the build carries; the name is free text and
 // hands over to the single-line prompt, seeded with the value it would replace.
 func TenantEditForm(t core.Tenant) Form {
-	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace}
+	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace, attrArtifactMax, attrArtifactTypes}
 	theme := t.Theme
 	if _, custom := core.CustomTheme(theme); custom {
 		theme = customColour
@@ -483,4 +488,27 @@ func mfaLine(t core.Tenant) string {
 		return "required"
 	}
 	return "required, grace " + t.MFAGrace.Human()
+}
+
+// artifactMaxLine is the tenant's own artifact size limit, empty when it
+// inherits the server's.
+func artifactMaxLine(t core.Tenant) string {
+	switch n := t.ArtifactMaxBytes; {
+	case n == 0:
+		return ""
+	case n%(1<<20) == 0:
+		return strconv.FormatInt(n>>20, 10) + "MiB"
+	case n%(1<<10) == 0:
+		return strconv.FormatInt(n>>10, 10) + "KiB"
+	default:
+		return strconv.FormatInt(n, 10)
+	}
+}
+
+// orInherit names an unset tenant limit as the server's.
+func orInherit(s string) string {
+	if s == "" {
+		return "server's"
+	}
+	return s
 }

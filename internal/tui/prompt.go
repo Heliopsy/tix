@@ -41,6 +41,8 @@ const (
 	promptSaveFilter
 	promptCheck
 	promptSnooze
+	promptTenantArtifactMax
+	promptTenantArtifactTypes
 )
 
 // PromptSpec is how one input introduces itself.
@@ -112,6 +114,13 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptProjectColour: {Prompt: "custom colour: ", Placeholder: "#rrggbb, such as #1a7f5a", Limit: 7, Field: "colour"},
 	promptTenantAccent:  {Prompt: "custom accent: ", Placeholder: "#rrggbb, such as #7a3ef0", Limit: 7, Field: "accent"},
 
+	// The tenant's artifact limits, each seeded with its current value; empty
+	// hands the limit back to the server.
+	promptTenantArtifactMax: {Prompt: "largest artifact file: ", Placeholder: "such as 5MiB; empty uses the server's",
+		Limit: 32, Field: "size"},
+	promptTenantArtifactTypes: {Prompt: "accepted artifact types: ", Placeholder: "such as image/*,application/pdf; empty uses the server's",
+		Limit: 1024, Field: "types"},
+
 	// The name the board's filter is kept under, listed in the browser's
 	// sidebar and in s here.
 	promptSaveFilter: {Prompt: "save filter as: ", Placeholder: "a name, such as my overdue work", Limit: core.MaxSavedFilterName, Field: "name"},
@@ -129,7 +138,8 @@ func (k promptKind) NeedsTask() bool {
 	switch k {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
 		promptProjectName, promptProjectKey, promptProjectDesc, promptProjectIcon, promptNewField,
-		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent, promptSaveFilter:
+		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent, promptSaveFilter,
+		promptTenantArtifactMax, promptTenantArtifactTypes:
 		return false
 	default:
 		return true
