@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
@@ -17,6 +18,7 @@ var tenantColumns = []string{
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
 	"mfa_policy", "mfa_grace", "mfa_required_at",
+	"artifact_max_bytes", "artifact_types",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -33,6 +35,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		leaseMax  sql.NullString
 		trashOff  int64
 		mfaGrace  string
+		artTypes  string
 		mfaAt     sql.NullString
 	)
 	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
@@ -40,6 +43,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		&leaseDef, &leaseMax, &trashOff,
 		&t.TimeFormat, &t.Timezone,
 		&t.MFAPolicy, &mfaGrace, &mfaAt,
+		&t.ArtifactMaxBytes, &artTypes,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
@@ -54,6 +58,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 	if t.LeaseMax, err = sqlb.ScanDuration(sqlb.Text(leaseMax), "tenant lease maximum"); err != nil {
 		return core.Tenant{}, err
 	}
+	t.ArtifactTypes = splitArtifactTypes(artTypes)
 	if t.MFAGrace, err = sqlb.ScanDuration(mfaGrace, "tenant second factor grace"); err != nil {
 		return core.Tenant{}, err
 	}
@@ -155,6 +160,8 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("mfa_policy", string(mfaPolicyOf(in))).
 		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
+		Set("artifact_max_bytes", in.ArtifactMaxBytes).
+		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -181,6 +188,8 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("mfa_policy", string(mfaPolicyOf(in))).
 		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
+		Set("artifact_max_bytes", in.ArtifactMaxBytes).
+		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)
@@ -402,4 +411,12 @@ func mfaPolicyOf(t *core.Tenant) core.MFAPolicy {
 		return core.MFAPolicyOff
 	}
 	return t.MFAPolicy
+}
+
+// splitArtifactTypes reads the stored comma separated list; empty inherits.
+func splitArtifactTypes(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ",")
 }

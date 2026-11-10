@@ -50,6 +50,12 @@ type Tenant struct {
 	// such as "24h". It can lower the deployment's ceiling but never raise it;
 	// zero or absent inherits the deployment's.
 	LeaseMax Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// ArtifactMaxBytes is the largest artifact blob this tenant accepts. It can
+	// lower the server's artifacts.max_bytes but never raise it; zero inherits.
+	ArtifactMaxBytes int64 `json:"artifact_max_bytes,omitempty" yaml:"artifact_max_bytes,omitempty"`
+	// ArtifactTypes are the media types and patterns an artifact blob may carry
+	// on this tenant, within the server's artifacts.allowed_types; empty inherits.
+	ArtifactTypes []string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
 	// TrashOff makes deleting a task permanent on this tenant. False, the
 	// default, keeps deleted tasks in a trash they can be restored from.
 	TrashOff bool `json:"trash_off" yaml:"trash_off"`
@@ -837,8 +843,8 @@ type Artifact struct {
 	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
 	// ContentType is the media type of Blob, such as "text/plain".
 	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	// Blob is inline content, base64 in JSON, at most 1 MiB. Larger content
-	// belongs elsewhere, referenced from Payload.
+	// Blob is inline content, base64 in JSON, within the tenant's artifact
+	// limits. Larger content belongs elsewhere, referenced from Payload.
 	Blob []byte `json:"blob,omitempty" yaml:"blob,omitempty"`
 	// CreatedAt is when the artifact was written, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`

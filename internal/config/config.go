@@ -5,7 +5,9 @@
 package config
 
 import (
+	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
@@ -37,6 +39,7 @@ type Config struct {
 	SSH            SSH                `yaml:"ssh"`
 	Discovery      Discovery          `yaml:"discovery"`
 	Lease          Lease              `yaml:"lease"`
+	Artifacts      Artifacts          `yaml:"artifacts"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
@@ -317,6 +320,38 @@ func (l Lease) Policy() lease.Policy {
 		p.Max, p.MaxFrom = l.Max.D(), core.LeaseFromDeployment
 	}
 	return p
+}
+
+// Artifacts bounds the blobs a task artifact may carry, for this deployment.
+//
+// A tenant may tighten both and loosen neither. The blob travels inside a
+// request, so the API's artifact route and the browser's upload take a body
+// sized for MaxBytes rather than --max-body-bytes: see ArtifactBodyLimit.
+type Artifacts struct {
+	// MaxBytes is the largest blob accepted, 1 MiB by default.
+	MaxBytes int64 `yaml:"max_bytes"`
+	// AllowedTypes are the media types and patterns such as image/* a blob may
+	// carry. Whatever is accepted, a blob is only ever served as a download.
+	AllowedTypes []string `yaml:"allowed_types"`
+}
+
+// ArtifactBodyLimit is the request body an artifact upload of at most maxBytes
+// needs: the blob base64 encoded in JSON, plus room for the payload and the
+// form around it. It never falls below the general body limit.
+func ArtifactBodyLimit(maxBytes, general int64) int64 {
+	n := (maxBytes+2)/3*4 + artifactBodyOverhead
+	return max(n, general)
+}
+
+// artifactBodyOverhead is the share of an artifact upload that is not the
+// blob: its name, payload, content type and the form or JSON around them.
+const artifactBodyOverhead = 1 << 20
+
+// ArtifactLimitRefusal is the answer to an artifact upload over its body
+// limit, naming the key that raises it.
+func ArtifactLimitRefusal(maxBytes int64) string {
+	return fmt.Sprintf("an artifact file may be at most %s on this server; the server's operator can raise "+
+		"artifacts.max_bytes (%s)", core.ByteSize(maxBytes), EnvName("artifacts.max_bytes"))
 }
 
 // Retention holds how long history is kept. Each class is governed
@@ -607,6 +642,8 @@ func Defaults() Config {
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity, MaxImportBytes: DefaultMaxImportBytes},
 		Auth:     Auth{Mode: DefaultAuthMode},
+		Artifacts: Artifacts{
+			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
 		SSH: SSH{

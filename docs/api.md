@@ -101,7 +101,7 @@ the routes the server registers. The areas are the first segment of each operati
 | account | `GET /account/log`, `GET /accounts/{email}/log` |
 | actor | `GET /actors`, `GET /actors/{id}` |
 | api | `GET /openapi.json` |
-| artifact | `GET /tasks/{ref}/artifacts`, `PUT /tasks/{ref}/artifacts` |
+| artifact | `GET /artifact-limits`, `GET /tasks/{ref}/artifacts`, `PUT /tasks/{ref}/artifacts` |
 | audit | `GET /audit` |
 | bundle | `POST /bundles/export`, `POST /bundles/import` |
 | calendar | `GET /calendar`, `POST /calendar`, `PATCH /calendar`, `DELETE /calendar`, `GET /calendar/feeds/{file}`, `POST /calendar/rotate` |

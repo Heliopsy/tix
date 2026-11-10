@@ -955,6 +955,14 @@ var registry = []Operation{
 			"the prompt gathers a name and the form gathers a kind, which is all the service requires; a payload, a content type and an inline blob are structured input no terminal control gathers, so `tix artifact put` and the api record those"}},
 	},
 	{
+		Name: "artifact.limits", Method: "ArtifactLimits",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix artifact limits",
+		HTTP:  apiGet(wire.RouteArtifactLimits),
+		Web:   webGet(web.RouteTask, tplTask),
+		TUI:   "tenant",
+	},
+	{
 		Name: "artifact.list", Method: "ListArtifacts",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix artifact ls",

@@ -129,6 +129,10 @@ const (
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
 
+	// RouteArtifactLimits answers the size and media types a new artifact
+	// blob is held to on the tenant.
+	RouteArtifactLimits = APIPrefix + "/artifact-limits"
+
 	// RouteTrash answers whether the tenant keeps deleted tasks.
 	RouteTrash = APIPrefix + "/trash"
 

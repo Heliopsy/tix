@@ -211,6 +211,16 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strconv.FormatInt(cfg.Server.MaxImportBytes, 10)).
 			WithDetail("reason", "an import limit must be a positive number of bytes")
 	}
+	if cfg.Artifacts.MaxBytes < 1 {
+		return invalidKey("artifacts.max_bytes", sources).
+			WithDetail("value", strconv.FormatInt(cfg.Artifacts.MaxBytes, 10)).
+			WithDetail("reason", "an artifact size limit must be a positive number of bytes")
+	}
+	if _, err := core.ParseArtifactTypes(cfg.Artifacts.AllowedTypes); err != nil {
+		return invalidKey("artifacts.allowed_types", sources).
+			WithDetail("value", strings.Join(cfg.Artifacts.AllowedTypes, ",")).
+			WithDetail("reason", err.Error())
+	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {
 			return err

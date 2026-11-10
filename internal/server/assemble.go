@@ -74,9 +74,13 @@ type Options struct {
 	RequestTimeout time.Duration
 	// MaxImportBytes caps a task import in place of MaxBodyBytes, on the API's
 	// import route and on ImportRoutes, the web handler's own.
-	MaxImportBytes  int64
-	ImportRoutes    []string
-	ShutdownTimeout time.Duration
+	MaxImportBytes int64
+	ImportRoutes   []string
+	// MaxArtifactBytes is artifacts.max_bytes. The API's artifact route and
+	// ArtifactRoutes, the web handler's own, take a body sized to carry it.
+	MaxArtifactBytes int64
+	ArtifactRoutes   []string
+	ShutdownTimeout  time.Duration
 
 	SweepInterval    time.Duration
 	PruneInterval    time.Duration
@@ -124,22 +128,24 @@ func Assemble(opts Options) (*Server, error) {
 	hub.SetTenantHooks(pump.start, pump.stop)
 
 	router, err := httpapi.New(httpapi.Config{
-		Service:         opts.Service,
-		EventHandler:    httpapi.NewEventStream(hub, log),
-		WebHandler:      opts.WebHandler,
-		Authenticator:   NewAuthenticator(opts.Store, opts.Clock),
-		Logger:          opts.Logger,
-		DefaultTenantID: opts.TenantID,
-		MaxBodyBytes:    opts.MaxBodyBytes,
-		MaxImportBytes:  opts.MaxImportBytes,
-		ImportRoutes:    opts.ImportRoutes,
-		RequestTimeout:  opts.RequestTimeout,
-		SecureCookies:   opts.CertFile != "",
-		TrustedProxies:  opts.TrustedProxies,
-		CookieSecurity:  opts.CookieSecurity,
-		PublicURL:       opts.PublicURL,
-		Probe:           opts.Store,
-		ExpectedSchema:  latest,
+		Service:          opts.Service,
+		EventHandler:     httpapi.NewEventStream(hub, log),
+		WebHandler:       opts.WebHandler,
+		Authenticator:    NewAuthenticator(opts.Store, opts.Clock),
+		Logger:           opts.Logger,
+		DefaultTenantID:  opts.TenantID,
+		MaxBodyBytes:     opts.MaxBodyBytes,
+		MaxImportBytes:   opts.MaxImportBytes,
+		ImportRoutes:     opts.ImportRoutes,
+		MaxArtifactBytes: opts.MaxArtifactBytes,
+		ArtifactRoutes:   opts.ArtifactRoutes,
+		RequestTimeout:   opts.RequestTimeout,
+		SecureCookies:    opts.CertFile != "",
+		TrustedProxies:   opts.TrustedProxies,
+		CookieSecurity:   opts.CookieSecurity,
+		PublicURL:        opts.PublicURL,
+		Probe:            opts.Store,
+		ExpectedSchema:   latest,
 	})
 	if err != nil {
 		return nil, err

@@ -230,6 +230,14 @@ type UpdateTenantInput struct {
 	// duration such as "4h". Zero clears it back to the deployment
 	// configuration and omitted leaves it alone.
 	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// ArtifactMaxBytes lowers the largest artifact blob this tenant accepts
+	// below the server's limit. Zero inherits the server's and omitted leaves
+	// it; a value above the server's is refused.
+	ArtifactMaxBytes *int64 `json:"artifact_max_bytes,omitempty" yaml:"artifact_max_bytes,omitempty"`
+	// ArtifactTypes narrows the media types an artifact blob may carry, such
+	// as ["image/*", "application/pdf"]. An empty list inherits the server's
+	// and omitted leaves it; a type the server does not accept is refused.
+	ArtifactTypes *[]string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
 	// TrashOff turns the trash off (true) or back on (false); nil leaves it
 	// alone. Turning it off keeps the tasks already in the trash.
 	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
@@ -260,6 +268,14 @@ func (in UpdateTenantInput) Validate() error {
 	}
 	if in.LeaseMax != nil && *in.LeaseMax < 0 {
 		return Invalid("lease maximum must not be negative")
+	}
+	if in.ArtifactMaxBytes != nil && *in.ArtifactMaxBytes < 0 {
+		return Invalid("artifact size limit must not be negative").WithDetail(DetailField, "artifact_max_bytes")
+	}
+	if in.ArtifactTypes != nil {
+		if _, err := ParseArtifactTypes(*in.ArtifactTypes); err != nil {
+			return err
+		}
 	}
 	// A default above the tenant's own ceiling is refused here rather than
 	// clamped, because both figures are in front of whoever is setting them:
@@ -617,7 +633,6 @@ const (
 	MaxTitleLength   = 500
 	MaxBodyLength    = 1 << 20
 	MaxCommentLength = 1 << 16
-	MaxBlobSize      = 1 << 20
 )
 
 // DeleteTaskInput says how far a delete reaches. Cascade is required to
@@ -757,8 +772,9 @@ type ArtifactInput struct {
 	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
 	// ContentType is the media type of Blob.
 	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	// Blob is inline content, base64 in JSON, at most 1 MiB; larger content
-	// belongs elsewhere, referenced from Payload.
+	// Blob is inline content, base64 in JSON, held to the tenant's artifact
+	// limits on size and media type; larger content belongs elsewhere,
+	// referenced from Payload.
 	Blob []byte `json:"blob,omitempty" yaml:"blob,omitempty"`
 	// LeaseToken is the claim's token, required while the task is claimed.
 	LeaseToken string `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
@@ -768,9 +784,6 @@ type ArtifactInput struct {
 func (in ArtifactInput) Validate() error {
 	if in.Kind == "" {
 		return Invalid("artifact kind is required")
-	}
-	if len(in.Blob) > MaxBlobSize {
-		return Invalid("inline artifact blob must be at most %d bytes; store large content externally and reference it from the payload", MaxBlobSize)
 	}
 	return nil
 }

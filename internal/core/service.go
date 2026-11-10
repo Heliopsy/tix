@@ -323,6 +323,10 @@ type TaskService interface {
 	PutArtifact(ctx context.Context, ref TaskRef, in ArtifactInput) (*Artifact, error)
 	// ListArtifacts lists a task's artifacts, oldest first.
 	ListArtifacts(ctx context.Context, ref TaskRef) ([]Artifact, error)
+	// ArtifactLimits reports the size and media types a new artifact blob is
+	// held to on the current tenant: the server's artifacts.max_bytes and
+	// artifacts.allowed_types, narrowed by the tenant's own settings.
+	ArtifactLimits(ctx context.Context) (*ArtifactLimits, error)
 }
 
 // ClaimService covers the agent work queue.
