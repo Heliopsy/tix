@@ -16,7 +16,10 @@ Every board card spent a line on its reference and another on a Move disclosure.
   line. A one-project board says nothing the header has not.
 - Quick add and the filter toolbar share one row where the content column is at least 84rem wide,
   quick add on the left with Add with details and From template as icon buttons. Narrower, they
-  stack. The quick-add preview, the chips and a refused filter are drawn after the row.
+  stack. The quick-add preview, the chips and a refused filter are drawn after the row. A project
+  page's quick add has no project picker, since the page is the project.
+- The pager over a task listing is one line on a window 900px or wider, and on a phone a project's
+  actions sit on the name's row.
 - A board card is two lines: the star and the title, then a small line led by the reference. Move is
   a button in the card's corner, shown on hover or focus with a mouse and always on a touch screen.
   It stays a fold holding a plain form, so it and drag and drop work as before.

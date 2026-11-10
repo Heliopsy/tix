@@ -172,7 +172,9 @@ bar, quick add (set to the project), the pager and the live refresh. Its header 
 icon, name and star, and Import, Export and Settings. One muted line under the name says the workflow it
 runs (a link to the workflow editor), how much is left, and links the field definitions. The task count
 does not add "across 1 project" here, and the board draws no workflow line of its own: it is this
-project's workflow, which the header already named.
+project's workflow, which the header already named. Quick add here has no project picker, since the
+page is the project; `+key` in the line still adds to another one. On a phone Import, Export and Settings
+are icons on the name's row, and the line under the name runs the full width.
 
 The project comes from the path, so the Filters menu has no project picker and no chip names the
 project, and a `project` parameter
@@ -258,12 +260,15 @@ submitted form, a chip, Clear all) drops the cursor and the page number, so it s
 Where the content column is at least 84rem wide (a Full HD window with the sidebar open), quick add and
 the toolbar share one row: quick add on the left, with Add with details and From template as icon buttons,
 and the box and its menus on the right. Narrower, they stack, quick add first. What either draws under
-itself, the quick-add preview, the chips or a refused filter, comes after that row.
+itself, the quick-add preview, the chips or a refused filter, comes after that row. On a window 900px or
+wider the pager over the listing is one slim line: where you are, the numbered pages and Go to page, then
+Previous and Next at the end.
 
 `scripts/screenshots/shoot.mjs` prints the toolbar's height and how far below the top of the content the
 tasks start on every task screen it captures. Its strict check fails a toolbar over an eighth of a desktop
 window, on more than one row of controls on a desktop, or on more than two below 900px, and tasks that
-start more than 150px down a Full HD window or 240px down a phone, with no filter in force.
+start more than 150px down a Full HD window or 240px down a phone, with no filter in force and not
+counting the pager, or a pager over the tasks taller than one line on a window 900px or wider.
 
 **Adding a task.** The one-line box and Add with details both create the task and leave you on the
 listing, filter, sort, view and page as they were. The toast says `task created` and links the new task,

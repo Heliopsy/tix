@@ -87,3 +87,37 @@ details.card-move[open] > .body { margin-top: var(--space-2); }
   details.card-move > summary { top: 0; right: 0; width: 44px; height: 44px; min-height: 44px; }
   .card-top { padding-inline-end: 36px; }
 }
+
+/* A phone: a project's actions share the name's row, as icons, and the line
+   under the name runs the full width under both. They wrapped onto a row of
+   their own under the line, 44px more before the first card. */
+@media (max-width: 899px) {
+  .pagehead:has(> .pagehead-title > .pagehead-sub) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--head-sub) var(--space-2);
+  }
+  .pagehead:has(> .pagehead-title > .pagehead-sub) > .pagehead-title { display: contents; }
+  .pagehead-title > .headtip:has(+ .pagehead-sub) { grid-column: 1; grid-row: 1; min-width: 0; }
+  .pagehead:has(> .pagehead-title > .pagehead-sub) > .pagehead-tools { grid-column: 2; grid-row: 1; }
+  .pagehead-title > .pagehead-sub { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* The pager over a task listing is one slim line on a wide screen: where
+   it is, the numbered pages, then Previous and Next at the end. It was two
+   rows, 80px between the toolbar and the board. Other listings keep theirs. */
+@media (min-width: 900px) {
+  #tasks-listing > .pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-4);
+    margin: 0 0 var(--space-2);
+  }
+  #tasks-listing > .pager > .pager-at { order: 1; }
+  #tasks-listing > .pager > .pager-nums { order: 2; justify-content: flex-start; }
+  #tasks-listing > .pager > .pager-back { order: 3; margin-inline-start: auto; }
+  #tasks-listing > .pager > .pager-forward { order: 4; margin-inline-start: auto; }
+  #tasks-listing > .pager > .pager-back ~ .pager-forward { margin-inline-start: 0; }
+}

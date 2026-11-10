@@ -76,9 +76,13 @@
   <input type="hidden" name="quick" value="1">
   <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
   {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
+  {{/* A project's page adds to its project, so it offers no picker: the
+       select took a third of the row on a phone to say what the heading
+       says. +key in the line still adds to another project. */}}
+  {{with $v.Scope}}<input type="hidden" name="project_ref" value="{{.Project.Key}}">{{else}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
-  </select>
+  </select>{{end}}
   <button type="submit">{{t "Add"}}</button>
   {{/* The fuller form opens from the row it extends, at the height of the
        buttons beside it. It was a disclosure on a line of its own under the

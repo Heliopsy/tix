@@ -55,3 +55,24 @@ touch screen always sees, and SHALL stay a fold holding the plain Move form that
 - **GIVEN** a board card with a legal move
 - **WHEN** the reader tabs to its Move button and opens it
 - **THEN** the button is shown and the Move form posts the transition, with scripting on or off
+
+### Requirement: A project page's quick add has no project picker
+
+Quick add on a project page SHALL add to that project without drawing a project picker. The task list
+SHALL keep its picker.
+
+#### Scenario: Adding from a project page
+
+- **WHEN** a reader opens `/projects/infra`
+- **THEN** quick add carries the project as a hidden field and draws no project select
+
+### Requirement: The pager over a task listing is one line on a wide screen
+
+On a window 900px or wider the pager over a task listing SHALL be one line holding the position, the
+numbered pages and the go-to field, with Previous and Next at its end.
+
+#### Scenario: A listing of four pages
+
+- **GIVEN** a project with four pages of tasks
+- **WHEN** a reader opens its page in a 1920px wide window
+- **THEN** the pager above the board is one line no taller than 44px

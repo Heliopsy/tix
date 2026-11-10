@@ -9,6 +9,9 @@
 
 - [x] 2.1 Put quick add and the filter toolbar in one row, split into the chips and the rest after it
 - [x] 2.2 Lay the row out as two columns in a container of 84rem or more
+- [x] 2.3 Drop the project picker from a project page's quick add
+- [x] 2.4 Keep the pager over a task listing to one line on a wide screen
+- [x] 2.5 Put a project's actions on the name's row on a phone
 
 ## 3. Board
 

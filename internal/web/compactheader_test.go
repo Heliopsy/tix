@@ -136,3 +136,29 @@ func TestABoardCardIsTwoLinesWithMoveInItsCorner(t *testing.T) {
 		t.Errorf("Move is not a 44px target on a touch screen: %s", touch)
 	}
 }
+
+// A project page's quick add is set to the project without a picker, and the
+// pager over a task listing is one line on a wide screen.
+func TestAProjectsQuickAddHasNoPickerAndThePagerIsOneLine(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	b.createTask("infra", "picker")
+
+	quick := between(t, b.page("/projects/infra"), `class="quickadd">`, "</form>")
+	if strings.Contains(quick, `<select name="project_ref"`) || !strings.Contains(quick, `<input type="hidden" name="project_ref" value="infra">`) {
+		t.Errorf("a project's quick add still offers a project picker:\n%s", quick)
+	}
+	if list := between(t, b.page("/tasks"), `class="quickadd">`, "</form>"); !strings.Contains(list, `<select name="project_ref"`) {
+		t.Errorf("the task list's quick add lost its project picker:\n%s", list)
+	}
+
+	sheet := body(t, b.get("/assets/app.css"))
+	if pager := ruleIn(t, sheet, "@media (min-width: 900px)", "#tasks-listing > .pager"); !strings.Contains(pager, "display: flex") {
+		t.Errorf("the pager over a task listing is not one line on a wide screen: %s", pager)
+	}
+	head := ruleIn(t, sheet, "@media (max-width: 899px)", ".pagehead:has(> .pagehead-title > .pagehead-sub) > .pagehead-title")
+	if !strings.Contains(head, "display: contents") {
+		t.Errorf("a project's actions do not share the name's row on a phone: %s", head)
+	}
+}

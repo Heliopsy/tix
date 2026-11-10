@@ -896,17 +896,27 @@ function pageFindings(shown, name, label) {
   // 290px down, under a title, three lines of meta, quick add, the toolbar,
   // a repeated workflow line and a stray (i). Measured only with nothing in
   // force that is meant to push the tasks down: chips, a refusal, a toast,
-  // the lanes-by-tag note or an open (i).
+  // the lanes-by-tag note or an open (i). The pager over the listing is not
+  // counted: a project with one page has none, and on a wide screen it is
+  // held to one slim line of its own below.
   const main = document.querySelector("main.wrap");
   const first = document.querySelector("#tasks-listing [data-shortcut-row]");
-  const pushed = document.querySelector(
-    ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview:not(:empty), main details.tip[open], .taskbar ~ .lede",
-  );
+  const pushed = [
+    ...document.querySelectorAll(
+      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, main details.tip[open], .taskbar ~ .lede",
+    ),
+  ].some(shown);
   if (bar && main && first && !pushed && (vw >= 1600 || vw < 600)) {
     const frame = first.closest(".board, .lanes") || first;
-    const top = Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top);
+    const pager = document.querySelector("#tasks-listing > nav.pager");
+    const over = pager && shown(pager) && pager.getBoundingClientRect().bottom <= frame.getBoundingClientRect().top ? pager.getBoundingClientRect().height + 8 : 0;
+    const top = Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top - over);
     const most = vw >= 1600 ? 150 : 240;
     if (top > most) out.push({ el: frame, kind: `tasks start ${top}px down the screen, over ${most}px` });
+  }
+  const pagerOver = document.querySelector("#tasks-listing > nav.pager");
+  if (pagerOver && shown(pagerOver) && vw >= 900 && pagerOver.getBoundingClientRect().height > 44) {
+    out.push({ el: pagerOver, kind: `pager over the tasks ${Math.round(pagerOver.getBoundingClientRect().height)}px tall, more than one line` });
   }
   for (const el of document.querySelectorAll("time")) {
     const dt = el.getAttribute("datetime");
@@ -1195,7 +1205,7 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
         const base = join(runDir, dirName, pg.slug + (st.name ? `--${st.name}` : ""));
         await shoot(page, `${base}.png`, layout(pg, st.name));
         const bar = await page.evaluate(toolbarHeights);
-        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, tasks start ${bar.top}px, window ${bar.vh}px`);
+        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, tasks start ${bar.top}px, pager ${bar.pager}px, window ${bar.vh}px`);
         record(pg, st.name, "", `${base}.png`);
         if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout);
         if (!pg.public && !st.name) {
@@ -1284,7 +1294,9 @@ function toolbarHeights() {
   const main = document.querySelector("main.wrap");
   const row = document.querySelector("#tasks-listing [data-shortcut-row]");
   const frame = row && (row.closest(".board, .lanes") || row);
+  const pager = document.querySelector("#tasks-listing > nav.pager");
   return {
+    pager: h(pager),
     bar: h(bar),
     chips: h(chips),
     above: list && head ? Math.round(list.getBoundingClientRect().top - head.getBoundingClientRect().bottom) : 0,
