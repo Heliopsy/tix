@@ -891,6 +891,37 @@ function pageFindings(shown, name, label) {
     if (vw >= 900 && h > window.innerHeight / 8) out.push({ el: bar, kind: `filter toolbar ${Math.round(h)}px, over an eighth of the window` });
     if (tops.length > (vw >= 900 ? 1 : 2)) out.push({ el: bar, kind: `filter toolbar on ${tops.length} rows` });
   }
+  // And the tasks start near the top: within 200px of the content's top on a
+  // Full HD window and 310px on a phone, a little over what the layout
+  // measures today so it cannot quietly grow back. A project's board used to start
+  // 290px down, under a title, three lines of meta, quick add, the toolbar,
+  // a repeated workflow line and a stray (i). Measured only with nothing in
+  // force that is meant to push the tasks down: chips, a refusal, a toast,
+  // the lanes-by-tag note or an open (i). The pager over the listing is not
+  // counted: a project with one page has none, and on a wide screen it is
+  // held to one slim line of its own below.
+  const main = document.querySelector("main.wrap");
+  const first = document.querySelector("#tasks-listing [data-shortcut-row]");
+  const pushed = [
+    ...document.querySelectorAll(
+      ".fbchips, .filterfault, .flash, .lanes-note, .boardfault, .addpop.is-inplace, .quickadd-preview > *, details.tip[open], .taskbar ~ .lede, [popover]:popover-open",
+    ),
+  ].some(shown);
+  // An (i) opened on purpose pushes the tasks down wherever it sits, so the
+  // gate stays out of those shots.
+  const tipOpen = !!document.querySelector("details.field-info[open], details.tip[open]");
+  if (bar && main && first && !pushed && !tipOpen && (vw >= 1600 || vw < 600)) {
+    const frame = first.closest(".board, .lanes") || first;
+    const pager = document.querySelector("#tasks-listing > nav.pager");
+    const over = pager && shown(pager) && pager.getBoundingClientRect().bottom <= frame.getBoundingClientRect().top ? pager.getBoundingClientRect().height + 8 : 0;
+    const top = Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top - over);
+    const most = vw >= 1600 ? 200 : 310;
+    if (top > most) out.push({ el: frame, kind: `tasks start ${top}px down the screen, over ${most}px` });
+  }
+  const pagerOver = document.querySelector("#tasks-listing > nav.pager");
+  if (pagerOver && shown(pagerOver) && vw >= 900 && pagerOver.getBoundingClientRect().height > 44) {
+    out.push({ el: pagerOver, kind: `pager over the tasks ${Math.round(pagerOver.getBoundingClientRect().height)}px tall, more than one line` });
+  }
   for (const el of document.querySelectorAll("time")) {
     const dt = el.getAttribute("datetime");
     if (!dt) out.push({ el, kind: "time without datetime" });
@@ -1178,7 +1209,7 @@ async function captureViewport(browser, args, target, storageState, vp, theme, r
         const base = join(runDir, dirName, pg.slug + (st.name ? `--${st.name}` : ""));
         await shoot(page, `${base}.png`, layout(pg, st.name));
         const bar = await page.evaluate(toolbarHeights);
-        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, window ${bar.vh}px`);
+        if (bar) stats.toolbar.push(`${dirName} ${pg.path}${st.name ? ` [${st.name}]` : ""}: toolbar ${bar.bar}px, chips ${bar.chips}px, heading to list ${bar.above}px, tasks start ${bar.top}px, pager ${bar.pager}px, window ${bar.vh}px`);
         record(pg, st.name, "", `${base}.png`);
         if (!pg.public) await capturePopups(page, args, pg, st, base, seen, record, stats, dirName, layout);
         if (!pg.public && !st.name) {
@@ -1262,10 +1293,18 @@ function toolbarHeights() {
   const list = document.getElementById("tasks-listing");
   const head = document.querySelector(".pagehead");
   const h = (el) => Math.round(el ? el.getBoundingClientRect().height : 0);
+  // How far below the top of the content column the tasks begin: the board
+  // or the lanes as a whole, or the first row of the list. -1 when none.
+  const main = document.querySelector("main.wrap");
+  const row = document.querySelector("#tasks-listing [data-shortcut-row]");
+  const frame = row && (row.closest(".board, .lanes") || row);
+  const pager = document.querySelector("#tasks-listing > nav.pager");
   return {
+    pager: h(pager),
     bar: h(bar),
     chips: h(chips),
     above: list && head ? Math.round(list.getBoundingClientRect().top - head.getBoundingClientRect().bottom) : 0,
+    top: main && frame ? Math.round(frame.getBoundingClientRect().top - main.getBoundingClientRect().top) : -1,
     vh: window.innerHeight,
   };
 }

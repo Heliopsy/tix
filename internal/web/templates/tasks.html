@@ -16,13 +16,23 @@
   <div class="pagehead-title">
     {{/* A project's page is this screen narrowed to the project, so its
          heading is the project and the line under it says what it runs. */}}
+    {{/* One muted line under the name says what the project runs and how
+         much is left: the workflow (a link to its editor), the summary and
+         the field definitions. They were three lines of their own, and the
+         board repeated the workflow in a fourth, which put the first card
+         290px down a desktop. The (i) that explained the page went too:
+         the (?) help beside the header says the same. */}}
     {{with $v.Scope}}
-    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "project-star" (projectStar .Project $.Here $.CSRF)}}{{template "tip" (tip "Project page" "This project's tasks, as a list, a board or lanes, with the same filter toolbar as the task list. The address keeps the filter and the view, so a link to it opens the same screen." "docs/web-ui.md")}}</div>
-    <p class="meta projhead-meta">{{t "Workflow %s" .Workflow.Name}} &middot; <a href="/projects/{{.Project.Key}}/fields">{{t "Field definitions"}}</a> &middot; <a href="/workflows/{{.Workflow.Key}}">{{t "Workflow editor"}}</a></p>
+    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "project-star" (projectStar .Project $.Here $.CSRF)}}</div>
+    <div class="meta projhead-meta pagehead-sub">
+      <a class="projhead-flow" href="/workflows/{{.Workflow.Key}}" title="{{t "Workflow editor"}}">{{t "Workflow %s" .Workflow.Name}}</a>
+      <div id="tasks-summary">{{template "tasks-summary" $}}</div>
+      <a class="projhead-fields" href="/projects/{{.Project.Key}}/fields">{{t "Field definitions"}}</a>
+    </div>
     {{else}}
     <h1>{{if $v.Mine}}{{t "My work"}}{{else if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
-    {{end}}
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
+    {{end}}
   </div>
   <div class="pagehead-tools">
     {{/* A project's own actions lead: the screen is that project. */}}
@@ -42,6 +52,12 @@
 </div>
 {{with $v.Scope}}{{with .Export}}{{template "export-dialog" (exportDlg $ .)}}{{end}}{{end}}
 
+{{/* Quick add and the filter toolbar share one row where the column is
+     wide enough for both (130-quick-add-and-filters.css), and stack where
+     it is not. What either one draws under itself (the quick-add preview,
+     the chips, a refusal) comes after the row, so nothing pushes the other
+     half of the row down. */}}
+<div class="taskbar"><div class="taskbar-row">
 {{if not $v.Trash}}
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -60,9 +76,13 @@
   <input type="hidden" name="quick" value="1">
   <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
   {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
+  {{/* A project's page adds to its project, so it offers no picker: the
+       select took a third of the row on a phone to say what the heading
+       says. +key in the line still adds to another project. */}}
+  {{with $v.Scope}}<input type="hidden" name="project_ref" value="{{.Project.Key}}">{{else}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
-  </select>
+  </select>{{end}}
   <button type="submit">{{t "Add"}}</button>
   {{/* The fuller form opens from the row it extends, at the height of the
        buttons beside it. It was a disclosure on a line of its own under the
@@ -84,6 +104,10 @@
   </button>
   {{end}}
 </form>
+{{end}}
+{{template "filter-toolbar" .}}
+</div></div>
+{{if not $v.Trash}}
 {{if $v.Templates}}
 <div id="addtpl" class="flowmenu lanepop lanemore-menu addtpl-menu" popover data-lane-menu>
   <p class="flowhead">{{t "New from template"}}</p>
@@ -110,8 +134,7 @@
 </div>
 {{end}}
 {{end}}
-
-{{template "filter-toolbar" .}}
+{{template "filter-under" .}}
 
 {{if $v.Scope}}
 {{else if $v.Filtered}}
@@ -151,7 +174,7 @@
   {{if and (eq .Total 0) $v.OpenOnly}}{{t "Nothing open."}}
   {{else if eq .Total 0}}{{t "Nothing on the list."}}
   {{else if .AllDone}}{{t "All clear. Everything here is done."}}
-  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if .Projects}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; {{t "%d blocked" .Blocked}}{{end}}
+  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if and .Projects (not $v.Scope)}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; {{t "%d blocked" .Blocked}}{{end}}
   {{end}}
   {{/* A list that quietly shows a subset is worse than one showing the wrong
        thing, because the reader cannot tell which they have. So the default
@@ -196,10 +219,16 @@
      A screen reader user learns a drag-and-drop move happened here, since
      nothing else narrates it: the move patches the DOM in place
      (assets/live.js) rather than navigating. Visually hidden, never removed. */}}
-<p class="meta boardmeta">
+{{/* Said only for a board that is several projects' at once. A board of
+     one project is that project's workflow, which the project page's header
+     already names, and the line under the toolbar repeated it with its (i)
+     stranded on a row of its own. */}}
+{{if $v.Board.Merged}}
+<div class="headtip boardmeta"><p class="meta">
   {{t "Workflow %s" $v.Board.Workflow}} &middot; {{tn "%d column" "%d columns" (len $v.Board.Columns)}}
   {{- with index $v.Board.Groups 0}} &middot; {{tn "%d project sharing it: %s" "%d projects sharing it: %s" (len .Projects) (joinKeys .Keys)}}{{end}}
-</p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}
+</p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}</div>
+{{end}}
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range $v.Board.Columns}}
@@ -224,13 +253,18 @@
         {{$showPrio := and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}
         {{$showTags := and ($.Columns.Show "tasks" "tags") .Task.Tags}}
         {{$showRepeat := and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}
-        <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{ref .Task.Ref}}{{end}}</div>
-        <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div>
+        {{/* The star leads the title's line and the reference starts the
+             small line under it, so a card is the title and one line of
+             marks rather than a reference line, a title line and a line
+             for its Move. */}}
+        {{$showRef := $.Columns.Show "tasks" "ref"}}
+        <div class="card-top">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}<div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div></div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
+        {{if or $showRef $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
         <div class="card-meta">
+          {{if $showRef}}<span class="ref">{{ref .Task.Ref}}</span>{{end}}
           {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{key $acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
@@ -241,8 +275,12 @@
         {{end}}
         {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
         {{if .Routes}}
+        {{/* The Move menu's button sits in the card's corner, drawn on
+             hover or focus with a mouse and always on a touch screen
+             (050-board.css); it is a fold so it works with scripting off,
+             and open it drops the form into the card. */}}
         <details class="card-move">
-          <summary aria-label="{{t "Move %s" (ref .Task.Ref)}}">{{t "Move"}}</summary>
+          <summary aria-label="{{t "Move %s" (ref .Task.Ref)}}" title="{{t "Move %s" (ref .Task.Ref)}}">{{template "icon" "more"}}<span class="card-move-label">{{t "Move"}}</span></summary>
           <div class="body">
             <form method="post" action="/tasks/{{.Task.Ref}}/transition">
               {{template "csrf" $.CSRF}}
@@ -1443,6 +1481,11 @@
 
 <script type="application/json" id="filter-suggest">{{$v.Suggest}}</script>
 </div>
+{{end}}
+
+{{/* What the toolbar draws under the row it shares with quick add: the
+     terms in force, a refused filter and the Save this filter dialog. */}}
+{{define "filter-under"}}{{$v := .Data}}
 <div id="tasks-chips">{{template "filter-chips" $v}}</div>
 {{/* A filter that names something this tenant does not have is a typo in a
      box, not a missing page: the message sits under the bar, with the

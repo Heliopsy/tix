@@ -1,0 +1,123 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The top of the task screens, kept short (templates/tasks.html). A project
+   page opened with a title row, a workflow line, a summary line, quick add,
+   the toolbar, the board's own workflow line and a stray (i): the first card
+   sat 290px down a Full HD window. The workflow, the summary and the field
+   definitions are one muted line under the name now, and quick add and the
+   toolbar share a row wherever the column has room for both. */
+.pagehead-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  min-width: 0;
+}
+.pagehead-sub > * { min-width: 0; overflow-wrap: anywhere; }
+.pagehead-sub > * + *::before { content: "\00b7"; margin-inline-end: var(--space-2); color: var(--muted); }
+.pagehead-sub #tasks-summary .summary { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
+.pagehead-sub #tasks-summary:not(:has(.summary)) { display: none; }
+
+/* Quick add on the left, the filter toolbar on the right. The row is a
+   container so the split follows the column, not the window: a collapsed or
+   widened sidebar changes what fits. Narrower, the two stack as before. */
+.taskbar { container: taskbar / inline-size; }
+@container taskbar (min-width: 84rem) {
+  .taskbar-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    align-items: start;
+    column-gap: var(--space-4);
+  }
+  .taskbar-row > .quickadd, .taskbar-row > .tbar { margin-bottom: var(--space-2); }
+  .taskbar-row > .tbar { flex-wrap: nowrap; }
+  .taskbar-row > .tbar .tbar-q { flex: 1 1 12rem; }
+  .taskbar-row > .quickadd select { max-width: 10rem; }
+  /* Add with details and From template keep their icons here, as on a
+     phone; the words stay their names and their tooltips. */
+  .taskbar-row > .quickadd .addmore-open, .taskbar-row > .quickadd .addtpl-open { padding-inline: var(--space-2); }
+  .taskbar-row .addmore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+
+/* A board's merged-workflow line keeps its (i) on the line it explains. */
+.boardmeta { margin: 0 0 var(--space-2); }
+.boardmeta > .meta { margin: 0; }
+
+/* A board card: the star and the title on one line, the reference leading
+   the small line of marks under it, and Move as a button in the corner. */
+.column .card { position: relative; }
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-inline-end: 24px;
+}
+.card-top > .starform { flex: 0 0 auto; }
+.card-top > .card-title { flex: 1 1 auto; }
+.column .card .card-meta { margin-top: 2px; align-items: center; }
+.card-meta > .ref { align-self: center; }
+
+details.card-move { margin: 0; }
+details.card-move > summary {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+details.card-move > summary::before { display: none; }
+details.card-move > summary:hover, details.card-move[open] > summary { color: var(--accent); background: var(--accent-soft); }
+details.card-move > summary .icon { width: 16px; height: 16px; }
+.card-move-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+details.card-move[open] > .body { margin-top: var(--space-2); }
+/* With a mouse the corner button shows on the card under the pointer or
+   holding focus, so a column of cards is not a column of buttons. Tabbing
+   to it shows it; a touch screen always draws it. */
+@media (hover: hover) and (pointer: fine) {
+  .column .card:not(:hover, :focus-within) details.card-move:not([open]) > summary { opacity: 0; }
+}
+@media (max-width: 899px), (pointer: coarse) {
+  details.card-move > summary { top: 0; right: 0; width: 44px; height: 44px; min-height: 44px; }
+  .card-top { padding-inline-end: 36px; }
+}
+
+/* A phone: a project's actions share the name's row, as icons, and the line
+   under the name runs the full width under both. They wrapped onto a row of
+   their own under the line, 44px more before the first card. */
+@media (max-width: 899px) {
+  .pagehead:has(> .pagehead-title > .pagehead-sub) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--head-sub) var(--space-2);
+  }
+  .pagehead:has(> .pagehead-title > .pagehead-sub) > .pagehead-title { display: contents; }
+  .pagehead-title > .headtip:has(+ .pagehead-sub) { grid-column: 1; grid-row: 1; min-width: 0; }
+  .pagehead:has(> .pagehead-title > .pagehead-sub) > .pagehead-tools { grid-column: 2; grid-row: 1; }
+  .pagehead-title > .pagehead-sub { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* The pager over a task listing is one slim line on a wide screen: where
+   it is, the numbered pages, then Previous and Next at the end. It was two
+   rows, 80px between the toolbar and the board. Other listings keep theirs. */
+@media (min-width: 900px) {
+  #tasks-listing > .pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-4);
+    margin: 0 0 var(--space-2);
+  }
+  #tasks-listing > .pager > .pager-at { order: 1; }
+  #tasks-listing > .pager > .pager-nums { order: 2; justify-content: flex-start; }
+  #tasks-listing > .pager > .pager-back { order: 3; margin-inline-start: auto; }
+  #tasks-listing > .pager > .pager-forward { order: 4; margin-inline-start: auto; }
+  #tasks-listing > .pager > .pager-back ~ .pager-forward { margin-inline-start: 0; }
+}

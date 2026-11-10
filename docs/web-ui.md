@@ -169,8 +169,12 @@ The project page is the task screen narrowed to one project, not a second listin
 template draw it, so it has the List, Board and Lanes views, the [filter toolbar](#the-filter-toolbar)
 with its box, Filters, Sort and More menus and the chips of the terms in force, the bulk
 bar, quick add (set to the project), the pager and the live refresh. Its header is the project's own: its
-icon and name, the workflow it runs with links to the field definitions and the workflow editor, and
-Import, Export and Settings.
+icon, name and star, and Import, Export and Settings. One muted line under the name says the workflow it
+runs (a link to the workflow editor), how much is left, and links the field definitions. The task count
+does not add "across 1 project" here, and the board draws no workflow line of its own: it is this
+project's workflow, which the header already named. Quick add here has no project picker, since the
+page is the project; `+key` in the line still adds to another one. On a phone Import, Export and Settings
+are icons on the name's row, and the line under the name runs the full width.
 
 The project comes from the path, so the Filters menu has no project picker and no chip names the
 project, and a `project` parameter
@@ -253,9 +257,18 @@ with scripting off and close on Escape or a press outside. Every link the toolba
 the direction, the view, the lanes grouping, the page size and select mode, and a change of filter (a
 submitted form, a chip, Clear all) drops the cursor and the page number, so it starts at page one.
 
-`scripts/screenshots/shoot.mjs` prints the toolbar's height on every task screen it captures, and its
-strict check fails a toolbar over an eighth of a desktop window, on more than one row of controls on a
-desktop, or on more than two below 900px.
+Where the content column is at least 84rem wide (a Full HD window with the sidebar open), quick add and
+the toolbar share one row: quick add on the left, with Add with details and From template as icon buttons,
+and the box and its menus on the right. Narrower, they stack, quick add first. What either draws under
+itself, the quick-add preview, the chips or a refused filter, comes after that row. On a window 900px or
+wider the pager over the listing is one slim line: where you are, the numbered pages and Go to page, then
+Previous and Next at the end.
+
+`scripts/screenshots/shoot.mjs` prints the toolbar's height and how far below the top of the content the
+tasks start on every task screen it captures. Its strict check fails a toolbar over an eighth of a desktop
+window, on more than one row of controls on a desktop, or on more than two below 900px, and tasks that
+start more than 150px down a Full HD window or 240px down a phone, with no filter in force and not
+counting the pager, or a pager over the tasks taller than one line on a window 900px or wider.
 
 **Adding a task.** The one-line box and Add with details both create the task and leave you on the
 listing, filter, sort, view and page as they were. The toast says `task created` and links the new task,
@@ -468,6 +481,13 @@ definition the columns were drawn from. On a board whose workflows agreed those 
 asking the card's own project anyway means a change to the merge rule can never start offering a
 foreign move. Drag-and-drop reads the card's own move control to decide which
 columns light up, so a column outside that list is refused before any request is made.
+
+**A card is two lines.** The star and the title share the first, and the second is small: the reference,
+then the project on a merged board, the priority, the marks and the tags. Move is a small button in the
+card's corner. With a mouse it shows on the card under the pointer or holding focus, so tabbing to it
+shows it; on a touch screen it is always drawn, at a 44px target. It is still a fold holding a plain
+form, so it moves the card with scripting off, and opened it drops the form into the card. A board of
+several projects keeps its line naming the workflow and the projects sharing it, with its (i) on that line.
 
 **When the projects do not agree the board is refused and the list is drawn**, with a notice naming
 each distinct workflow and the projects running it. Each group links to the same screen narrowed to
