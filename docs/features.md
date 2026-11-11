@@ -227,6 +227,13 @@ has one of the same name. Comments, subtasks (recursively) and dependencies come
 linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.
 [docs/api.md](api.md#copying-a-task).
 
+**Moving a task.** A task moves to another project with "Move to…" on the task screen in the browser,
+`tix task move REF --to PROJECT` on the command line and `POST /api/v1/tasks/{ref}/move` over HTTP. It keeps
+its identity, comments, history, stars and dependencies and takes the next number in the target, so the old
+reference stops resolving. Its subtasks in the same project move with it, a subtask moved alone leaves its
+parent, and the status is mapped into the target workflow as when a deleted project's tasks are moved.
+[docs/api.md](api.md#moving-a-task).
+
 **Bulk actions.** Tick rows on the web task list and a bar applies one action to all of them: move,
 priority, add or remove a tag, assignee, star, unstar, copy to a project, or delete with one Undo for the
 batch. It is one request, `POST /api/v1/tasks/bulk` or `tix task bulk ACTION REF...`, and each task is still

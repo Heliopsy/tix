@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 25
+version: 26
 verified-against: tix e3f99f9e (2026-11-09)
 ---
 
@@ -577,6 +577,7 @@ tix task ls --filter 'deploy api' --limit 10 -o json   # find by words, as the b
 tix task ls --snoozed                # only snoozed tasks, hidden by default
 tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
+tix task move default-1 --to work    # the same task, renumbered into another project
 tix project ls -o json               # the project keys, if you do not know them
 tix project ls --starred             # only the projects you starred (tix project star KEY)
 ```
@@ -687,6 +688,14 @@ initial state unless `--keep-status` finds a state of the same name.
 `--with-subtasks`, `--with-comments` and `--with-deps` bring those along, and
 `--link` records the original as `copied_from_id`. It never copies a lease, so
 a copy of a task you hold is unclaimed. Exit `3` on an unknown project.
+
+**Move, not copy, a task filed in the wrong project.** `tix task move REF
+--to PROJECT` keeps the task's identifier, comments and history, gives it the
+next number in the target (the old reference stops resolving, so use the one
+it prints) and maps its status into the target workflow. Its subtasks in the
+same project follow; a subtask moved alone becomes a root task. `--version N`
+refuses with exit `4` if the task changed since you read it. `tix task mv` is
+a different command: it changes the status.
 
 **Many tasks in one request.** `tix task bulk ACTION REF...` applies `move
 --to S`, `priority --priority P`, `tag-add`/`tag-remove --tag T`, `assign

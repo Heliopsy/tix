@@ -1039,6 +1039,19 @@ task does. A lane card's three dots menu offers **Copy to…** too, opening the 
 when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
 command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
+## Moving a task
+
+**Move to…** sits beside Copy to… in the task screen's actions menu, for a reader who may change tasks. It
+opens a small form, in the task dialog when the task is open in one, that picks one of the other projects.
+Moving opens the task under its new reference with a toast. The task keeps its identity, comments, history,
+stars and dependencies; its subtasks in the same project come along, and its status becomes the same state in
+the target workflow or the first one of the same kind. A subtask moved on its own leaves its parent. The old
+reference stops working, so update any link that named it.
+
+The form carries the version the screen was drawn from, so a move after someone else changed the task is
+refused and the form comes back with the reason, as is a move into a project that no longer exists. The
+command line has the same operation as `tix task move`, and the API as `POST /api/v1/tasks/{ref}/move`.
+
 ## Handing a task to an agent
 
 **Hand to an agent** in the task screen's header, beside the star and the actions menu, opens a dialog of
