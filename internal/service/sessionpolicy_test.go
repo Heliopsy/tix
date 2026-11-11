@@ -88,6 +88,31 @@ func TestKeepMeSignedInLastsTheRememberLifetime(t *testing.T) {
 	}
 }
 
+func TestKeepMeSignedInCannotBeTurnedOnWhereTheServerHasItOff(t *testing.T) {
+	l, _, scope, admin := newLocalWith(t, WithSessionPolicy(core.SessionPolicy{}))
+	ctx := authContext(admin)
+	week, off, bad := "7d", "off", "soon"
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{SessionRememberTTL: &week}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("turning it on: err = %v, want invalid", err)
+	}
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{SessionRememberTTL: &bad}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("an unreadable value: err = %v, want invalid", err)
+	}
+	if _, err := l.UpdateTenant(ctx, "", core.UpdateTenantInput{SessionRememberTTL: &off}); err != nil {
+		t.Errorf("turning it off where it already is: %v", err)
+	}
+	p, err := l.SessionPolicy(loginContext(scope))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.TTL != core.DefaultSessionTTL || p.RememberTTL != 0 {
+		t.Errorf("a zero server lifetime should fall back to the built-in one; policy = %+v", p)
+	}
+	if _, err := l.SessionPolicy(t.Context()); err == nil {
+		t.Error("SessionPolicy with no tenant answered")
+	}
+}
+
 func TestANewLifetimeLeavesLiveSessionsAlone(t *testing.T) {
 	l, clk, scope, admin := newLocal(t)
 	seedUser(t, l, admin, "ada@example.com")

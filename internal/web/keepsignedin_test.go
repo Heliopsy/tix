@@ -69,6 +69,24 @@ func TestATenantThatTurnsKeepMeSignedInOffHidesTheBox(t *testing.T) {
 	}
 }
 
+func TestTenantSettingsSaveAndRefuseSessionDurations(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	saved := f.as("alice").post("/admin/tenant", url.Values{
+		"name": {"Acme Works"}, "session_ttl": {"8h"}, "session_idle_timeout": {"30m"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+	page := body(t, f.as("alice").get("/admin/tenant"))
+	if !strings.Contains(page, `value="8h"`) || !strings.Contains(page, `value="30m"`) {
+		t.Errorf("Tenant settings does not show the saved 8h and 30m")
+	}
+	bad := f.as("alice").post("/admin/tenant", url.Values{"name": {"Acme Works"}, "session_idle_timeout": {"soon"}})
+	_ = bad.Body.Close()
+	if bad.StatusCode == http.StatusSeeOther {
+		t.Error("an unreadable idle timeout was saved")
+	}
+}
+
 func TestKeepMeSignedInNoLongerThanASignInIsNotOffered(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
