@@ -674,7 +674,7 @@
      (raw-dialog), and with scripting it fetches only that dialog into the
      slot after the list and opens it as a modal one; a second press opens
      the one already fetched (assets/forms.js). Takes rawOpener. */}}
-{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{end}}
+{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{with .JSON}}<button type="button" class="btn link small rawcopy" data-copy-text="{{.}}" title="{{t "Copy this entry as JSON"}}">{{t "Copy JSON"}}</button>{{end}}{{end}}
 
 {{/* raw-dialog shows one history row's audit entries as recorded: a table
      of who, what, when and how, the fields that changed side by side, and
