@@ -54,6 +54,7 @@ type KeyMap struct {
 	Copy          key.Binding
 	Move          key.Binding
 	Share         key.Binding
+	CopyEntry     key.Binding
 	Templates     key.Binding
 	SaveTemplate  key.Binding
 	Artifact      key.Binding
@@ -172,6 +173,9 @@ func DefaultKeyMap() KeyMap {
 		// ^, the arrow a share glyph draws. Every letter worth having is
 		// spoken for, and Y already copies the task itself, not its link.
 		Share: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "share task")),
+		// ^ again on the activity view, where no task is selected to share:
+		// the copy there is the selected event itself, as JSON.
+		CopyEntry: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "copy as JSON")),
 		// B, for a blueprint, since t, T and the obvious capitals are spoken
 		// for. E keeps the selected task as an exemplar to make more from; K
 		// went to saving the filter.
@@ -687,7 +691,7 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewActivity:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
-			entry(k.Filter), entry(k.ClearFltr), entry(k.Pause), entry(k.Back),
+			entry(k.Filter), entry(k.ClearFltr), entry(k.Pause), entry(k.CopyEntry), entry(k.Back),
 		}
 	case viewMenu:
 		return []HelpEntry{

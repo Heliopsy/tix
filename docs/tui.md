@@ -211,7 +211,7 @@ an action unbound.
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
 | `d` | move the task to another project, picked from a list; it keeps everything and takes a new number there | board, detail |
-| `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard | board, detail |
+| `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard; on activity, copy the selected event as JSON | board, detail, activity |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
 | `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token, key or session | board, detail, project, tenant, people, integrations, server, global admin, account |
@@ -688,6 +688,10 @@ The status bar counts what is held, and what the filter is keeping when one is i
 is never mistaken for a quiet tenant. The empty state distinguishes the three cases for the same reason:
 a filter that matches nothing, a subscription that has actually dropped, and a tenant with nothing
 happening are three different problems, and a long silence must not look like a stalled program.
+
+`^` copies the selected event as pretty-printed JSON, the shape `tix watch -o json` prints, to the
+terminal's clipboard with OSC 52, the same way sharing a task does, and draws it too in case the terminal
+ignored the request.
 
 The title bar carries `● live` or `○ disconnected, retrying`. A dropped subscription is reopened from the
 last sequence seen, so reconnecting does not skip events.

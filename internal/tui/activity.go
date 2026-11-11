@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"charm.land/bubbles/v2/key"
@@ -126,6 +127,8 @@ func (m Model) handleActivityKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.applyActivityFilterText(""), nil
 	case key.Matches(msg, m.keys.Pause):
 		return m.togglePause(), nil
+	case key.Matches(msg, m.keys.CopyEntry):
+		return m.copyActivityEntry()
 	case key.Matches(msg, m.keys.Up):
 		m.activitySel = clamp(m.activitySel-1, 0, shown-1)
 	case key.Matches(msg, m.keys.Down):
@@ -137,6 +140,32 @@ func (m Model) handleActivityKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 	m.activityOff = ScrollWindow(m.activityOff, m.activitySel, m.activityRows(), shown)
 	return m, nil
+}
+
+// copyActivityEntry sends the selected event, as the JSON the API and
+// tix watch -o json give for it, to the terminal's clipboard the way share
+// does, and draws it too.
+func (m Model) copyActivityEntry() (Model, tea.Cmd) {
+	shown := m.shownActivity()
+	if m.activitySel < 0 || m.activitySel >= len(shown) {
+		m.err = "no event is selected"
+		return m, nil
+	}
+	text, err := EventJSON(shown[m.activitySel])
+	if err != nil {
+		m.err = err.Error()
+		return m, nil
+	}
+	return m.copyShare(Choice{Label: "event as JSON", Value: text})
+}
+
+// EventJSON is one event as pretty-printed JSON, the shape the API returns.
+func EventJSON(e core.Event) (string, error) {
+	raw, err := json.MarshalIndent(e, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encoding event %d: %w", e.Seq, err)
+	}
+	return string(raw), nil
 }
 
 // activityLines renders the live event tail, scrolled the same way the board

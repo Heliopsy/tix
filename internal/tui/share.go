@@ -3,6 +3,8 @@
 package tui
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -76,8 +78,10 @@ func (m Model) copyShare(picked Choice) (Model, tea.Cmd) {
 func (m Model) sharedPanel() Panel {
 	width := max(1, m.width-2)
 	rows := make([]string, 0, 2)
-	for _, line := range wrapCells(m.shared.text, width) {
-		rows = append(rows, "  "+m.theme.Selected.Render(line))
+	for _, text := range strings.Split(m.shared.text, "\n") {
+		for _, line := range wrapCells(text, width) {
+			rows = append(rows, "  "+m.theme.Selected.Render(line))
+		}
 	}
 	return Panel{
 		Title: "copied " + m.shared.label,
