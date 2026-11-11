@@ -1448,6 +1448,60 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "react to a comment and take it back",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "AddReaction", "RemoveReaction", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			comment, err := tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "ship it")
+			mustf(t, tg, err, "adding the comment")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "👍")
+			mustf(t, tg, err, "reacting")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "👍")
+			mustf(t, tg, err, "reacting again")
+			both, err := tg.svc.AddReaction(tg.ctx, comment.ID, "🎉")
+			if err != nil {
+				return nil, err
+			}
+			left, err := tg.svc.RemoveReaction(tg.ctx, comment.ID, "👍")
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "listing comments")
+			emoji := func(rs []core.Reaction) []string {
+				out := []string{}
+				for _, r := range rs {
+					out = append(out, fmt.Sprintf("%s%d", r.Emoji, r.Count))
+				}
+				return out
+			}
+			return sig{"both": emoji(both.Reactions), "left": emoji(left.Reactions), "listed": emoji(listed[0].Reactions)}, nil
+		},
+	},
+	{
+		name:   "reacting with something that is not an emoji",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "AddReaction"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			comment, err := tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "hi")
+			mustf(t, tg, err, "adding the comment")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "ok")
+			return nil, err
+		},
+	},
+	{
+		name:   "taking back a reaction on an unknown comment",
+		covers: []string{"RemoveReaction"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.RemoveReaction(tg.ctx, "nosuchcomment00000", "👍")
+			return nil, err
+		},
+	},
+	{
 		name:   "editing an unknown comment",
 		covers: []string{"EditComment"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

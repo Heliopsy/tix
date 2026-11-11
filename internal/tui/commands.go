@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -527,6 +528,36 @@ func (m Model) editComment(body string) tea.Cmd {
 		_, err := svc.EditComment(ctx, id, body)
 		return actionMsg{kind: actionEditComment, ref: ref, label: label, err: err}
 	}
+}
+
+// react toggles the reader's emoji on the selected comment: it adds one not
+// there yet and takes back one the reader already left.
+func (m Model) react(emoji string) tea.Cmd {
+	comment, ok := m.selectedComment()
+	if !ok || m.svc == nil {
+		return nil
+	}
+	task, _ := m.selectedTask()
+	svc, ctx, ref, label, id := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), comment.ID
+	emoji = strings.TrimSpace(emoji)
+	act, kind := svc.AddReaction, actionReact
+	if reacted(comment, emoji, m.actorID()) {
+		act, kind = svc.RemoveReaction, actionUnreact
+	}
+	return func() tea.Msg {
+		_, err := act(ctx, id, emoji)
+		return actionMsg{kind: kind, ref: ref, label: label, err: err}
+	}
+}
+
+// reacted reports whether actorID already left emoji on the comment.
+func reacted(c core.Comment, emoji, actorID string) bool {
+	for _, r := range c.Reactions {
+		if r.Emoji == emoji {
+			return slices.Contains(r.ActorIDs, actorID)
+		}
+	}
+	return false
 }
 
 // undepend drops one of the tasks a task waits on, named the way the detail

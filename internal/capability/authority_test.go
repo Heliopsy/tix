@@ -38,6 +38,8 @@ var scopeVariesByInput = map[string]string{
 var validArgs = map[string][]any{
 	"AddComment":      {core.TaskRef{ID: "t"}, "body"},
 	"EditComment":     {"c1", "body"},
+	"AddReaction":     {"c1", "👍"},
+	"RemoveReaction":  {"c1", "👍"},
 	"AddTag":          {core.TaskRef{ID: "t"}, "urgent"},
 	"RemoveTag":       {core.TaskRef{ID: "t"}, "urgent"},
 	"CreateTask":      {core.CreateTaskInput{Title: "a title"}},

@@ -445,7 +445,7 @@ func IsScoped(table string) bool {
 func ScopedTables() []string {
 	all := []string{
 		"actors", "sessions", "api_tokens", "workflows", "projects", "field_defs",
-		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
+		"tasks", "task_deps", "tags", "task_tags", "comments", "comment_reactions", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
 		"ssh_keys", "tenant_domains", "task_stars", "project_icons", "project_key_aliases", "task_key_aliases",

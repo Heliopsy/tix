@@ -22,6 +22,7 @@ const (
 	promptNewTask
 	promptComment
 	promptCommentEdit
+	promptReact
 	promptTag
 	promptUntag
 	promptDependency
@@ -75,6 +76,7 @@ var promptSpecs = map[promptKind]PromptSpec{
 	// field rather than one clipped line.
 	promptComment:     {Prompt: "comment: ", Placeholder: "what you want to record", Limit: 4096, Field: "comment", Multiline: true},
 	promptCommentEdit: {Prompt: "edit comment: ", Placeholder: "what the comment should say", Limit: 4096, Field: "comment", Multiline: true},
+	promptReact:       {Prompt: "react: ", Placeholder: "one emoji, such as 👍; one you already left is taken back", Limit: 64, Field: "emoji"},
 
 	promptSnooze:     {Prompt: "snooze until: ", Placeholder: "later, tomorrow, next-week, 3d or 2026-12-01 14:00", Limit: 64, Field: "time"},
 	promptTag:        {Prompt: "add tag: ", Placeholder: "tag to attach", Limit: 128, Field: "tag"},

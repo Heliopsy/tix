@@ -80,6 +80,8 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
 	rt.mux.HandleFunc("PATCH "+wire.RouteComment, rt.handleEditComment)
 	rt.mux.HandleFunc("DELETE "+wire.RouteComment, rt.handleDeleteComment)
+	rt.mux.HandleFunc("PUT "+wire.RouteCommentReaction, rt.handleAddReaction)
+	rt.mux.HandleFunc("DELETE "+wire.RouteCommentReaction, rt.handleRemoveReaction)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskArtifacts, rt.handleListArtifacts)
 	rt.mux.HandleFunc("GET "+wire.RouteArtifactLimits, rt.handleArtifactLimits)
@@ -873,6 +875,26 @@ func (rt *Router) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleAddReaction adds the caller's emoji reaction to a comment.
+func (rt *Router) handleAddReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.AddReaction)
+}
+
+// handleRemoveReaction removes the caller's emoji reaction from a comment.
+func (rt *Router) handleRemoveReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.RemoveReaction)
+}
+
+func (rt *Router) reactionAction(w http.ResponseWriter, r *http.Request,
+	act func(context.Context, string, string) (*core.Comment, error)) {
+	comment, err := act(r.Context(), r.PathValue("id"), r.PathValue("emoji"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, comment)
 }
 
 // handleListArtifacts returns a task's artifacts.
