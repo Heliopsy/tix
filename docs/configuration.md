@@ -587,7 +587,7 @@ parsing a timestamp must never have to guess which zone or format a deployment h
 ```console
 $ TIX_OUTPUT_TIME_FORMAT=short TIX_OUTPUT_TIMEZONE=Asia/Tokyo tix task ls
 ┌───────┬─────────────────┬────────┬──────────┬──────────┬──────┬──────────────┬─────────┐
-│ REF   │ TITLE           │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ UPDATED      │ BLOCKED │
+│ REF   │ TITLE           │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ UPDATED      │ WAITING │
 ├───────┼─────────────────┼────────┼──────────┼──────────┼──────┼──────────────┼─────────┤
 │ ENG-7 │ Wire the output │ doing  │ high     │ act_1    │ cli  │ 21 Sep 23:05 │ no      │
 └───────┴─────────────────┴────────┴──────────┴──────────┴──────┴──────────────┴─────────┘

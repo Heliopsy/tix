@@ -393,6 +393,11 @@ type column struct {
 	// Category is the state's resolved category, which colours the heading.
 	Category core.StateCategory
 	Tasks    []card
+	// Total is how many tasks the state holds under the filter, which may be
+	// more than Tasks draws; More and MoreHref offer the next step of them.
+	Total    int
+	More     int
+	MoreHref string
 	// Head is the column's heading as the reader arranged it.
 	Head groupHead
 }

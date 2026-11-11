@@ -942,7 +942,7 @@ func (m Model) helpLines(layout Layout) []string {
 // any due date at all was removed once for appearing on nearly every card,
 // which is why "due" here means this week and not "has a date".
 var CardLegend = []string{
-	strings.TrimSpace(StarMarker) + " starred by you", "@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
+	strings.TrimSpace(StarMarker) + " starred by you", "@ claimed", "@me claimed by you", "! waiting on another task", "+ dependencies",
 	RepeatMarker + " repeats when done",
 	DeletedMarker + " deleted",
 	SnoozedMarker + " snoozed",

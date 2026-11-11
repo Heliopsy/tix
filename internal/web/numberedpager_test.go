@@ -166,8 +166,13 @@ func TestThePageSurvivesTheViewSwitchAndAFilterResetsIt(t *testing.T) {
 	if u.Query().Get("page") != "3" || u.Query().Has("cursor") {
 		t.Errorf("the board switch = %q, want page=3 and no cursor", board)
 	}
-	if nav := pagerOf(t, b.page(board)); !strings.Contains(nav, "Page 3 of 12") {
-		t.Errorf("the board is not drawn at page 3:\n%s", nav)
+	drawn := b.page(board)
+	if strings.Contains(drawn, "Page 3 of 12") || strings.Contains(drawn, `rel="next"`) {
+		t.Errorf("the board is paged, so its columns are cut at one shared row")
+	}
+	back := regexp.MustCompile(`href="([^"]*)" data-view="list"`).FindStringSubmatch(drawn)
+	if back == nil || !strings.Contains(html.UnescapeString(back[1]), "page=3") {
+		t.Errorf("the switch back to the list loses page 3: %v", back)
 	}
 	filter := between(t, page, `class="filterbar"`, "</form>")
 	if filter == "" || strings.Contains(filter, `name="page"`) {

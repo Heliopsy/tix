@@ -15,6 +15,12 @@ true black OLED and a low-contrast scheme are a separate axis, chosen per browse
 reading. State and priority colours are deliberately not themeable: blocked is red whatever a tenant
 brands itself. [docs/theming.md](theming.md).
 
+**Dependencies.** A task can depend on other tasks (`depends_on`). While any of them is unfinished the
+task is waiting on other tasks: `claim next` skips it, `is:waiting-on` (or the older `is:blocked`) selects
+it, the CLI table's WAITING column and JSON's `waiting_on` name what it waits on, JSON keeps `blocked` as
+the flag, the browser marks the card "waiting on AICP-12", and the terminal marks it `!`. This is a
+separate thing from a workflow state in the blocked category, which is a column a task is moved into.
+
 **A directory of actors.** `tix actor ls` on the command line, `/actors` in the browser, and the same
 listing behind the assignee field, which suggests handles instead of asking for an identifier from
 memory. It suggests without constraining: an actor from another tenant is still assignable by

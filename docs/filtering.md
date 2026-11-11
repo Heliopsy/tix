@@ -115,7 +115,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `due:<DATE`, `due:>DATE` | the same bounds, spelled with the comparison | no | no |
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
-| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:claimed`, `is:unclaimed`, `is:waiting-on` (alias `is:blocked`), `is:unblocked`, `is:recurring`, `is:root` | state predicates; `is:waiting-on` is a task waiting on an unfinished dependency, not one in a blocked workflow state | yes (except `is:root`) | no |
 | `is:deleted` | also list soft-deleted tasks, alongside the rest; it widens, it does not narrow | yes | no |
 | `is:trashed` | only soft-deleted tasks, the trash; `-is:trashed` is live tasks only | yes | no |
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |

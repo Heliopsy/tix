@@ -393,7 +393,7 @@ func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, view, self str
 	makers := board.Groups[0].Projects
 	for i := range board.Columns {
 		c := &board.Columns[i]
-		c.Head = statusHead(c.State, len(c.Tasks), makers)
+		c.Head = statusHead(c.State, c.Total, makers)
 	}
 	board.Columns, _ = arrangeGroups(board.Columns, colHead, groupPrefIndex(prefs))
 	hidden := hiddenOf(prefs, stateNamer(board.Groups[0].Workflow.Definition))

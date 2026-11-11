@@ -163,7 +163,7 @@ func TestTaskBadgesDescribeStateInText(t *testing.T) {
 		tk := task("a", "todo", 1, core.PriorityNormal)
 		tk.ClaimedByActorID, tk.LeaseExpiresAt, tk.Blocked = "worker-99", &future, true
 		got := TaskBadges(tk, now)
-		if len(got) != 3 || got[1] != "@worker-9" || got[2] != "!blocked" {
+		if len(got) != 3 || got[1] != "@worker-9" || got[2] != "!waiting" {
 			t.Fatalf("badges %v", got)
 		}
 	})

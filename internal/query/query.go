@@ -476,7 +476,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.Claimed = yes
 	case "unclaimed", "free":
 		f.Claimed = no
-	case "blocked":
+	case "blocked", "waiting-on":
 		f.Blocked = yes
 	case "unblocked", "ready":
 		f.Blocked = no
@@ -500,7 +500,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, snoozed, awake, deleted, trashed or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, waiting-on (or blocked), unblocked, recurring, starred, unstarred, snoozed, awake, deleted, trashed or root", value)
 	}
 	return nil
 }

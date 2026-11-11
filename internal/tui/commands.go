@@ -47,13 +47,59 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err}
 		}
-		page, err := svc.ListTasks(ctx, filter)
+		page, err := listByColumn(ctx, svc, filter, def)
 		if err != nil {
 			return errMsg{err: err}
 		}
 		prefs, _ := readArrangement(ctx, svc, p.Key, arranges)
 		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs, paged: pageOf(page)}
 	}
+}
+
+// listByColumn reads the board one column at a time, each column paged on its
+// own, so a column is never empty because its tasks sit on another page of a
+// listing the columns share. Page n is page n of every column; the board has
+// as many pages as its longest column needs. Tasks in a state the workflow no
+// longer has are read with the first page. Without a workflow it reads the
+// filter as one listing.
+func listByColumn(ctx context.Context, svc core.Service, filter core.TaskFilter, def *core.WorkflowDefinition) (core.TaskPage, error) {
+	if def == nil || len(def.States) == 0 {
+		return svc.ListTasks(ctx, filter)
+	}
+	asked := make(map[string]bool, len(filter.Statuses))
+	for _, s := range filter.Statuses {
+		asked[s] = true
+	}
+	out := core.TaskPage{Number: max(filter.PageNumber, 1)}
+	keys := make([]string, 0, len(def.States))
+	for _, state := range def.States {
+		keys = append(keys, state.Key)
+		if len(asked) > 0 && !asked[state.Key] {
+			continue
+		}
+		f := filter
+		f.Statuses = []string{state.Key}
+		page, err := svc.ListTasks(ctx, f)
+		if err != nil {
+			return core.TaskPage{}, err
+		}
+		if page.Number == f.PageNumber {
+			out.Tasks = append(out.Tasks, page.Tasks...)
+		}
+		if page.Total > out.Total {
+			out.Total, out.TotalCapped = page.Total, page.TotalCapped
+		}
+	}
+	if out.Number == 1 {
+		stray := filter
+		stray.Exclude.Statuses = append(append([]string(nil), stray.Exclude.Statuses...), keys...)
+		page, err := svc.ListTasks(ctx, stray)
+		if err != nil {
+			return core.TaskPage{}, err
+		}
+		out.Tasks = append(out.Tasks, page.Tasks...)
+	}
+	return out, nil
 }
 
 // workflowOf finds the workflow definition a project runs on.
@@ -76,9 +122,9 @@ func (m Model) loadTasks() tea.Cmd {
 	if m.svc == nil || m.project.ID == "" {
 		return nil
 	}
-	svc, ctx, filter, key, arranges := m.svc, m.ctx, m.taskFilterAt(m.project.Key, m.paged.number), m.project.Key, m.arranges()
+	svc, ctx, filter, key, arranges, def := m.svc, m.ctx, m.taskFilterAt(m.project.Key, m.paged.number), m.project.Key, m.arranges(), m.workflow
 	return func() tea.Msg {
-		page, err := svc.ListTasks(ctx, filter)
+		page, err := listByColumn(ctx, svc, filter, def)
 		if err != nil {
 			return errMsg{err: err}
 		}

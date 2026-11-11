@@ -139,6 +139,26 @@ type TaskPage struct {
 	// Number is the page answered, from one, when the filter asked by
 	// PageNumber; a number past the end is answered with the last page.
 	Number int `json:"page,omitempty" yaml:"page,omitempty"`
+	// Tally counts the whole selection, every page of it, when the filter
+	// asked with Tally. It is for in-process callers and does not travel.
+	Tally *TaskTally `json:"-" yaml:"-"`
+}
+
+// TaskTally counts every task a filter selects, not one page of them.
+type TaskTally struct {
+	// States counts the selection per project and status.
+	States []StateCount
+	// Blocked counts the tasks waiting on an unfinished dependency.
+	Blocked int
+	// Held counts the tasks under a live claim.
+	Held int
+}
+
+// StateCount is how many selected tasks of one project sit in one status.
+type StateCount struct {
+	ProjectID string
+	Status    string
+	Count     int
 }
 
 // TaskCountCap is where a task listing's count stops. Past it a total is
@@ -218,6 +238,10 @@ type TaskFilter struct {
 	// caller that only counts the tasks: a description can be a megabyte. It
 	// does not travel on the wire, so a remote listing always carries bodies.
 	OmitBody bool `json:"-" yaml:"-"`
+
+	// Tally asks for TaskPage.Tally, the counts of the whole selection. Like
+	// OmitBody it is for an in-process caller and does not travel.
+	Tally bool `json:"-" yaml:"-"`
 
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 

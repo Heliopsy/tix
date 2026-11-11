@@ -76,7 +76,7 @@ than the first half of it:
 | `*` | starred by you, which leads the meta line |
 | `@` | claimed, by somebody |
 | `@me` | claimed by you |
-| `!` | blocked |
+| `!` | waiting on another task |
 | `+` | has dependencies |
 | `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` or `is:trashed` |
@@ -528,11 +528,16 @@ neither drawn nor sent.
 
 ### Paging a long project
 
-One read of the board is 500 tasks, the most one page of a listing holds. The listing counts every task the
-filter selects, so a project holding more says where you are in the status bar:
-`500 tasks in 5 columns, page 1/3`. A count that stopped at its cap of 10,000 is written as a floor,
-`page 1/20+`. `pgdown` reads the next 500 and `pgup` the previous, by page number, the way `page=N` does in
-the browser; both are offered only where there is a page to go to, and in the palette. A new filter or
+The board reads each column on its own, up to 500 tasks a column, the most one page of a listing holds. A
+single listing paged across the columns would cut every column at the same row, leaving a column empty on
+page 2 while its tasks sat on page 1. A project whose longest column holds more says where you are in the
+status bar: `500 tasks in 5 columns, page 1/3`, counted by that column. A count that stopped at its cap of
+10,000 is written as a floor, `page 1/20+`. `pgdown` reads the next 500 of every column that has them and
+`pgup` the previous, by page number; both are offered only where there is a page to go to, and in the
+palette.
+
+A card marked `!` is waiting on another task: it depends on a task that is not finished. That is not
+the same as a card in a workflow state named Blocked, which is a column. A new filter or
 another project starts on page 1, and a live refresh rereads the page you are on. A project that fits one
 read draws no indicator and offers neither key. There is no typed jump: at 500 a page, a project that needs
 one is rare.

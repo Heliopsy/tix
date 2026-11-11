@@ -245,9 +245,8 @@ func TestTheLanesGroupingStaysInTheAddress(t *testing.T) {
 		if clear == nil || !strings.Contains(html.UnescapeString(clear[1]), "lanes=priority") {
 			t.Errorf("%s: Clear drops the grouping: %v", route, clear)
 		}
-		next := regexp.MustCompile(`href="([^"]+)" rel="next"`).FindStringSubmatch(page)
-		if next == nil || !strings.Contains(html.UnescapeString(next[1]), "lanes=priority") {
-			t.Errorf("%s: the pager drops the grouping: %v", route, next)
+		if regexp.MustCompile(`rel="next"`).MatchString(page) {
+			t.Errorf("%s: the lanes are paged, so every lane is cut at one shared row", route)
 		}
 		live := regexp.MustCompile(`data-live="([^"]+)"`).FindStringSubmatch(page)
 		if live == nil || !strings.Contains(html.UnescapeString(live[1]), "lanes=priority") {
