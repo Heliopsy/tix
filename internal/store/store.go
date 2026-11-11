@@ -200,6 +200,9 @@ type TaskTx interface {
 	RestoreTask(ctx context.Context, id string) error
 	// MoveTask puts a task into another project under a new number and status.
 	MoveTask(ctx context.Context, id, projectID string, seq int64, status string) error
+	// AddTaskAlias keeps a number a task had in a project it moved out of, so
+	// GetTask still resolves the old reference.
+	AddTaskAlias(ctx context.Context, projectID string, seq int64, taskID string) error
 	// NextSeq reserves the next per-project task number.
 	NextSeq(ctx context.Context, projectID string) (int64, error)
 	Children(ctx context.Context, parentID string) ([]core.Task, error)

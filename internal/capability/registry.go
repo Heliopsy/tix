@@ -537,6 +537,14 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.move", Method: "MoveTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task move",
+		HTTP:  apiPost(wire.RouteTaskMove),
+		Web:   webPost(web.RouteTaskRehome),
+		TUI:   "board",
+	},
+	{
 		Name: "task.bulk", Method: "BulkTasks",
 		CLI:  "tix task bulk",
 		HTTP: apiPost(wire.RouteTaskBulk),

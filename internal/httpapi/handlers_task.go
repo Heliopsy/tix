@@ -57,6 +57,7 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("DELETE "+wire.RouteTaskTrash, rt.handlePurgeTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskMove, rt.handleMoveTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskBulk, rt.handleBulkTasks)
 	rt.mux.HandleFunc("GET "+wire.RouteTrash, rt.handleTrashStatus)
 
@@ -588,6 +589,25 @@ func (rt *Router) handleCopyTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusCreated, task)
+}
+
+// handleMoveTask moves a task to another project and answers with what moved.
+func (rt *Router) handleMoveTask(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.MoveTaskInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	moved, err := rt.cfg.Service.MoveTask(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, moved)
 }
 
 // handleTaskTree returns a task and its descendants.

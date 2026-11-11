@@ -14,16 +14,17 @@ import (
 // bulkActionAuthority is the policy action each bulk action needs, checked
 // once before any task is touched.
 var bulkActionAuthority = map[core.BulkAction]authz.Action{
-	core.BulkMove:      authz.ActionTaskTransition,
-	core.BulkPriority:  authz.ActionTaskUpdate,
-	core.BulkTagAdd:    authz.ActionTaskUpdate,
-	core.BulkTagRemove: authz.ActionTaskUpdate,
-	core.BulkAssign:    authz.ActionTaskUpdate,
-	core.BulkStar:      authz.ActionTaskStar,
-	core.BulkUnstar:    authz.ActionTaskStar,
-	core.BulkCopy:      authz.ActionTaskCreate,
-	core.BulkDelete:    authz.ActionTaskDelete,
-	core.BulkRestore:   authz.ActionTaskDelete,
+	core.BulkMove:        authz.ActionTaskTransition,
+	core.BulkPriority:    authz.ActionTaskUpdate,
+	core.BulkTagAdd:      authz.ActionTaskUpdate,
+	core.BulkTagRemove:   authz.ActionTaskUpdate,
+	core.BulkAssign:      authz.ActionTaskUpdate,
+	core.BulkStar:        authz.ActionTaskStar,
+	core.BulkUnstar:      authz.ActionTaskStar,
+	core.BulkCopy:        authz.ActionTaskCreate,
+	core.BulkMoveProject: authz.ActionTaskUpdate,
+	core.BulkDelete:      authz.ActionTaskDelete,
+	core.BulkRestore:     authz.ActionTaskDelete,
 }
 
 // BulkTasks applies one action to many tasks.
@@ -43,12 +44,16 @@ func (l *Local) BulkTasks(ctx context.Context, in core.BulkTaskInput) (*core.Bul
 	out := &core.BulkResult{Action: in.Action, Outcomes: make([]core.BulkOutcome, 0, len(in.Refs))}
 	for _, raw := range in.Refs {
 		outcome := core.BulkOutcome{Ref: raw}
-		copyRef, err := l.bulkOne(ctx, in, raw)
-		if err != nil {
+		newRef, err := l.bulkOne(ctx, in, raw)
+		switch {
+		case err != nil:
 			outcome.Code, outcome.Error = string(core.KindOf(err)), outcomeMessage(err)
 			out.Refused++
-		} else {
-			outcome.Applied, outcome.CopyRef = true, copyRef
+		case in.Action == core.BulkMoveProject:
+			outcome.Applied, outcome.MovedRef = true, newRef
+			out.Applied++
+		default:
+			outcome.Applied, outcome.CopyRef = true, newRef
 			out.Applied++
 		}
 		out.Outcomes = append(out.Outcomes, outcome)
@@ -57,7 +62,7 @@ func (l *Local) BulkTasks(ctx context.Context, in core.BulkTaskInput) (*core.Bul
 }
 
 // bulkOne applies the action to one task, answering the new task's reference
-// for a copy.
+// for a copy and the task's new reference for a move to another project.
 func (l *Local) bulkOne(ctx context.Context, in core.BulkTaskInput, raw string) (string, error) {
 	ref, err := core.ParseTaskRef(raw)
 	if err != nil {
@@ -90,6 +95,12 @@ func (l *Local) bulkOne(ctx context.Context, in core.BulkTaskInput, raw string) 
 			return "", err
 		}
 		return copied.Ref, nil
+	case core.BulkMoveProject:
+		moved, err := l.MoveTask(ctx, ref, core.MoveTaskInput{ProjectRef: in.ProjectRef})
+		if err != nil {
+			return "", err
+		}
+		return moved.Task.Ref, nil
 	}
 	return "", err
 }
