@@ -577,6 +577,7 @@ tix task ls --filter 'deploy api' --limit 10 -o json   # find by words, as the b
 tix task ls --snoozed                # only snoozed tasks, hidden by default
 tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
+tix task move default-1 --to work    # the same task in another project, under a new number
 tix project ls -o json               # the project keys, if you do not know them
 tix project ls --starred             # only the projects you starred (tix project star KEY)
 ```
@@ -687,6 +688,14 @@ initial state unless `--keep-status` finds a state of the same name.
 `--with-subtasks`, `--with-comments` and `--with-deps` bring those along, and
 `--link` records the original as `copied_from_id`. It never copies a lease, so
 a copy of a task you hold is unclaimed. Exit `3` on an unknown project.
+
+**Move when it is in the wrong project.** `tix task move REF... --to KEY` moves
+the task itself: same id, comments, artifacts, history and links, the next
+number in the target. The old reference keeps resolving, so mentions you wrote
+still work; use the new `ref` from the answer from then on. The status is kept
+when the target workflow has it (`status_kept`), custom fields the target lacks
+are listed in `dropped_fields`. A task somebody else holds is exit `4`; your
+own claim moves with it.
 
 **Many tasks in one request.** `tix task bulk ACTION REF...` applies `move
 --to S`, `priority --priority P`, `tag-add`/`tag-remove --tag T`, `assign
