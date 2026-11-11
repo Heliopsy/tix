@@ -1133,7 +1133,8 @@ In select mode every row, board card and lane card shows a square box labelled "
 tick stays but is dimmed so the box reads as the control, and a bar appears under the listing saying
 how many are selected (announced to a screen reader) and offering **Move**, **Priority**, **Tag** (add
 or remove), **Assignee** (a handle, or empty to unassign), **Star**, **Unstar**, **Copy to…**,
-**Move to…** (another project), **Delete** and **Cancel**. Shift-click ticks every row between the last box you clicked and this one;
+**Move to…** (another project), **Delete** and **Cancel**. Shift-click ticks every row between the last box
+you clicked and this one;
 `x` toggles the focused row; Shift+Up and Shift+Down extend the selection from the focused row and
 move focus with it; Ctrl+A (Cmd+A on a Mac, `*` in the Emacs scheme, where Ctrl+A goes to the top)
 ticks every row while focus is in the list, and leaves a text field's own select all alone. `d` marks

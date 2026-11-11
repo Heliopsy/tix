@@ -762,7 +762,8 @@ distinct reference, in the order given, also when some were refused:
 
 Each task is changed through the single-task operation in its own transaction, with its own audit entry and
 event, so a refused task never holds back or undoes another; a copy's outcome names the new task in
-`copy_ref`, and a `move_project` outcome the task's new reference in `moved_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
+`copy_ref`, and a `move_project` outcome the task's new reference in `moved_ref`. A reference named twice
+is acted on once. An unknown action, no references, more than 500, or a
 missing argument is `400` before any task changes, and a caller without the scope the action needs (for
 example `task:delete` for a bulk delete) gets one `403` for the request.
 
