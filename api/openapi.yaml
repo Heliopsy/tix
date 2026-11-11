@@ -2668,7 +2668,9 @@ paths:
           required: true
           schema:
             type: string
-        - in: path
+        - description: 'The reaction: one emoji grapheme, percent-encoded, such as
+            %F0%9F%91%8D for a thumbs up.'
+          in: path
           name: emoji
           required: true
           schema:
@@ -2731,7 +2733,9 @@ paths:
           required: true
           schema:
             type: string
-        - in: path
+        - description: 'The reaction: one emoji grapheme, percent-encoded, such as
+            %F0%9F%91%8D for a thumbs up.'
+          in: path
           name: emoji
           required: true
           schema:
