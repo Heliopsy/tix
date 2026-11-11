@@ -695,6 +695,9 @@ type Task struct {
 	// Blocked reports that at least one task this one depends on is neither
 	// completed nor deleted.
 	Blocked bool `json:"blocked" yaml:"blocked"`
+	// WaitingOn names, by reference, the unfinished tasks that make this one
+	// Blocked, in reference order. Empty when Blocked is false.
+	WaitingOn []string `json:"waiting_on,omitempty" yaml:"waiting_on,omitempty"`
 	// DependsOn lists the IDs of the tasks this one waits for.
 	DependsOn []string `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
 

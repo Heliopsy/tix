@@ -207,6 +207,7 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 
 	var tasks []core.Task
 	var total, number int
+	var tally *core.TaskTally
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		if f.Trashed == core.Yes {
 			if off, err := trashOff(ctx, tx); err != nil {
@@ -227,6 +228,11 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 				return err
 			}
 		}
+		if f.Tally {
+			if tally, err = tallyTasks(ctx, tx, probe); err != nil {
+				return err
+			}
+		}
 		tasks, err = tx.ListTasks(ctx, probe)
 		return err
 	}); err != nil {
@@ -243,11 +249,37 @@ func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 		markChecklistsIn(tasks)
 	}
 	page := core.TaskPage{Tasks: tasks, Total: min(total, core.TaskCountCap),
-		TotalCapped: total > core.TaskCountCap, Number: number}
+		TotalCapped: total > core.TaskCountCap, Number: number, Tally: tally}
 	if more && len(tasks) > 0 {
 		page.NextCursor = taskCursor(f.Page, tasks[len(tasks)-1])
 	}
 	return page, nil
+}
+
+// tallyTasks counts the whole of f's selection, ignoring its page: per
+// project and status, waiting on a dependency, and held under a claim.
+func tallyTasks(ctx context.Context, tx store.Tx, f core.TaskFilter) (*core.TaskTally, error) {
+	f.Page.Cursor, f.PageNumber = "", 0
+	states, err := tx.TallyTasks(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	out := &core.TaskTally{States: states}
+	if f.Blocked != core.No {
+		waiting := f
+		waiting.Blocked = core.Yes
+		if out.Blocked, err = tx.CountTasks(ctx, waiting, core.TaskCountCap); err != nil {
+			return nil, err
+		}
+	}
+	if f.Claimed != core.No {
+		held := f
+		held.Claimed = core.Yes
+		if out.Held, err = tx.CountTasks(ctx, held, core.TaskCountCap); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // taskCursor is the cursor that resumes a walk under page after task.

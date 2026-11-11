@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -176,11 +177,23 @@ func (f *fakeService) ListTasks(_ context.Context, filter core.TaskFilter) (core
 	if f.listErr != nil {
 		return core.TaskPage{}, f.listErr
 	}
-	page := core.TaskPage{Tasks: f.tasks, Total: len(f.tasks)}
-	if size := filter.Page.Limit; size > 0 && len(f.tasks) > size {
-		page.Number = min(max(filter.PageNumber, 1), core.PagesOf(len(f.tasks), size))
+	tasks := f.tasks
+	if len(filter.Statuses) > 0 || len(filter.Exclude.Statuses) > 0 {
+		tasks = nil
+		for _, t := range f.tasks {
+			if (len(filter.Statuses) == 0 || slices.Contains(filter.Statuses, t.Status)) &&
+				!slices.Contains(filter.Exclude.Statuses, t.Status) {
+				tasks = append(tasks, t)
+			}
+		}
+	}
+	page := core.TaskPage{Tasks: tasks, Total: len(tasks), Number: max(filter.PageNumber, 1)}
+	if size := filter.Page.Limit; size > 0 && len(tasks) > size {
+		page.Number = min(max(filter.PageNumber, 1), core.PagesOf(len(tasks), size))
 		start := (page.Number - 1) * size
-		page.Tasks = f.tasks[start:min(start+size, len(f.tasks))]
+		page.Tasks = tasks[start:min(start+size, len(tasks))]
+	} else if page.Number > 1 {
+		page.Number = 1
 	}
 	return page, nil
 }

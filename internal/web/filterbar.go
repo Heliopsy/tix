@@ -301,7 +301,7 @@ type suggestProject struct {
 var suggestKeys = []string{"project", "tag", "assignee", "status", "priority", "due", "is", "title", "creator", "has"}
 
 // suggestIs are the is: states the box offers.
-var suggestIs = []string{"starred", "blocked", "claimed", "unclaimed", "recurring", "snoozed", "root"}
+var suggestIs = []string{"starred", "waiting-on", "claimed", "unclaimed", "recurring", "snoozed", "root"}
 
 // newFilterSuggest gathers the suggestions from what the screen loaded.
 func newFilterSuggest(projects []core.Project, tags []core.Tag, handles []string, pickers filterPickers, scoped bool) filterSuggest {

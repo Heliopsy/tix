@@ -208,8 +208,17 @@ neither reads nor writes the grouping the task list remembers. See [Lanes](#lane
 
 ## The task list
 
-The heading counts what is in front of you: how many are still open, how many are done, how many
-projects they span, how many an agent is holding, how many are blocked.
+The heading counts the whole selection, every page of it, not the page in front of you: how many are
+still open, how many are done, how many projects they span, how many an agent is holding, and how many
+are waiting on other tasks. The service counts them with the listing's own filter (one grouped count per
+project and state, and a count each for waiting and held), so the numbers agree with the pager's total.
+
+"Waiting on other tasks" means a task that depends on an unfinished task (`depends_on`). It is not a
+task in a workflow state called Blocked, which is a column on the board; the two used to share the word
+and read as a contradiction ("5 blocked" next to "Blocked (0)"). The count is a link to the same view
+narrowed with `is:waiting-on`, which `is:blocked` still spells. Every card, lane card and row whose task
+is waiting carries a small hourglass mark, "waiting on AICP-12" for one dependency or "waiting on 2
+tasks" for several, with every open dependency in its tooltip and a link to the first.
 
 **Filtering.** The box takes the same expression language the CLI takes, documented in
 [filtering.md](filtering.md), through the same parser, so an expression that selects a set of tasks
@@ -415,10 +424,17 @@ The switch in the filter toolbar draws the same tasks as rows, as columns or as 
 which per browser (`tix_task_view`). The list is what an untouched install shows. Settings shows the
 remembered view from the same resolved value, as a form, since it has no listing to link to.
 
-It is one selection drawn three ways. The filter, the deadline window, the project control, the sort,
-the page size, the page position and the project visibility choice are resolved once and apply to all
-of them, so switching changes the drawing and never which tasks are on screen, and one pager walks
-them all.
+It is one selection drawn three ways. The filter, the deadline window, the project control, the sort
+and the project visibility choice are resolved once and apply to all of them, so switching changes the
+drawing and never which tasks are selected.
+
+**Only the list is paged.** Paging a board cut every column at the same row of one shared listing, so
+page 2 could say "Doing (0)" while the doing tasks sat on page 1. The board reads each column on its
+own instead: a column draws its first 50 cards, its heading counts every task in that state under the
+filter, and a **Show N more** link at its foot draws 50 more of that column alone (`?more=STATE`, once
+per step, swapped into the column in place with scripting on). Tasks in a state the workflow no longer
+has are read separately and listed under the board. The lanes draw the first 200 tasks of the
+selection with a **Show N more** under them (`?more=lanes`). Neither view renders the pager.
 
 **The view is in the address.** Each position of the switch is a link to the same screen carrying
 the current query with its own `view` (`?q=tag:ops&sort=title&view=board`), so switching never resets
@@ -857,8 +873,8 @@ and none said where the reader was.
 **The page is in the address.** Every link the control writes is `?page=N` and the listing's own
 parameters, with no cursor, so a page can be linked, reloaded and bookmarked, and page one is the bare
 listing. On the task screen the view switch and the Group lanes by control keep `page`, so a reader on
-page 3 of the list opens the board at page 3 (the board may hold different tasks, since the list
-narrows to open work, and a page past the board's end opens its last page). The filter form submits no
+page 3 of the list who opens the board and comes back is on page 3 again; the board and the lanes
+ignore it (see [List, board or lanes](#list-board-or-lanes)). The filter form submits no
 page, and Clear, the links that narrow a refused board to some projects, and Show all drop it, so any
 change to the selection opens on page one.
 

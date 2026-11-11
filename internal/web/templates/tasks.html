@@ -174,7 +174,7 @@
   {{if and (eq .Total 0) $v.OpenOnly}}{{t "Nothing open."}}
   {{else if eq .Total 0}}{{t "Nothing on the list."}}
   {{else if .AllDone}}{{t "All clear. Everything here is done."}}
-  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if and .Projects (not $v.Scope)}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; {{t "%d blocked" .Blocked}}{{end}}
+  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if and .Projects (not $v.Scope)}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; <a class="waitcount" href="{{$v.WaitingHref}}" title="{{t "Only tasks waiting on an unfinished dependency"}}">{{tn "%d waiting on another task" "%d waiting on other tasks" .Blocked}}</a>{{end}}
   {{end}}
   {{/* A list that quietly shows a subset is worse than one showing the wrong
        thing, because the reader cannot tell which they have. So the default
@@ -236,7 +236,7 @@
     {{/* The menu sits beside the heading, never inside it: live.js names a
          column by its h2 when it announces a drop. */}}
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
+      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{.Total}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}
@@ -262,9 +262,10 @@
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $showRef $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
+        {{if or $showRef $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist .Task.WaitingOn}}
         <div class="card-meta">
           {{if $showRef}}<span class="ref">{{ref .Task.Ref}}</span>{{end}}
+          {{template "waitmark" .Task}}
           {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{key $acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
@@ -298,6 +299,7 @@
     {{else}}
       <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
+    {{if .MoreHref}}<a class="colmore" href="{{.MoreHref}}" hx-get="{{.MoreHref}}" hx-select="section.column[data-state='{{.State.Key}}']" hx-target="closest section" hx-swap="outerHTML">{{tn "Show %d more" "Show %d more" .More}}</a>{{end}}
     {{end}}
   </section>
 {{end}}
@@ -463,6 +465,7 @@
             </div>
           </span>
           {{else if and ($.Columns.Show "tasks" "priority") (ne $p "normal")}}<a class="prio p-{{$p}}" href="/tasks?q=priority:{{$p}}" title="{{t "Only %s priority tasks" (t $p)}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</a>{{end}}
+          {{template "waitmark" .Task}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
@@ -648,6 +651,10 @@
   {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{ref .Ref}}</a> {{end}}
 </p>
 {{end}}
+{{/* Lanes are never paged: every lane would be cut at the same row of one
+     shared listing. They draw the first step of the selection and offer the
+     next here instead. */}}
+{{if $v.LanesMoreHref}}<a class="colmore lanes-more" href="{{$v.LanesMoreHref}}">{{tn "Show %d more" "Show %d more" $v.LanesMore}}</a>{{end}}
 {{else}}
 {{if eq $v.View "board"}}
 {{/* The reader asked for a board and is getting the list, so the screen says
@@ -952,6 +959,7 @@
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
       {{if $r.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
+      {{template "waitmark" .}}
       {{if and .Recurrence ($r.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       {{with .Checklist}}{{template "checkmark" .}}{{end}}
       {{if snoozed .}}<a class="snoozemark" href="/tasks?q=is:snoozed" title="{{t "Snoozed until %s" (stamp .SnoozedUntil)}}{{with $r.Data.Names.Label .SnoozedByActorID}}, {{t "snoozed by %s" .}}{{end}}">{{t "until %s" (stamp .SnoozedUntil)}}</a>{{end}}
@@ -1055,7 +1063,7 @@
         {{with $e.On "parent"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">
-        <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as blocked until they are.")}}</div>
+        <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as waiting on them until they are.")}}</div>
         <input id="new-depends" name="depends_on" value="{{$f.DependsOn}}" class="mono" autocomplete="off" placeholder="{{"proj-42, proj-7"}}"{{$e.Attrs "depends_on"}}>
         {{with $e.On "depends_on"}}{{template "field-error" .}}{{end}}
       </div>
@@ -1087,6 +1095,12 @@
 {{/* rowpick is a row's or a card's selection box. It belongs to the bar's
      form through its form attribute, so ticking and pressing an action
      posts the selection with scripting off too. Shown only in select mode. */}}
+{{/* A task waiting on an unfinished dependency says which one, on every
+     card and row: the first reference, or a count when there are several,
+     with all of them in the tooltip. A blocked workflow state is a column;
+     this is a property of the task, so it is worded differently. */}}
+{{define "waitmark"}}{{with .WaitingOn}}<a class="waitmark" href="/tasks/{{index . 0}}" title="{{t "Waiting on"}} {{range $i, $d := .}}{{if $i}}, {{end}}{{ref $d}}{{end}}">{{template "icon" "hourglass"}}{{if eq (len .) 1}}{{t "waiting on %s" (ref (index . 0))}}{{else}}{{tn "waiting on %d task" "waiting on %d tasks" (len .)}}{{end}}</a>{{end}}{{end}}
+
 {{define "rowpick"}}<input type="checkbox" class="rowpick" name="ref" value="{{.}}" form="bulkbar" aria-label="{{t "Select %s" (ref .)}}" data-pick>{{end}}
 
 {{define "bulk-bar"}}{{$v := .Data}}{{$b := $v.Bulk}}

@@ -356,6 +356,35 @@ func (t *tx) CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int,
 	return t.countUpTo(ctx, b, limit, "counting tasks")
 }
 
+// TallyTasks counts the tasks a filter selects per project and status; see
+// store.TaskTx.
+func (t *tx) TallyTasks(ctx context.Context, f core.TaskFilter) ([]core.StateCount, error) {
+	f.Page, f.PageNumber = core.Page{}, 0
+	f, err := f.Validate()
+	if err != nil {
+		return nil, err
+	}
+	b := t.builder("tasks").Join(projectJoin)
+	if err := t.applyTaskFilter(b, f); err != nil {
+		return nil, err
+	}
+	q, args := b.GroupCountQuery("tasks.project_id", "tasks.status")
+	rows, err := t.ex.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, mapErr(err, "tallying tasks")
+	}
+	defer func() { _ = rows.Close() }()
+	var out []core.StateCount
+	for rows.Next() {
+		var c core.StateCount
+		if err := rows.Scan(&c.ProjectID, &c.Status, &c.Count); err != nil {
+			return nil, mapErr(err, "tallying tasks")
+		}
+		out = append(out, c)
+	}
+	return out, mapRowsErr(rows, "tallying tasks")
+}
+
 // SeekTask returns the n-th task of a filter's walk, without its body; see
 // store.TaskTx. It is how a page number becomes a cursor without OFFSET: the
 // walk is the listing's own keyset ordering, star rank included, read n rows
@@ -595,14 +624,18 @@ func (t *tx) fillTaskRelations(ctx context.Context, tasks []core.Task) error {
 	}
 
 	blocked := t.builder("task_deps").
-		Select("task_deps.task_id", "task_deps.task_id").
+		Select("task_deps.task_id", "dp.key || '-' || CAST(dep.seq AS TEXT)").
 		Join("JOIN tasks dep ON dep.id = task_deps.depends_on AND dep.tenant_id = task_deps.tenant_id").
+		Join("JOIN projects dp ON dp.id = dep.project_id AND dp.tenant_id = dep.tenant_id").
 		Where("dep.deleted_at IS NULL").
-		Where("dep.completed_at IS NULL")
+		Where("dep.completed_at IS NULL").
+		OrderBy("dp.key", core.Ascending).
+		OrderBy("dep.seq", core.Ascending)
 	blocked.WhereIn("task_deps.task_id", ids)
-	return t.eachPair(ctx, blocked, "loading blocked tasks", func(taskID, _ string) {
+	return t.eachPair(ctx, blocked, "loading blocked tasks", func(taskID, ref string) {
 		if task := index[taskID]; task != nil {
 			task.Blocked = true
+			task.WaitingOn = append(task.WaitingOn, ref)
 		}
 	})
 }

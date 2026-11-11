@@ -355,6 +355,20 @@ func (b *Builder) CappedCountQuery(limit int) (string, []any) {
 	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
 }
 
+// GroupCountQuery renders the grouping columns and a COUNT(*) per group over
+// the same predicates, ordered by the grouping columns.
+func (b *Builder) GroupCountQuery(cols ...string) (string, []any) {
+	group := strings.Join(cols, ", ")
+	var sb strings.Builder
+	sb.WriteString("SELECT " + group + ", COUNT(*) FROM " + b.table)
+	for _, j := range b.joins {
+		sb.WriteString(" " + j)
+	}
+	b.writeWhere(&sb)
+	sb.WriteString(" GROUP BY " + group + " ORDER BY " + group)
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
+}
+
 func (b *Builder) writeWhere(sb *strings.Builder) {
 	if len(b.wheres) > 0 {
 		sb.WriteString(" WHERE " + strings.Join(b.wheres, " AND "))

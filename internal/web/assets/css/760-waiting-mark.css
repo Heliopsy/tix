@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* A task waiting on an unfinished dependency: a glyph and the reference it
+   waits on, set like the repeat mark so it fits the one line of marks under a
+   card title. Distinct from a workflow state called Blocked, which is a
+   column; this is a property of the task, so it rides on the card. */
+.waitmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  color: var(--warn);
+  text-decoration: none;
+  overflow: hidden;
+}
+.waitmark:hover { border-color: var(--line); background: var(--bg); }
+.waitmark svg { flex: none; }
+
+/* Show more at the foot of a board column or under the lanes. */
+.colmore { display: block; margin-top: var(--space-1); font-size: var(--text-xs); }
+
+@media (pointer: coarse) {
+  .waitmark { min-height: 28px; }
+}

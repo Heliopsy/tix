@@ -292,7 +292,11 @@ func narrowHref(r *http.Request, keys []string) string {
 // taskBoardFor resolves the board for this request: which projects the
 // listing may draw from, which workflows they run, and either the columns or
 // the disagreement.
-func (h *handler) taskBoardFor(r *http.Request, projects []core.Project, filter core.TaskFilter,
+//
+// An agreed board reads its columns one by one (boardTasks) rather than
+// drawing the page the list would show, so no column is ever empty because
+// its tasks sit on another page.
+func (h *handler) taskBoardFor(r *http.Request, route string, projects []core.Project, filter core.TaskFilter,
 	tasks []core.Task, moves map[string]core.WorkflowDefinition) (taskBoard, error) {
 	workflows, err := h.workflowsByID(r)
 	if err != nil {
@@ -302,7 +306,15 @@ func (h *handler) taskBoardFor(r *http.Request, projects []core.Project, filter 
 	for i := range groups {
 		groups[i].Href = narrowHref(r, groups[i].Keys())
 	}
-	return buildBoard(groups, tasks, moves), nil
+	var counts map[string]columnCount
+	if len(groups) == 1 && groups[0].Known {
+		if tasks, counts, err = h.boardTasks(r, route, groups[0].Workflow.Definition, filter); err != nil {
+			return taskBoard{}, err
+		}
+	}
+	board := buildBoard(groups, tasks, moves)
+	countColumns(&board, counts)
+	return board, nil
 }
 
 // workflowsByID is every workflow this tenant has, by identifier. A project

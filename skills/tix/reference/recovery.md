@@ -20,13 +20,13 @@ tix task add "patch and test" --parent default-1 --depends-on default-2 -q -o js
 
 ```console
 $ tix task tree default-1
-┌───────────┬─────────────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬─────────┐
-│ REF       │ TITLE               │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ BLOCKED │
-├───────────┼─────────────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼─────────┤
-│ DEFAULT-1 │ ship the retry fix  │ todo   │ high     │          │      │     │ 2026-10-11 15:43 │ no      │
-│ DEFAULT-2 │ reproduce the flake │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ no      │
-│ DEFAULT-3 │ patch and test      │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ yes     │
-└───────────┴─────────────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴─────────┘
+┌───────────┬─────────────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬───────────┐
+│ REF       │ TITLE               │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ WAITING   │
+├───────────┼─────────────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼───────────┤
+│ DEFAULT-1 │ ship the retry fix  │ todo   │ high     │          │      │     │ 2026-10-11 15:43 │ no        │
+│ DEFAULT-2 │ reproduce the flake │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ no        │
+│ DEFAULT-3 │ patch and test      │ todo   │ normal   │          │      │     │ 2026-10-11 15:43 │ DEFAULT-2 │
+└───────────┴─────────────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴───────────┘
 ```
 
 `default-3` is `blocked` because of `--depends-on default-2`, so `claim next`

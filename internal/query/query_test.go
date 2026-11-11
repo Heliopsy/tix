@@ -87,6 +87,16 @@ func TestParseNegationAndWeakMatch(t *testing.T) {
 				t.Fatalf("claimed %v, want No", f.Claimed)
 			}
 		}},
+		{"is:waiting-on is is:blocked", "is:waiting-on", func(t *testing.T, f core.TaskFilter) {
+			if f.Blocked != core.Yes {
+				t.Fatalf("blocked %v, want Yes", f.Blocked)
+			}
+		}},
+		{"is:blocked stays accepted", "-is:blocked", func(t *testing.T, f core.TaskFilter) {
+			if f.Blocked != core.No {
+				t.Fatalf("blocked %v, want No", f.Blocked)
+			}
+		}},
 		{"is:recurring selects the tasks carrying a rule", "is:recurring", func(t *testing.T, f core.TaskFilter) {
 			if f.Recurring != core.Yes {
 				t.Fatalf("recurring %v, want Yes", f.Recurring)

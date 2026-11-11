@@ -371,7 +371,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&trashed, "trashed", false, "only soft-deleted tasks, the trash")
 	f.BoolVar(&claimed, "claimed", false, "only tasks currently claimed")
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
-	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
+	f.BoolVar(&blocked, "blocked", false, "only tasks waiting on an unfinished dependency")
 	f.BoolVar(&recurring, "recurring", false, "only tasks carrying a repeat rule")
 	f.BoolVar(&starred, "starred", false, "only tasks you starred; --starred=false for the rest")
 	f.BoolVar(&snoozed, "snoozed", false, "only snoozed tasks; --snoozed=false for the tasks that are not")

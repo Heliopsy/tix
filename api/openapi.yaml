@@ -17121,6 +17121,12 @@ components:
           description: Version increases by one on every change. Pass it back on an
             update to have a stale write refused with a conflict.
           type: integer
+        waiting_on:
+          description: WaitingOn names, by reference, the unfinished tasks that make
+            this one Blocked, in reference order. Empty when Blocked is false.
+          items:
+            type: string
+          type: array
         web_url:
           description: WebURL is the address of the task's screen in the browser interface,
             set when the server is configured with the address it is reached at (server.public_url).

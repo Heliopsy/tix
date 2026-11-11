@@ -195,7 +195,7 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
+	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "WAITING"}
 	projectHeader         = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
 	workflowHeader        = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
 	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
@@ -573,7 +573,7 @@ func (p Painter) taskRow(t core.Task) table.Row {
 		p.style.FormatPtr(t.DueAt),
 		truncate(t.Recurrence, 30),
 		p.style.Format(t.UpdatedAt),
-		p.Blocked(t.Blocked, yesNo(t.Blocked)),
+		p.Blocked(t.Blocked, waitingCell(t)),
 	}
 }
 
@@ -918,6 +918,19 @@ func priorityLabel(p core.Priority) string {
 		return "lowest"
 	default:
 		return strconv.Itoa(int(p))
+	}
+}
+
+// waitingCell names the unfinished tasks a task waits on, "no" when it waits
+// on none, and "yes" when a server reported the wait without naming them.
+func waitingCell(t core.Task) string {
+	switch {
+	case len(t.WaitingOn) > 0:
+		return truncate(strings.Join(t.WaitingOn, ", "), 30)
+	case t.Blocked:
+		return "yes"
+	default:
+		return "no"
 	}
 }
 

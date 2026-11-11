@@ -192,6 +192,9 @@ type TaskTx interface {
 	// CountTasks counts what ListTasks would select under f, stopping at
 	// limit; the page, its cursor and its ordering are ignored.
 	CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error)
+	// TallyTasks counts what ListTasks would select under f, per project and
+	// status; the page, its cursor and its ordering are ignored.
+	TallyTasks(ctx context.Context, f core.TaskFilter) ([]core.StateCount, error)
 	// SeekTask returns the n-th task, from one, of f's walk from its cursor,
 	// without its relations or body, or nil when the walk holds fewer than n.
 	SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error)

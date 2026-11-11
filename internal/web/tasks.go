@@ -135,6 +135,13 @@ type tasksView struct {
 	// Summary is the one line under the heading. A tracker that only ever
 	// shows rows tells you nothing about the shape of your day.
 	Summary taskSummary
+	// WaitingHref is this view narrowed to the tasks waiting on another task,
+	// which is where the summary's waiting count leads.
+	WaitingHref string
+	// LanesMore is how many more tasks the lanes' Show more draws, and
+	// LanesMoreHref the address that draws them; zero when all are drawn.
+	LanesMore     int
+	LanesMoreHref string
 
 	// CompleteState maps a project id to the state a one click complete moves
 	// its tasks into, so the list can offer a tick box without the reader
@@ -357,6 +364,43 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 	return out
 }
 
+// summaryOf counts the whole selection when the listing tallied it, and the
+// page it holds otherwise, so the heading never counts one page as the whole.
+func summaryOf(page core.TaskPage, complete map[string]string, now time.Time) taskSummary {
+	if page.Tally == nil {
+		return summarise(page.Tasks, complete, now)
+	}
+	out := taskSummary{Blocked: page.Tally.Blocked, Held: page.Tally.Held}
+	seen := map[string]bool{}
+	for _, c := range page.Tally.States {
+		if c.Status == complete[c.ProjectID] {
+			out.Done += c.Count
+		} else {
+			out.Open += c.Count
+		}
+		if c.ProjectID != "" && !seen[c.ProjectID] {
+			seen[c.ProjectID] = true
+			out.Projects++
+		}
+	}
+	return out
+}
+
+// waitingHref is the screen narrowed to tasks waiting on another task, the
+// reader's own filter kept. An is:waiting-on already there is not repeated.
+func waitingHref(r *http.Request, route string) string {
+	query := r.URL.Query()
+	for _, k := range []string{CursorParam, TrailParam, PageParam, MoreParam, "flash", "flashref", FlashUndoParam} {
+		query.Del(k)
+	}
+	q := strings.TrimSpace(query.Get("q"))
+	if !strings.Contains(" "+q+" ", " is:waiting-on ") && !strings.Contains(" "+q+" ", " is:blocked ") {
+		q = strings.TrimSpace(q + " is:waiting-on")
+	}
+	query.Set("q", q)
+	return route + "?" + query.Encode()
+}
+
 // showTasks renders the filterable task list.
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if redirectPicks(w, r, RouteTasks) {
@@ -501,7 +545,15 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		}
 		filter.Page.Cursor, filter.Page.Limit = "", myWorkLimit
 	} else {
-		filter.PageNumber = requestedPage(asked)
+		filter.Tally = true
+		switch view {
+		case TaskViewBoard:
+			filter.Page.Cursor = ""
+		case TaskViewLanes:
+			filter.Page.Cursor, filter.Page.Limit = "", shownOf(r, moreLanes, lanesStep)
+		default:
+			filter.PageNumber = requestedPage(asked)
+		}
 	}
 	expression := foldControls(query.Get("q"), due, projectPick(query))
 	projects, whole, err := h.allProjects(r, false)
@@ -553,7 +605,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	// looking at, and what the board would have said is on the board.
 	var board taskBoard
 	if view == TaskViewBoard {
-		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
+		if board, err = h.taskBoardFor(r, route, projects, filter, page.Tasks, moves); err != nil {
 			return tasksView{}, err
 		}
 	}
@@ -594,9 +646,17 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 	}
 	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", OrderParam, DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam, SelectParam).
 		counted(position{Number: page.Number, Total: page.Total, Capped: page.TotalCapped}, filter.Page.Limit)
+	var lanesMore int
+	var lanesMoreHref string
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
+	} else if view != TaskViewList {
+		pageNav = pager{}
+		if view == TaskViewLanes && page.Total > len(page.Tasks) && filter.Page.Limit < core.MaxPageLimit {
+			lanesMore = min(lanesStep, page.Total-len(page.Tasks))
+			lanesMoreHref = moreHref(r, route, moreLanes)
+		}
 	}
 	pickers := newFilterPickers(query.Get("q"), projects, moves)
 	var chips []filterChip
@@ -636,7 +696,10 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		Self:          self,
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
-		Summary:       summarise(page.Tasks, complete, time.Now()),
+		Summary:       summaryOf(page, complete, time.Now()),
+		WaitingHref:   waitingHref(r, route),
+		LanesMore:     lanesMore,
+		LanesMoreHref: lanesMoreHref,
 		FilterError:   refused,
 		Names:         names,
 		Moves:         moves,
