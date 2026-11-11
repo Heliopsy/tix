@@ -19,6 +19,9 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--insecure-no-tls` | off | allow a non-loopback bind without TLS |
 | `--max-body-bytes` | 1 MiB | request body cap, except a task import, which `server.max_import_bytes` caps (32 MiB), and an artifact upload, which takes room for `artifacts.max_bytes` |
 | `--artifact-max-bytes` | 1 MiB | largest artifact blob, `artifacts.max_bytes`; a tenant may only lower it |
+| `--session-ttl` | 12h | how long a sign-in lasts, `session.ttl`; a tenant may only shorten it |
+| `--session-idle-timeout` | 0 (off) | end sessions unused this long, `session.idle_timeout` |
+| `--session-remember-ttl` | 720h (30d) | how long Keep me signed in lasts, `session.remember_ttl`; 0 stops offering it |
 | `--artifact-allowed-types` | images, PDF, text, data, archives | media types an artifact blob may carry, `artifacts.allowed_types` |
 | `--request-timeout` | 30s | per-request timeout |
 | `--shutdown-timeout` | | how long shutdown waits for in-flight requests |

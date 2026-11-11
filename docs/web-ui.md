@@ -18,6 +18,13 @@ link opens a page of its own ([Inviting people and required password
 changes](#inviting-people-and-required-password-changes)). Can't sign in? opens the `tix user` commands
 that create an account or reset a password from the machine serving tix.
 
+Below the password sits Keep me signed in, with how long it lasts, where the tenant offers it (see
+[configuration.md](configuration.md#sign-in-sessions)). Unticked, the sign-in lasts the tenant's session lifetime,
+12h unless the operator or tenant says otherwise, and its cookie ends when the browser closes. Ticked, it lasts
+the remembered lifetime, 30d by default, and the cookie persists until then. The choice rides through the
+second factor and password change steps. Where the tenant turned it off, or the server did, the box is not
+drawn. An idle timeout, where one is set, ends a remembered session left unused like any other.
+
 On a host that serves several tenants (see [tenancy.md](tenancy.md#switching-tenant)) the sign-in goes by
 the account, and somebody who belongs to more than one tenant there lands on Choose a tenant (`/switch`)
 after the password and any code: one row per tenant with its role, the current one marked, a Switch button
@@ -990,6 +997,11 @@ refused with both named. An attached file has a Download link, and it is always 
 file is never opened as a page. A tenant administrator sets the tenant's own limits under Tenant settings,
 Largest artifact file and Accepted artifact types, each empty to use the server's (shown greyed) and never
 past it.
+
+Tenant settings also carries the tenant's session settings: Sign-in lasts, Sign out when idle for, and Keep me
+signed in lasts (a duration or `off`). Each is empty to use the server's, shown greyed, and can only be
+shorter. A new lifetime applies to the next sign-in; the idle timeout applies to every session as soon as it
+is saved.
 
 The star is a shape in the header; its name says whether you starred the task (Star or Unstar). A subtask
 names its parent beside its reference and in a Subtask of row.
@@ -2024,8 +2036,8 @@ the flag and signs in.
 
 Settings carries a Sessions section listing your own browser and terminal sign-ins in this tenant, newest
 first: the user agent each signed in with, when it signed in and how (password, SSH key or a tenant switch,
-and whether a second factor passed), and when it expires. The one this browser is using is marked This
-browser. Each row has a red Revoke button that opens a dialog naming what happens; the form is only in the
+and whether a second factor passed), and when it expires, with Kept signed in on one made with Keep me
+signed in. The one this browser is using is marked This browser. Each row has a red Revoke button that opens a dialog naming what happens; the form is only in the
 dialog. Revoking another session signs whatever holds it out at once and returns to the section with a
 notice; revoking the one in use signs this browser out. Session tokens are never shown, only an identifier
 that cannot sign anybody in. Sessions that predate this list show Unknown client, because the user agent was
