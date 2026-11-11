@@ -227,11 +227,21 @@ has one of the same name. Comments, subtasks (recursively) and dependencies come
 linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.
 [docs/api.md](api.md#copying-a-task).
 
+**Moving a task.** A task moves to another project without becoming a new task: "Move to…" on the task
+screen and in the bulk bar, `d` in the terminal interface, `tix task move REF... --to PROJECT` on the command
+line and `POST /api/v1/tasks/{ref}/move` over HTTP. It keeps its id, comments, artifacts, history,
+dependencies, tags, assignee and stars and takes the target's next number; the old reference still resolves
+everywhere, and the browser redirects it. The status is kept when the target workflow has it, else the task
+starts in the target's initial state. Custom fields the target lacks are dropped and named in the answer. It
+needs edit rights on the task and create rights in the target, and a task claimed by somebody else waits
+for the claim to end. The history records one `task.move` entry with both references.
+[docs/api.md](api.md#moving-a-task).
+
 **Bulk actions.** Tick rows on the web task list and a bar applies one action to all of them: move,
-priority, add or remove a tag, assignee, star, unstar, copy to a project, or delete with one Undo for the
+priority, add or remove a tag, assignee, star, unstar, copy or move to a project, or delete with one Undo for the
 batch. It is one request, `POST /api/v1/tasks/bulk` or `tix task bulk ACTION REF...`, and each task is still
 changed on its own with its own history entry and event, so the answer names any task that was refused and
-why. `tix task edit`, `tix task copy`, `tix tag add` and `tix tag rm` take many references too.
+why. `tix task edit`, `tix task copy`, `tix task move`, `tix tag add` and `tix tag rm` take many references too.
 [docs/web-ui.md](web-ui.md#acting-on-many-tasks), [docs/api.md](api.md#bulk-actions).
 
 **CSV export.** Export CSV in the task list's View menu, `tix task ls -o csv` and
