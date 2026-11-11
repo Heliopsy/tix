@@ -14,7 +14,7 @@
 
 .badge.todo { background: var(--bg); color: var(--muted); }
 .badge.doing { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-.badge.blocked { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.badge.blocked { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .badge.done { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
 .badge.p-highest, .badge.p-high { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .badge.p-low, .badge.p-lowest { background: var(--bg); color: var(--muted); }

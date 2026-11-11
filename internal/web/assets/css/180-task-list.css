@@ -83,7 +83,7 @@ li.task.is-accented, .feed > li.is-accented {
    second vocabulary for the same five states. */
 .tint-status-todo { --proj: var(--muted); }
 .tint-status-doing { --proj: var(--accent); }
-.tint-status-blocked { --proj: var(--warn); }
+.tint-status-blocked { --proj: var(--danger); }
 .tint-status-done { --proj: var(--ok); }
 .tint-status-cancelled { --proj: var(--line-strong); }
 

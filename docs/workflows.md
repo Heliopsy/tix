@@ -244,6 +244,11 @@ The vocabulary is fixed, and a state carries a category rather than a colour of 
 purpose: a category is what every surface derives colour from, so `blocked` is the same hue in one
 tenant's terminal as in another's browser, and a terminal that renders no colour still has the word.
 
+The hues are: `todo` grey, `in_progress` the accent, `blocked` red, `waiting` violet, `done` green and
+`cancelled` muted. A board column heading, a status chip, a badge and a status tint all take the hue of
+the state's category. Because the colour follows the category, an existing workflow picks up a change
+here without being edited; a state that should read as blocked needs `category: blocked`.
+
 `cancelled` and `done` differ in more than the hue. The statistics screen's *where the work is*
 breakdown counts them in separate rows, so abandoned work no longer inflates the completed column of
 that table. The `completed` figure itself, the lead times and the leaderboard are unchanged: they read
