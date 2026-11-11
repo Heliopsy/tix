@@ -691,6 +691,33 @@ func TestAuthRoundTrip(t *testing.T) {
 		if _, _, err := tx.GetSessionByHash(ctx, "nope"); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("missing session = %v, want not found", err)
 		}
+		seen, err := tx.GetSessionLastSeen(ctx, "session-hash")
+		if err != nil || seen.IsZero() {
+			t.Fatalf("last seen before any use = %v, %v; want the sign-in time", seen, err)
+		}
+		touched := clk.Now().Add(5 * time.Minute)
+		if err := tx.TouchSession(ctx, "session-hash", touched); err != nil {
+			return err
+		}
+		if seen, err = tx.GetSessionLastSeen(ctx, "session-hash"); err != nil || !seen.Equal(touched.UTC()) {
+			t.Fatalf("last seen after a touch = %v, %v; want %v", seen, err, touched)
+		}
+		if _, err := tx.GetSessionLastSeen(ctx, "nope"); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("last seen of a missing session = %v, want not found", err)
+		}
+		if err := tx.TouchSession(ctx, "nope", touched); !core.IsKind(err, core.KindNotFound) {
+			t.Fatalf("touching a missing session = %v, want not found", err)
+		}
+		if err := tx.CreateSession(ctx, f.actor.ID, "kept-hash", clk.Now().Add(time.Hour),
+			core.SessionOrigin{Method: core.LoginMethodPassword, Remembered: true}); err != nil {
+			return err
+		}
+		if origin, err := tx.GetSessionOrigin(ctx, "kept-hash"); err != nil || !origin.Remembered {
+			t.Fatalf("remembered origin = %+v, %v", origin, err)
+		}
+		if err := tx.DeleteSession(ctx, "kept-hash"); err != nil {
+			return err
+		}
 
 		if err := tx.CreateToken(ctx, &token, "token-hash"); err != nil {
 			return err
