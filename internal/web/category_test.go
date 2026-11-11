@@ -94,6 +94,31 @@ func TestNoTwoCategoriesShareAColourInTheBrowser(t *testing.T) {
 	}
 }
 
+// TestBlockedIsRedInTheBrowser pins blocked to the danger token on every rule
+// that colours it. The terminal draws blocked red; the browser drew it in the
+// warning amber, so one state wore two colours on two surfaces. Each rule is
+// read on its own, because --warn appears all over the sheet.
+func TestBlockedIsRedInTheBrowser(t *testing.T) {
+	f := newFixture(t)
+	b := f.as("alice")
+	sheet := body(t, b.get("/assets/app.css"))
+
+	for _, selector := range []string{
+		".pill.status.blocked {",
+		".cat-blocked {",
+		".tint-status-blocked {",
+		".badge.blocked {",
+	} {
+		rule := declarations(t, sheet, selector)
+		if !strings.Contains(rule, "var(--danger)") {
+			t.Errorf("%s is not drawn in the danger colour: %s", selector, rule)
+		}
+		if strings.Contains(rule, "--warn") {
+			t.Errorf("%s still uses the warning colour: %s", selector, rule)
+		}
+	}
+}
+
 // colourDeclaration returns the colour a category rule sets, failing when the
 // rule sets none: a rule present but silent about colour would make the
 // collision check above pass by comparing two empty strings.

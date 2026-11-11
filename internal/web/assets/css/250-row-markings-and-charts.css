@@ -15,8 +15,8 @@
 /* Status: the one solid, filled pill on the row. Nothing else is filled. */
 /* A tinted chip, not a label printed on a block of colour.
  *
- * The filled pill -- solid green "doing", solid amber "blocked", white text
- * on both -- is the single most dated thing on these screens. It comes from
+ * The filled pill -- solid green "doing", solid "blocked", white text on
+ * both -- is the single most dated thing on these screens. It comes from
  * an era of issue trackers that marked state by painting a rectangle, and it
  * costs twice over: the strongest colour on the row goes to the attribute
  * that changes most often, and white-on-saturated at 11px is the worst
@@ -24,7 +24,8 @@
  *
  * The state now carries its colour in the text, over a wash of the same hue,
  * with a hairline of it to hold the shape. Same information, same five
- * colours, a tenth of the ink. */
+ * colours, a tenth of the ink. Blocked is danger red, the colour the
+ * terminal and the category rules below give it, not the amber of a warning. */
 .pill.status {
   display: inline-block;
   padding: 2px var(--space-2);
@@ -40,7 +41,7 @@
 
 .pill.status.todo { --state: var(--muted); }
 .pill.status.doing { --state: var(--accent); }
-.pill.status.blocked { --state: var(--warn); }
+.pill.status.blocked { --state: var(--danger); }
 .pill.status.done { --state: var(--ok); }
 .pill.status.cancelled { --state: var(--line-strong); color: var(--muted); }
 
@@ -208,7 +209,7 @@
    screens. */
 .cat-todo { --state: var(--muted); color: var(--muted); }
 .cat-in-progress { --state: var(--accent); color: var(--accent); }
-.cat-blocked { --state: var(--warn); color: var(--warn); }
+.cat-blocked { --state: var(--danger); color: var(--danger); }
 .cat-waiting { --state: var(--cat-waiting); color: var(--cat-waiting); }
 .cat-done { --state: var(--ok); color: var(--ok); }
 .cat-cancelled { --state: var(--line-strong); color: var(--line-strong); }
