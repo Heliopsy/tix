@@ -249,7 +249,7 @@ func buildBoard(groups []boardGroup, tasks []core.Task, moves map[string]core.Wo
 	out.Columns = make([]column, 0, len(def.States))
 	placed := make(map[string]bool, len(tasks))
 	for _, state := range def.States {
-		col := column{State: state}
+		col := column{State: state, Category: def.CategoryOf(state.Key)}
 		for _, task := range tasks {
 			if task.Status != state.Key || !within[task.ProjectID] {
 				continue

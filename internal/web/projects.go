@@ -390,7 +390,9 @@ type card struct {
 // column is one workflow state and the tasks sitting in it.
 type column struct {
 	State core.State
-	Tasks []card
+	// Category is the state's resolved category, which colours the heading.
+	Category core.StateCategory
+	Tasks    []card
 	// Head is the column's heading as the reader arranged it.
 	Head groupHead
 }
