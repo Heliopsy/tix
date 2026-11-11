@@ -200,6 +200,7 @@ an action unbound.
 | `A` | assign, from the tenant's directory | board, detail |
 | `m` | comment | board, detail |
 | `M` | edit the selected comment | detail |
+| `&` | react to the selected comment with an emoji, or take back one you already left | detail |
 | `#`, `U` | add tag, remove tag, by name | board, detail |
 | `L` | pick a tag from the ones the tenant has | board, detail |
 | `D` | add a dependency, by reference | board, detail |
@@ -1057,7 +1058,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 187
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 189
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat

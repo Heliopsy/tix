@@ -1372,6 +1372,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCommentEdit:
 		next, cmd := m.openPrompt(promptCommentEdit)
 		return next, cmd, true
+	case doReact:
+		next, cmd := m.openPrompt(promptReact)
+		return next, cmd, true
 	case doTag:
 		next, cmd := m.openPrompt(promptTag)
 		return next, cmd, true
@@ -1562,6 +1565,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.comment(task, text)
 	case promptCommentEdit:
 		return m.editComment(text)
+	case promptReact:
+		return m.react(text)
 	case promptTag:
 		return m.tag(task, text)
 	case promptCheck:
@@ -1590,7 +1595,7 @@ func (m Model) openPrompt(kind promptKind) (Model, tea.Cmd) {
 		m.err = "open a project before adding a task"
 		return m, nil
 	}
-	if kind == promptCommentEdit {
+	if kind == promptCommentEdit || kind == promptReact {
 		if _, ok := m.selectedComment(); !ok {
 			m.err = m.noCommentReason()
 			return m, nil

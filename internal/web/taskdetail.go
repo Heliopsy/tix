@@ -70,6 +70,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteMarkdownPreview, h.previewMarkdown, "UpdateTask", "AddComment", "EditComment"),
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
+		post(RouteCommentReact, h.reactComment, "AddReaction"),
+		post(RouteCommentUnreact, h.unreactComment, "RemoveReaction"),
 		post(RouteTaskArts, h.putArtifact, "PutArtifact"),
 		getFile(RouteTaskArtFile, h.downloadArtifact, "ListArtifacts"),
 	}
@@ -150,8 +152,10 @@ type taskView struct {
 	ArtifactLimits *core.ArtifactLimits
 	CanWrite       bool
 	CanComment     bool
-	CanDelete      bool
-	CanAudit       bool
+	// ViewerID is the reader, whose own reactions are drawn pressed.
+	ViewerID  string
+	CanDelete bool
+	CanAudit  bool
 	// CanReclaim is the reader's authority to end somebody else's lease. The
 	// control is drawn only when a lease is live, so the field alone does not
 	// decide whether it appears.
@@ -301,6 +305,9 @@ func (v taskView) actorIDs() []string {
 		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID, v.Task.SnoozedByActorID}
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
+		for _, r := range c.Reactions {
+			out = append(out, r.ActorIDs...)
+		}
 	}
 	for _, g := range v.History {
 		for _, h := range g.Hops {
@@ -366,6 +373,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		ArtifactKinds: core.ArtifactKinds,
 		CanWrite:      actor.HasScope(core.ScopeTaskWrite),
 		CanComment:    actor.HasScope(core.ScopeCommentWrite),
+		ViewerID:      actor.ID,
 		CanDelete:     actor.HasScope(core.ScopeTaskDelete),
 		CanReclaim:    actor.HasScope(core.ScopeTaskReclaim),
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
@@ -1178,6 +1186,44 @@ func (h *handler) deleteComment(w http.ResponseWriter, r *http.Request) error {
 	redirect(w, r, taskPath(r), "comment deleted")
 	return nil
 }
+
+// reactComment adds the reader's emoji reaction to one comment.
+func (h *handler) reactComment(w http.ResponseWriter, r *http.Request) error {
+	if _, err := h.svc.AddReaction(r.Context(), field(r, "id"), field(r, "emoji")); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r), "reaction added")
+	return nil
+}
+
+// unreactComment removes the reader's emoji reaction from one comment.
+func (h *handler) unreactComment(w http.ResponseWriter, r *http.Request) error {
+	if _, err := h.svc.RemoveReaction(r.Context(), field(r, "id"), field(r, "emoji")); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r), "reaction removed")
+	return nil
+}
+
+// QuickReactions are the emoji the add-reaction picker offers in one press.
+var QuickReactions = []string{"👍", "👎", "❤️", "🎉", "😄", "😕", "👀", "🚀"}
+
+// Reacted reports whether the reader is among a reaction's actors.
+func (v taskView) Reacted(r core.Reaction) bool {
+	return slices.Contains(r.ActorIDs, v.ViewerID)
+}
+
+// Reactors names everyone behind a reaction, for its tooltip.
+func (v taskView) Reactors(r core.Reaction) string {
+	names := make([]string, len(r.ActorIDs))
+	for i, id := range r.ActorIDs {
+		names[i] = v.Names.Label(id)
+	}
+	return strings.Join(names, ", ")
+}
+
+// QuickReactions are the emoji the picker offers.
+func (v taskView) QuickReactions() []string { return QuickReactions }
 
 // putArtifact attaches structured output to the task.
 func (h *handler) putArtifact(w http.ResponseWriter, r *http.Request) error {

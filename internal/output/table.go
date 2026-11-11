@@ -198,7 +198,7 @@ var (
 	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
 	projectHeader         = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
 	workflowHeader        = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
+	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "REACTIONS", "CREATED"}
 	tokenHeader           = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
 	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "VIA", "OCCURRED"}
@@ -629,7 +629,16 @@ func (p Painter) workflowRow(wf core.Workflow) table.Row {
 }
 
 func (p Painter) commentRow(c core.Comment) table.Row {
-	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), p.style.Format(c.CreatedAt)}
+	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), reactionCell(c.Reactions), p.style.Format(c.CreatedAt)}
+}
+
+// reactionCell writes a comment's reactions as emoji and count pairs.
+func reactionCell(rs []core.Reaction) string {
+	parts := make([]string, len(rs))
+	for i, r := range rs {
+		parts[i] = r.Emoji + " " + strconv.Itoa(r.Count)
+	}
+	return strings.Join(parts, "  ")
 }
 
 func (p Painter) tokenRow(t core.APIToken) table.Row {

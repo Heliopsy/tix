@@ -1015,6 +1015,17 @@ under them was placeholdered `infra-2`, so the screen disagreed with itself abou
 task. A dependency this reader may not read keeps its shortened identifier and gains no link, so a
 dependency they cannot open is still visible as one rather than missing from the list.
 
+### Reacting to a comment
+
+Under each comment sit its reactions: one chip per emoji with how many people left it. A chip you left is
+highlighted and reads as pressed to a screen reader, and hovering or focusing one names everyone behind
+it. Pressing a chip adds that emoji as yours, or takes it back when it is already yours. The `+` button
+after the chips opens a small picker over the thread with eight quick reactions (👍 👎 ❤️ 🎉 😄 😕 👀 🚀)
+and a box for any other emoji; each is a button, so Tab and Enter work it without a mouse, and Escape
+closes it. The server refuses anything that is not a single emoji. Someone without `comment:write` sees
+the chips but cannot press them. Reactions arrive live through the same event stream as comments, and
+notify nobody.
+
 ## Copying a task
 
 **Copy to…** in the task screen's actions menu, offered to a reader who may write tasks, opens a

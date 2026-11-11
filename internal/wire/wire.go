@@ -138,7 +138,9 @@ const (
 	RouteTrash = APIPrefix + "/trash"
 
 	RouteComment = APIPrefix + "/comments/{id}"
-	RouteLabels  = APIPrefix + "/tags"
+	// RouteCommentReaction is one emoji reaction of the caller's on a comment.
+	RouteCommentReaction = APIPrefix + "/comments/{id}/reactions/{emoji}"
+	RouteLabels          = APIPrefix + "/tags"
 
 	RouteTaskClaim        = APIPrefix + "/tasks/{ref}/claim"
 	RouteTaskClaimRenew   = APIPrefix + "/tasks/{ref}/claim/renew"

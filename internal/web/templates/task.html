@@ -587,6 +587,45 @@
         {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
         <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><a class="who-name" href="{{actorHref .AuthorActorID}}" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</a> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
+        {{/* Reactions sit under the comment they answer. Each chip is its
+             own form, so pressing one toggles the reader's reaction without
+             scripting; the picker is a popover, like the comment editor, so
+             it opens over the thread rather than pushing it down. */}}
+{{$root := $}}{{$c := .}}
+{{$pid := printf "%sreact-%s" $root.IDPrefix $c.ID}}
+{{if or $c.Reactions $root.Data.CanComment}}
+<div class="reactions" role="group" aria-label="{{t "Reactions"}}">
+  {{range $c.Reactions}}{{$mine := $root.Data.Reacted .}}
+  <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/{{if $mine}}unreact{{else}}react{{end}}" class="reaction-form">
+    {{template "csrf" $root.CSRF}}
+    <input type="hidden" name="id" value="{{$c.ID}}">
+    <input type="hidden" name="emoji" value="{{.Emoji}}">
+    <button type="submit" class="reaction{{if $mine}} mine{{end}}" aria-pressed="{{if $mine}}true{{else}}false{{end}}" title="{{$root.Data.Reactors .}}" aria-label="{{.Emoji}} {{.Count}}: {{$root.Data.Reactors .}}"{{if not $root.Data.CanComment}} disabled{{end}}><span class="reaction-emoji" aria-hidden="true">{{.Emoji}}</span> <span class="reaction-count" aria-hidden="true">{{.Count}}</span></button>
+  </form>
+  {{end}}
+  {{if $root.Data.CanComment}}
+  <button type="button" class="reaction-add" popovertarget="{{$pid}}" title="{{t "Add reaction"}}" aria-label="{{t "Add reaction"}}">{{template "icon" "plus"}}</button>
+  <div id="{{$pid}}" class="flowmenu reactpop" popover>
+    <p class="flowhead">{{t "Add reaction"}}</p>
+    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/react" class="reaction-quick">
+      {{template "csrf" $root.CSRF}}
+      <input type="hidden" name="id" value="{{$c.ID}}">
+      {{range $root.Data.QuickReactions}}<button type="submit" name="emoji" value="{{.}}" class="reaction-pick" aria-label="{{t "React with %s" .}}">{{.}}</button>{{end}}
+    </form>
+    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/react" class="reaction-free">
+      {{template "csrf" $root.CSRF}}
+      <input type="hidden" name="id" value="{{$c.ID}}">
+      <label for="{{$pid}}-emoji">{{t "Any emoji"}}</label>
+      <input id="{{$pid}}-emoji" name="emoji" required maxlength="64" autocomplete="off" inputmode="text">
+      <div class="actions">
+        <button type="submit">{{t "React"}}</button>
+        <button type="button" class="secondary flowclose" popovertarget="{{$pid}}" popovertargetaction="hide">{{t "Cancel"}}</button>
+      </div>
+    </form>
+  </div>
+  {{end}}
+</div>
+{{end}}
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
              was an <input>, whose value attribute cannot hold a newline: the
@@ -719,3 +758,4 @@
 {{/* subtask-fragment is what /tasks/REF/tree answers: that task's subtree,
      drawn by the same block, under the id the page asked for. */}}
 {{define "subtask-fragment"}}{{template "subtask-tree" (.Data.Tree.List .Data.ID)}}{{end}}
+

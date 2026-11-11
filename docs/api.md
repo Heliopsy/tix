@@ -111,7 +111,7 @@ the routes the server registers. The areas are the first segment of each operati
 | bundle | `POST /bundles/export`, `POST /bundles/import` |
 | calendar | `GET /calendar`, `POST /calendar`, `PATCH /calendar`, `DELETE /calendar`, `GET /calendar/feeds/{file}`, `POST /calendar/rotate` |
 | claim | `POST /claims/next`, `POST /claims/sweep`, `POST /tasks/{ref}/claim`, `POST /tasks/{ref}/claim/reclaim`, `POST /tasks/{ref}/claim/release`, `POST /tasks/{ref}/claim/renew` |
-| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
+| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `PUT /comments/{id}/reactions/{emoji}`, `DELETE /comments/{id}/reactions/{emoji}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
 | connection | `GET /connections`, `DELETE /connections/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
 | domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
@@ -487,6 +487,29 @@ item already in the asked-for state answers `200` and writes nothing.
 `checklist=true|false` narrows a listing to tasks whose body does or does not carry a checklist marker,
 and `checklist_open=true|false` to those that do or do not carry an unticked one. See
 [filtering.md](filtering.md#checklists).
+
+### Reactions
+
+`PUT /comments/{id}/reactions/{emoji}` adds the caller's emoji reaction to a comment and
+`DELETE /comments/{id}/reactions/{emoji}` takes it back. The emoji is percent-encoded in the path, for
+example `/comments/ID/reactions/%F0%9F%91%8D` for 👍, and must be a single emoji grapheme, or the call is
+`invalid`. Both answer `200` with the comment, whether or not anything changed, and only a call that changed
+something writes an audit entry and emits `comment.reacted` or `comment.unreacted`, whose payload carries
+`ref`, `task_id`, `emoji` and `reacted`. An unknown or deleted comment is `not_found`. Both need
+`comment:write`. Reactions notify nobody.
+
+A comment read, from `GET /tasks/{ref}/comments` or any call that returns a comment, carries its reactions,
+grouped by emoji in the order each was first used and omitted when there are none:
+
+```json
+"reactions": [
+  {"emoji": "👍", "count": 2, "actor_ids": ["01J...ADA", "01J...BOB"]},
+  {"emoji": "🎉", "count": 1, "actor_ids": ["01J...ADA"]}
+]
+```
+
+`actor_ids` lists who reacted, earliest first; the caller reacted when its own actor ID is among them.
+Deleting a comment removes its reactions.
 
 ### Stars
 
@@ -1035,7 +1058,7 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
-`task.woke`, `comment.added`, `artifact.added`,
+`task.woke`, `comment.added`, `comment.reacted`, `comment.unreacted`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
 `inbox.updated`, `template.updated`, `webhook.ping`. A type outside it is an error rather than a filter that silently matches

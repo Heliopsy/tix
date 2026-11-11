@@ -55,6 +55,12 @@ func EventDetail(e core.Event) string {
 		if d := taskUpdatedDetail(e.Payload); d != "" {
 			return d
 		}
+	case core.EventCommentReacted, core.EventCommentUnreacted:
+		emoji, _ := e.Payload["emoji"].(string)
+		if e.Type == core.EventCommentUnreacted {
+			return "reaction removed: " + emoji
+		}
+		return "reacted: " + emoji
 	}
 	for _, key := range []string{"title", "tag", "depends_on", "name", "final_status", "status"} {
 		v, ok := e.Payload[key]

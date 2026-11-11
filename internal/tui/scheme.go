@@ -221,7 +221,7 @@ func viewActions(v viewKind) []string {
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Top", "Bottom", "Enter", "Filter", "ClearFltr",
 			"Claim", "Release", "Transition", "New", "Edit", "Priority", "CyclePriority",
-			"Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags", "Depend", "Undepend",
+			"Assign", "Comment", "CommentEdit", "React", "Tag", "Untag", "Tags", "Depend", "Undepend",
 			"Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Reclaim", "Share", "Settings", "Back",
 			"HideColumn", "StarColumn", "FoldColumn", "ColumnLeft", "ColumnRight", "ShowColumns",
 			"SavedFilters", "SaveFilter", "NextPage", "PrevPage",
@@ -229,7 +229,7 @@ func viewActions(v viewKind) []string {
 	case viewDetail:
 		return append([]string{
 			"Up", "Down", "Left", "Right", "Claim", "Release", "Transition", "New", "Edit",
-			"Priority", "CyclePriority", "Assign", "Comment", "CommentEdit", "Tag", "Untag", "Tags",
+			"Priority", "CyclePriority", "Assign", "Comment", "CommentEdit", "React", "Tag", "Untag", "Tags",
 			"Depend", "Undepend", "Delete", "Restore", "Artifact", "ClaimNext", "Renew", "Reclaim",
 			"Share", "Settings", "Back",
 		}, global...)
