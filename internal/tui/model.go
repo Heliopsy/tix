@@ -1405,6 +1405,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCopy:
 		next, cmd := m.openCopyForm()
 		return next, cmd, true
+	case doMove:
+		next, cmd := m.openMoveForm()
+		return next, cmd, true
 	case doShare:
 		return m.startShare(), nil, true
 	case doTemplates:
@@ -2075,6 +2078,21 @@ func (m Model) openCopyForm() (Model, tea.Cmd) {
 	return m.openForm(form)
 }
 
+// openMoveForm asks which project the selected task moves to.
+func (m Model) openMoveForm() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	form := MoveForm(task, m.projects)
+	if !form.Open() {
+		m.err = "there is no other project to move into"
+		return m, nil
+	}
+	return m.openForm(form)
+}
+
 // openTemplatesForm reads the templates the board's project can use, fetched on
 // the keystroke because another reader may have saved one since the board
 // opened.
@@ -2422,6 +2440,14 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 			return next, nil
 		}
 		return next, next.copyTask(task, CopyInput(task, form))
+	}
+	if form.Kind == formMove {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		return next, next.moveTask(task, MoveInput(form))
 	}
 	if form.Kind == formAssignee {
 		next := m.closeForm()

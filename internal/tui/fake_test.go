@@ -49,6 +49,7 @@ type fakeService struct {
 	unstars      []core.TaskRef
 	checks       []core.CheckItemInput
 	copies       []copyCall
+	moves        []moveCall
 
 	groupPrefs map[string][]core.GroupPref
 	// savedFilters are the reader's saved filters, and savedInputs what
@@ -519,6 +520,18 @@ func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.Copy
 	defer f.mu.Unlock()
 	f.copies = append(f.copies, copyCall{ref: ref, in: in})
 	return &core.Task{ID: "copy", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
+}
+
+type moveCall struct {
+	ref core.TaskRef
+	in  core.MoveTaskInput
+}
+
+func (f *fakeService) MoveTask(_ context.Context, ref core.TaskRef, in core.MoveTaskInput) (*core.TaskMove, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.moves = append(f.moves, moveCall{ref: ref, in: in})
+	return &core.TaskMove{Task: core.Task{ID: ref.ID, Ref: in.ProjectRef + "-7", Status: "todo"}}, nil
 }
 
 func (f *fakeService) SnoozeTask(_ context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
