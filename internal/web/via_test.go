@@ -166,6 +166,15 @@ func TestATaskHistoryShowsTheChannelColumn(t *testing.T) {
 	if !ok || !strings.Contains(c.title, "User agent: curl/8") {
 		t.Errorf("the channel column shows %+v, want the ci-agent token with its user agent in the hover", cells)
 	}
+	var linked bool
+	for _, m := range channelCell.FindAllStringSubmatch(region, -1) {
+		if strings.Contains(m[1], `<a class="via-link" href="/activity?token=ci-agent&amp;via=api"`) {
+			linked = true
+		}
+	}
+	if !linked {
+		t.Errorf("the channel cell does not link to the feed narrowed to the ci-agent token:\n%s", region)
+	}
 }
 
 // An entry written before channels were recorded says so, rather than

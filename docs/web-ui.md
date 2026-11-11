@@ -1384,7 +1384,7 @@ Every row ends with its channel as an icon and a few words: "via web", "via SSH"
 "via MCP (token scout-runner)", "via CLI". Hovering it shows what identified the caller: the client
 address, the user agent, the SSH key fingerprint, the token's name and ID, the session reference, the job
 for background work. The row's Raw view lists the same details, and the channel itself links to the feed
-narrowed to that channel and token. A task's History has the same channel in its Channel column.
+narrowed to that channel and token. A task's History has the same channel in its Channel column, linked the same way.
 [audit-log.md](audit-log.md) says what each channel means and what is and is not stored.
 
 Each active filter is a chip that removes itself, and the live refresh keeps the filter rather than

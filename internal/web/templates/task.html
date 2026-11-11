@@ -676,7 +676,7 @@
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
                 {{template "raw-open" ($.Data.RawOpener . $.IDPrefix $.InDialog)}}
               </td>
-              <td data-label="{{t "Channel"}}">{{template "via" .Channel}}</td>
+              <td data-label="{{t "Channel"}}"><a class="via-link" href="{{.ViaHref}}">{{template "via" .Channel}}</a></td>
             </tr>
             {{end}}
           {{else}}
