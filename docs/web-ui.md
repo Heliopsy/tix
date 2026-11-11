@@ -997,7 +997,13 @@ The description is drawn from its Markdown: lists, tables, code, links, and refe
 Enter press it, it flips at once and the screen swaps in place when the answer arrives, and a description
 somebody changed in the meantime is refused like any other stale save, with the box put back. Without a
 script the press posts the form and the page reloads with the item ticked. Comments render the same way,
-their checkboxes always read-only. The comment box is a plain textarea, with a Preview link beside it
+their checkboxes always read-only. Under each comment its reactions are pills of an emoji and a count, the
+ones you gave outlined in the accent with `aria-pressed="true"`, and hovering one names who gave it. A pill
+toggles your own reaction, and the smiley button beside them opens a picker of the eight reactions (👍 👎
+😄 🎉 😕 ❤️ 🚀 👀) where one you already gave takes it back. Each is a plain form, so it works without a
+script; with htmx the answer swaps only that comment's reactions, and a reaction given in another tab
+arrives over the task screen's live connection. Without `comment:write` the pills are drawn and nothing
+toggles. The comment box is a plain textarea, with a Preview link beside it
 that shows the text as it will be drawn without saving it. The description editor, on the task screen and
 in the New task form, has two modes, Rich text and Markdown, switched at the end of its label row and
 remembered per browser. Markdown is the textarea with its Preview. Rich text edits the same text

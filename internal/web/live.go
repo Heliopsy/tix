@@ -60,7 +60,7 @@ var liveTaskTypes = []core.EventType{
 
 // liveDetailTypes add the records one task's own screen draws beside it.
 var liveDetailTypes = append([]core.EventType{
-	core.EventCommentAdded, core.EventArtifactAdded,
+	core.EventCommentAdded, core.EventCommentReacted, core.EventCommentUnreacted, core.EventArtifactAdded,
 }, liveTaskTypes...)
 
 // liveFilter renders a subscription filter the way the event stream's

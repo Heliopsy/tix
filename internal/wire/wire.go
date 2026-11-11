@@ -140,6 +140,10 @@ const (
 	RouteComment = APIPrefix + "/comments/{id}"
 	RouteLabels  = APIPrefix + "/tags"
 
+	// RouteCommentReaction gives (PUT) and takes back (DELETE) the caller's
+	// reaction on a comment.
+	RouteCommentReaction = APIPrefix + "/comments/{id}/reactions/{reaction}"
+
 	RouteTaskClaim        = APIPrefix + "/tasks/{ref}/claim"
 	RouteTaskClaimRenew   = APIPrefix + "/tasks/{ref}/claim/renew"
 	RouteTaskClaimRelease = APIPrefix + "/tasks/{ref}/claim/release"

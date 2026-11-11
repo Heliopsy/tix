@@ -106,7 +106,7 @@ the routes the server registers. The areas are the first segment of each operati
 | bundle | `POST /bundles/export`, `POST /bundles/import` |
 | calendar | `GET /calendar`, `POST /calendar`, `PATCH /calendar`, `DELETE /calendar`, `GET /calendar/feeds/{file}`, `POST /calendar/rotate` |
 | claim | `POST /claims/next`, `POST /claims/sweep`, `POST /tasks/{ref}/claim`, `POST /tasks/{ref}/claim/reclaim`, `POST /tasks/{ref}/claim/release`, `POST /tasks/{ref}/claim/renew` |
-| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
+| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `PUT /comments/{id}/reactions/{reaction}`, `DELETE /comments/{id}/reactions/{reaction}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
 | connection | `GET /connections`, `DELETE /connections/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
 | domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
@@ -582,6 +582,30 @@ pinned to one project cannot keep them, because a filter spans projects.
 In any filter, `me` in `assignee:`, `creator:` or `claimed-by:` (and the `assignee` query parameter) names the
 caller, so `assignee:me` lists what is assigned to whoever asks.
 
+### Comment reactions
+
+A comment can carry emoji reactions from a fixed set: `thumbs_up`, `thumbs_down`, `laugh`, `hooray`,
+`confused`, `heart`, `rocket` and `eyes`. `PUT /comments/{id}/reactions/{reaction}` gives the caller's
+reaction and `DELETE` on the same path takes it back; the path takes the name or the emoji itself, and
+both answer the comment. Each actor gives each reaction once, so a repeat of either succeeds and writes
+nothing. Reacting needs `comment:write` on the task, the same as commenting, and a deleted comment is
+`not_found`.
+
+Every comment read (the task's comment listing, an edit, a reaction) carries `reactions`, one entry per
+reaction somebody gave, in the order above, and absent when nobody reacted:
+
+```json
+{"id": "01J...", "body": "ship it", "reactions": [
+  {"reaction": "thumbs_up", "emoji": "👍", "count": 2, "reacted": true, "actor_ids": ["01J...", "01K..."]}
+]}
+```
+
+`reacted` says whether the caller is among `actor_ids`, which lists who reacted, earliest first. A change
+writes an audit entry (`comment.react`, `comment.unreact`) and emits `comment.reacted` or
+`comment.unreacted` with the comment as its subject and `ref`, `task_id`, `comment_id` and `reaction` in
+the payload. A webhook whose filter admits them receives them like any other event, but a reaction reaches
+no inbox and so no notification channel. Reactions are not carried by an export, a snapshot or a task copy.
+
 ### Inbox
 
 Each actor has an inbox. An item is written in the same transaction as the change that caused it when
@@ -590,6 +614,7 @@ task (`assigned`), comments on a task they are assigned to or starred (`comment`
 assigned to them (`status`). Nobody receives an item for their own change, one change gives one
 recipient at most one item per task (the strongest reason in that order wins), and a kind the recipient
 muted creates nothing. Editing a comment or a description mentions only handles the earlier text did not.
+A reaction on a comment creates no item for anybody.
 
 | Route | Does |
 | --- | --- |
@@ -1030,7 +1055,7 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
-`task.woke`, `comment.added`, `artifact.added`,
+`task.woke`, `comment.added`, `comment.reacted`, `comment.unreacted`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
 `inbox.updated`, `template.updated`, `webhook.ping`. A type outside it is an error rather than a filter that silently matches

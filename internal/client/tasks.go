@@ -200,6 +200,20 @@ func (c *Client) DeleteComment(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteComment, "id", id), nil, nil)
 }
 
+// AddCommentReaction gives the caller's reaction to a comment.
+func (c *Client) AddCommentReaction(ctx context.Context, id string, reaction core.Reaction) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodPut, reactionPath(id, reaction), nil, nil)
+}
+
+// RemoveCommentReaction takes back the caller's reaction on a comment.
+func (c *Client) RemoveCommentReaction(ctx context.Context, id string, reaction core.Reaction) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodDelete, reactionPath(id, reaction), nil, nil)
+}
+
+func reactionPath(id string, reaction core.Reaction) string {
+	return routePath(wire.RouteCommentReaction, "id", id, "reaction", string(reaction))
+}
+
 // PutArtifact records structured output on a task.
 func (c *Client) PutArtifact(ctx context.Context, ref core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	return call[core.Artifact](ctx, c, http.MethodPut, taskPath(wire.RouteTaskArtifacts, ref), nil, in)

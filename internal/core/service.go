@@ -324,6 +324,15 @@ type TaskService interface {
 	EditComment(ctx context.Context, id, body string) (*Comment, error)
 	// DeleteComment soft deletes a comment, so it no longer lists.
 	DeleteComment(ctx context.Context, id string) error
+	// AddCommentReaction gives the caller's reaction to a comment and returns
+	// the comment with its reactions summed up. The reaction is a name such as
+	// thumbs_up or its emoji. Giving one the caller already gave writes
+	// nothing. A reaction notifies nobody.
+	AddCommentReaction(ctx context.Context, id string, reaction Reaction) (*Comment, error)
+	// RemoveCommentReaction takes back the caller's reaction on a comment and
+	// returns the comment with its reactions summed up. Taking back one the
+	// caller never gave writes nothing.
+	RemoveCommentReaction(ctx context.Context, id string, reaction Reaction) (*Comment, error)
 
 	// PutArtifact attaches a new piece of structured output, such as a result or
 	// a log, to a task. While the task is claimed it needs the current lease

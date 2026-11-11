@@ -1448,6 +1448,40 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "react to a comment",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "AddCommentReaction",
+			"RemoveCommentReaction", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			comment, err := tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "ship it")
+			mustf(t, tg, err, "adding the comment")
+			for _, r := range []core.Reaction{core.ReactionHeart, core.ReactionHeart, core.Reaction(core.ReactionRocket.Emoji())} {
+				if _, err := tg.svc.AddCommentReaction(tg.ctx, comment.ID, r); err != nil {
+					return nil, err
+				}
+			}
+			after, err := tg.svc.RemoveCommentReaction(tg.ctx, comment.ID, core.ReactionHeart)
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "listing comments")
+			summary := func(c core.Comment) []string {
+				var out []string
+				for _, r := range c.Reactions {
+					out = append(out, fmt.Sprintf("%s %s %d %v %d", r.Reaction, r.Emoji, r.Count, r.Reacted, len(r.ActorIDs)))
+				}
+				return out
+			}
+			_, unknown := tg.svc.AddCommentReaction(tg.ctx, comment.ID, "party_parrot")
+			_, missing := tg.svc.RemoveCommentReaction(tg.ctx, "nosuchcomment00000", core.ReactionHeart)
+			return sig{"answered": summary(*after), "listed": summary(listed[0]),
+				"unknown": core.KindOf(unknown), "missing": core.KindOf(missing)}, nil
+		},
+	},
+	{
 		name:   "editing an unknown comment",
 		covers: []string{"EditComment"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

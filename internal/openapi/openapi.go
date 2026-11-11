@@ -47,6 +47,7 @@ var closedTypes = []any{
 	core.CollisionPolicy(""), core.ImportMode(""), core.MatchMode(""),
 	core.TOTPChallengeKind(""), core.ComponentKind(""), core.ComponentAction(""),
 	core.ConnectionSurface(""), core.EventType(""), core.Source(""), core.Surface(""),
+	core.Reaction(""),
 }
 
 // entry is one operation of the document before it is reflected.

@@ -587,6 +587,24 @@
         {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
         <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><a class="who-name" href="{{actorHref .AuthorActorID}}" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</a> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
+        {{$c := .}}{{$rid := printf "%sreact-%s" $.IDPrefix .ID}}
+        {{/* The reactions given, each a toggle for the reader, and a picker
+             of the fixed set. Every control is a plain form that works with
+             no script; with htmx it swaps only this comment's reactions out
+             of the redrawn screen, so the thread keeps its place. */}}
+        <div class="reactions" id="reactions-{{.ID}}">
+          {{range reactionChoices .}}{{if .Count}}{{$who := ""}}{{range $i, $a := .ActorIDs}}{{if $i}}{{$who = print $who ", "}}{{end}}{{$who = print $who ($.Data.Names.Label $a)}}{{end}}
+          {{if $.Data.CanComment}}<form method="post" class="reactform" hx-post="/tasks/{{$t.Ref}}/comments/{{if .Reacted}}unreact{{else}}react{{end}}" hx-target="#reactions-{{$c.ID}}" hx-select="#reactions-{{$c.ID}}" hx-swap="outerHTML" action="/tasks/{{$t.Ref}}/comments/{{if .Reacted}}unreact{{else}}react{{end}}">
+            {{template "csrf" $.CSRF}}<input type="hidden" name="id" value="{{$c.ID}}"><input type="hidden" name="reaction" value="{{.Reaction}}">
+            <button type="submit" class="reaction{{if .Reacted}} is-mine{{end}}" aria-pressed="{{if .Reacted}}true{{else}}false{{end}}" aria-label="{{t .Label}}: {{.Count}}" title="{{$who}}"><span aria-hidden="true">{{.Emoji}}</span> <span class="reaction-count" aria-hidden="true">{{.Count}}</span></button>
+          </form>{{else}}<span class="reaction" role="img" aria-label="{{t .Label}}: {{.Count}}" title="{{$who}}"><span aria-hidden="true">{{.Emoji}}</span> <span class="reaction-count" aria-hidden="true">{{.Count}}</span></span>{{end}}
+          {{end}}{{end}}
+          {{if $.Data.CanComment}}<button type="button" class="reaction-add" popovertarget="{{$rid}}" aria-label="{{t "Add a reaction"}}" title="{{t "Add a reaction"}}"><span aria-hidden="true">&#x1F642;</span>{{template "icon" "plus"}}</button>
+          <div id="{{$rid}}" class="flowmenu reactpop" popover>
+            <p class="flowhead">{{t "React"}}</p>
+            <div class="reactpicks">{{range reactionChoices .}}<form method="post" class="reactform" hx-post="/tasks/{{$t.Ref}}/comments/{{if .Reacted}}unreact{{else}}react{{end}}" hx-target="#reactions-{{$c.ID}}" hx-select="#reactions-{{$c.ID}}" hx-swap="outerHTML" action="/tasks/{{$t.Ref}}/comments/{{if .Reacted}}unreact{{else}}react{{end}}">{{template "csrf" $.CSRF}}<input type="hidden" name="id" value="{{$c.ID}}"><input type="hidden" name="reaction" value="{{.Reaction}}"><button type="submit" class="reaction-pick{{if .Reacted}} is-mine{{end}}" aria-pressed="{{if .Reacted}}true{{else}}false{{end}}" aria-label="{{t .Label}}" title="{{t .Label}}">{{.Emoji}}</button></form>{{end}}</div>
+          </div>{{end}}
+        </div>
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
              was an <input>, whose value attribute cannot hold a newline: the

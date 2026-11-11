@@ -312,6 +312,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"age":              humanDuration,
 		"claim":            claimState,
 		"star":             newStarControl,
+		"reactionChoices":  reactionChoices,
 		"projectStar":      newProjectStar,
 		"titleLink":        newTitleLink,
 		"groupMenu":        newGroupMenu,

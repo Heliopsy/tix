@@ -77,6 +77,12 @@ alone:
 tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
 
+**Reactions on comments.** Anyone who may comment on a task can react to a comment with one of eight
+emoji (👍 👎 😄 🎉 😕 ❤️ 🚀 👀), once each, and take it back: under the comment in the browser, with `)` in
+the terminal's task view, `tix comment react ID heart` / `tix comment unreact ID heart`, or
+`PUT`/`DELETE /api/v1/comments/{id}/reactions/{reaction}`. A comment read carries each reaction's count,
+who gave it and whether you did. Reactions notify nobody.
+
 **Descriptions and comments in Markdown, with checklists.** A task's description and its comments are
 CommonMark with the GitHub tables, task lists, autolinks, strikethrough and fenced code, and a line break
 you type stays a line break. The browser draws them; the command line and the terminal show the text as

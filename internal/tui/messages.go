@@ -51,6 +51,8 @@ const (
 	actionUndepend
 	actionEditComment
 	actionDeleteComment
+	actionReact
+	actionUnreact
 	actionDelete
 	actionRenew
 	actionReclaim
@@ -100,6 +102,8 @@ var actionLabels = map[actionKind][2]string{
 	actionUndepend:      {"remove the dependency", "removed a dependency from"},
 	actionEditComment:   {"edit the comment", "edited a comment on"},
 	actionDeleteComment: {"delete the comment", "deleted a comment on"},
+	actionReact:         {"react to the comment", "reacted to a comment on"},
+	actionUnreact:       {"take back the reaction", "took back a reaction on"},
 	actionDelete:        {"delete the task", "deleted"},
 	actionRenew:         {"renew the lease", "renewed the lease on"},
 	actionReclaim:       {"reclaim the lease", "reclaimed the lease on"},

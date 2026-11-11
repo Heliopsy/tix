@@ -529,6 +529,27 @@ func (m Model) editComment(body string) tea.Cmd {
 	}
 }
 
+// react gives the reader's reaction to the selected comment, or takes it back
+// when the reader already gave it.
+func (m Model) react(r core.Reaction) tea.Cmd {
+	comment, ok := m.selectedComment()
+	if !ok || m.svc == nil {
+		return nil
+	}
+	task, _ := m.selectedTask()
+	call, kind := m.svc.AddCommentReaction, actionReact
+	for _, s := range comment.Reactions {
+		if s.Reaction == r && s.Reacted {
+			call, kind = m.svc.RemoveCommentReaction, actionUnreact
+		}
+	}
+	ctx, ref, label, id := m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), comment.ID
+	return func() tea.Msg {
+		_, err := call(ctx, id, r)
+		return actionMsg{kind: kind, ref: ref, label: label, err: err}
+	}
+}
+
 // undepend drops one of the tasks a task waits on, named the way the detail
 // view lists it.
 func (m Model) undepend(task core.Task, on string) tea.Cmd {

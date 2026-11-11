@@ -80,6 +80,8 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
 	rt.mux.HandleFunc("PATCH "+wire.RouteComment, rt.handleEditComment)
 	rt.mux.HandleFunc("DELETE "+wire.RouteComment, rt.handleDeleteComment)
+	rt.mux.HandleFunc("PUT "+wire.RouteCommentReaction, rt.handleAddReaction)
+	rt.mux.HandleFunc("DELETE "+wire.RouteCommentReaction, rt.handleRemoveReaction)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskArtifacts, rt.handleListArtifacts)
 	rt.mux.HandleFunc("GET "+wire.RouteArtifactLimits, rt.handleArtifactLimits)
@@ -873,6 +875,26 @@ func (rt *Router) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleAddReaction gives the caller's reaction to a comment.
+func (rt *Router) handleAddReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.AddCommentReaction)
+}
+
+// handleRemoveReaction takes back the caller's reaction on a comment.
+func (rt *Router) handleRemoveReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.RemoveCommentReaction)
+}
+
+func (rt *Router) reactionAction(w http.ResponseWriter, r *http.Request,
+	fn func(context.Context, string, core.Reaction) (*core.Comment, error)) {
+	comment, err := fn(r.Context(), r.PathValue("id"), core.Reaction(r.PathValue("reaction")))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, comment)
 }
 
 // handleListArtifacts returns a task's artifacts.

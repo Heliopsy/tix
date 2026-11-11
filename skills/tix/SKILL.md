@@ -1,7 +1,7 @@
 ---
 name: tix
 description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks before starting, claiming with a short lease and renewing it as you work, the claim/lease/release loop, posting progress comments on bigger tasks, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 26
+version: 27
 verified-against: tix f12f12fe (2026-11-11)
 ---
 
@@ -767,6 +767,12 @@ your replacement does not have to rediscover it:
 tix comment add default-3 "Decided: retry in the client, not the server; the server fix needs a migration"
 tix comment add default-3 "Skipped the Windows path: no Windows runner in CI to test it"
 ```
+
+`tix comment react ID REACTION` and `tix comment unreact ID REACTION` give
+and take back your emoji reaction on a comment (`thumbs_up`, `thumbs_down`,
+`laugh`, `hooray`, `confused`, `heart`, `rocket`, `eyes`); `comment ls -o json`
+carries each comment's `reactions`. A reaction notifies nobody, so it is an
+acknowledgement, never a substitute for a comment that says something.
 
 `artifact put --kind` is `result|log|file|metric` (default `result`), and
 `--name` labels it on the task. `--payload -` / `--file -` read stdin.

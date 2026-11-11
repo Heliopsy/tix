@@ -804,6 +804,129 @@ type Comment struct {
 	// DeletedAt is when the comment was deleted, RFC 3339. Absent on a live
 	// comment.
 	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+	// Reactions sums up the comment's reactions, one entry per reaction
+	// somebody gave, in the order Reactions lists them. Absent when nobody
+	// reacted.
+	Reactions []ReactionSummary `json:"reactions,omitempty" yaml:"reactions,omitempty"`
+}
+
+// Reaction names one emoji from the fixed set a comment can be reacted with.
+type Reaction string
+
+// Reactions, in the order they are offered and summed up.
+const (
+	ReactionThumbsUp   Reaction = "thumbs_up"
+	ReactionThumbsDown Reaction = "thumbs_down"
+	ReactionLaugh      Reaction = "laugh"
+	ReactionHooray     Reaction = "hooray"
+	ReactionConfused   Reaction = "confused"
+	ReactionHeart      Reaction = "heart"
+	ReactionRocket     Reaction = "rocket"
+	ReactionEyes       Reaction = "eyes"
+)
+
+// reactionEmoji pairs each reaction with the emoji it draws, in offer order.
+var reactionEmoji = []struct {
+	reaction Reaction
+	emoji    string
+}{
+	{ReactionThumbsUp, "\U0001F44D"}, {ReactionThumbsDown, "\U0001F44E"},
+	{ReactionLaugh, "\U0001F604"}, {ReactionHooray, "\U0001F389"},
+	{ReactionConfused, "\U0001F615"}, {ReactionHeart, "\u2764\uFE0F"},
+	{ReactionRocket, "\U0001F680"}, {ReactionEyes, "\U0001F440"},
+}
+
+// Reactions lists every reaction in offer order.
+func Reactions() []Reaction {
+	out := make([]Reaction, len(reactionEmoji))
+	for i, r := range reactionEmoji {
+		out[i] = r.reaction
+	}
+	return out
+}
+
+// Emoji returns the emoji a reaction draws, empty for an unknown one.
+func (r Reaction) Emoji() string {
+	for _, e := range reactionEmoji {
+		if e.reaction == r {
+			return e.emoji
+		}
+	}
+	return ""
+}
+
+// Valid reports whether r is one of the fixed reactions.
+func (r Reaction) Valid() bool { return r.Emoji() != "" }
+
+// ParseReaction reads a reaction by its name, in any case, or by its emoji,
+// with or without the variation selector.
+func ParseReaction(s string) (Reaction, error) {
+	text := strings.TrimSpace(s)
+	for _, e := range reactionEmoji {
+		if strings.EqualFold(text, string(e.reaction)) || text == e.emoji ||
+			text == strings.TrimSuffix(e.emoji, "\uFE0F") {
+			return e.reaction, nil
+		}
+	}
+	return "", Invalid("unknown reaction %q: use one of %s", s, reactionNames())
+}
+
+func reactionNames() string {
+	names := make([]string, len(reactionEmoji))
+	for i, e := range reactionEmoji {
+		names[i] = string(e.reaction)
+	}
+	return strings.Join(names, ", ")
+}
+
+// ReactionSummary is one reaction on a comment and who gave it.
+type ReactionSummary struct {
+	// Reaction names the emoji.
+	Reaction Reaction `json:"reaction" yaml:"reaction"`
+	// Emoji is the reaction drawn as its emoji.
+	Emoji string `json:"emoji" yaml:"emoji"`
+	// Count is how many actors gave the reaction.
+	Count int `json:"count" yaml:"count"`
+	// Reacted reports whether the caller is among them.
+	Reacted bool `json:"reacted" yaml:"reacted"`
+	// ActorIDs are the actors who gave the reaction, earliest first.
+	ActorIDs []string `json:"actor_ids" yaml:"actor_ids"`
+}
+
+// CommentReaction is one actor's reaction on a comment, as stored.
+type CommentReaction struct {
+	// CommentID is the comment reacted to.
+	CommentID string `json:"comment_id" yaml:"comment_id"`
+	// ActorID is the actor who reacted.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Reaction is the emoji given.
+	Reaction Reaction `json:"reaction" yaml:"reaction"`
+	// CreatedAt is when the reaction was given, RFC 3339.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+}
+
+// SummarizeReactions sums up one comment's reactions for the caller, in offer
+// order, leaving out a reaction nobody gave. The rows are taken in the order
+// given, which is the order the actors are listed in.
+func SummarizeReactions(rows []CommentReaction, callerID string) []ReactionSummary {
+	var out []ReactionSummary
+	for _, r := range Reactions() {
+		s := ReactionSummary{Reaction: r, Emoji: r.Emoji(), ActorIDs: []string{}}
+		for _, row := range rows {
+			if row.Reaction != r {
+				continue
+			}
+			s.Count++
+			s.ActorIDs = append(s.ActorIDs, row.ActorID)
+			if callerID != "" && row.ActorID == callerID {
+				s.Reacted = true
+			}
+		}
+		if s.Count > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // ArtifactKind classifies a worker's structured output.
@@ -947,6 +1070,11 @@ const (
 	EventDependencyAdded EventType = "dependency.added"
 	EventLabelAdded      EventType = "tag.added"
 
+	// EventCommentReacted and EventCommentUnreacted record one actor giving
+	// and taking back a reaction on a comment. Neither reaches an inbox.
+	EventCommentReacted   EventType = "comment.reacted"
+	EventCommentUnreacted EventType = "comment.unreacted"
+
 	EventProjectCreated  EventType = "project.created"
 	EventProjectUpdated  EventType = "project.updated"
 	EventWorkflowUpdated EventType = "workflow.updated"
@@ -983,7 +1111,7 @@ var eventTypes = []EventType{
 	EventTaskReclaimed,
 	EventTaskDeleted, EventTaskStarred, EventTaskUnstarred,
 	EventTaskSnoozed, EventTaskUnsnoozed, EventTaskWoke,
-	EventCommentAdded, EventArtifactAdded,
+	EventCommentAdded, EventCommentReacted, EventCommentUnreacted, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,

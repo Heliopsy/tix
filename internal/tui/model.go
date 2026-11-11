@@ -1372,6 +1372,8 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCommentEdit:
 		next, cmd := m.openPrompt(promptCommentEdit)
 		return next, cmd, true
+	case doReact:
+		return m.startReacting(), nil, true
 	case doTag:
 		next, cmd := m.openPrompt(promptTag)
 		return next, cmd, true
@@ -1674,6 +1676,9 @@ func (m Model) runChoice(kind choiceKind, picked Choice) tea.Cmd {
 	if kind == choiceTransition {
 		return m.transition(picked.Value)
 	}
+	if kind == choiceReaction {
+		return m.react(core.Reaction(picked.Value))
+	}
 	task, ok := m.selectedTask()
 	if !ok {
 		return nil
@@ -1718,6 +1723,17 @@ func (m Model) applyFilterText(text string) Model {
 	selected, _ := TaskAt(m.columns, m.sel)
 	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
+	return m
+}
+
+// startReacting offers the reactions for the selected comment.
+func (m Model) startReacting() Model {
+	comment, ok := m.selectedComment()
+	if !ok {
+		m.err = m.noCommentReason()
+		return m
+	}
+	m.choice, m.choices, m.err = choiceReaction, ReactionChoices(comment), ""
 	return m
 }
 

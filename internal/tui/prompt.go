@@ -155,6 +155,7 @@ const (
 	choiceTransition
 	choicePriority
 	choiceShare
+	choiceReaction
 )
 
 // Prompt introduces a picker.
@@ -166,6 +167,8 @@ func (k choiceKind) Prompt() string {
 		return "set priority: "
 	case choiceShare:
 		return "share: "
+	case choiceReaction:
+		return "react: "
 	default:
 		return ""
 	}
@@ -181,6 +184,8 @@ func (k choiceKind) Field() string {
 		return "priority"
 	case choiceShare:
 		return "copy"
+	case choiceReaction:
+		return "reaction"
 	default:
 		return "value"
 	}
@@ -230,6 +235,43 @@ func PriorityChoices() []Choice {
 		out = append(out, Choice{Label: PriorityLabel(p), Value: strconv.Itoa(int(p))})
 	}
 	return out
+}
+
+// ReactionChoices offers every reaction on one comment, each saying how many
+// gave it and whether the reader did, since picking one of theirs takes it
+// back.
+func ReactionChoices(c core.Comment) []Choice {
+	given := map[core.Reaction]core.ReactionSummary{}
+	for _, s := range c.Reactions {
+		given[s.Reaction] = s
+	}
+	out := make([]Choice, 0, len(core.Reactions()))
+	for _, r := range core.Reactions() {
+		label := r.Emoji() + " " + strings.ReplaceAll(string(r), "_", " ")
+		if s, ok := given[r]; ok {
+			label += " (" + strconv.Itoa(s.Count)
+			if s.Reacted {
+				label += ", yours: take back"
+			}
+			label += ")"
+		}
+		out = append(out, Choice{Label: label, Value: string(r)})
+	}
+	return out
+}
+
+// ReactionLine sums up a comment's reactions on one line, the reader's own in
+// brackets. It is empty when nobody reacted.
+func ReactionLine(rs []core.ReactionSummary) string {
+	parts := make([]string, 0, len(rs))
+	for _, r := range rs {
+		part := r.Emoji + " " + strconv.Itoa(r.Count)
+		if r.Reacted {
+			part = "[" + part + "]"
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, "  ")
 }
 
 // NextPriority is the priority one place down the scale, wrapping from the

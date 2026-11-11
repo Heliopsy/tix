@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* A comment's reactions: one pill per reaction given, the reader's own in
+   the accent, then the picker's button. The row stays one line high under
+   the body, so a thread of reacted comments is no taller than before. */
+.reactions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin: var(--space-1) 0 0; }
+.reactform { display: inline-flex; margin: 0; }
+.reaction,
+.reaction-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+span.reaction { cursor: default; }
+.reaction.is-mine { border-color: var(--accent); background: var(--accent-soft); }
+.reaction-count { font-variant-numeric: tabular-nums; }
+.reaction-add { color: var(--muted); padding: 0 6px; }
+.reaction-add .icon { width: 12px; height: 12px; }
+.reaction:hover,
+.reaction-add:hover { border-color: var(--line-strong); }
+.reaction:focus-visible,
+.reaction-add:focus-visible,
+.reaction-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The picker: the eight reactions as two rows of square buttons. */
+.reactpicks { display: grid; grid-template-columns: repeat(4, 2.25rem); gap: 2px; }
+.reactpicks .reactform { display: block; }
+.reaction-pick {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+.reaction-pick:hover { background: var(--row-hover); }
+.reaction-pick.is-mine { border-color: var(--accent); background: var(--accent-soft); }

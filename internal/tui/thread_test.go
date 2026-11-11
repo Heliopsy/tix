@@ -180,6 +180,7 @@ func TestTheNewActionsAreOfferedOnlyToAReaderWhoMayUseThem(t *testing.T) {
 	}{
 		{"remove a dependency", "RemoveDependency", k.Undepend.Help().Key},
 		{"edit a comment", "EditComment", k.CommentEdit.Help().Key},
+		{"react to a comment", "AddCommentReaction", k.React.Help().Key},
 		{"pick a tag", "AddTag", k.Tags.Help().Key},
 		{"delete", "DeleteTask", k.Delete.Help().Key},
 	}
@@ -206,7 +207,7 @@ func TestTheNewActionsAreOfferedOnlyToAReaderWhoMayUseThem(t *testing.T) {
 			if next.Frame() != before {
 				t.Fatalf("a refused key changed the screen:\n%s\n---\n%s", before, next.Frame())
 			}
-			if len(svc.deleted)+len(svc.depsRemoved)+len(svc.commentsEdited) != 0 {
+			if len(svc.deleted)+len(svc.depsRemoved)+len(svc.commentsEdited)+len(svc.reactions) != 0 {
 				t.Fatalf("a refused key reached the service")
 			}
 		})

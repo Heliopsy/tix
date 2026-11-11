@@ -2654,6 +2654,141 @@ paths:
       summary: EditComment replaces a comment's body and marks it edited
       tags:
         - comment
+  /api/v1/comments/{id}/reactions/{reaction}:
+    delete:
+      description: |-
+        RemoveCommentReaction takes back the caller's reaction on a comment and returns the comment with its reactions summed up. Taking back one the caller never gave writes nothing.
+
+        Command line: `tix comment unreact`.
+      operationId: comment.unreact
+      parameters:
+        - description: Comment ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Reaction: thumbs_up, thumbs_down, laugh, hooray, confused,
+            heart, rocket or eyes, or the emoji itself.'
+          in: path
+          name: reaction
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: Comment is a message on a task.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - comment:write
+        - session:
+            - comment:write
+      summary: RemoveCommentReaction takes back the caller's reaction on a comment
+        and returns the comment with its reactions summed up
+      tags:
+        - comment
+    put:
+      description: |-
+        AddCommentReaction gives the caller's reaction to a comment and returns the comment with its reactions summed up. The reaction is a name such as thumbs_up or its emoji. Giving one the caller already gave writes nothing. A reaction notifies nobody.
+
+        Command line: `tix comment react`.
+      operationId: comment.react
+      parameters:
+        - description: Comment ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Reaction: thumbs_up, thumbs_down, laugh, hooray, confused,
+            heart, rocket or eyes, or the emoji itself.'
+          in: path
+          name: reaction
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: Comment is a message on a task.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - comment:write
+        - session:
+            - comment:write
+      summary: AddCommentReaction gives the caller's reaction to a comment and returns
+        the comment with its reactions summed up
+      tags:
+        - comment
   /api/v1/connections:
     get:
       description: |-
@@ -13726,6 +13861,12 @@ components:
         id:
           description: ID is the comment's unique identifier.
           type: string
+        reactions:
+          description: Reactions sums up the comment's reactions, one entry per reaction
+            somebody gave, in the order Reactions lists them. Absent when nobody reacted.
+          items:
+            $ref: '#/components/schemas/ReactionSummary'
+          type: array
         task_id:
           description: TaskID is the ID of the task commented on.
           type: string
@@ -14418,6 +14559,8 @@ components:
         - artifact.added
         - dependency.added
         - tag.added
+        - comment.reacted
+        - comment.unreacted
         - project.created
         - project.updated
         - workflow.updated
@@ -15677,6 +15820,42 @@ components:
           description: WebhookDeliveries counts the webhook delivery records removed.
           format: int64
           type: integer
+      type: object
+    Reaction:
+      description: Reaction names one emoji from the fixed set a comment can be reacted
+        with.
+      enum:
+        - thumbs_up
+        - thumbs_down
+        - laugh
+        - hooray
+        - confused
+        - heart
+        - rocket
+        - eyes
+      type: string
+    ReactionSummary:
+      description: ReactionSummary is one reaction on a comment and who gave it.
+      properties:
+        actor_ids:
+          description: ActorIDs are the actors who gave the reaction, earliest first.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        count:
+          description: Count is how many actors gave the reaction.
+          type: integer
+        emoji:
+          description: Emoji is the reaction drawn as its emoji.
+          type: string
+        reacted:
+          description: Reacted reports whether the caller is among them.
+          type: boolean
+        reaction:
+          $ref: '#/components/schemas/Reaction'
+          description: Reaction names the emoji.
       type: object
     ReadyBody:
       description: ReadyBody reports whether the server can serve traffic.

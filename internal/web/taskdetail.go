@@ -70,6 +70,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteMarkdownPreview, h.previewMarkdown, "UpdateTask", "AddComment", "EditComment"),
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
+		post(RouteCommentReact, h.reactComment, "AddCommentReaction"),
+		post(RouteCommentUnreact, h.unreactComment, "RemoveCommentReaction"),
 		post(RouteTaskArts, h.putArtifact, "PutArtifact"),
 		getFile(RouteTaskArtFile, h.downloadArtifact, "ListArtifacts"),
 	}
@@ -301,6 +303,9 @@ func (v taskView) actorIDs() []string {
 		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID, v.Task.SnoozedByActorID}
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
+		for _, r := range c.Reactions {
+			out = append(out, r.ActorIDs...)
+		}
 	}
 	for _, g := range v.History {
 		for _, h := range g.Hops {
@@ -1176,6 +1181,29 @@ func (h *handler) deleteComment(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, taskPath(r), "comment deleted")
+	return nil
+}
+
+// reactComment gives the reader's reaction to one comment.
+func (h *handler) reactComment(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleReaction(w, r, h.svc.AddCommentReaction)
+}
+
+// unreactComment takes back the reader's reaction on one comment.
+func (h *handler) unreactComment(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleReaction(w, r, h.svc.RemoveCommentReaction)
+}
+
+// toggleReaction applies one reaction call and returns the reader to the
+// comment. With htmx the form swaps only the comment's reactions out of the
+// redrawn task screen.
+func (h *handler) toggleReaction(w http.ResponseWriter, r *http.Request,
+	call func(context.Context, string, core.Reaction) (*core.Comment, error)) error {
+	id := field(r, "id")
+	if _, err := call(r.Context(), id, core.Reaction(field(r, "reaction"))); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r)+"#comment-"+url.PathEscape(id), "")
 	return nil
 }
 

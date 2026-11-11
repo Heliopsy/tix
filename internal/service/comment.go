@@ -63,8 +63,14 @@ func (l *Local) ListComments(ctx context.Context, ref core.TaskRef) ([]core.Comm
 		if err := l.authorizeTask(ctx, authz.ActionTaskRead, task); err != nil {
 			return err
 		}
-		out, err = tx.ListComments(ctx, task.ID)
-		return err
+		if out, err = tx.ListComments(ctx, task.ID); err != nil {
+			return err
+		}
+		ptrs := make([]*core.Comment, len(out))
+		for i := range out {
+			ptrs[i] = &out[i]
+		}
+		return markReactions(ctx, tx, actor.ID, ptrs)
 	})
 	if err != nil {
 		return nil, err
@@ -108,8 +114,11 @@ func (l *Local) EditComment(ctx context.Context, id, body string) (*core.Comment
 		if err := m.notifyMentions(ctx, inboxNote{task: task, commentID: c.ID}, c.Body, before.Body); err != nil {
 			return err
 		}
-		return m.Record("comment.edit", core.EventCommentAdded, "comment", c.ID, task.ProjectID,
-			before, c, map[string]any{"ref": task.Ref, "task_id": task.ID, "edited": true})
+		if err := m.Record("comment.edit", core.EventCommentAdded, "comment", c.ID, task.ProjectID,
+			before, c, map[string]any{"ref": task.Ref, "task_id": task.ID, "edited": true}); err != nil {
+			return err
+		}
+		return markReactions(ctx, m.tx, actor.ID, []*core.Comment{c})
 	})
 	if err != nil {
 		return nil, err

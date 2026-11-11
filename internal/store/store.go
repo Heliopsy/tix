@@ -224,6 +224,15 @@ type TaskTx interface {
 	ListComments(ctx context.Context, taskID string) ([]core.Comment, error)
 	UpdateComment(ctx context.Context, c *core.Comment) error
 	DeleteComment(ctx context.Context, id string) error
+	// AddCommentReaction records an actor's reaction on a comment, reporting
+	// whether it was new.
+	AddCommentReaction(ctx context.Context, commentID, actorID string, r core.Reaction) (bool, error)
+	// RemoveCommentReaction removes an actor's reaction on a comment,
+	// reporting whether there was one.
+	RemoveCommentReaction(ctx context.Context, commentID, actorID string, r core.Reaction) (bool, error)
+	// ListCommentReactions returns the reactions on the given comments,
+	// earliest first.
+	ListCommentReactions(ctx context.Context, commentIDs []string) ([]core.CommentReaction, error)
 
 	PutArtifact(ctx context.Context, a *core.Artifact) error
 	ListArtifacts(ctx context.Context, taskID string) ([]core.Artifact, error)

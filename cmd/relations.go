@@ -264,7 +264,8 @@ func newCommentCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(commentAddCmd(g), commentLsCmd(g), commentEditCmd(g), commentRmCmd(g))
+	cmd.AddCommand(commentAddCmd(g), commentLsCmd(g), commentEditCmd(g), commentRmCmd(g),
+		commentReactCmd(g, true), commentReactCmd(g, false))
 	return cmd
 }
 
@@ -402,4 +403,70 @@ func commentRmCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
+}
+
+// commentReactCmd builds `comment react` and `comment unreact`, which differ
+// only in the call they make and the words they use.
+func commentReactCmd(g *globals, on bool) *cobra.Command {
+	var dryRun bool
+	use, short, action := "unreact", "Take back your reaction on a comment", "comment.unreact"
+	if on {
+		use, short, action = "react", "React to a comment with an emoji", "comment.react"
+	}
+	cmd := &cobra.Command{
+		Use:   use + " ID REACTION",
+		Short: short,
+		Long: short + ". REACTION is one of " + reactionList() + ", or the emoji itself. " +
+			"Each person gives each reaction once; giving it again, or taking back one never given, " +
+			"succeeds and changes nothing. A reaction notifies nobody. Prints the comment with its reactions.\n\n" +
+			"Exit codes: 2 unknown reaction, 3 unknown comment, 5 permission denied.",
+		Example: "  tix comment " + use + " 01J0000000000000000000 thumbs_up",
+		Args:    exactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reaction, err := core.ParseReaction(args[1])
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan(action, args[0], map[string]any{"reaction": reaction}))
+			}
+			call := conn.Service.RemoveCommentReaction
+			if on {
+				call = conn.Service.AddCommentReaction
+			}
+			comment, err := call(ctx, args[0], reaction)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, comment)
+		},
+		ValidArgsFunction: completeReactions,
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	return cmd
+}
+
+// reactionList names every reaction for help text.
+func reactionList() string {
+	names := make([]string, 0, len(core.Reactions()))
+	for _, r := range core.Reactions() {
+		names = append(names, string(r))
+	}
+	return strings.Join(names, ", ")
+}
+
+// completeReactions offers the reaction names in the second argument.
+func completeReactions(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 1 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	out := make([]string, 0, len(core.Reactions()))
+	for _, r := range core.Reactions() {
+		out = append(out, string(r)+"\t"+r.Emoji())
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
 }

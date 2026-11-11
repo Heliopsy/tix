@@ -36,6 +36,7 @@ type KeyMap struct {
 	Depend        key.Binding
 	Undepend      key.Binding
 	CommentEdit   key.Binding
+	React         key.Binding
 	Delete        key.Binding
 	Restore       key.Binding
 	Star          key.Binding
@@ -134,6 +135,10 @@ func DefaultKeyMap() KeyMap {
 		// u, for undoing the deletion. It is the one key on a deleted card, and
 		// vim's own undo, which is the reflex a reader arrives with.
 		Restore: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "restore")),
+		// ), the mouth of a :) smiley. Every letter worth having is spoken
+		// for, and it opens a numbered picker of the reactions, each of which
+		// takes back the reader's own when pressed again.
+		React: key.NewBinding(key.WithKeys(")"), key.WithHelp(")", "react to comment")),
 		// *, the glyph the card marks a starred task with. It is the one
 		// toggle on the board: pressed again it takes the star off.
 		Star: key.NewBinding(key.WithKeys("*"), key.WithHelp("*", "star")),
@@ -312,6 +317,7 @@ const (
 	doAssign
 	doComment
 	doCommentEdit
+	doReact
 	doTag
 	doUntag
 	doTags
@@ -609,6 +615,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"AddComment"}}},
 		{id: doCommentEdit, binding: k.CommentEdit, needsTask: true,
 			gate: gatedAction{methods: []string{"EditComment"}}},
+		{id: doReact, binding: k.React, needsTask: true,
+			gate: gatedAction{methods: []string{"AddCommentReaction"}, needs: []string{"RemoveCommentReaction"}}},
 		{id: doTag, binding: k.Tag, needsTask: true,
 			gate: gatedAction{methods: []string{"AddTag"}}},
 		{id: doUntag, binding: k.Untag, needsTask: true,
