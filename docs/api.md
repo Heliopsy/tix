@@ -128,7 +128,7 @@ the routes the server registers. The areas are the first segment of each operati
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
-| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
+| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/move`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
 | tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
@@ -690,6 +690,42 @@ never travel. The whole copy is one transaction: each new task writes a `task.co
 `task.created` with `copied_from` in its payload. An unknown project is `404`, a required field the target
 lacks `400`, and copying out of the project a token is pinned to `403`.
 
+### Moving a task
+
+`POST /tasks/{ref}/move` moves a task into another project and answers `200` with what happened:
+
+```json
+{"project_ref": "web"}
+```
+
+```json
+{
+  "task": {"id": "01J...", "ref": "web-12", "status": "todo", "...": "..."},
+  "from_ref": "infra-4",
+  "from_project": "infra",
+  "project": "web",
+  "from_status": "triage",
+  "status_kept": false,
+  "dropped_fields": ["severity"]
+}
+```
+
+The task keeps its `id`, comments, artifacts, history, dependencies, tags, assignee, claim and stars, and takes
+the next number in the target project. The old reference keeps resolving: `GET /tasks/infra-4` answers the task
+under its new reference, and so does every other route that takes a `{ref}`. A project never reissues a number,
+so an old reference cannot reach another task later.
+
+The status is kept when the target workflow has a state of the same key (`status_kept: true`), else the task
+starts in the target's initial state. Custom fields the target defines and accepts keep their value; the others
+are left behind and listed in `dropped_fields`, and the target's defaults fill in as on a create. Tags scoped
+to the old project are recreated in the target. Subtasks stay where they are and keep their parent.
+
+The caller needs to be able to edit the task and to create tasks in the target. A task claimed by somebody
+else is `409` until the claim is released or expires; the caller's own claim moves with the task. The move
+writes one `task.move` audit entry with `from_ref`, `ref`, `from_project`, `project`, `from_status` and
+`status`, and emits `task.updated` in both projects so open boards on either side refresh. Moving to the
+task's own project or a missing `project_ref` is `400`, an unknown project `404`, an archived one `422`.
+
 ### Bulk actions
 
 `POST /tasks/bulk` applies one action to up to 500 tasks in one request and answers `200` with an outcome per
@@ -720,12 +756,13 @@ distinct reference, in the order given, also when some were refused:
 | `assign` | `assignee_actor_id`, a handle or id; empty clears | `PATCH /tasks/{ref}` |
 | `star`, `unstar` | none | `PUT`, `DELETE /tasks/{ref}/star` |
 | `copy` | `project_ref` | `POST /tasks/{ref}/copy` with `link` |
+| `move_project` | `project_ref` | `POST /tasks/{ref}/move` |
 | `delete` | `cascade` (optional) | `DELETE /tasks/{ref}`, soft unless the [trash](#trash) is off |
 | `restore` | none | `POST /tasks/{ref}/restore` |
 
 Each task is changed through the single-task operation in its own transaction, with its own audit entry and
 event, so a refused task never holds back or undoes another; a copy's outcome names the new task in
-`copy_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
+`copy_ref`, and a `move_project` outcome the task's new reference in `moved_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
 missing argument is `400` before any task changes, and a caller without the scope the action needs (for
 example `task:delete` for a bulk delete) gets one `403` for the request.
 
