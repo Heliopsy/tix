@@ -1428,6 +1428,13 @@ full time, the source and the sequence number, the fields that changed side by s
 after snapshots as indented JSON, each with a Copy button and a Copy all as JSON button for the whole
 entry. Without JavaScript Raw is a link to `?dialog=raw-SEQ`, which draws the same dialog in place.
 
+Beside Raw, every row on Activity, on an actor's screen and in a task's History has a Copy JSON button.
+It copies the row's audit entry exactly as the API returns it, pretty-printed (an array when the row
+groups several steps), and says Copied for a moment. The JSON is part of the page, so the copy needs no
+second request, and where the browser offers no Clipboard API (a page served over plain HTTP) it falls
+back to the older copy command. Audit entries never hold a token's secret, so neither does the copy. On
+the command line `tix audit ls -o json` prints the same entries.
+
 ## Housekeeping
 
 The Tenant screen has a Housekeeping section: how many days a done task, a cancelled task and a task in the
