@@ -263,6 +263,14 @@ type TaskService interface {
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.
 	CopyTask(ctx context.Context, ref TaskRef, in CopyTaskInput) (*Task, error)
+	// MoveTask moves a task, with its live subtasks in the same project, to
+	// another project of the tenant and returns it under its new reference.
+	// Each moved task takes the target's next number, keeps its identifier,
+	// comments, stars and dependencies, and has its status mapped into the
+	// target workflow: the same state when it exists there, else the first of
+	// the same category, else the initial one. A task with a parent is detached
+	// from it. Old references stop resolving.
+	MoveTask(ctx context.Context, ref TaskRef, in MoveTaskInput) (*Task, error)
 	// BulkTasks applies one action to many tasks, each in its own transaction,
 	// and reports an outcome per task rather than failing on the first refusal.
 	BulkTasks(ctx context.Context, in BulkTaskInput) (*BulkResult, error)

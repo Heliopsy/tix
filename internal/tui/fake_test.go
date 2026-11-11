@@ -521,6 +521,10 @@ func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.Copy
 	return &core.Task{ID: "copy", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
 }
 
+func (*fakeService) MoveTask(context.Context, core.TaskRef, core.MoveTaskInput) (*core.Task, error) {
+	return nil, core.Internal("the terminal interface does not move tasks between projects")
+}
+
 func (f *fakeService) SnoozeTask(_ context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

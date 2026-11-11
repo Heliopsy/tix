@@ -27,7 +27,7 @@ func newTaskCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
 		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskPurgeCmd(g), taskTrashCmd(g), taskTreeCmd(g),
-		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
+		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskMoveCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
 		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g), taskLinkCmd(g),
 	)
@@ -556,6 +556,78 @@ func taskCopyCmd(g *globals) *cobra.Command {
 	f.BoolVar(&in.WithDependencies, "with-deps", false, "keep the dependencies")
 	f.BoolVar(&in.Link, "link", false, "record the original on the copy")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be copied without writing")
+	_ = cmd.RegisterFlagCompletionFunc("to", flagCompletion(g.completeProjectKeys))
+	return cmd
+}
+
+// taskMoveCmd builds `task move`, which moves tasks to another project under
+// new references.
+func taskMoveCmd(g *globals) *cobra.Command {
+	var (
+		in     core.MoveTaskInput
+		dryRun bool
+	)
+	cmd := &cobra.Command{
+		Use:   "move REF... --to PROJECT",
+		Short: "Move tasks to another project",
+		Long: "Move a task to another project. It keeps its identifier, comments, history, stars and " +
+			"dependencies and takes the next number in the target, so its old reference stops resolving. " +
+			"Its live subtasks in the same project move with it and keep their parent links; a task that " +
+			"has a parent is detached from it. Each status becomes the same state in the target workflow, " +
+			"else the first state of the same category, else the initial one. To change a status, use tix task mv.\n\n" +
+			"--version moves a single task only if it is still at that version, as tix task edit --version does. " +
+			"Given several references, each task is moved and one outcome per task is printed. Pass - to read " +
+			"references from standard input.\n\n" +
+			"Exit codes: 2 invalid input or the task's own project, 3 unknown reference or project, " +
+			"4 version conflict, 5 permission denied, 6 archived target.",
+		Example: "  tix task move infra-4 --to web\n  tix task move infra-4 --to web --version 3 --dry-run",
+		Args:    minArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if in.ProjectRef == "" {
+				return usagef(cmd, "--to is required")
+			}
+			refs, err := readRefs(cmd, args)
+			if err != nil {
+				return err
+			}
+			if len(refs) > 1 && in.Version != 0 {
+				return core.Invalid("--version names one task's version, and %d tasks were given", len(refs))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			detail := map[string]any{"to": in.ProjectRef}
+			if len(refs) > 1 {
+				if dryRun {
+					return g.dryBulk(cmd, conn, ctx, refs, "task.move", detail)
+				}
+				return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+					_, err := conn.Service.MoveTask(ctx, ref, in)
+					return err
+				})
+			}
+			if dryRun {
+				if _, err := conn.Service.GetTask(ctx, refs[0]); err != nil {
+					return err
+				}
+				if _, err := conn.Service.GetProject(ctx, in.ProjectRef); err != nil {
+					return err
+				}
+				return g.render(cmd, newPlan("task.move", refs[0].String(), detail))
+			}
+			task, err := conn.Service.MoveTask(ctx, refs[0], in)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, task)
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	f := cmd.Flags()
+	f.StringVar(&in.ProjectRef, "to", "", "project to move into (required)")
+	f.IntVar(&in.Version, "version", 0, "expected version for optimistic locking")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be moved without writing")
 	_ = cmd.RegisterFlagCompletionFunc("to", flagCompletion(g.completeProjectKeys))
 	return cmd
 }

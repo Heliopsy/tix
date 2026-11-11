@@ -147,15 +147,15 @@ func (l *Local) resolveDeletion(ctx context.Context, tx store.Tx, ref string, in
 	if _, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{ProjectID: target.ID}); err != nil {
 		return nil, err
 	}
-	from, err := tx.GetWorkflowByID(ctx, p.WorkflowID)
+	from, err := workflowOf(ctx, tx, p)
 	if err != nil {
 		return nil, err
 	}
-	to, err := tx.GetWorkflowByID(ctx, target.WorkflowID)
+	to, err := workflowOf(ctx, tx, target)
 	if err != nil {
 		return nil, err
 	}
-	s.target, s.from, s.to = target, from.Definition, to.Definition
+	s.target, s.from, s.to = target, from, to
 	return s, nil
 }
 
@@ -213,49 +213,12 @@ func mapStatus(from, to core.WorkflowDefinition, status string) string {
 // moveProjectTasks renumbers every task into the target in sequence order,
 // maps its status and keeps project-scoped tags it carries alive in the target.
 func (l *Local) moveProjectTasks(ctx context.Context, m *mutation, s *deletionScope) error {
-	scoped, err := projectTags(ctx, m.tx, s.project.ID)
+	mv, err := newTaskMover(ctx, m, s.project, s.target, s.from, s.to)
 	if err != nil {
 		return err
 	}
-	rehomed := map[string]*core.Tag{}
 	for i := range s.tasks {
-		t := &s.tasks[i]
-		before := *t
-		seq, err := m.tx.NextSeq(ctx, s.target.ID)
-		if err != nil {
-			return err
-		}
-		status := mapStatus(s.from, s.to, t.Status)
-		if err := m.tx.MoveTask(ctx, t.ID, s.target.ID, seq, status); err != nil {
-			return err
-		}
-		for _, name := range t.Tags {
-			old, ok := scoped[name]
-			if !ok {
-				continue
-			}
-			tag, ok := rehomed[name]
-			if !ok {
-				tag = &core.Tag{ProjectID: s.target.ID, Name: old.Name, Color: old.Color}
-				if err := m.tx.PutTag(ctx, tag); err != nil {
-					return err
-				}
-				rehomed[name] = tag
-			}
-			if err := m.tx.AttachTag(ctx, t.ID, tag.ID); err != nil {
-				return err
-			}
-		}
-		after, err := m.tx.GetTask(ctx, core.TaskRef{ID: t.ID})
-		if err != nil {
-			return err
-		}
-		if err := m.Record("task.move", core.EventTaskUpdated, "task", t.ID, s.target.ID, before, after,
-			map[string]any{
-				"ref": after.Ref, "from_ref": before.Ref,
-				"project": s.target.Key, "from_project": s.project.Key,
-				"status": status, "from_status": before.Status,
-			}); err != nil {
+		if _, err := mv.move(ctx, &s.tasks[i], false); err != nil {
 			return err
 		}
 	}

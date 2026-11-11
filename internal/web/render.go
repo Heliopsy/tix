@@ -1015,7 +1015,7 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, name, title str
 
 // dialogScreens are the screens that draw inside the task dialog when they
 // are asked for from it: the task itself and the forms its actions open.
-var dialogScreens = map[string]bool{"task.html": true, "taskcopy.html": true, "tasktemplate.html": true}
+var dialogScreens = map[string]bool{"task.html": true, "taskcopy.html": true, "taskmove.html": true, "tasktemplate.html": true}
 
 // renderStatus writes one screen with an explicit status.
 func (h *handler) renderStatus(w http.ResponseWriter, r *http.Request, status int, name, title string, data any) error {

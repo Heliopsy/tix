@@ -128,7 +128,7 @@ the routes the server registers. The areas are the first segment of each operati
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
-| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
+| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/move`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
 | tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
@@ -689,6 +689,33 @@ copied), and `link` records the original as `copied_from_id` on each copy. Stars
 never travel. The whole copy is one transaction: each new task writes a `task.copy` audit entry and emits
 `task.created` with `copied_from` in its payload. An unknown project is `404`, a required field the target
 lacks `400`, and copying out of the project a token is pinned to `403`.
+
+### Moving a task
+
+`POST /tasks/{ref}/move` moves a task to another project of the same tenant and answers `200` with the task under
+its new reference:
+
+```json
+{"project_ref": "web", "version": 4}
+```
+
+`project_ref` is required. `version` is optional and works as it does on `PATCH /tasks/{ref}`: a stale one is
+`409` and nothing moves. The task keeps its `id`, comments, attachments, stars, dependencies (which may cross
+projects), custom field values, lease and history, and takes the target's next number, so its old reference
+answers `404` afterwards while `GET /tasks/{id}` keeps working; no alias is kept for a single task. Its status
+becomes the same state in the target workflow, else the target's first state of the same category, else its
+initial state, as when a deleted project's tasks are moved. A tag scoped to the source project is re-created under
+the target, or the target's own tag of that name is used.
+
+Its live subtasks in the same project move with it, in order after it, and keep their parent links; a subtask
+filed in another project stays where it is. A task that has a parent is detached from it and becomes a root task
+in the target. The whole move is one transaction: each moved task writes a `task.move` audit entry and emits
+`task.updated` with `ref`, `from_ref`, `project`, `from_project`, `status` and `from_status`, plus `from_parent`
+when it was detached.
+
+The caller needs `task:write` on every moved task and on the target. The task's own project is `400`, an unknown
+project `404`, an archived one `422`, and a token pinned to one project `403`. `Idempotency-Key` makes a retry
+safe, as on any write.
 
 ### Bulk actions
 

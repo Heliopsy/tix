@@ -537,6 +537,16 @@ var registry = []Operation{
 		TUI:   "board",
 	},
 	{
+		Name: "task.move", Method: "MoveTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task move",
+		HTTP:  apiPost(wire.RouteTaskMove),
+		Web:   webPost(web.RouteTaskRehome),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the board shows one project at a time and has no project picker for a single card; moving is on the task screen's menu in the browser, the command line and the API"),
+		},
+	},
+	{
 		Name: "task.bulk", Method: "BulkTasks",
 		CLI:  "tix task bulk",
 		HTTP: apiPost(wire.RouteTaskBulk),

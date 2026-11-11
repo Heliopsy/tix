@@ -59,6 +59,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskTagDel, h.removeTag, "RemoveTag"),
 		get(RouteTaskCopy, "taskcopy.html", h.showCopyTask, "GetTask", "ListProjects"),
 		post(RouteTaskCopy, h.copyTask, "CopyTask"),
+		get(RouteTaskRehome, "taskmove.html", h.showMoveTask, "GetTask", "ListProjects"),
+		post(RouteTaskRehome, h.moveTask, "MoveTask"),
 		post(RouteTaskStar, h.starTask, "StarTask"),
 		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
 		post(RouteTaskSnooze, h.snoozeTask, "SnoozeTask"),

@@ -709,6 +709,42 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "move round-trip",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "MoveTask", "TaskTree", "ListComments", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			root, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "root", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the root")
+			_, err = tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "child", ParentRef: root.Ref})
+			mustf(t, tg, err, "creating the child")
+			_, err = tg.svc.AddComment(tg.ctx, core.TaskRef{ID: root.ID}, "note")
+			mustf(t, tg, err, "commenting")
+			_, stale := tg.svc.MoveTask(tg.ctx, core.TaskRef{ID: root.ID}, core.MoveTaskInput{ProjectRef: to.Key, Version: root.Version + 1})
+			_, home := tg.svc.MoveTask(tg.ctx, core.TaskRef{ID: root.ID}, core.MoveTaskInput{ProjectRef: from.Key})
+			moved, err := tg.svc.MoveTask(tg.ctx, core.TaskRef{ID: root.ID}, core.MoveTaskInput{ProjectRef: to.Key, Version: root.Version})
+			if err != nil {
+				return nil, err
+			}
+			tree, err := tg.svc.TaskTree(tg.ctx, core.TaskRef{ID: moved.ID}, 0)
+			mustf(t, tg, err, "reading the moved tree")
+			comments, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: moved.ID})
+			mustf(t, tg, err, "reading the moved comments")
+			_, old := tg.svc.GetTask(tg.ctx, core.TaskRef{ProjectKey: from.Key, Seq: 1})
+			inTarget := 0
+			for _, task := range tree {
+				if task.ProjectID == moved.ProjectID {
+					inTarget++
+				}
+			}
+			return sig{
+				"same_id": moved.ID == root.ID, "seq": moved.Seq, "tags": moved.Tags, "comments": len(comments),
+				"tree": len(tree), "in_target": inTarget, "moved": moved.ProjectID != root.ProjectID,
+				"stale": core.KindOf(stale), "home": core.KindOf(home), "old": core.KindOf(old),
+			}, nil
+		},
+	},
+	{
 		name:   "bulk round-trip",
 		covers: []string{"CreateProject", "CreateTask", "BulkTasks", "GetTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

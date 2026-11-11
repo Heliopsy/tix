@@ -8807,6 +8807,76 @@ paths:
         - task
       x-tix-openspec:
         - http-api
+  /api/v1/tasks/{ref}/move:
+    post:
+      description: |-
+        MoveTask moves a task, with its live subtasks in the same project, to another project of the tenant and returns it under its new reference. Each moved task takes the target's next number, keeps its identifier, comments, stars and dependencies, and has its status mapped into the target workflow: the same state when it exists there, else the first of the same category, else the initial one. A task with a parent is detached from it. Old references stop resolving.
+
+        Command line: `tix task move`.
+      operationId: task.move
+      parameters:
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: Task is the central record.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:write
+        - session:
+            - task:write
+      summary: MoveTask moves a task, with its live subtasks in the same project,
+        to another project of the tenant and returns it under its new reference
+      tags:
+        - task
   /api/v1/tasks/{ref}/restore:
     post:
       description: |-
@@ -15413,6 +15483,18 @@ components:
         tenant_id:
           description: TenantID is the tenant the membership belongs to.
           type: string
+      type: object
+    MoveTaskInput:
+      description: MoveTaskInput names the project a task moves to.
+      properties:
+        project_ref:
+          description: ProjectRef is the key or identifier of the project to move
+            into; it must be another live project of the tenant. Required.
+          type: string
+        version:
+          description: Version is the task version the caller last read. When set
+            and stale the move is refused as a conflict; 0 skips the check.
+          type: integer
       type: object
     NumberingLag:
       description: NumberingLag is one project whose task number counter is behind

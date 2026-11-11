@@ -126,6 +126,7 @@ func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 	}
 	for _, want := range []string{
 		`href="/tasks/` + ref + `/copy"`,
+		`href="/tasks/` + ref + `/move"`,
 		`href="/tasks/` + ref + `/template"`,
 		`popovertarget="snooze-` + ref + `"`,
 		`action="/tasks/` + ref + `/delete"`,
@@ -134,7 +135,7 @@ func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 			t.Errorf("the actions menu lacks %s:\n%s", want, menu)
 		}
 	}
-	for _, once := range []string{`href="/tasks/` + ref + `/copy"`, `href="/tasks/` + ref + `/template"`, `action="/tasks/` + ref + `/delete"`} {
+	for _, once := range []string{`href="/tasks/` + ref + `/copy"`, `href="/tasks/` + ref + `/move"`, `href="/tasks/` + ref + `/template"`, `action="/tasks/` + ref + `/delete"`} {
 		if n := strings.Count(page, once); n != 1 {
 			t.Errorf("%s is drawn %d times, want once, in the menu", once, n)
 		}

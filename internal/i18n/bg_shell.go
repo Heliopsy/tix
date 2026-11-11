@@ -147,6 +147,7 @@ func init() {
 		// Flashes.
 		"task created":                 "задачата е създадена",
 		"task copied":                  "задачата е копирана",
+		"task moved":                   "задачата е преместена",
 		"task saved":                   "задачата е запазена",
 		"task deleted":                 "задачата е изтрита",
 		"task restored":                "задачата е възстановена",

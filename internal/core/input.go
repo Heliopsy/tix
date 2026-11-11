@@ -677,6 +677,27 @@ func (in CopyTaskInput) Validate() error {
 	return nil
 }
 
+// MoveTaskInput names the project a task moves to.
+type MoveTaskInput struct {
+	// ProjectRef is the key or identifier of the project to move into; it must
+	// be another live project of the tenant. Required.
+	ProjectRef string `json:"project_ref" yaml:"project_ref"`
+	// Version is the task version the caller last read. When set and stale the
+	// move is refused as a conflict; 0 skips the check.
+	Version int `json:"version,omitempty" yaml:"version,omitempty"`
+}
+
+// Validate checks the input.
+func (in MoveTaskInput) Validate() error {
+	if strings.TrimSpace(in.ProjectRef) == "" {
+		return Invalid("project_ref is required").WithDetail(DetailField, "project_ref")
+	}
+	if in.Version < 0 {
+		return Invalid("version must not be negative").WithDetail(DetailField, "version")
+	}
+	return nil
+}
+
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
 	// Title replaces the title, at most 500 characters; omitted leaves it.

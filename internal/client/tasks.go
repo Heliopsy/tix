@@ -78,6 +78,11 @@ func (c *Client) CopyTask(ctx context.Context, ref core.TaskRef, in core.CopyTas
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskCopy, ref), nil, in)
 }
 
+// MoveTask moves a task to another project.
+func (c *Client) MoveTask(ctx context.Context, ref core.TaskRef, in core.MoveTaskInput) (*core.Task, error) {
+	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskMove, ref), nil, in)
+}
+
 // BulkTasks applies one action to many tasks in one request.
 func (c *Client) BulkTasks(ctx context.Context, in core.BulkTaskInput) (*core.BulkResult, error) {
 	return call[core.BulkResult](ctx, c, http.MethodPost, wire.RouteTaskBulk, nil, in)
