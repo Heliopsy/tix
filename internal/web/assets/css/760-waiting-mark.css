@@ -27,3 +27,10 @@
 @media (pointer: coarse) {
   .waitmark { min-height: 28px; }
 }
+
+/* On a phone the summary line now names the waiting count in words, which
+   costs a line; the merged board's workflow line gives it back. Every card
+   still carries its project, and the docs tip is on the wider layouts. */
+@media (max-width: 40rem) {
+  .boardmeta { display: none; }
+}
