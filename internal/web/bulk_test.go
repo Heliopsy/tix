@@ -42,7 +42,7 @@ func TestEveryListRowCarriesASelectionBoxForTheBar(t *testing.T) {
 		}
 	}
 	bar := bulkBar(t, page)
-	for _, action := range []string{"move", "priority", "tag_add", "tag_remove", "assign", "star", "unstar", "copy", "delete"} {
+	for _, action := range []string{"move", "priority", "tag_add", "tag_remove", "assign", "star", "unstar", "copy", "move_project", "delete"} {
 		if !strings.Contains(bar, `formaction="/tasks/bulk?action=`+action+`"`) {
 			t.Errorf("the bar offers no %s", action)
 		}
@@ -58,7 +58,7 @@ func TestAReaderWhoMayDoNothingGetsNoSelection(t *testing.T) {
 	f.as("alice").createTask("infra", "one")
 	page := f.as("viewer").page("/tasks")
 	bar := bulkBar(t, page)
-	for _, action := range []string{"move", "priority", "delete", "copy"} {
+	for _, action := range []string{"move", "priority", "delete", "copy", "move_project"} {
 		if strings.Contains(bar, `action=`+action+`"`) {
 			t.Errorf("a viewer is offered a bulk %s", action)
 		}

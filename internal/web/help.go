@@ -47,6 +47,7 @@ var helpDocs = map[string]helpDoc{
 	"/tasks":                             {"web-ui.md", "the-task-list"},
 	"/tasks/{ref}":                       {"web-ui.md", "the-task-screen"},
 	"/tasks/{ref}/copy":                  {"web-ui.md", "copying-a-task"},
+	"/tasks/{ref}/move":                  {"web-ui.md", "moving-a-task"},
 	"/actors":                            {"web-ui.md", "the-directory"},
 	"/actors/{id}":                       {"web-ui.md", "the-actor-screen"},
 	"/tasks/{ref}/tree":                  {"web-ui.md", "the-task-screen"},

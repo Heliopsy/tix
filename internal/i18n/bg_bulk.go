@@ -45,6 +45,8 @@ func init() {
 		"Unstarred %d tasks":                  "Звездата е махната от %d задачи",
 		"Copied %d task to %s":                "%d задача е копирана в %s",
 		"Copied %d tasks to %s":               "%d задачи са копирани в %s",
+		"Moved %d task to project %s":         "%d задача е преместена в проект %s",
+		"Moved %d tasks to project %s":        "%d задачи са преместени в проект %s",
 		"Deleted %d task":                     "%d задача е изтрита",
 		"Deleted %d tasks":                    "%d задачи са изтрити",
 		"Restored %d task":                    "%d задача е възстановена",

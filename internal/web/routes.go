@@ -197,6 +197,7 @@ const (
 	RouteTaskChecklist   = "/tasks/{ref}/checklist"
 	RouteMarkdownPreview = "/markdown/preview"
 	RouteTaskCopy        = "/tasks/{ref}/copy"
+	RouteTaskRehome      = "/tasks/{ref}/move"
 	RouteTaskUnstar      = "/tasks/{ref}/star/remove"
 	RouteTaskSnooze      = "/tasks/{ref}/snooze"
 	RouteTaskUnsnooze    = "/tasks/{ref}/snooze/remove"

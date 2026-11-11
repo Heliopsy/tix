@@ -85,6 +85,9 @@ func (h *handler) bulkTasks(w http.ResponseWriter, r *http.Request) error {
 		AssigneeActorID: field(r, "assignee"),
 		ProjectRef:      field(r, "project"),
 	}
+	if in.Action == core.BulkMoveProject {
+		in.ProjectRef = field(r, "move_project")
+	}
 	if len(in.Refs) == 1 && strings.Contains(in.Refs[0], ",") {
 		in.Refs = strings.Split(in.Refs[0], ",")
 	}
@@ -125,16 +128,17 @@ const maxRefusalsNamed = 5
 // forms, which format the count and then the action's argument when the form
 // names one.
 var bulkDone = map[core.BulkAction][2]string{
-	core.BulkMove:      {"Moved %d task to %s", "Moved %d tasks to %s"},
-	core.BulkPriority:  {"Set %d task to %s priority", "Set %d tasks to %s priority"},
-	core.BulkTagAdd:    {"Tagged %d task with %s", "Tagged %d tasks with %s"},
-	core.BulkTagRemove: {"Untagged %d task: %s", "Untagged %d tasks: %s"},
-	core.BulkAssign:    {"Assigned %d task to %s", "Assigned %d tasks to %s"},
-	core.BulkStar:      {"Starred %d task", "Starred %d tasks"},
-	core.BulkUnstar:    {"Unstarred %d task", "Unstarred %d tasks"},
-	core.BulkCopy:      {"Copied %d task to %s", "Copied %d tasks to %s"},
-	core.BulkDelete:    {"Deleted %d task", "Deleted %d tasks"},
-	core.BulkRestore:   {"Restored %d task", "Restored %d tasks"},
+	core.BulkMove:        {"Moved %d task to %s", "Moved %d tasks to %s"},
+	core.BulkPriority:    {"Set %d task to %s priority", "Set %d tasks to %s priority"},
+	core.BulkTagAdd:      {"Tagged %d task with %s", "Tagged %d tasks with %s"},
+	core.BulkTagRemove:   {"Untagged %d task: %s", "Untagged %d tasks: %s"},
+	core.BulkAssign:      {"Assigned %d task to %s", "Assigned %d tasks to %s"},
+	core.BulkStar:        {"Starred %d task", "Starred %d tasks"},
+	core.BulkUnstar:      {"Unstarred %d task", "Unstarred %d tasks"},
+	core.BulkCopy:        {"Copied %d task to %s", "Copied %d tasks to %s"},
+	core.BulkMoveProject: {"Moved %d task to project %s", "Moved %d tasks to project %s"},
+	core.BulkDelete:      {"Deleted %d task", "Deleted %d tasks"},
+	core.BulkRestore:     {"Restored %d task", "Restored %d tasks"},
 }
 
 // bulkUnassigned is an assign that cleared the assignee.
@@ -171,7 +175,7 @@ func bulkFlash(lang string, in core.BulkTaskInput, result *core.BulkResult) stri
 		if arg == "" {
 			forms = bulkUnassigned
 		}
-	case core.BulkCopy:
+	case core.BulkCopy, core.BulkMoveProject:
 		arg = in.ProjectRef
 	}
 	var done string
