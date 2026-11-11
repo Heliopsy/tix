@@ -52,6 +52,7 @@ type KeyMap struct {
 	SavedFilters  key.Binding
 	SaveFilter    key.Binding
 	Copy          key.Binding
+	Move          key.Binding
 	Share         key.Binding
 	Templates     key.Binding
 	SaveTemplate  key.Binding
@@ -164,6 +165,10 @@ func DefaultKeyMap() KeyMap {
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
+		// d, for dispatch: m and M are the comment keys and t moves a task
+		// along its workflow. It only opens a project picker, so a reader
+		// arriving with vim's dd deletes nothing.
+		Move: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "move to project")),
 		// ^, the arrow a share glyph draws. Every letter worth having is
 		// spoken for, and Y already copies the task itself, not its link.
 		Share: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "share task")),
@@ -318,6 +323,7 @@ const (
 	doCheck
 	doSnooze
 	doCopy
+	doMove
 	doShare
 	doTemplates
 	doSaveTemplate
@@ -625,6 +631,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
+		{id: doMove, binding: k.Move, needsTask: true,
+			gate: gatedAction{methods: []string{"MoveTask"}}},
 		{id: doShare, binding: k.Share, needsTask: true,
 			gate: gatedAction{methods: []string{"GetTask"}}},
 		{id: doTemplates, binding: k.Templates, needsProject: true,

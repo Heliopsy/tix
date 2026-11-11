@@ -122,6 +122,7 @@ const (
 	RouteTaskStar       = APIPrefix + "/tasks/{ref}/star"
 	RouteTaskChecklist  = APIPrefix + "/tasks/{ref}/checklist"
 	RouteTaskCopy       = APIPrefix + "/tasks/{ref}/copy"
+	RouteTaskMove       = APIPrefix + "/tasks/{ref}/move"
 	RouteTaskBulk       = APIPrefix + "/tasks/bulk"
 	RouteTaskSnooze     = APIPrefix + "/tasks/{ref}/snooze"
 	RouteSnoozeWake     = APIPrefix + "/snoozes/wake"

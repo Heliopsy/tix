@@ -1151,6 +1151,17 @@
       </div>
       <button type="button" class="flowclose" popovertarget="bulk-copy" popovertargetaction="hide">{{t "Close"}}</button>
     </div>
+    <button type="button" class="secondary" popovertarget="bulk-rehome">{{t "Move to…"}}</button>
+    <div id="bulk-rehome" class="flowmenu bulkpop" popover>
+      <label class="flowhead" for="bulk-rehome-project">{{t "Move the selected tasks to"}}</label>
+      <select id="bulk-rehome-project" name="move_project">
+        {{range $v.Projects}}<option value="{{.Key}}">{{projLabel $.ProjectLabel .}}</option>{{end}}
+      </select>
+      <div class="bulkpair">
+        <button type="submit" formaction="/tasks/bulk?action=move_project">{{t "Move"}}</button>
+      </div>
+      <button type="button" class="flowclose" popovertarget="bulk-rehome" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
     {{end}}
     {{if $b.Delete}}<button type="submit" class="secondary" formaction="/tasks/bulk?action=delete">{{t "Delete"}}</button>{{end}}
     <a class="btn secondary" href="{{$v.SelectHref}}" data-select-exit data-no-press>{{t "Cancel"}}</a>

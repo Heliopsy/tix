@@ -126,7 +126,13 @@ func init() {
 		"Keep the status %s when the project has it": "Запази статуса %s, ако проектът го има",
 		"Link the copy to this task":                 "Свържи копието с тази задача",
 		"to copy":                                    "за копиране",
-		"Reclaim":                                    "Отнемане",
+		"Move to…":                                   "Премести в…",
+		"Move to another project":                    "Преместване в друг проект",
+		"Moving a task":                              "Преместване на задача",
+		"The task moves with its comments, artifacts, history, links, tags and assignee, and takes the next number in the target project. Its old reference keeps leading to it. It keeps its status when the target's workflow has one of that name, else it starts in the target's first status. Custom fields the target does not define are left behind.": "Задачата се премества с коментарите, артефактите, историята, връзките, етикетите и изпълнителя си и получава следващия номер в целевия проект. Старият ѝ номер продължава да води до нея. Статусът се запазва, ако работният процес на целевия проект има такъв, иначе задачата започва от първия му статус. Персонализираните полета, които целевият проект не определя, остават.",
+		"There is no other project to move this task to.": "Няма друг проект, в който да преместите задачата.",
+		"to move": "за преместване",
+		"Reclaim": "Отнемане",
 		"Offered only to holders of the task:reclaim scope. The holder's token stops working at once, so its next write is refused as lease expired, and anyone may claim the task again.": "Предлага се само на притежателите на обхвата task:reclaim. Токенът на държателя спира да работи веднага, следващият му запис се отказва като изтекла резервация и всеки може да поеме задачата отново.",
 	})
 }

@@ -944,7 +944,7 @@ task returns there too.
 
 The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
 beside it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions
-menu behind the three dots: **Copy the task id**, **Copy to…**, **Save as template**, **Snooze…** or
+menu behind the three dots: **Copy the task id**, **Copy to…**, **Move to…**, **Save as template**, **Snooze…** or
 **Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with its two options.
 Nothing in that menu is drawn anywhere else.
 
@@ -1039,6 +1039,21 @@ task does. A lane card's three dots menu offers **Copy to…** too, opening the 
 when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
 command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
+## Moving a task
+
+**Move to…** sits under **Copy to…** in the task screen's actions menu, for a reader who may write tasks. It
+opens a small form with one choice, the project to move to, listing every project but the task's own. The
+task itself moves: it keeps its comments, artifacts, history, dependencies, tags, assignee and stars, and
+takes the next number in the target project. Its old reference keeps working, so a link, a mention or a
+bookmark of `/tasks/INFRA-4` redirects to the task under its new reference.
+
+The status stays when the target's workflow has a state of the same name; otherwise the task starts in the
+target's first state and the toast says so. Custom fields the target project does not define are left
+behind. A task somebody else holds a claim on is refused with the reason in the form until the claim is
+released; a claim of your own moves with the task. Moving opens the task under its new reference. Boards
+open on either project refresh on their own. The command line has the same operation as `tix task move`,
+the API as `POST /api/v1/tasks/{ref}/move`, and the bulk bar's **Move to…** moves every selected task.
+
 ## Handing a task to an agent
 
 **Hand to an agent** in the task screen's header, beside the star and the actions menu, opens a dialog of
@@ -1118,7 +1133,8 @@ In select mode every row, board card and lane card shows a square box labelled "
 tick stays but is dimmed so the box reads as the control, and a bar appears under the listing saying
 how many are selected (announced to a screen reader) and offering **Move**, **Priority**, **Tag** (add
 or remove), **Assignee** (a handle, or empty to unassign), **Star**, **Unstar**, **Copy to…**,
-**Delete** and **Cancel**. Shift-click ticks every row between the last box you clicked and this one;
+**Move to…** (another project), **Delete** and **Cancel**. Shift-click ticks every row between the last box
+you clicked and this one;
 `x` toggles the focused row; Shift+Up and Shift+Down extend the selection from the focused row and
 move focus with it; Ctrl+A (Cmd+A on a Mac, `*` in the Emacs scheme, where Ctrl+A goes to the top)
 ticks every row while focus is in the list, and leaves a text field's own select all alone. `d` marks

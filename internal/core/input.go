@@ -677,6 +677,41 @@ func (in CopyTaskInput) Validate() error {
 	return nil
 }
 
+// MoveTaskInput names the project a task moves to.
+type MoveTaskInput struct {
+	// ProjectRef is the key or identifier of the project to move into.
+	ProjectRef string `json:"project_ref" yaml:"project_ref"`
+}
+
+// Validate checks the input.
+func (in MoveTaskInput) Validate() error {
+	if strings.TrimSpace(in.ProjectRef) == "" {
+		return Invalid("a target project is required").WithDetail(DetailField, "project_ref")
+	}
+	return nil
+}
+
+// TaskMove is what moving a task did: the task as it landed and what changed
+// on the way.
+type TaskMove struct {
+	// Task is the moved task under its new reference.
+	Task Task `json:"task" yaml:"task"`
+	// FromRef is the reference the task had, which keeps resolving to it.
+	FromRef string `json:"from_ref" yaml:"from_ref"`
+	// FromProject is the key of the project the task left.
+	FromProject string `json:"from_project" yaml:"from_project"`
+	// Project is the key of the project the task moved into.
+	Project string `json:"project" yaml:"project"`
+	// FromStatus is the status the task had before the move.
+	FromStatus string `json:"from_status" yaml:"from_status"`
+	// StatusKept reports that the target's workflow had the same state; when
+	// false the task starts in the target's initial state.
+	StatusKept bool `json:"status_kept" yaml:"status_kept"`
+	// DroppedFields names the custom fields the target does not define or
+	// would not accept, whose values were left behind.
+	DroppedFields []string `json:"dropped_fields,omitempty" yaml:"dropped_fields,omitempty"`
+}
+
 // UpdateTaskInput changes a task.
 type UpdateTaskInput struct {
 	// Title replaces the title, at most 500 characters; omitted leaves it.

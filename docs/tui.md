@@ -210,6 +210,7 @@ an action unbound.
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
+| `d` | move the task to another project, picked from a list; it keeps everything and takes a new number there | board, detail |
 | `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard | board, detail |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
@@ -444,6 +445,18 @@ dependencies. Link to the original starts on, and records on the copy which task
 Description, priority, tags, the custom fields the target defines, the repeat rule, the due date and the
 assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
 since it may have landed in a project the board is not showing.
+
+### Moving a task
+
+`d` moves the selected task to another project, the same operation as `tix task move`. A picker offers every
+project but the task's own; `enter` moves it. The task keeps its identifier, comments, artifacts, history,
+dependencies, tags and assignee, and takes the next number in the target, so the status bar names its new
+reference. The old reference keeps finding it, from the palette, the command line or a link.
+
+The status stays when the target workflow has a state of that name, else the task starts in the target's
+initial state and the status bar says which. Custom fields the target does not define are left behind. A
+task somebody else holds a claim on is refused until the claim is released. `m` was taken by comments, hence
+`d`, for dispatch; it only opens the picker, so nothing happens on a stray press.
 
 ### Sharing a task
 
@@ -1040,7 +1053,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 186
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 187
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat

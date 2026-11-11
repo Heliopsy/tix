@@ -145,8 +145,10 @@ func init() {
 		"runs":       "изпълнения",
 
 		// Flashes.
-		"task created":                 "задачата е създадена",
-		"task copied":                  "задачата е копирана",
+		"task created": "задачата е създадена",
+		"task copied":  "задачата е копирана",
+		"task moved":   "задачата е преместена",
+		"task moved; it starts in the project's first status": "задачата е преместена; започва от първия статус на проекта",
 		"task saved":                   "задачата е запазена",
 		"task deleted":                 "задачата е изтрита",
 		"task restored":                "задачата е възстановена",

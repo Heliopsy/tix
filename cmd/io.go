@@ -263,6 +263,7 @@ type taskOutcome struct {
 	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
 	Error  string `json:"error,omitempty" yaml:"error,omitempty"`
 	Copy   string `json:"copy,omitempty" yaml:"copy,omitempty" show:"ref"`
+	Moved  string `json:"moved,omitempty" yaml:"moved,omitempty" show:"ref"`
 }
 
 // Bulk outcome statuses.
@@ -274,12 +275,18 @@ const (
 
 // bulk applies fn to every reference, reports each outcome and fails if any did.
 func (g *globals) bulk(cmd *cobra.Command, refs []core.TaskRef, fn func(core.TaskRef) error) error {
+	return g.bulkMoves(cmd, refs, func(ref core.TaskRef) (string, error) { return "", fn(ref) })
+}
+
+// bulkMoves is bulk for an action that gives each task a new reference, which
+// its outcome names.
+func (g *globals) bulkMoves(cmd *cobra.Command, refs []core.TaskRef, fn func(core.TaskRef) (string, error)) error {
 	results := make([]taskOutcome, 0, len(refs))
 	var failure error
 	for _, ref := range refs {
-		err := fn(ref)
+		moved, err := fn(ref)
 		if err == nil {
-			results = append(results, taskOutcome{Ref: ref.String(), Status: statusOK})
+			results = append(results, taskOutcome{Ref: ref.String(), Status: statusOK, Moved: moved})
 			continue
 		}
 		results = append(results, taskOutcome{
