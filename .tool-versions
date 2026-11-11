@@ -1,4 +1,4 @@
-golang 1.27.3
+golang 1.27.4
 just 1.59.0
 golangci-lint 2.15.0
 actionlint 1.7.12
