@@ -1551,6 +1551,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateTenant(core.UpdateTenantInput{Theme: &text}, attrTheme)
 	case promptTenantArtifactMax, promptTenantArtifactTypes:
 		return m.updateArtifactLimit(kind, text)
+	case promptTenantSessionTTL, promptTenantSessionIdle, promptTenantSessionRemember:
+		return m.updateSessionSetting(kind, text)
 	case promptDomain:
 		return m.addDomain(text)
 	case promptSaveFilter:

@@ -113,6 +113,9 @@ var unshadowedKeys = map[string]string{
 	"server.public_url":              "connect.Dial and serving.Build, into service.WithPublicURL and server.Options; shown in links, never bound, so no flag",
 	"web.page_size":                  "runServe, into web.WithPageSize; tix serve has no flag for it",
 	"artifacts.max_bytes":            "connect.Dial and serving.Build, into service.WithArtifactLimits and the artifact body limit; tix serve --artifact-max-bytes joins the flag layer only when Changed",
+	"session.ttl":                    "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-ttl joins the flag layer only when Changed",
+	"session.idle_timeout":           "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-idle-timeout joins the flag layer only when Changed",
+	"session.remember_ttl":           "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-remember-ttl joins the flag layer only when Changed",
 	"artifacts.allowed_types":        "connect.Dial, into service.WithArtifactLimits; tix serve --artifact-allowed-types joins the flag layer only when Changed",
 }
 

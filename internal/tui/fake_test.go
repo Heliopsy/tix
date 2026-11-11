@@ -830,6 +830,17 @@ func (f *fakeService) DeleteTenantUser(context.Context, string, string) error { 
 func (f *fakeService) Login(context.Context, core.LoginInput) (*core.LoginResult, error) {
 	return nil, nil
 }
+func (f *fakeService) SessionPolicy(context.Context) (*core.SessionPolicy, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var t core.Tenant
+	if f.tenant != nil {
+		t = *f.tenant
+	}
+	p := core.EffectiveSessionPolicy(core.SessionPolicy{TTL: core.DefaultSessionTTL,
+		RememberTTL: core.DefaultSessionRememberTTL}, t)
+	return &p, nil
+}
 func (f *fakeService) SSHLoginChallenge(context.Context) (*core.SSHChallenge, error) {
 	return nil, nil
 }

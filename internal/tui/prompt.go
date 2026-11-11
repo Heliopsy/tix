@@ -44,6 +44,9 @@ const (
 	promptSnooze
 	promptTenantArtifactMax
 	promptTenantArtifactTypes
+	promptTenantSessionTTL
+	promptTenantSessionIdle
+	promptTenantSessionRemember
 )
 
 // PromptSpec is how one input introduces itself.
@@ -123,6 +126,15 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptTenantArtifactTypes: {Prompt: "accepted artifact types: ", Placeholder: "such as image/*,application/pdf; empty uses the server's",
 		Limit: 1024, Field: "types"},
 
+	// The tenant's session settings, each seeded with its current value;
+	// empty hands the setting back to the server.
+	promptTenantSessionTTL: {Prompt: "sign-in lasts: ", Placeholder: "such as 8h; empty uses the server's",
+		Limit: 32, Field: "duration"},
+	promptTenantSessionIdle: {Prompt: "sign out when idle for: ", Placeholder: "such as 30m; empty uses the server's",
+		Limit: 32, Field: "duration"},
+	promptTenantSessionRemember: {Prompt: "keep me signed in lasts: ", Placeholder: "such as 7d, or off; empty uses the server's",
+		Limit: 32, Field: "duration"},
+
 	// The name the board's filter is kept under, listed in the browser's
 	// sidebar and in s here.
 	promptSaveFilter: {Prompt: "save filter as: ", Placeholder: "a name, such as my overdue work", Limit: core.MaxSavedFilterName, Field: "name"},
@@ -141,7 +153,8 @@ func (k promptKind) NeedsTask() bool {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
 		promptProjectName, promptProjectKey, promptProjectDesc, promptProjectIcon, promptNewField,
 		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent, promptSaveFilter,
-		promptTenantArtifactMax, promptTenantArtifactTypes:
+		promptTenantArtifactMax, promptTenantArtifactTypes,
+		promptTenantSessionTTL, promptTenantSessionIdle, promptTenantSessionRemember:
 		return false
 	default:
 		return true

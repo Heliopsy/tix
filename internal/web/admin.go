@@ -20,7 +20,7 @@ func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
 			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings",
-			"ArtifactLimits"),
+			"ArtifactLimits", "SessionPolicy"),
 		post(RouteTenant, h.updateTenant, "UpdateTenant"),
 		post(RouteMembers, h.addMember, "AddMember"),
 		post(RouteMemberRemove, h.removeMember, "RemoveMember"),
@@ -62,7 +62,14 @@ type tenantView struct {
 	// Artifacts are this tenant's artifact limits with the server's beside
 	// them, the server's shown as the placeholder of each empty box.
 	Artifacts core.ArtifactLimits
-	Tenants   []core.Tenant
+	// Sessions are the session settings in force with the server's beside
+	// them, the server's shown as the placeholder of each empty box.
+	Sessions core.SessionPolicy
+	// RememberText is the tenant's own "keep me signed in" setting as typed,
+	// and ServerRemember the server's, written the same way.
+	RememberText   string
+	ServerRemember string
+	Tenants        []core.Tenant
 	// Trash is whether deleted tasks are kept, and how many are held, so
 	// turning it off can say what stays behind.
 	Trash core.TrashStatus
@@ -143,6 +150,10 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	sessions, err := h.svc.SessionPolicy(r.Context())
+	if err != nil {
+		return err
+	}
 	actors := make([]string, 0, len(members))
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
@@ -152,7 +163,10 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 		DateFormat: dateFormat, DateZone: dateZone,
 		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
-		Artifacts: *artifacts,
+		Artifacts: *artifacts, Sessions: *sessions,
+		RememberText: rememberText(*tenant),
+		ServerRemember: rememberText(core.Tenant{SessionRememberTTL: sessions.ServerRememberTTL,
+			SessionRememberOff: sessions.ServerRememberTTL == 0}),
 		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
 		Housekeeping: newHousekeepingForm(housekeeping),
 		Names:        h.resolveActors(r, actors...)})
@@ -278,6 +292,9 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 		*f.into = &d
 	}
 	if err := artifactSettings(r, &in); err != nil {
+		return err
+	}
+	if err := sessionSettings(r, &in); err != nil {
 		return err
 	}
 	switch field(r, "trash") {
@@ -1084,4 +1101,49 @@ func artifactSettings(r *http.Request, in *core.UpdateTenantInput) error {
 		in.ArtifactTypes = &types
 	}
 	return nil
+}
+
+// sessionSettings reads the tenant's session settings. As with the lease
+// bounds, an empty box hands the setting back to the server, so a form
+// carrying the fields always applies them.
+func sessionSettings(r *http.Request, in *core.UpdateTenantInput) error {
+	for _, f := range []struct {
+		field string
+		what  string
+		into  **core.Duration
+	}{
+		{"session_ttl", "session lifetime", &in.SessionTTL},
+		{"session_idle_timeout", "idle timeout", &in.SessionIdleTimeout},
+	} {
+		if !r.PostForm.Has(f.field) {
+			continue
+		}
+		var d core.Duration
+		if raw := field(r, f.field); raw != "" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("%s: %v", f.what, err).WithDetail(core.DetailField, f.field)
+			}
+			d = parsed
+		}
+		*f.into = &d
+	}
+	if r.PostForm.Has("session_remember_ttl") {
+		v := field(r, "session_remember_ttl")
+		in.SessionRememberTTL = &v
+	}
+	return nil
+}
+
+// rememberText is the tenant's own "keep me signed in" setting as a reader
+// would type it: off, a duration, or empty when it inherits the server's.
+func rememberText(t core.Tenant) string {
+	switch {
+	case t.SessionRememberOff:
+		return core.SessionRememberOff
+	case t.SessionRememberTTL > 0:
+		return t.SessionRememberTTL.Human()
+	default:
+		return ""
+	}
 }

@@ -76,6 +76,9 @@ type totpView struct {
 	// Next is the destination the sign-in was interrupted on its way to. It
 	// is carried through both steps so a deep link still lands.
 	Next string
+	// Remember carries the sign-in's "keep me signed in" choice to the step
+	// that mints the session.
+	Remember bool
 	// Cancel is where a reader who changed their mind goes.
 	Cancel string
 	// Recovery says whether a recovery code is accepted in the code field. It

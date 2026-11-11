@@ -40,6 +40,7 @@
   {{template "csrf" .CSRF}}
   {{if $v.Ticket}}<input type="hidden" name="ticket" value="{{$v.Ticket}}">{{end}}
   {{if $v.Next}}<input type="hidden" name="next" value="{{$v.Next}}">{{end}}
+  {{if $v.Remember}}<input type="hidden" name="remember" value="on">{{end}}
   {{if $v.URI}}<input type="hidden" name="uri" value="{{$v.URI}}">{{end}}
   <div class="field-label"><label for="code">{{if $v.Recovery}}{{t "Code"}}{{else}}{{t "Code from the app"}}{{end}}</label>{{template "tip" (tip "Second factor" "A time-based code (TOTP) from an authenticator app, asked for after your password. It changes every 30 seconds. Recovery codes stand in for it when the app is out of reach." "docs/second-factor.md")}}</div>
   {{if $v.Recovery}}

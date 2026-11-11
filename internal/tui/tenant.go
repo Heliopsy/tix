@@ -327,6 +327,12 @@ func (m Model) applyTenantEdit(form Form) (Model, tea.Cmd) {
 		return m.startPrompt(promptTenantArtifactMax, artifactMaxLine(*m.admin.tenant)), textinput.Blink
 	case attrArtifactTypes:
 		return m.startPrompt(promptTenantArtifactTypes, strings.Join(m.admin.tenant.ArtifactTypes, ",")), textinput.Blink
+	case attrSessionTTL:
+		return m.startPrompt(promptTenantSessionTTL, durationLine(m.admin.tenant.SessionTTL)), textinput.Blink
+	case attrSessionIdle:
+		return m.startPrompt(promptTenantSessionIdle, durationLine(m.admin.tenant.SessionIdleTimeout)), textinput.Blink
+	case attrSessionRemember:
+		return m.startPrompt(promptTenantSessionRemember, rememberLine(*m.admin.tenant)), textinput.Blink
 	case attrMFA:
 		policy := core.MFAPolicy(form.Value(attrMFA))
 		return m, m.updateTenant(core.UpdateTenantInput{MFAPolicy: &policy}, attrMFA)
@@ -505,4 +511,28 @@ func (m Model) updateArtifactLimit(kind promptKind, text string) tea.Cmd {
 		n = parsed
 	}
 	return m.updateTenant(core.UpdateTenantInput{ArtifactMaxBytes: &n}, attrArtifactMax)
+}
+
+// updateSessionSetting sends one of the tenant's session settings typed at
+// the prompt. Empty returns it to the server's; the service refuses one past
+// it.
+func (m Model) updateSessionSetting(kind promptKind, text string) tea.Cmd {
+	text = strings.TrimSpace(text)
+	if kind == promptTenantSessionRemember {
+		return m.updateTenant(core.UpdateTenantInput{SessionRememberTTL: &text}, attrSessionRemember)
+	}
+	var d core.Duration
+	if text != "" {
+		parsed, err := core.ParseDuration(text)
+		if err != nil {
+			return func() tea.Msg {
+				return actionMsg{kind: actionEditTenant, label: m.tenantKey, err: err}
+			}
+		}
+		d = parsed
+	}
+	if kind == promptTenantSessionIdle {
+		return m.updateTenant(core.UpdateTenantInput{SessionIdleTimeout: &d}, attrSessionIdle)
+	}
+	return m.updateTenant(core.UpdateTenantInput{SessionTTL: &d}, attrSessionTTL)
 }

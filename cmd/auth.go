@@ -435,6 +435,7 @@ func tokenRotateCmd(g *globals) *cobra.Command {
 // newLoginCmd builds the login command.
 func newLoginCmd(g *globals) *cobra.Command {
 	var email, password, sshKey, contextName string
+	var remember bool
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Exchange a password or an SSH key for a session",
@@ -463,6 +464,11 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"is refused with exit code 5 and reason second_factor_enrollment_required, naming the web " +
 			"enrolment screen. During the policy's grace the sign-in completes with a warning naming the " +
 			"deadline.\n\n" +
+			"--remember asks for a keep me signed in session, which lasts the tenant's session remember_ttl " +
+			"(30d unless the server or tenant says otherwise) instead of its ttl (12h). Where the tenant " +
+			"does not offer it the session is an ordinary one; the printed expires_at says which you got. " +
+			"An idle timeout still ends a remembered session left unused. It applies to a password sign-in " +
+			"and cannot be combined with --ssh-key.\n\n" +
 			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials or a second " +
 			"factor to enrol with no terminal, 6 no terminal to prompt for a code or a new password.",
 		Example: "  tix login --email ada@example.com --password -\n" +
@@ -475,6 +481,9 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if cmd.Flags().Changed("ssh-key") {
 				if email != "" || password != "" {
 					return usagef(cmd, "--ssh-key replaces --email and --password; pass one or the other")
+				}
+				if remember {
+					return usagef(cmd, "--remember applies to a password sign-in, not --ssh-key")
 				}
 				return g.loginWithSSHKey(cmd, sshKey, contextName)
 			}
@@ -494,7 +503,7 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI}
+			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI, Remember: remember}
 			result, err := svc.Login(ctx, in)
 			if err != nil {
 				return err
@@ -507,11 +516,13 @@ func newLoginCmd(g *globals) *cobra.Command {
 					return err
 				}
 			}
-			return g.finishLogin(cmd, svc, ctx, result, tl)
+			return g.finishLogin(cmd, svc, ctx, result, tl, remember)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")
 	cmd.Flags().StringVar(&password, "password", "", "password, or - to read standard input")
+	cmd.Flags().BoolVar(&remember, "remember", false,
+		"keep me signed in: the session lasts the tenant's remember_ttl rather than its ttl")
 	cmd.Flags().StringVar(&sshKey, "ssh-key", "",
 		"sign in with an enrolled SSH key: alone, ssh-agent then the default keys; =PATH, that private key")
 	cmd.Flags().Lookup("ssh-key").NoOptDefVal = sshKeyDiscover
@@ -554,11 +565,11 @@ func (g *globals) askNewPassword(cmd *cobra.Command, server string) (string, err
 // finishLogin takes a first step's answer through the second factor, when
 // there is one, and prints the session.
 func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.Context,
-	result *core.LoginResult, tl *tenantLogin,
+	result *core.LoginResult, tl *tenantLogin, remember bool,
 ) error {
 	var err error
 	if result.Challenge != nil {
-		if result, err = g.answerChallenge(cmd, svc, ctx, result.Challenge); err != nil {
+		if result, err = g.answerChallenge(cmd, svc, ctx, result.Challenge, remember); err != nil {
 			return err
 		}
 	}
@@ -605,7 +616,7 @@ func (g *globals) loginWithSSHKey(cmd *cobra.Command, path, contextName string) 
 	if err != nil {
 		return err
 	}
-	return g.finishLogin(cmd, svc, ctx, result, tl)
+	return g.finishLogin(cmd, svc, ctx, result, tl, false)
 }
 
 // audienceOf is the host a signature is bound to: the server this invocation
@@ -636,7 +647,7 @@ func expandTilde(path, home string) string {
 // flag or as an environment variable, so a caller with no terminal is refused
 // here rather than hanging on a question nobody can answer.
 func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx context.Context,
-	challenge *core.TOTPChallenge,
+	challenge *core.TOTPChallenge, remember bool,
 ) (*core.LoginResult, error) {
 	if !onATerminal(cmd) {
 		if challenge.Kind == core.ChallengeEnrol {
@@ -656,7 +667,7 @@ func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx cont
 		return nil, err
 	}
 	return svc.Login(ctx, core.LoginInput{
-		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code,
+		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code, Remember: remember,
 	})
 }
 

@@ -767,7 +767,11 @@ a named subject rather than a typed identifier. The confirmation says the hostna
 `e` edits the tenant: the theme from the palettes the build carries, including the word for having none
 and `custom`, which asks for a `#rrggbb` accent at the single-line input, and the name from the
 single-line input seeded with the name it would replace, the second factor policy (`off` or `required`)
-and its grace (from `0` to `30d`; any other length is for `tix tenant edit --mfa-grace`). The screen states
+and its grace (from `0` to `30d`; any other length is for `tix tenant edit --mfa-grace`), the artifact
+limits, and the session settings: sign-in lasts, idle timeout and keep signed in, each typed at the
+single-line input seeded with the tenant's own value, empty to use the server's, `off` to stop offering
+keep signed in. The screen lists all three beside the other attributes, `server's` where the tenant sets none.
+The account screen's sessions say `kept signed in` on a remembered one. The screen states
 the policy beside the theme. Turning it on is refused while you hold no second factor yourself; see
 [second-factor.md](second-factor.md#the-tenant-policy). `n` asks whether a domain or a member is being
 added. A domain takes its hostname at the prompt and is added carrying no certificate
@@ -1063,7 +1067,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 189
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 190
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat
