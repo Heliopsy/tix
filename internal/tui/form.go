@@ -34,6 +34,7 @@ const (
 	formMember
 	formTaskEdit
 	formCopy
+	formMove
 	formSavedFilter
 	formTemplates
 	formSaveTemplate
@@ -625,6 +626,35 @@ func CopyInput(t core.Task, f Form) core.CopyTaskInput {
 		in.Title = title
 	}
 	return in
+}
+
+// MoveNote says what a move keeps, so a reader knows nothing is lost but the
+// number.
+const MoveNote = "the task keeps its comments, history, tags and assignee and takes the next number there; its old reference still finds it"
+
+// MoveForm asks which project a task moves to, from every project but its
+// own. It is closed when there is nowhere else to go.
+func MoveForm(t core.Task, projects []core.Project) Form {
+	keys := make([]string, 0, len(projects))
+	for _, p := range projects {
+		if p.ID != t.ProjectID {
+			keys = append(keys, output.ShowKey(p.Key))
+		}
+	}
+	keys = uniqueSorted(keys)
+	if len(keys) == 0 {
+		return Form{}
+	}
+	return Form{
+		Kind: formMove, Title: "move " + output.ShowRef(t.Ref), Note: MoveNote,
+		Fields: []FormField{{Key: "project", Label: "to project", Options: keys, Value: keys[0]}},
+	}
+}
+
+// MoveInput is what an answered move form asks the service for. The target is
+// offered as its upper-case key and sent as the stored one.
+func MoveInput(f Form) core.MoveTaskInput {
+	return core.MoveTaskInput{ProjectRef: strings.ToLower(f.Value("project"))}
 }
 
 // Template form actions, as the action field offers them.

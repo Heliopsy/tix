@@ -68,6 +68,7 @@ const (
 	actionUnsnooze
 	actionArrange
 	actionCopy
+	actionMove
 	actionUseTemplate
 	actionSaveTemplate
 	actionRenameTemplate
@@ -122,6 +123,7 @@ var actionLabels = map[actionKind][2]string{
 	actionUnsnooze: {"unsnooze the task", "unsnoozed"},
 	actionArrange:  {"arrange the board", "arranged the board"},
 	actionCopy:     {"copy the task", "copied"},
+	actionMove:     {"move the task", "moved"},
 
 	actionUseTemplate:    {"create a task from the template", "created"},
 	actionSaveTemplate:   {"save the template", "saved template"},

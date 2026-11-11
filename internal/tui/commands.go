@@ -750,6 +750,26 @@ func (m Model) copyTask(task core.Task, in core.CopyTaskInput) tea.Cmd {
 	}
 }
 
+// moveTask moves a task to another project and names its new reference on the
+// status bar, with the status it starts in when it could not keep its own.
+func (m Model) moveTask(task core.Task, in core.MoveTaskInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
+	return func() tea.Msg {
+		moved, err := svc.MoveTask(ctx, ref, in)
+		msg := actionMsg{kind: actionMove, ref: ref, label: label, err: err}
+		if err == nil {
+			msg.sentence = "moved " + label + " to " + output.ShowRef(moved.Task.Ref)
+			if !moved.StatusKept {
+				msg.sentence += ", now " + moved.Task.Status
+			}
+		}
+		return msg
+	}
+}
+
 // loadTemplates lists the templates the board's project can use, for the
 // template form to offer.
 func (m Model) loadTemplates() tea.Cmd {
