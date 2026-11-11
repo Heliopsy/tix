@@ -28,13 +28,75 @@ type rawOpener struct {
 	// Dialog asks for the screen as the task dialog draws it, so the
 	// fetched dialog carries the ids of the dialog it opens from.
 	Dialog bool
+	// JSON is the row's entries as the audit API returns them, indented,
+	// what the row's Copy JSON button copies.
+	JSON string
 }
 
 // newRawOpener is the Raw control of one history row on the screen at here.
 func newRawOpener(here, prefix string, g historyGroup, inDialog bool) rawOpener {
 	id := prefix + rawPrefix + strconv.FormatInt(g.Latest().Entry.Seq, 10)
-	return rawOpener{ID: id, Href: dialogHref(here, id), Steps: len(g.Hops), Dialog: inDialog}
+	return rawOpener{ID: id, Href: dialogHref(here, id), Steps: len(g.Hops), Dialog: inDialog, JSON: groupJSON(g)}
 }
+
+// groupJSON is a history row's audit entries as indented JSON: the one entry
+// as an object, or a row of several steps as an array of them.
+func groupJSON(g historyGroup) string {
+	entries := make([]core.AuditEntry, len(g.Hops))
+	for i, hop := range g.Hops {
+		entries[i] = hop.Entry
+	}
+	if len(entries) == 1 {
+		return entryJSON(entries[0])
+	}
+	return indentJSON(entries)
+}
+
+// entryJSON is one audit entry as indented JSON.
+func entryJSON(e core.AuditEntry) string { return indentJSON(e) }
+
+// indentJSON is v as indented JSON with its fields in the order the API
+// writes them, or nothing when it does not marshal. Snapshots are stored
+// with markup escaped, so the escapes are undone the way prettyJSON undoes
+// them.
+func indentJSON(v any) string {
+	raw, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return unescapeMarkup(string(raw))
+}
+
+// unescapeMarkup turns the \u003c, \u003e and \u0026 escapes in a JSON
+// document back into the characters they stand for. Every backslash in JSON
+// opens an escape, so stepping over each escape whole never misreads an
+// escaped backslash.
+func unescapeMarkup(s string) string {
+	if !strings.Contains(s, `\u00`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			continue
+		}
+		if s[i+1] == 'u' && i+6 <= len(s) {
+			if c, ok := markupEscapes[strings.ToLower(s[i+2:i+6])]; ok {
+				b.WriteByte(c)
+				i += 5
+				continue
+			}
+		}
+		b.WriteString(s[i : i+2])
+		i++
+	}
+	return b.String()
+}
+
+// markupEscapes are the characters json.Marshal escapes for HTML's sake.
+var markupEscapes = map[string]byte{"003c": '<', "003e": '>', "0026": '&'}
 
 // rawEntry is the dialog that shows one history row's audit entries as they
 // were recorded: who, what, when and through which surface, then each
@@ -69,6 +131,8 @@ type rawHop struct {
 	After     string
 	Diff      []rawDiff
 	Channel   viaView
+	// JSON is the entry alone as indented JSON, for a row of several steps.
+	JSON string
 }
 
 // rawDiff is one field an entry changed: added, removed or changed, with its
@@ -111,24 +175,17 @@ func newRawEntry(id, here string, g historyGroup, names actorNames, subject, sub
 		Subject: subject, SubjectHref: subjectHref, At: latest.OccurredAt,
 		Hops: make([]rawHop, len(g.Hops)), Steps: len(g.Hops),
 	}
-	entries := make([]core.AuditEntry, len(g.Hops))
 	for i, hop := range g.Hops {
 		e := hop.Entry
-		entries[i] = e
 		out.Hops[i] = rawHop{
 			Entry: e, ID: id + "-" + strconv.Itoa(i+1), Step: i + 1,
 			Actor: names.Label(e.ActorID), ActorHref: actorFeedHref(e.ActorID),
 			Before: prettyJSON(e.Before), After: prettyJSON(e.After),
 			Diff: diffSnapshots(e.Before, e.After), Channel: hop.Channel(),
+			JSON: entryJSON(e),
 		}
 	}
-	var all any = entries
-	if len(entries) == 1 {
-		all = entries[0]
-	}
-	if raw, err := json.Marshal(all); err == nil {
-		out.All = prettyJSON(raw)
-	}
+	out.All = groupJSON(g)
 	return out
 }
 

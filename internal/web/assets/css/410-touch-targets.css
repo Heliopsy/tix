@@ -26,6 +26,7 @@
   /* Controls that act as a row's one button: Raw on a history entry,
      Move on a board card, and the per-project links on the project list. */
   a.btn.rawopen,
+  button.link.rawcopy,
   details.note > summary,
   details.card-move > summary,
   .pager-step,

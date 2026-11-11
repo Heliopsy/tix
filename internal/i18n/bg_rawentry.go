@@ -22,5 +22,9 @@ func init() {
 		"(none)":                           "(няма)",
 		"This entry recorded no snapshot.": "Този запис не съдържа моментна снимка.",
 		"Copy all as JSON":                 "Копирай всичко като JSON",
+		"Copy JSON":                        "Копирай JSON",
+		"Copy JSON of this entry":          "Копирай JSON на този запис",
+		"Copy JSON of these entries":       "Копирай JSON на тези записи",
+		"Copy JSON of step %d":             "Копирай JSON на стъпка %d",
 	})
 }

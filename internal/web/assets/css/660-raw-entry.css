@@ -17,6 +17,20 @@ a.btn.rawopen {
 }
 a.btn.rawopen:hover, a.btn.rawopen:focus-visible { background: var(--accent-soft); color: var(--accent); }
 .feed a.btn.rawopen { flex: 0 0 auto; margin-left: 4px; }
+/* Copy JSON beside Raw copies the row's entries without opening the dialog,
+ * drawn as quietly as Raw so the row's sentence keeps the weight. */
+button.link.rawcopy {
+  margin-left: 4px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+button.link.rawcopy:hover, button.link.rawcopy:focus-visible { background: var(--accent-soft); color: var(--accent); }
+.feed button.link.rawcopy { flex: 0 0 auto; }
+.rawhop .rawjson-head h3 { margin: 0; }
 dialog.actiondlg.rawdlg { width: min(56rem, calc(100vw - 2 * var(--space-3))); max-height: min(80vh, calc(100dvh - 2 * var(--space-4))); }
 dialog.actiondlg.rawdlg.is-inplace { max-width: none; max-height: none; }
 .rawdlg .actiondlg-head { align-items: flex-start; }

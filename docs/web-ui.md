@@ -1412,6 +1412,10 @@ full time, the source and the sequence number, the fields that changed side by s
 after snapshots as indented JSON, each with a Copy button and a Copy all as JSON button for the whole
 entry. Without JavaScript Raw is a link to `?dialog=raw-SEQ`, which draws the same dialog in place.
 
+Copy JSON beside Raw copies the row's audit entry as the audit API lists it, indented, without
+opening anything; a row of several steps copies them as an array, and each step in its dialog has a Copy JSON
+of its own. It needs JavaScript and is not drawn without it.
+
 ## Housekeeping
 
 The Tenant screen has a Housekeeping section: how many days a done task, a cancelled task and a task in the

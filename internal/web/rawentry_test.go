@@ -3,11 +3,17 @@
 package web_test
 
 import (
+	"encoding/json"
+	"html"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // Raw on an activity row was a <details> that the row's flex line sized to
@@ -173,4 +179,133 @@ func diffRow(page, key string) string {
 		return ""
 	}
 	return page[start : at+end]
+}
+
+var rawCopyTag = regexp.MustCompile(`<button type="button" class="link rawcopy" data-copy-text="([^"]*)" aria-label="([^"]+)" data-needs-js>Copy JSON</button>`)
+
+// rowCopies is every row's Copy JSON button on a page: the JSON it copies,
+// unescaped as the browser reads the attribute, and its accessible name.
+func rowCopies(t *testing.T, page string) (texts, labels []string) {
+	t.Helper()
+	for _, m := range rawCopyTag.FindAllStringSubmatch(page, -1) {
+		texts = append(texts, html.UnescapeString(m[1]))
+		labels = append(labels, m[2])
+	}
+	return texts, labels
+}
+
+// sameJSON reports whether two documents decode to the same value.
+func sameJSON(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	var left, right any
+	if err := json.Unmarshal(a, &left); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, a)
+	}
+	if err := json.Unmarshal(b, &right); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, b)
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+// Each history row copies its audit entry as the API lists it, indented,
+// without opening Raw: the whole record, snapshots and channel included,
+// with a hostile title carried as text in an attribute.
+func TestEachHistoryRowCopiesItsEntryAsJSON(t *testing.T) {
+	t.Parallel()
+	b, ref := rawFixture(t)
+	parsed, err := core.ParseTaskRef(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := b.fix.svc.GetTask(b.fix.ctx(), parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, _, err := b.fix.svc.ListAudit(b.fix.ctx(), core.AuditFilter{SubjectType: "task", SubjectID: task.ID,
+		Page: core.Page{Sort: "seq", Direction: core.Descending, Limit: 1}})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("reading the newest entry: %v, %d entries", err, len(entries))
+	}
+	api, err := json.Marshal(entries[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/activity", "/tasks/" + ref} {
+		page := b.page(path)
+		texts, labels := rowCopies(t, page)
+		if len(texts) == 0 {
+			t.Fatalf("%s: no row has a Copy JSON button", path)
+		}
+		if strings.Contains(page, `data-copy-text="{`+"\n"+`  "seq"`) || strings.Contains(page, `<script>alert`) {
+			t.Errorf("%s: the copied JSON reaches the page unescaped", path)
+		}
+		var found bool
+		for i, text := range texts {
+			if !strings.Contains(text, `"seq": `+strconv.FormatInt(entries[0].Seq, 10)+",") {
+				continue
+			}
+			found = true
+			if !strings.HasPrefix(text, "{\n  \"seq\": ") {
+				t.Errorf("%s: the copied entry is not indented JSON:\n%s", path, text)
+			}
+			if !sameJSON(t, []byte(text), api) {
+				t.Errorf("%s: the row copies\n%s\nwhile the API lists\n%s", path, text, api)
+			}
+			if !strings.Contains(text, hostileTitle[:8]) {
+				t.Errorf("%s: the hostile title is not in the copy as written:\n%s", path, text)
+			}
+			if labels[i] != "Copy JSON of this entry" {
+				t.Errorf("%s: the button is named %q", path, labels[i])
+			}
+		}
+		if !found {
+			t.Errorf("%s: no row copies entry %d", path, entries[0].Seq)
+		}
+	}
+}
+
+// A row of several steps copies them all as an array, which is what the
+// dialog's Copy all as JSON copies, and the dialog copies each step alone.
+func TestAMultiStepRowCopiesEveryStepAndEachAlone(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "walked")
+	done := b.post("/tasks/"+ref+"/complete", url.Values{})
+	_ = done.Body.Close()
+	wantStatus(t, done, http.StatusSeeOther)
+
+	page := b.page("/tasks/" + ref)
+	_, id, _ := firstRawOpener(t, page)
+	texts, labels := rowCopies(t, page)
+	if len(texts) == 0 {
+		t.Fatalf("no row has a Copy JSON button")
+	}
+	var steps []map[string]any
+	if err := json.Unmarshal([]byte(texts[0]), &steps); err != nil || len(steps) != 2 {
+		t.Fatalf("the move's row copies %d steps (%v), want an array of 2:\n%s", len(steps), err, texts[0])
+	}
+	if labels[0] != "Copy JSON of these entries" {
+		t.Errorf("the move's button is named %q", labels[0])
+	}
+
+	dlg := dialogBlock(b.page("/tasks/"+ref+"?dialog="+id), id)
+	all := regexp.MustCompile(`data-copy-text="([^"]*)">Copy all as JSON</button>`).FindStringSubmatch(dlg)
+	if all == nil || html.UnescapeString(all[1]) != texts[0] {
+		t.Errorf("the row and the dialog's Copy all as JSON copy different things")
+	}
+	for i := range 2 {
+		step := regexp.MustCompile(`data-copy-text="([^"]*)" aria-label="Copy JSON of step ` + strconv.Itoa(i+1) + `">Copy JSON</button>`).FindStringSubmatch(dlg)
+		if step == nil {
+			t.Errorf("step %d of the dialog has no Copy JSON:\n%s", i+1, dlg)
+			continue
+		}
+		one, err := json.Marshal(steps[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sameJSON(t, []byte(html.UnescapeString(step[1])), one) {
+			t.Errorf("step %d copies something other than its entry", i+1)
+		}
+	}
 }

@@ -673,8 +673,11 @@
      wide. Now it is the link to the screen with the row's dialog drawn open
      (raw-dialog), and with scripting it fetches only that dialog into the
      slot after the list and opens it as a modal one; a second press opens
-     the one already fetched (assets/forms.js). Takes rawOpener. */}}
-{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{end}}
+     the one already fetched (assets/forms.js). Copy JSON beside it copies
+     the row's entries as the audit API returns them, without opening
+     anything (assets/copy.js); it needs scripting, so it is not drawn
+     without. Takes rawOpener. */}}
+{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{with .JSON}}<button type="button" class="link rawcopy" data-copy-text="{{.}}" aria-label="{{if gt $.Steps 1}}{{t "Copy JSON of these entries"}}{{else}}{{t "Copy JSON of this entry"}}{{end}}" data-needs-js>{{t "Copy JSON"}}</button>{{end}}{{end}}
 
 {{/* raw-dialog shows one history row's audit entries as recorded: a table
      of who, what, when and how, the fields that changed side by side, and
@@ -686,7 +689,7 @@
 <a class="actiondlg-x" href="{{.Back}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</a></div>
 {{range $h := .Hops}}
 <section class="rawhop" aria-labelledby="{{$h.ID}}-head">
-  {{if gt $.Steps 1}}<h3 id="{{$h.ID}}-head">{{t "Step %d of %d" $h.Step $.Steps}}</h3>{{else}}<h3 id="{{$h.ID}}-head" class="sr-only">{{t "Entry"}}</h3>{{end}}
+  {{if gt $.Steps 1}}<div class="rawjson-head"><h3 id="{{$h.ID}}-head">{{t "Step %d of %d" $h.Step $.Steps}}</h3><button type="button" class="secondary small" data-copy-text="{{$h.JSON}}" aria-label="{{t "Copy JSON of step %d" $h.Step}}">{{t "Copy JSON"}}</button></div>{{else}}<h3 id="{{$h.ID}}-head" class="sr-only">{{t "Entry"}}</h3>{{end}}
   <dl class="rawdl">
     <div><dt>{{t "Actor"}}</dt><dd>{{if $h.ActorHref}}<a href="{{$h.ActorHref}}">{{$h.Actor}}</a>{{else}}{{t "system"}}{{end}}</dd></div>
     <div><dt>{{t "Action"}}</dt><dd class="mono">{{$h.Entry.Action}}</dd></div>
