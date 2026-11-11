@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.58.0](https://github.com/Heliopsy/tix/compare/v0.57.0...v0.58.0) (2026-11-11)
+
+
+### Features
+
+* **service:** configurable session lifetime, idle timeout and keep me signed in ([3219ce5](https://github.com/Heliopsy/tix/commit/3219ce5c3ec971a9d9bb5309295208437b5b1797))
+* **web:** keep me signed in on sign-in and session settings on every surface ([5acd5c9](https://github.com/Heliopsy/tix/commit/5acd5c9870bf77d97369b7a53508f65306e9d33b))
+
 ## [0.57.0](https://github.com/Heliopsy/tix/compare/v0.56.1...v0.57.0) (2026-11-11)
 
 
