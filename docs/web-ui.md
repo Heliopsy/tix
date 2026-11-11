@@ -1408,7 +1408,8 @@ actor's name on any row narrows to that actor. A `source` link from before the c
 filters by surface.
 
 Every row ends with its channel as an icon and a few words: "via web", "via SSH", "via token ci-agent",
-"via MCP (token scout-runner)", "via CLI". Hovering it shows what identified the caller: the client
+"via MCP (token scout-runner)", "via CLI", and "via sync (token ci-runner)" for a sync or import an agent
+started with a token. Hovering it shows what identified the caller: the client
 address, the user agent, the SSH key fingerprint, the token's name and ID, the session reference, the job
 for background work. The row's Raw view lists the same details, and the channel itself links to the feed
 narrowed to that channel and token. A task's History has the same channel in its Channel column, linked the same way.

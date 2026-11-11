@@ -191,3 +191,36 @@ func TestAnOldEntryReadsAsAnUnknownChannel(t *testing.T) {
 		t.Errorf("an entry with no channel shows %+v", chipsIn(feed))
 	}
 }
+
+// An import or sync started with a token names it in the history, the same
+// way a change made directly with one does.
+func TestAHistoryRowNamesTheTokenAnImportOrSyncRanWith(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		kind  core.ViaKind
+		label string
+	}{
+		{core.ViaImport, "via import (token ci-runner)"},
+		{core.ViaSync, "via sync (token ci-runner)"},
+	} {
+		t.Run(string(tc.kind), func(t *testing.T) {
+			t.Parallel()
+			f := newFixture(t)
+			via := core.Via{Kind: core.ViaAPI, TokenID: "tok-9", TokenName: "ci-runner"}.Derive(tc.kind)
+			ctx := core.WithVia(core.WithActor(context.Background(), &f.actorA), via)
+			task, err := f.svc.CreateTask(ctx, core.CreateTaskInput{ProjectRef: "infra", Title: "brought in"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			region := historyRegion(t, f.as("alice").page("/tasks/"+task.Ref))
+			var cells []chip
+			for _, m := range channelCell.FindAllStringSubmatch(region, -1) {
+				cells = append(cells, chipsIn(m[1])...)
+			}
+			c, ok := findChip(cells, tc.label)
+			if !ok || c.kind != string(tc.kind) || !strings.Contains(c.title, "Started from: api") {
+				t.Errorf("the channel column shows %+v, want %q started from api", cells, tc.label)
+			}
+		})
+	}
+}

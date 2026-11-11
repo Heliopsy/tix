@@ -45,8 +45,8 @@ var viaLabels = map[core.ViaKind][2]string{
 	core.ViaCLIRemote: {"via CLI", "via CLI (token %s)"},
 	core.ViaSSH:       {"via SSH", "via SSH"},
 	core.ViaMCP:       {"via MCP", "via MCP (token %s)"},
-	core.ViaSync:      {"via sync", "via sync"},
-	core.ViaImport:    {"via import", "via import"},
+	core.ViaSync:      {"via sync", "via sync (token %s)"},
+	core.ViaImport:    {"via import", "via import (token %s)"},
 	core.ViaSystem:    {"via system", "via system (%s)"},
 	core.ViaUnknown:   {"via unknown channel", "via unknown channel"},
 }
