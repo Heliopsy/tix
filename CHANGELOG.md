@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.57.0](https://github.com/Heliopsy/tix/compare/v0.56.1...v0.57.0) (2026-11-11)
+
+
+### Features
+
+* **cli:** tix task move and bulk move-project ([e9f4033](https://github.com/Heliopsy/tix/commit/e9f403330bfcbc600afd493b5299f62904f36bd0))
+* copy an audit entry as JSON from the web UI and the TUI ([6c940de](https://github.com/Heliopsy/tix/commit/6c940de9417031adce89124f5f175088ccc33425))
+* emoji reactions on comments ([45a41a3](https://github.com/Heliopsy/tix/commit/45a41a3e6610a09450ced7e3defad76737afe414))
+* **service:** move a task to another project, keeping its old reference ([dc8fb9d](https://github.com/Heliopsy/tix/commit/dc8fb9d8e63f335daca1f60b2a8033ea4acbe626))
+* **tui:** d moves the selected task to another project ([586f811](https://github.com/Heliopsy/tix/commit/586f811f899ae005d9a4b995c3e7278ced66b425))
+* **web:** link a task history row's channel to that token's activity ([195b86f](https://github.com/Heliopsy/tix/commit/195b86f9c3e57cb1faa7e2b9882cf27cfba9a2c3))
+* **web:** Move to on the task screen and in the bulk bar ([b378c4c](https://github.com/Heliopsy/tix/commit/b378c4c43c3cfb0a1779147a924e3847d272d9d7))
+* **web:** show the token a sync run was started with beside who ran it ([bab9e05](https://github.com/Heliopsy/tix/commit/bab9e051027c33f286434f1354e51715a8611746))
+
+
+### Bug Fixes
+
+* **web:** draw the blocked state in red, board column headings included ([10a3234](https://github.com/Heliopsy/tix/commit/10a3234f16f1ca34d016635d17cc54e8506c13ea))
+* **web:** name the token an import or sync ran with instead of printing EXTRA ([4645824](https://github.com/Heliopsy/tix/commit/464582415690e55823b7a7a8bdb7a0f2e48401e4))
+* **web:** say waiting on other tasks for dependency waits and stop paging board columns ([#319](https://github.com/Heliopsy/tix/issues/319)) ([b75d2fa](https://github.com/Heliopsy/tix/commit/b75d2fa9450f3c4595fc854871f1516d1e35af02))
+
+
+### Dependencies
+
+* go 1.27.4 for GO-2026-6859 in net/http ([f7ffe6d](https://github.com/Heliopsy/tix/commit/f7ffe6ddec8621d77f9fa4aa33cd4dc44ef60f6e))
+
 ## [0.56.1](https://github.com/Heliopsy/tix/compare/v0.56.0...v0.56.1) (2026-11-10)
 
 
