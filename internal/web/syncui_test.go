@@ -3,12 +3,15 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/heliopsy/tix/internal/core"
 )
 
 // joinedNames closes up the break opportunities the screen puts inside an
@@ -187,6 +190,33 @@ func TestSyncRunsListsWhatRanAndWhatItDid(t *testing.T) {
 	}
 	if strings.Contains(page, "No import has finished yet") {
 		t.Error("the run history reports nothing after a run finished")
+	}
+}
+
+// A run an agent started with an API token says which token, beside who ran it.
+func TestSyncRunsNamesTheTokenARunWasStartedWith(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	addSource(t, b, "generic", "ops")
+
+	via := core.Via{Kind: core.ViaAPI, TokenID: "tok-9", TokenName: "ci-runner"}
+	ctx := core.WithVia(core.WithActor(context.Background(), &f.actorA), via)
+	if _, err := f.svc.RunSync(ctx, core.RunSyncInput{SourceID: "src-ops"}); err != nil {
+		t.Fatal(err)
+	}
+	resp := b.post("/sync/run", url.Values{"source_id": {"src-ops"}})
+	_ = resp.Body.Close()
+
+	cells := regexp.MustCompile(`(?s)<td>(alice[^<]*(?:<span class="muted">[^<]*</span>)?)</td>`).
+		FindAllStringSubmatch(section(t, b.page("/sync/runs"), "<h2>Completed runs</h2>"), -1)
+	var got []string
+	for _, m := range cells {
+		got = append(got, m[1])
+	}
+	want := []string{"alice", `alice <span class="muted">via token ci-runner</span>`}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("Ran as cells = %q, want %q (the browser run first, newest first)", got, want)
 	}
 }
 

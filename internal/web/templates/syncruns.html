@@ -22,7 +22,7 @@
       <td>{{.Created}}</td>
       <td>{{.Updated}}</td>
       <td>{{.Skipped}}</td>
-      <td>{{$v.Names.Label .ActorID}}</td>
+      <td>{{$v.Names.Label .ActorID}}{{with .Token}} <span class="muted">{{t "via token %s" .}}</span>{{end}}</td>
     </tr>
     {{if .Warnings}}
     <tr>
