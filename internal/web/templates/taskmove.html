@@ -1,0 +1,43 @@
+{{define "content"}}
+{{$t := .Data.Task}}{{$e := .Data.Errors}}
+{{if .InDialog}}<p class="backlink"><button type="button" class="ghost dlgclose" data-dialog-close>{{template "icon" "arrow-left"}}<span>{{t "Close"}}</span></button></p>{{end}}
+{{/* Drawn as the copy form is. The task keeps its identifier and everything
+     on it; only the project, the number and maybe the status change. */}}
+<div class="copysheet">
+<form method="post" class="cform copyform moveform" data-form action="/tasks/{{$t.Ref}}/move">
+  {{template "csrf" .CSRF}}
+  <div class="cform-head">
+    <h1 class="cform-title"{{if .InDialog}} id="taskdlg-title"{{end}}>{{t "Move to another project"}} <span class="ref mono">{{ref $t.Ref}}</span></h1>
+    {{template "tip" (tip "Moving a task" "The task moves with its comments, artifacts, history, links, tags and assignee, and takes the next number in the target project. Its old reference keeps leading to it. It keeps its status when the target's workflow has one of that name, else it starts in the target's first status. Custom fields the target does not define are left behind." "docs/web-ui.md")}}
+    {{template "help" $}}
+  </div>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  {{if .Data.Projects}}
+  <div class="cfield">
+    <div class="cfield-label"><label for="{{.IDPrefix}}move-project">{{t "Project"}}</label></div>
+    <select id="{{.IDPrefix}}move-project" name="project_ref" autofocus{{$e.Attrs "project_ref"}}>
+      {{range .Data.Projects}}<option value="{{.Key}}"{{if eq .Key $.Data.Project}} selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
+    </select>
+    {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+  </div>
+  {{else}}
+  {{with $e.On "project_ref"}}{{template "field-error" .}}{{end}}
+  <p class="muted">{{t "There is no other project to move this task to."}}</p>
+  {{end}}
+  <div class="cform-foot">
+    {{template "form-keys" (t "to move")}}
+    <div class="cform-actions">
+      <a class="secondary cform-cancel" href="/tasks/{{$t.Ref}}" data-form-cancel{{if .InDialog}} data-dialog-close{{end}}>{{t "Cancel"}}</a>
+      {{if .Data.Projects}}<button type="submit">{{t "Move"}}</button>{{end}}
+    </div>
+  </div>
+</form>
+</div>
+{{end}}
+
+{{define "task-dialog"}}
+<div class="taskdlg-frag" data-task-dialog="{{.Data.Task.Ref}}">
+{{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+{{template "content" .}}
+</div>
+{{end}}

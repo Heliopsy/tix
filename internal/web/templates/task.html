@@ -61,6 +61,7 @@
   <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
   {{if .Data.CanWrite}}
   <a class="flowgo copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>
+  <a class="flowgo moveto" href="/tasks/{{$t.Ref}}/move" data-dialog-load>{{t "Move to…"}}</a>
   <a class="flowgo savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>
   {{/* Snooze opens its own menu over this one. A snoozed task offers
        Unsnooze instead, one press, since there is nothing to choose. */}}
