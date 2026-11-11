@@ -1,8 +1,8 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 25
-verified-against: tix e3f99f9e (2026-11-09)
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks before starting, claiming with a short lease and renewing it as you work, the claim/lease/release loop, posting progress comments on bigger tasks, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
+version: 26
+verified-against: tix f12f12fe (2026-11-11)
 ---
 
 # tix
@@ -107,10 +107,10 @@ or another agent can pick it up.
 # 1. the assignment, as one parent task
 tix task add "ship the retry fix" -p default --priority high -q -o json
 
-# 2. the steps, as subtasks of it, with the ordering and a lease for each
-tix task add "reproduce the flake" --parent default-1 --lease 30m -q
-tix task add "patch and test" --parent default-1 --depends-on default-2 --lease 2h -q
-tix task add "update the changelog" --parent default-1 --depends-on default-3 --lease 15m -q
+# 2. the steps, as subtasks of it, with the ordering and a lease where the default does not fit
+tix task add "reproduce the flake" --parent default-1 --lease 15m -q
+tix task add "patch and test" --parent default-1 --depends-on default-2 -q
+tix task add "update the changelog" --parent default-1 --depends-on default-3 --lease 10m -q
 
 # 3. read back what you committed to
 tix task tree default-1
@@ -146,16 +146,22 @@ works it. A plan with only parents lets you claim step three before step one.
 Write the steps at the granularity you are willing to lose. One task per unit
 of work you could redo from its description alone.
 
-**Give each step a `--lease` sized to the work** instead of leaving every
-step on the project default: 30m for a quick fix, 2h for a test-and-patch step.
-The lease is how long a claim holds without a `--ttl`, so a sensible one means
-a crashed agent's step is back in the queue soon, and a long one does not
-expire mid-work. Over the maximum is exit `2` and nothing is created. If a step
-runs over anyway, renew (`tix claim renew`) before it lapses.
+**Keep leases short and renew them; do not front-load a long one.** The lease
+is how long a claim holds without a `--ttl`, and it is also how long a step
+sits locked after you crash, so every minute you add "to be safe" is a minute
+nobody can pick the work up. Agents consistently overestimate here. Size a
+step's `--lease` to the stretch of work you expect before you next touch tix,
+not to the whole step's worst case: 10m or 15m for a quick edit, nothing at
+all (the 30m default) for most steps, and more than an hour only for one
+unattended command, which `tix claim exec` renews for you anyway. If a step
+runs over, renew (`tix claim renew`, see "Leases") rather than having guessed
+long up front. Over the maximum is exit `2` and nothing is created.
 
 Then take them one at a time, leaving a trail as you go, including a comment
 for every block and every significant decision (see "Comments, artifacts and
-results"):
+results"). An assignment you split like this is a bigger task, so post its
+plan, milestones and final summary as comments on the parent (see "Post
+progress on bigger tasks"):
 
 ```sh
 tix comment add default-2 "reproduced on the third run; it is a race in TestRetry"
@@ -236,6 +242,10 @@ tix claim release "$ref" --token "$token" --status done \
   `claims last 2h, from the project`. A `--ttl` above the maximum is exit `2`.
   Renew at a third of the length you were actually granted, not the one you
   assumed.
+- Claim with the length you were given, or a `--ttl` close to the time the
+  next piece of work really takes, never one sized to cover the whole job.
+  Release the moment you finish or stop: a lease held while you do something
+  else keeps the task from everybody.
 
 ## Leases
 
@@ -253,10 +263,20 @@ task's **status or its results**:
   results under the token, so reach for this one when you are recording
   something mid-run rather than at the end.
 
-**Omit `--ttl` unless the work is genuinely long.** Without one the length
-comes from the project's workflow, then the tenant, then the deployment. A ttl
-you do pass is capped at whatever the operator set, 24h at most, and over that
-is refused: exit `2`, nothing renewed, old deadline still running:
+**Omit `--ttl` unless you know the default is too short for the next stretch,
+and then ask for that stretch, not the whole job.** Without one the length
+comes from the task, the project, the workflow, the tenant and the deployment,
+30m when none sets it. A long lease is not safety: it is how long the task
+stays locked if you die. Renew as you go instead; a renewal with no `--ttl`
+resets to the length you were granted:
+
+```sh
+tix claim renew "$ref" --token "$token" -q                # another full lease from now
+tix claim renew "$ref" --token "$token" --ttl 20m -q      # or the time the next step needs
+```
+
+A ttl you do pass is capped at whatever the operator set, 24h at most, and
+over that is refused: exit `2`, nothing renewed, old deadline still running:
 
 ```console
 $ tix claim renew infra-8 --token "$token" --ttl 48h
@@ -751,6 +771,37 @@ fast path when you're closing the task anyway, and need no token of their own.
 Every mutating command takes `--dry-run`, which reports what it would do and
 writes nothing. Use it when you are unsure a transition or a delete is legal.
 
+### Post progress on bigger tasks
+
+A task is bigger when any of these holds: you split it into subtasks, it
+takes more than about three distinct steps, you expect it to run past one
+default lease (30m) or need a renewal, or it touches more than a couple of
+files or systems. On a bigger task **you must post progress as comments on
+the task**, so a person watching the board knows where it stands without
+asking, and whoever replaces you after a crash knows where to pick up:
+
+- **When you start:** the plan in two to five lines.
+- **At each meaningful milestone, and whenever you are blocked:** a subtask
+  done, the tests green, a pull request opened, an approach abandoned. One or
+  two lines each.
+- **When you finish:** a short summary of what changed and the results, with
+  links (pull request, commit, artifact, `web_url`). `claim release --comment`
+  carries it on the closing write.
+
+```sh
+tix comment add default-1 "Plan: reproduce the flake, patch the retry loop, add a regression test, update the changelog"
+tix comment add default-1 "Reproduced: race in TestRetry under -race, 1 run in 5. Patching next."
+tix claim release default-1 --token "$token" --status done \
+  --comment "Fixed the race with a mutex around the retry counter; regression test added. PR: https://github.com/example/repo/pull/42"
+```
+
+Over MCP the same write is the `comment_add` tool with `{"ref": "default-1",
+"body": "..."}`.
+
+Keep each update short and factual: what is done, what is next, what is in
+the way. Do not narrate every command. A quick task you finish in a few
+minutes needs no progress comments; its closing `--comment` is enough.
+
 ## Dependencies
 
 ```sh
@@ -886,6 +937,10 @@ Targets, contexts, tokens and scopes are in
   blocked tasks; `claim next` does not.
 - Do not write a mapping file to add a few tasks. `task add` per task, or
   `import tasks --lines`, needs none.
+- Do not ask for a long `--ttl` or `--lease` to be safe. Claim short, renew
+  while you work, release when you stop.
+- Do not work a bigger task silently. Post the plan, the milestones and a
+  final summary as comments on it.
 - Do not leave abandoned work in `doing`. Move it to `cancelled`, which is
   terminal, so whatever depends on it stops waiting.
 
