@@ -68,3 +68,17 @@ func TestATenantThatTurnsKeepMeSignedInOffHidesTheBox(t *testing.T) {
 		t.Errorf("Tenant settings does not show keep me signed in as off")
 	}
 }
+
+func TestKeepMeSignedInNoLongerThanASignInIsNotOffered(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	saved := f.as("alice").post("/admin/tenant", url.Values{
+		"name": {"Acme Works"}, "session_remember_ttl": {"6h"}})
+	_ = saved.Body.Close()
+	wantStatus(t, saved, http.StatusSeeOther)
+
+	form := formAt(t, body(t, f.as("").get("/login")), "/login")
+	if strings.Contains(form, `name="remember"`) {
+		t.Errorf("a 6h keep me signed in under a 12h sign-in is offered, though it grants nothing:\n%s", form)
+	}
+}
