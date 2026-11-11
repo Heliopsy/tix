@@ -45,6 +45,10 @@ type serveOptions struct {
 
 	artifactMaxBytes int64
 	artifactTypes    []string
+
+	sessionTTL         time.Duration
+	sessionIdleTimeout time.Duration
+	sessionRememberTTL time.Duration
 }
 
 // serveConfigFlags are the serve flags that set a configuration key, each
@@ -60,6 +64,15 @@ func serveConfigFlags(cmd *cobra.Command) map[string]string {
 	if f.Changed("artifact-allowed-types") {
 		types, _ := f.GetStringSlice("artifact-allowed-types")
 		out["artifacts.allowed_types"] = strings.Join(types, ",")
+	}
+	for flag, key := range map[string]string{
+		"session-ttl": "session.ttl", "session-idle-timeout": "session.idle_timeout",
+		"session-remember-ttl": "session.remember_ttl",
+	} {
+		if f.Changed(flag) {
+			d, _ := f.GetDuration(flag)
+			out[key] = d.String()
+		}
 	}
 	return out
 }
@@ -109,6 +122,12 @@ func newServeCmd(g *globals) *cobra.Command {
 		"maximum request body size; artifact uploads take enough more to carry artifacts.max_bytes")
 	f.Int64Var(&o.artifactMaxBytes, "artifact-max-bytes", core.DefaultArtifactMaxBytes,
 		"largest artifact blob accepted, in bytes (artifacts.max_bytes); a tenant may only lower it")
+	f.DurationVar(&o.sessionTTL, "session-ttl", core.DefaultSessionTTL.D(),
+		"how long a sign-in lasts (session.ttl); a tenant may only shorten it")
+	f.DurationVar(&o.sessionIdleTimeout, "session-idle-timeout", 0,
+		"end sessions unused this long, 0 for never (session.idle_timeout); a tenant may only shorten it")
+	f.DurationVar(&o.sessionRememberTTL, "session-remember-ttl", core.DefaultSessionRememberTTL.D(),
+		"how long a keep me signed in sign-in lasts, 0 to stop offering it (session.remember_ttl)")
 	f.StringSliceVar(&o.artifactTypes, "artifact-allowed-types", core.DefaultArtifactTypes,
 		"media types and patterns such as image/* an artifact blob may carry (artifacts.allowed_types)")
 	f.DurationVar(&o.requestTimeout, "request-timeout", 0, "per-request timeout")

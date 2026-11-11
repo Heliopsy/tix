@@ -96,6 +96,10 @@ const (
 
 	attrArtifactMax   = "artifact size"
 	attrArtifactTypes = "artifact types"
+
+	attrSessionTTL      = "sign-in lasts"
+	attrSessionIdle     = "idle timeout"
+	attrSessionRemember = "keep signed in"
 )
 
 // MFAGraceOptions are the grace lengths the edit form offers.
@@ -177,7 +181,10 @@ func tenantAttributes(state TenantAdminState) []TenantLine {
 		tenantRow(attrTheme, orNone(t.Theme)),
 		tenantRow(attrMFA, mfaLine(t)),
 		tenantRow(attrArtifactMax, orInherit(artifactMaxLine(t))),
-		tenantRow(attrArtifactTypes, orInherit(strings.Join(t.ArtifactTypes, ", "))))
+		tenantRow(attrArtifactTypes, orInherit(strings.Join(t.ArtifactTypes, ", "))),
+		tenantRow(attrSessionTTL, orInherit(durationLine(t.SessionTTL))),
+		tenantRow(attrSessionIdle, orInherit(durationLine(t.SessionIdleTimeout))),
+		tenantRow(attrSessionRemember, orInherit(rememberLine(t))))
 	if state.Handle != "" {
 		out = append(out, tenantRow("actor", "@"+state.Handle))
 	}
@@ -360,7 +367,8 @@ func ThemeValue(option string) string {
 // answered here, from the palettes the build carries; the name is free text and
 // hands over to the single-line prompt, seeded with the value it would replace.
 func TenantEditForm(t core.Tenant) Form {
-	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace, attrArtifactMax, attrArtifactTypes}
+	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace, attrArtifactMax, attrArtifactTypes,
+		attrSessionTTL, attrSessionIdle, attrSessionRemember}
 	theme := t.Theme
 	if _, custom := core.CustomTheme(theme); custom {
 		theme = customColour
@@ -511,4 +519,22 @@ func orInherit(s string) string {
 		return "server's"
 	}
 	return s
+}
+
+// durationLine is one of the tenant's own session durations, empty when it
+// inherits the server's.
+func durationLine(d core.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return d.Human()
+}
+
+// rememberLine is the tenant's own "keep me signed in" setting: off, a
+// duration, or empty when it inherits the server's.
+func rememberLine(t core.Tenant) string {
+	if t.SessionRememberOff {
+		return core.SessionRememberOff
+	}
+	return durationLine(t.SessionRememberTTL)
 }

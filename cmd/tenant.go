@@ -23,6 +23,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
 		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
+		tenantSessionPolicyCmd(g),
 	)
 	return cmd
 }
@@ -258,6 +259,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var timeFormat, timezone string
 	var mfaPolicy, mfaGrace string
 	var artifactMax, artifactTypes string
+	var sessionTTL, sessionIdle, sessionRemember string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -292,6 +294,14 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"server's artifacts.max_bytes and artifacts.allowed_types; a value that would is\n" +
 			"refused with the server's limit named. \"\" returns either to the server's.\n" +
 			"Artifacts already attached are not judged again.\n\n" +
+			"--session-ttl, --session-idle-timeout and --session-remember-ttl bound how long\n" +
+			"a sign-in on this tenant lasts: from the moment it is made, since it was last\n" +
+			"used, and when the person ticked keep me signed in. Each can only be shorter\n" +
+			"than the server's session.ttl, session.idle_timeout and session.remember_ttl.\n" +
+			"--session-remember-ttl off stops offering keep me signed in. \"\" returns any of\n" +
+			"them to the server's. A new lifetime applies to the next sign-in; the idle\n" +
+			"timeout applies at once, remembered sessions included. tix tenant\n" +
+			"session-policy shows what is in force.\n\n" +
 			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
 			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
 			"stay there untouched, and --trash on brings them back into reach.\n\n" +
@@ -312,6 +322,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"  tix tenant edit acme --lease-max \"\"\n" +
 			"  tix tenant edit acme --trash off\n" +
 			"  tix tenant edit acme --artifact-max-bytes 5MiB --artifact-types 'image/*,application/pdf'\n" +
+			"  tix tenant edit acme --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl off\n" +
 			"  tix tenant edit acme --time-format dotted --timezone Europe/Sofia",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -389,6 +400,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			if err := artifactLimitFlags(cmd, artifactMax, artifactTypes, &in); err != nil {
 				return err
 			}
+			if err := sessionFlags(cmd, sessionTTL, sessionIdle, sessionRemember, &in); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("time-format") {
 				in.TimeFormat = &timeFormat
 			}
@@ -427,6 +441,12 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"the largest artifact blob, such as 5MiB, at most the server's; \"\" uses the server's")
 	cmd.Flags().StringVar(&artifactTypes, "artifact-types", "",
 		"comma separated media types an artifact blob may carry, within the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionTTL, "session-ttl", "",
+		"how long a sign-in lasts, such as 8h, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionIdle, "session-idle-timeout", "",
+		"end sessions unused this long, such as 30m, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionRemember, "session-remember-ttl", "",
+		"how long keep me signed in lasts, such as 7d, or off; \"\" uses the server's")
 	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
@@ -739,4 +759,62 @@ func artifactLimitFlags(cmd *cobra.Command, maxBytes, types string, in *core.Upd
 		in.ArtifactTypes = &list
 	}
 	return nil
+}
+
+// sessionFlags reads --session-ttl, --session-idle-timeout and
+// --session-remember-ttl. "" hands each back to the server, so an empty value
+// has to be told apart from an absent flag.
+func sessionFlags(cmd *cobra.Command, ttl, idle, remember string, in *core.UpdateTenantInput) error {
+	for _, f := range []struct {
+		flag string
+		raw  string
+		into **core.Duration
+	}{
+		{"session-ttl", ttl, &in.SessionTTL},
+		{"session-idle-timeout", idle, &in.SessionIdleTimeout},
+	} {
+		if !cmd.Flags().Changed(f.flag) {
+			continue
+		}
+		var d core.Duration
+		if raw := strings.TrimSpace(f.raw); raw != "" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("--%s: %v", f.flag, err)
+			}
+			d = parsed
+		}
+		*f.into = &d
+	}
+	if cmd.Flags().Changed("session-remember-ttl") {
+		in.SessionRememberTTL = &remember
+	}
+	return nil
+}
+
+// tenantSessionPolicyCmd shows how long a sign-in on the tenant lasts.
+func tenantSessionPolicyCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "session-policy",
+		Short: "Show how long a sign-in on this tenant lasts",
+		Long: "Show the session settings a new sign-in on this tenant is held to: its\n" +
+			"lifetime (ttl), how long it may sit unused (idle_timeout, 0s is off), and how\n" +
+			"long a keep me signed in sign-in lasts (remember_ttl, 0s is not offered). Each\n" +
+			"is the server's session.* setting, shown beside it, tightened by the tenant's\n" +
+			"own (tix tenant edit --session-ttl, --session-idle-timeout and\n" +
+			"--session-remember-ttl). It needs no sign-in.",
+		Example: "  tix tenant session-policy\n  tix tenant session-policy -o json",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			policy, err := conn.Service.SessionPolicy(ctx)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, policy)
+		},
+	}
 }

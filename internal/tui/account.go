@@ -387,6 +387,9 @@ func SessionSummary(se core.SessionInfo, style output.TimeStyle) string {
 		method += " + second factor"
 	}
 	parts := []string{method, "signed in " + style.Format(se.CreatedAt), "expires " + style.Format(se.ExpiresAt)}
+	if se.Remembered {
+		parts = append(parts, "kept signed in")
+	}
 	if se.UserAgent != "" {
 		parts = append(parts, se.UserAgent)
 	}

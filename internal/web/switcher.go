@@ -166,7 +166,7 @@ func (h *handler) doSwitch(w http.ResponseWriter, r *http.Request) error {
 		return h.renderSwitchCode(w, r, http.StatusOK, key, nil)
 	}
 	session := result.Session
-	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secureCookie(r)))
+	http.SetCookie(w, auth.SessionCookie(*session, h.secureCookie(r)))
 	http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
 	return nil
 }

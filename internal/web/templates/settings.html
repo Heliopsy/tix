@@ -556,7 +556,7 @@
     <div class="setrow session-row" id="session-{{.ID}}">
       <div class="setrow-text">
         <div class="setname-line"><span class="setname">{{if .UserAgent}}{{.UserAgent}}{{else}}{{t "Unknown client"}}{{end}}</span>{{if .Current}} <span class="chip">{{t "This browser"}}</span>{{end}}</div>
-        <span class="sethelp">{{tt "Signed in %s with %s" (when .CreatedAt) .Method}}{{if .SecondFactor}} {{t "and a second factor"}}{{end}}. {{tt "Expires %s." (when .ExpiresAt)}}</span>
+        <span class="sethelp">{{tt "Signed in %s with %s" (when .CreatedAt) .Method}}{{if .SecondFactor}} {{t "and a second factor"}}{{end}}. {{tt "Expires %s." (when .ExpiresAt)}}{{if .Remembered}} {{t "Kept signed in."}}{{end}}</span>
       </div>
       <div class="setrow-ctl">{{template "dlg-open" ((opener (print "session-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke this session"))}}</div>
     </div>

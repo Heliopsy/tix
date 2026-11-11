@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* ===== Keep me signed in (templates/login.html) ===================== */
+/* The checkbox sits under the password with its label beside it, not above
+   it like the text fields, and takes none of their padding. */
+.authcard form .remember {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 14px;
+}
+
+.authcard form .remember label {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 500;
+  gap: 8px;
+  margin: 0;
+}
+
+.authcard form .remember input[type="checkbox"] {
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  width: 16px;
+}
+
+.authcard form .remember .note {
+  flex-basis: 100%;
+  margin: 0;
+}

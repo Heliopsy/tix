@@ -109,7 +109,7 @@ func (c *cli) loginServerWith(with ...service.Option) string {
 	}
 	router, err := httpapi.New(httpapi.Config{
 		Service:         service.New(st, with...),
-		Authenticator:   server.NewAuthenticator(st, clock.New()),
+		Authenticator:   server.NewAuthenticator(st, clock.New(), core.SessionPolicy{}),
 		DefaultTenantID: tenant.ID,
 		Probe:           st,
 		ExpectedSchema:  latest,
