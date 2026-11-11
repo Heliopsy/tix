@@ -224,6 +224,16 @@ tix user ls --without-2fa
 tix tenant edit acme --mfa-policy required --mfa-grace 7d
 ```
 
+### How long a sign-in lasts
+
+A sign-in lasts the server's `session.ttl` (12h); `tix login --remember`, or Keep
+me signed in on the web, asks for `session.remember_ttl` (30d) instead. A tenant
+admin can only tighten them: `tix tenant edit KEY --session-ttl 8h
+--session-idle-timeout 30m --session-remember-ttl off`, `""` to use the
+server's again. A longer value than the server's is refused, exit `2`. The idle
+timeout applies at once to live sessions; a new lifetime only to new sign-ins.
+`tix tenant session-policy` prints what is in force and needs no sign-in.
+
 ## People: invites and password changes
 
 Bring a person in without choosing their password: `tix user invite EMAIL

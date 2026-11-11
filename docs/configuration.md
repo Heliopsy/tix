@@ -70,6 +70,9 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `lease.max` | `TIX_LEASE_MAX` | (unset: `24h`) |
 | `artifacts.max_bytes` | `TIX_ARTIFACTS_MAX_BYTES` | `1048576` (1 MiB) |
 | `artifacts.allowed_types` | `TIX_ARTIFACTS_ALLOWED_TYPES` | common images, PDF, text, CSV, JSON, YAML, archives |
+| `session.ttl` | `TIX_SESSION_TTL` | `12h` |
+| `session.idle_timeout` | `TIX_SESSION_IDLE_TIMEOUT` | `0` (off) |
+| `session.remember_ttl` | `TIX_SESSION_REMEMBER_TTL` | `30d` (`0` stops offering it) |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
@@ -443,6 +446,35 @@ ignored, because a setting that reads as a security control must never be silent
 `hooks.mode` and `webhooks.drain_mode` are unrelated, despite the similar names. `hooks.mode` is the git hook
 setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the
 command that produced them, `server` leaves them for `tix serve`, and `off` queues them and delivers nothing.
+
+### Sign-in sessions
+
+`session.ttl` is how long a password, SSH key or tenant switch sign-in lasts from the moment it is made, `12h`
+by default. It is an absolute lifetime: using the session does not extend it. `tix serve --session-ttl` sets it
+too and wins over the file and the environment when typed. A new value applies to the next sign-in; a session
+already minted keeps the expiry it was given.
+
+`session.idle_timeout` ends a session nobody has used for that long, such as `30m`. `0`, the default, turns it
+off. Each session records when it last authenticated a request, at most once a minute, so the timeout is honoured
+to within a minute and costs one write a minute for a busy session rather than one a request. It is checked on
+every request, so a new value applies at once to sessions already signed in, kept signed in or not. A session
+minted before the server recorded use counts as last used when it signed in. `tix serve --session-idle-timeout`
+sets it.
+
+`session.remember_ttl` is how long a sign-in lasts when the person ticks Keep me signed in on the web sign-in
+screen or passes `tix login --remember`, `30d` by default. `0` stops offering it, and so does any value no longer
+than `session.ttl`, since remembering would grant nothing. A remembered browser session gets a persistent cookie
+whose `Max-Age` ends with the session; any other gets a cookie that ends when the browser closes. The idle
+timeout still applies to a remembered session: one left unused past it is ended like any other, so an operator
+who wants Keep me signed in to survive a weekend sets the idle timeout longer than that or leaves it off.
+`tix serve --session-remember-ttl` sets it.
+
+Each value is at least a minute. A tenant administrator can tighten all three for their tenant
+(`tix tenant edit --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl 7d`, or `off`, the tenant
+settings screen, the terminal tenant view, or `PATCH /v1/tenants/{ref}`) and loosen none: a value past the
+server's is refused with the server's named, and a tenant cannot turn Keep me signed in on where the server has it
+off. `""` inherits. `tix tenant session-policy` and `GET /v1/auth/session-policy`, which needs no credential,
+report what is in force with the server's values beside it.
 
 ### The SSH listener
 

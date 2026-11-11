@@ -110,6 +110,25 @@ enrolment that satisfies it is the account's, so enrolling once satisfies every 
 follows the policy of the tenant they are in. The Tenant screen in the browser and `e` on the terminal's
 tenant screen set it too. See [second-factor.md](second-factor.md#the-tenant-policy).
 
+### How long a sign-in lasts
+
+A sign-in lasts the server's `session.ttl` (12h by default) from the moment it is made. A tenant admin can
+shorten that, end sessions left unused, and shorten or turn off Keep me signed in, for their tenant only:
+
+```sh
+tix tenant edit acme --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl 7d
+tix tenant edit acme --session-remember-ttl off   # no Keep me signed in on this tenant
+tix tenant edit acme --session-ttl ""             # back to the server's
+tix tenant session-policy                         # what is in force, beside the server's
+```
+
+The same settings are on the browser's Tenant screen, `e` on the terminal's tenant screen, and
+`session_ttl`, `session_idle_timeout` and `session_remember_ttl` on `PATCH /api/v1/tenants/{ref}`. None can
+go past the server's (`session.ttl`, `session.idle_timeout`, `session.remember_ttl`); a value that would is
+refused with the server's named. A new lifetime applies to the next sign-in and leaves live sessions with the
+expiry they were given. The idle timeout is checked on every request, so it applies at once, to remembered
+sessions too. See [configuration.md](configuration.md#sign-in-sessions).
+
 ### The trash
 
 A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
