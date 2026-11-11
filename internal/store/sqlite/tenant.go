@@ -19,6 +19,7 @@ var tenantColumns = []string{
 	"time_format", "timezone",
 	"mfa_policy", "mfa_grace", "mfa_required_at",
 	"artifact_max_bytes", "artifact_types",
+	"session_ttl", "session_idle_timeout", "session_remember_ttl",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -36,6 +37,9 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		trashOff  int64
 		mfaGrace  string
 		artTypes  string
+		sessTTL   string
+		sessIdle  string
+		sessKeep  string
 		mfaAt     sql.NullString
 	)
 	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
@@ -44,6 +48,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		&t.TimeFormat, &t.Timezone,
 		&t.MFAPolicy, &mfaGrace, &mfaAt,
 		&t.ArtifactMaxBytes, &artTypes,
+		&sessTTL, &sessIdle, &sessKeep,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
@@ -59,6 +64,9 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		return core.Tenant{}, err
 	}
 	t.ArtifactTypes = splitArtifactTypes(artTypes)
+	if err = scanSessionSettings(&t, sessTTL, sessIdle, sessKeep); err != nil {
+		return core.Tenant{}, err
+	}
 	if t.MFAGrace, err = sqlb.ScanDuration(mfaGrace, "tenant second factor grace"); err != nil {
 		return core.Tenant{}, err
 	}
@@ -162,6 +170,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
 		Set("artifact_max_bytes", in.ArtifactMaxBytes).
 		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
+		Set("session_ttl", sqlb.DurationText(in.SessionTTL)).
+		Set("session_idle_timeout", sqlb.DurationText(in.SessionIdleTimeout)).
+		Set("session_remember_ttl", core.SessionRememberText(in.SessionRememberTTL, in.SessionRememberOff)).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -190,6 +201,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
 		Set("artifact_max_bytes", in.ArtifactMaxBytes).
 		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
+		Set("session_ttl", sqlb.DurationText(in.SessionTTL)).
+		Set("session_idle_timeout", sqlb.DurationText(in.SessionIdleTimeout)).
+		Set("session_remember_ttl", core.SessionRememberText(in.SessionRememberTTL, in.SessionRememberOff)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)
@@ -419,4 +433,19 @@ func splitArtifactTypes(s string) []string {
 		return nil
 	}
 	return strings.Split(s, ",")
+}
+
+// scanSessionSettings reads a tenant's stored session settings; empty inherits.
+func scanSessionSettings(t *core.Tenant, ttl, idle, remember string) error {
+	var err error
+	if t.SessionTTL, err = sqlb.ScanDuration(ttl, "tenant session lifetime"); err != nil {
+		return err
+	}
+	if t.SessionIdleTimeout, err = sqlb.ScanDuration(idle, "tenant session idle timeout"); err != nil {
+		return err
+	}
+	if t.SessionRememberTTL, t.SessionRememberOff, err = core.ParseSessionRemember(remember); err != nil {
+		return core.Internal("parsing stored tenant keep me signed in %q", remember).Wrap(err)
+	}
+	return nil
 }

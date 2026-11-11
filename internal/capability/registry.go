@@ -89,6 +89,7 @@ const (
 	tplGlobal    = "globaladmin.html"
 	tplGlobalUsr = "globalusers.html"
 	tplAcctLog   = "accountlog.html"
+	tplLogin     = "login.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -1376,6 +1377,13 @@ var registry = []Operation{
 			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
 			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
 		},
+	},
+	{
+		Name: "session.policy", Method: "SessionPolicy", Contract: Contract{Public: true},
+		CLI:  "tix tenant session-policy",
+		HTTP: apiGet(wire.RouteSessionPolicy),
+		Web:  webGet(web.RouteLogin, tplLogin),
+		TUI:  "tenant",
 	},
 	{
 		Name: "session.ssh_challenge", Method: "SSHLoginChallenge", Contract: Contract{Public: true},

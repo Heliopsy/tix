@@ -553,7 +553,7 @@ func isUnscopedPath(path string) bool {
 
 // IsPublicPath reports whether a route runs without a credential.
 func IsPublicPath(path string) bool {
-	return isUnscopedPath(path) || path == wire.RouteLogin ||
+	return isUnscopedPath(path) || path == wire.RouteLogin || path == wire.RouteSessionPolicy ||
 		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path) ||
 		isInviteTokenPath(path)
 }

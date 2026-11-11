@@ -80,7 +80,10 @@ type Options struct {
 	// ArtifactRoutes, the web handler's own, take a body sized to carry it.
 	MaxArtifactBytes int64
 	ArtifactRoutes   []string
-	ShutdownTimeout  time.Duration
+	// Sessions are the server's session settings; the idle timeout is
+	// enforced as each request authenticates.
+	Sessions        core.SessionPolicy
+	ShutdownTimeout time.Duration
 
 	SweepInterval    time.Duration
 	PruneInterval    time.Duration
@@ -131,7 +134,7 @@ func Assemble(opts Options) (*Server, error) {
 		Service:          opts.Service,
 		EventHandler:     httpapi.NewEventStream(hub, log),
 		WebHandler:       opts.WebHandler,
-		Authenticator:    NewAuthenticator(opts.Store, opts.Clock),
+		Authenticator:    NewAuthenticator(opts.Store, opts.Clock, opts.Sessions),
 		Logger:           opts.Logger,
 		DefaultTenantID:  opts.TenantID,
 		MaxBodyBytes:     opts.MaxBodyBytes,

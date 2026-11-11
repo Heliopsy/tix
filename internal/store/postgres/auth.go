@@ -305,7 +305,8 @@ func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expir
 		Set("expires_at", timeArg(expiresAt)).
 		Set("method", origin.Method).
 		Set("user_agent", origin.UserAgent).
-		Set("second_factor", origin.SecondFactor)
+		Set("second_factor", origin.SecondFactor).
+		Set("remembered", origin.Remembered)
 	_, err := t.execInsert(ctx, ins, "creating session for actor %q", actorID)
 	return err
 }
@@ -334,7 +335,7 @@ func (t *tx) GetSessionByHash(ctx context.Context, tokenHash string) (string, ti
 // GetSessionOrigin returns how the session behind a hash was minted.
 func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error) {
 	b := t.builder("sessions").
-		Select("method", "second_factor").
+		Select("method", "second_factor", "remembered").
 		Where("token_hash = ?", tokenHash).
 		Limit(1)
 	q, args := b.SelectQuery()
@@ -342,7 +343,7 @@ func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.Sessi
 		out    core.SessionOrigin
 		factor bool
 	)
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor); err != nil {
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor, &out.Remembered); err != nil {
 		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
 			return core.SessionOrigin{}, core.NotFound("session not found")
 		}
@@ -352,7 +353,8 @@ func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.Sessi
 	return out, nil
 }
 
-var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash"}
+var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash",
+	"remembered"}
 
 func scanSession(s scanner) (store.SessionRecord, error) {
 	var (
@@ -361,7 +363,7 @@ func scanSession(s scanner) (store.SessionRecord, error) {
 		expires sql.NullTime
 		factor  bool
 	)
-	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash); err != nil {
+	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash, &r.Remembered); err != nil {
 		return store.SessionRecord{}, mapErr(err, "scanning session")
 	}
 	r.CreatedAt, r.ExpiresAt, r.SecondFactor = scanTime(created), scanTime(expires), factor
@@ -617,4 +619,40 @@ func (t *tx) RevokeActorTokens(ctx context.Context, actorID string, at time.Time
 		Where("(revoked_at IS NULL OR revoked_at > ?)", timeArg(at)).
 		Set("revoked_at", timeArg(at))
 	return t.execUpdate(ctx, b, "revoking tokens for actor %q", actorID)
+}
+
+// GetSessionLastSeen returns when the session behind a hash last
+// authenticated a request, or when it signed in if it has not since.
+func (t *tx) GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error) {
+	b := t.builder("sessions").
+		Select("created_at", "last_seen_at").
+		Where("token_hash = ?", tokenHash).
+		Limit(1)
+	q, args := b.SelectQuery()
+	var created, seen sql.NullTime
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&created, &seen); err != nil {
+		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
+			return time.Time{}, core.NotFound("session not found")
+		}
+		return time.Time{}, mapErr(err, "reading session")
+	}
+	if seen.Valid {
+		return scanTime(seen), nil
+	}
+	return scanTime(created), nil
+}
+
+// TouchSession records that the session behind a hash authenticated a request.
+func (t *tx) TouchSession(ctx context.Context, tokenHash string, at time.Time) error {
+	b := t.builder("sessions").
+		Where("token_hash = ?", tokenHash).
+		Set("last_seen_at", timeArg(at))
+	n, err := t.execUpdate(ctx, b, "touching session")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("session not found")
+	}
+	return nil
 }

@@ -238,6 +238,20 @@ type UpdateTenantInput struct {
 	// as ["image/*", "application/pdf"]. An empty list inherits the server's
 	// and omitted leaves it; a type the server does not accept is refused.
 	ArtifactTypes *[]string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
+	// SessionTTL shortens how long a sign-in on this tenant lasts, a duration
+	// such as "8h". Zero inherits the server's session.ttl and omitted leaves
+	// it; a value above the server's is refused. Existing sessions keep their
+	// expiry.
+	SessionTTL *Duration `json:"session_ttl,omitempty" yaml:"session_ttl,omitempty"`
+	// SessionIdleTimeout ends sessions unused for this long, such as "30m".
+	// Zero inherits the server's session.idle_timeout and omitted leaves it; a
+	// value above the server's is refused. It applies to existing sessions.
+	SessionIdleTimeout *Duration `json:"session_idle_timeout,omitempty" yaml:"session_idle_timeout,omitempty"`
+	// SessionRememberTTL is how long a "keep me signed in" sign-in lasts: a
+	// duration such as "7d", "off" (or "0") to stop offering it, or "" to
+	// inherit the server's session.remember_ttl. Omitted leaves it; a value
+	// above the server's is refused.
+	SessionRememberTTL *string `json:"session_remember_ttl,omitempty" yaml:"session_remember_ttl,omitempty"`
 	// TrashOff turns the trash off (true) or back on (false); nil leaves it
 	// alone. Turning it off keeps the tasks already in the trash.
 	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
@@ -277,6 +291,23 @@ func (in UpdateTenantInput) Validate() error {
 			return err
 		}
 	}
+	if err := validateSessionDuration(in.SessionTTL, "session lifetime", "session_ttl"); err != nil {
+		return err
+	}
+	if err := validateSessionDuration(in.SessionIdleTimeout, "session idle timeout", "session_idle_timeout"); err != nil {
+		return err
+	}
+	if in.SessionRememberTTL != nil {
+		d, off, err := ParseSessionRemember(*in.SessionRememberTTL)
+		if err != nil {
+			return err
+		}
+		if !off {
+			if err := validateSessionDuration(&d, "keep me signed in", "session_remember_ttl"); err != nil {
+				return err
+			}
+		}
+	}
 	// A default above the tenant's own ceiling is refused here rather than
 	// clamped, because both figures are in front of whoever is setting them:
 	// this is the one moment the contradiction can be pointed at. Resolve
@@ -285,6 +316,20 @@ func (in UpdateTenantInput) Validate() error {
 	if in.LeaseDefault != nil && in.LeaseMax != nil &&
 		*in.LeaseDefault > 0 && *in.LeaseMax > 0 && *in.LeaseDefault > *in.LeaseMax {
 		return Invalid("lease default %s is longer than the lease maximum %s", *in.LeaseDefault, *in.LeaseMax)
+	}
+	return nil
+}
+
+// validateSessionDuration refuses a negative session setting or a positive one
+// shorter than a minute; zero inherits.
+func validateSessionDuration(d *Duration, what, field string) error {
+	switch {
+	case d == nil || *d == 0:
+		return nil
+	case *d < 0:
+		return Invalid("%s must not be negative", what).WithDetail(DetailField, field)
+	case *d < MinSessionDuration:
+		return Invalid("%s must be at least %s", what, MinSessionDuration.Human()).WithDetail(DetailField, field)
 	}
 	return nil
 }

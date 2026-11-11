@@ -156,7 +156,7 @@ func TestStoreCredentialsResolveATokenWithinTheTenant(t *testing.T) {
 		t.Fatalf("storing token: %v", err)
 	}
 
-	authenticator := server.NewAuthenticator(a.store, clk)
+	authenticator := server.NewAuthenticator(a.store, clk, core.SessionPolicy{})
 	req := httptest.NewRequest(http.MethodGet, wire.RouteTasks, nil)
 	req.Header.Set(wire.HeaderAuth, "Bearer "+minted.Issued.Token)
 
@@ -198,7 +198,7 @@ func TestStoreCredentialsResolveASession(t *testing.T) {
 		t.Fatalf("storing session: %v", err)
 	}
 
-	authenticator := server.NewAuthenticator(a.store, clk)
+	authenticator := server.NewAuthenticator(a.store, clk, core.SessionPolicy{})
 	req := httptest.NewRequest(http.MethodGet, wire.RouteTasks, nil)
 	req.AddCookie(&http.Cookie{Name: wire.SessionCookieName, Value: minted.Session.Token})
 

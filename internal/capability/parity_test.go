@@ -353,6 +353,12 @@ func (stubService) PreviewInvite(context.Context, string) (*core.InvitePreview, 
 	return nil, core.Invalid("no invite")
 }
 
+// SessionPolicy answers for the sign-in screen, the third public route that
+// asks the service something before anybody signed in.
+func (stubService) SessionPolicy(context.Context) (*core.SessionPolicy, error) {
+	return nil, core.Invalid("no policy")
+}
+
 func (stubService) AcceptInvite(context.Context, string, core.AcceptInviteInput) (*core.LoginResult, error) {
 	return nil, core.Invalid("no invite")
 }

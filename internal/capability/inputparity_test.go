@@ -35,7 +35,9 @@ var inputReaches = []inputReach{
 		"require_totp_ssh": "--require-totp-ssh", "mfa_policy": "--mfa-policy", "mfa_grace": "--mfa-grace",
 		"lease_default": "--lease-default", "lease_max": "--lease-max",
 		"artifact_max_bytes": "--artifact-max-bytes", "artifact_types": "--artifact-types",
-		"trash_off": "--trash", "time_format": "--time-format", "timezone": "--timezone",
+		"session_ttl": "--session-ttl", "session_idle_timeout": "--session-idle-timeout",
+		"session_remember_ttl": "--session-remember-ttl",
+		"trash_off":            "--trash", "time_format": "--time-format", "timezone": "--timezone",
 	}},
 	{"tix domain add", core.AddDomainInput{}, map[string]string{
 		"hostname": "arg", "cert_mode": "--cert-mode", "cert_path": "--cert", "key_path": "--key",
@@ -128,7 +130,7 @@ var inputReaches = []inputReach{
 		"actor_id": "--actor", "public_key": "--file", "label": "--label", "all_tenants": "--all-tenants",
 	}},
 	{"tix login", core.LoginInput{}, map[string]string{
-		"email": "--email", "password": "--password",
+		"email": "--email", "password": "--password", "remember": "--remember",
 		"surface": "!the command line names itself; a caller choosing its surface would choose which second-factor rule applies",
 		"ticket":  "!carried from the password step to the code prompt inside one tix login",
 		"code":    "!prompted for, never a flag, so a live second factor stays out of shell history",

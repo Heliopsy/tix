@@ -56,6 +56,17 @@ type Tenant struct {
 	// ArtifactTypes are the media types and patterns an artifact blob may carry
 	// on this tenant, within the server's artifacts.allowed_types; empty inherits.
 	ArtifactTypes []string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
+	// SessionTTL is how long a sign-in on this tenant lasts. It can shorten
+	// the server's session.ttl but never lengthen it; zero inherits.
+	SessionTTL Duration `json:"session_ttl,omitempty" yaml:"session_ttl,omitempty"`
+	// SessionIdleTimeout ends a session unused for this long. It can only be
+	// shorter than the server's session.idle_timeout; zero inherits.
+	SessionIdleTimeout Duration `json:"session_idle_timeout,omitempty" yaml:"session_idle_timeout,omitempty"`
+	// SessionRememberTTL is how long a "keep me signed in" sign-in lasts,
+	// within the server's session.remember_ttl; zero inherits.
+	SessionRememberTTL Duration `json:"session_remember_ttl,omitempty" yaml:"session_remember_ttl,omitempty"`
+	// SessionRememberOff turns "keep me signed in" off on this tenant.
+	SessionRememberOff bool `json:"session_remember_off,omitempty" yaml:"session_remember_off,omitempty"`
 	// TrashOff makes deleting a task permanent on this tenant. False, the
 	// default, keeps deleted tasks in a trash they can be restored from.
 	TrashOff bool `json:"trash_off" yaml:"trash_off"`

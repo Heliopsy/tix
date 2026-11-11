@@ -78,7 +78,7 @@ func (l *Local) SwitchTenant(ctx context.Context, in core.SwitchTenantInput) (*c
 		origin.SecondFactor = true
 	}
 
-	minted, err := l.mintSession(switchContext(ctx), scope, sessionActor, target.user, "",
+	minted, err := l.mintSession(withRemember(switchContext(ctx), origin.Remembered), scope, sessionActor, target.user, "",
 		core.SessionOrigin{Method: core.LoginMethodSwitch, SecondFactor: origin.SecondFactor},
 		func(m *mutation) error {
 			if attempt == nil {

@@ -118,6 +118,7 @@ var boolColumns = map[string]bool{
 	"account_log.by_global_admin":    true,
 	"tenant_domains.shared":          true,
 	"sessions.second_factor":         true,
+	"sessions.remembered":            true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

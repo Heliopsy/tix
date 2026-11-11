@@ -71,6 +71,10 @@ type Local struct {
 	artifactMaxBytes int64
 	artifactTypes    []string
 
+	// sessionDefaults are the server's session settings, which a tenant may
+	// tighten and never loosen.
+	sessionDefaults core.SessionPolicy
+
 	// timeDefaults are the deployment's date format and timezone, under the
 	// tenant's and each person's own.
 	timeDefaults core.TimePrefs
@@ -281,6 +285,7 @@ func New(st store.Store, opts ...Option) *Local {
 		idempotencyWindow: DefaultIdempotencyWindow,
 		artifactMaxBytes:  core.DefaultArtifactMaxBytes,
 		artifactTypes:     core.DefaultArtifactTypes,
+		sessionDefaults:   defaultSessionPolicy(),
 	}
 	for _, opt := range opts {
 		opt(l)

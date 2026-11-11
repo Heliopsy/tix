@@ -547,6 +547,12 @@ type AuthTx interface {
 	// session of another actor, or none, is not found.
 	DeleteActorSession(ctx context.Context, actorID, id string) error
 	GetSessionByHash(ctx context.Context, tokenHash string) (actorID string, expiresAt time.Time, err error)
+	// GetSessionLastSeen returns when the session behind a hash last
+	// authenticated a request, its sign-in time when it never has since.
+	GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error)
+	// TouchSession records that the session behind a hash authenticated a
+	// request at the given time.
+	TouchSession(ctx context.Context, tokenHash string, at time.Time) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 

@@ -28,6 +28,10 @@ type LoginRequest struct {
 	Ticket string `json:"ticket,omitempty"`
 	// Code is the six-digit TOTP code or a recovery code, in the second step.
 	Code string `json:"code,omitempty"`
+	// Remember asks for a "keep me signed in" session, sent with the step
+	// that completes the sign-in. The session then lasts the tenant's
+	// remember_ttl and its cookie persists until then.
+	Remember bool `json:"remember,omitempty"`
 }
 
 // TOTPCodeRequest carries the code proving possession of an authenticator.
@@ -68,6 +72,7 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
 	rt.mux.HandleFunc("POST "+wire.RouteSwitch, rt.handleSwitch)
+	rt.mux.HandleFunc("GET "+wire.RouteSessionPolicy, rt.handleSessionPolicy)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHChallenge, rt.handleSSHChallenge)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHVerify, rt.handleSSHLogin)
 
@@ -150,16 +155,26 @@ func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Surface:     in.Surface,
 		Ticket:      in.Ticket,
 		Code:        in.Code,
+		Remember:    in.Remember,
 	})
 	if err != nil {
 		WriteError(w, err)
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleSessionPolicy answers the tenant's session settings.
+func (rt *Router) handleSessionPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := rt.cfg.Service.SessionPolicy(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, policy)
 }
 
 // handleSSHChallenge issues a nonce bound to the host the request names, the
@@ -185,8 +200,7 @@ func (rt *Router) handleSSHLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }
@@ -289,8 +303,7 @@ func (rt *Router) handleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }

@@ -586,6 +586,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if err := l.tightenArtifactLimits(t, in); err != nil {
 			return err
 		}
+		if err := l.tightenSessionSettings(t, in); err != nil {
+			return err
+		}
 		if in.RequireTOTPWeb != nil {
 			t.RequireTOTPWeb = *in.RequireTOTPWeb
 		}

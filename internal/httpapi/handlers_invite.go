@@ -109,8 +109,7 @@ func (rt *Router) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }
