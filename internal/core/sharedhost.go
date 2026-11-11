@@ -21,6 +21,8 @@ type SessionOrigin struct {
 	SecondFactor bool
 	// UserAgent is the user agent the sign-in request sent, truncated.
 	UserAgent string
+	// Remembered reports a "keep me signed in" session.
+	Remembered bool
 }
 
 // ServedHost describes the host a request arrived on, as the transport

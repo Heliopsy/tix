@@ -74,7 +74,7 @@ func TestCredentialsOfADisabledPersonStopAtOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			creds := server.NewStoreCredentials(st)
+			creds := server.NewStoreCredentials(st, core.SessionPolicy{})
 			pinned := core.WithTenant(ctx, scope)
 			if s, err := creds.SessionByHash(pinned, "session-hash"); err != nil || s == nil {
 				t.Fatalf("session before disabling = %+v, %v; want it found", s, err)

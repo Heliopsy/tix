@@ -63,7 +63,7 @@ func TestLoginIssuesASessionWhoseHashAloneIsStored(t *testing.T) {
 	if session.ActorID != user.ID || session.TenantID != scope.TenantID {
 		t.Errorf("session = %+v, want the user's actor and tenant", session)
 	}
-	if want := clk.Now().Add(SessionTTL); !session.ExpiresAt.Equal(want) {
+	if want := clk.Now().Add(core.DefaultSessionTTL.D()); !session.ExpiresAt.Equal(want) {
 		t.Errorf("expiry = %s, want %s", session.ExpiresAt, want)
 	}
 

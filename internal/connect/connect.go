@@ -432,6 +432,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithIdempotencyWindow(cfg.Config.Retention.IdempotencyKeys.D()),
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithArtifactLimits(cfg.Config.Artifacts.MaxBytes, artifactTypes(cfg.Config.Artifacts.AllowedTypes)),
+		service.WithSessionPolicy(cfg.Config.Session.Policy()),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
 		service.WithPublicURL(cfg.Config.Server.PublicURL),

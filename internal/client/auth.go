@@ -124,6 +124,11 @@ func (c *Client) ClearUserTOTP(ctx context.Context, userID string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteUserTOTP, "id", userID), nil, nil)
 }
 
+// SessionPolicy reads how long a sign-in on the tenant lasts.
+func (c *Client) SessionPolicy(ctx context.Context) (*core.SessionPolicy, error) {
+	return call[core.SessionPolicy](ctx, c, http.MethodGet, wire.RouteSessionPolicy, nil, nil)
+}
+
 // Logout ends the current session.
 func (c *Client) Logout(ctx context.Context) error {
 	return callVoid(ctx, c, http.MethodPost, wire.RouteLogout, nil, nil)

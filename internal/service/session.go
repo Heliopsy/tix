@@ -5,7 +5,6 @@ package service
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -28,9 +27,6 @@ const (
 // eventUserPasswordChanged records a user replacing a password they were
 // required to change.
 const eventUserPasswordChanged core.EventType = "user.password_changed"
-
-// SessionTTL is how long a password login stays valid.
-const SessionTTL = 12 * time.Hour
 
 // errInvalidCredentials is the single answer every failed login gives, so that
 // a wrong password, an unknown email and a disabled account are one outcome.
@@ -216,6 +212,7 @@ func (l *Local) Login(ctx context.Context, in core.LoginInput) (*core.LoginResul
 	if !surface.Valid() {
 		return nil, core.Invalid("%q is not a sign-in surface", in.Surface)
 	}
+	ctx = withRemember(ctx, in.Remember)
 	if in.Ticket != "" {
 		return l.completeLogin(ctx, scope, surface, in)
 	}
@@ -607,12 +604,18 @@ func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *
 func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, origin core.SessionOrigin,
 	also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
+	policy, err := l.sessionPolicyFor(ctx, scope.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	ttl, remembered := policy.Lifetime(rememberFrom(ctx))
+	origin.Remembered = remembered
 	minted, err := auth.MintSession(l.clock, auth.SessionInput{
 		ActorID:  actor.ID,
 		TenantID: scope.TenantID,
 		Handle:   actor.Handle,
 		Role:     actor.Role,
-		TTL:      SessionTTL,
+		TTL:      ttl.D(),
 	})
 	if err != nil {
 		return nil, err
@@ -628,7 +631,8 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 			return err
 		}
 		return m.Record(auditUserLogin, eventSessionCreated, "session", actor.ID, "", nil,
-			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": origin.Method},
+			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": origin.Method,
+				"remembered": remembered},
 			map[string]any{"actor_id": actor.ID, "handle": actor.Handle, "method": origin.Method})
 	}); err != nil {
 		return nil, err
@@ -636,6 +640,7 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 	if !ok {
 		return nil, nil
 	}
+	minted.Session.Remembered = remembered
 	out := &core.LoginResult{Session: &minted.Session}
 	if standing, err := l.factorStandingOf(ctx, actor); err == nil {
 		out.SecondFactorDue = standing.due()

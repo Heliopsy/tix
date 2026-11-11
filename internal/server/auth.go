@@ -17,11 +17,14 @@ import (
 // request has already been pinned to.
 type StoreCredentials struct {
 	store store.Store
+	// sessions are the server's session settings, which the tenant narrows
+	// into the idle timeout a session is held to.
+	sessions core.SessionPolicy
 }
 
 // NewStoreCredentials returns a credential lookup over the store.
-func NewStoreCredentials(st store.Store) *StoreCredentials {
-	return &StoreCredentials{store: st}
+func NewStoreCredentials(st store.Store, sessions core.SessionPolicy) *StoreCredentials {
+	return &StoreCredentials{store: st, sessions: sessions}
 }
 
 // TokenByHash returns the token behind a hash, or nil when there is none.
@@ -87,6 +90,14 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 			TenantID:  scope.TenantID,
 			ExpiresAt: expires,
 		}
+		if session.LastSeenAt, err = tx.GetSessionLastSeen(ctx, hash); err != nil {
+			return err
+		}
+		tenant, err := tx.GetTenant(ctx)
+		if err != nil {
+			return err
+		}
+		session.IdleTimeout = core.EffectiveSessionPolicy(c.sessions, *tenant).IdleTimeout.D()
 		if actor, err := tx.GetActor(ctx, actorID); err == nil {
 			session.Handle = actor.Handle
 		}
@@ -105,10 +116,21 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 	return out, nil
 }
 
+// TouchSession records that a session authenticated a request.
+func (c *StoreCredentials) TouchSession(ctx context.Context, hash string, at time.Time) error {
+	scope, ok := core.TenantFrom(ctx)
+	if !ok {
+		return nil
+	}
+	return c.store.Update(ctx, scope, func(tx store.Tx) error {
+		return tx.TouchSession(ctx, hash, at)
+	})
+}
+
 // NewAuthenticator returns the bearer and cookie chain the API authenticates
-// with, in that order.
-func NewAuthenticator(st store.Store, clk clock.Clock) auth.Authenticator {
-	creds := NewStoreCredentials(st)
+// with, in that order. sessions are the server's session settings.
+func NewAuthenticator(st store.Store, clk clock.Clock, sessions core.SessionPolicy) auth.Authenticator {
+	creds := NewStoreCredentials(st, sessions)
 	return auth.NewChain(
 		auth.NewBearerAuthenticator(auth.NewTokenVerifier(creds, clk)),
 		auth.NewCookieAuthenticator(auth.NewSessionVerifier(creds, clk)),

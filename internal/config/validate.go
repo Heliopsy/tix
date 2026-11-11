@@ -221,6 +221,22 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strings.Join(cfg.Artifacts.AllowedTypes, ",")).
 			WithDetail("reason", err.Error())
 	}
+	if cfg.Session.TTL < core.MinSessionDuration {
+		return invalidKey("session.ttl", sources).WithDetail("value", cfg.Session.TTL.String()).
+			WithDetail("reason", "a session lifetime must be at least a minute")
+	}
+	for _, window := range []struct {
+		key string
+		d   core.Duration
+	}{
+		{"session.idle_timeout", cfg.Session.IdleTimeout},
+		{"session.remember_ttl", cfg.Session.RememberTTL},
+	} {
+		if window.d < 0 || (window.d > 0 && window.d < core.MinSessionDuration) {
+			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
+				WithDetail("reason", "zero turns it off; otherwise it must be at least a minute")
+		}
+	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {
 			return err

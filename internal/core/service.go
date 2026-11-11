@@ -464,6 +464,13 @@ type AuthService interface {
 	// Logout ends the session the caller presented. With no session to end it
 	// answers unauthenticated.
 	Logout(ctx context.Context) error
+	// SessionPolicy reports how long a new sign-in on the current tenant
+	// lasts, how long a session may sit unused, and how long a "keep me
+	// signed in" sign-in lasts: the server's session.ttl,
+	// session.idle_timeout and session.remember_ttl, tightened by the
+	// tenant's own settings. It needs no sign-in, since the sign-in screen
+	// reads it to decide whether to offer "keep me signed in".
+	SessionPolicy(ctx context.Context) (*SessionPolicy, error)
 	// SwitchTenant moves the caller's browser session to another tenant they
 	// are a member of, served on the same host. The answer carries a session
 	// for the person's actor there, and the session presented stops working.
@@ -785,8 +792,13 @@ type Session struct {
 	ActorID string `json:"actor_id" yaml:"actor_id"`
 	// TenantID is the tenant the session belongs to.
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// CreatedAt is when the session was minted, in RFC 3339.
+	CreatedAt time.Time `json:"created_at,omitzero" yaml:"created_at,omitempty"`
 	// ExpiresAt is when the session stops working, in RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+	// Remembered reports a "keep me signed in" session. A browser keeps its
+	// cookie until ExpiresAt; otherwise the cookie ends with the browser.
+	Remembered bool `json:"remembered,omitempty" yaml:"remembered,omitempty"`
 }
 
 // SessionInfo describes one of the caller's sessions without its secret.
@@ -804,6 +816,9 @@ type SessionInfo struct {
 	// UserAgent is the user agent the sign-in request sent, truncated, or
 	// empty for a session that predates recording it.
 	UserAgent string `json:"user_agent" yaml:"user_agent"`
+	// Remembered reports a "keep me signed in" sign-in, which lasts the
+	// tenant's remember_ttl rather than its ttl.
+	Remembered bool `json:"remembered" yaml:"remembered"`
 	// Current marks the session the caller presented with this request.
 	Current bool `json:"current" yaml:"current"`
 }

@@ -40,6 +40,7 @@ type Config struct {
 	Discovery      Discovery          `yaml:"discovery"`
 	Lease          Lease              `yaml:"lease"`
 	Artifacts      Artifacts          `yaml:"artifacts"`
+	Session        Session            `yaml:"session"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
@@ -333,6 +334,25 @@ type Artifacts struct {
 	// AllowedTypes are the media types and patterns such as image/* a blob may
 	// carry. Whatever is accepted, a blob is only ever served as a download.
 	AllowedTypes []string `yaml:"allowed_types"`
+}
+
+// Session bounds how long a sign-in lasts, for this deployment. A tenant may
+// tighten each and loosen none.
+type Session struct {
+	// TTL is how long a sign-in lasts from the moment it is made, 12h by
+	// default.
+	TTL core.Duration `yaml:"ttl"`
+	// IdleTimeout ends a session nobody used for this long. Zero, the
+	// default, turns it off.
+	IdleTimeout core.Duration `yaml:"idle_timeout"`
+	// RememberTTL is how long a "keep me signed in" sign-in lasts, 30d by
+	// default. Zero stops offering it.
+	RememberTTL core.Duration `yaml:"remember_ttl"`
+}
+
+// Policy is the deployment's session settings before any tenant narrows them.
+func (s Session) Policy() core.SessionPolicy {
+	return core.SessionPolicy{TTL: s.TTL, IdleTimeout: s.IdleTimeout, RememberTTL: s.RememberTTL}
 }
 
 // ArtifactBodyLimit is the request body an artifact upload of at most maxBytes
@@ -644,6 +664,7 @@ func Defaults() Config {
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Artifacts: Artifacts{
 			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
+		Session:  Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
 		SSH: SSH{

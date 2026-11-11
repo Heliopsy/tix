@@ -1184,6 +1184,34 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "read the session policy a tenant tightened",
+		covers: []string{"UpdateTenant", "SessionPolicy"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			ttl, idle, keep := core.Duration(8*time.Hour), core.Duration(30*time.Minute), "7d"
+			_, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{
+				SessionTTL: &ttl, SessionIdleTimeout: &idle, SessionRememberTTL: &keep,
+			})
+			mustf(t, tg, err, "tightening the session settings")
+			p, err := tg.svc.SessionPolicy(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"ttl": p.TTL.String(), "idle": p.IdleTimeout.String(), "remember": p.RememberTTL.String(),
+				"server_ttl": p.ServerTTL.String(), "offered": p.RememberOffered(),
+			}, nil
+		},
+	},
+	{
+		name:   "refuse a tenant session lifetime past the server's",
+		covers: []string{"UpdateTenant"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			long := core.Duration(48 * time.Hour)
+			_, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{SessionTTL: &long})
+			return nil, err
+		},
+	},
+	{
 		name:   "list the built-in workflow templates",
 		covers: []string{"ListWorkflowTemplates"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1829,6 +1857,27 @@ var serviceScenarios = []svcScenario{
 				"actor_matches": result.Session.ActorID == user.ID,
 				"has_token":     result.Session.Token != "",
 			}, nil
+		},
+	},
+	{
+		name:   "login asking to be kept signed in",
+		covers: []string{"CreateUser", "Login"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{
+				Email: "kept@example.test", Handle: "kept", Password: "correct horse battery",
+			})
+			mustf(t, tg, err, "creating the user")
+			result, err := tg.svc.Login(tg.ctx, core.LoginInput{
+				Email: "kept@example.test", Password: "correct horse battery", Surface: core.SurfaceCLI,
+				Remember: true,
+			})
+			if err != nil {
+				return nil, err
+			}
+			if result.Session == nil {
+				return sig{"challenged": true}, nil
+			}
+			return sig{"remembered": result.Session.Remembered}, nil
 		},
 	},
 	{

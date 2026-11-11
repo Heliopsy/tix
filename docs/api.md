@@ -21,7 +21,12 @@ curl -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/whoami
 ```
 
 Browsers use a session cookie obtained from `POST /api/v1/auth/login`. The cookie is marked `Secure` when the
-server is reached over TLS.
+server is reached over TLS. It ends when the browser closes, unless the step that completes the sign-in sent
+`"remember": true` and the tenant offers Keep me signed in: then the session lasts the tenant's remember_ttl,
+the answer's session carries `"remembered": true`, and the cookie persists with a `Max-Age` ending with the
+session. `GET /api/v1/auth/session-policy` needs no credential and answers the tenant's `ttl`,
+`idle_timeout` and `remember_ttl` in force, beside the server's; `0s` means off. A session left unused past
+the idle timeout answers `401` like an expired one. See [configuration.md](configuration.md#sign-in-sessions).
 
 A missing or invalid credential is `401`. A valid credential without the required scope is `403`.
 
@@ -126,7 +131,7 @@ the routes the server registers. The areas are the first segment of each operati
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /me/starred-projects`, `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon`, `PUT /projects/{ref}/star`, `DELETE /projects/{ref}/star` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
-| session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
+| session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
 | stats | `GET /stats` |

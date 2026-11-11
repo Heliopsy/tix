@@ -938,6 +938,47 @@ paths:
         - session
       x-tix-openspec:
         - http-api
+  /api/v1/auth/session-policy:
+    get:
+      description: |-
+        SessionPolicy reports how long a new sign-in on the current tenant lasts, how long a session may sit unused, and how long a "keep me signed in" sign-in lasts: the server's session.ttl, session.idle_timeout and session.remember_ttl, tightened by the tenant's own settings. It needs no sign-in, since the sign-in screen reads it to decide whether to offer "keep me signed in".
+
+        Command line: `tix tenant session-policy`.
+      operationId: session.policy
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPolicy'
+          description: 'SessionPolicy is how long a new sign-in on a tenant lasts
+            and how long it may sit unused: the server''s session settings narrowed
+            by the tenant''s own.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: 'SessionPolicy reports how long a new sign-in on the current tenant
+        lasts, how long a session may sit unused, and how long a "keep me signed in"
+        sign-in lasts: the server''s session.ttl, session.idle_timeout and session.remember_ttl,
+        tightened by the tenant''s own settings'
+      tags:
+        - session
   /api/v1/auth/ssh/challenge:
     post:
       description: |-
@@ -14341,6 +14382,21 @@ components:
             the browser interface. Each surface is set independently and defaults
             to false.
           type: boolean
+        session_idle_timeout:
+          description: SessionIdleTimeout ends a session unused for this long. It
+            can only be shorter than the server's session.idle_timeout; zero inherits.
+          type: string
+        session_remember_off:
+          description: SessionRememberOff turns "keep me signed in" off on this tenant.
+          type: boolean
+        session_remember_ttl:
+          description: SessionRememberTTL is how long a "keep me signed in" sign-in
+            lasts, within the server's session.remember_ttl; zero inherits.
+          type: string
+        session_ttl:
+          description: SessionTTL is how long a sign-in on this tenant lasts. It can
+            shorten the server's session.ttl but never lengthen it; zero inherits.
+          type: string
         theme:
           description: Theme names the palette this tenant presents itself with, on
             every surface. Empty means nobody chose, and the accent is derived from
@@ -15580,6 +15636,11 @@ components:
         password:
           description: Password is the user's password, in the first step.
           type: string
+        remember:
+          description: Remember asks for a "keep me signed in" session, sent with
+            the step that completes the sign-in. The session then lasts the tenant's
+            remember_ttl and its cookie persists until then.
+          type: boolean
         surface:
           $ref: '#/components/schemas/Surface'
           description: Surface is the sign-in path the session is for, which decides
@@ -16335,10 +16396,18 @@ components:
         actor_id:
           description: ActorID is the actor the session acts as.
           type: string
+        created_at:
+          description: CreatedAt is when the session was minted, in RFC 3339.
+          format: date-time
+          type: string
         expires_at:
           description: ExpiresAt is when the session stops working, in RFC 3339.
           format: date-time
           type: string
+        remembered:
+          description: Remembered reports a "keep me signed in" session. A browser
+            keeps its cookie until ExpiresAt; otherwise the cookie ends with the browser.
+          type: boolean
         tenant_id:
           description: TenantID is the tenant the session belongs to.
           type: string
@@ -16367,12 +16436,44 @@ components:
         method:
           description: 'Method is how it signed in: password, ssh-key or switch.'
           type: string
+        remembered:
+          description: Remembered reports a "keep me signed in" sign-in, which lasts
+            the tenant's remember_ttl rather than its ttl.
+          type: boolean
         second_factor:
           description: SecondFactor reports that the sign-in passed a second factor.
           type: boolean
         user_agent:
           description: UserAgent is the user agent the sign-in request sent, truncated,
             or empty for a session that predates recording it.
+          type: string
+      type: object
+    SessionPolicy:
+      description: 'SessionPolicy is how long a new sign-in on a tenant lasts and
+        how long it may sit unused: the server''s session settings narrowed by the
+        tenant''s own.'
+      properties:
+        idle_timeout:
+          description: IdleTimeout ends a session unused for this long; zero is off.
+          type: string
+        remember_ttl:
+          description: RememberTTL is how long a "keep me signed in" sign-in lasts;
+            zero means the choice is not offered.
+          type: string
+        server_idle_timeout:
+          description: ServerIdleTimeout is the server's session.idle_timeout, zero
+            when off.
+          type: string
+        server_remember_ttl:
+          description: ServerRememberTTL is the server's session.remember_ttl, zero
+            when off.
+          type: string
+        server_ttl:
+          description: ServerTTL is the server's session.ttl, which a tenant may only
+            shorten.
+          type: string
+        ttl:
+          description: TTL is how long a sign-in lasts from the moment it is made.
           type: string
       type: object
     SnoozeInput:
@@ -17729,6 +17830,21 @@ components:
             the browser interface. Each surface is set independently and defaults
             to false.
           type: boolean
+        session_idle_timeout:
+          description: SessionIdleTimeout ends a session unused for this long. It
+            can only be shorter than the server's session.idle_timeout; zero inherits.
+          type: string
+        session_remember_off:
+          description: SessionRememberOff turns "keep me signed in" off on this tenant.
+          type: boolean
+        session_remember_ttl:
+          description: SessionRememberTTL is how long a "keep me signed in" sign-in
+            lasts, within the server's session.remember_ttl; zero inherits.
+          type: string
+        session_ttl:
+          description: SessionTTL is how long a sign-in on this tenant lasts. It can
+            shorten the server's session.ttl but never lengthen it; zero inherits.
+          type: string
         theme:
           description: Theme names the palette this tenant presents itself with, on
             every surface. Empty means nobody chose, and the accent is derived from
@@ -18261,6 +18377,30 @@ components:
           type:
             - "null"
             - boolean
+        session_idle_timeout:
+          description: SessionIdleTimeout ends sessions unused for this long, such
+            as "30m". Zero inherits the server's session.idle_timeout and omitted
+            leaves it; a value above the server's is refused. It applies to existing
+            sessions.
+          type:
+            - "null"
+            - string
+        session_remember_ttl:
+          description: 'SessionRememberTTL is how long a "keep me signed in" sign-in
+            lasts: a duration such as "7d", "off" (or "0") to stop offering it, or
+            "" to inherit the server''s session.remember_ttl. Omitted leaves it; a
+            value above the server''s is refused.'
+          type:
+            - "null"
+            - string
+        session_ttl:
+          description: SessionTTL shortens how long a sign-in on this tenant lasts,
+            a duration such as "8h". Zero inherits the server's session.ttl and omitted
+            leaves it; a value above the server's is refused. Existing sessions keep
+            their expiry.
+          type:
+            - "null"
+            - string
         theme:
           description: Theme names the palette this tenant presents itself with. A
             pointer to the empty string clears it, which returns the tenant to the

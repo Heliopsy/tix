@@ -325,7 +325,8 @@ func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expir
 		Set("expires_at", sqlb.TimeText(expiresAt)).
 		Set("method", origin.Method).
 		Set("user_agent", origin.UserAgent).
-		Set("second_factor", sqlb.BoolInt(origin.SecondFactor))
+		Set("second_factor", sqlb.BoolInt(origin.SecondFactor)).
+		Set("remembered", sqlb.BoolInt(origin.Remembered))
 	_, err := t.execInsert(ctx, ins, "creating session for actor %q", actorID)
 	return err
 }
@@ -358,25 +359,27 @@ func (t *tx) GetSessionByHash(ctx context.Context, tokenHash string) (string, ti
 // GetSessionOrigin returns how the session behind a hash was minted.
 func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error) {
 	b := t.builder("sessions").
-		Select("method", "second_factor").
+		Select("method", "second_factor", "remembered").
 		Where("token_hash = ?", tokenHash).
 		Limit(1)
 	q, args := b.SelectQuery()
 	var (
 		out    core.SessionOrigin
 		factor int64
+		kept   int64
 	)
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor); err != nil {
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor, &kept); err != nil {
 		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
 			return core.SessionOrigin{}, core.NotFound("session not found")
 		}
 		return core.SessionOrigin{}, mapErr(err, "reading session")
 	}
-	out.SecondFactor = factor != 0
+	out.SecondFactor, out.Remembered = factor != 0, kept != 0
 	return out, nil
 }
 
-var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash"}
+var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash",
+	"remembered"}
 
 func scanSession(s scanner) (store.SessionRecord, error) {
 	var (
@@ -384,8 +387,9 @@ func scanSession(s scanner) (store.SessionRecord, error) {
 		created sql.NullString
 		expires sql.NullString
 		factor  int64
+		kept    int64
 	)
-	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash); err != nil {
+	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash, &kept); err != nil {
 		return store.SessionRecord{}, mapErr(err, "scanning session")
 	}
 	var err error
@@ -395,7 +399,7 @@ func scanSession(s scanner) (store.SessionRecord, error) {
 	if r.ExpiresAt, err = sqlb.ScanTime(expires); err != nil {
 		return store.SessionRecord{}, err
 	}
-	r.SecondFactor = factor != 0
+	r.SecondFactor, r.Remembered = factor != 0, kept != 0
 	return r, nil
 }
 
@@ -657,4 +661,40 @@ func (t *tx) RevokeActorTokens(ctx context.Context, actorID string, at time.Time
 		Where("(revoked_at IS NULL OR revoked_at > ?)", sqlb.TimeText(at)).
 		Set("revoked_at", sqlb.TimeText(at))
 	return t.execUpdate(ctx, b, "revoking tokens for actor %q", actorID)
+}
+
+// GetSessionLastSeen returns when the session behind a hash last
+// authenticated a request, or when it signed in if it has not since.
+func (t *tx) GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error) {
+	b := t.builder("sessions").
+		Select("created_at", "last_seen_at").
+		Where("token_hash = ?", tokenHash).
+		Limit(1)
+	q, args := b.SelectQuery()
+	var created, seen sql.NullString
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&created, &seen); err != nil {
+		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
+			return time.Time{}, core.NotFound("session not found")
+		}
+		return time.Time{}, mapErr(err, "reading session")
+	}
+	if seen.Valid && seen.String != "" {
+		return sqlb.ScanTime(seen)
+	}
+	return sqlb.ScanTime(created)
+}
+
+// TouchSession records that the session behind a hash authenticated a request.
+func (t *tx) TouchSession(ctx context.Context, tokenHash string, at time.Time) error {
+	b := t.builder("sessions").
+		Where("token_hash = ?", tokenHash).
+		Set("last_seen_at", sqlb.TimeText(at))
+	n, err := t.execUpdate(ctx, b, "touching session")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("session not found")
+	}
+	return nil
 }

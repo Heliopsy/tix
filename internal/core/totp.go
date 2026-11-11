@@ -198,6 +198,10 @@ type LoginInput struct {
 	Ticket string `json:"ticket,omitempty" yaml:"ticket,omitempty"`
 	// Code is the TOTP or recovery code, in the second step.
 	Code string `json:"code,omitempty" yaml:"code,omitempty"`
+	// Remember asks for a "keep me signed in" session, which lasts the
+	// tenant's session remember_ttl rather than its ttl. Send it with the
+	// step that completes the sign-in; it is ignored where not offered.
+	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
 }
 
 // LoginResult is either a session or the challenge standing between the caller

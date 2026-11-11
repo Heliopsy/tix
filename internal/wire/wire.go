@@ -30,6 +30,10 @@ const (
 	RouteLogout = APIPrefix + "/auth/logout"
 	RouteSwitch = APIPrefix + "/auth/switch"
 
+	// RouteSessionPolicy answers how long a sign-in on the tenant lasts. It
+	// needs no credential: a sign-in screen reads it.
+	RouteSessionPolicy = APIPrefix + "/auth/session-policy"
+
 	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
 	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"
 

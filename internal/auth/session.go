@@ -33,11 +33,30 @@ type StoredSession struct {
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	RevokedAt *time.Time
+	// LastSeenAt is when the session last authenticated a request, recorded
+	// at most once a minute.
+	LastSeenAt time.Time
+	// IdleTimeout ends the session once unused this long; zero is off.
+	IdleTimeout time.Duration
 }
 
 // Active reports whether the session may still authenticate at time now.
 func (s StoredSession) Active(now time.Time) bool {
+	if s.IdleTimeout > 0 && !s.LastSeenAt.IsZero() && now.Sub(s.LastSeenAt) > s.IdleTimeout {
+		return false
+	}
 	return s.RevokedAt == nil && s.ExpiresAt.After(now)
+}
+
+// stale reports whether the session's last-seen time is old enough to record
+// again, so a busy session costs one write a minute rather than one a request.
+func (s StoredSession) stale(now time.Time) bool {
+	return now.Sub(s.LastSeenAt) >= core.SessionTouchInterval
+}
+
+// SessionToucher records the time a session last authenticated a request.
+type SessionToucher interface {
+	TouchSession(ctx context.Context, hash string, at time.Time) error
 }
 
 // String renders the session without its hash or token value.
@@ -87,6 +106,7 @@ func MintSession(clk clock.Clock, in SessionInput) (*MintedSession, error) {
 			Token:     secret,
 			ActorID:   in.ActorID,
 			TenantID:  in.TenantID,
+			CreatedAt: now,
 			ExpiresAt: expires,
 		},
 		Stored: StoredSession{
@@ -128,8 +148,14 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 	if !EqualHash(stored.TokenHash, HashToken(token)) {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
-	if !stored.Active(v.clk.Now()) {
+	now := v.clk.Now()
+	if !stored.Active(now) {
 		return nil, core.Unauthenticated("invalid credentials")
+	}
+	if toucher, ok := v.lookup.(SessionToucher); ok && stored.stale(now) {
+		if err := toucher.TouchSession(ctx, stored.TokenHash, now); err != nil {
+			return nil, core.Internal("recording session use").Wrap(err)
+		}
 	}
 	// The role is the caller's authority and it belongs to the membership, so
 	// a lookup reporting no role is reporting no membership: the actor keeps
@@ -173,6 +199,23 @@ func NewSessionCookie(token string, expires time.Time, secure bool) *http.Cookie
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	}
+}
+
+// SessionCookie builds the cookie a minted session travels in. A "keep me
+// signed in" session gets a persistent cookie whose Max-Age ends with the
+// session; any other gets a browser-session cookie, gone when the browser
+// closes, which the server still refuses after the session's expiry.
+//
+// Max-Age is the session's lifetime as minted, so it agrees with the expiry
+// the server holds whatever the clock of the machine setting the cookie says.
+func SessionCookie(s core.Session, secure bool) *http.Cookie {
+	// #nosec G124 -- delegates to NewSessionCookie, which sets HttpOnly and SameSite.
+	c := NewSessionCookie(s.Token, time.Time{}, secure)
+	if s.Remembered {
+		c.Expires = s.ExpiresAt
+		c.MaxAge = max(1, int(s.ExpiresAt.Sub(s.CreatedAt)/time.Second))
+	}
+	return c
 }
 
 // ClearSessionCookie builds the cookie that removes a session from the browser.
