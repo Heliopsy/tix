@@ -207,6 +207,7 @@ func (s *webService) RunSync(ctx context.Context, in core.RunSyncInput) (*core.S
 		Seq: int64(len(s.syncRuns) + 1), TenantID: actor.TenantID, ActorID: actor.ID,
 		Action: "sync.run", SubjectType: "sync_source", SubjectID: src.ID,
 		After: snapshot, Source: core.SourceSystem, OccurredAt: now,
+		Via: core.ViaFrom(ctx).Derive(core.ViaSync),
 	})
 	return result, nil
 }

@@ -443,6 +443,9 @@ type syncRun struct {
 	Skipped  int
 	Warnings []string
 	ActorID  string
+	// Token is the name the API token that started the run had then, empty
+	// when no token did.
+	Token string
 }
 
 // syncRunsView is what the run history screen renders.
@@ -504,7 +507,7 @@ func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
 // its snapshot did not parse would hide the very thing this screen exists to
 // show.
 func syncRunOf(entry core.AuditEntry) syncRun {
-	out := syncRun{At: entry.OccurredAt, ActorID: entry.ActorID}
+	out := syncRun{At: entry.OccurredAt, ActorID: entry.ActorID, Token: entry.Via.TokenName}
 	var result core.SyncResult
 	if len(entry.After) == 0 || json.Unmarshal(entry.After, &result) != nil {
 		return out

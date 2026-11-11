@@ -39,7 +39,9 @@ pass run by the server's hourly timer is `system` with job `housekeeping`.
 ## What is stored, and what never is
 
 - An API token is stored by its ID and its name at the time of the change. The secret never reaches the
-  audit log or the event log.
+  audit log or the event log. A token renamed or deleted since keeps the name it had in the entries it
+  wrote; its ID tells two names of one token apart. Activity, a task's History and Sync runs print the name,
+  and they show it only to someone who can read the audit log.
 - A browser session is stored as a reference: `s-` and 16 hex characters of a digest of the session's
   stored hash. It tells two sessions apart, and it is neither the cookie nor the hash a sign-in lookup
   accepts.
