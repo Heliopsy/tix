@@ -31,6 +31,11 @@ nothing; a session cookie is recorded as `web` whatever the header says. Every a
 access channel and what identified the caller, and `GET /api/v1/audit` filters it with `via` and `token`. See
 [audit-log.md](audit-log.md).
 
+A client that draws who did something reads `via.kind`, `via.token_name` and `via.token_id` from each entry of
+`GET /api/v1/audit` and `GET /api/v1/tasks/{ref}/audit`, and from each event. `token_name` is the name the token
+had when the change was made; a token's secret is never recorded. A comment carries no `via`: its channel is on
+the `comment.add` audit entry and the `comment.added` event.
+
 ### Several tenants on one host
 
 A host no domain claims, or one whose domain a global admin marked shared, serves several tenants. A sign-in
