@@ -159,6 +159,15 @@ func (l *Local) CopyTask(ctx context.Context, ref core.TaskRef, in core.CopyTask
 	return l.linked(ctx, t, err)
 }
 
+// MoveTask moves a task to another project; see core.Service.
+func (l *Local) MoveTask(ctx context.Context, ref core.TaskRef, in core.MoveTaskInput) (*core.TaskMove, error) {
+	out, err := l.moveTask(ctx, ref, in)
+	if err == nil {
+		l.linkTasks(ctx, &out.Task)
+	}
+	return out, err
+}
+
 // CheckTaskItem ticks or clears a checklist item; see core.Service.
 func (l *Local) CheckTaskItem(ctx context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
 	t, err := l.checkTaskItem(ctx, ref, in)

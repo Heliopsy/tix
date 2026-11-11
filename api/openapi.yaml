@@ -8807,6 +8807,76 @@ paths:
         - task
       x-tix-openspec:
         - http-api
+  /api/v1/tasks/{ref}/move:
+    post:
+      description: |-
+        MoveTask moves a task into another project. It keeps its identifier, comments, artifacts, history, links, tags and assignee, takes the target's next number, and its old reference keeps resolving to it. The status is kept when the target's workflow has it, else the target's initial state; custom fields the target does not define are dropped. Needs edit rights on the task and create rights in the target; a task claimed by somebody else is refused.
+
+        Command line: `tix task move`.
+      operationId: task.move
+      parameters:
+        - description: 'Task reference: the project key and number, such as INFRA-42,
+            with the key not case sensitive, or the task''s ID.'
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskMove'
+          description: 'TaskMove is what moving a task did: the task as it landed
+            and what changed on the way.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:write
+        - session:
+            - task:write
+      summary: MoveTask moves a task into another project
+      tags:
+        - task
   /api/v1/tasks/{ref}/restore:
     post:
       description: |-
@@ -13301,6 +13371,7 @@ components:
         - star
         - unstar
         - copy
+        - move_project
         - delete
         - restore
       type: string
@@ -13318,6 +13389,10 @@ components:
           type: string
         error:
           description: Error is the refusal's message.
+          type: string
+        moved_ref:
+          description: MovedRef is the reference a task moved to another project now
+            has.
           type: string
         ref:
           description: Ref is the task reference as given.
@@ -13349,7 +13424,7 @@ components:
       description: 'BulkTaskInput is one action applied to many tasks. Only the argument
         the action needs is read: To for a move, Priority for priority, Tag for the
         tag actions, AssigneeActorID for assign (empty clears), ProjectRef for a copy
-        and Cascade for a delete.'
+        or a move to another project, and Cascade for a delete.'
       properties:
         action:
           $ref: '#/components/schemas/BulkAction'
@@ -13364,7 +13439,8 @@ components:
           description: Priority orders tasks in a queue.
           type: integer
         project_ref:
-          description: ProjectRef is the project a copy goes to, by key or id.
+          description: ProjectRef is the project a copy or a move_project goes to,
+            by key or id.
           type: string
         refs:
           description: 'Refs are the tasks to act on, by reference such as OPS-12
@@ -15414,6 +15490,14 @@ components:
           description: TenantID is the tenant the membership belongs to.
           type: string
       type: object
+    MoveTaskInput:
+      description: MoveTaskInput names the project a task moves to.
+      properties:
+        project_ref:
+          description: ProjectRef is the key or identifier of the project to move
+            into.
+          type: string
+      type: object
     NumberingLag:
       description: NumberingLag is one project whose task number counter is behind
         its tasks.
@@ -17292,6 +17376,37 @@ components:
         value:
           description: Value is the value as the file spells it.
           type: string
+      type: object
+    TaskMove:
+      description: 'TaskMove is what moving a task did: the task as it landed and
+        what changed on the way.'
+      properties:
+        dropped_fields:
+          description: DroppedFields names the custom fields the target does not define
+            or would not accept, whose values were left behind.
+          items:
+            type: string
+          type: array
+        from_project:
+          description: FromProject is the key of the project the task left.
+          type: string
+        from_ref:
+          description: FromRef is the reference the task had, which keeps resolving
+            to it.
+          type: string
+        from_status:
+          description: FromStatus is the status the task had before the move.
+          type: string
+        project:
+          description: Project is the key of the project the task moved into.
+          type: string
+        status_kept:
+          description: StatusKept reports that the target's workflow had the same
+            state; when false the task starts in the target's initial state.
+          type: boolean
+        task:
+          $ref: '#/components/schemas/Task'
+          description: Task is the moved task under its new reference.
       type: object
     TaskTemplate:
       description: 'TaskTemplate is a named shape of a task that is not itself work:

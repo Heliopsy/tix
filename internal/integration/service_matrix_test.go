@@ -709,6 +709,34 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "move round-trip",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "MoveTask", "GetTask", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "moving", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "note")
+			mustf(t, tg, err, "commenting")
+			moved, err := tg.svc.MoveTask(tg.ctx, core.TaskRef{ID: task.ID}, core.MoveTaskInput{ProjectRef: to.Key})
+			if err != nil {
+				return nil, err
+			}
+			old, err := core.ParseTaskRef(task.Ref)
+			mustf(t, tg, err, "parsing the old reference")
+			again, err := tg.svc.GetTask(tg.ctx, old)
+			mustf(t, tg, err, "reading the task by its old reference")
+			comments, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the comments")
+			return sig{
+				"same_id": moved.Task.ID == task.ID, "old_ref_resolves": again.ID == task.ID,
+				"new_ref": again.Ref == moved.Task.Ref, "from_ref": moved.FromRef == task.Ref,
+				"in_target": moved.Project == to.Key, "status_kept": moved.StatusKept,
+				"tags": moved.Task.Tags, "comments": len(comments),
+			}, nil
+		},
+	},
+	{
 		name:   "bulk round-trip",
 		covers: []string{"CreateProject", "CreateTask", "BulkTasks", "GetTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

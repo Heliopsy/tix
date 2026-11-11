@@ -263,6 +263,14 @@ type TaskService interface {
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.
 	CopyTask(ctx context.Context, ref TaskRef, in CopyTaskInput) (*Task, error)
+	// MoveTask moves a task into another project. It keeps its identifier,
+	// comments, artifacts, history, links, tags and assignee, takes the
+	// target's next number, and its old reference keeps resolving to it. The
+	// status is kept when the target's workflow has it, else the target's
+	// initial state; custom fields the target does not define are dropped.
+	// Needs edit rights on the task and create rights in the target; a task
+	// claimed by somebody else is refused.
+	MoveTask(ctx context.Context, ref TaskRef, in MoveTaskInput) (*TaskMove, error)
 	// BulkTasks applies one action to many tasks, each in its own transaction,
 	// and reports an outcome per task rather than failing on the first refusal.
 	BulkTasks(ctx context.Context, in BulkTaskInput) (*BulkResult, error)
