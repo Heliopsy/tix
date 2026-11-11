@@ -2038,10 +2038,10 @@ Settings carries a Sessions section listing your own browser and terminal sign-i
 first: the user agent each signed in with, when it signed in and how (password, SSH key or a tenant switch,
 and whether a second factor passed), and when it expires, with Kept signed in on one made with Keep me
 signed in. The one this browser is using is marked This browser. Each row has a red Revoke button that
-opens a dialog naming what happens; the form is only in the dialog. Revoking another session signs
-whatever holds it out at once and returns to the section with a notice; revoking the one in use signs this browser out. Session tokens are never shown, only an identifier
-that cannot sign anybody in. Sessions that predate this list show Unknown client, because the user agent was
-not recorded then.
+opens a dialog naming what happens; the form is only in the dialog. Revoking another session signs whatever
+holds it out at once and returns to the section with a notice; revoking the one in use signs this browser
+out. Session tokens are never shown, only an identifier that cannot sign anybody in. Sessions that predate
+this list show Unknown client, because the user agent was not recorded then.
 
 ## Calendar feed
 
