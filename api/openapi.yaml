@@ -2654,6 +2654,141 @@ paths:
       summary: EditComment replaces a comment's body and marks it edited
       tags:
         - comment
+  /api/v1/comments/{id}/reactions/{emoji}:
+    delete:
+      description: |-
+        RemoveReaction removes the caller's emoji reaction from a comment and returns the comment with its reactions. A reaction not there is no error.
+
+        Command line: `tix comment react`.
+      operationId: comment.unreact
+      parameters:
+        - description: Comment ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'The reaction: one emoji grapheme, percent-encoded, such as
+            %F0%9F%91%8D for a thumbs up.'
+          in: path
+          name: emoji
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: Comment is a message on a task.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - comment:write
+        - session:
+            - comment:write
+      summary: RemoveReaction removes the caller's emoji reaction from a comment and
+        returns the comment with its reactions
+      tags:
+        - comment
+    put:
+      description: |-
+        AddReaction adds the caller's emoji reaction to a comment and returns the comment with its reactions. The emoji is one emoji grapheme; reacting again with the same emoji changes nothing.
+
+        Command line: `tix comment react`.
+      operationId: comment.react
+      parameters:
+        - description: Comment ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'The reaction: one emoji grapheme, percent-encoded, such as
+            %F0%9F%91%8D for a thumbs up.'
+          in: path
+          name: emoji
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+          description: Comment is a message on a task.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - comment:write
+        - session:
+            - comment:write
+      summary: AddReaction adds the caller's emoji reaction to a comment and returns
+        the comment with its reactions
+      tags:
+        - comment
   /api/v1/connections:
     get:
       description: |-
@@ -13726,6 +13861,12 @@ components:
         id:
           description: ID is the comment's unique identifier.
           type: string
+        reactions:
+          description: Reactions are the emoji people reacted with, in the order each
+            emoji was first used. Absent when nobody reacted.
+          items:
+            $ref: '#/components/schemas/Reaction'
+          type: array
         task_id:
           description: TaskID is the ID of the task commented on.
           type: string
@@ -14415,6 +14556,8 @@ components:
         - task.unsnoozed
         - task.woke
         - comment.added
+        - comment.reacted
+        - comment.unreacted
         - artifact.added
         - dependency.added
         - tag.added
@@ -15677,6 +15820,24 @@ components:
           description: WebhookDeliveries counts the webhook delivery records removed.
           format: int64
           type: integer
+      type: object
+    Reaction:
+      description: Reaction is one emoji on a comment and everyone who reacted with
+        it.
+      properties:
+        actor_ids:
+          description: ActorIDs are the actors who reacted, earliest first.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        count:
+          description: Count is how many actors reacted with this emoji.
+          type: integer
+        emoji:
+          description: Emoji is the reaction, a single emoji grapheme.
+          type: string
       type: object
     ReadyBody:
       description: ReadyBody reports whether the server can serve traffic.

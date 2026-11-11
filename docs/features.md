@@ -83,6 +83,16 @@ alone:
 tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
 
+**Emoji reactions on comments.** Anyone who may comment can react to a comment with an emoji, and can leave
+several different ones on the same comment, each once. Pressing a reaction you already left takes it back.
+The task screen draws the reactions under each comment as chips with a count, the ones you left
+highlighted and a tooltip naming who reacted, with a quick picker (👍 👎 ❤️ 🎉 😄 😕 👀 🚀) and a box for any
+other emoji. `tix comment react ID EMOJI` adds one and `--remove` takes it back, the terminal's `&` key
+toggles one on the selected comment, and a comment read carries `"reactions"`. The server accepts only a
+single emoji grapheme, so a word or two emoji in one reaction is refused. Each reaction and each removal
+writes an audit entry and a `comment.reacted` or `comment.unreacted` event, and notifies nobody. Deleting
+a comment removes its reactions.
+
 **Descriptions and comments in Markdown, with checklists.** A task's description and its comments are
 CommonMark with the GitHub tables, task lists, autolinks, strikethrough and fenced code, and a line break
 you type stays a line break. The browser draws them; the command line and the terminal show the text as

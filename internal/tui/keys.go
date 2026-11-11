@@ -36,6 +36,7 @@ type KeyMap struct {
 	Depend        key.Binding
 	Undepend      key.Binding
 	CommentEdit   key.Binding
+	React         key.Binding
 	Delete        key.Binding
 	Restore       key.Binding
 	Star          key.Binding
@@ -131,7 +132,10 @@ func DefaultKeyMap() KeyMap {
 		Depend:      key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "add dependency")),
 		Undepend:    key.NewBinding(key.WithKeys("-"), key.WithHelp("-", "remove dependency")),
 		CommentEdit: key.NewBinding(key.WithKeys("M"), key.WithHelp("M", "edit comment")),
-		Delete:      key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "delete")),
+		// & adds an emoji to the selected comment, or takes back one already
+		// left. Every letter near m was taken.
+		React:  key.NewBinding(key.WithKeys("&"), key.WithHelp("&", "react to comment")),
+		Delete: key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "delete")),
 		// u, for undoing the deletion. It is the one key on a deleted card, and
 		// vim's own undo, which is the reflex a reader arrives with.
 		Restore: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "restore")),
@@ -316,6 +320,7 @@ const (
 	doAssign
 	doComment
 	doCommentEdit
+	doReact
 	doTag
 	doUntag
 	doTags
@@ -613,6 +618,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"AddComment"}}},
 		{id: doCommentEdit, binding: k.CommentEdit, needsTask: true,
 			gate: gatedAction{methods: []string{"EditComment"}}},
+		{id: doReact, binding: k.React, needsTask: true,
+			gate: gatedAction{methods: []string{"AddReaction"}, needs: []string{"RemoveReaction"}}},
 		{id: doTag, binding: k.Tag, needsTask: true,
 			gate: gatedAction{methods: []string{"AddTag"}}},
 		{id: doUntag, binding: k.Untag, needsTask: true,

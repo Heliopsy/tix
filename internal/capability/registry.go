@@ -953,6 +953,22 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
+		Name: "comment.react", Method: "AddReaction",
+		Scope: core.ScopeCommentWrite,
+		CLI:   "tix comment react",
+		HTTP:  apiPut(wire.RouteCommentReaction),
+		Web:   webPost(web.RouteCommentReact),
+		TUI:   "detail",
+	},
+	{
+		Name: "comment.unreact", Method: "RemoveReaction",
+		Scope: core.ScopeCommentWrite,
+		CLI:   "tix comment react",
+		HTTP:  apiDelete(wire.RouteCommentReaction),
+		Web:   webPost(web.RouteCommentUnreact),
+		TUI:   "detail",
+	},
+	{
 		Name: "artifact.put", Method: "PutArtifact",
 		Scope: core.ScopeArtifactWrite,
 		CLI:   "tix artifact put",

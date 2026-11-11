@@ -227,6 +227,16 @@ type TaskTx interface {
 	ListComments(ctx context.Context, taskID string) ([]core.Comment, error)
 	UpdateComment(ctx context.Context, c *core.Comment) error
 	DeleteComment(ctx context.Context, id string) error
+	// AddReaction records an actor's emoji on a comment, reporting whether it
+	// was new.
+	AddReaction(ctx context.Context, commentID, actorID, emoji string) (bool, error)
+	// RemoveReaction removes an actor's emoji on a comment, reporting whether
+	// there was one.
+	RemoveReaction(ctx context.Context, commentID, actorID, emoji string) (bool, error)
+	// ClearReactions removes every reaction on a comment.
+	ClearReactions(ctx context.Context, commentID string) error
+	// ListReactions returns the reactions on the given comments, oldest first.
+	ListReactions(ctx context.Context, commentIDs []string) ([]core.CommentReaction, error)
 
 	PutArtifact(ctx context.Context, a *core.Artifact) error
 	ListArtifacts(ctx context.Context, taskID string) ([]core.Artifact, error)

@@ -5,6 +5,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -869,8 +870,20 @@ func commentLines(comments []core.Comment, actors map[string]string, style outpu
 		for _, l := range Wrap(c.Body, width) {
 			out = append(out, strings.Repeat(" ", CommentIndent)+l)
 		}
+		if line := ReactionLine(c.Reactions); line != "" {
+			out = append(out, strings.Repeat(" ", CommentIndent)+line)
+		}
 	}
 	return out
+}
+
+// ReactionLine writes a comment's reactions as each emoji and how many left it.
+func ReactionLine(rs []core.Reaction) string {
+	parts := make([]string, len(rs))
+	for i, r := range rs {
+		parts[i] = r.Emoji + " " + strconv.Itoa(r.Count)
+	}
+	return strings.Join(parts, "  ")
 }
 
 // CommentTarget names one comment the way the thread shows it, which is what a

@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Reaction chips under a comment, and the picker that adds one. */
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.reaction-form {
+  display: inline;
+  margin: 0;
+}
+.reaction,
+.reaction-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.9rem;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.reaction.mine {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.reaction:disabled {
+  cursor: default;
+}
+.reaction-count {
+  font-variant-numeric: tabular-nums;
+}
+.reaction-add {
+  color: var(--muted);
+}
+.reaction:focus-visible,
+.reaction-add:focus-visible,
+.reaction-pick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.reaction-quick {
+  display: grid;
+  grid-template-columns: repeat(4, 2.5rem);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.reaction-pick {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.reaction-pick:hover {
+  border-color: var(--line-strong);
+}

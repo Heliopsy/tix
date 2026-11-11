@@ -807,6 +807,29 @@ type Comment struct {
 	// DeletedAt is when the comment was deleted, RFC 3339. Absent on a live
 	// comment.
 	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+	// Reactions are the emoji people reacted with, in the order each emoji
+	// was first used. Absent when nobody reacted.
+	Reactions []Reaction `json:"reactions,omitempty" yaml:"reactions,omitempty"`
+}
+
+// Reaction is one emoji on a comment and everyone who reacted with it.
+type Reaction struct {
+	// Emoji is the reaction, a single emoji grapheme.
+	Emoji string `json:"emoji" yaml:"emoji"`
+	// Count is how many actors reacted with this emoji.
+	Count int `json:"count" yaml:"count"`
+	// ActorIDs are the actors who reacted, earliest first.
+	ActorIDs []string `json:"actor_ids" yaml:"actor_ids"`
+}
+
+// CommentReaction is one actor's emoji on one comment, as stored.
+type CommentReaction struct {
+	// CommentID is the comment reacted to.
+	CommentID string `json:"comment_id" yaml:"comment_id"`
+	// ActorID is the actor who reacted.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Emoji is the reaction.
+	Emoji string `json:"emoji" yaml:"emoji"`
 }
 
 // ArtifactKind classifies a worker's structured output.
@@ -945,10 +968,14 @@ const (
 	EventTaskUnsnoozed EventType = "task.unsnoozed"
 	EventTaskWoke      EventType = "task.woke"
 
-	EventCommentAdded    EventType = "comment.added"
-	EventArtifactAdded   EventType = "artifact.added"
-	EventDependencyAdded EventType = "dependency.added"
-	EventLabelAdded      EventType = "tag.added"
+	EventCommentAdded EventType = "comment.added"
+	// EventCommentReacted and EventCommentUnreacted record one actor adding or
+	// removing an emoji reaction on a comment.
+	EventCommentReacted   EventType = "comment.reacted"
+	EventCommentUnreacted EventType = "comment.unreacted"
+	EventArtifactAdded    EventType = "artifact.added"
+	EventDependencyAdded  EventType = "dependency.added"
+	EventLabelAdded       EventType = "tag.added"
 
 	EventProjectCreated  EventType = "project.created"
 	EventProjectUpdated  EventType = "project.updated"
@@ -986,7 +1013,7 @@ var eventTypes = []EventType{
 	EventTaskReclaimed,
 	EventTaskDeleted, EventTaskStarred, EventTaskUnstarred,
 	EventTaskSnoozed, EventTaskUnsnoozed, EventTaskWoke,
-	EventCommentAdded, EventArtifactAdded,
+	EventCommentAdded, EventCommentReacted, EventCommentUnreacted, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,

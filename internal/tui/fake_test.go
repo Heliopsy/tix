@@ -72,6 +72,7 @@ type fakeService struct {
 	routeFrom      string
 	commentsEdited [][2]string
 	commentsGone   []string
+	reactions      []string
 	thread         []core.Comment
 	dependencies   []core.Dependency
 	tags           []core.Tag
@@ -681,6 +682,18 @@ func (f *fakeService) DeleteComment(_ context.Context, id string) error {
 	defer f.mu.Unlock()
 	f.commentsGone = append(f.commentsGone, id)
 	return nil
+}
+func (f *fakeService) AddReaction(_ context.Context, id, emoji string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reactions = append(f.reactions, "+"+id+" "+emoji)
+	return &core.Comment{ID: id}, nil
+}
+func (f *fakeService) RemoveReaction(_ context.Context, id, emoji string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reactions = append(f.reactions, "-"+id+" "+emoji)
+	return &core.Comment{ID: id}, nil
 }
 func (f *fakeService) PutArtifact(_ context.Context, _ core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	f.mu.Lock()

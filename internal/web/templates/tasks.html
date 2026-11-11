@@ -236,7 +236,7 @@
     {{/* The menu sits beside the heading, never inside it: live.js names a
          column by its h2 when it announces a drop. */}}
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{.Total}})</span></h2>
+      <h2{{with categoryClass .Category}} class="{{.}}"{{end}}>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{.Total}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}

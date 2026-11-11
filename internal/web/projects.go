@@ -390,7 +390,9 @@ type card struct {
 // column is one workflow state and the tasks sitting in it.
 type column struct {
 	State core.State
-	Tasks []card
+	// Category is the state's resolved category, which colours the heading.
+	Category core.StateCategory
+	Tasks    []card
 	// Total is how many tasks the state holds under the filter, which may be
 	// more than Tasks draws; More and MoreHref offer the next step of them.
 	Total    int

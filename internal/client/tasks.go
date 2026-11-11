@@ -200,6 +200,16 @@ func (c *Client) DeleteComment(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteComment, "id", id), nil, nil)
 }
 
+// AddReaction adds the caller's emoji reaction to a comment.
+func (c *Client) AddReaction(ctx context.Context, id, emoji string) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodPut, routePath(wire.RouteCommentReaction, "id", id, "emoji", emoji), nil, nil)
+}
+
+// RemoveReaction removes the caller's emoji reaction from a comment.
+func (c *Client) RemoveReaction(ctx context.Context, id, emoji string) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodDelete, routePath(wire.RouteCommentReaction, "id", id, "emoji", emoji), nil, nil)
+}
+
 // PutArtifact records structured output on a task.
 func (c *Client) PutArtifact(ctx context.Context, ref core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	return call[core.Artifact](ctx, c, http.MethodPut, taskPath(wire.RouteTaskArtifacts, ref), nil, in)

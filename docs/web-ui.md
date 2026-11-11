@@ -1031,6 +1031,17 @@ under them was placeholdered `infra-2`, so the screen disagreed with itself abou
 task. A dependency this reader may not read keeps its shortened identifier and gains no link, so a
 dependency they cannot open is still visible as one rather than missing from the list.
 
+### Reacting to a comment
+
+Under each comment sit its reactions: one chip per emoji with how many people left it. A chip you left is
+highlighted and reads as pressed to a screen reader, and hovering or focusing one names everyone behind
+it. Pressing a chip adds that emoji as yours, or takes it back when it is already yours. The `+` button
+after the chips opens a small picker over the thread with eight quick reactions (👍 👎 ❤️ 🎉 😄 😕 👀 🚀)
+and a box for any other emoji; each is a button, so Tab and Enter work it without a mouse, and Escape
+closes it. The server refuses anything that is not a single emoji. Someone without `comment:write` sees
+the chips but cannot press them. Reactions arrive live through the same event stream as comments, and
+notify nobody.
+
 ## Copying a task
 
 **Copy to…** in the task screen's actions menu, offered to a reader who may write tasks, opens a
@@ -1416,7 +1427,7 @@ Every row ends with its channel as an icon and a few words: "via web", "via SSH"
 "via MCP (token scout-runner)", "via CLI". Hovering it shows what identified the caller: the client
 address, the user agent, the SSH key fingerprint, the token's name and ID, the session reference, the job
 for background work. The row's Raw view lists the same details, and the channel itself links to the feed
-narrowed to that channel and token. A task's History has the same channel in its Channel column.
+narrowed to that channel and token. A task's History has the same channel in its Channel column, linked the same way.
 [audit-log.md](audit-log.md) says what each channel means and what is and is not stored.
 
 Each active filter is a chip that removes itself, and the live refresh keeps the filter rather than

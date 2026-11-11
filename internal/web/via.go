@@ -117,3 +117,7 @@ func (r historyRow) Channel() viaView { return newViaView(r.Entry.Via) }
 // Channel is the access channel of the group's latest hop. Every hop of one
 // group came from one request, so they share it.
 func (g historyGroup) Channel() viaView { return g.Latest().Channel() }
+
+// ViaHref is the activity feed narrowed to the group's channel, and to its
+// token when the change was made with one, as an activity row's channel is.
+func (g historyGroup) ViaHref() string { return activityQuery{}.WithVia(g.Latest().Entry.Via) }

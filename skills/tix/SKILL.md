@@ -343,6 +343,10 @@ not pass one and do not expect a refusal:
   or re-assigning live work is the queue doing its job. If you care about a
   concurrent edit, that is what `--version` is for, not the lease.
 
+`tix comment react ID EMOJI` (and `--remove`) leaves an emoji reaction on a
+comment. It notifies nobody, so it is an acknowledgement, never a substitute
+for a reply someone is waiting on.
+
 So treat a **comment** as evidence, never a lock: two agents can write
 contradictory ones. The **artifact** is what the lease protects, so keep your
 token to hand.
