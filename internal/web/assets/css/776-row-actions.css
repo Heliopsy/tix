@@ -27,3 +27,8 @@ li.task .rowmore-btn:focus-visible { color: var(--ink); background: var(--accent
 }
 .lanemore-menu .assignme,
 .lanemore-menu .duefield-clear { display: flex; flex-direction: column; margin: 0; }
+/* A tag with no break in it would hold the menu's chip row wider than the
+   menu; it wraps inside its chip instead. */
+.lanemore-menu .lanemore-tags > li,
+.lanemore-menu .lanemore-tags form { min-width: 0; max-width: 100%; }
+.lanemore-menu .lanemore-tags .tagdrop { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: start; }
