@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.59.0](https://github.com/Heliopsy/tix/compare/v0.58.0...v0.59.0) (2026-11-12)
+
+
+### Features
+
+* **api:** report the release check and bundled changelog at GET /release ([49081ec](https://github.com/Heliopsy/tix/commit/49081ec1fa319d235e6d5ba9ab015652fb50c562))
+* **claim:** claim and start in one call, finish releases the lease, honest mv --dry-run ([47caa9f](https://github.com/Heliopsy/tix/commit/47caa9f55b39b38ba0cde6e05877c786bb17c32f))
+* **web:** call the folded group Manage and give Templates a main entry ([e386c85](https://github.com/Heliopsy/tix/commit/e386c85c67ec94cc4799e77c23245a86ab184495))
+* **web:** count each project's open tasks on the projects screen ([3388a50](https://github.com/Heliopsy/tix/commit/3388a505fc845f0b150a8e5bb39b56dd593d0950))
+* **web:** narrow Activity to a time window and an action ([1747fc3](https://github.com/Heliopsy/tix/commit/1747fc3740889f7063fab673915f32c6e918891a))
+
 ## [0.58.0](https://github.com/Heliopsy/tix/compare/v0.57.0...v0.58.0) (2026-11-11)
 
 
