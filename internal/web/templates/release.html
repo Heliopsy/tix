@@ -79,6 +79,21 @@
 {{/* What changed, from the CHANGELOG.md embedded in this binary, so it
      answers with no route out. The footer's version links here. Entries go
      through stripLinks and the sanitising renderer, like the feed notes. */}}
+{{/* What a bug report needs, as plain lines to paste: the server's facts
+     rendered here, the browser's added by assets/diagnostics.js, which also
+     refreshes them the moment Copy is pressed. Versions and settings only:
+     never a token, a cookie or a task. */}}
+<section class="relsec reldiag" id="diagnostics" aria-labelledby="reldiag-title">
+  <h2 id="reldiag-title">{{t "Something wrong?"}}</h2>
+  <p class="meta">{{t "Copy these facts into a bug report on the tix project's issue tracker. They name versions and this browser, never a token, a password or your work."}}</p>
+  <div class="reldiag-text" id="diagnostics-text" data-diagnostics data-version="{{$u.Running}}" data-latest="{{$u.Latest}}">{{/* English on purpose: the report is for whoever reads the bug. */}}{{printf "tix %s\nNewest published: %s" $u.Running (or $u.Latest "not known")}}</div>
+  <div class="reldiag-ctl">
+    <label class="checkline" data-needs-js><input type="checkbox" data-diagnostics-server> {{t "Include the server address"}}</label>
+    <span class="meta" data-needs-js>{{t "Off keeps a private server's address out of what you copy."}}</span>
+    <button type="button" class="secondary" data-copy-target="diagnostics-text">{{t "Copy diagnostics"}}</button>
+  </div>
+</section>
+
 {{with .Data.Changes}}
 <section class="relsec relchanges" id="changes" aria-labelledby="relchanges-title">
   <h2 id="relchanges-title">{{t "What's new"}}</h2>

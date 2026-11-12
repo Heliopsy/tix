@@ -1797,6 +1797,14 @@ notes: the text of a link stays, its target and the trailing commit hash do not.
 `GET /api/v1/release` answers the same state, notes, commands and entries as JSON from the same check, for
 a client drawing this screen itself; see [api.md](api.md#release).
 
+"Something wrong?" (`/release#diagnostics`) holds the facts a bug report needs as plain lines with a
+**Copy diagnostics** button: the running and newest published versions, and, added by the browser, its
+user agent, page and browser languages, time zone, screen and window size, colour scheme and Reduce
+motion, whether it is online and whether live updates are connected. The server address is added only
+when Include the server address is ticked, so a private server's name stays out by default. Nothing in
+it is a token, a cookie or a task. The lines are refreshed the moment Copy is pressed, and stay in
+English for whoever reads the report. Without scripting the box shows the two version lines.
+
 ## Choosing a colour
 
 Every place the browser asks for a colour, a project's on the new project form and in its settings, and
