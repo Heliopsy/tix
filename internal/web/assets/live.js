@@ -518,6 +518,11 @@
         tix.applyBadge(el, fresh, document.querySelectorAll("[data-inbox-mirror]"));
       }
       tix.applyBadge(document.getElementById("mywork-badge"), doc.getElementById("mywork-badge"), [], "data-badge-count");
+      if (fresh && typeof window.CustomEvent === "function") {
+        document.dispatchEvent(new window.CustomEvent("tix:inbox-badge", {
+          detail: { count: parseInt(fresh.getAttribute("data-inbox-count"), 10) || 0 }
+        }));
+      }
     },
     window: function () { return 500; },
     cap: 2000

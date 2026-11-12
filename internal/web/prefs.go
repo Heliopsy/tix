@@ -146,6 +146,8 @@ var Preferences = []Preference{
 	{Cookie: TintCookie, Route: RouteTint, Label: "Colour rows by"},
 	{Cookie: ProjectLabelCookie, Route: RouteProjectLabel, Label: "Project names in pickers"},
 	{Cookie: LanguageCookie, Route: RouteLanguage, Label: "Language"},
+	{Cookie: StartScreenCookie, Route: RouteStartScreen, Label: "Start screen"},
+	{Cookie: MotionCookie, Route: RouteMotion, Label: "Reduce motion"},
 }
 
 // columnPageName names one listing whose columns can be chosen.

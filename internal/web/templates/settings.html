@@ -17,7 +17,16 @@
 */}}
 {{define "content"}}
 <div class="headtip"><h1>{{t "Settings"}}</h1>{{template "help" $}}</div>
-<p class="lede">{{t "Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently."}}</p>
+<p class="lede">{{t "Each setting says where it is kept: on this device, in this browser's cookies or storage; synced to your account, so it follows you everywhere you sign in; or for the whole tenant."}}</p>
+
+{{/* Search narrows the rows to the ones whose name or help matches, and the
+     sections to the ones left with a row (assets/settingsfind.js). Drawn only
+     with scripting, which is what does the narrowing. */}}
+<div class="setfind" data-needs-js>
+  <label class="sr-only" for="setfind">{{t "Search settings"}}</label>
+  <input type="search" id="setfind" placeholder="{{t "Search settings"}}" autocomplete="off" spellcheck="false" data-setfind>
+  <p class="setfind-none" hidden data-setfind-none><strong data-setfind-say="{{t "No setting matches “%s”"}}"></strong> <span class="muted">{{t "Try another word, or clear the search."}}</span></p>
+</div>
 
 <div class="settings"><div class="settings-grid">
 <nav class="setnav" aria-label="{{t "Settings sections"}}" data-toc>
@@ -100,7 +109,7 @@
          second reading of one cookie. See the themeswitch partial. */}}
     <div class="setrow">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Colour scheme"}}</span>{{template "field-info" "Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark, OLED, Low contrast and System, OLED when dark. System follows what your device asks for; System, OLED when dark draws OLED where it would draw Dark."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Colour scheme"}}</span>{{template "field-info" "Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark, OLED, Low contrast and System, OLED when dark. System follows what your device asks for; System, OLED when dark draws OLED where it would draw Dark."}}{{template "setscope" "device"}}</div>
         <span class="sethelp">{{t "Use the switch at the foot of the sidebar."}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue"><strong>{{t .ThemeToggle.Label}}</strong></span></div>
@@ -112,7 +121,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Row colouring" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="tint">{{t "Colour rows by"}}</label>{{template "field-info" "What the colour on a task row, and along the top of a board card, stands for: the project, the status, the priority, or nothing. It changes nothing about which tasks are shown."}}</div>
+        <div class="setname-line"><label class="setname" for="tint">{{t "Colour rows by"}}</label>{{template "field-info" "What the colour on a task row, and along the top of a board card, stands for: the project, the status, the priority, or nothing. It changes nothing about which tasks are shown."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="tint-help">{{t "What the stripe on a row or card stands for."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -127,7 +136,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Language" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="lang">{{t "Language"}}</label>{{template "field-info" "The language every screen is drawn in. Browser default follows the languages your browser asks for, and falls back to English. Text the server composes from parts, such as the activity feed's sentences, stays in English for now."}}</div>
+        <div class="setname-line"><label class="setname" for="lang">{{t "Language"}}</label>{{template "field-info" "The language every screen is drawn in. Browser default follows the languages your browser asks for, and falls back to English. Text the server composes from parts, such as the activity feed's sentences, stays in English for now."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="lang-help">{{t "The language of every screen in this browser."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -137,13 +146,40 @@
         <button class="apply" type="submit">{{t "Apply language"}}</button>
       </div>
     </form>
+
+    <form class="setrow" method="post" action="/startscreen" hx-boost="false" data-apply>
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Start screen" "appearance"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><label class="setname" for="startscreen">{{t "Start screen"}}</label>{{template "field-info" "The screen this browser opens when you go to the address of tix itself, and after you sign in without following a link."}}{{template "setscope" "device"}}</div>
+        <span class="sethelp" id="startscreen-help">{{t "Where tix opens in this browser."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <select id="startscreen" name="start" aria-describedby="startscreen-help">
+          {{range .Data.StartChoices}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+        <button class="apply" type="submit">{{t "Apply start screen"}}</button>
+      </div>
+    </form>
+
+    <form class="setrow" method="post" action="/motion" hx-boost="false">
+      {{template "csrf" .CSRF}}
+      <input type="hidden" name="next" value="{{savedNext "Reduce motion" "appearance"}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="motion-name">{{t "Reduce motion"}}</span>{{template "field-info" "Turns off animation, sliding and smooth scrolling in this browser. Your system's own reduced motion setting already does this; this keeps tix still even when the system allows animation."}}{{template "setscope" "device"}}</div>
+        <span class="sethelp" id="motion-help">{{t "Keep tix still even when the system allows animation."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="submit" role="switch" aria-checked="{{if .ReduceMotion}}true{{else}}false{{end}}" aria-labelledby="motion-name" aria-describedby="motion-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .ReduceMotion}}{{t "On"}}{{else}}{{t "Off"}}{{end}}</span></button>
+      </div>
+    </form>
     {{/* Not drawn where nothing can hover: there is nothing for it to turn
          off. See .needs-hover in app.css. */}}
     <form class="setrow needs-hover" method="post" action="/hover" hx-boost="false">
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Hover effects" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="hover-name">{{t "Hover effects"}}</span>{{template "field-info" "Rows, cards, lane cards, sidebar links, buttons and links light up under the pointer. Turn this off if the movement is distracting; focus outlines for the keyboard stay either way. Animation is already left out when your system asks for reduced motion."}}</div>
+        <div class="setname-line"><span class="setname" id="hover-name">{{t "Hover effects"}}</span>{{template "field-info" "Rows, cards, lane cards, sidebar links, buttons and links light up under the pointer. Turn this off if the movement is distracting; focus outlines for the keyboard stay either way. Animation is already left out when your system asks for reduced motion."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="hover-help">{{t "Highlight what is under the pointer."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -155,7 +191,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Advanced screens" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Manage group, under Trash: workflows, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them."}}</div>
+        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Manage group, under Trash: workflows, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="advanced-help">{{t "Show the configuration screens in the sidebar's Manage group."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -169,7 +205,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Drag to move" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="dragmove-name">{{t "Drag to move"}}</span>{{template "field-info" "Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use."}}</div>
+        <div class="setname-line"><span class="setname" id="dragmove-name">{{t "Drag to move"}}</span>{{template "field-info" "Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="dragmove-help">{{t "Drag board cards between columns."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -181,7 +217,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Open a new task" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="openafteradd-name">{{t "Open a new task"}}</span>{{template "field-info" "Off by default: adding a task keeps you on the listing with the filter, sort and page you were on, and the toast links the new task. Turn this on to open each task as soon as it is added, for writing one task out in full. Applies to the one-line box and to Add with details."}}</div>
+        <div class="setname-line"><span class="setname" id="openafteradd-name">{{t "Open a new task"}}</span>{{template "field-info" "Off by default: adding a task keeps you on the listing with the filter, sort and page you were on, and the toast links the new task. Turn this on to open each task as soon as it is added, for writing one task out in full. Applies to the one-line box and to Add with details."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="openafteradd-help">{{t "Open a task straight after adding it, instead of staying on the list."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -201,7 +237,7 @@
 
     <div class="setrow">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Task view"}}</span>{{template "field-info" "Whether Tasks draws rows, a board of workflow states, or one lane per project. Each view shows the same tasks: the filter, the deadline window, the sort, the page and the project choice apply to all three."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Task view"}}</span>{{template "field-info" "Whether Tasks draws rows, a board of workflow states, or one lane per project. Each view shows the same tasks: the filter, the deadline window, the sort, the page and the project choice apply to all three."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="taskview-help">{{th "How <a href=\"/tasks\">Tasks</a> is drawn."}}</span>
       </div>
       <div class="setrow-ctl" aria-describedby="taskview-help">{{template "taskview-switch" .Data.Prefs.TaskView}}</div>
@@ -209,7 +245,7 @@
 
     <div class="setrow">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "List groups"}}</span>{{template "field-info" "Whether the list draws a heading per project or per status over its rows. Each heading's menu hides, stars, collapses or moves the group, kept with your account."}}</div>
+        <div class="setname-line"><span class="setname">{{t "List groups"}}</span>{{template "field-info" "Whether the list draws a heading per project or per status over its rows. Each heading's menu hides, stars, collapses or moves the group, kept with your account."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="listgroup-help">{{th "How the list on <a href=\"/tasks\">Tasks</a> groups its rows."}}</span>
       </div>
       <div class="setrow-ctl" aria-describedby="listgroup-help">{{template "listgroup-switch" .Data.Prefs.ListGroup}}</div>
@@ -221,7 +257,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Project names in pickers" "listings"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="projectlabel">{{t "Project names in pickers"}}</label>{{template "field-info" "How a project reads in every list you choose one from: the add box, Add with details, Copy to, New from template, a heading's New task in, the move target when a project is deleted, and the statistics filter. The name with its key, the key first, the name alone, or the key alone. A long name is shortened; the key never is."}}</div>
+        <div class="setname-line"><label class="setname" for="projectlabel">{{t "Project names in pickers"}}</label>{{template "field-info" "How a project reads in every list you choose one from: the add box, Add with details, Copy to, New from template, a heading's New task in, the move target when a project is deleted, and the statistics filter. The name with its key, the key first, the name alone, or the key alone. A long name is shortened; the key never is."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="projectlabel-help">{{t "How a project reads where you choose one."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -238,7 +274,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Task opens in" "listings"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. Panel opens it the same way beside the listing on a window at least 1100 pixels wide, with a divider you can drag, and as a dialog on a narrower one. A ctrl-click or a middle click still opens a new tab."}}</div>
+        <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. Panel opens it the same way beside the listing on a window at least 1100 pixels wide, with a divider you can drag, and as a dialog on a narrower one. A ctrl-click or a middle click still opens a new tab."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="taskopen-help">{{t "Open a task as its own page, in a dialog over the list, or in a panel beside it."}}</span>
       </div>
       {{/* Named positions, not a switch: a switch drawn off beside "Page"
@@ -257,7 +293,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Clicking a title" "listings"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="titleclick-name">{{t "Clicking a title"}}</span>{{template "field-info" "Edit the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too."}}</div>
+        <div class="setname-line"><span class="setname" id="titleclick-name">{{t "Clicking a title"}}</span>{{template "field-info" "Edit the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="titleclick-help">{{t "Open the task, or rename it where it is listed."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -270,7 +306,7 @@
 
     <div class="setrow stacked">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Projects on the task screen"}}</span>{{template "field-info" "Unticking a project leaves its tasks out of the listing and off the board. It hides nothing from anybody else: every task stays on its own screen, and a project: filter naming it explicitly still finds it. A project created after you choose is shown without being ticked."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Projects on the task screen"}}</span>{{template "field-info" "Unticking a project leaves its tasks out of the listing and off the board. It hides nothing from anybody else: every task stays on its own screen, and a project: filter naming it explicitly still finds it. A project created after you choose is shown without being ticked."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="visibility-help">{{th "Which projects <a href=\"/tasks\">Tasks</a> includes."}}</span>
       </div>
       <div class="setrow-ctl" aria-describedby="visibility-help">
@@ -280,7 +316,7 @@
 
     <div class="setrow stacked">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "Columns"}}</span>{{template "field-info" "The columns worth keeping on Tasks are not the ones worth keeping on API tokens, so each listing is chosen on its own. Every listing keeps the column naming its rows whatever you choose, and hiding a column withholds nothing, since every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything."}}</div>
+        <div class="setname-line"><span class="setname">{{t "Columns"}}</span>{{template "field-info" "The columns worth keeping on Tasks are not the ones worth keeping on API tokens, so each listing is chosen on its own. Every listing keeps the column naming its rows whatever you choose, and hiding a column withholds nothing, since every value stays on the record's own screen. Reset returns a listing to its shipped defaults, which is not the same as unticking everything."}}{{template "setscope" "device"}}</div>
         <span class="sethelp">{{t "Which optional columns each listing shows."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -319,7 +355,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Shortcuts" "keyboard"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="keyscheme">{{t "Shortcuts"}}</label>{{template "field-info" "Which keys drive the actions in the table below. Press ? on any screen to see the scheme currently active."}}</div>
+        <div class="setname-line"><label class="setname" for="keyscheme">{{t "Shortcuts"}}</label>{{template "field-info" "Which keys drive the actions in the table below. Press ? on any screen to see the scheme currently active."}}{{template "setscope" "device"}}</div>
         <span class="sethelp" id="keyscheme-help">{{th "Which keys drive the actions below. Press <kbd>?</kbd> to see them."}}</span>
       </div>
       <div class="setrow-ctl">
@@ -377,7 +413,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Timezone" "dates"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="timezone">{{t "Timezone"}}</label>{{template "field-info" "The zone every timestamp on every screen is written in. Inherit uses your tenant's default, and the server's when the tenant has none."}}</div>
+        <div class="setname-line"><label class="setname" for="timezone">{{t "Timezone"}}</label>{{template "field-info" "The zone every timestamp on every screen is written in. Inherit uses your tenant's default, and the server's when the tenant has none."}}{{template "setscope" "account"}}</div>
         <span class="sethelp" id="timezone-help">{{t "In use:"}} <strong class="timeeff">{{t .Data.DateZone.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateZone.Source)}}</span></span>
       </div>
       <div class="setrow-ctl">
@@ -392,7 +428,7 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Date format" "dates"}}">
       <div class="setrow-text">
-        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Inherit uses your tenant's default, and the server's when the tenant has none."}}</div>
+        <div class="setname-line"><label class="setname" for="time_format">{{t "Date format"}}</label>{{template "field-info" "How a timestamp is written, and how a date you type is read: 06.11.2026 is the 6th of November under Dotted and Day first, and 11/06/2026 is under US. 2026-11-06 is read under every format. Inherit uses your tenant's default, and the server's when the tenant has none."}}{{template "setscope" "account"}}</div>
         <span class="sethelp" id="time-format-help">{{t "In use:"}} <strong class="timeeff">{{t .Data.DateFormat.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateFormat.Source)}}</span></span>
       </div>
       <div class="setrow-ctl">
@@ -420,7 +456,7 @@
       <input type="hidden" name="kind" value="{{.Kind}}">
       <input type="hidden" name="receive" value="{{if .Receive}}off{{else}}on{{end}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="inbox-{{.Kind}}-name">{{t .Label}}</span>{{template "field-info" .Info}}</div>
+        <div class="setname-line"><span class="setname" id="inbox-{{.Kind}}-name">{{t .Label}}</span>{{template "field-info" .Info}}{{template "setscope" "account"}}</div>
         <span class="sethelp" id="inbox-{{.Kind}}-help">{{t .Help}}</span>
       </div>
       <div class="setrow-ctl">
@@ -442,7 +478,28 @@
        channel yet, and when a refused submission comes back to it. */}}
   {{$n := .Data.Notifications}}
   <div class="setlist">
-    <p class="setrow setlead">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}}</p>
+    {{/* Kept in this browser's storage and run by assets/notify.js, which is
+         why both rows need scripting: a notification is shown by the page
+         that is open, when the event stream says the inbox changed. */}}
+    <div class="setrow" data-needs-js>
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="notify-name">{{t "Notify me about new inbox items"}}</span>{{template "field-info" "A notification from your browser for each new inbox item, while a tix tab is open and you are looking at something else. Turning it on asks the browser for permission. A closed tab cannot be told: channels below deliver everywhere."}}{{template "setscope" "device"}}</div>
+        <span class="sethelp" id="notify-help" data-notify-state>{{t "Browser notifications while a tix tab is open."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="notify-name" aria-describedby="notify-help" data-notify-toggle><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{t "Off"}}</span></button>
+      </div>
+    </div>
+    <div class="setrow" data-needs-js>
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname" id="notify-hide-name">{{t "Hide what they say"}}</span>{{template "field-info" "Notifications say only that something new reached your inbox, without who did what or the task's title, for a screen other people can see."}}{{template "setscope" "device"}}</div>
+        <span class="sethelp" id="notify-hide-help">{{t "Say only that something arrived."}}</span>
+      </div>
+      <div class="setrow-ctl">
+        <button class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="notify-hide-name" aria-describedby="notify-hide-help" data-notify-hide><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{t "Off"}}</span></button>
+      </div>
+    </div>
+    <p class="setrow setlead">{{t "Send your inbox items to Slack, Discord, ntfy or your own endpoint as they arrive. Only your items, of the kinds you choose, and nothing you muted above."}} {{template "setscope" "account"}}</p>
     {{if $n.Channels}}
     <ul class="plain channels rows">
       {{range $n.Channels}}
@@ -465,7 +522,7 @@
 </section>
 
 <section class="setgroup" id="second-factor">
-  <h2>{{t "Second factor"}}</h2>
+  <div class="sechead"><h2>{{t "Second factor"}}</h2>{{template "setscope" "account"}}</div>
   {{/* The one thing on this screen that is not a browser preference: it belongs
        to the account and follows it to every browser and to the terminal. */}}
   <div class="setlist">
@@ -542,7 +599,7 @@
      one in use signs this browser out. */}}
 {{$ss := .Data.Sessions}}
 <section class="setgroup" id="sessions">
-  <h2>{{t "Sessions"}}</h2>
+  <div class="sechead"><h2>{{t "Sessions"}}</h2>{{template "setscope" "account"}}</div>
   <div class="setlist">
   {{if not $ss.Available}}
     <div class="setrow">
@@ -582,7 +639,7 @@
 {{end}}
 
 <section class="setgroup" id="calendar">
-  <h2>{{t "Calendar feed"}}</h2>
+  <div class="sechead"><h2>{{t "Calendar feed"}}</h2>{{template "setscope" "account"}}</div>
   {{/* Like the second factor, this belongs to the account rather than the
        browser. The address is shown once, on the screen creating or rotating
        it answers with, because only its hash is kept. */}}
@@ -686,3 +743,7 @@
 </div>
 </div>
 {{end}}
+
+{{/* setscope says where a setting is kept: this browser, the reader's
+     account, or the whole tenant. */}}
+{{define "setscope"}}{{if eq . "device"}}<span class="setscope" data-scope="device">{{t "On this device"}}</span>{{else if eq . "tenant"}}<span class="setscope" data-scope="tenant">{{t "Whole tenant"}}</span>{{else}}<span class="setscope" data-scope="account">{{t "Synced to your account"}}</span>{{end}}{{end}}

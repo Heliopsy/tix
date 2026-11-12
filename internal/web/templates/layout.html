@@ -2,7 +2,7 @@
 {{/* The sidebar's rail and width are drawn from the tix_sidebar cookie
      (sidebar.go), on the root where assets/sidebar.js keeps them, so the
      first paint is the sidebar the reader left. */}}
-<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}{{with .ShareOrigin}} data-share-origin="{{.}}"{{end}}{{if .Side.Rail}} class="side-collapsed"{{end}}{{with .Side.Width}} style="--side-w: {{.}}px"{{end}}>
+<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}{{if .ReduceMotion}} data-motion="reduce"{{end}}{{with .ShareOrigin}} data-share-origin="{{.}}"{{end}}{{if .Side.Rail}} class="side-collapsed"{{end}}{{with .Side.Width}} style="--side-w: {{.}}px"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -68,6 +68,8 @@
 <script src="/assets/scopes.js" defer></script>
 <script src="/assets/connect.js" defer></script>
 <script src="/assets/swipe.js" defer></script>
+<script src="/assets/settingsfind.js" defer></script>
+<script src="/assets/notify.js" defer></script>
 </head>
 {{/* data-build is the release that drew the page; assets/deploy.js reloads
      the tab when /healthz reports a different one. */}}
