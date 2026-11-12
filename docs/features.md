@@ -196,8 +196,8 @@ window, instead of its own page, and a click on a listed title can rename it in 
 offering Undo. Elsewhere the same undo is an ordinary command: `tix task mv` back, `tix task edit
 --priority`, and `tix task restore` for a soft delete. [docs/web-ui.md](web-ui.md#acting-in-place).
 
-**Two languages.** The browser draws every screen in English or Bulgarian, following `Accept-Language`
-unless Settings picks one for that browser. [docs/web-ui.md](web-ui.md#language-and-info-tips).
+**Four languages.** The browser draws every screen in English, Bulgarian, German or French, following
+`Accept-Language` unless Settings picks one for that browser. [docs/web-ui.md](web-ui.md#language-and-info-tips).
 
 **An activity feed.** Every change the audit log records, as a live feed at `/activity` that narrows by
 record, kind, surface and actor, and as `tix audit ls --filter` and the terminal's history view.

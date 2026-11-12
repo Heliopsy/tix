@@ -31,7 +31,12 @@ func langOf(r *http.Request) string {
 
 // languageNames are the languages as their own readers write them, which is
 // how a language picker names them in every language.
-var languageNames = map[string]string{i18n.English: "English", i18n.Bulgarian: "Български"}
+var languageNames = map[string]string{
+	i18n.English:   "English",
+	i18n.Bulgarian: "Български",
+	i18n.German:    "Deutsch",
+	i18n.French:    "Français",
+}
 
 // languageChoice is one option of the language picker. The empty value is
 // the browser's own language.

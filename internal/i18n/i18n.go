@@ -56,6 +56,15 @@ func Supported(lang string) bool {
 	return ok || lang == English
 }
 
+// Complete lists the languages whose catalog must hold every key. The rest
+// may lag behind a new screen, which then reads in English, but only by
+// Coverage's margin.
+var Complete = map[string]bool{Bulgarian: true}
+
+// Coverage is the share of keys a language outside Complete must still hold,
+// so a partial catalog may trail a few new strings and cannot quietly rot.
+const Coverage = 0.95
+
 // Catalog returns a copy of one language's entries, for the completeness tests.
 func Catalog(lang string) map[string]string {
 	out := make(map[string]string, len(catalogs[lang]))
