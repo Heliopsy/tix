@@ -234,6 +234,8 @@ var jsMessages = []string{
 	"A new version is available.",
 	"Reload",
 	"Close",
+	"Complete",
+	"Snooze",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

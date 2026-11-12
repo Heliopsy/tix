@@ -992,4 +992,80 @@
     }
     return out;
   };
+
+  // -- swipe ---------------------------------------------------------------
+  // A list row on a touch screen swipes the way the app's rows do: towards
+  // the end of the line (right, left to right) completes the task, towards
+  // its start snoozes it, and a release short of swipeThreshold of the row's
+  // width does nothing. assets/swipe.js keeps only the wiring.
+
+  // swipeThreshold is the share of the row's width a swipe must cross, the
+  // app's dismiss threshold.
+  tix.swipeThreshold = 0.3;
+
+  // swipeSlop is how far a finger moves before the gesture is read as a
+  // swipe or a scroll; under it, it is still a tap.
+  tix.swipeSlop = 10;
+
+  // swipesWith reports whether a pointer swipes rows: a finger or a pen. A
+  // mouse drags across a row to select text, as it always has.
+  tix.swipesWith = function (pointerType) {
+    return pointerType === "touch" || pointerType === "pen";
+  };
+
+  // swipeAxis reads which way a gesture is going once it has moved past
+  // slop: "x" for a swipe, "y" for a scroll, "" while it could still be a
+  // tap. A diagonal counts as a scroll, so the list is never held back.
+  tix.swipeAxis = function (dx, dy, slop) {
+    var ax = Math.abs(dx);
+    var ay = Math.abs(dy);
+    if (Math.max(ax, ay) < slop) {
+      return "";
+    }
+    return ax > ay ? "x" : "y";
+  };
+
+  // swipeSide is the action a horizontal drag of dx is revealing, when the
+  // row offers it: "complete" towards the line's end, "snooze" towards its
+  // start, "" otherwise. offers is {complete: bool, snooze: bool}.
+  tix.swipeSide = function (dx, rtl, offers) {
+    if (!dx) {
+      return "";
+    }
+    var forward = rtl ? dx < 0 : dx > 0;
+    var side = forward ? "complete" : "snooze";
+    return offers && offers[side] ? side : "";
+  };
+
+  // swipeAction is what letting go after a drag of dx across a row width
+  // wide does: the side it reveals once it has crossed the threshold, and
+  // nothing short of it.
+  tix.swipeAction = function (dx, width, rtl, offers) {
+    var side = tix.swipeSide(dx, rtl, offers);
+    if (!side || !(width > 0) || Math.abs(dx) < width * tix.swipeThreshold) {
+      return "";
+    }
+    return side;
+  };
+
+  // swipeOffset is how far the row follows the finger: not at all towards
+  // an action it does not offer, and never past its own width.
+  tix.swipeOffset = function (dx, width, rtl, offers) {
+    if (!tix.swipeSide(dx, rtl, offers)) {
+      return 0;
+    }
+    var w = width > 0 ? width : Math.abs(dx);
+    return Math.max(-w, Math.min(w, dx));
+  };
+
+  // swipeFields is what a swiped row posts: the token and the page to come
+  // back to, which its tick form already carries, and for a snooze the wake
+  // time the row names. The route is the row's own data-swipe-* address.
+  tix.swipeFields = function (action, csrf, next, until) {
+    var out = [["csrf_token", csrf || ""], ["next", next || ""]];
+    if (action === "snooze") {
+      out.push(["until", until || ""]);
+    }
+    return out;
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

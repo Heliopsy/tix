@@ -764,7 +764,12 @@
   {{/* data-inplace: the star, status and priority forms in this row swap
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace>
+  {{$done := ""}}{{if not .DeletedAt}}{{$done = index $v.CompleteState .ProjectID}}{{end}}
+  {{/* data-swipe-*: what a finger swiping this row does on a touch screen
+       (assets/swipe.js): complete it, or snooze it until tomorrow morning.
+       Only a row with a tick gets either, and each only for a reader who
+       may do it, so every other row stays still under a finger. */}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace{{if $done}}{{if and $v.Bulk.Move (not .CompletedAt)}} data-swipe-complete="/tasks/{{.Ref}}/complete"{{end}}{{if $v.Bulk.Write}} data-swipe-snooze="/tasks/{{.Ref}}/snooze" data-swipe-until="tomorrow"{{end}}{{end}}>
     {{/* The selection box belongs to the bar's form through its form
          attribute, so ticking rows and pressing an action posts the
          selection with scripting off too. assets/select.js adds the range,
@@ -773,7 +778,6 @@
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
-    {{$done := ""}}{{if not .DeletedAt}}{{$done = index $v.CompleteState .ProjectID}}{{end}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
 
