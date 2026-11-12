@@ -655,7 +655,7 @@ func advancedChoiceOf(r *http.Request) advancedChoice {
 	return advancedUnset
 }
 
-// advancedPaths are the configuration screens of the sidebar's Admin group.
+// advancedPaths are the configuration screens of the sidebar's Manage group.
 // Being on one of them draws them whatever the preference says, so a reader
 // is never on a page the navigation beside them denies exists.
 var advancedPaths = []string{
@@ -663,7 +663,7 @@ var advancedPaths = []string{
 }
 
 // OnAdvancedPath reports whether a path is one of the configuration screens
-// of the sidebar's Admin group.
+// of the sidebar's Manage group.
 //
 // The global admin area sits under /admin/ and is not one of them: its entry
 // is drawn for a global admin whatever the preference says.
@@ -680,7 +680,7 @@ func OnAdvancedPath(path string) bool {
 }
 
 // advancedMode reports whether this page shows the configuration screens of
-// the Admin group in its navigation.
+// the Manage group in its navigation.
 //
 // The default follows the reader rather than being off for everybody. A
 // tenant administrator arriving for the first time could not find the tenant
@@ -719,7 +719,7 @@ func tenantAdmin(r *http.Request) bool {
 }
 
 // advancedScopes are the scopes that make at least one configuration screen
-// of the Admin group reachable. Holding none of them means every
+// of the Manage group reachable. Holding none of them means every
 // one of those screens ends in a refusal.
 //
 // workflow:read is in the list because it is the scope the workflow screens
@@ -734,7 +734,7 @@ var advancedScopes = []core.Scope{
 }
 
 // AdvancedNavigation reports whether holding one scope reaches any screen in
-// the Admin group's configuration screens, and so is shown their navigation.
+// the Manage group's configuration screens, and so is shown their navigation.
 func AdvancedNavigation(scope core.Scope) bool {
 	return slices.Contains(advancedScopes, scope)
 }

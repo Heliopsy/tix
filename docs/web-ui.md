@@ -35,9 +35,10 @@ Continue here.
 
 The sidebar is ordered by how often each part is used. At the top is the tenant's name with the rail
 toggle, then Search (ctrl+k). Then Inbox with its unread badge, My work with a badge counting your open
-tasks that are overdue, Tasks, Projects with the projects you starred under it, Activity, Statistics,
-Connect an agent and Docs.
-Your own views follow, Saved filters and Recently viewed, then Admin, and at the foot your account menu
+tasks that are overdue, Tasks, Projects with the projects you starred under it, Templates, Activity,
+Statistics, Connect an agent and Docs. Templates is drawn for anybody who can read tasks, the same
+reach as the Templates screen, whether or not Advanced screens is on.
+Your own views follow, Saved filters and Recently viewed, then Manage, and at the foot your account menu
 with the version under it.
 
 **Switching tenant.** For somebody in more than one tenant, the first sidebar entry is the current
@@ -68,14 +69,15 @@ the lanes' order, then Show all, which opens the projects screen with only the s
 project is a lookup on every page, and a longer list is what that screen is for. An archived project, or
 one you can no longer read, is left out.
 
-**Admin** holds Trash and the screens Configure and Data used to: Workflows, Templates, Tenant, Domains,
-Users, Tokens, SSH keys, Status, Connections, Webhooks, Import and export, and Sync. The configuration
-screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a reader with
-neither gets no Admin heading at all. A global admin also gets Global admin there, whatever the
+**Manage** holds Trash and the screens Configure and Data used to: Workflows, Tenant, Domains, Users, Tokens,
+SSH keys, Status, Connections, Webhooks, Import and export, and Sync. It was called Admin; the screens kept
+their `/admin/...` addresses and the group kept its id, `admin`, so a fold saved in the cookie still applies.
+The configuration screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a
+reader with neither gets no Manage heading at all. A global admin also gets Global admin there, whatever the
 preference says: every tenant with Create a tenant, Rename and Delete, each opening a dialog; the global
 admins with Grant and Revoke; and a Users button per tenant that opens that tenant's accounts with the same
-Manage dialog as Users. Below the accounts, a Domains section lists the tenant's hostnames, each marked
-shared or this tenant only, with Share this host or Stop sharing beside it (see
+Manage dialog as Users. Below the accounts, a Domains section lists the tenant's hostnames, each marked shared
+or this tenant only, with Share this host or Stop sharing beside it (see
 [tenancy.md](tenancy.md#shared-domains)); a tenant's own Domains screen shows the same mark in its Shared
 column and cannot change it. A tenant created with first admins brings the screen back with their generated
 passwords at the top, each with a Copy button, once; a reload shows none. See
@@ -99,26 +101,26 @@ and your initials, which open the account menu. The labels are clipped rather th
 entry keeps its accessible name, and each gets a tooltip while the rail is showing. The same button, or
 the right arrow on the edge, expands it to the width it had.
 
-Admin starts folded, since it holds screens you visit far less than your tasks; open it once and it
-stays open. Both are kept in the `tix_sidebar` cookie, with the groups folded below:
-`w=320&rail=1&fold=recent.admin` holds a width in pixels, the rail, and the folded groups by name
-(`saved`, `recent`, `admin`). A cookie written before Admin existed names `configure` and `data`
-instead: both named folds Admin, and either one missing opens it, since you had opened that group. The
-server and the script read it the same way, and the script writes the new names the next time it saves.
-A default is left out, and a cookie holding only defaults is removed. None of it says anything about
-anybody's work. The server reads the cookie and draws the page with it: the rail as a class on `<html>`,
-the width as `--side-w` on its style, each folded group folded. `assets/sidebar.js` changes the same
-places and rewrites the cookie when the reader drags, presses or folds. An earlier build kept the width
-and the rail in `localStorage` (`tix.sidebar.width`, `tix.sidebar.collapsed`) and the recent list's fold
-under `tix.recent.closed`; the script moves those into the cookie once and removes them. Without
-JavaScript neither control is shown and the sidebar is its default width. Below 900px neither applies: a
-phone gets the brand bar and its menu whatever a desktop chose.
+Manage starts folded, since it holds screens you visit far less than your tasks; open it once and it stays
+open. Both are kept in the `tix_sidebar` cookie, with the groups folded below:
+`w=320&rail=1&fold=recent.admin` holds a width in pixels, the rail, and the folded groups by name (`saved`,
+`recent`, `admin`, the last being Manage). A cookie written before that group existed names `configure` and
+`data` instead: both named folds Manage, and either one missing opens it, since you had opened that group. The
+server and the script read it the same way, and the script writes the new names the next time it saves. A
+default is left out, and a cookie holding only defaults is removed. None of it says anything about anybody's
+work. The server reads the cookie and draws the page with it: the rail as a class on `<html>`, the width as
+`--side-w` on its style, each folded group folded. `assets/sidebar.js` changes the same places and rewrites
+the cookie when the reader drags, presses or folds. An earlier build kept the width and the rail in
+`localStorage` (`tix.sidebar.width`, `tix.sidebar.collapsed`) and the recent list's fold under
+`tix.recent.closed`; the script moves those into the cookie once and removes them. Without JavaScript neither
+control is shown and the sidebar is its default width. Below 900px neither applies: a phone gets the brand bar
+and its menu whatever a desktop chose.
 
-**Folding a group.** Saved filters, Recently viewed and Admin each have a heading that is a
+**Folding a group.** Saved filters, Recently viewed and Manage each have a heading that is a
 button: pressing it, or Enter or Space on it, folds the group under a chevron and again unfolds it. The
 button says `aria-expanded` and names the group's body with `aria-controls`. Because the server draws the
 fold from the cookie, a folded group arrives folded and nothing animates or moves on load. A folded group
-still shows the entry for the page you are on, so the sidebar never hides where you are: folding Admin
+still shows the entry for the page you are on, so the sidebar never hides where you are: folding Manage
 while on Users leaves Users under the heading. On the collapsed rail folding does not apply, and every
 group is its icons as before; the Recently viewed clock opens the sidebar with the list unfolded. Without
 JavaScript the heading is plain text and every group is open.
@@ -292,7 +294,7 @@ and its row or card is ringed. Settings has "Open a new task" for the other way 
 is opened to write it out in full. That used to be the default; a browser that never touched the
 preference now stays, and one that turned it on keeps opening.
 
-**The trash.** Trash, under Admin in the sidebar, is the task list filtered by `is:trashed`: the
+**The trash.** Trash, under Manage in the sidebar, is the task list filtered by `is:trashed`: the
 soft-deleted tasks and nothing else. It is a filter rather than a screen of its own, so the box says
 what it is, the address can be bookmarked, and a term added to it narrows the trash. Tasks is not
 marked current while it is open. The screen is headed Trash and counts the deleted tasks on the page.
@@ -321,23 +323,24 @@ deleting and offering Undo; the bulk bar's Delete does the same for the whole se
 asked by the delete handlers rather than by the buttons, so a Delete drawn anywhere asks. Delete
 permanently on the task screen, which was already explicit, does not ask again.
 
-**Quick add.** The one-line box reads [quick-add syntax](features.md): `Fix login !high #auth @raj
-due:fri +web` sets the priority, a tag, the assignee, the due date and the project, and the title is what
-is left. A moment after you stop typing, a row of chips under the box shows what the line will set, and a
-project or handle the tenant does not have is drawn in red with the reason, before anything is sent. A
-refused line comes back in the box with the reason under it. The box's (i) tip lists the syntax, with
-`due:` examples whose date is written in the reader's date format. The
-project picker beside the box is where the task goes when the line names no project. Dates count in the
-zone chosen under Settings. With scripting off the add still parses; only the preview needs a script.
-Add with details has a field per attribute and stores its title as typed. Its Due date field, like the
-task screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`),
-`YYYY-MM-DD`, or a date in the order the reader's date format writes one (`06.11.2026` under Dotted); its
-(i) tip shows those examples before anything is typed, the date among them in the reader's format, and
-the placeholder shows three of them. The calendar button beside the field opens the browser's date picker
-and writes the picked day into the field in the reader's format (YYYY-MM-DD for a format that writes the
-month as a word); without scripting the button is not drawn and the field still takes a typed date.
-Its More options fold holds the repeat rule, parent, dependencies and the task's lease length, blank to inherit;
-a lease above the maximum is refused on that field and nothing is created.
+**Quick add.** The one-line box reads [quick-add syntax](features.md): `Fix login !high #auth @raj due:fri
++web` sets the priority, a tag, the assignee, the due date and the project, and the title is what is left. The
+empty box shows `Fix login !high #auth @raj due:fri +web ^web-3` as its placeholder, the same hint line the
+tix app shows, with only "Fix login" translated. A moment after you stop typing, a row of chips under the box
+shows what the line will set, and a project or handle the tenant does not have is drawn in red with the
+reason, before anything is sent. A refused line comes back in the box with the reason under it. The box's (i)
+tip lists the syntax, with `due:` examples whose date is written in the reader's date format. The project
+picker beside the box is where the task goes when the line names no project. Dates count in the zone chosen
+under Settings. With scripting off the add still parses; only the preview needs a script. Add with details has
+a field per attribute and stores its title as typed. Its Due date field, like the task screen's Due row, is a
+text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`), `YYYY-MM-DD`, or a date in the order
+the reader's date format writes one (`06.11.2026` under Dotted); its (i) tip shows those examples before
+anything is typed, the date among them in the reader's format, and the placeholder shows three of them. The
+calendar button beside the field opens the browser's date picker and writes the picked day into the field in
+the reader's format (YYYY-MM-DD for a format that writes the month as a word); without scripting the button is
+not drawn and the field still takes a typed date. Its More options fold holds the repeat rule, parent,
+dependencies and the task's lease length, blank to inherit; a lease above the maximum is refused on that field
+and nothing is created.
 
 **Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. Its (i) tip lists
@@ -774,7 +777,7 @@ incoming webhook, a Discord webhook, an ntfy topic URL, or your own endpoint tak
 channel has a name, a URL, a format, the kinds it sends (mentions, assignments, status changes, comments)
 and an on switch. The add form uses the same layout as New project. These are yours, kept with your
 account, and only your items reach them; a kind you turned off above is not sent either. They are not the
-tenant's webhooks under Admin.
+tenant's webhooks under Manage.
 
 Adding a channel opens its own screen, which shows the signing secret once (signed JSON deliveries carry
 `X-Tix-Signature` made with it), then the channel's settings, Send test, and its recent deliveries with
@@ -965,11 +968,12 @@ answered from the page that linked here. Every save on the screen returns to it 
 attached, so the link still goes to the same place after a tag, a comment or an edit, and deleting the
 task returns there too.
 
-The screen reads like an issue. The header holds the reference, the title in large type with **Rename**
-beside it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions
-menu behind the three dots: **Copy the task id**, **Copy to…**, **Move to…**, **Save as template**, **Snooze…** or
-**Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with its two options.
-Nothing in that menu is drawn anywhere else.
+The screen reads like an issue. The header holds the reference, the title in large type with **Rename** beside
+it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions menu
+behind the three dots: **Copy reference** (the reference as shown, such as INFRA-5; the Id row under the
+properties has its own Copy button for the ULID), **Copy to…**, **Move to…**, **Save as template**,
+**Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with
+its two options. Nothing in that menu is drawn anywhere else.
 
 On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
 task's activity, and the column on the right holds the properties: status and priority, which open the same
@@ -1247,7 +1251,7 @@ checklists, priority, tags, custom fields and repeat rule. Status, assignee, due
 stay with the task. A name another template already holds, in any case, is refused under the name field.
 When tasks open in a dialog the form opens in the same dialog; saving returns to the task with a toast.
 
-**Templates**, under Admin in the sidebar, lists every template the reader can see with its project
+**Templates**, in the sidebar right after Projects, lists every template the reader can see with its project
 (or All projects), the title it creates, how many tasks it holds, its due offset and how often it was used.
 Each row links to **Use** and **Edit**. The edit screen renames the template, moves it to a project or to
 all projects, and changes the title, description, priority, due offset, tags, repeat rule and custom fields
@@ -1359,7 +1363,7 @@ phone, opens it as well. It is one search box over four groups:
   term is searched as plain words. A ref, in any case, puts its task first. Ten at most, most
   recently changed first.
 - **Projects**, read once when the palette opens, each going to its board.
-- **Screens**, every destination the sidebar shows (the configuration and data ones under Admin only
+- **Screens**, every destination the sidebar shows (the configuration and data ones under Manage only
   with Advanced screens on) and every section of Settings.
 - **Actions**: New task, New task in a project, New project, Open the filter, Show tasks as a list, a
   board or in lanes, Switch the colour scheme, Keyboard shortcuts and Sign out. Each one presses a
@@ -1483,7 +1487,7 @@ longest lease; both blank inherit the tenant's, and the tenant's are on the Tena
 
 ## Server administration
 
-Three screens under Admin answer for the installation rather than the work in it, and each
+Three screens under Manage answer for the installation rather than the work in it, and each
 is the browser's view of a command. `/admin/status` is `tix status`: what the installation holds and
 which servers are running against it. `/admin/connections` is `tix connection ls` and `kill`: the live
 event streams and SSH sessions this server holds, and ending one. `/admin/ssh-keys` is `tix user key`:
@@ -1677,7 +1681,7 @@ going back a page.
 | --- | --- | --- |
 | Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `oled`, `dim`, `system-oled` |
 | Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
-| Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Admin group |
+| Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Manage group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
 | Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
@@ -1693,7 +1697,7 @@ going back a page.
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the configuration and data
-screens under Admin, because the tenant screen was otherwise reachable only by typing its URL: the
+screens under Manage, because the tenant screen was otherwise reachable only by typing its URL: the
 only entry to it lived behind a preference on a settings page they had no reason to open. Anybody else
 gets the short navigation, since every screen in those groups refuses them and an entry leading to a
 refusal is worse than no entry. Being on one of those screens expands its group whatever the
