@@ -38,6 +38,7 @@
 <script src="/assets/sidebar.js"></script>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
+<script src="/assets/livestatus.js" defer></script>
 <script src="/assets/live.js" defer></script>
 <script src="/assets/deploy.js" defer></script>
 <script src="/assets/shortcuts.js" defer></script>
@@ -73,6 +74,7 @@
 {{if .Actor}}
 <script id="tix-shortcuts-data" type="application/json">{{.ShortcutsJSON}}</script>
 <script id="tix-palette-data" type="application/json">{{.PaletteJSON}}</script>
+<script id="tix-live-words" type="application/json">{{.LiveWords}}</script>
 <div class="shell">
   {{/* The aside paints the sidebar's background and is left to the grid,
        which stretches it to whatever the content beside it needs. Only its
@@ -98,6 +100,11 @@
            wrapper, so the sidebar is the column it has always been. */}}
       <div class="side-head">
         <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
+        {{/* Whether changes made elsewhere reach this page: a dot when live,
+             a dot and a word when not, opening the connection details
+             (assets/livestatus.js). Drawn hidden, and shown by the script
+             once a stream reports, since without scripting nothing is live. */}}
+        <button type="button" class="livestatus" data-live-status data-live-mode="connecting" aria-haspopup="dialog" aria-label="{{t "Live updates"}}" hidden><span class="livedot" aria-hidden="true"></span><span class="livelabel" data-live-label></span></button>
         {{/* Collapses the desktop column to a rail and back. Shown only with
              scripting, since it does nothing without it. These controls are
              not rendered hidden for a script to reveal: on every boosted
@@ -153,6 +160,7 @@
 </div>
 {{template "shortcuts-help" .}}
 {{template "palette" .}}
+{{template "live-details" .}}
 {{template "tenant-switcher" .}}
 {{if .TaskDialog}}{{template "task-dialog-host" .}}{{end}}
 {{else}}

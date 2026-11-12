@@ -1318,6 +1318,26 @@ same rule everywhere (`tix.focusMemo` in `decide.js`, used by live updates, lane
 actions): the nearest id and the control's `data-focus` name, and a choice made in a menu counts as
 the button that opened it. A refresh that keeps the focused element leaves focus alone.
 
+**Whether live updates get through** shows beside the tenant's name. Live is a green dot. Anything worse
+adds a word, and on a desktop it takes its own row under the name:
+
+| State | Meaning |
+| --- | --- |
+| Connecting | The page is opening its connection. |
+| Live | Changes made elsewhere arrive over a WebSocket as they happen. |
+| Reconnecting | The WebSocket dropped and is being tried again, on a growing delay up to 30 seconds. |
+| Polling | The WebSocket keeps failing while plain HTTP works, so the page asks the server every 15 seconds. |
+| Offline | The browser is offline, or a request to the server got no answer at all. |
+
+When a page has more than one stream open (a screen, the activity feed, the inbox badge), the indicator shows
+the worst of them. Opening a new page reconnects, but that does not count as a change, so the dot stays put.
+Pressing the indicator opens **Connection details**: the server, the state and what carries it, since when,
+when the server was last reached, the last event, failures in a row, the next try, the last error with its
+WebSocket close code or HTTP status, what it may mean (a proxy closing idle connections, one not forwarding
+WebSocket upgrades, the host out of reach, a refusal), and the recent changes. **Reconnect now** retries at
+once without waiting out the delay. **Copy details** copies the same information as an English plain-text
+report for a bug or a support question, with the build and the browser but no cookie, session or token.
+
 **A new release** reaches an open tab by itself. Each page names its build on `<body data-build>`,
 and the tab compares it with the `version` from `/healthz` when the live connection comes back after
 a drop, when you return to the tab, and every seven minutes. If the server runs a newer build and
