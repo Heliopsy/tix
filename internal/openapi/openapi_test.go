@@ -255,7 +255,8 @@ func TestAListingIsDescribedAsItIsWritten(t *testing.T) {
 	content := schema["responses"].(map[string]any)["200"].(map[string]any)["content"].(map[string]any)
 	props := content[wire.ContentJSON].(map[string]any)["schema"].(map[string]any)["properties"].(map[string]any)
 	total := 1
-	raw, _ := json.Marshal(wire.Page[core.Task]{Items: []core.Task{}, NextCursor: "c", Total: &total, TotalCapped: true, Page: 1})
+	raw, _ := json.Marshal(wire.Page[core.Task]{Items: []core.Task{}, NextCursor: "c", Total: &total, TotalCapped: true, Page: 1,
+		Tally: &core.TaskTally{}})
 	var page map[string]any
 	_ = json.Unmarshal(raw, &page)
 	for k := range page {
