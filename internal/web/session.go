@@ -56,7 +56,7 @@ func (h *handler) showRoot(w http.ResponseWriter, r *http.Request) error {
 	if _, err := h.svc.WhoAmI(r.Context()); err != nil {
 		return err
 	}
-	http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
+	http.Redirect(w, r, startScreenOf(r).Route, http.StatusSeeOther)
 	return nil
 }
 
@@ -78,10 +78,10 @@ type loginView struct {
 // showLogin renders the sign-in screen.
 func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 	if _, ok := core.ActorFrom(r.Context()); ok {
-		http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
+		http.Redirect(w, r, startScreenOf(r).Route, http.StatusSeeOther)
 		return nil
 	}
-	v := loginView{TargetHint: h.targetHint, Next: safeNext(r.URL.Query().Get("next"))}
+	v := loginView{TargetHint: h.targetHint, Next: safeNext(orElse(r.URL.Query().Get("next"), RouteRoot))}
 	if policy, err := h.svc.SessionPolicy(r.Context()); err == nil && policy.RememberOffered() {
 		v.RememberFor = policy.RememberTTL
 	}
@@ -256,6 +256,9 @@ type settingsView struct {
 
 	// Notifications is the reader's own channels and the form adding one.
 	Notifications notificationsSection
+
+	// StartChoices is the picker for the screen / opens on.
+	StartChoices []startChoice
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -306,6 +309,7 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		Calendar:       calendar,
 		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
 		Notifications:  notes,
+		StartChoices:   startChoices(r),
 	})
 }
 

@@ -146,7 +146,8 @@
         return;
       }
       event.preventDefault();
-      var reduce = typeof global.matchMedia === "function" && global.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var reduce = global.document.documentElement.getAttribute("data-motion") === "reduce" ||
+        typeof global.matchMedia === "function" && global.matchMedia("(prefers-reduced-motion: reduce)").matches;
       section.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
       if (global.location.hash !== link.getAttribute("href") && global.history && global.history.pushState) {
         global.history.pushState(null, "", link.getAttribute("href"));

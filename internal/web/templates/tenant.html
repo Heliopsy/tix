@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Tenant"}}</h1>{{template "tip" (tip "Tenant" "A tenant is a separate workspace. Its projects, tasks, members, tokens and history are invisible from every other tenant on the same installation." "docs/tenancy.md")}}{{template "help" $}}</div>
+<div class="headtip"><h1>{{t "Tenant"}}</h1>{{template "tip" (tip "Tenant" "A tenant is a separate workspace. Its projects, tasks, members, tokens and history are invisible from every other tenant on the same installation." "docs/tenancy.md")}}<span class="setscope" data-scope="tenant" title="{{t "Settings here apply to everyone in this tenant."}}">{{t "Whole tenant"}}</span>{{template "help" $}}</div>
 
 {{/* What sits under what.
 

@@ -72,6 +72,9 @@
     if (!doc || typeof doc.startViewTransition !== "function") {
       return false;
     }
+    if (doc.documentElement && doc.documentElement.getAttribute("data-motion") === "reduce") {
+      return false;
+    }
     var reduce = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
     return !(reduce && reduce.matches);
   };

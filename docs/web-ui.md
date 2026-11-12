@@ -1804,6 +1804,8 @@ going back a page.
 | Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 | Project names in pickers | `tix_project_label` | How a project reads in every control that chooses one: `key-name` (`INFRA · Infrastructure`), `name` or `key`. Anything else, including no cookie, is the name with the key, `Infrastructure (INFRA)`. The option's value is always the key |
+| Start screen | `tix_start` | Where `/` and a sign-in without a link land: `tasks`, `mine` (My work) or `inbox`. Anything else, including no cookie, is Projects |
+| Reduce motion | `tix_motion` | `reduce` puts `data-motion="reduce"` on `<html>`, which turns off animation, transitions and smooth scrolling as the system's reduced motion does; absent or anything else follows the system |
 
 `tix_advanced` has three states rather than two: shown, hidden, and absent, which leaves the answer
 to who is reading. A tenant administrator who has never chosen gets the configuration and data
@@ -1868,8 +1870,9 @@ The navigation follows the reader: as the page scrolls, the link for the section
 `aria-current="true"`, and once the page is at its end the last section's link does, however short that
 section is. A section counts as in view once its top reaches the line a jump to it lands on, so a click
 and a scroll mark the same link. Clicking a link, or pressing Enter on it, scrolls smoothly to the
-section (a jump when the system asks for reduced motion), puts its id in the address and moves focus to
-the section, so the next Tab carries on from there. This is `assets/tocspy.js`, which drives any
+section (a jump when the system asks for reduced motion, or Reduce motion is on), puts its id in the
+address and moves focus to the section, so the next Tab carries on from there. This is
+`assets/tocspy.js`, which drives any
 `nav[data-toc]` from two IntersectionObservers and no scroll handler; the settings screen is the only
 one with such a navigation. Without scripting the links are plain anchors, and the section last jumped
 to is marked through `:target` instead.
@@ -1906,6 +1909,28 @@ Every form on the screen returns to `/settings?flash=...#section`, so after the 
 reader is back at the section they changed with a toast naming what was saved. The shared Listings
 controls (task view, projects, columns) are pointed back the same way when rendered on Settings and
 keep returning to their own screen elsewhere.
+
+Each setting carries a label saying where it is kept: On this device for the cookies and browser
+storage, Synced to your account for what the server keeps with your account (dates, inbox kinds,
+channels, second factor, sessions, calendar feed), and Whole tenant on the Tenant screen, whose settings
+apply to everybody. A search box above the sections (drawn with scripting only) narrows the screen to the
+rows whose name, help or (i) text holds every word typed, and to the sections left with a row; a section
+whose heading matches keeps all its rows. Escape clears it, and the navigation hides the sections the
+search left out.
+
+Start screen chooses where `/` lands in this browser: Projects, Tasks, My work or Inbox. Signing in
+without following a link lands there too. Reduce motion puts `data-motion="reduce"` on `<html>`, which
+does what the system's reduced motion setting does (no animation, transitions, page cross-fades or
+smooth scrolling) for a reader whose system allows animation.
+
+Notify me about new inbox items, under Notifications, shows a browser notification for each new inbox
+item while a tix tab is open and you are looking at something else. Turning it on asks the browser for
+permission; the choice is kept in this browser's storage, so it is per browser and needs scripting. The
+trigger is the sidebar badge's live refresh: when the unread count rises the page reads the newest unread
+items from `GET /api/v1/inbox?unread=true` and shows the ones it has not shown before, each tagged with
+its item id so two open tabs show it once. Clicking one opens the task. Hide what they say keeps the
+notification to "Something new reached your inbox." for a screen other people can see. A closed tab
+cannot be told; notification channels deliver everywhere.
 
 ### Hover effects
 

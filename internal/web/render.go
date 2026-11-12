@@ -174,6 +174,8 @@ type view struct {
 	OpenAfterAdd bool
 	// Hover is whether rows, cards and controls respond to the pointer.
 	Hover bool
+	// ReduceMotion keeps the interface still whatever the system allows.
+	ReduceMotion bool
 	// ShareOrigin is the public web address assets/share.js builds a copied
 	// link under in place of the page's own origin, set only where the
 	// configured address applies (httpapi.PublicOrigin).
@@ -516,6 +518,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
+		ReduceMotion:    reduceMotion(r),
 		ShareOrigin:     httpapi.PublicOrigin(r),
 		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
 		TaskPane:        taskPaneMode(r),
