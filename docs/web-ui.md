@@ -1413,7 +1413,7 @@ are in `decide.js`.
 
 ctrl+k, or command+k on a Mac, opens the command palette on every screen, in every key scheme and
 from inside a text field too; the Search button under the brand in the sidebar, and in the bar on a
-phone, opens it as well. It is one search box over four groups:
+phone, opens it as well. It is one search box over these groups:
 
 - **Tasks**, searched on the server once something is typed: the query is read by the same filter
   language as the filter bar, so `is:starred deploy` narrows the way it does there, and a half-typed
@@ -1425,6 +1425,23 @@ phone, opens it as well. It is one search box over four groups:
 - **Actions**: New task, New task in a project, New project, Open the filter, Show tasks as a list, a
   board or in lanes, Switch the colour scheme, Keyboard shortcuts and Sign out. Each one presses a
   control the screen already has; from a screen without it, the palette goes to the one that has it.
+- **Task**, on a task screen, its own page or the task dialog: Change the status, Change the
+  priority, Assign, Change the due date, Add a tag, Add a comment, Star or Unstar, Snooze or Unsnooze,
+  Copy reference, Hand to an agent, Rename, Write the description, Copy to, Move to, Save as template
+  and Reclaim the lease. Each opens the menu, focuses the field or presses the button the screen
+  draws, and is offered only when the screen draws it, so a reader who may only read the task is
+  offered Copy reference and nothing that would change it. Typing a word for one finds it: `star`,
+  `assign`, `due`, `agent`.
+- **Templates**: New task from each template you can read, found by its name or the title it gives.
+  It creates the task as the Use form on Templates does. A template shared by all projects puts its
+  task in the project on screen (a project's board or settings, or the task you are on); with no
+  project on screen the palette opens the Use form to pick one.
+- **Switch to**: each tenant the tenant switcher in the sidebar can move you to.
+- **Colour scheme**: System, Light, Dark, OLED, Low contrast and System, OLED when dark, each set
+  directly rather than one step of the sidebar switch at a time.
+
+Templates, Switch to and Colour scheme are listed once something is typed; Task is listed from the
+start.
 
 Screens and actions are matched as you type with a forgiving match (`stg` finds Settings) and draw the
 moment the palette opens, with no request behind them. Nothing is asked of the server for tasks until
@@ -1434,9 +1451,10 @@ in this browser come first under Recent, along with recently viewed tasks when t
 Up and Down move through the options, Enter chooses, Escape closes and focus goes back where it was.
 A task chosen here opens the way **Task opens in** says: in the dialog over the page, or as its own page.
 
-The palette reads `GET /palette/tasks?q=` and `GET /palette/projects`, two JSON routes behind the
-session and the tenant like every screen. They are not a new capability: over the API the same
-questions are `GET /api/v1/tasks?q=...&limit=10`, `GET /api/v1/tasks/{ref}` and `GET /api/v1/projects`.
+The palette reads `GET /palette/tasks?q=`, `GET /palette/projects` and `GET /palette/templates`,
+JSON routes behind the session and the tenant like every screen. They are not a new capability: over
+the API the same questions are `GET /api/v1/tasks?q=...&limit=10`, `GET /api/v1/tasks/{ref}`,
+`GET /api/v1/projects` and `GET /api/v1/templates`.
 The terminal interface has its own palette on the same ctrl+k.
 
 ## The directory

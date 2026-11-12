@@ -6,8 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -174,7 +177,7 @@ func TestPaletteStaysInTheSessionTenant(t *testing.T) {
 func TestPaletteNeedsASignedInReader(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	for _, path := range []string{web.RoutePaletteTasks + "?q=x", web.RoutePaletteProjects} {
+	for _, path := range []string{web.RoutePaletteTasks + "?q=x", web.RoutePaletteProjects, web.RoutePaletteTemplates} {
 		resp := f.as("").get(path)
 		raw := body(t, resp)
 		if resp.StatusCode == http.StatusOK || strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
@@ -262,6 +265,224 @@ func TestThePaletteShortcutIsBoundInEveryScheme(t *testing.T) {
 		keys := web.KeyBindingsFor(scheme)["palette"]
 		if !equalKeys(keys, []string{"ctrl+k", "meta+k"}) {
 			t.Errorf("scheme %q binds the palette to %v, want ctrl+k and meta+k", scheme, keys)
+		}
+	}
+}
+
+// paletteEmbedded is the palette data a page embeds.
+type paletteEmbedded struct {
+	Themes []struct{ ID, Label, Value string }
+	Task   []struct {
+		ID, Label, Terms, Target string
+		Do                       string `json:"do"`
+	}
+}
+
+func paletteDataOf(t *testing.T, page string) paletteEmbedded {
+	t.Helper()
+	raw := between(t, page, `<script id="tix-palette-data" type="application/json">`, "</script>")
+	var out paletteEmbedded
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("the embedded palette data is not JSON: %v\n%s", err, raw)
+	}
+	return out
+}
+
+var (
+	startTag   = regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9-]*)((?:\s+[^\s=>/]+(?:="[^"]*")?)*)\s*/?>`)
+	tagAttr    = regexp.MustCompile(`([^\s=>/]+)(?:="([^"]*)")?`)
+	simplePart = regexp.MustCompile(`^([a-z]*)((?:#[\w-]+)?)((?:\.[\w-]+)*)((?:\[[\w-]+="[^"]*"\])*)$`)
+	attrPart   = regexp.MustCompile(`\[([\w-]+)="([^"]*)"\]`)
+)
+
+// matchesOne reports whether one element of the markup is what a compound
+// selector (tag, #id, .class and [attr="value"], no combinators) names. It
+// reads each start tag on its own, so the parts must all hold on one element.
+func matchesOne(t *testing.T, markup, selector string) bool {
+	t.Helper()
+	m := simplePart.FindStringSubmatch(selector)
+	if m == nil {
+		t.Fatalf("selector %q is not one compound selector", selector)
+	}
+	for _, tag := range startTag.FindAllStringSubmatch(markup, -1) {
+		attrs := map[string]string{}
+		for _, a := range tagAttr.FindAllStringSubmatch(tag[2], -1) {
+			attrs[a[1]] = html.UnescapeString(a[2])
+		}
+		classes := " " + attrs["class"] + " "
+		ok := m[1] == "" || strings.EqualFold(tag[1], m[1])
+		ok = ok && (m[2] == "" || attrs["id"] == m[2][1:])
+		for _, c := range strings.Split(m[3], ".")[1:] {
+			ok = ok && strings.Contains(classes, " "+c+" ")
+		}
+		for _, a := range attrPart.FindAllStringSubmatch(m[4], -1) {
+			v, has := attrs[a[1]]
+			ok = ok && has && v == a[2]
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// offeredOn is the task actions assets/palette.js would offer on a task
+// screen: those whose filled-in target names an element drawn there.
+func offeredOn(t *testing.T, data paletteEmbedded, markup, prefix, ref string) []string {
+	t.Helper()
+	var out []string
+	for _, e := range data.Task {
+		target := strings.NewReplacer("{p}", prefix, "{ref}", ref).Replace(e.Target)
+		if matchesOne(t, markup, target) {
+			out = append(out, e.ID)
+		}
+	}
+	return out
+}
+
+// Each task action drives a control the task screen draws, on the task's own
+// page and in the task dialog, where every id carries the dlg- prefix the
+// palette fills in.
+func TestPaletteTaskActionsDriveTheTaskScreensOwnControls(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "Patch the kernel")
+	want := []string{"task-move", "task-priority", "task-assign", "task-due", "task-tag", "task-comment",
+		"task-star", "task-snooze", "task-copy-ref", "task-handoff", "task-rename", "task-describe",
+		"task-copy-to", "task-move-to", "task-save-template"}
+
+	page := b.page("/tasks/" + ref)
+	data := paletteDataOf(t, page)
+	if len(data.Task) == 0 {
+		t.Fatal("the page embeds no task actions")
+	}
+	if got := offeredOn(t, data, page, "", ref); !slices.Equal(got, want) {
+		t.Errorf("on the task's page the palette offers %v, want %v", got, want)
+	}
+	if !matchesOne(t, page, `header.taskhead[data-recent-task="`+ref+`"]`) {
+		t.Error("the task screen's header does not name its task, which is how the palette knows one is on screen")
+	}
+
+	resp := b.getDialog("/tasks/" + ref)
+	dialog := body(t, resp)
+	if got := offeredOn(t, data, dialog, "dlg-", ref); !slices.Equal(got, want) {
+		t.Errorf("in the task dialog the palette offers %v, want %v", got, want)
+	}
+
+	starred := b.post("/tasks/"+ref+"/star", url.Values{"next": {"/tasks/" + ref}})
+	_ = starred.Body.Close()
+	got := offeredOn(t, data, b.page("/tasks/"+ref), "", ref)
+	if !slices.Contains(got, "task-unstar") || slices.Contains(got, "task-star") {
+		t.Errorf("on a starred task the palette offers %v, want Unstar and not Star", got)
+	}
+}
+
+// A reader who may not change the task is offered nothing that would, and
+// a screen without a task offers no task action at all.
+func TestPaletteTaskActionsFollowWhatTheReaderMayDo(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	ref := f.as("alice").createTask("infra", "Read only")
+	viewer := f.as("viewer")
+	page := viewer.page("/tasks/" + ref)
+	got := offeredOn(t, paletteDataOf(t, page), page, "", ref)
+	for _, id := range got {
+		if id != "task-copy-ref" && id != "task-handoff" && id != "task-star" {
+			t.Errorf("a viewer is offered %s", id)
+		}
+	}
+	if !slices.Contains(got, "task-copy-ref") {
+		t.Errorf("a viewer is offered %v, want Copy reference at least", got)
+	}
+	if listing := viewer.page("/tasks"); matchesOne(t, listing, "header.taskhead") {
+		t.Error("the task listing draws a task screen header, so the palette would offer task actions there")
+	}
+}
+
+// Every colour scheme the sidebar switch cycles is offered by name, in its
+// order, and the switch's form carries the field the palette fills in.
+func TestPaletteOffersEachColourScheme(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	page := f.as("alice").page("/tasks")
+	data := paletteDataOf(t, page)
+	var got []string
+	for _, th := range data.Themes {
+		got = append(got, th.Value+"="+th.Label)
+	}
+	want := []string{"=System", "light=Light", "dark=Dark", "oled=OLED", "dim=Low contrast", "system-oled=System, OLED when dark"}
+	if !slices.Equal(got, want) {
+		t.Errorf("colour schemes = %v, want %v", got, want)
+	}
+	themer := between(t, page, `<form method="post" action="/theme"`, "</form>")
+	if !matchesOne(t, page, "form.themer") || !matchesOne(t, themer, `input[name="theme"]`) {
+		t.Errorf("the sidebar switch lacks the form or field the palette sends:\n%s", themer)
+	}
+}
+
+func TestPaletteTemplatesNameEachTemplateAndItsShape(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "Weekly report")
+	for _, form := range []url.Values{
+		{"name": {"Report"}},
+		{"name": {"Everywhere"}, "scope": {"tenant"}},
+	} {
+		resp := b.post("/tasks/"+ref+"/template", form)
+		_ = resp.Body.Close()
+		wantStatus(t, resp, http.StatusSeeOther)
+	}
+	resp := b.get(web.RoutePaletteTemplates)
+	if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("palette templates Cache-Control = %q, want no-store", cc)
+	}
+	var got []struct {
+		ID, Name, Title, Project string
+		TenantWide               bool `json:"tenant_wide"`
+	}
+	if err := json.Unmarshal([]byte(body(t, resp)), &got); err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]int{}
+	for i, tpl := range got {
+		byName[tpl.Name] = i
+	}
+	report, everywhere := got[byName["Report"]], got[byName["Everywhere"]]
+	if len(got) != 2 || report.ID == "" || report.Title != "Weekly report" || report.Project != "infra" || report.TenantWide {
+		t.Fatalf("palette templates = %+v, want Report in infra titled as the task", got)
+	}
+	if !everywhere.TenantWide || everywhere.Project != "" {
+		t.Errorf("Everywhere = %+v, want tenant-wide", everywhere)
+	}
+
+	use := b.post(web.RouteTemplateNew, url.Values{"template": {everywhere.ID}, "project_ref": {"infra"}, "next": {"/tasks"}})
+	_ = use.Body.Close()
+	wantStatus(t, use, http.StatusSeeOther)
+	if loc := use.Header.Get("Location"); !strings.HasPrefix(loc, "/tasks?") || !strings.Contains(loc, "flashref=infra-") {
+		t.Errorf("using a template the way the palette does went to %q, want back to the listing with the new task", loc)
+	}
+}
+
+// The palette offers a switch to each tenant the header's switcher has a
+// Switch button for, by reading that dialog: so the dialog carries a form
+// naming the tenant for each one this host serves, and none for a tenant
+// served elsewhere.
+func TestPaletteTenantsAreTheSwitchersOwnForms(t *testing.T) {
+	w := newSwitchWorld(t)
+	pat := w.visitor()
+	pat.signIn("pat@example.test")
+	_, page := pat.do(http.MethodGet, web.RouteProjects, nil)
+	dialog := between(t, page, `<dialog id="tenants"`, "</dialog>")
+	test := switcherRowOf(t, page, "test")
+	if !matchesOne(t, test, "form.tenantswitch-form") || !matchesOne(t, test, `input[name="to"][value="test"]`) ||
+		!matchesOne(t, test, "span.tenantswitch-name") {
+		t.Errorf("test's row = %s, want the Switch form and name the palette reads", test)
+	}
+	for _, key := range []string{"home", "away"} {
+		if matchesOne(t, dialog, `input[name="to"][value="`+key+`"]`) {
+			t.Errorf("the switcher has a Switch form for %s, which the palette would offer", key)
 		}
 	}
 }

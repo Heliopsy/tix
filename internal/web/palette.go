@@ -12,11 +12,12 @@ import (
 	"github.com/heliopsy/tix/internal/i18n"
 )
 
-// Routes the command palette (assets/palette.js) reads. Both answer JSON
+// Routes the command palette (assets/palette.js) reads. Each answers JSON
 // rather than a screen, which is why they are bound as files.
 const (
-	RoutePaletteTasks    = "/palette/tasks"
-	RoutePaletteProjects = "/palette/projects"
+	RoutePaletteTasks     = "/palette/tasks"
+	RoutePaletteProjects  = "/palette/projects"
+	RoutePaletteTemplates = "/palette/templates"
 )
 
 // PaletteTaskLimit is how many tasks one palette search answers with. The
@@ -24,14 +25,15 @@ const (
 // behind the same filter is one Enter away on Tasks.
 const PaletteTaskLimit = 10
 
-// paletteRoutes are the palette's two reads. They add no capability: tasks
-// are ListTasks under the filter language, plus GetTask for a typed ref, and
-// projects are ListProjects, the same calls GET /api/v1/tasks?q= and GET
-// /api/v1/projects make.
+// paletteRoutes are the palette's reads. They add no capability: tasks are
+// ListTasks under the filter language, plus GetTask for a typed ref,
+// projects are ListProjects and templates are ListTemplates, the same calls
+// GET /api/v1/tasks?q=, GET /api/v1/projects and GET /api/v1/templates make.
 func (h *handler) paletteRoutes() []route {
 	return []route{
 		getFile(RoutePaletteTasks, h.paletteTasks, "ListTasks", "GetTask"),
 		getFile(RoutePaletteProjects, h.paletteProjects, "ListProjects"),
+		getFile(RoutePaletteTemplates, h.paletteTemplates, "ListTemplates"),
 	}
 }
 
@@ -48,6 +50,16 @@ type paletteProject struct {
 	Key  string `json:"key"`
 	Name string `json:"name"`
 	Href string `json:"href"`
+}
+
+// paletteTemplate is one task template the palette offers a new task from.
+// Title is the title shape a use gives, which the palette matches on too.
+type paletteTemplate struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Title      string `json:"title"`
+	Project    string `json:"project,omitempty"`
+	TenantWide bool   `json:"tenant_wide,omitempty"`
 }
 
 // paletteFilter is the filter one palette search runs: the query read as a
@@ -109,6 +121,23 @@ func (h *handler) paletteProjects(w http.ResponseWriter, r *http.Request) error 
 	return writePaletteJSON(w, out)
 }
 
+// paletteTemplates answers every template the reader can read, which the
+// palette offers as New task from each once something is typed. Using one
+// posts the form the Use link on Templates opens, so it adds no new way of
+// creating a task.
+func (h *handler) paletteTemplates(w http.ResponseWriter, r *http.Request) error {
+	items, err := h.allTemplates(r, "")
+	if err != nil {
+		return err
+	}
+	out := make([]paletteTemplate, 0, len(items))
+	for _, t := range items {
+		out = append(out, paletteTemplate{ID: t.ID, Name: t.Name, Title: t.Task.Title,
+			Project: t.ProjectKey, TenantWide: t.TenantWide()})
+	}
+	return writePaletteJSON(w, out)
+}
+
 // writePaletteJSON writes one palette answer. It is private to the reader
 // who asked and goes stale with the next change, so nothing may keep it.
 func writePaletteJSON(w http.ResponseWriter, v any) error {
@@ -130,6 +159,24 @@ type paletteEntry struct {
 	// Keys marks an entry pointing at something only a keyboard uses, which
 	// a touch-only device does not draw and assets/palette.js leaves out.
 	Keys bool `json:"keys,omitempty"`
+	// Value is what a colour scheme entry asks the sidebar switch for.
+	Value string `json:"value,omitempty"`
+}
+
+// paletteTaskEntry is one thing the palette can do to the task on screen,
+// the page's own or the one open in the dialog. Target is the control it
+// drives there, a selector in which {p} stands for the screen's id prefix
+// and {ref} for the task's ref; assets/palette.js offers the entry only
+// when that control is on screen, so a reader who may not change a task is
+// offered nothing that would. Do is how it drives it: popover opens a menu,
+// focus focuses a field (opening the fold or tab it sits in), click presses
+// it, submit sends its form, copy copies its text.
+type paletteTaskEntry struct {
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Terms  string `json:"terms,omitempty"`
+	Target string `json:"target"`
+	Do     string `json:"do"`
 }
 
 // paletteNeedsKeys are the entry ids whose target is drawn only for a
@@ -141,8 +188,10 @@ var paletteNeedsKeys = map[string]bool{
 
 // paletteData is what a page embeds for the palette.
 type paletteData struct {
-	Screens []paletteEntry `json:"screens"`
-	Actions []paletteEntry `json:"actions"`
+	Screens []paletteEntry     `json:"screens"`
+	Actions []paletteEntry     `json:"actions"`
+	Themes  []paletteEntry     `json:"themes"`
+	Task    []paletteTaskEntry `json:"task"`
 }
 
 // paletteScreen is one destination: every sidebar entry, and every section
@@ -201,6 +250,31 @@ var paletteActions = []paletteEntry{
 	{ID: "signout", Label: "Sign out"},
 }
 
+// paletteTaskActions are what the palette offers on a task screen, each
+// one a control templates/task.html already draws there. A label holding
+// %s gets the task's ref. Terms are extra words it is found by, in English
+// like the filter language, and are not shown.
+var paletteTaskActions = []paletteTaskEntry{
+	{ID: "task-move", Label: "Change the status", Terms: "move transition status done", Target: "#{p}flow-{ref}", Do: "popover"},
+	{ID: "task-priority", Label: "Change the priority", Terms: "priority urgent", Target: "#{p}prio-{ref}", Do: "popover"},
+	{ID: "task-assign", Label: "Assign", Terms: "assignee owner", Target: "#{p}assignee", Do: "focus"},
+	{ID: "task-due", Label: "Change the due date", Terms: "due date deadline", Target: "#{p}due", Do: "focus"},
+	{ID: "task-tag", Label: "Add a tag", Terms: "tag label", Target: "#{p}tag", Do: "focus"},
+	{ID: "task-comment", Label: "Add a comment", Terms: "comment reply", Target: "#{p}comment-body", Do: "focus"},
+	{ID: "task-star", Label: "Star %s", Terms: "star favourite", Target: `.star[aria-pressed="false"]`, Do: "click"},
+	{ID: "task-unstar", Label: "Unstar %s", Terms: "star unstar favourite", Target: `.star[aria-pressed="true"]`, Do: "click"},
+	{ID: "task-snooze", Label: "Snooze…", Terms: "snooze later hide", Target: "#{p}snooze-{ref}", Do: "popover"},
+	{ID: "task-unsnooze", Label: "Unsnooze", Terms: "snooze wake", Target: "form.snoozeform", Do: "submit"},
+	{ID: "task-copy-ref", Label: "Copy reference", Terms: "copy ref reference clipboard", Target: "span.ref", Do: "copy"},
+	{ID: "task-handoff", Label: "Hand to an agent", Terms: "agent ai claude codex prompt mcp delegate handoff", Target: `[data-dlg-open="{p}handoff"]`, Do: "click"},
+	{ID: "task-rename", Label: "Rename", Terms: "title edit", Target: "#{p}title", Do: "focus"},
+	{ID: "task-describe", Label: "Write the description", Terms: "description body edit", Target: "#{p}body", Do: "focus"},
+	{ID: "task-copy-to", Label: "Copy to…", Terms: "copy duplicate project", Target: "a.copyto", Do: "click"},
+	{ID: "task-move-to", Label: "Move to…", Terms: "move project", Target: "a.moveto", Do: "click"},
+	{ID: "task-save-template", Label: "Save as template", Terms: "template", Target: "a.savetpl", Do: "click"},
+	{ID: "task-reclaim", Label: "Reclaim the lease…", Terms: "reclaim lease claim release", Target: "#{p}reclaim-{ref}", Do: "popover"},
+}
+
 // paletteLabels are every fixed word paletteJSON hands a page, for the
 // catalog's completeness test.
 func paletteLabels() []string {
@@ -214,12 +288,18 @@ func paletteLabels() []string {
 	for _, a := range paletteActions {
 		out = append(out, a.Label)
 	}
+	for _, a := range paletteTaskActions {
+		out = append(out, a.Label)
+	}
+	for _, t := range Themes {
+		out = append(out, ThemeLabel(t))
+	}
 	return out
 }
 
 // paletteDataFor builds the palette's fixed entries for one page.
 func paletteDataFor(lang string, advanced, admin bool) paletteData {
-	data := paletteData{Screens: []paletteEntry{}, Actions: []paletteEntry{}}
+	data := paletteData{Screens: []paletteEntry{}, Actions: []paletteEntry{}, Themes: []paletteEntry{}, Task: []paletteTaskEntry{}}
 	for _, s := range paletteScreens {
 		if (s.Advanced && !advanced) || (s.Admin && !admin) {
 			continue
@@ -233,6 +313,13 @@ func paletteDataFor(lang string, advanced, admin bool) paletteData {
 	}
 	for _, a := range paletteActions {
 		data.Actions = append(data.Actions, paletteEntry{ID: a.ID, Label: i18n.T(lang, a.Label), Keys: paletteNeedsKeys[a.ID]})
+	}
+	for _, t := range Themes {
+		data.Themes = append(data.Themes, paletteEntry{ID: "theme:" + t, Label: i18n.T(lang, ThemeLabel(t)), Value: t})
+	}
+	for _, a := range paletteTaskActions {
+		a.Label = i18n.T(lang, a.Label)
+		data.Task = append(data.Task, a)
 	}
 	return data
 }

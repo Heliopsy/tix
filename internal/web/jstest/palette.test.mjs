@@ -181,11 +181,11 @@ function node(tag, attrs = {}) {
 
 let doc;
 
-function page({ data, recentTasks, openTaskHref, matchMedia } = {}) {
+function page({ data, recentTasks, openTaskHref, matchMedia, query = {}, queryAll = {}, path = "/tasks" } = {}) {
   const timers = fakeTimers();
   const requests = [];
   const answers = {};
-  const location = { assigned: [], pathname: "/tasks", assign(h) { this.assigned.push(h); } };
+  const location = { assigned: [], pathname: path, search: "", assign(h) { this.assigned.push(h); } };
   const listeners = new Map();
   const input = node("input", { id: "palette-input" });
   const list = node("div", { id: "palette-list" });
@@ -217,8 +217,8 @@ function page({ data, recentTasks, openTaskHref, matchMedia } = {}) {
     activeElement: opener,
     body: node("body"),
     getElementById: (id) => byId[id] || null,
-    querySelector: () => null,
-    querySelectorAll: () => [],
+    querySelector: (sel) => query[sel] || null,
+    querySelectorAll: (sel) => queryAll[sel] || [],
     createElement: (tag) => node(tag),
     contains: () => true,
     addEventListener(type, fn) {
@@ -295,7 +295,7 @@ test("ctrl+k and command+k open the palette with every screen and action drawn a
     assert.equal(p.dlg.open, true);
     assert.equal(p.input.focused, 1);
     assert.deepEqual(labels(p.list), ["New task", "Switch the colour scheme", "Tasks", "Settings"]);
-    assert.deepEqual(p.requests, ["/palette/projects"], "opening asked for something besides the projects");
+    assert.deepEqual(p.requests, ["/palette/projects", "/palette/templates"], "opening asked for something besides the projects and templates");
   }
 });
 
@@ -328,10 +328,10 @@ test("typing searches tasks once, after the pause, and draws what comes back", a
   doc.dispatch("input", { target: p.input });
   p.input.value = "dep";
   doc.dispatch("input", { target: p.input });
-  assert.deepEqual(p.requests, ["/palette/projects"], "a task search went out before the pause");
+  assert.deepEqual(p.requests, ["/palette/projects", "/palette/templates"], "a task search went out before the pause");
   assert.equal(p.timers.delays()[0], 150);
   p.timers.fire();
-  assert.deepEqual(p.requests, ["/palette/projects", "/palette/tasks?q=dep"]);
+  assert.deepEqual(p.requests, ["/palette/projects", "/palette/templates", "/palette/tasks?q=dep"]);
   await settle();
   assert.equal(labels(p.list)[0], "Deploy the api");
   assert.equal(p.status.textContent, "");
@@ -343,7 +343,7 @@ test("clearing the box sends nothing", () => {
   p.input.value = "  ";
   doc.dispatch("input", { target: p.input });
   p.timers.fire();
-  assert.deepEqual(p.requests, ["/palette/projects"]);
+  assert.deepEqual(p.requests, ["/palette/projects", "/palette/templates"]);
 });
 
 test("Enter on a task opens it in the dialog when the page has one", async () => {
@@ -423,4 +423,113 @@ test("a touch-only device is not offered what it does not draw", () => {
   const unknown = page({ data });
   doc.dispatch("keydown", key("k", { ctrlKey: true }));
   assert.equal(labels(unknown.list).length, 4, "a browser without matchMedia lost entries");
+});
+
+// -- a task on screen, templates, tenants and colour schemes ----------------
+
+test("task actions are offered only with a task on screen, and only those whose control is drawn", () => {
+  const tix = bare();
+  const entries = [
+    { id: "task-star", label: "Star %s", target: '.star[aria-pressed="false"]', do: "click" },
+    { id: "task-assign", label: "Assign", terms: "assignee", target: "#{p}assignee", do: "focus" },
+    { id: "task-move", label: "Change the status", target: "#{p}flow-{ref}", do: "popover" },
+  ];
+  const drawn = new Set(['.star[aria-pressed="false"]', "#dlg-flow-infra-5"]);
+  assert.deepEqual(plain(tix.paletteTaskItems(entries, null, () => true)), []);
+  assert.deepEqual(plain(tix.paletteTaskItems(entries, { ref: "" }, () => true)), []);
+  const got = plain(tix.paletteTaskItems(entries, { ref: "infra-5", prefix: "dlg-" }, (sel) => drawn.has(sel)));
+  assert.deepEqual(got.map((x) => [x.key, x.label, x.target, x.verb]), [
+    ["taskaction:task-star", "Star INFRA-5", '.star[aria-pressed="false"]', "click"],
+    ["taskaction:task-move", "Change the status", "#dlg-flow-infra-5", "popover"],
+  ]);
+  assert.ok(got.every((x) => x.noRecent), "a task action was kept for Recent, where no task may be on screen");
+});
+
+test("a template's task goes in the project on screen when the template is tenant-wide", () => {
+  const tix = bare();
+  assert.equal(tix.paletteProjectOnScreen("/projects/infra", ""), "infra");
+  assert.equal(tix.paletteProjectOnScreen("/projects/infra/settings", ""), "infra");
+  assert.equal(tix.paletteProjectOnScreen("/tasks/web-api-12", "web-api-12"), "web-api");
+  assert.equal(tix.paletteProjectOnScreen("/tasks", ""), "");
+  const wide = { id: "t1", name: "Release", tenant_wide: true };
+  const own = { id: "t2", name: "Bug", project: "infra" };
+  assert.deepEqual(plain(tix.paletteTemplateUse(wide, "web", "/tasks?q=x")),
+    { post: "/templates/new", fields: { template: "t1", project_ref: "web", next: "/tasks?q=x" } });
+  assert.deepEqual(plain(tix.paletteTemplateUse(own, "web", "/tasks")),
+    { post: "/templates/new", fields: { template: "t2", project_ref: "", next: "/tasks" } });
+  assert.deepEqual(plain(tix.paletteTemplateUse(wide, "", "/tasks")), { go: "/templates/new?template=t1&next=%2Ftasks" });
+  const items = plain(tix.paletteTemplateItems([wide, own, { name: "no id" }]));
+  assert.deepEqual(items.map((x) => [x.label, x.hint]), [["New task from Release", ""], ["New task from Bug", "INFRA"]]);
+});
+
+test("typing offers templates, tenants and colour schemes, and nothing typed leaves them out", async () => {
+  const toForm = node("form");
+  const to = node("input");
+  to.value = "acme";
+  toForm.querySelector = (sel) => (sel === 'input[name="to"]' ? to : null);
+  toForm.closest = () => null;
+  const p = page({
+    data: { screens: [], actions: [], themes: [{ id: "theme:dark", label: "Dark", value: "dark" }, { id: "theme:dim", label: "Low contrast", value: "dim" }] },
+    queryAll: { "#tenants form.tenantswitch-form": [toForm] },
+  });
+  p.answers["/palette/templates"] = [{ id: "t1", name: "Release", title: "Ship {DATE}", tenant_wide: true }];
+  p.ctx.tix.openPalette();
+  await settle();
+  assert.deepEqual(labels(p.list), []);
+  for (const [q, want] of [["dark", "Dark"], ["contrast", "Low contrast"], ["scheme", "Dark"], ["ship", "New task from Release"], ["acme", "Switch to acme"]]) {
+    p.input.value = q;
+    doc.dispatch("input", { target: p.input });
+    assert.equal(labels(p.list)[0], want, `typing ${q}`);
+  }
+});
+
+test("choosing a colour scheme sends the sidebar switch with that scheme", () => {
+  const field = node("input");
+  field.value = "light";
+  const themer = node("form");
+  themer.querySelector = (sel) => (sel === 'input[name="theme"]' ? field : null);
+  themer.requestSubmit = function () { this.sent = field.value; };
+  const p = page({
+    data: { screens: [], actions: [], themes: [{ id: "theme:oled", label: "OLED", value: "oled" }] },
+    query: { "form.themer": themer },
+  });
+  p.ctx.tix.openPalette();
+  p.input.value = "oled";
+  doc.dispatch("input", { target: p.input });
+  doc.dispatch("keydown", key("Enter", { target: p.input }));
+  assert.equal(themer.sent, "oled");
+  assert.equal(p.dlg.open, false);
+});
+
+test("on a task screen its actions are listed first and Enter drives the control", () => {
+  const head = node("header", { "data-recent-task": "infra-5" });
+  const star = node("button");
+  star.clicks = 0;
+  star.click = function () { this.clicks++; };
+  const p = page({
+    data: { screens: [], actions: [{ id: "new-task", label: "New task" }], task: [
+      { id: "task-star", label: "Star %s", terms: "star", target: '.star[aria-pressed="false"]', do: "click" },
+      { id: "task-unstar", label: "Unstar %s", terms: "star", target: '.star[aria-pressed="true"]', do: "click" },
+    ] },
+    query: { "header.taskhead[data-recent-task]": head, '.star[aria-pressed="false"]': star },
+    path: "/tasks/infra-5",
+  });
+  p.ctx.tix.openPalette();
+  assert.deepEqual(labels(p.list), ["Star INFRA-5", "New task"]);
+  p.input.value = "star";
+  doc.dispatch("input", { target: p.input });
+  assert.deepEqual(labels(p.list), ["Star INFRA-5"]);
+  doc.dispatch("keydown", key("Enter", { target: p.input }));
+  assert.equal(star.clicks, 1);
+});
+
+test("without a task on screen no task action is offered", () => {
+  const p = page({
+    data: { screens: [], actions: [{ id: "new-task", label: "New task" }], task: [
+      { id: "task-star", label: "Star %s", target: '.star[aria-pressed="false"]', do: "click" },
+    ] },
+    query: { '.star[aria-pressed="false"]': node("button") },
+  });
+  p.ctx.tix.openPalette();
+  assert.deepEqual(labels(p.list), ["New task"]);
 });

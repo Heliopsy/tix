@@ -2,9 +2,13 @@
 // The command palette: ctrl+k (command+k on a Mac) or the Search button opens
 // a dialog that finds a task, a project, a screen or an action by name.
 //
-// Screens and actions come from tix-palette-data, which the server embeds in
-// every page already translated (internal/web/palette.go), so they draw the
-// moment the palette opens. Projects are read once from /palette/projects.
+// Screens, actions, colour schemes and what can be done to a task come from
+// tix-palette-data, which the server embeds in every page already translated
+// (internal/web/palette.go), so they draw the moment the palette opens. The
+// task's are offered only while a task is on screen, and each only when the
+// control it drives is drawn there. Tenants are read from the header's tenant
+// switcher. Projects and templates are read once from /palette/projects and
+// /palette/templates.
 // Tasks are asked for only once something is typed, debounced, from
 // /palette/tasks, which runs the filter language the filter bar runs.
 //
@@ -160,6 +164,102 @@
     return q ? "/palette/tasks?q=" + encodeURIComponent(q) : "";
   };
 
+  // paletteFill puts the task screen's id prefix ({p}) and the task's ref
+  // ({ref}) into a target selector.
+  tix.paletteFill = function (target, prefix, ref) {
+    return String(target || "").split("{p}").join(prefix || "").split("{ref}").join(ref || "");
+  };
+
+  // paletteTaskItems are the task actions to offer: none without a task on
+  // screen, and of the rest only those whose control has(selector) finds,
+  // so a reader who may not change the task is offered nothing that would.
+  tix.paletteTaskItems = function (entries, task, has) {
+    var out = [];
+    if (!task || !task.ref || typeof has !== "function") {
+      return out;
+    }
+    for (var i = 0; i < (entries || []).length; i++) {
+      var e = entries[i];
+      if (!e || !e.id || !e.target) {
+        continue;
+      }
+      var target = tix.paletteFill(e.target, task.prefix, task.ref);
+      if (!has(target)) {
+        continue;
+      }
+      out.push({ key: "taskaction:" + e.id, kind: "taskaction", label: String(e.label || "").replace("%s", shownRef(task.ref)),
+        hint: "", terms: e.terms || "", target: target, verb: e["do"] || "", noRecent: true });
+    }
+    return out;
+  };
+
+  // paletteProjectOnScreen is the project a tenant-wide template's task goes
+  // in: the one whose screen this is, or the one the task on screen is in.
+  tix.paletteProjectOnScreen = function (path, ref) {
+    var m = /^\/projects\/([^/?#]+)/.exec(String(path || ""));
+    if (m) {
+      return decodeURIComponent(m[1]);
+    }
+    var r = /^(.+)-\d+$/.exec(String(ref || ""));
+    return r ? r[1] : "";
+  };
+
+  // paletteTemplateItems offer a new task from each template the reader can
+  // read, found by its name and by the title it gives.
+  tix.paletteTemplateItems = function (templates) {
+    var out = [];
+    for (var i = 0; i < (templates || []).length; i++) {
+      var t = templates[i];
+      if (!t || typeof t.id !== "string" || !t.id) {
+        continue;
+      }
+      out.push({ key: "template:" + t.id, kind: "template", label: say("New task from %s").replace("%s", t.name || t.id),
+        hint: t.tenant_wide ? "" : shownRef(t.project), terms: t.title || "", template: t, noRecent: true });
+    }
+    return out;
+  };
+
+  // paletteTemplateUse is what choosing a template does: post the form the
+  // Use link on Templates opens, putting a tenant-wide template's task in the
+  // project on screen, or open that form when there is no project to put it
+  // in, so the reader picks one there.
+  tix.paletteTemplateUse = function (t, project, here) {
+    if (t.tenant_wide && !project) {
+      return { go: "/templates/new?template=" + encodeURIComponent(t.id) + "&next=" + encodeURIComponent(here) };
+    }
+    return { post: "/templates/new", fields: { template: t.id, project_ref: t.tenant_wide ? project : "", next: here } };
+  };
+
+  // paletteTenantItems offer a switch to each tenant the header's switcher
+  // has a Switch button for: rows of { key, name }.
+  tix.paletteTenantItems = function (rows) {
+    var out = [];
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      if (!r || !r.key) {
+        continue;
+      }
+      out.push({ key: "tenant:" + r.key, kind: "tenant", label: say("Switch to %s").replace("%s", r.name || r.key),
+        hint: r.key, terms: r.key, noRecent: true });
+    }
+    return out;
+  };
+
+  // paletteThemeItems offer each colour scheme by name, found by the words
+  // for a scheme too.
+  tix.paletteThemeItems = function (themes) {
+    var words = [say("Colour scheme"), "colour color scheme theme"].join(" ");
+    var out = [];
+    for (var i = 0; i < (themes || []).length; i++) {
+      var t = themes[i];
+      if (!t || typeof t.value !== "string") {
+        continue;
+      }
+      out.push({ key: "theme:" + t.value, kind: "theme", label: t.label, hint: "", terms: words, value: t.value });
+    }
+    return out;
+  };
+
   // -- wiring -------------------------------------------------------------------
 
   var doc = global.document;
@@ -173,6 +273,7 @@
   var GROUP_MAX = 6;
   var DEBOUNCE_MS = 150;
   var PROJECTS_TTL = 60000;
+  var TASK_DIALOG_PREFIX = "dlg-";
 
   var returnFocus = null;
   var restoreOnClose = true;
@@ -181,6 +282,8 @@
   var shown = [];
   var projects = null;
   var projectsAt = 0;
+  var templates = null;
+  var templatesAt = 0;
   var tasks = null;
   var timer = null;
   var seq = 0;
@@ -229,7 +332,7 @@
 
   function remember(item) {
     var s = store("local");
-    if (!s) {
+    if (!s || item.noRecent) {
       return;
     }
     var kept = { key: item.key, kind: item.kind, label: item.label, hint: item.hint || "" };
@@ -241,6 +344,9 @@
     }
     if (item.project) {
       kept.project = item.project;
+    }
+    if (item.kind === "theme") {
+      kept.value = item.value;
     }
     try {
       s.setItem(RECENT_KEY, JSON.stringify(tix.paletteRemember(loadRecent(), kept, RECENT_MAX)));
@@ -277,6 +383,43 @@
     return touchOnly ? list.filter(function (e) { return !e.keys; }) : list;
   };
 
+  // taskScope is the task on screen: the one open in the task dialog, or
+  // the page's own, with the prefix its ids carry there. Null without one.
+  function taskScope() {
+    var dlg = el("taskdlg");
+    var root = dlg && dlg.open ? el("taskdlg-body") : doc;
+    var head = root && root.querySelector ? root.querySelector("header.taskhead[data-recent-task]") : null;
+    if (!head) {
+      return null;
+    }
+    return { root: root, prefix: root === doc ? "" : TASK_DIALOG_PREFIX, ref: head.getAttribute("data-recent-task") || "" };
+  }
+
+  function taskItems(data) {
+    var scope = taskScope();
+    return tix.paletteTaskItems(data.task, scope, function (sel) {
+      try {
+        return !!scope.root.querySelector(sel);
+      } catch (err) {
+        return false;
+      }
+    });
+  }
+
+  function tenantRows() {
+    var forms = doc.querySelectorAll("#tenants form.tenantswitch-form");
+    var rows = [];
+    for (var i = 0; i < forms.length; i++) {
+      var to = forms[i].querySelector('input[name="to"]');
+      var row = forms[i].closest ? forms[i].closest(".tenantswitch-row") : null;
+      var name = row ? row.querySelector(".tenantswitch-name") : null;
+      var key = to ? to.value : "";
+      var text = name && name.firstChild ? String(name.firstChild.textContent || "").trim() : "";
+      rows.push({ key: key, name: text || key });
+    }
+    return rows;
+  }
+
   // staticItems are the screens and actions, and the projects once read.
   // "New task in" a project is offered only once something is typed: with
   // nothing typed it would be one row per project ahead of everything else.
@@ -298,7 +441,10 @@
           label: say("New task in %s").replace("%s", p.name), hint: shownRef(p.key) });
       });
     }
-    return { screens: screens, actions: actions, projects: projs };
+    return { screens: screens, actions: actions, projects: projs, task: taskItems(data),
+      templates: typed ? tix.paletteTemplateItems(templates) : [],
+      tenants: typed ? tix.paletteTenantItems(tenantRows()) : [],
+      themes: typed ? tix.paletteThemeItems(data.themes) : [] };
   }
 
   function groupsFor(query) {
@@ -321,6 +467,7 @@
     }
     if (!q) {
       groups.push({ name: say("Recent"), items: take(recentTasks().concat(recent), GROUP_MAX) });
+      groups.push({ name: say("Task"), items: take(items.task, items.task.length) });
       groups.push({ name: say("Actions"), items: take(items.actions, items.actions.length) });
       groups.push({ name: say("Screens"), items: take(items.screens, items.screens.length) });
       groups.push({ name: say("Projects"), items: take(items.projects, items.projects.length) });
@@ -337,6 +484,10 @@
     groups.push({ name: say("Projects"), items: take(tix.paletteRank(items.projects, q, recentKeys), GROUP_MAX) });
     groups.push({ name: say("Screens"), items: take(tix.paletteRank(items.screens, q, recentKeys), GROUP_MAX) });
     groups.push({ name: say("Actions"), items: take(tix.paletteRank(items.actions, q, recentKeys), GROUP_MAX) });
+    groups.push({ name: say("Task"), items: take(tix.paletteRank(items.task, q, recentKeys), GROUP_MAX) });
+    groups.push({ name: say("Templates"), items: take(tix.paletteRank(items.templates, q, recentKeys), GROUP_MAX) });
+    groups.push({ name: say("Switch to"), items: take(tix.paletteRank(items.tenants, q, recentKeys), GROUP_MAX) });
+    groups.push({ name: say("Colour scheme"), items: take(tix.paletteRank(items.themes, q, recentKeys), GROUP_MAX) });
     return tix.paletteOrderGroups(groups, q);
   }
 
@@ -454,6 +605,24 @@
       .catch(function () { projectsAt = 0; });
   }
 
+  function loadTemplates() {
+    if (templates && Date.now() - templatesAt < PROJECTS_TTL) {
+      return;
+    }
+    templatesAt = Date.now();
+    fetch("/palette/templates", { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (resp) { return resp.ok ? resp.json() : null; })
+      .then(function (list) {
+        if (Array.isArray(list)) {
+          templates = list;
+          if (isOpen()) {
+            render();
+          }
+        }
+      })
+      .catch(function () { templatesAt = 0; });
+  }
+
   function search() {
     var input = el("palette-input");
     var q = input ? input.value.trim() : "";
@@ -515,6 +684,7 @@
     dlg.showModal();
     input.focus();
     loadProjects();
+    loadTemplates();
     return true;
   }
 
@@ -682,6 +852,90 @@
     }
   }
 
+  function here() {
+    return global.location.pathname + (global.location.search || "");
+  }
+
+  // openFolds opens every closed fold a control sits in (a task's Rename and
+  // its description editor), and the tab it sits on.
+  function openFolds(target) {
+    var fold = target.closest ? target.closest("details:not([open])") : null;
+    while (fold) {
+      fold.open = true;
+      fold = fold.parentNode && fold.parentNode.closest ? fold.parentNode.closest("details:not([open])") : null;
+    }
+    if (typeof tix.revealTab === "function") {
+      tix.revealTab(target);
+    }
+  }
+
+  // runTask drives the control a task action names on the task on screen.
+  function runTask(item) {
+    var scope = taskScope();
+    var target = scope ? scope.root.querySelector(item.target) : null;
+    if (!target) {
+      return;
+    }
+    if (item.verb === "popover") {
+      if (typeof target.showPopover === "function") {
+        try {
+          target.showPopover();
+        } catch (err) {
+          return;
+        }
+        var first = target.querySelector("button.flowgo, .flowgo, input:not([type=hidden]), button");
+        if (first) {
+          first.focus();
+        }
+      }
+    } else if (item.verb === "focus") {
+      openFolds(target);
+      var rich = target.hidden && target.form ? target.form.querySelector('[contenteditable="true"]') : null;
+      (rich || target).focus();
+    } else if (item.verb === "click") {
+      target.click();
+    } else if (item.verb === "submit") {
+      submitForm(target);
+    } else if (item.verb === "copy" && typeof tix.copyText === "function") {
+      tix.copyText(String(target.textContent || "").trim(),
+        { clipboard: global.navigator && global.navigator.clipboard, legacy: tix.legacyCopy });
+    }
+  }
+
+  function useTemplate(item) {
+    var scope = taskScope();
+    var plan = tix.paletteTemplateUse(item.template, tix.paletteProjectOnScreen(global.location.pathname, scope ? scope.ref : ""), here());
+    if (plan.go) {
+      global.location.assign(plan.go);
+      return;
+    }
+    postTo(plan.post, plan.fields);
+  }
+
+  function switchTenant(key) {
+    var forms = doc.querySelectorAll("#tenants form.tenantswitch-form");
+    for (var i = 0; i < forms.length; i++) {
+      var to = forms[i].querySelector('input[name="to"]');
+      if (to && to.value === key) {
+        submitForm(forms[i]);
+        return;
+      }
+    }
+  }
+
+  // setTheme sends the sidebar's colour scheme switch with the scheme asked
+  // for in place of the next one in its cycle.
+  function setTheme(value) {
+    var form = doc.querySelector("form.themer");
+    var field = form ? form.querySelector('input[name="theme"]') : null;
+    if (!field) {
+      postTo("/theme", { theme: value, next: here() });
+      return;
+    }
+    field.value = value;
+    submitForm(form);
+  }
+
   function choose(item) {
     if (!item) {
       return;
@@ -689,6 +943,19 @@
     remember(item);
     if (item.kind === "action") {
       run(item);
+      return;
+    }
+    if (item.kind === "taskaction" || item.kind === "template" || item.kind === "tenant" || item.kind === "theme") {
+      close(false);
+      if (item.kind === "taskaction") {
+        runTask(item);
+      } else if (item.kind === "template") {
+        useTemplate(item);
+      } else if (item.kind === "tenant") {
+        switchTenant(item.hint);
+      } else {
+        setTheme(item.value);
+      }
       return;
     }
     var from = returnFocus;
