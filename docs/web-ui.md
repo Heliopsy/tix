@@ -1221,10 +1221,10 @@ how many are selected (announced to a screen reader) and offering **Move**, **Pr
 or remove), **Assignee** (a handle, or empty to unassign), **Star**, **Unstar**, **Copy to…**,
 **Move to…** (another project), **Delete** and **Cancel**. Shift-click ticks every row between the last box
 you clicked and this one;
-`x` toggles the focused row; Shift+Up and Shift+Down extend the selection from the focused row and
-move focus with it; Ctrl+A (Cmd+A on a Mac, `*` in the Emacs scheme, where Ctrl+A goes to the top)
-ticks every row while focus is in the list, and leaves a text field's own select all alone. `d` marks
-the focused task done in any mode (`e` stays Edit title, as in the terminal). Escape, Cancel, Select
+`x` (`v` in Vim) toggles the focused row; Shift+Up and Shift+Down extend the selection from the focused
+row and move focus with it; Ctrl+A (Cmd+A on a Mac) ticks every row while focus is in the list, and
+leaves a text field's own select all alone. `d` marks the focused task done in any mode (`e` stays Edit
+title, as in the terminal). Escape, Cancel, Select
 pressed again, or unticking the last selected task leaves the mode and clears the selection; an open
 menu or the task dialog keeps its own Escape. While anything is ticked the live refresh waits, the
 same rule that keeps it from drawing over a half typed comment.
@@ -1437,6 +1437,74 @@ It is a shortcut and nothing more: the tick and the task's snooze menu do the sa
 screen reader. The row carries its targets as `data-swipe-complete` and `data-swipe-snooze`;
 `assets/swipe.js` posts them as an ordinary form inside the row, and the decisions (direction, threshold)
 are in `decide.js`.
+
+### Keys
+
+The browser and the app share one key table, so a key means the same thing on both. Each surface binds
+the part of it it can do: the web has no Manage landing page, so `g M` is the app's alone, and deleting
+from the keyboard is the app's only. The help overlay groups the keys as Navigate (the go-to keys),
+Lists, Task and General. Settings, Keyboard picks the scheme and compares all four.
+
+Two keys written with a space between them are pressed one after the other: `g i` is g, then i. After a
+g the page waits up to a second for the second key; in the default scheme a g that gets none jumps to
+the first task when the wait is over, and in Vim the top is `g g`. A key that completes nothing drops
+the wait and does what it does on its own, and Escape only drops it.
+
+The task keys press a control the screen already draws, marked with `data-shortcut-target`: on a task
+screen its star, priority, assignee, due date, tag, Snooze and description; on a list, the focused row's
+own star and priority. A screen or row without that control leaves the key to the browser, so `p` on a
+row with no priority menu does nothing, and with no row focused `s` stars nothing rather than the first
+row. `y` copies the focused row's reference, or the open task's, and says so. `r` redraws the live
+regions where the screen has them, the same fetch a live update makes, and reloads the page where it has
+none. `v` presses the next of List, Board and Lanes where the screen draws that switch.
+
+Some of the app's keys never reach a web page, because the browser keeps them: ctrl+n opens a window,
+ctrl+p prints, ctrl+s saves the page, ctrl+l focuses the address bar, ctrl+f finds and ctrl+b toggles
+Firefox's bookmarks bar. Where the app's Vim or Emacs scheme uses one of those, the web keeps the other
+keys the table gives the action. ctrl+digit switches tabs, so the app's ctrl+1 to ctrl+7 are not here
+either. Off binds no single key at all, only the ctrl and command chords: the palette and select all.
+The terminal interface keeps its own table (see [tui.md](tui.md)); the keys it shares with this one,
+`m` comment, `t` move, `e` edit, `*` star, `p` priority, `/` filter, `?` help and ctrl+k, agree.
+
+| Action | Default | Vim | Emacs | Off |
+| --- | --- | --- | --- | --- |
+| Go to Inbox | `g i` | `g i` | `g i` | none |
+| Go to My work | `g m` | `g m` | `g m` | none |
+| Go to Tasks | `g t` | `g t` | `g t` | none |
+| Go to Projects | `g p` | `g p` | `g p` | none |
+| Go to Activity | `g a` | `g a` | `g a` | none |
+| Go to Settings | `g s` | `g s` | `g s` | none |
+| Go to Statistics | `g S` | `g S` | `g S` | none |
+| Move selection down | `ArrowDown`, `j` | `ArrowDown`, `j` | `ArrowDown` | none |
+| Move selection up | `ArrowUp`, `k` | `ArrowUp`, `k` | `ArrowUp` | none |
+| Jump to the first task | `g`, `Home` | `g g`, `Home` | `alt+<`, `Home` | none |
+| Jump to the last task | `G`, `End` | `G`, `End` | `alt+>`, `End` | none |
+| Page down | `PageDown` | `ctrl+d`, `PageDown` | `ctrl+v`, `PageDown` | none |
+| Page up | `PageUp` | `ctrl+u`, `PageUp` | `alt+v`, `PageUp` | none |
+| Open the selected task | `Enter` | `Enter`, `l` | `Enter` | none |
+| Go back | `Escape` | `Escape`, `h` | `Escape`, `ctrl+g` | none |
+| Select or unselect the focused task | `x` | `v` | `ctrl+space`, `x` | none |
+| Extend the selection down | `shift+ArrowDown` | `J`, `shift+ArrowDown` | `shift+ArrowDown` | none |
+| Extend the selection up | `shift+ArrowUp` | `K`, `shift+ArrowUp` | `shift+ArrowUp` | none |
+| Select every task in the list | `ctrl+a`, `meta+a` | `ctrl+a`, `meta+a` | `ctrl+a`, `meta+a` | `ctrl+a`, `meta+a` |
+| Focus the filter field | `/` | `/`, `:` | `/` | none |
+| Refresh | `r` | `r` | `r` | none |
+| Switch view | `v` | `g v` | `v` | none |
+| New task | `n` | `o` | `n` | none |
+| Mark done | `d` | `d` | `d` | none |
+| Edit the title | `e` | `i` | `e` | none |
+| Edit the description | `E` | `D` | `E` | none |
+| Move to another status | `t` | `t` | `t` | none |
+| Comment | `m` | `m` | `m` | none |
+| Add a tag | `#` | `#` | `#` | none |
+| Star or unstar | `s`, `*` | `s`, `*` | `s`, `*` | none |
+| Set the priority | `p` | `p` | `p` | none |
+| Assign | `a` | `a` | `a` | none |
+| Set the due date | `u` | `u` | `u` | none |
+| Snooze or unsnooze | `z` | `z` | `z` | none |
+| Copy the reference | `y` | `y` | `y` | none |
+| Open the command palette | `ctrl+k`, `meta+k` | `ctrl+k`, `meta+k` | `ctrl+k`, `meta+k`, `alt+x` | `ctrl+k`, `meta+k` |
+| Show this help | `?` | `?` | `?` | none |
 
 ## The command palette
 
@@ -1813,7 +1881,7 @@ going back a page.
 | Preference | Cookie | Values |
 | --- | --- | --- |
 | Colour scheme | `tix_theme` | empty follows the system, else `light`, `dark`, `oled`, `dim`, `system-oled` |
-| Keyboard shortcuts | `tix_keyscheme` | the shipped schemes, `?` shows the active one |
+| Keyboard shortcuts | `tix_keyscheme` | the shipped schemes (`default`, `vim`, `emacs`, `off`), `?` shows the active one |
 | Advanced screens | `tix_advanced` | whether the configuration screens are in the sidebar's Manage group |
 | Drag to move | `tix_drag_move` | `0` stops board cards being dragged between columns; absent or anything else lets them |
 | Open a new task | `tix_open_after_add` | `1` opens the new task after adding. Absent or `0` stays on the listing. An empty value, which earlier builds wrote for "on", also opens it |
