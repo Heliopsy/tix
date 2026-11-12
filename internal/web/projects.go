@@ -15,7 +15,7 @@ import (
 func (h *handler) projectRoutes() []route {
 	return []route{
 		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListStarredProjects", "ListWorkflows",
-			"ListWorkflowTemplates"),
+			"ListWorkflowTemplates", "ListTasks"),
 		post(RouteProjects, h.createProject, "CreateProject"),
 		get(RouteProject, "tasks.html", h.showProjectTasks, "GetProject", "ListTasks", "ListProjects", "ListTags",
 			"ListGroupPrefs", "ListSavedFilters", "ListTemplates", "TrashStatus"),
@@ -64,6 +64,9 @@ type projectsView struct {
 	// them out, so a project is listed once.
 	Starred     []core.Project
 	StarredOnly bool
+	// Open counts each project's unfinished tasks by project ID, nil when the
+	// count could not be read.
+	Open map[string]int
 	// Form, Errors and Refused redraw a refused create in place, holding what
 	// was typed.
 	Form    projectForm
@@ -133,8 +136,30 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 		Templates: templateCards(langOf(r), templates, workflows),
 		Colors:    core.ProjectColors(), Taken: taken,
 		Starred: starred, StarredOnly: starredOnly,
+		Open:   h.openCounts(r),
 		Picker: newIconPicker(core.Project{}),
 		Pager:  pg}, nil
+}
+
+// openCounts is how many unfinished tasks each project holds, by project ID,
+// from one tallied listing of the open work the task list opens on. A count is
+// a courtesy beside the name, so a read that fails draws no counts rather than
+// failing the screen.
+func (h *handler) openCounts(r *http.Request) map[string]int {
+	open, err := h.unfinishedStatuses(r.Context())
+	if err != nil || len(open) == 0 {
+		return nil
+	}
+	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{Statuses: open, Tally: true, OmitBody: true,
+		Page: core.Page{Limit: 1}})
+	if err != nil || page.Tally == nil {
+		return nil
+	}
+	out := map[string]int{}
+	for _, c := range page.Tally.States {
+		out[c.ProjectID] += c.Count
+	}
+	return out
 }
 
 // StarredParam asks the projects screen for the reader's starred projects
@@ -179,6 +204,19 @@ type projectStar struct {
 	Starred bool
 	Next    string
 	CSRF    string
+	// Open is how many unfinished tasks the project holds, drawn on its row
+	// when Counted.
+	Open    int
+	Counted bool
+}
+
+// WithOpen is the row with its open task count from counts, or unchanged when
+// there are none to give.
+func (s projectStar) WithOpen(counts map[string]int) projectStar {
+	if counts != nil {
+		s.Open, s.Counted = counts[s.P.ID], true
+	}
+	return s
 }
 
 // Action is the route the toggle posts to: a starred project's unstars it.
