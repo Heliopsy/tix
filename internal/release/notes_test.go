@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package web
+package release
 
 import (
 	"strings"
@@ -9,7 +9,7 @@ import (
 
 // realReleaseBody is what the release feed actually returned for v0.20.0,
 // kept verbatim. release-please writes every changelog the same way, so this
-// is the shape stripLinks has to survive rather than one invented for it.
+// is the shape StripLinks has to survive rather than one invented for it.
 const realReleaseBody = "## [0.20.0](https://github.com/Heliopsy/tix/compare/v0.19.0...v0.20.0) (2026-10-26)\n" +
 	"\n\n### Features\n\n" +
 	"* **lease:** bound claim leases per tenant and per deployment " +
@@ -25,7 +25,7 @@ const realReleaseBody = "## [0.20.0](https://github.com/Heliopsy/tix/compare/v0.
 // what that test defends is a self-hosted page not republishing a remote
 // server's links.
 func TestStripLinksLeavesNoOriginAndKeepsTheSentence(t *testing.T) {
-	out := stripLinks(realReleaseBody)
+	out := StripLinks(realReleaseBody)
 
 	for _, forbidden := range []string{"http://", "https://", "](", "github.com"} {
 		if strings.Contains(out, forbidden) {
@@ -53,7 +53,7 @@ func TestStripLinksLeavesNoOriginAndKeepsTheSentence(t *testing.T) {
 // than ones release-please generated, where a link arrives without markdown
 // around it and the markdown pass would miss it entirely.
 func TestStripLinksHandlesABareURL(t *testing.T) {
-	out := stripLinks("See https://example.invalid/advisory for the detail.")
+	out := StripLinks("See https://example.invalid/advisory for the detail.")
 	if strings.Contains(out, "https://") {
 		t.Fatalf("a bare url survived: %q", out)
 	}
@@ -67,8 +67,8 @@ func TestStripLinksHandlesABareURL(t *testing.T) {
 // there is no version to compare and nothing to show, and the screen must say
 // so rather than implying the install is current.
 func TestUpgradeStateCarriesNotesOnlyOnceChecked(t *testing.T) {
-	var w *releaseWatch
-	if got := w.state(); got.Notes != "" || got.Newer {
+	var w *Watch
+	if got := w.State(); got.Notes != "" || got.Newer {
 		t.Fatalf("a watch that never ran reports %+v, want no notes and no upgrade", got)
 	}
 }
@@ -76,7 +76,7 @@ func TestUpgradeStateCarriesNotesOnlyOnceChecked(t *testing.T) {
 // TestStripLinksHandlesAWWWAddress covers an address with no scheme, which
 // the Markdown renderer the notes now go through would turn into a link.
 func TestStripLinksHandlesAWWWAddress(t *testing.T) {
-	out := stripLinks("Mirrored at www.example.invalid/notes for now.")
+	out := StripLinks("Mirrored at www.example.invalid/notes for now.")
 	if strings.Contains(out, "www.") {
 		t.Fatalf("a www address survived: %q", out)
 	}

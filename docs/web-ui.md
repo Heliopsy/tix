@@ -1597,6 +1597,9 @@ such as `dev` or `0.31.0+dirty` from an edited tree, says so and lists the newes
 marked as running. Entries go through the same link stripping and Markdown renderer as the feed's
 notes: the text of a link stays, its target and the trailing commit hash do not.
 
+`GET /api/v1/release` answers the same state, notes, commands and entries as JSON from the same check, for
+a client drawing this screen itself; see [api.md](api.md#release).
+
 ## Choosing a colour
 
 Every place the browser asks for a colour, a project's on the new project form and in its settings, and

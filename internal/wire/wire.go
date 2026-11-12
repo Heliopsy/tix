@@ -22,6 +22,10 @@ const (
 
 	RouteWhoAmI = APIPrefix + "/whoami"
 
+	// RouteRelease reports the running version, the newest published
+	// release and the bundled changelog, as the browser's release screen does.
+	RouteRelease = APIPrefix + "/release"
+
 	// RouteOpenAPI serves the OpenAPI document of this API, without a
 	// credential.
 	RouteOpenAPI = APIPrefix + "/openapi.json"

@@ -486,7 +486,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		InTrash:         inTrash(r),
 		TrashOff:        h.trashOff(r),
 		Here:            here(r),
-		Upgrade:         h.releases.state(),
+		Upgrade:         h.releases.State(),
 		Inbox:           h.unreadCount(r),
 		Overdue:         h.overdueCount(r),
 		Pinned:          pinned,

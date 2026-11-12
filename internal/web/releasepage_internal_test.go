@@ -3,9 +3,7 @@
 package web
 
 import (
-	"fmt"
 	"html"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -142,23 +140,6 @@ func TestReleaseNotesRenderAsMarkdown(t *testing.T) {
 	}
 }
 
-// Notes written by hand are not touched: only a leading heading naming the
-// release is redundant.
-func TestOnlyTheLeadingReleaseHeadingIsDropped(t *testing.T) {
-	t.Parallel()
-	cases := []struct{ notes, latest, want string }{
-		{"## 0.30.0 (2026-11-01)\n\n### Features", "0.30.0", "### Features"},
-		{"## [0.30.0] notes\n\nbody", "0.30.0", "body"},
-		{"## Highlights\n\nbody", "0.30.0", "## Highlights\n\nbody"},
-		{"plain text about 0.30.0", "0.30.0", "plain text about 0.30.0"},
-	}
-	for _, tc := range cases {
-		if got := notesBody(tc.notes, tc.latest); got != tc.want {
-			t.Errorf("notesBody(%q) = %q, want %q", tc.notes, got, tc.want)
-		}
-	}
-}
-
 // Every install method gets its own command, carrying the version on offer,
 // with a copy button pointed at that command and no other. The commands are
 // shown only when there is something to upgrade to.
@@ -187,24 +168,6 @@ func TestUpgradeCommandsAreCopyablePerMethod(t *testing.T) {
 		if page := renderRelease(t, up); strings.Contains(page, "relupgrade") || strings.Contains(page, "data-copy-target") {
 			t.Errorf("state %q offers upgrade commands:\n%s", up.Status(), page)
 		}
-	}
-}
-
-// A refresh that fails says so, and one that answers clears it, so the page
-// can tell "could not reach the feed" from "has not asked yet".
-func TestARefreshRecordsWhetherItFailed(t *testing.T) {
-	t.Parallel()
-	refused, _ := watchServedBy(http.StatusInternalServerError, `{}`)
-	refused.refresh()
-	if got := refused.state(); !got.Checked || !got.Failed {
-		t.Errorf("a refused refresh reads Checked=%v Failed=%v, want both", got.Checked, got.Failed)
-	}
-
-	ok, _ := watchServedBy(http.StatusOK, `{"tag_name":"v9.9.9"}`)
-	ok.failed = true
-	ok.refresh()
-	if got := ok.state(); !got.Checked || got.Failed {
-		t.Errorf("a refresh that answered reads Checked=%v Failed=%v, want checked and not failed", got.Checked, got.Failed)
 	}
 }
 
@@ -295,18 +258,6 @@ func TestChangelogEntriesAreSanitised(t *testing.T) {
 		if strings.Contains(running, gone) {
 			t.Errorf("the entry still carries %q:\n%s", gone, running)
 		}
-	}
-}
-
-// Only ten earlier entries are listed, however long the changelog is.
-func TestEarlierEntriesAreBounded(t *testing.T) {
-	t.Parallel()
-	var log []changelog.Entry
-	for i := 40; i > 0; i-- {
-		log = append(log, changelog.Entry{Version: fmt.Sprintf("0.%d.0", i), Body: "* x"})
-	}
-	if got := newChangesView("0.40.0", log); got.Running == nil || len(got.Earlier) != earlierChanges {
-		t.Errorf("a tagged build lists %d earlier entries, want %d", len(got.Earlier), earlierChanges)
 	}
 }
 

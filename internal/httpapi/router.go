@@ -95,6 +95,11 @@ type Config struct {
 	// EventHandler serves the WebSocket event route when it is supplied.
 	EventHandler http.Handler
 
+	// Releases answers what the release check knows. The browser interface
+	// shares the same one, so the route and the release screen agree. Left
+	// nil, the route reports the running version alone.
+	Releases ReleaseSource
+
 	// WebHandler serves the browser interface at the root when it is supplied.
 	// It is registered last and only for paths the API does not claim, so an
 	// API route can never be shadowed by a page.
@@ -222,6 +227,7 @@ func (rt *Router) register() {
 	rt.mux.HandleFunc("GET "+wire.RouteHealth, rt.handleHealth)
 	rt.mux.HandleFunc("GET "+wire.RouteReady, rt.handleReady)
 	rt.mux.HandleFunc("GET "+wire.RouteWhoAmI, rt.handleWhoAmI)
+	rt.mux.HandleFunc("GET "+wire.RouteRelease, rt.handleRelease)
 	rt.mux.HandleFunc("GET "+wire.RouteOpenAPI, rt.handleOpenAPI)
 
 	rt.registerAuthRoutes()

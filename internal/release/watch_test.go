@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package web
+package release
 
 import (
 	"io"
@@ -50,13 +50,13 @@ func TestNewerRelease(t *testing.T) {
 // first call returns immediately with whatever is known, which is nothing.
 func TestReleaseStateNeverBlocks(t *testing.T) {
 	t.Parallel()
-	w := newReleaseWatch()
-	got := w.state()
+	w := NewWatch()
+	got := w.State()
 	if got.Running == "" {
-		t.Error("state() gave no running version")
+		t.Error("State() gave no running version")
 	}
 	if got.Newer {
-		t.Error("state() claimed an upgrade before any check had succeeded")
+		t.Error("State() claimed an upgrade before any check had succeeded")
 	}
 }
 
@@ -64,8 +64,8 @@ func TestReleaseStateNeverBlocks(t *testing.T) {
 // page that panics is worse than a page with no version on it.
 func TestNilReleaseWatchStillRenders(t *testing.T) {
 	t.Parallel()
-	var w *releaseWatch
-	if got := w.state(); got.Running == "" {
+	var w *Watch
+	if got := w.State(); got.Running == "" {
 		t.Error("a nil watch gave no running version")
 	}
 }
@@ -100,9 +100,9 @@ func (s *stubRelease) RoundTrip(*http.Request) (*http.Response, error) {
 }
 
 // watchServedBy is a release watch talking to a stub rather than to GitHub.
-func watchServedBy(status int, body string) (*releaseWatch, *stubRelease) {
+func watchServedBy(status int, body string) (*Watch, *stubRelease) {
 	stub := &stubRelease{status: status, body: body}
-	return &releaseWatch{client: &http.Client{Transport: stub}}, stub
+	return &Watch{client: &http.Client{Transport: stub}}, stub
 }
 
 // gatedWatch is a watch whose refresh, once started, stops inside the
@@ -110,7 +110,7 @@ func watchServedBy(status int, body string) (*releaseWatch, *stubRelease) {
 // halves of the decision observable without waiting on a goroutine: a refresh
 // that started announces itself on entered and can never finish, so it can
 // neither be missed nor mistaken for one that never ran.
-func gatedWatch(t *testing.T, status int, body string) (*releaseWatch, *stubRelease) {
+func gatedWatch(t *testing.T, status int, body string) (*Watch, *stubRelease) {
 	t.Helper()
 	w, stub := watchServedBy(status, body)
 	stub.entered = make(chan struct{})
@@ -123,7 +123,7 @@ func gatedWatch(t *testing.T, status int, body string) (*releaseWatch, *stubRele
 // is made from how long ago the last one was.
 //
 // The evidence is the call, not the in-flight flag. That flag is set by
-// state() and cleared by the refresh goroutine, so reading it back proved
+// State() and cleared by the refresh goroutine, so reading it back proved
 // nothing either way: it stayed true when the goroutine was deleted outright,
 // and went false under an ordinary race while the refresh was working
 // perfectly. A gated transport moves both halves onto the request itself.
@@ -132,7 +132,7 @@ func TestOnlyAStaleReleaseCheckStartsARefresh(t *testing.T) {
 
 	fresh, freshStub := gatedWatch(t, http.StatusOK, `{"tag_name":"v9.9.9"}`)
 	fresh.checked = time.Now()
-	_ = fresh.state()
+	_ = fresh.State()
 	// A refresh marks itself in flight before it starts, and the gate means
 	// nothing can clear that mark, so an unset flag here is proof no refresh
 	// was started rather than a snapshot of one that already finished.
@@ -149,11 +149,11 @@ func TestOnlyAStaleReleaseCheckStartsARefresh(t *testing.T) {
 	}
 
 	stale, staleStub := gatedWatch(t, http.StatusOK, `{"tag_name":"v9.9.9"}`)
-	stale.checked = time.Now().Add(-2 * releaseCheckEvery)
-	_ = stale.state()
+	stale.checked = time.Now().Add(-2 * checkEvery)
+	_ = stale.State()
 	select {
 	case <-staleStub.entered:
-	case <-time.After(releaseCheckTimeout):
+	case <-time.After(checkTimeout):
 		t.Error("a check older than the interval was not refreshed")
 	}
 }
@@ -177,5 +177,23 @@ func TestARefreshKeepsOnlyASuccessfulAnswer(t *testing.T) {
 	refused.refresh()
 	if refused.latest != "" {
 		t.Errorf("a refused answer was read as a release: %q", refused.latest)
+	}
+}
+
+// A refresh that fails says so, and one that answers clears it, so the page
+// can tell "could not reach the feed" from "has not asked yet".
+func TestARefreshRecordsWhetherItFailed(t *testing.T) {
+	t.Parallel()
+	refused, _ := watchServedBy(http.StatusInternalServerError, `{}`)
+	refused.refresh()
+	if got := refused.State(); !got.Checked || !got.Failed {
+		t.Errorf("a refused refresh reads Checked=%v Failed=%v, want both", got.Checked, got.Failed)
+	}
+
+	ok, _ := watchServedBy(http.StatusOK, `{"tag_name":"v9.9.9"}`)
+	ok.failed = true
+	ok.refresh()
+	if got := ok.State(); !got.Checked || got.Failed {
+		t.Errorf("a refresh that answered reads Checked=%v Failed=%v, want checked and not failed", got.Checked, got.Failed)
 	}
 }

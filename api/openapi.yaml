@@ -6408,6 +6408,47 @@ paths:
         - retention
       x-tix-openspec:
         - http-api
+  /api/v1/release:
+    get:
+      description: The running version, the newest published release with its notes
+        and upgrade commands when it is newer, and the bundled changelog around the
+        running version. Notes are Markdown with links removed.
+      operationId: server.release
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBody'
+          description: 'ReleaseBody is the running version, the newest published release
+            and what the bundled changelog says: the browser''s release screen as
+            data.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: The running version, the newest published release with its notes and
+        upgrade commands when it is newer, and the bundled changelog around the running
+        version
+      tags:
+        - server
   /api/v1/retention:
     get:
       description: |-
@@ -15942,6 +15983,99 @@ components:
         expires_in:
           description: ExpiresIn is how long the new link works, between one hour
             and 30 days; omitted means 7 days.
+          type: string
+      type: object
+    ReleaseBody:
+      description: 'ReleaseBody is the running version, the newest published release
+        and what the bundled changelog says: the browser''s release screen as data.'
+      properties:
+        changes:
+          $ref: '#/components/schemas/ReleaseChanges'
+          description: Changes is the bundled changelog around the running version.
+        checked:
+          description: Checked reports whether a check has finished, whatever it answered.
+          type: boolean
+        failed:
+          description: Failed reports whether the most recent check got no usable
+            answer.
+          type: boolean
+        latest:
+          description: Latest is the newest published release, empty until a check
+            succeeds.
+          type: string
+        methods:
+          description: Methods are the commands that upgrade each install method to
+            Latest. Empty unless Newer.
+          items:
+            $ref: '#/components/schemas/ReleaseMethod'
+          type:
+            - array
+            - "null"
+        newer:
+          description: Newer reports whether Latest is ahead of Running.
+          type: boolean
+        notes:
+          description: Notes are the newest release's notes as Markdown with every
+            link taken out and the heading naming the release dropped. Empty unless
+            Newer.
+          type: string
+        running:
+          description: Running is this binary's version, without a leading v.
+          type: string
+        status:
+          description: Status is newer, current, unknown when the versions cannot
+            be compared, failed when the feed could not be read, or pending when nothing
+            has been asked yet.
+          type: string
+      type: object
+    ReleaseChanges:
+      description: ReleaseChanges is the "What's new" selection from the bundled changelog.
+      properties:
+        earlier:
+          description: Earlier are up to ten entries before Running, or the eleven
+            newest when Running is left out.
+          items:
+            $ref: '#/components/schemas/ReleaseEntry'
+          type:
+            - array
+            - "null"
+        running:
+          $ref: '#/components/schemas/ReleaseEntry'
+          description: Running is the running version's own entry, left out unless
+            this build is a tagged release the changelog has an entry for.
+        untagged:
+          description: Untagged reports that the running version is not a plain major.minor.patch,
+            so the build is not a tagged release.
+          type: boolean
+      type: object
+    ReleaseEntry:
+      description: ReleaseEntry is one changelog entry.
+      properties:
+        date:
+          description: Date is the release date, YYYY-MM-DD, or empty.
+          type: string
+        notes:
+          description: Notes is the entry as Markdown with every link taken out.
+          type: string
+        version:
+          description: Version is the release, without a leading v.
+          type: string
+      type: object
+    ReleaseMethod:
+      description: ReleaseMethod is one way tix is installed and the command that
+        upgrades it.
+      properties:
+        command:
+          description: Command upgrades that install to Latest.
+          type: string
+        help:
+          description: Help says when the method applies.
+          type: string
+        id:
+          description: ID is binary, container or go.
+          type: string
+        name:
+          description: Name names the install method.
           type: string
       type: object
     ReleaseRequest:

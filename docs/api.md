@@ -82,6 +82,27 @@ Neither requires authentication, which is what a load balancer needs.
 {"ready":true,"checks":[{"name":"database","ok":true},{"name":"migrations","ok":true}]}
 ```
 
+## Release
+
+`GET /api/v1/release` answers what the web's [release screen](web-ui.md#the-release-screen) shows, to any
+signed-in caller, so a client can draw the same screen. It reads the server's own six-hourly release check,
+the one the browser reads, and never waits on it.
+
+```json
+{"running":"0.58.0","latest":"0.59.0","status":"newer","newer":true,"checked":true,"failed":false,
+ "notes":"### Features\n\n* ...",
+ "methods":[{"id":"binary","name":"Release binary","help":"...","command":"tix update"},
+  {"id":"container","name":"Container image","help":"...","command":"podman pull ghcr.io/heliopsy/tix:0.59.0"},
+  {"id":"go","name":"Go toolchain","help":"...","command":"go install github.com/heliopsy/tix@v0.59.0"}],
+ "changes":{"running":{"version":"0.58.0","date":"2026-11-10","notes":"..."},"earlier":[],"untagged":false}}
+```
+
+`status` is `newer`, `current`, `unknown` (a version this build cannot order), `failed` (the last check got
+no answer) or `pending` (none has finished). `notes` and `methods` are empty unless `newer`. `changes` is the
+`CHANGELOG.md` embedded in the binary: the running version's entry, left out for a build that is not a tagged
+release (`untagged`), and up to ten entries before it, or the eleven newest without it. Every note is Markdown
+with its links taken out, for the client to render. `tix update --check` asks GitHub from the client instead.
+
 ## OpenAPI
 
 `GET /api/v1/openapi.json` serves the OpenAPI 3.1 document of this API, with no credential. It is
@@ -131,6 +152,7 @@ the routes the server registers. The areas are the first segment of each operati
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /me/starred-projects`, `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon`, `PUT /projects/{ref}/star`, `DELETE /projects/{ref}/star` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
+| server | `GET /release` |
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
