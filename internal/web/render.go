@@ -325,6 +325,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"due":              dueState,
 		"snoozed":          snoozedNow,
 		"snoozeForm":       newSnoozeForm,
+		"assignMe":         newAssignMe,
+		"dueField":         newDueField,
 		"expiredAgo":       expiredAgo,
 		"stateLabel":       core.StateLabel,
 		"category":         categoryLabel,

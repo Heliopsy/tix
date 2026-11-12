@@ -630,11 +630,24 @@ They open a menu with the whole task in it: open the task (in the dialog when Ta
 to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
 tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
 task for a move that needs a comment, change the priority, star or unstar it, snooze or unsnooze it,
-rename the title in place, set the assignee (the field suggests the tenant's handles), add and remove
-tags, and delete it.
+rename the title in place, set the assignee (the field suggests the tenant's handles) or take it with
+**Assign to me**, set or clear the due date, add and remove tags, and delete it.
 A reader sees only what their scopes allow: moves need `task:transition`; priority, snooze, rename,
-assignee and tags need `task:write`; delete needs `task:delete`. A reader who may only read gets
-open, copy and their star.
+assignee, due date and tags need `task:write`; delete needs `task:delete`. A reader who may only read
+gets open, copy and their star.
+
+A list row has the same menu behind three dots at its end: open the task, complete or reopen it, star
+or unstar it, move it, snooze or unsnooze it, set the assignee or Assign to me, set or clear the due
+date, add and remove tags, and **Select**, which turns on select mode with that row ticked (without
+scripting it is the link to select mode). Its forms swap the row and the toast and nothing else.
+
+Every quick action answers with a toast that offers **Undo**: a star or unstar, a snooze or unsnooze
+(back to the wake time it had), an assignee change, a due date set or cleared, a tag added or removed,
+as well as a move, a priority change and a delete. Undo is an ordinary form posting the old value
+back to the same route, so it works without scripting. An action that changed nothing offers none.
+The assignee and the due date have routes of their own, `POST /tasks/REF/assign` (`assignee`: a
+handle, an actor id, `me`, or empty to unassign) and `POST /tasks/REF/due` (`due`: what the task
+screen's Due field reads, or empty to clear).
 
 Each item is a form on an existing route or a link, so it works without JavaScript and returns to
 the listing at the card, and with htmx it swaps the card like the controls above, dimmed while it
@@ -643,7 +656,7 @@ for this, exactly as moves already did; without one they go to the task screen a
 soft, the card goes, focus moves to the next card in the lane, and the toast offers Undo, which brings
 the card back on the same listing. Rename starts the same in-place editor a title click does with
 Clicking a title set to Edit the title, whatever that setting says; without JavaScript it is a link
-to the task. A due date is not offered: the web has no form that sets one.
+to the task.
 
 The menu behaves as the badge's does: Escape closes it and puts focus back on the dots, no shortcut
 acts while it is open, and a live refresh waits for it. It takes focus when it opens, and the arrow
@@ -1207,6 +1220,9 @@ The mode is the toggle's `aria-pressed`, and the boxes and the bar are always in
 the stylesheet only while it is pressed. The toggle sits outside everything a live refresh, a row's
 own swap or the in-place filter redraws, so none of them drops the mode, and a row redrawn while
 ticked (marked done in select mode, say) comes back ticked. Leaving the screen leaves the mode.
+
+The bar's Assignee menu has **Assign to me** beside Assign, which assigns every selected task to the
+reader. The task screen's actions menu offers Assign to me too, until the task is the reader's.
 
 Each action is one request for the whole selection. The server changes each task on its own, with its own
 history entry and event, so a task that cannot take the change does not hold back the rest: the toast

@@ -49,6 +49,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
 		post(RouteTaskPriority, h.setPriority, "UpdateTask"),
+		post(RouteTaskAssign, h.assignTask, "UpdateTask", "GetTask"),
+		post(RouteTaskDue, h.setDue, "UpdateTask", "GetTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
 		post(RouteTaskPurge, h.purgeTask, "PurgeTask"),
@@ -1106,10 +1108,15 @@ func (h *handler) addTag(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.AddTag(r.Context(), ref, field(r, "tag")); err != nil {
+	tag := field(r, "tag")
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && !slices.Contains(before.Tags, tag) {
+		undo = undoUntagPrefix + tag
+	}
+	if err := h.svc.AddTag(r.Context(), ref, tag); err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, "tag added", "")
+	h.afterTransition(w, r, ref, "tag added", undo)
 	return nil
 }
 
@@ -1119,31 +1126,43 @@ func (h *handler) removeTag(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.RemoveTag(r.Context(), ref, field(r, "tag")); err != nil {
+	tag := field(r, "tag")
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && slices.Contains(before.Tags, tag) {
+		undo = undoTagPrefix + tag
+	}
+	if err := h.svc.RemoveTag(r.Context(), ref, tag); err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, "tag removed", "")
+	h.afterTransition(w, r, ref, "tag removed", undo)
 	return nil
 }
 
 // starTask sets the reader's own star on a task and returns them to the screen
 // the button was on.
 func (h *handler) starTask(w http.ResponseWriter, r *http.Request) error {
-	return h.toggleStar(w, r, h.svc.StarTask, "starred ")
+	return h.toggleStar(w, r, h.svc.StarTask, "starred ", true)
 }
 
 // unstarTask clears the reader's own star on a task.
 func (h *handler) unstarTask(w http.ResponseWriter, r *http.Request) error {
-	return h.toggleStar(w, r, h.svc.UnstarTask, "unstarred ")
+	return h.toggleStar(w, r, h.svc.UnstarTask, "unstarred ", false)
 }
 
 // toggleStar applies one star call and sends the reader back where they were,
 // at the row they pressed. safeNext refuses anything but a relative path, and
 // its projects fallback is replaced by the task's own screen.
-func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(context.Context, core.TaskRef) error, verb string) error {
+func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(context.Context, core.TaskRef) error, verb string, star bool) error {
 	ref, err := taskRefOf(r)
 	if err != nil {
 		return err
+	}
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && before.Starred != star {
+		undo = undoUnstarPrefix
+		if !star {
+			undo = undoStarPrefix
+		}
 	}
 	if err := call(r.Context(), ref); err != nil {
 		return err
@@ -1152,7 +1171,7 @@ func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(c
 	if back == RouteProjects && field(r, "next") != RouteProjects {
 		back = taskPath(r)
 	}
-	redirectTo(w, r, back, "t-"+ref.String(), verb+ref.String())
+	redirectToUndo(w, r, back, "t-"+ref.String(), verb+ref.String(), undo)
 	return nil
 }
 

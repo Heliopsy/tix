@@ -283,3 +283,28 @@ test("d presses the focused row's done control, never a finished one", () => {
   s.doc.activeElement = element("DIV");
   assert.equal(s.tix.completeFocused(), false);
 });
+
+test("Select in a row's menu enters the mode with that row ticked", () => {
+  const s = screen(["a-1", "a-2", "a-3"]);
+  const link = domNode(["[data-select-row]", CONTROL], { tagName: "A", "data-select-row": "a-2" });
+  const menu = domNode(["[popover]"], {}, [link]);
+  let hidden = 0;
+  menu.hidePopover = () => { hidden++; };
+  link.parentNode = menu;
+  menu.parentNode = s.rows[1].row;
+  const ev = s.doc.dispatch("click", click(link));
+  assert.equal(ev.prevented, 1, "the link to select mode navigated");
+  assert.equal(s.mode(), true);
+  assert.deepEqual(s.picked(), ["a-2"]);
+  assert.equal(hidden, 1, "the menu stayed open over the ticked row");
+  assert.equal(s.rows[1].row.focused, 1, "focus did not return to the row");
+});
+
+test("Select for a row with no box leaves the link to navigate", () => {
+  const s = screen(["a-1"]);
+  assert.equal(s.tix.pickRow("gone-9"), false);
+  assert.equal(s.mode(), false);
+  const link = domNode(["[data-select-row]", CONTROL], { tagName: "A", "data-select-row": "gone-9" });
+  const ev = s.doc.dispatch("click", click(link));
+  assert.equal(ev.prevented, 0);
+});

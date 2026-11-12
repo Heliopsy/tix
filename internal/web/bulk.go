@@ -85,6 +85,11 @@ func (h *handler) bulkTasks(w http.ResponseWriter, r *http.Request) error {
 		AssigneeActorID: field(r, "assignee"),
 		ProjectRef:      field(r, "project"),
 	}
+	if in.Action == core.BulkAssign && field(r, "assign_me") != "" {
+		if actor, ok := core.ActorFrom(r.Context()); ok {
+			in.AssigneeActorID = actor.ID
+		}
+	}
 	if in.Action == core.BulkMoveProject {
 		in.ProjectRef = field(r, "move_project")
 	}
