@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
@@ -59,6 +60,11 @@ type activityQuery struct {
 	Source string
 	Via    string
 	Token  string
+	Action string
+	// From and To bound the feed in time, as the reader typed them: a
+	// datetime-local value or a bare date, both read in the reader's zone.
+	From string
+	To   string
 }
 
 // activityQueryFrom reads the filter out of a request's query string.
@@ -71,12 +77,16 @@ func activityQueryFrom(r *http.Request) activityQuery {
 		Source: strings.TrimSpace(q.Get("source")),
 		Via:    strings.TrimSpace(q.Get("via")),
 		Token:  strings.TrimSpace(q.Get("token")),
+		Action: strings.TrimSpace(q.Get("action")),
+		From:   strings.TrimSpace(q.Get("from")),
+		To:     strings.TrimSpace(q.Get("to")),
 	}
 }
 
 // Active reports whether anything is being filtered out.
 func (q activityQuery) Active() bool {
-	return q.Text != "" || q.Actor != "" || q.Kind != "" || q.Source != "" || q.Via != "" || q.Token != ""
+	return q.Text != "" || q.Actor != "" || q.Kind != "" || q.Source != "" || q.Via != "" || q.Token != "" ||
+		q.Action != "" || q.From != "" || q.To != ""
 }
 
 // values renders the filter as query parameters, dropping the empty ones so a
@@ -85,7 +95,7 @@ func (q activityQuery) values() url.Values {
 	out := url.Values{}
 	for name, value := range map[string]string{
 		"q": q.Text, "actor": q.Actor, "kind": q.Kind, "source": q.Source,
-		"via": q.Via, "token": q.Token,
+		"via": q.Via, "token": q.Token, "action": q.Action, "from": q.From, "to": q.To,
 	} {
 		if value != "" {
 			out.Set(name, value)
@@ -132,6 +142,71 @@ func (q activityQuery) WithVia(v core.Via) string {
 	return q.Href("")
 }
 
+// activityTimeLayouts are the forms a From or To value may take: what a
+// datetime-local input posts, and a bare date for a typed address.
+var activityTimeLayouts = []string{SnoozeAtLayout, time.DateOnly}
+
+// window reads From and To as instants in loc. To is inclusive: a minute or
+// a day names everything up to its own end, so "to 2026-11-12" keeps that
+// whole day.
+func (q activityQuery) window(loc *time.Location) (since, until *time.Time, err error) {
+	if q.From != "" {
+		start, _, ok := activityInstant(q.From, loc)
+		if !ok {
+			return nil, nil, core.Invalid("from %q is not a date and time", q.From)
+		}
+		since = &start
+	}
+	if q.To != "" {
+		start, span, ok := activityInstant(q.To, loc)
+		if !ok {
+			return nil, nil, core.Invalid("to %q is not a date and time", q.To)
+		}
+		end := start.Add(span - time.Nanosecond)
+		until = &end
+	}
+	if since != nil && until != nil && until.Before(*since) {
+		return nil, nil, core.Invalid("the time window ends before it starts")
+	}
+	return since, until, nil
+}
+
+// activityInstant parses one window bound and reports how long a stretch
+// it names: a minute for a date and time, a day for a date.
+func activityInstant(value string, loc *time.Location) (time.Time, time.Duration, bool) {
+	for _, layout := range activityTimeLayouts {
+		if t, err := time.ParseInLocation(layout, value, loc); err == nil {
+			if layout == time.DateOnly {
+				return t, t.AddDate(0, 0, 1).Sub(t), true
+			}
+			return t, time.Minute, true
+		}
+	}
+	return time.Time{}, 0, false
+}
+
+// WindowLabel is a window bound's chip text: the value with the date and
+// the time apart.
+func (activityQuery) WindowLabel(value string) string {
+	return strings.Replace(value, "T", " ", 1)
+}
+
+// FromInput and ToInput are the window bounds as a datetime-local input
+// holds them, so a bare date from a typed address survives the next submit
+// of the form: a From day starts at 00:00 and a To day ends at 23:59.
+func (q activityQuery) FromInput() string { return windowInput(q.From, "T00:00") }
+
+// ToInput is the To bound as a datetime-local input holds it.
+func (q activityQuery) ToInput() string { return windowInput(q.To, "T23:59") }
+
+// windowInput adds clock to a bare date and leaves anything else alone.
+func windowInput(value, clock string) string {
+	if _, err := time.Parse(time.DateOnly, value); err == nil {
+		return value + clock
+	}
+	return value
+}
+
 // ViaLabel is the channel filter's chip text.
 func (q activityQuery) ViaLabel() string {
 	if l, ok := viaChoiceLabels[core.ViaKind(q.Via)]; ok {
@@ -156,6 +231,12 @@ func (q activityQuery) Without(name string) string {
 		q.Via = ""
 	case "token":
 		q.Token = ""
+	case "action":
+		q.Action = ""
+	case "from":
+		q.From = ""
+	case "to":
+		q.To = ""
 	}
 	return q.Href("")
 }
@@ -175,6 +256,7 @@ type activityView struct {
 	Sources    []core.Source
 	Vias       []viaChoice
 	TokenNames []string
+	Actions    []string
 	// Raw is the raw entry dialog the address asks for, drawn open.
 	Raw *rawEntry
 }
@@ -335,9 +417,10 @@ func (h *handler) buildActivityViewFor(r *http.Request, query activityQuery, cur
 	data := activityView{
 		Groups: make([]activityGroup, len(groups)), Cursor: cursor,
 		Pager: newPager(r, RouteActivity, next, len(groups), "entries",
-			"q", "kind", "actor", "source", "via", "token"),
+			"q", "kind", "actor", "source", "via", "token", "action", "from", "to"),
 		Names: names, Query: query, Kinds: activityKinds, Sources: activitySources,
 		Vias: viaChoices(), TokenNames: tokenNames(entries, query.Token),
+		Actions: actionNames(entries, query.Action),
 	}
 	if query.Actor != "" {
 		data.ActorLabel = names.Label(query.Actor)
@@ -365,7 +448,11 @@ func (h *handler) buildActivityViewFor(r *http.Request, query activityQuery, cur
 // skipped by Next instead of waiting there. A page the store answers whole is
 // a page whose cursor is the store's own.
 func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string, limit int) ([]core.AuditEntry, string, error) {
-	filter := core.AuditFilter{Text: query.Text, Page: core.Page{
+	since, until, err := query.window(h.readerZone(r))
+	if err != nil {
+		return nil, "", err
+	}
+	filter := core.AuditFilter{Text: query.Text, Since: since, Until: until, Page: core.Page{
 		Cursor: cursor, Sort: "seq", Direction: core.Descending, Limit: limit,
 	}}
 	if query.Actor != "" {
@@ -382,6 +469,9 @@ func (h *handler) scanAudit(r *http.Request, query activityQuery, cursor string,
 	}
 	if query.Token != "" {
 		filter.Tokens = []string{query.Token}
+	}
+	if query.Action != "" {
+		filter.Actions = []string{query.Action}
 	}
 	entries, next, err := h.svc.ListAudit(r.Context(), filter)
 	if err != nil {
@@ -600,9 +690,23 @@ func anySubject(groups []historyGroup, subjectType string) bool {
 // tokenNames are the token names the token box suggests: the ones on this page
 // and the one being filtered by, sorted, each once.
 func tokenNames(entries []core.AuditEntry, current string) []string {
+	return suggestions(current, tokenNamesOf(entries))
+}
+
+// actionNames are the actions the action box suggests, the same way.
+func actionNames(entries []core.AuditEntry, current string) []string {
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Action)
+	}
+	return suggestions(current, names)
+}
+
+// suggestions is current and names, sorted, each once, the empty left out.
+func suggestions(current string, names []string) []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, name := range append([]string{current}, tokenNamesOf(entries)...) {
+	for _, name := range append([]string{current}, names...) {
 		if name != "" && !seen[name] {
 			seen[name] = true
 			out = append(out, name)
