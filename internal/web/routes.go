@@ -96,6 +96,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.bundleRoutes()...)
 	out = append(out, h.paletteRoutes()...)
 	out = append(out, h.connectRoutes()...)
+	out = append(out, h.pwaRoutes()...)
 	return out
 }
 

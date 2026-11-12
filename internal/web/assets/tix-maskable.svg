@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="tix">
+  <title>tix</title>
+  <!-- tix.svg on a full-bleed square for a launcher that crops icons to its
+       own shape. The mark is scaled to sit inside the central circle of
+       radius 40% that every mask keeps. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#g)"/>
+  <g transform="translate(32 32) scale(0.8) translate(-32 -32)" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 13 V34 a5 5 0 0 0 8.4 3.6 L48 24"/>
+    <path d="M17 24 H35"/>
+  </g>
+</svg>

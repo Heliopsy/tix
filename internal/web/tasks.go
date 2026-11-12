@@ -273,8 +273,9 @@ type tasksView struct {
 	// in the box after a refusal.
 	Quick     quickPreview
 	QuickLine string
-	// QuickAnother draws Add another ticked, and QuickFocus focuses the box,
-	// which only the listing an Add another redirect lands on does.
+	// QuickAnother draws Add another ticked. QuickFocus focuses the box on
+	// arrival, which the listing an Add another redirect lands on, a share
+	// and the Quick add shortcut ask for.
 	QuickAnother bool
 	QuickFocus   bool
 }
@@ -410,13 +411,17 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	if redirectPicks(w, r, RouteTasks) {
 		return nil
 	}
+	r, line, adding := quickAddPrefill(r)
 	data, err := h.buildTasksView(r)
 	if err != nil {
 		return err
 	}
+	if adding && !data.Trash {
+		data.QuickLine, data.QuickFocus, data.Quick = line, true, h.previewLine(r, line)
+	}
 	h.rememberTaskView(w, r)
 	h.rememberLanesGroup(w, r)
-	data.QuickFocus = h.takeQuickFocus(w, r)
+	data.QuickFocus = h.takeQuickFocus(w, r) || data.QuickFocus
 	title := "Tasks"
 	if data.Trash {
 		title = "Trash"
@@ -923,10 +928,12 @@ func listingReferer(r *http.Request) string {
 // withoutFlash is a listing address minus the message a previous redirect
 // left on it. Adding twice in a row would otherwise carry the first task's
 // flash into the second redirect, and the toast would name the wrong task.
+// A shared line goes too, or staying after adding it would put it back.
 func withoutFlash(path string, query url.Values) string {
 	query.Del("flash")
 	query.Del("flashref")
 	query.Del(FlashUndoParam)
+	query.Del(QuickAddParam)
 	if len(query) == 0 {
 		return path
 	}
