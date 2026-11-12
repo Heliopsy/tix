@@ -728,6 +728,10 @@ func taskMvCmd(g *globals) *cobra.Command {
 			"printed, and then applied one ordinary transition at a time, so the audit trail records every state the " +
 			"task passed through. Name the route yourself as doing>done when two routes are equally short.\n\n" +
 			"--version moves a single task only if it is still at that version, as tix task edit --version does.\n\n" +
+			"--dry-run makes every check the move makes, the state, the edge, its comment and scope, the lease " +
+			"token and the version, and writes nothing, so it fails exactly where the move would.\n\n" +
+			"Moving a task you hold into a finished state (done, cancelled) with --lease-token releases your " +
+			"lease in the same write; there is no claim release to run after it.\n\n" +
 			"Exit codes: 3 unknown reference, 4 lease expired or version conflict, 6 illegal transition.",
 		Example: "  tix task mv default-1 doing\n  tix task mv default-1 done --hops\n" +
 			"  tix task ls -o ndjson | jq -r .ref | tix task mv - done",
@@ -761,8 +765,12 @@ func taskMvCmd(g *globals) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				return g.dryBulk(cmd, conn, ctx, refs, "task.transition",
-					map[string]any{"to": status})
+				in.DryRun = true
+				return g.dryEach(cmd, refs, "task.transition", map[string]any{"to": status},
+					func(ref core.TaskRef) error {
+						_, err := conn.Service.TransitionTask(ctx, ref, in)
+						return err
+					})
 			}
 			return g.bulk(cmd, refs, func(ref core.TaskRef) error {
 				_, err := conn.Service.TransitionTask(ctx, ref, in)

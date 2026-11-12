@@ -83,11 +83,11 @@ var inputReaches = []inputReach{
 	{"tix task rm", core.DeleteTaskInput{}, map[string]string{"hard": "--hard", "cascade": "--cascade"}},
 	{"tix task mv", core.TransitionInput{}, map[string]string{
 		"to": "arg", "comment": "--comment", "lease_token": "--lease-token",
-		"custom_fields": "--field", "version": "--version",
+		"custom_fields": "--field", "version": "--version", "dry_run": "--dry-run",
 	}},
 	{"tix task mv", core.RouteInput{}, map[string]string{
 		"route": "arg", "to": "arg", "comment": "--comment", "lease_token": "--lease-token",
-		"custom_fields": "--field", "version": "--version",
+		"custom_fields": "--field", "version": "--version", "dry_run": "--dry-run",
 	}},
 	{"tix task bulk", core.BulkTaskInput{}, map[string]string{
 		"action": "arg", "refs": "arg", "to": "--to", "priority": "--priority", "tag": "--tag",
@@ -97,9 +97,12 @@ var inputReaches = []inputReach{
 		"kind": "--kind", "name": "--name", "payload": "--payload", "content_type": "--content-type",
 		"blob": "--file", "lease_token": "--lease-token",
 	}},
-	{"tix claim task", core.ClaimInput{}, map[string]string{"ttl": "--ttl", "actor_id": "--actor"}},
+	{"tix claim task", core.ClaimInput{}, map[string]string{
+		"ttl": "--ttl", "actor_id": "--actor", "start": "--start", "start_status": "--start-status",
+	}},
 	{"tix claim next", core.ClaimNextInput{}, map[string]string{
 		"project_refs": "--project", "tags": "--tag", "statuses": "--status", "ttl": "--ttl", "actor_id": "--actor",
+		"start": "--start", "start_status": "--start-status",
 	}},
 	{"tix claim reclaim", core.ForceReclaimInput{}, map[string]string{"reason": "--reason"}},
 	{"tix claim release", core.ReleaseInput{}, map[string]string{

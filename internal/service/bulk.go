@@ -150,7 +150,7 @@ func shortestRoute(def core.WorkflowDefinition, from, to string) ([]string, erro
 		return nil, core.Precondition("task is already in %q", to)
 	}
 	if !def.HasState(to) {
-		return nil, core.Invalid("status %q is not a state of this project's workflow", to)
+		return nil, def.UnknownState(to)
 	}
 	for _, r := range core.Routes(def, from) {
 		if r.To.Key == to {

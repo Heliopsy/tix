@@ -38,7 +38,7 @@ func (l *Local) PutArtifact(ctx context.Context, ref core.TaskRef, in core.Artif
 		if err := l.authorizeTask(ctx, authz.ActionArtifactWrite, task); err != nil {
 			return err
 		}
-		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
+		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now, m.actor.ID); err != nil {
 			return err
 		}
 		limits, err := l.artifactLimits(ctx, m.tx)

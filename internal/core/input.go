@@ -831,6 +831,9 @@ type TransitionInput struct {
 	// Version is the task version the caller last read. When set and stale the
 	// move is refused as a conflict; 0 skips the check.
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
+	// DryRun runs every check the move runs and writes nothing; the answer is
+	// the task as the move would leave it, and a refusal is the move's own.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Validate checks the input.
@@ -884,6 +887,12 @@ type ClaimInput struct {
 	// ActorID claims on behalf of another actor, by identifier or handle;
 	// empty claims for the caller.
 	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Start moves the task, in the claim's own transaction, to the first
+	// in-progress state its workflow allows from where it is. A task already
+	// in progress stays put; no such state refuses the claim.
+	Start bool `json:"start,omitempty" yaml:"start,omitempty"`
+	// StartStatus names the state Start moves the task to, and implies Start.
+	StartStatus string `json:"start_status,omitempty" yaml:"start_status,omitempty"`
 }
 
 // ClaimNextInput claims the next eligible task.
@@ -902,7 +911,19 @@ type ClaimNextInput struct {
 	// ActorID claims on behalf of another actor, by identifier or handle;
 	// empty claims for the caller.
 	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Start moves the task, in the claim's own transaction, to the first
+	// in-progress state its workflow allows from where it is. A task already
+	// in progress stays put; no such state refuses the claim.
+	Start bool `json:"start,omitempty" yaml:"start,omitempty"`
+	// StartStatus names the state Start moves the task to, and implies Start.
+	StartStatus string `json:"start_status,omitempty" yaml:"start_status,omitempty"`
 }
+
+// Starts reports whether the claim moves the task as it takes it.
+func (in ClaimInput) Starts() bool { return in.Start || in.StartStatus != "" }
+
+// Starts reports whether the claim moves the task as it takes it.
+func (in ClaimNextInput) Starts() bool { return in.Start || in.StartStatus != "" }
 
 // ForceReclaimInput carries the administrator's reason for taking a lease.
 // The reason is optional and is recorded on the audit entry, because the

@@ -465,6 +465,38 @@ func (d WorkflowDefinition) HasState(key string) bool {
 	return ok
 }
 
+// StateKeys returns the keys of every state, in the workflow's order.
+func (d WorkflowDefinition) StateKeys() []string {
+	out := make([]string, 0, len(d.States))
+	for _, s := range d.States {
+		out = append(out, s.Key)
+	}
+	return out
+}
+
+// UnknownState refuses a status the workflow does not define, naming the
+// states it does so the caller need not look them up.
+func (d WorkflowDefinition) UnknownState(key string) *Error {
+	keys := d.StateKeys()
+	return Invalid("status %q is not a state of this project's workflow; its states are %s",
+		key, strings.Join(keys, ", ")).WithDetail("states", keys)
+}
+
+// StartState is the state a claim that starts work moves a task to from the
+// given one: the first in-progress state, in the workflow's order, with an
+// edge from it. It reports false when none has.
+func (d WorkflowDefinition) StartState(from string) (string, bool) {
+	for _, s := range d.States {
+		if d.CategoryOf(s.Key) != CategoryInProgress {
+			continue
+		}
+		if _, ok := d.CanTransition(from, s.Key); ok {
+			return s.Key, true
+		}
+	}
+	return "", false
+}
+
 // IsTerminal reports whether the named state satisfies a dependency.
 func (d WorkflowDefinition) IsTerminal(key string) bool {
 	s, ok := d.State(key)
@@ -898,6 +930,9 @@ type Claim struct {
 	LeaseExpiresAt time.Time `json:"lease_expires_at" yaml:"lease_expires_at"`
 	// Lease is how long the lease granted runs and which level decided it.
 	Lease *LeaseGrant `json:"lease,omitempty" yaml:"lease,omitempty"`
+	// StartedFrom is the status the task was in before a claim that starts it
+	// moved it; empty when the claim did not move the task.
+	StartedFrom string `json:"started_from,omitempty" yaml:"started_from,omitempty"`
 }
 
 // LeaseSource names the level a lease length or ceiling was taken from.

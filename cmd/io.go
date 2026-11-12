@@ -325,11 +325,22 @@ func newPlan(action, target string, detail map[string]any) plan {
 func (g *globals) dryBulk(cmd *cobra.Command, conn *connect.Conn, ctx context.Context,
 	refs []core.TaskRef, action string, detail map[string]any,
 ) error {
+	return g.dryEach(cmd, refs, action, detail, func(ref core.TaskRef) error {
+		_, err := conn.Service.GetTask(ctx, ref)
+		return err
+	})
+}
+
+// dryEach reports the change each reference would get, failing the ones check
+// refuses with the error the real call would give.
+func (g *globals) dryEach(cmd *cobra.Command, refs []core.TaskRef, action string, detail map[string]any,
+	check func(core.TaskRef) error,
+) error {
 	plans := make([]plan, 0, len(refs))
 	var failure error
 	for _, ref := range refs {
 		entry := newPlan(action, ref.String(), detail)
-		if _, err := conn.Service.GetTask(ctx, ref); err != nil {
+		if err := check(ref); err != nil {
 			entry.Status, entry.Code, entry.Error = statusFailed, string(core.KindOf(err)), err.Error()
 			if failure == nil {
 				failure = err

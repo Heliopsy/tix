@@ -77,13 +77,16 @@ func newClaimCmd(g *globals) *cobra.Command {
 }
 
 func claimTaskCmd(g *globals) *cobra.Command {
-	var ttl, onBehalf string
+	var ttl, onBehalf, startStatus string
+	var start bool
 	cmd := &cobra.Command{
 		Use:   "task REF",
 		Short: "Claim one named task",
 		Long: "Take a lease on one task. A snoozed task is refused until it wakes or is unsnoozed.\n\n" +
-			"Exit codes: 3 unknown reference, 4 already claimed, 6 snoozed.",
-		Example: "  tix claim task default-1 --ttl 15m",
+			startHelp +
+			"Exit codes: 2 unknown start status, 3 unknown reference, 4 already claimed, " +
+			"6 snoozed or no edge to the start status.",
+		Example: "  tix claim task default-1 --ttl 15m\n  tix claim task default-1 --start -o json",
 		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseRef(args[0])
@@ -98,7 +101,9 @@ func claimTaskCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			claim, err := conn.Service.ClaimTask(ctx, ref, core.ClaimInput{TTL: lease, ActorID: onBehalf})
+			claim, err := conn.Service.ClaimTask(ctx, ref, core.ClaimInput{
+				TTL: lease, ActorID: onBehalf, Start: start, StartStatus: startStatus,
+			})
 			if err != nil {
 				return err
 			}
@@ -108,23 +113,42 @@ func claimTaskCmd(g *globals) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&ttl, "ttl", "", "how long the lease holds; defaults to the task, then its project, then the workflow, then the tenant, then the deployment")
 	cmd.Flags().StringVar(&onBehalf, "actor", "", "claim on behalf of another actor, by handle or identifier")
+	bindStart(g, cmd, &start, &startStatus)
 	return cmd
 }
 
+// startHelp explains --start, shared by claim task and claim next.
+const startHelp = "--start also moves the task, in the same write, to the first in-progress state its workflow " +
+	"allows from where it is (doing, on the default workflow); --start-status names the state instead. " +
+	"A task already there stays put. If the move is refused, nothing is claimed.\n\n"
+
+// bindStart adds the flags that make a claim start the task.
+func bindStart(g *globals, cmd *cobra.Command, start *bool, status *string) {
+	f := cmd.Flags()
+	f.BoolVar(start, "start", false, "move the task to its first in-progress state as it is claimed")
+	f.StringVar(status, "start-status", "", "state --start moves the task to; implies --start")
+	_ = cmd.RegisterFlagCompletionFunc("start-status", flagCompletion(g.completeStatuses))
+}
+
 func claimNextCmd(g *globals) *cobra.Command {
-	var ttl, onBehalf string
+	var ttl, onBehalf, startStatus string
+	var start bool
 	var projects, tags, statuses []string
 	cmd := &cobra.Command{
-		Use:     "next",
-		Short:   "Claim the next eligible task",
-		Long:    "Claim the highest-priority unblocked task matching the filter. Snoozed tasks are skipped until they wake.\n\nExit codes: 3 no eligible task or unknown project or status, 5 permission denied.",
-		Example: "  tix claim next\n  tix claim next -p infra --tag ops --ttl 30m",
+		Use:   "next",
+		Short: "Claim the next eligible task",
+		Long: "Claim the highest-priority unblocked task matching the filter. Snoozed tasks are skipped until they wake.\n\n" +
+			startHelp +
+			"Exit codes: 2 unknown start status, 3 no eligible task or unknown project or status, " +
+			"5 permission denied, 6 no edge to the start status.",
+		Example: "  tix claim next\n  tix claim next -p infra --tag ops --ttl 30m\n  tix claim next -s todo --start -o json",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			in, err := claimNextInput(projects, tags, statuses, ttl, onBehalf)
 			if err != nil {
 				return err
 			}
+			in.Start, in.StartStatus = start, startStatus
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -137,6 +161,7 @@ func claimNextCmd(g *globals) *cobra.Command {
 		},
 	}
 	bindClaimFilter(g, cmd, &projects, &tags, &statuses, &ttl, &onBehalf)
+	bindStart(g, cmd, &start, &startStatus)
 	return cmd
 }
 
@@ -300,6 +325,7 @@ func claimExecCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			in.StartStatus = startStatus
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -310,13 +336,6 @@ func claimExecCmd(g *globals) *cobra.Command {
 			}
 			target := core.TaskRef{ID: claim.Task.ID}
 			g.diag(cmd, "claimed %s until %s", output.ShowRef(claim.Task.Ref), claim.LeaseExpiresAt.Format(time.RFC3339))
-			if startStatus != "" {
-				if _, err := conn.Service.TransitionTask(ctx, target, core.TransitionInput{
-					To: startStatus, LeaseToken: claim.LeaseToken,
-				}); err != nil {
-					return err
-				}
-			}
 
 			stop := renewInBackground(ctx, conn.Service, target, claim, in.TTL)
 			code, runErr := runChild(cmd, args)
@@ -385,7 +404,9 @@ func acquire(ctx context.Context, svc core.Service, ref string, in core.ClaimNex
 	if err != nil {
 		return nil, err
 	}
-	return svc.ClaimTask(ctx, parsed, core.ClaimInput{TTL: in.TTL, ActorID: in.ActorID})
+	return svc.ClaimTask(ctx, parsed, core.ClaimInput{
+		TTL: in.TTL, ActorID: in.ActorID, Start: in.Start, StartStatus: in.StartStatus,
+	})
 }
 
 // renewInBackground keeps the lease alive until the returned function is called.
