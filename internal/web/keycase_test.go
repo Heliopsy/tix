@@ -20,7 +20,7 @@ func TestTaskRefsAndKeysAreDrawnUpperCase(t *testing.T) {
 	if !strings.Contains(task, "<title>"+shown+" ") {
 		t.Errorf("the task screen's title is not %s:\n%s", shown, between(t, task, "<title>", "</title>"))
 	}
-	if !strings.Contains(task, `<span class="ref">`+shown+`</span>`) {
+	if !strings.Contains(task, `<span class="ref" data-shortcut-target="copyRef" data-shortcut-ref="`+shown+`">`+shown+`</span>`) {
 		t.Errorf("the task screen does not name its task %s", shown)
 	}
 	if !strings.Contains(task, `<a href="/projects/infra">INFRA (INFRA)</a>`) {
