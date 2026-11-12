@@ -28,7 +28,8 @@ func (c *Client) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPag
 	if err != nil {
 		return core.TaskPage{}, err
 	}
-	out := core.TaskPage{Tasks: page.Items, NextCursor: page.NextCursor, TotalCapped: page.TotalCapped, Number: page.Page}
+	out := core.TaskPage{Tasks: page.Items, NextCursor: page.NextCursor, TotalCapped: page.TotalCapped,
+		Number: page.Page, Tally: page.Tally}
 	if page.Total != nil {
 		out.Total = *page.Total
 	}
@@ -274,6 +275,7 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setJSON(q, "custom_fields", f.CustomFields)
 	setBool(q, "include_deleted", f.IncludeDeleted)
 	setTriState(q, "trashed", f.Trashed)
+	setBool(q, "tally", f.Tally)
 	switch {
 	case f.Snoozed != core.Either:
 		setTriState(q, "snoozed", f.Snoozed)

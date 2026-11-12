@@ -105,6 +105,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -196,6 +198,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -345,6 +349,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -438,6 +444,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -691,6 +699,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -2044,6 +2054,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -2340,6 +2352,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -2959,6 +2973,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -3431,6 +3447,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -3582,6 +3600,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -3837,6 +3857,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -4321,6 +4343,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -4730,6 +4754,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -4995,6 +5021,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -5166,6 +5194,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -5423,6 +5453,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -5830,6 +5862,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -6613,6 +6647,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -6986,6 +7022,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -7171,6 +7209,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -7254,6 +7294,13 @@ paths:
           name: page
           schema:
             type: integer
+        - description: 'Tally is true to have the response count the whole selection,
+            every page of it, in tally: tasks per project and status, tasks waiting
+            on a dependency and tasks under a live claim. It costs one grouped count.'
+          in: query
+          name: tally
+          schema:
+            type: boolean
         - description: Project keeps tasks in a project, named by key, not case sensitive;
             repeat it for several. An unknown key is an error.
           in: query
@@ -7499,6 +7546,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -7905,6 +7954,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -8128,6 +8179,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -8551,6 +8604,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -8763,6 +8818,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -9481,6 +9538,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -9810,6 +9869,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -9909,6 +9970,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -10311,6 +10374,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -10630,6 +10695,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -10811,6 +10878,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -11094,6 +11163,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -11430,6 +11501,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -11860,6 +11933,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -12034,6 +12109,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -12101,6 +12178,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -12267,6 +12346,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -12548,6 +12629,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -12681,6 +12764,8 @@ paths:
                     type: string
                   page:
                     type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
                   total:
                     type:
                       - "null"
@@ -16536,6 +16621,20 @@ components:
         - done
         - cancelled
       type: string
+    StateCount:
+      description: StateCount is how many selected tasks of one project sit in one
+        status.
+      properties:
+        count:
+          description: Count is how many of them there are.
+          type: integer
+        project_id:
+          description: ProjectID is the project the tasks belong to.
+          type: string
+        status:
+          description: Status is the workflow state they sit in.
+          type: string
+      type: object
     Stats:
       description: Stats is one tenant's throughput, ageing and leaderboard over a
         window. Every count is zero and every list empty when nothing happened, which
@@ -17675,6 +17774,24 @@ components:
         task:
           $ref: '#/components/schemas/Task'
           description: Task is the moved task under its new reference.
+      type: object
+    TaskTally:
+      description: TaskTally counts every task a filter selects, not one page of them.
+      properties:
+        blocked:
+          description: Blocked counts the tasks waiting on an unfinished dependency.
+          type: integer
+        held:
+          description: Held counts the tasks under a live claim.
+          type: integer
+        states:
+          description: States counts the selection per project and status. A state
+            is done or open by its project's workflow, which the reader already holds.
+          items:
+            $ref: '#/components/schemas/StateCount'
+          type:
+            - array
+            - "null"
       type: object
     TaskTemplate:
       description: 'TaskTemplate is a named shape of a task that is not itself work:

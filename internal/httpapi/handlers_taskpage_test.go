@@ -75,3 +75,62 @@ func TestTheClientCarriesThePageNumberAndTheTotal(t *testing.T) {
 		t.Errorf("client page = total %d number %d with %d tasks, want 5, 2 and 2", page.Total, page.Number, len(page.Tasks))
 	}
 }
+
+func TestTheTaskListingTalliesTheWholeSelectionWhenAsked(t *testing.T) {
+	f := newFixture(t)
+	for i := 1; i <= 5; i++ {
+		f.createTask(fmt.Sprintf("task %d", i))
+	}
+	cases := []struct {
+		query string
+		want  int
+	}{
+		{"?limit=2", -1},
+		{"?limit=2&tally=true", 5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			resp := f.call(http.MethodGet, wire.RouteTasks+tc.query, nil)
+			mustStatus(t, resp, http.StatusOK)
+			var page wire.Page[core.Task]
+			decodeBody(t, resp, &page)
+			if tc.want < 0 {
+				if page.Tally != nil {
+					t.Fatalf("tally = %+v on a listing that did not ask", page.Tally)
+				}
+				return
+			}
+			if page.Tally == nil {
+				t.Fatal("no tally on a listing asked with tally=true")
+			}
+			counted := 0
+			for _, s := range page.Tally.States {
+				counted += s.Count
+			}
+			if counted != tc.want || len(page.Items) != 2 {
+				t.Errorf("tally counted %d over %d items, want %d over 2", counted, len(page.Items), tc.want)
+			}
+		})
+	}
+}
+
+func TestTheClientCarriesTheTally(t *testing.T) {
+	f := newFixtureWith(t, func(fx *apiFixture, cfg *httpapi.Config) {
+		cfg.DefaultTenantID = fx.tenantA.ID
+	})
+	for i := 1; i <= 3; i++ {
+		f.createTask(fmt.Sprintf("task %d", i))
+	}
+	remote, err := client.New(f.server.URL, f.tokenA)
+	if err != nil {
+		t.Fatalf("building client: %v", err)
+	}
+	t.Cleanup(func() { _ = remote.Close() })
+	page, err := remote.ListTasks(context.Background(), core.TaskFilter{Tally: true, Page: core.Page{Limit: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Tally == nil || len(page.Tally.States) == 0 || page.Tally.States[0].Count != 3 {
+		t.Errorf("client tally = %+v, want three tasks in one state", page.Tally)
+	}
+}

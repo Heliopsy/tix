@@ -107,7 +107,7 @@ func (rt *Router) handleListTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	total := page.Total
 	writePage(w, r, wire.Page[core.Task]{Items: page.Tasks, NextCursor: page.NextCursor,
-		Total: &total, TotalCapped: page.TotalCapped, Page: page.Number})
+		Total: &total, TotalCapped: page.TotalCapped, Page: page.Number, Tally: page.Tally})
 }
 
 // wantsCSV reports whether the client asked for the listing as CSV, by the
@@ -191,6 +191,7 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		Query:          q.Get("q"),
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Trashed:        triState(q.Get("trashed")),
+		Tally:          boolParam(r, "tally"),
 		Page:           page,
 	}
 	if raw := q.Get("page"); raw != "" {

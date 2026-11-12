@@ -87,8 +87,9 @@ var filterExempt = map[string]string{
 	"OmitBody": "not a set of tasks but what each one carries, for the browser's overdue badge, " +
 		"which counts tasks and draws none. It is json:\"-\" like StarredBy: a remote " +
 		"listing always carries bodies.",
-	"Tally": "not a set of tasks but extra counts of the same set, for the task screen's " +
-		"heading. It is json:\"-\" like OmitBody: only an in-process caller asks for it.",
+	"Tally": "not a set of tasks but extra counts of the same set, for a task screen's " +
+		"heading. The HTTP API reads it as tally=true and answers it in the page's tally; " +
+		"the command line and the terminal draw no heading that would use it.",
 	"Page": "the shape of the listing rather than a set of tasks. Sort, limit, cursor " +
 		"and direction each have their own control on every surface, and the expression " +
 		"spells the first two as sort: and limit:.",

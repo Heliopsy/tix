@@ -31,6 +31,10 @@ type TaskListQuery struct {
 	// served. The cursor stays the way to walk a listing; this is for landing
 	// on a page a person asked for.
 	Page int `query:"page"`
+	// Tally is true to have the response count the whole selection, every
+	// page of it, in tally: tasks per project and status, tasks waiting on a
+	// dependency and tasks under a live claim. It costs one grouped count.
+	Tally bool `query:"tally"`
 	// Project keeps tasks in a project, named by key, not case sensitive;
 	// repeat it for several. An unknown key is an error.
 	Project []string `query:"project"`

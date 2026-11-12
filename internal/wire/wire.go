@@ -301,6 +301,10 @@ type Page[T any] struct {
 	// Page is the page number served, from one, when the request asked by
 	// page; a number past the end is served as the last page.
 	Page int `json:"page,omitempty"`
+	// Tally counts the whole selection on a task listing asked with
+	// tally=true: per project and status, waiting on a dependency, and held
+	// under a claim. It is absent otherwise.
+	Tally *core.TaskTally `json:"tally,omitempty"`
 }
 
 // Route patterns for component sharing, which moves reusable configuration

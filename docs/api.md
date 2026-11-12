@@ -461,6 +461,16 @@ numbered page is a position rather than a snapshot: a task created ahead of it s
 listing with the cursor; use `page` to land where a person asked. Other listings carry neither field, and
 an ndjson stream carries no envelope and so no total.
 
+`tally=true` adds a count of the whole selection, every page of it, for a heading that summarises the list:
+
+```json
+{"items":[ ... ],"total":437,"tally":{"states":[{"project_id":"...","status":"todo","count":12}],"blocked":5,"held":2}}
+```
+
+`states` counts the tasks per project and status; whether a state is done is its project's workflow's answer.
+`blocked` counts the tasks waiting on an unfinished dependency and `held` the ones under a live claim. It costs
+one grouped count, so it is only answered when asked.
+
 `due_before` and `due_after` narrow a task listing to a deadline window. Both take `YYYY-MM-DD`, `YYYY-MM-DD
 HH:MM` or RFC 3339, both ends are inclusive, and both drop a task carrying no deadline. There is no
 `overdue` parameter: a caller holds a clock, so "overdue" is `due_before` set to now. The filter expression's
