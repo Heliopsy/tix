@@ -5,7 +5,7 @@ package i18n
 // The live connection indicator beside the tenant's name and its
 // connection details dialog.
 func init() {
-	register(Bulgarian, map[string]string{
+	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
 		"Live updates":                       "Обновяване на живо",
 		"Live updates: %s":                   "Обновяване на живо: %s",
 		"Live":                               "На живо",
