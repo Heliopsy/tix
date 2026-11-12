@@ -3,7 +3,7 @@
 package i18n
 
 // The command palette: its dialog, the opener, the group names and the
-// actions it offers.
+// actions it offers, on any screen and on a task's.
 func init() {
 	register(Bulgarian, map[string]string{
 		"Open the command palette": "Отвори командната палитра",
@@ -24,5 +24,11 @@ func init() {
 		"Show tasks as a board":            "Покажи задачите като табло",
 		"Show tasks in lanes":              "Покажи задачите в ленти",
 		"Switch the colour scheme":         "Смени цветовата схема",
+		"Task":                             "Задача",
+		"Switch to":                        "Превключване към",
+		"New task from %s":                 "Нова задача от %s",
+		"Change the status":                "Промени статуса",
+		"Change the due date":              "Промени крайния срок",
+		"Write the description":            "Напиши описанието",
 	})
 }
