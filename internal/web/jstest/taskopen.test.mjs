@@ -188,7 +188,7 @@ let doc;
 
 // page loads the assets over a listing: one row with a title link, and the
 // dialog when Dialog mode put it there.
-function page({ dialog = true, edit = false, fetchAnswer, lane = false } = {}) {
+function page({ dialog = true, edit = false, fetchAnswer, lane = false, pane = false, width = 1440 } = {}) {
   const listeners = {};
   const winListeners = {};
   const title = node("a", {
@@ -206,11 +206,19 @@ function page({ dialog = true, edit = false, fetchAnswer, lane = false } = {}) {
     : node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" }, [title]);
   const csrf = node("input", { name: "csrf_token", value: "tok" });
   const body = node("div", { id: "taskdlg-body" });
-  const dlg = node("dialog", { id: "taskdlg" }, [body]);
+  const divider = node("div", { "data-pane-resize": "", role: "separator", tabindex: "0" });
+  const dlg = node("dialog", { id: "taskdlg", ...(pane ? { "data-task-pane": "" } : {}) }, pane ? [divider, body] : [body]);
   dlg.open = false;
-  dlg.showModal = () => { dlg.open = true; };
-  dlg.close = () => { dlg.open = false; };
-  const root = node("body", {}, [row, csrf, ...(dialog ? [dlg] : [])]);
+  dlg.modal = false;
+  dlg.showModal = () => { dlg.open = true; dlg.modal = true; };
+  dlg.show = () => { dlg.open = true; dlg.modal = false; };
+  dlg.close = () => { dlg.open = false; dlg.modal = false; };
+  const other = node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-2", tabindex: "-1" },
+    [node("a", { href: "/tasks/infra-2", textContent: "Second" })]);
+  const root = node("body", {}, [row, other, csrf, ...(dialog ? [dlg] : [])]);
+  const styles = {};
+  const html = node("html");
+  html.style = { setProperty: (k, v) => { styles[k] = v; } };
 
   const pushed = [];
   const fetches = [];
@@ -244,11 +252,15 @@ function page({ dialog = true, edit = false, fetchAnswer, lane = false } = {}) {
     dispatchEvent(ev) { events.push(ev.type); for (const fn of listeners[ev.type] || []) fn(ev); },
     getElementById: (id) => (id === "taskdlg" && dialog ? dlg : id === "taskdlg-body" && dialog ? body : null),
     querySelector: (sel) => root.querySelector(sel),
+    querySelectorAll: (sel) => root.querySelectorAll(sel),
+    documentElement: html,
+    cookie: "",
     createElement: (tag) => node(tag),
     contains: (el) => root.contains(el),
   };
   const ctx = newContext({
     document: doc,
+    innerWidth: width,
     location,
     history,
     htmx: { ajax: (verb, url, opts) => ajax.push({ verb, url, opts }) },
@@ -302,7 +314,10 @@ function page({ dialog = true, edit = false, fetchAnswer, lane = false } = {}) {
     }
     return detail;
   };
-  return { ctx, tix: ctx.tix, title, rename, row, dlg, body, pushed, fetches, ajax, events, nav, history, location, click, fire, pop, answer };
+  const winFire = (type, event = {}) => {
+    for (const fn of winListeners[type] || []) fn(event);
+  };
+  return { ctx, tix: ctx.tix, title, rename, row, other, divider, html, styles, winFire, doc, dlg, body, pushed, fetches, ajax, events, nav, history, location, click, fire, pop, answer };
 }
 
 const FRAGMENT = '<div class="taskdlg-frag" data-task-dialog="infra-1">';
@@ -606,4 +621,175 @@ test("Rename in a lane card's menu edits the card's title even when clicks open 
     assert.equal(p.title.textContent, "Fix the CI");
     assert.equal(p.rename.getAttribute("data-version"), "5", "a second rename would be refused as stale");
   }
+});
+
+// -- the panel ---------------------------------------------------------------
+
+test("Panel opens beside the list from 1100px and as the dialog below", () => {
+  const { tix } = newContext();
+  assert.equal(tix.paneOpensIn(true, 1440), "pane");
+  assert.equal(tix.paneOpensIn(true, 1100), "pane");
+  assert.equal(tix.paneOpensIn(true, 1099), "dialog");
+  assert.equal(tix.paneOpensIn(true, 390), "dialog");
+  assert.equal(tix.paneOpensIn(false, 1920), "dialog", "Dialog mode opened a panel");
+});
+
+test("the panel's width keeps to 360..720 and 60% of the room beside the sidebar", () => {
+  const { tix } = newContext();
+  assert.equal(tix.paneMax(1216), 720);
+  assert.equal(tix.paneMax(800), 480);
+  assert.equal(tix.paneMax(500), 360, "the panel's floor gave way to a narrow room");
+  assert.equal(tix.paneClamp(100, 1216), 360);
+  assert.equal(tix.paneClamp(900, 1216), 720);
+  assert.equal(tix.paneClamp(600, 800), 480);
+  assert.equal(tix.paneClamp(500.4, 1216), 500);
+  assert.equal(tix.paneClamp("wide", 1216), null);
+  assert.equal(tix.paneClamp(null, 1216), null);
+  assert.equal(tix.paneDrop(1000, 1440, 1216), 440, "a drop is not measured from the right edge");
+  assert.equal(tix.paneDrop(100, 1440, 1216), 720);
+});
+
+test("the divider's keys: Left widens, Right narrows, Home, End and Enter", () => {
+  const { tix } = newContext();
+  assert.equal(tix.paneKey("ArrowLeft", false, 460, 1216), 476);
+  assert.equal(tix.paneKey("ArrowRight", false, 460, 1216), 444);
+  assert.equal(tix.paneKey("ArrowLeft", true, 460, 1216), 524);
+  assert.equal(tix.paneKey("ArrowRight", false, 360, 1216), 360);
+  assert.equal(tix.paneKey("ArrowLeft", false, 720, 1216), 720);
+  assert.equal(tix.paneKey("Home", false, 500, 1216), 360);
+  assert.equal(tix.paneKey("End", false, 500, 800), 480);
+  assert.equal(tix.paneKey("Enter", false, 500, 1216), "reset");
+  assert.equal(tix.paneKey("a", false, 500, 1216), null);
+});
+
+test("the panel's cookie holds a bounded width and leaves the default out", () => {
+  const { tix } = newContext();
+  assert.equal(tix.paneParse("w=500"), 500);
+  assert.equal(tix.paneParse("w=9999"), 720);
+  assert.equal(tix.paneParse("w=10"), 360);
+  for (const bad of ["", "w=0", "w=-4", "w=wide", "junk"]) assert.equal(tix.paneParse(bad), null, bad);
+  assert.equal(tix.paneFormat(500), "w=500");
+  assert.equal(tix.paneFormat(5000), "w=720");
+  assert.equal(tix.paneFormat(460), "", "the default was written");
+  assert.equal(tix.paneFormat(null), "");
+});
+
+test("with Panel on a wide window a task opens beside the list and its row is marked", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  assert.equal(p.dlg.open, true, "the panel did not open");
+  assert.equal(p.dlg.modal, false, "the panel opened as a modal over the list");
+  assert.equal(p.dlg.getAttribute("data-shown"), "pane");
+  assert.ok(p.html.hasAttribute("data-pane-open"), "the page was not given the panel's room");
+  assert.equal(p.styles["--pane-w"], "460px");
+  assert.equal(p.divider.getAttribute("aria-valuenow"), "460");
+  assert.equal(p.divider.getAttribute("aria-valuemin"), "360");
+  assert.equal(p.row.getAttribute("aria-current"), "true", "the row in the panel is not marked");
+  assert.equal(p.other.getAttribute("aria-current"), null);
+  assert.equal(p.pushed[0][0], "push");
+  assert.equal(p.pushed[0][2], "/tasks/infra-1?next=%2Ftasks%3Fq%3Dtag%3Aops");
+});
+
+test("with Panel on a narrow window a task opens in the dialog", () => {
+  const p = page({ pane: true, width: 900 });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  assert.equal(p.dlg.modal, true, "a narrow window got the panel");
+  assert.equal(p.dlg.getAttribute("data-shown"), null);
+  assert.equal(p.html.hasAttribute("data-pane-open"), false);
+  assert.equal(p.row.getAttribute("aria-current"), null);
+});
+
+test("another task followed from the list replaces the one in the panel", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  const ev = p.click(p.other.children[0]);
+  assert.equal(ev.prevented, 1, "the list's link left the page");
+  assert.equal(p.ajax.length, 2);
+  p.answer(200, '<div class="taskdlg-frag" data-task-dialog="infra-2">');
+  assert.equal(p.pushed.length, 2);
+  assert.equal(p.pushed[1][0], "replace", "each task looked at took an entry of its own");
+  assert.equal(p.pushed[1][1].over, "/tasks?q=tag:ops", "the entry forgot the list under it");
+  assert.equal(p.other.getAttribute("aria-current"), "true");
+  assert.equal(p.row.getAttribute("aria-current"), null, "the first row kept its mark");
+});
+
+test("Escape in the panel goes Back, but not from a field or from the list", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  const field = p.body.appendChild(node("input", { name: "comment" }));
+  const key = (target) => p.fire("keydown", {
+    key: "Escape", target, prevented: 0, defaultPrevented: false,
+    preventDefault() { this.prevented++; this.defaultPrevented = true; },
+  });
+  key(field);
+  assert.equal(p.history.backs, 0, "Escape in a field closed the panel");
+  key(p.row);
+  assert.equal(p.history.backs, 0, "Escape in the list was taken by the panel");
+  const ev = key(p.divider);
+  assert.equal(ev.prevented, 1);
+  assert.equal(p.history.backs, 1, "Escape in the panel did not go Back");
+
+  p.location.pathname = "/tasks";
+  p.location.search = "?q=tag:ops";
+  p.pop({ htmx: true });
+  assert.equal(p.dlg.open, false);
+  assert.equal(p.dlg.getAttribute("data-shown"), null);
+  assert.equal(p.html.hasAttribute("data-pane-open"), false, "the page kept the closed panel's room");
+  assert.equal(p.row.getAttribute("aria-current"), null, "the row kept its mark after closing");
+});
+
+test("the divider resizes from the keyboard and the pointer and keeps the width", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  const key = (k, shift = false) => p.fire("keydown", {
+    key: k, shiftKey: shift, target: p.divider, prevented: 0, preventDefault() { this.prevented++; },
+  });
+  assert.equal(key("ArrowLeft").prevented, 1);
+  assert.match(p.doc.cookie, /^tix_pane=w=476; Path=\/; Max-Age=\d+; SameSite=Lax/);
+  assert.equal(p.styles["--pane-w"], "476px");
+  assert.equal(p.divider.getAttribute("aria-valuenow"), "476");
+  key("Enter");
+  assert.match(p.doc.cookie, /^tix_pane=; Path=\/; Max-Age=0;/, "Enter did not forget the width");
+  assert.equal(p.styles["--pane-w"], "460px");
+  assert.equal(key("a").prevented, 0, "a key the divider ignores was taken");
+
+  p.fire("pointerdown", { target: p.divider, button: 0, pointerId: 7, preventDefault() {} });
+  assert.ok(p.html.hasAttribute("data-pane-drag"));
+  p.fire("pointermove", { pointerId: 7, clientX: 900 });
+  assert.equal(p.styles["--pane-w"], "540px", "the panel did not follow the pointer");
+  assert.match(p.doc.cookie, /^tix_pane=; /, "a drag was kept before it ended");
+  p.fire("pointerup", { pointerId: 7, clientX: 900 });
+  assert.match(p.doc.cookie, /^tix_pane=w=540;/);
+  assert.equal(p.html.hasAttribute("data-pane-drag"), false);
+});
+
+test("a navigation beside the panel closes it and gives its entry back to the list", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  p.fire("htmx:beforeHistorySave", {});
+  assert.equal(p.dlg.open, false, "the snapshot would hold an open panel");
+  const last = p.pushed[p.pushed.length - 1];
+  assert.deepEqual([last[0], last[1], last[2]], ["replace", null, "/tasks?q=tag:ops"]);
+});
+
+test("a window resized across 1100px moves an open task between panel and dialog", () => {
+  const p = page({ pane: true });
+  p.click(p.title);
+  p.answer(200, FRAGMENT);
+  p.ctx.innerWidth = 900;
+  p.winFire("resize");
+  assert.equal(p.dlg.open, true);
+  assert.equal(p.dlg.modal, true, "a narrowed window kept the panel");
+  assert.equal(p.html.hasAttribute("data-pane-open"), false);
+  p.ctx.innerWidth = 1300;
+  p.winFire("resize");
+  assert.equal(p.dlg.modal, false, "a widened window kept the dialog");
+  assert.equal(p.dlg.getAttribute("data-shown"), "pane");
+  assert.equal(p.row.getAttribute("aria-current"), "true");
 });

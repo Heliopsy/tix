@@ -286,8 +286,10 @@
     }
     // A task open in the dialog owns the keyboard: Escape closes it there,
     // and a key meant for the page behind it would act on a page the reader
-    // cannot see.
-    if (document.querySelector && document.querySelector("dialog[open]")) {
+    // cannot see. The task panel (taskopen.js) owns only the keys pressed in
+    // it; the listing beside it is in view and keeps its own.
+    var open = document.querySelector && document.querySelector("dialog[open]");
+    if (open && (!open.getAttribute || open.getAttribute("data-shown") !== "pane" || open.contains(event.target))) {
       return;
     }
     // So does an open menu. Escape is the popover's own light dismissal, and

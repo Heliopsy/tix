@@ -203,6 +203,25 @@ test("while a task dialog is open the global shortcuts stand down", () => {
   assert.equal(p.history.backs, 0, "Escape in the dialog also went Back from the page");
 });
 
+// The task panel sits beside the list rather than over it: a key pressed in
+// the list is the list's, and only a key pressed in the panel is the panel's.
+test("while the task panel is open the shortcuts act outside it and stand down inside", () => {
+  const inside = element("BUTTON");
+  const pane = { getAttribute: (k) => (k === "data-shown" ? "pane" : null), contains: (el) => el === inside };
+  const p = page();
+  p.doc.querySelector = (sel) => (sel === "dialog[open]" ? pane : null);
+  p.doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(p.history.backs, 1, "the list's back shortcut stood down beside the panel");
+  p.doc.dispatch("keydown", keydown("Escape", { target: inside }));
+  assert.equal(p.history.backs, 1, "a key pressed in the panel acted on the list");
+
+  const modal = { getAttribute: () => null, contains: () => false };
+  const q = page();
+  q.doc.querySelector = (sel) => (sel === "dialog[open]" ? modal : null);
+  q.doc.dispatch("keydown", keydown("Escape"));
+  assert.equal(q.history.backs, 0, "a key acted on the page under a modal dialog");
+});
+
 // In Dialog mode the open shortcut hands the row to the dialog first.
 test("open hands the selected row to the dialog when the page has one", () => {
   const row = element("A", { "data-shortcut-row": "", dataset: { shortcutHref: "/tasks/TIX-1" } });
