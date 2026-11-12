@@ -46,7 +46,7 @@
 <section class="projsection" aria-labelledby="projs-starred">
   <h2 id="projs-starred" class="projsection-head">{{t "Starred"}}</h2>
   <ul class="projlist rows" data-projlist="starred">
-    {{range $v.Starred}}{{template "project-row" (projectStar . $.Here $.CSRF)}}
+    {{range $v.Starred}}{{template "project-row" ((projectStar . $.Here $.CSRF).WithOpen $v.Open)}}
     {{else}}<li class="empty muted">{{t "No starred projects yet. Star a project with the star beside its name."}}</li>
     {{end}}
   </ul>
@@ -56,7 +56,7 @@
 <section class="projsection" aria-labelledby="projs-all">
   {{if $v.Starred}}<h2 id="projs-all" class="projsection-head">{{t "Other projects"}}</h2>{{else}}<h2 id="projs-all" class="sr-only">{{t "Projects"}}</h2>{{end}}
   <ul class="projlist rows" data-projlist="all">
-    {{range $v.Projects}}{{template "project-row" (projectStar . $.Here $.CSRF)}}
+    {{range $v.Projects}}{{template "project-row" ((projectStar . $.Here $.CSRF).WithOpen $v.Open)}}
     {{else}}{{if not $v.Starred}}<li class="empty muted">{{t "No projects yet. Use New project to make the first one."}}</li>{{end}}
     {{end}}
   </ul>
@@ -160,7 +160,7 @@
     <a class="projrow-main" href="/projects/{{$p.Key}}">
       <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon $p true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice (key $p.Key) 0 1}}{{end}}</span>
       <span class="projrow-text">
-        <span class="projrow-title"><span class="projrow-name">{{$p.Name}}</span><span class="projrow-key mono">{{key $p.Key}}</span>{{if $p.Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
+        <span class="projrow-title"><span class="projrow-name">{{$p.Name}}</span><span class="projrow-key mono">{{key $p.Key}}</span>{{if $p.Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}{{if .Counted}}<span class="projrow-open" data-open="{{.Open}}">{{if .Open}}{{tn "%d open task" "%d open tasks" .Open}}{{else}}{{t "no open tasks"}}{{end}}</span>{{end}}</span>
         {{if $p.Description}}<span class="projrow-desc" title="{{$p.Description}}">{{$p.Description}}</span>{{end}}
       </span>
     </a>

@@ -147,7 +147,9 @@ than the window leaves the spare width on its right.
 ## Projects
 
 `/projects` lists the tenant's projects, each with its icon, name, key and description, linking to its
-board. An archived project stays listed with an archived mark. Each row starts with a star, always drawn:
+board. Beside the key each row says how many open tasks the project holds (3 open tasks, or no open
+tasks): its tasks in a state its workflow does not finish, snoozed ones aside, counted the way the task
+list's default view counts them. An archived project stays listed with an archived mark. Each row starts with a star, always drawn:
 an outline to star the project, filled to unstar it, with `aria-pressed` saying which and a tooltip (Star
 this project, Unstar). It is a plain form, so it works without scripting; with scripting the page is
 boosted and the answer swaps in place, the sidebar with it. The projects you starred come first, under
