@@ -509,10 +509,10 @@ func TestATenantAccentReachesEveryScheme(t *testing.T) {
 	}
 }
 
-// Since one Admin group replaced Configure and Data, the row that adds the
+// Since one Manage group replaced Configure and Data, the row that adds the
 // configuration screens to the sidebar names the group they appear in, in
 // its line and in its (i) note alike.
-func TestAdvancedScreensNamesTheAdminGroup(t *testing.T) {
+func TestAdvancedScreensNamesTheManageGroup(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	row := prefForm(t, contentOf(t, f.as("alice").page("/settings")), "/advanced")
@@ -521,10 +521,10 @@ func TestAdvancedScreensNamesTheAdminGroup(t *testing.T) {
 		between(t, row, `<details class="field-info">`, "</details>"),
 	} {
 		if strings.Contains(part, "Configure") || strings.Contains(part, "Data group") || strings.Contains(part, "data screens") {
-			t.Errorf("the Advanced screens row names the groups Admin replaced: %s", part)
+			t.Errorf("the Advanced screens row names the groups Manage replaced: %s", part)
 		}
-		if !strings.Contains(part, "Admin group") {
-			t.Errorf("the Advanced screens row does not name the Admin group: %s", part)
+		if !strings.Contains(part, "Manage group") || strings.Contains(part, "Admin") {
+			t.Errorf("the Advanced screens row does not name the Manage group: %s", part)
 		}
 	}
 }

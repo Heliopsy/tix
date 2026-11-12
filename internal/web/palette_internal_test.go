@@ -50,7 +50,7 @@ func TestPaletteOffersWhatTheSidebarOffers(t *testing.T) {
 		return out
 	}
 	plain, advanced := hrefs(false), hrefs(true)
-	for _, h := range []string{RouteTasks, RouteProjects, RouteActivity, RouteStats, RouteSettings, RouteSettings + "#keyboard"} {
+	for _, h := range []string{RouteTasks, RouteProjects, RouteTemplates, RouteActivity, RouteStats, RouteSettings, RouteSettings + "#keyboard"} {
 		if !plain[h] || !advanced[h] {
 			t.Errorf("%s is not offered in both modes", h)
 		}
@@ -66,17 +66,17 @@ func TestPaletteOffersWhatTheSidebarOffers(t *testing.T) {
 }
 
 // The configuration screens are hinted as the sidebar group they sit in,
-// Admin, not as the Configure and Data groups it replaced.
-func TestPaletteHintsTheAdminGroup(t *testing.T) {
+// Manage, not as Admin or the Configure and Data groups before it.
+func TestPaletteHintsTheManageGroup(t *testing.T) {
 	t.Parallel()
 	for _, s := range paletteDataFor("en", true, true).Screens {
-		if s.Hint == "Configure" || s.Hint == "Data" {
+		if s.Hint == "Configure" || s.Hint == "Data" || s.Hint == "Admin" {
 			t.Errorf("%s is hinted as %q, a group the sidebar no longer has", s.Href, s.Hint)
 		}
 	}
 	for _, s := range paletteScreens {
-		if s.Advanced && s.Hint != "Admin" {
-			t.Errorf("%s sits in the Admin group and is hinted %q", s.Href, s.Hint)
+		if s.Advanced && s.Hint != "Manage" {
+			t.Errorf("%s sits in the Manage group and is hinted %q", s.Href, s.Hint)
 		}
 	}
 }

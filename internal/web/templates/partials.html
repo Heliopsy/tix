@@ -29,7 +29,7 @@
 {{/* The entries in the order they are used: what came in, what is mine, every
      task, the projects with the ones the reader starred under them, then the
      tenant's history and figures. The reader's own views follow, and the
-     screens visited least go last, folded under Admin. */}}
+     screens visited least go last, folded under Manage. */}}
 <nav class="main">
   {{template "tenant-open" .}}
   <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
@@ -37,6 +37,10 @@
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
   <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
   {{template "pinned-projects" .}}
+  {{/* Templates is drawn for anybody who can read tasks, the scope
+       /templates asks for, so it sits with Projects rather than behind
+       Advanced screens. */}}
+  <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
   <a href="/connect" data-rail-name="{{t "Connect an agent"}}" {{if eq .Path "/connect"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connect"/></svg><span>{{t "Connect an agent"}}</span></a>
@@ -46,23 +50,23 @@
   <a href="/docs" data-rail-name="{{t "Docs"}}" target="_blank" rel="noopener" data-nav-docs><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#docs"/></svg><span>{{t "Docs"}}</span></a>
   {{template "saved-filters" .}}
   {{template "recent-tasks" .}}
-  {{/* Admin is what Configure, Data and the Trash entry were: the screens a
+  {{/* Manage is what Configure, Data and the Trash entry were: the screens a
        reader opens least, folded by default. Trash is the task list
        filtered by is:trashed, the only way the browser reaches a deleted
        task without already knowing its ref, and leaves with a tenant that
        deletes for good. The configuration screens need Advanced screens on.
        Global admin is drawn for a global admin whatever that preference
-       says. A reader with none of these gets no heading over nothing. */}}
+       says. A reader with none of these gets no heading over nothing. It was
+       called Admin; its id stays admin, so a fold kept in the cookie holds. */}}
   {{if or .Advanced (not .TrashOff) .GlobalAdmin}}
   {{$side := .Side}}
   <div class="navgroup{{if $side.Folded "admin"}} is-folded{{end}}" data-navgroup="admin">
-  {{template "navgroup-head" navGroup $side "admin" (t "Admin") ""}}
+  {{template "navgroup-head" navGroup $side "admin" (t "Manage") ""}}
   <div class="navgroup-body" id="navgroup-admin">
   {{if .GlobalAdmin}}<a href="/admin/global" data-rail-name="{{t "Global admin"}}" {{if hasPrefix .Path "/admin/global"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Global admin"}}</span></a>{{end}}
   {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
   {{if .Advanced}}
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
-  <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
   <a href="/admin/domains" data-rail-name="{{t "Domains"}}" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>{{t "Domains"}}</span></a>
   <a href="/admin/users" data-rail-name="{{t "Users"}}" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "Users"}}</span></a>

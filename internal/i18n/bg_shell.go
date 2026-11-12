@@ -37,7 +37,6 @@ func init() {
 		"Sources":            "Източници",
 		"Runs":               "Изпълнения",
 		"Keyboard shortcuts": "Клавишни комбинации",
-		"Admin":              "Администрация",
 		"Starred projects":   "Проекти със звезда",
 		"overdue tasks":      "просрочени задачи",
 

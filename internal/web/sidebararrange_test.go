@@ -34,7 +34,7 @@ func TestTheSidebarIsOrderedByUse(t *testing.T) {
 	for _, m := range topEntry.FindAllStringSubmatch(top, -1) {
 		got = append(got, m[1])
 	}
-	want := []string{"/inbox", "/mine", "/tasks", "/projects", "/activity", "/stats", "/connect", "/docs"}
+	want := []string{"/inbox", "/mine", "/tasks", "/projects", "/templates", "/activity", "/stats", "/connect", "/docs"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("the top-level entries are %v, want %v", got, want)
 	}
@@ -257,16 +257,16 @@ func TestTheSidebarEndsALongStarredListWithShowAll(t *testing.T) {
 	}
 }
 
-// adminBody is the Admin group's body, cut at the group's end.
+// adminBody is the Manage group's body (its id is still admin), cut at the group's end.
 func adminBody(t *testing.T, page string) string {
 	t.Helper()
 	return between(t, nav(t, page), `<div class="navgroup-body" id="navgroup-admin">`, "</div>")
 }
 
-// TestAdminHoldsTrashConfigureAndData pins the one Admin group: Trash and the
+// TestManageHoldsTrashConfigureAndData pins the one Manage group: Trash and the
 // configuration and data screens under it, no Configure or Data group left,
 // Trash gone with the tenant trash, and a reader with neither gets no group.
-func TestAdminHoldsTrashConfigureAndData(t *testing.T) {
+func TestManageHoldsTrashConfigureAndData(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	b := f.as("alice")
@@ -275,7 +275,7 @@ func TestAdminHoldsTrashConfigureAndData(t *testing.T) {
 	body := adminBody(t, page)
 	for _, href := range []string{`href="/tasks?q=is:trashed"`, `href="/workflows"`, `href="/admin/users"`, `href="/transfer"`, `href="/sync"`} {
 		if !strings.Contains(body, href) {
-			t.Errorf("Admin lacks %s:\n%s", href, body)
+			t.Errorf("Manage lacks %s:\n%s", href, body)
 		}
 	}
 	links := nav(t, page)
@@ -288,21 +288,21 @@ func TestAdminHoldsTrashConfigureAndData(t *testing.T) {
 		t.Errorf("Trash is not listed exactly once:\n%s", links)
 	}
 	if !strings.Contains(adminBody(t, b.page("/admin/users")), `href="/admin/users" data-rail-name="Users" aria-current="page"`) {
-		t.Error("the Admin entry for the page being read is not marked current")
+		t.Error("the Manage entry for the page being read is not marked current")
 	}
 
 	member := f.as("member:plain")
 	member.setCookie(web.AdvancedCookie, "0")
 	if got := adminBody(t, member.page("/tasks")); !strings.Contains(got, "<span>Trash</span>") || strings.Contains(got, `href="/workflows"`) {
-		t.Errorf("without Advanced screens Admin is not Trash alone:\n%s", got)
+		t.Errorf("without Advanced screens Manage is not Trash alone:\n%s", got)
 	}
 
 	turnTrashOff(t, b)
 	if got := adminBody(t, b.page("/tasks")); strings.Contains(got, "Trash") || !strings.Contains(got, `href="/workflows"`) {
-		t.Errorf("with the trash off Admin still lists Trash, or lost the rest:\n%s", got)
+		t.Errorf("with the trash off Manage still lists Trash, or lost the rest:\n%s", got)
 	}
 	if links := nav(t, member.page("/tasks")); strings.Contains(links, `data-navgroup="admin"`) {
-		t.Errorf("a reader with nothing under Admin gets the heading:\n%s", links)
+		t.Errorf("a reader with nothing under Manage gets the heading:\n%s", links)
 	}
 }
 

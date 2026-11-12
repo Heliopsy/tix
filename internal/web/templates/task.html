@@ -51,14 +51,15 @@
   </div>
 </header>
 
-{{/* The one menu. Copy id copies without leaving (Copy link is in the
+{{/* The one menu. Copy reference copies the reference as it is shown,
+     without leaving; the Id row copies the ULID (Copy link is in the
      Share menu beside it, templates/share.html); Copy to and
      Save as template are links, so they open in a new tab and work with
      scripting off, and data-dialog-load keeps them inside the dialog when
      the task is open in one (assets/taskopen.js). */}}
 <div id="{{.IDPrefix}}taskmenu-{{$t.Ref}}" class="flowmenu taskmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Actions for %s" (ref $t.Ref)}}</p>
-  <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
+  <button type="button" class="flowgo" data-copy-text="{{ref $t.Ref}}">{{t "Copy reference"}}</button>
   {{if .Data.CanWrite}}
   <a class="flowgo copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>
   <a class="flowgo moveto" href="/tasks/{{$t.Ref}}/move" data-dialog-load>{{t "Move to…"}}</a>
@@ -341,7 +342,7 @@
   </section>
 
   <section class="tsec" id="{{.IDPrefix}}dependencies">
-    <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
+    <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It is shown as waiting on them, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
     {{if .Data.Dependencies}}
     <ul class="rellist rows">
       {{/* Named the way the field below asks for one, a reference rather
@@ -517,7 +518,7 @@
         </button>
       </span>
       {{else}}<span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>{{end}}
-      {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}</dd>
+      {{if $t.Blocked}}<span class="pill status blocked">{{t "waiting on another task"}}</span>{{end}}</dd>
   </div>
   {{$p := prio $t.Priority}}
   <div class="prop" data-prop="priority">

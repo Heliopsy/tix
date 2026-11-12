@@ -74,7 +74,7 @@
        set while it is typed, from the same parser the add runs; a refused
        add comes back with the line still in the box and the reason there. */}}
   <input type="hidden" name="quick" value="1">
-  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
+  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Fix login"}} {{"!high #auth @raj due:fri +web ^web-3"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
   {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
   {{/* A project's page adds to its project, so it offers no picker: the
        select took a third of the row on a phone to say what the heading

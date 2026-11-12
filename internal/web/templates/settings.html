@@ -155,8 +155,8 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Advanced screens" "appearance"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them."}}</div>
-        <span class="sethelp" id="advanced-help">{{t "Show the configuration screens in the sidebar's Admin group."}}</span>
+        <div class="setname-line"><span class="setname" id="advanced-name">{{t "Advanced screens"}}</span>{{template "field-info" "Adds the configuration screens to the sidebar's Manage group, under Trash: workflows, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them."}}</div>
+        <span class="sethelp" id="advanced-help">{{t "Show the configuration screens in the sidebar's Manage group."}}</span>
       </div>
       <div class="setrow-ctl">
         <button class="switch" type="submit" role="switch" aria-checked="{{if .Advanced}}true{{else}}false{{end}}" aria-labelledby="advanced-name" aria-describedby="advanced-help"><span class="switch-track" aria-hidden="true"></span><span class="switch-state">{{if .Advanced}}{{t "Shown"}}{{else}}{{t "Hidden"}}{{end}}</span></button>
@@ -433,7 +433,7 @@
   <div class="sechead"><h2>{{t "Notifications"}}</h2>{{template "dlg-open" (opener "channel-new" (t "Add a channel") "plus" "" .Here)}}</div>
   {{/* The reader's own delivery endpoints for their inbox items. Kept with
        the account, like the switches above, and nothing to do with the
-       tenant's webhooks under Admin. */}}
+       tenant's webhooks under Manage. */}}
   {{/* The channels are rows of the section's card, like every other list
        on this screen, and the form adding one is folded behind the same Add
        disclosure Users and Webhooks use. It opens by itself when there is no
