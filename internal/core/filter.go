@@ -140,25 +140,29 @@ type TaskPage struct {
 	// PageNumber; a number past the end is answered with the last page.
 	Number int `json:"page,omitempty" yaml:"page,omitempty"`
 	// Tally counts the whole selection, every page of it, when the filter
-	// asked with Tally. It is for in-process callers and does not travel.
-	Tally *TaskTally `json:"-" yaml:"-"`
+	// asked with Tally. Absent otherwise.
+	Tally *TaskTally `json:"tally,omitempty" yaml:"tally,omitempty"`
 }
 
 // TaskTally counts every task a filter selects, not one page of them.
 type TaskTally struct {
-	// States counts the selection per project and status.
-	States []StateCount
+	// States counts the selection per project and status. A state is done or
+	// open by its project's workflow, which the reader already holds.
+	States []StateCount `json:"states" yaml:"states"`
 	// Blocked counts the tasks waiting on an unfinished dependency.
-	Blocked int
+	Blocked int `json:"blocked" yaml:"blocked"`
 	// Held counts the tasks under a live claim.
-	Held int
+	Held int `json:"held" yaml:"held"`
 }
 
 // StateCount is how many selected tasks of one project sit in one status.
 type StateCount struct {
-	ProjectID string
-	Status    string
-	Count     int
+	// ProjectID is the project the tasks belong to.
+	ProjectID string `json:"project_id" yaml:"project_id"`
+	// Status is the workflow state they sit in.
+	Status string `json:"status" yaml:"status"`
+	// Count is how many of them there are.
+	Count int `json:"count" yaml:"count"`
 }
 
 // TaskCountCap is where a task listing's count stops. Past it a total is
@@ -239,8 +243,9 @@ type TaskFilter struct {
 	// does not travel on the wire, so a remote listing always carries bodies.
 	OmitBody bool `json:"-" yaml:"-"`
 
-	// Tally asks for TaskPage.Tally, the counts of the whole selection. Like
-	// OmitBody it is for an in-process caller and does not travel.
+	// Tally asks for TaskPage.Tally, the counts of the whole selection. It is
+	// the shape of the answer rather than a set of tasks, so it travels as the
+	// tally query parameter rather than in a filter expression.
 	Tally bool `json:"-" yaml:"-"`
 
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
