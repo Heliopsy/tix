@@ -547,3 +547,23 @@ func TestTaskRowsMarkTheirOwnControls(t *testing.T) {
 		t.Errorf("the switchView mark sits on %q, want the view switch", tag)
 	}
 }
+
+// The settings comparison has an Off column, and a key Off does not bind
+// reads as a dash there rather than as an empty cell.
+func TestSettingsComparisonShowsOff(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	page := b.page("/settings")
+	if !strings.Contains(page, `<th scope="col">Off</th>`) {
+		t.Fatalf("the scheme comparison has no Off column:\n%s", page)
+	}
+	row := between(t, page, `<td data-label="Action">Go back</td>`, "</tr>")
+	if !strings.Contains(row, `<td data-label="Off">&mdash;</td>`) {
+		t.Errorf("Off's unbound Go back is not a dash: %s", row)
+	}
+	palette := between(t, page, `<td data-label="Action">Open the command palette</td>`, "</tr>")
+	if !strings.Contains(palette, `<td data-label="Off"><kbd>ctrl&#43;k</kbd>`) {
+		t.Errorf("Off does not show the palette chord: %s", palette)
+	}
+}
