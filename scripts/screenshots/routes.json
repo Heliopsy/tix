@@ -29,6 +29,7 @@
       "states": [{ "name": "raw-entry", "click": "a.rawopen", "wait": "dialog.rawdlg[open]" }]
     },
     { "pattern": "/activity/feed", "skip": "htmx fragment of /activity" },
+    { "pattern": "/events" },
     { "pattern": "/stats" },
     { "pattern": "/admin/status" },
     {

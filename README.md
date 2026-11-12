@@ -131,7 +131,7 @@ by a test that fails the build when an operation lacks a binding.
 ## What else is in the binary
 
 An inbox of mentions, assignments, comments and status changes, statistics, tenant theming, a ctrl+k
-command palette in the browser, an actor directory, multi-step status moves, bulk actions, CSV export, tasks
+command palette and a live event stream in the browser, an actor directory, multi-step status moves, bulk actions, CSV export, tasks
 that repeat when they are done, quick-add syntax, Markdown descriptions with checklists you tick in place,
 per-browser dates, lease badges, shell completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.

@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The Live events screen (templates/events.html, assets/events.js). */
+
+.liveevents-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.liveevents-state {
+  margin: 0 auto 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.liveevents-state::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.liveevents-state[data-le-state="live"]::before {
+  background: var(--ok);
+}
+
+.liveevents-state[data-le-state="offline"]::before,
+.liveevents-state[data-le-state="refused"]::before {
+  background: var(--danger);
+}
+
+.liveevents-notice {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.liveevents-cap {
+  font-size: 0.85rem;
+}
+
+.liveevents-card {
+  overflow-x: auto;
+}
+
+.liveevents-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.liveevents-table th,
+.liveevents-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.liveevents-table td.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.liveevents-subject {
+  overflow-wrap: anywhere;
+}
+
+.liveevents-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.liveevents-table tbody:empty {
+  display: none;
+}
+
+.liveevents-empty {
+  padding: 1rem 0.5rem;
+}
+
+.liveevents-json {
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre;
+}
+
+.liveeventsfilter {
+  align-items: flex-start;
+}
