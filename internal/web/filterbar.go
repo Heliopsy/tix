@@ -345,3 +345,18 @@ func sortDirection(q url.Values) core.SortDirection {
 func (v tasksView) Suggest() filterSuggest {
 	return newFilterSuggest(v.Projects, v.Tags, v.Names.Handles(), v.Pickers, v.Scope != nil)
 }
+
+// quickSuggest is what the quick-add box completes from: the projects for
+// +key, the tags for #tag and the people for @handle.
+type quickSuggest struct {
+	Project []suggestProject `json:"project"`
+	Tag     []string         `json:"tag"`
+	Person  []string         `json:"person"`
+}
+
+// QuickSuggest is what the quick-add box completes from. Unlike Suggest it
+// keeps every project on a project page, where +key adds to another one.
+func (v tasksView) QuickSuggest() quickSuggest {
+	s := newFilterSuggest(v.Projects, v.Tags, v.Names.Handles(), filterPickers{}, false)
+	return quickSuggest{Project: s.Project, Tag: s.Tag, Person: s.Person}
+}

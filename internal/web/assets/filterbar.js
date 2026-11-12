@@ -11,29 +11,45 @@
 // filter as typed. Without this file the box is a plain field that still
 // applies on Enter.
 //
+// The quick-add box uses the same list with data-suggest-mode="quick": it
+// completes only #tag, @handle and +project, from its own data, and Enter
+// with no option reached still adds the task.
+//
 // The decisions (which word, what matches, what the box becomes, what a key
 // does) are in decide.js and covered by internal/web/jstest.
 (function () {
   "use strict";
   var tix = window.tix;
-  if (!tix || !document.addEventListener || !tix.filterTokenAt || !tix.filterSuggest) {
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return tix && tix.t ? tix.t(text) : text;
+  }
+  if (!tix || !document.addEventListener || !tix.filterTokenAt || !tix.filterSuggest || !tix.quickTokenAt) {
     return;
   }
 
   var open = null;
-  var cache = {};
 
+  // The parsed data is kept on its script element, so a boosted navigation,
+  // which draws a new element, is read afresh: a tag added a moment ago is
+  // offered on the listing the add returned to.
   function dataFor(box) {
-    var id = box.getAttribute("data-suggest");
-    if (cache[id] === undefined) {
-      var el = document.getElementById(id);
+    var el = document.getElementById(box.getAttribute("data-suggest"));
+    if (!el) {
+      return null;
+    }
+    if (el.tixSuggest === undefined) {
       try {
-        cache[id] = el ? JSON.parse(el.textContent) : null;
+        el.tixSuggest = JSON.parse(el.textContent);
       } catch (e) {
-        cache[id] = null;
+        el.tixSuggest = null;
       }
     }
-    return cache[id];
+    return el.tixSuggest;
+  }
+
+  function quick(box) {
+    return box.getAttribute("data-suggest-mode") === "quick";
   }
 
   function close() {
@@ -79,9 +95,10 @@
       close();
       var menu = document.createElement("ul");
       menu.className = "fbsuggest";
-      menu.id = (box.id || "filter") + "-suggest-list";
+      menu.id = (box.id || (quick(box) ? "quickadd" : "filter")) + "-suggest-list";
       menu.setAttribute("role", "listbox");
-      menu.setAttribute("aria-label", tix.t ? tix.t("Filter suggestions") : "Filter suggestions");
+      var adding = quick(box);
+      menu.setAttribute("aria-label", say(adding ? "Quick add suggestions" : "Filter suggestions"));
       box.insertAdjacentElement("afterend", menu);
       box.setAttribute("role", "combobox");
       box.setAttribute("aria-controls", menu.id);
@@ -115,8 +132,10 @@
   }
 
   function suggest(box) {
-    var tok = tix.filterTokenAt(box.value, box.selectionStart);
-    var items = tok ? tix.filterSuggest(dataFor(box), tok, 8) : [];
+    var at = quick(box) ? tix.quickTokenAt : tix.filterTokenAt;
+    var list = quick(box) ? tix.quickSuggest : tix.filterSuggest;
+    var tok = at(box.value, box.selectionStart);
+    var items = tok ? list(dataFor(box), tok, 8) : [];
     if (!items.length) {
       close();
       return;

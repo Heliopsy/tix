@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* ===== Quick add: Add another and the clipboard (templates/tasks.html) == */
+/* Add another is a checkbox with its words beside it, as tall as the row's
+   other controls so the row keeps one height. */
+.quickadd .quickanother {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+  gap: 6px;
+  height: var(--control-h);
+  margin: 0;
+}
+
+/* The paste button is an icon beside the box, drawn hidden until
+   quickadd.js finds a readable clipboard. */
+.quickadd .quickpaste {
+  flex: 0 0 auto;
+  padding-inline: var(--space-2);
+}
+
+.quickadd .quickpaste[hidden] { display: none; }
+
+/* A phone: the words go and the box keeps the width; the checkbox keeps its
+   accessible name from the hidden words. */
+@media (max-width: 599px) {
+  .quickadd .quickanother span {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+}

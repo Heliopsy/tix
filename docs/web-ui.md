@@ -334,16 +334,27 @@ shows what the line will set, and a project or handle the tenant does not have i
 reason, before anything is sent. A refused line comes back in the box with the reason under it. The box's (i)
 tip lists the syntax, with `due:` examples whose date is written in the reader's date format. The project
 picker beside the box is where the task goes when the line names no project. Dates count in the zone chosen
-under Settings. With scripting off the add still parses; only the preview needs a script. Add with details has
-a field per attribute and stores its title as typed. Its Due date field, like the task screen's Due row, is a
-text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`), `YYYY-MM-DD`, or a date in the order
-the reader's date format writes one (`06.11.2026` under Dotted); its (i) tip shows those examples before
-anything is typed, the date among them in the reader's format, and the placeholder shows three of them. The
-calendar button beside the field opens the browser's date picker and writes the picked day into the field in
-the reader's format (YYYY-MM-DD for a format that writes the month as a word); without scripting the button is
-not drawn and the field still takes a typed date. Its More options fold holds the repeat rule, parent,
-dependencies and the task's lease length, blank to inherit; a lease above the maximum is refused on that field
-and nothing is created.
+under Settings. With scripting off the add still parses; only the preview needs a script. While a word in the
+box starts with `#`, `@` or `+`, a list under it offers the tenant's tags, people or projects (each noted with
+its name), from the same suggester as the filter box: arrows move, Enter or Tab takes one, Escape closes it,
+and Enter with nothing chosen adds the task. A bare word is the title and gets no list. A tag or handle the
+`#` or `@` form cannot carry is written as `tag:` or `assignee:`, and one with a space in it is not offered,
+since no quick-add word can hold a space. On a project page `+` still offers every project. **Add another**,
+the checkbox beside Add, brings an add back to the listing with the box empty and focused instead of opening
+the task, whatever Open a new task says; it is posted with the line and remembered in this browser
+(`tix_add_another`), so it works with scripting off. **Quick add from the clipboard**, the clipboard button
+beside the box, or ctrl+shift+v (command+shift+v on a Mac) outside a text field on the task screens, puts the
+clipboard's first non-empty line in the box and focuses it without adding; an empty or unreadable clipboard
+says "The clipboard holds no text." The button is only shown where the browser lets a page read the clipboard.
+Add with details has a field per attribute and stores its title as typed. Its Due date field, like the task
+screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`), `YYYY-MM-DD`,
+or a date in the order the reader's date format writes one (`06.11.2026` under Dotted); its (i) tip shows
+those examples before anything is typed, the date among them in the reader's format, and the placeholder shows
+three of them. The calendar button beside the field opens the browser's date picker and writes the picked day
+into the field in the reader's format (YYYY-MM-DD for a format that writes the month as a word); without
+scripting the button is not drawn and the field still takes a typed date. Its More options fold holds the
+repeat rule, parent, dependencies and the task's lease length, blank to inherit; a lease above the maximum is
+refused on that field and nothing is created.
 
 **Repeating tasks.** The add form's details and the task screen's Repeats row carry a Repeat field taking
 a rule such as `every week` or `3 days after done`, emptied to stop the task repeating. Its (i) tip lists

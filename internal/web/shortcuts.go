@@ -99,6 +99,7 @@ var shortcutActions = []shortcutAction{
 	{"open", "Open the selected task"},
 	{"back", "Go back"},
 	{"new", "Focus the new task field"},
+	{"quickPaste", "Quick add from the clipboard"},
 	{"editTitle", "Focus the title field"},
 	{"comment", "Focus the comment field"},
 	{"transition", "Open the move menu"},
@@ -141,6 +142,9 @@ var baseKeyBindings = map[string][]string{
 	"filter":   {"/"},
 	"palette":  {"ctrl+k", "meta+k"},
 	"help":     {"?"},
+	// The app's chord. In a text field it stays the browser's paste as plain
+	// text, since the shortcut layer stands down there.
+	"quickPaste": {"ctrl+shift+v", "meta+shift+v"},
 }
 
 // keySchemeOverrides are the actions each scheme rebinds away from the base,

@@ -74,7 +74,14 @@
        set while it is typed, from the same parser the add runs; a refused
        add comes back with the line still in the box and the reason there. */}}
   <input type="hidden" name="quick" value="1">
-  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Fix login"}} {{"!high #auth @raj due:fri +web ^web-3"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
+  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Fix login"}} {{"!high #auth @raj due:fri +web ^web-3"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview" data-suggest="quickadd-suggest" data-suggest-mode="quick"{{if $v.QuickFocus}} autofocus{{end}}>
+  {{/* The box completes #tag, @handle and +project from this data with the
+       filter box's suggester (filterbar.js). It names every project, also on
+       a project page, where +key still adds to another one. */}}
+  <script type="application/json" id="quickadd-suggest">{{$v.QuickSuggest}}</script>
+  {{/* Drawn hidden: quickadd.js reveals it where the browser can read the
+       clipboard, so no browser shows a button that cannot work. */}}
+  <button type="button" class="secondary quickpaste" data-quickpaste hidden aria-label="{{t "Quick add from the clipboard"}}" title="{{t "Quick add from the clipboard"}}">{{template "icon" "clipboard"}}</button>
   {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
   {{/* A project's page adds to its project, so it offers no picker: the
        select took a third of the row on a phone to say what the heading
@@ -84,6 +91,10 @@
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
   </select>{{end}}
   <button type="submit">{{t "Add"}}</button>
+  {{/* Posted with the line and remembered by the add, so it works with
+       scripting off: ticked, an add comes back to this listing with the box
+       empty and focused rather than opening the task. */}}
+  <label class="quickanother" title="{{t "Stay open for the next line"}}"><input type="checkbox" name="another" value="1"{{if $v.QuickAnother}} checked{{end}}> <span>{{t "Add another"}}</span></label>
   {{/* The fuller form opens from the row it extends, at the height of the
        buttons beside it. It was a disclosure on a line of its own under the
        row, a second strip of chrome above the list for one button. */}}
