@@ -137,6 +137,7 @@
     { "pattern": "/sync/runs" },
     { "pattern": "/bundles" },
     { "pattern": "/palette/tasks", "skip": "JSON the command palette reads" },
-    { "pattern": "/palette/projects", "skip": "JSON the command palette reads" }
+    { "pattern": "/palette/projects", "skip": "JSON the command palette reads" },
+    { "pattern": "/palette/templates", "skip": "JSON the command palette reads" }
   ]
 }
