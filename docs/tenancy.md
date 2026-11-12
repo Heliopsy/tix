@@ -112,7 +112,8 @@ tenant screen set it too. See [second-factor.md](second-factor.md#the-tenant-pol
 
 ### How long a sign-in lasts
 
-A sign-in lasts the server's `session.ttl` (12h by default) from the moment it is made. A tenant admin can
+A sign-in lasts the server's `session.ttl` (12h by default) from the moment it is made and again from each
+use, up to the server's `session.max_lifetime` (30d) after the sign-in. A tenant admin can
 shorten that, end sessions left unused, and shorten or turn off Keep me signed in, for their tenant only:
 
 ```sh
@@ -125,8 +126,7 @@ tix tenant session-policy                         # what is in force, beside the
 The same settings are on the browser's Tenant screen, `e` on the terminal's tenant screen, and
 `session_ttl`, `session_idle_timeout` and `session_remember_ttl` on `PATCH /api/v1/tenants/{ref}`. None can
 go past the server's (`session.ttl`, `session.idle_timeout`, `session.remember_ttl`); a value that would is
-refused with the server's named. A new lifetime applies to the next sign-in and leaves live sessions with the
-expiry they were given. The idle timeout is checked on every request, so it applies at once, to remembered
+refused with the server's named. A new lifetime applies from each session's next use. The idle timeout is checked on every request, so it applies at once, to remembered
 sessions too. See [configuration.md](configuration.md#sign-in-sessions).
 
 ### The trash

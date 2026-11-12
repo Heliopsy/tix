@@ -73,6 +73,8 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `session.ttl` | `TIX_SESSION_TTL` | `12h` |
 | `session.idle_timeout` | `TIX_SESSION_IDLE_TIMEOUT` | `0` (off) |
 | `session.remember_ttl` | `TIX_SESSION_REMEMBER_TTL` | `30d` (`0` stops offering it) |
+| `session.max_lifetime` | `TIX_SESSION_MAX_LIFETIME` | `30d` (`0` stops renewal) |
+| `session.remember_max_lifetime` | `TIX_SESSION_REMEMBER_MAX_LIFETIME` | `90d` (`0` stops renewal) |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
@@ -450,9 +452,19 @@ command that produced them, `server` leaves them for `tix serve`, and `off` queu
 ### Sign-in sessions
 
 `session.ttl` is how long a password, SSH key or tenant switch sign-in lasts from the moment it is made, `12h`
-by default. It is an absolute lifetime: using the session does not extend it. `tix serve --session-ttl` sets it
-too and wins over the file and the environment when typed. A new value applies to the next sign-in; a session
-already minted keeps the expiry it was given.
+by default, and again from each use: a session in use has its expiry pushed to `session.ttl` past that use,
+so somebody working all day is not signed out in the middle of it. The push is written with the last-use time,
+at most once a minute, so it costs no extra writes. `tix serve --session-ttl` sets it too and wins over the file
+and the environment when typed. A new value applies from each session's next use.
+
+`session.max_lifetime` caps that renewal: a session is never renewed past this long after its sign-in, `30d` by
+default, and then has to sign in again. `0` turns renewal off, so a session ends `session.ttl` after it was
+made whether it was used or not, as it did before renewal existed; so does any value no longer than
+`session.ttl`. `session.remember_max_lifetime` is the same cap for Keep me signed in sessions, `90d` by default,
+which are renewed by `session.remember_ttl` instead. A tenant switch keeps the original sign-in time, so moving
+between tenants does not restart the cap. `tix serve --session-max-lifetime` and
+`--session-remember-max-lifetime` set them. These two are server-wide; a tenant shortening `session.ttl`
+shortens the renewal window, not the cap.
 
 `session.idle_timeout` ends a session nobody has used for that long, such as `30m`. `0`, the default, turns it
 off. Each session records when it last authenticated a request, at most once a minute, so the timeout is honoured
@@ -461,10 +473,10 @@ every request, so a new value applies at once to sessions already signed in, kep
 minted before the server recorded use counts as last used when it signed in. `tix serve --session-idle-timeout`
 sets it.
 
-`session.remember_ttl` is how long a sign-in lasts when the person ticks Keep me signed in on the web sign-in
-screen or passes `tix login --remember`, `30d` by default. `0` stops offering it, and so does any value no longer
+`session.remember_ttl` is how long a sign-in lasts, after it is made and after each use, when the person ticks
+Keep me signed in on the web sign-in screen or passes `tix login --remember`, `30d` by default. `0` stops offering it, and so does any value no longer
 than `session.ttl`, since remembering would grant nothing. A remembered browser session gets a persistent cookie
-whose `Max-Age` ends with the session; any other gets a cookie that ends when the browser closes. The idle
+whose `Max-Age` ends with the session, sent again with the new `Max-Age` whenever a request renews it; any other gets a cookie that ends when the browser closes. The idle
 timeout still applies to a remembered session: one left unused past it is ended like any other, so an operator
 who wants Keep me signed in to survive a weekend sets the idle timeout longer than that or leaves it off.
 `tix serve --session-remember-ttl` sets it.
