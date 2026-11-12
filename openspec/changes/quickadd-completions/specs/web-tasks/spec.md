@@ -12,7 +12,7 @@ task as typed.
 
 - **GIVEN** the tenant has the tag `backend`
 - **WHEN** the reader types `Fix login #ba` into the quick-add box
-- **THEN** `#backend` is offered, and taking it leaves `Fix login #backend ` in the box
+- **THEN** `#backend` is offered, and taking it leaves `Fix login #backend` and a trailing space in the box
 
 #### Scenario: A bare word is the title
 
@@ -29,7 +29,7 @@ SHALL NOT be offered.
 
 - **GIVEN** the tenant has the tag `c++`
 - **WHEN** the reader takes it after typing `#c`
-- **THEN** the box holds `tag:c++ `
+- **THEN** the box holds `tag:c++` followed by a space
 
 ### Requirement: A project page offers every project to quick add
 
