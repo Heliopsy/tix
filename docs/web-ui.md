@@ -756,6 +756,18 @@ place with htmx and work without it. Opening an item marks it read and opens the
 dialog setting says, over the inbox or as its own page; without JavaScript the link opens the task and
 the row's button marks it read. The listing pages by keyset like every other.
 
+Items sit under Today, Yesterday and Earlier, counted in your timezone. Beside All and Unread, one chip
+per kind (Mentions, Assignments, Status changes, Comments) narrows the list to the kinds switched on; with
+none on, every kind is listed. The chips are links (`/inbox?kinds=mention,comment`), so a filtered inbox
+can be bookmarked, and the server filters, so paging stays exact.
+
+A summary card above the list counts your unfinished assigned tasks that are overdue and those due later
+today, the tenant's open tasks, and the tasks finished in the last seven days. Each number links to the
+screen that lists it: My work, Tasks or Statistics. A number the server will not tell you is left out.
+
+Each row carries Stop, which turns that kind off for you the way the switch under Settings, Inbox does.
+Items already in the inbox stay; turn the kind back on under Settings.
+
 Settings has an Inbox section with one switch per kind: Mentions, Assignments, Status changes and
 Comments. A kind turned off creates no item for you at all. Unlike the rest of Settings these are kept
 with your account rather than the browser, because they decide what the server writes, so they apply in

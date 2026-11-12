@@ -696,7 +696,8 @@ address reads their tasks without signing in.
 items written when somebody mentions you as `@handle`, assigns you a task,
 comments on a task you are assigned to or starred, or moves a task assigned to
 you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
-(`mention`, `assigned`, `comment`, `status`). `tix inbox count -o json` is the
+(`mention`, `assigned`, `comment`, `status`); `--kind mention,assigned` lists
+only those. `tix inbox count -o json` is the
 unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
 `tix inbox prefs --mute comment` stops a kind. `tix inbox channel add NAME URL
 --format slack|discord|ntfy|generic --kinds mention` sends your items to an

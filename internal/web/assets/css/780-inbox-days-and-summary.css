@@ -1,0 +1,65 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The inbox's summary card, its kind chips, its day headings and the row's
+   Stop action (templates/inbox.html). */
+.card.inbox-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+.inbox-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  text-decoration: none;
+}
+.inbox-stat:hover { border-color: var(--line-strong); }
+.inbox-stat-n { color: var(--ink); font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.inbox-stat-l { font-size: var(--text-xs); }
+.inbox-stat.is-late .inbox-stat-n { color: var(--danger); }
+.inbox-stat.is-soon .inbox-stat-n { color: var(--warn); }
+.inbox-stat.is-done .inbox-stat-n { color: var(--ok); }
+@media (max-width: 639px) {
+  .card.inbox-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.inbox-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
+.inbox-kinds a.inbox-kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 2px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.inbox-kinds a.inbox-kind:hover { color: var(--ink); }
+.inbox-kinds a.inbox-kind.is-on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+
+.inbox-day {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.card.inbox > .inbox-day:first-child { border-top: 0; }
+
+.inbox-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.inbox-stop { margin: 0; }
+.inbox-stop button { color: var(--muted); font-size: var(--text-xs); }
+@media (max-width: 639px) {
+  .inbox-acts { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+}
