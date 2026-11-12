@@ -28,8 +28,8 @@ into one line and redirect to the task list with that line in the quick add box,
 
 #### Scenario: Sharing a page
 
-- **WHEN** another app shares the title Release notes and the url https://example.test/notes
-- **THEN** the task list opens with Release notes https://example.test/notes in quick add and no task exists yet
+- **WHEN** another app shares the title Release notes and the url `https://example.test/notes`
+- **THEN** the task list opens with `Release notes https://example.test/notes` in quick add and no task exists yet
 
 #### Scenario: Sharing while signed out
 
