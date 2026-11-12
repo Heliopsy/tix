@@ -43,6 +43,104 @@ test("comboOf names a key the way the binding table does", () => {
   }
 });
 
+// The emacs scheme's M-x, M-< and M-> and C-space. A Mac's option key types
+// another character, so the physical key names the chord there.
+test("comboOf names alt chords and ctrl+space", () => {
+  const cases = [
+    [{ key: "x", altKey: true, code: "KeyX" }, "alt+x"],
+    [{ key: "≈", altKey: true, code: "KeyX" }, "alt+x"],
+    [{ key: "<", altKey: true, shiftKey: true, code: "Comma" }, "alt+<"],
+    [{ key: "¯", altKey: true, shiftKey: true, code: "Comma" }, "alt+<"],
+    [{ key: ">", altKey: true, shiftKey: true, code: "Period" }, "alt+>"],
+    [{ key: "√", altKey: true, code: "KeyV" }, "alt+v"],
+    [{ key: "ArrowLeft", altKey: true, code: "ArrowLeft" }, ""],
+    [{ key: " ", ctrlKey: true, code: "Space" }, "ctrl+space"],
+    [{ key: " " }, " "],
+  ];
+  for (const [event, want] of cases) {
+    assert.equal(tix.comboOf(event), want, JSON.stringify(event));
+  }
+});
+
+// AltGr is ctrl and alt together, and it is how # is typed on many layouts:
+// the tag key has to read as #, not as a ctrl chord nobody binds.
+test("comboOf reads a symbol typed with AltGr as itself", () => {
+  assert.equal(tix.comboOf({ key: "#", ctrlKey: true, altKey: true }), "#");
+  assert.equal(tix.comboOf({ key: "*", ctrlKey: true, altKey: true }), "*");
+  assert.equal(tix.comboOf({ key: "k", ctrlKey: true, altKey: true }), "", "ctrl+alt+k read as a shortcut");
+});
+
+test("sequencePrefixes names the first key of every two-key sequence", () => {
+  const got = tix.sequencePrefixes({ "g i": "goInbox", "g m": "goMyWork", g: "top", j: "down" });
+  assert.deepEqual(plain(got), { g: true });
+  assert.deepEqual(plain(tix.sequencePrefixes(null)), {});
+});
+
+const byCombo = { "g i": "goInbox", "g S": "goStats", g: "top", j: "down", Escape: "back" };
+const starts = { g: true };
+
+test("keyStep waits after a key that starts a sequence, and remembers what it means alone", () => {
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "", "g")), { action: "", pending: "g", lone: "top" });
+  // In vim g alone means nothing, so the wait ends in nothing.
+  assert.deepEqual(plain(tix.keyStep({ "g g": "top" }, starts, "", "g")), { action: "", pending: "g", lone: "" });
+});
+
+test("keyStep runs the sequence a second key completes", () => {
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "i")), { action: "goInbox", pending: "", lone: "" });
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "S")), { action: "goStats", pending: "", lone: "" });
+});
+
+test("keyStep reads a second key that completes nothing on its own", () => {
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "j")), { action: "down", pending: "", lone: "" });
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "q")), { action: "", pending: "", lone: "" });
+  // A second g starts the wait over rather than running top twice.
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "g")), { action: "", pending: "g", lone: "top" });
+});
+
+test("keyStep lets Escape drop a wait without going back", () => {
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "g", "Escape")), { action: "", pending: "", lone: "" });
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "", "Escape")), { action: "back", pending: "", lone: "" });
+});
+
+test("keyStep runs a plain key at once and ignores one nobody binds", () => {
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "", "j")), { action: "down", pending: "", lone: "" });
+  assert.deepEqual(plain(tix.keyStep(byCombo, starts, "", "toString")), { action: "", pending: "", lone: "" });
+  assert.deepEqual(plain(tix.keyStep(null, null, "", "j")), { action: "", pending: "", lone: "" });
+});
+
+test("pageIndex moves a page of rows and stops at either end", () => {
+  assert.equal(tix.pageIndex(0, 50, 10, 1), 10);
+  assert.equal(tix.pageIndex(45, 50, 10, 1), 49);
+  assert.equal(tix.pageIndex(5, 50, 10, -1), 0);
+  assert.equal(tix.pageIndex(-1, 50, 10, 1), 0, "with nothing focused page down starts at the first row");
+  assert.equal(tix.pageIndex(-1, 50, 10, -1), 49);
+  assert.equal(tix.pageIndex(3, 50, 0.4, 1), 4, "a page shorter than a row still moves one");
+  assert.equal(tix.pageIndex(0, 0, 10, 1), -1, "no rows means the native scroll");
+});
+
+test("nextView moves to the next view and wraps", () => {
+  assert.equal(tix.nextView(3, 0), 1);
+  assert.equal(tix.nextView(3, 2), 0);
+  assert.equal(tix.nextView(3, -1), 0);
+  assert.equal(tix.nextView(1, 0), -1);
+  assert.equal(tix.nextView(0, -1), -1);
+});
+
+test("refOfRow is the reference a row opens, upper case", () => {
+  assert.equal(tix.refOfRow("/tasks/infra-5"), "INFRA-5");
+  assert.equal(tix.refOfRow("/tasks/infra-5?next=%2Ftasks"), "INFRA-5");
+  assert.equal(tix.refOfRow("/projects/infra"), "");
+  assert.equal(tix.refOfRow(""), "");
+});
+
+test("targetPress focuses a field and presses anything else", () => {
+  assert.equal(tix.targetPress({ tagName: "INPUT" }), "focus");
+  assert.equal(tix.targetPress({ tagName: "TEXTAREA" }), "focus");
+  assert.equal(tix.targetPress({ tagName: "DIV", isContentEditable: true }), "focus");
+  assert.equal(tix.targetPress({ tagName: "BUTTON" }), "click");
+  assert.equal(tix.targetPress(null), "");
+});
+
 test("actionsByCombo inverts one scheme's table", () => {
   const got = tix.actionsByCombo({ up: ["k", "ArrowUp"], down: ["j"], help: ["?"] });
   assert.deepEqual(plain(got), { k: "up", ArrowUp: "up", j: "down", "?": "help" });

@@ -2,6 +2,10 @@
 
 (function () {
   "use strict";
+  // say is text in the page's language; see i18n.js.
+  function say(text) {
+    return window.tix && window.tix.t ? window.tix.t(text) : text;
+  }
   // The pure decisions this handler makes live in assets/decide.js, which is
   // covered by internal/web/jstest. What is left here is the wiring.
   var tix = window.tix;
@@ -27,6 +31,7 @@
   }
 
   var comboToAction = tix.actionsByCombo(data.bindings[data.scheme]);
+  var prefixes = tix.sequencePrefixes(comboToAction);
 
   // -- selection: a real DOM focus move over whichever rows this page has --
 
@@ -98,6 +103,151 @@
     }
   }
 
+  // A row's own control first: the star, the priority or the copy on the
+  // row the reader is on. With no row focused, the page's own control, never
+  // one inside some row, so s on a list with nothing selected stars nothing.
+  function focusedRow() {
+    var el = document.activeElement;
+    return el && typeof el.closest === "function" ? el.closest("[data-shortcut-row]") : null;
+  }
+
+  function controlFor(action) {
+    var sel = '[data-shortcut-target="' + action + '"]';
+    var row = focusedRow();
+    if (row) {
+      return row.querySelector(sel);
+    }
+    var all = document.querySelectorAll(sel);
+    for (var i = 0; i < all.length; i++) {
+      if (typeof all[i].closest !== "function" || !all[i].closest("[data-shortcut-row]")) {
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  // pressTarget focuses a field or presses a button the page marked for an
+  // action. It answers false when there is none, so the key keeps whatever
+  // the browser does with it. A field the rich text editor stands in for is
+  // hidden, so the editor inside the same disclosure takes the focus.
+  function pressTarget(action) {
+    var el = controlFor(action);
+    if (!el) {
+      return false;
+    }
+    var fold = typeof el.closest === "function" ? el.closest("details") : null;
+    if (fold && !fold.open) {
+      fold.open = true;
+    }
+    if (tix.targetPress(el) !== "focus") {
+      el.click();
+      return true;
+    }
+    var editor = el.hidden && fold ? fold.querySelector('[contenteditable="true"]') : null;
+    (editor || el).focus();
+    return true;
+  }
+
+  function goTo(action) {
+    var path = data.go && data.go[action];
+    if (!path) {
+      return false;
+    }
+    window.location.assign(path);
+    return true;
+  }
+
+  // page moves the selection a screenful of rows at a time. With no rows on
+  // the page the key keeps its native scroll.
+  function page(delta) {
+    var list = rows();
+    var perPage = 10;
+    var first = list[0];
+    if (first && typeof first.getBoundingClientRect === "function") {
+      var height = first.getBoundingClientRect().height;
+      if (height > 0 && window.innerHeight > 0) {
+        perPage = window.innerHeight / height - 1;
+      }
+    }
+    var next = tix.pageIndex(list.indexOf(document.activeElement), list.length, perPage, delta);
+    if (next < 0) {
+      return false;
+    }
+    focusRow(list[next]);
+    return true;
+  }
+
+  // refresh redraws the screen through its live region when it has one,
+  // which keeps the scroll, the focus and anything half typed, and reloads
+  // the page otherwise.
+  function refresh() {
+    if (typeof tix.liveRefresh === "function" && tix.liveRefresh()) {
+      return true;
+    }
+    window.location.reload();
+    return true;
+  }
+
+  // switchView presses the next of the list, board and lanes links, where
+  // the page draws them.
+  function switchView() {
+    var nav = document.querySelector('[data-shortcut-target="switchView"]');
+    var links = nav ? Array.prototype.slice.call(nav.querySelectorAll("a[data-view]")) : [];
+    var current = -1;
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].getAttribute("aria-current") === "page") {
+        current = i;
+      }
+    }
+    var next = tix.nextView(links.length, current);
+    if (next < 0) {
+      return false;
+    }
+    links[next].click();
+    return true;
+  }
+
+  // copyRef copies the focused row's reference, or the open task's.
+  var toastTimer = null;
+  function copyRef() {
+    var row = focusedRow();
+    var ref = "";
+    if (row) {
+      ref = tix.refOfRow(row.getAttribute("data-shortcut-href") || "");
+    } else {
+      var own = controlFor("copyRef");
+      ref = own ? own.getAttribute("data-shortcut-ref") || "" : "";
+    }
+    if (!ref || typeof tix.copyText !== "function") {
+      return false;
+    }
+    var nav = window.navigator || {};
+    tix.copyText(ref, { clipboard: nav.clipboard, legacy: tix.legacyCopy }, function (ok) {
+      toast(ok ? say("Copied %s").replace("%s", ref) : say("Copy failed"), ok);
+    });
+    return true;
+  }
+
+  function toast(text, ok) {
+    var host = document.getElementById("toast");
+    if (!host || typeof document.createElement !== "function") {
+      return;
+    }
+    var p = document.createElement("p");
+    p.className = "flash" + (ok ? "" : " error");
+    p.setAttribute("role", ok ? "status" : "alert");
+    host.appendChild(p);
+    window.setTimeout(function () {
+      p.textContent = text;
+    }, 50);
+    if (toastTimer) {
+      window.clearTimeout(toastTimer);
+    }
+    toastTimer = window.setTimeout(function () {
+      p.remove();
+    }, 4000);
+  }
+
   // -- help overlay: proper dialog role, focus trap, focus restored on close --
 
   // Looked up when used, not when this file ran. The overlay is part of the
@@ -115,31 +265,58 @@
     overlayDialog = overlay && overlay.querySelector(".shortcuts-help-dialog");
   }
 
+  function keyLabel(key) {
+    var wrap = document.createElement("span");
+    var parts = key.split(" ");
+    for (var p = 0; p < parts.length; p++) {
+      if (p > 0) {
+        wrap.appendChild(document.createTextNode(" "));
+      }
+      var kbd = document.createElement("kbd");
+      kbd.textContent = parts[p];
+      wrap.appendChild(kbd);
+    }
+    return wrap;
+  }
+
+  // renderHelp draws the active scheme's keys under the four group headings,
+  // leaving out an action it binds no key to and a group left empty.
   function renderHelp() {
     if (!overlayList) {
       return;
     }
     overlayList.textContent = "";
     var table = data.bindings[data.scheme] || {};
-    for (var i = 0; i < data.actions.length; i++) {
-      var action = data.actions[i];
-      var keys = table[action.name];
-      if (!keys || !keys.length) {
+    var groups = data.groups || [];
+    for (var g = 0; g < groups.length; g++) {
+      var list = document.createElement("dl");
+      var count = 0;
+      for (var i = 0; i < data.actions.length; i++) {
+        var action = data.actions[i];
+        var keys = table[action.name];
+        if (action.group !== groups[g].value || !keys || !keys.length) {
+          continue;
+        }
+        var dt = document.createElement("dt");
+        for (var k = 0; k < keys.length; k++) {
+          if (k > 0) {
+            dt.appendChild(document.createTextNode(" " + say("or") + " "));
+          }
+          dt.appendChild(keyLabel(keys[k]));
+        }
+        var dd = document.createElement("dd");
+        dd.textContent = action.label;
+        list.appendChild(dt);
+        list.appendChild(dd);
+        count++;
+      }
+      if (!count) {
         continue;
       }
-      var dt = document.createElement("dt");
-      for (var k = 0; k < keys.length; k++) {
-        if (k > 0) {
-          dt.appendChild(document.createTextNode(" or "));
-        }
-        var kbd = document.createElement("kbd");
-        kbd.textContent = keys[k];
-        dt.appendChild(kbd);
-      }
-      var dd = document.createElement("dd");
-      dd.textContent = action.label;
-      overlayList.appendChild(dt);
-      overlayList.appendChild(dd);
+      var head = document.createElement("h3");
+      head.textContent = groups[g].label;
+      overlayList.appendChild(head);
+      overlayList.appendChild(list);
     }
   }
 
@@ -243,6 +420,25 @@
   // -- dispatch ------------------------------------------------------------
 
   var handlers = {
+    goInbox: function () { return goTo("goInbox"); },
+    goMyWork: function () { return goTo("goMyWork"); },
+    goTasks: function () { return goTo("goTasks"); },
+    goProjects: function () { return goTo("goProjects"); },
+    goActivity: function () { return goTo("goActivity"); },
+    goSettings: function () { return goTo("goSettings"); },
+    goStats: function () { return goTo("goStats"); },
+    pageDown: function () { return page(1); },
+    pageUp: function () { return page(-1); },
+    refresh: refresh,
+    switchView: switchView,
+    editDescription: function () { return pressTarget("editDescription"); },
+    tag: function () { return pressTarget("tag"); },
+    star: function () { return pressTarget("star"); },
+    priority: function () { return pressTarget("priority"); },
+    assign: function () { return pressTarget("assign"); },
+    due: function () { return pressTarget("due"); },
+    snooze: function () { return pressTarget("snooze"); },
+    copyRef: copyRef,
     up: function () { moveSelection(-1); },
     down: function () { moveSelection(1); },
     top: function () { jumpTo("top"); },
@@ -283,9 +479,38 @@
     }
   }
 
-  document.addEventListener("keydown", function (event) {
+  // A key that starts a two-key sequence (g in g i) waits up to a second for
+  // the second key. When none comes, the key's own action runs, if it has
+  // one: a lone g still jumps to the top in the default scheme.
+  var pending = "";
+  var pendingTimer = null;
+  // Holding Shift to type the S of g S is a keydown of its own, which must
+  // not end the wait.
+  var modifiers = { Shift: true, Control: true, Alt: true, Meta: true, AltGraph: true };
+
+  function stopWaiting() {
+    pending = "";
+    if (pendingTimer !== null) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+  }
+
+  function wait(combo, lone) {
+    pending = combo;
+    pendingTimer = window.setTimeout(function () {
+      pendingTimer = null;
+      pending = "";
+      var handler = lone && handlers[lone];
+      if (handler) {
+        handler();
+      }
+    }, 1000);
+  }
+
+  function standsDown(event) {
     if (helpOpen()) {
-      return;
+      return true;
     }
     // A task open in the dialog owns the keyboard: Escape closes it there,
     // and a key meant for the page behind it would act on a page the reader
@@ -293,23 +518,38 @@
     // it; the listing beside it is in view and keeps its own.
     var open = document.querySelector && document.querySelector("dialog[open]");
     if (open && (!open.getAttribute || open.getAttribute("data-shown") !== "pane" || open.contains(event.target))) {
-      return;
+      return true;
     }
     // So does an open menu. Escape is the popover's own light dismissal, and
     // the back shortcut taking it as well closed a status menu and then left
     // the page.
     if (menuOpen()) {
+      return true;
+    }
+    return tix.isTypingTarget(event.target);
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if (standsDown(event)) {
+      stopWaiting();
       return;
     }
-    if (tix.isTypingTarget(event.target)) {
+    if (modifiers[event.key]) {
       return;
     }
     var combo = tix.comboOf(event);
     if (tix.pressesNatively(event.target, combo)) {
+      stopWaiting();
       return;
     }
-    var action = comboToAction[combo];
-    var handler = action && handlers[action];
+    var step = tix.keyStep(comboToAction, prefixes, pending, combo);
+    stopWaiting();
+    if (step.pending) {
+      wait(step.pending, step.lone);
+      event.preventDefault();
+      return;
+    }
+    var handler = step.action && handlers[step.action];
     if (!handler) {
       return;
     }

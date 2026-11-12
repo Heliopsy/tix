@@ -191,11 +191,20 @@ func TestTheLiveFragmentDrawsTheBoxesItsRowsNeed(t *testing.T) {
 	}
 }
 
+// Vim selects with v, as the shared key table says, and Off binds no single
+// key at all.
 func TestSelectionKeysAreBoundInEveryScheme(t *testing.T) {
 	t.Parallel()
 	for _, scheme := range web.KeySchemes() {
+		if scheme == web.KeySchemeOff {
+			continue
+		}
 		table := web.KeyBindingsFor(scheme)
-		for action, want := range map[string]string{"extendUp": "shift+ArrowUp", "extendDown": "shift+ArrowDown", "complete": "d", "select": "x"} {
+		sel := "x"
+		if scheme == web.KeySchemeVim {
+			sel = "v"
+		}
+		for action, want := range map[string]string{"extendUp": "shift+ArrowUp", "extendDown": "shift+ArrowDown", "complete": "d", "select": sel} {
 			if !containsKey(table[action], want) {
 				t.Errorf("scheme %q %s = %v, want %s", scheme, action, table[action], want)
 			}

@@ -43,14 +43,24 @@
 
 .shortcuts-help-head h2 { margin: 0; }
 
-.shortcuts-help-list {
+/* One headed group per kind of action: Navigate, Lists, Task, General. */
+.shortcuts-help-list { max-width: 100%; }
+
+.shortcuts-help-list h3 {
+  margin: 16px 0 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.shortcuts-help-list h3:first-child { margin-top: 0; }
+
+.shortcuts-help-list dl {
   display: grid;
   /* The description keeps room for its longest word: a long chord such as
      ctrl+shift+v widened the keys column until a phone's descriptions spilled. */
   grid-template-columns: auto minmax(min-content, 1fr);
   gap: 8px 16px;
   margin: 0;
-  max-width: 100%;
 }
 
 .shortcuts-help-list dt { min-width: 0; }

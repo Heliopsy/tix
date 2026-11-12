@@ -421,7 +421,17 @@
       schedule();
     }
 
-    return { rebind: rebind, woken: woken, poke: schedule, settled: settled, retryNow: retryNow };
+    // now redraws at once, for the refresh shortcut, and answers whether
+    // this stream has a region on the page to redraw.
+    function now() {
+      if (!bound) {
+        return false;
+      }
+      refresh();
+      return true;
+    }
+
+    return { rebind: rebind, woken: woken, poke: schedule, settled: settled, retryNow: retryNow, now: now };
   }
 
   // The activity feed. Its fragment is the row list itself, so the response
@@ -636,6 +646,14 @@
   // on the clock.
   tix.liveSettled = function () {
     return screen.settled() && feed.settled();
+  };
+
+  // liveRefresh is the refresh shortcut (assets/shortcuts.js): the screen's
+  // regions and the activity feed redraw in place. False when the page has
+  // neither, and the shortcut reloads it instead.
+  tix.liveRefresh = function () {
+    var drawn = screen.now();
+    return feed.now() || drawn;
   };
 
   function rebindAll() {

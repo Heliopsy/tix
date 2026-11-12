@@ -24,6 +24,7 @@ func TestParseKeyScheme(t *testing.T) {
 		"default": web.KeySchemeDefault,
 		"vim":     web.KeySchemeVim,
 		"emacs":   web.KeySchemeEmacs,
+		"off":     web.KeySchemeOff,
 		"garbage": web.KeySchemeDefault,
 		"VIM":     web.KeySchemeDefault, // case sensitive, unlike the cookie the browser sends back verbatim
 	}
@@ -34,11 +35,14 @@ func TestParseKeyScheme(t *testing.T) {
 	}
 }
 
-// Every shipped scheme must bind every action, so a key never simply does
-// nothing because a scheme forgot one.
+// Every shipped scheme but Off must bind every action, so a key never simply
+// does nothing because a scheme forgot one. Off unbinds on purpose.
 func TestKeyBindingsForLeavesNoActionUnbound(t *testing.T) {
 	t.Parallel()
 	for _, scheme := range web.KeySchemes() {
+		if scheme == web.KeySchemeOff {
+			continue
+		}
 		table := web.KeyBindingsFor(scheme)
 		for _, action := range web.ShortcutActionNames() {
 			keys := table[action]
@@ -73,43 +77,87 @@ func TestKeyBindingsForHaveNoCollision(t *testing.T) {
 	}
 }
 
-// The default scheme mirrors internal/tui/keys.go's DefaultKeyMap for the
-// actions the web UI shares with the TUI, so a key means the same thing on
-// both surfaces.
-func TestDefaultSchemeMirrorsTheTUIDefaults(t *testing.T) {
+// The default scheme is the Default column of the key table the web shares
+// with the app (openspec/changes/unified-keys/design.md), every action the
+// web can do, so a key means the same thing on both surfaces.
+func TestDefaultSchemeIsTheSharedKeyTable(t *testing.T) {
 	t.Parallel()
-	table := web.KeyBindingsFor(web.KeySchemeDefault)
 	want := map[string][]string{
-		"up":         {"ArrowUp", "k"},
-		"down":       {"ArrowDown", "j"},
-		"top":        {"g", "Home"},
-		"bottom":     {"G", "End"},
-		"open":       {"Enter"},
-		"new":        {"n"},
-		"editTitle":  {"e"},
-		"comment":    {"m"},
-		"transition": {"t"},
-		"filter":     {"/"},
-		"help":       {"?"},
+		"goInbox":         {"g i"},
+		"goMyWork":        {"g m"},
+		"goTasks":         {"g t"},
+		"goProjects":      {"g p"},
+		"goActivity":      {"g a"},
+		"goSettings":      {"g s"},
+		"goStats":         {"g S"},
+		"down":            {"ArrowDown", "j"},
+		"up":              {"ArrowUp", "k"},
+		"top":             {"g", "Home"},
+		"bottom":          {"G", "End"},
+		"pageDown":        {"PageDown"},
+		"pageUp":          {"PageUp"},
+		"open":            {"Enter"},
+		"back":            {"Escape"},
+		"select":          {"x"},
+		"extendDown":      {"shift+ArrowDown"},
+		"extendUp":        {"shift+ArrowUp"},
+		"selectAll":       {"ctrl+a", "meta+a"},
+		"filter":          {"/"},
+		"refresh":         {"r"},
+		"switchView":      {"v"},
+		"new":             {"n"},
+		"complete":        {"d"},
+		"editTitle":       {"e"},
+		"editDescription": {"E"},
+		"transition":      {"t"},
+		"comment":         {"m"},
+		"tag":             {"#"},
+		"star":            {"s", "*"},
+		"priority":        {"p"},
+		"assign":          {"a"},
+		"due":             {"u"},
+		"snooze":          {"z"},
+		"copyRef":         {"y"},
+		"palette":         {"ctrl+k", "meta+k"},
+		"help":            {"?"},
 	}
+	table := web.KeyBindingsFor(web.KeySchemeDefault)
 	for action, keys := range want {
 		if got := table[action]; !equalKeys(got, keys) {
 			t.Errorf("default scheme %q = %v, want %v", action, got, keys)
 		}
 	}
+	for _, action := range web.ShortcutActionNames() {
+		if _, ok := want[action]; !ok {
+			t.Errorf("action %q is not in the shared key table", action)
+		}
+	}
 }
 
-// The vim scheme adds the recognisable vim reflexes without disturbing an
-// action it does not name.
-func TestVimSchemeAddsItsOwnReflexes(t *testing.T) {
+// The vim scheme's overrides are the shared table's Vim column. Comment
+// stays m and assign stays a: vim's a used to be comment here, which was
+// the one key the web and the app disagreed on.
+func TestVimSchemeIsTheSharedVimColumn(t *testing.T) {
 	t.Parallel()
 	table := web.KeyBindingsFor(web.KeySchemeVim)
 	want := map[string][]string{
-		"new":       {"o"},
-		"editTitle": {"i"},
-		"comment":   {"a"},
-		"filter":    {"/", ":"},
-		"up":        {"ArrowUp", "k"}, // untouched, inherited from the base
+		"back":            {"Escape", "h"},
+		"open":            {"Enter", "l"},
+		"top":             {"g g", "Home"},
+		"pageDown":        {"ctrl+d", "PageDown"},
+		"pageUp":          {"ctrl+u", "PageUp"},
+		"select":          {"v"},
+		"extendDown":      {"J", "shift+ArrowDown"},
+		"extendUp":        {"K", "shift+ArrowUp"},
+		"switchView":      {"g v"},
+		"new":             {"o"},
+		"editTitle":       {"i"},
+		"editDescription": {"D"},
+		"filter":          {"/", ":"},
+		"comment":         {"m"},
+		"assign":          {"a"},
+		"complete":        {"d"},
+		"up":              {"ArrowUp", "k"},
 	}
 	for action, keys := range want {
 		if got := table[action]; !equalKeys(got, keys) {
@@ -118,16 +166,16 @@ func TestVimSchemeAddsItsOwnReflexes(t *testing.T) {
 	}
 }
 
-// The emacs scheme cannot carry over every chord internal/tui/scheme.go's
-// SchemeEmacs uses, because several of them are chords the browser itself
-// owns (new window, print, the omnibox, save page, new tab) and never
+// The emacs scheme cannot carry over every chord the app's emacs scheme
+// uses, because several are chords the browser itself owns (new window,
+// print, the omnibox, save page, new tab, the address bar, find) and never
 // delivers to a page's keydown handler. This asserts the divergence is
 // deliberate and permanent, not a binding that quietly stopped doing
 // anything because nobody noticed the browser eating it.
 func TestEmacsSchemeDropsBrowserReservedChords(t *testing.T) {
 	t.Parallel()
 	table := web.KeyBindingsFor(web.KeySchemeEmacs)
-	reserved := []string{"ctrl+n", "ctrl+p", "ctrl+t", "ctrl+e", "ctrl+s", "ctrl+f", "ctrl+w", "ctrl+l"}
+	reserved := []string{"ctrl+n", "ctrl+p", "ctrl+t", "ctrl+e", "ctrl+s", "ctrl+f", "ctrl+w", "ctrl+l", "ctrl+b"}
 	for action, keys := range table {
 		for _, k := range keys {
 			for _, r := range reserved {
@@ -137,20 +185,92 @@ func TestEmacsSchemeDropsBrowserReservedChords(t *testing.T) {
 			}
 		}
 	}
-	// The two chords that are safe to intercept are still offered.
-	if !containsKey(table["top"], "ctrl+a") {
-		t.Errorf("emacs scheme top = %v, want ctrl+a kept", table["top"])
+	want := map[string][]string{
+		"palette":   {"ctrl+k", "meta+k", "alt+x"},
+		"back":      {"Escape", "ctrl+g"},
+		"top":       {"alt+<", "Home"},
+		"bottom":    {"alt+>", "End"},
+		"pageDown":  {"ctrl+v", "PageDown"},
+		"pageUp":    {"alt+v", "PageUp"},
+		"select":    {"ctrl+space", "x"},
+		"selectAll": {"ctrl+a", "meta+a"},
+		"star":      {"s", "*"},
+		"filter":    {"/"},
+		"refresh":   {"r"},
 	}
-	if !containsKey(table["back"], "ctrl+g") {
-		t.Errorf("emacs scheme back = %v, want ctrl+g kept", table["back"])
+	for action, keys := range want {
+		if got := table[action]; !equalKeys(got, keys) {
+			t.Errorf("emacs scheme %q = %v, want %v", action, got, keys)
+		}
 	}
-	// Filter and EditTitle fall back to the shared default because their TUI
-	// chords (ctrl+s, ctrl+t) are unreachable from script.
-	if got := table["filter"]; !equalKeys(got, []string{"/"}) {
-		t.Errorf("emacs scheme filter = %v, want the base \"/\"", got)
+}
+
+// Off is chords only: no single key, and no sequence of them, runs
+// anything, while the palette and select all still answer.
+func TestOffSchemeKeepsOnlyChords(t *testing.T) {
+	t.Parallel()
+	table := web.KeyBindingsFor(web.KeySchemeOff)
+	bound := map[string][]string{}
+	for action, keys := range table {
+		if len(keys) > 0 {
+			bound[action] = keys
+		}
 	}
-	if got := table["editTitle"]; !equalKeys(got, []string{"e"}) {
-		t.Errorf("emacs scheme editTitle = %v, want the base \"e\"", got)
+	want := map[string][]string{
+		"palette":   {"ctrl+k", "meta+k"},
+		"selectAll": {"ctrl+a", "meta+a"},
+	}
+	if len(bound) != len(want) {
+		t.Errorf("off binds %v, want only %v", bound, want)
+	}
+	for action, keys := range want {
+		if !equalKeys(bound[action], keys) {
+			t.Errorf("off scheme %q = %v, want %v", action, bound[action], keys)
+		}
+	}
+}
+
+// A key is one press or two in a row ("g i"), never more, and never a blank
+// half, which the shortcut script's one-key wait could not read.
+func TestEveryKeyIsOneOrTwoPresses(t *testing.T) {
+	t.Parallel()
+	for _, scheme := range web.KeySchemes() {
+		for action, keys := range web.KeyBindingsFor(scheme) {
+			for _, k := range keys {
+				parts := strings.Split(k, " ")
+				if len(parts) > 2 {
+					t.Errorf("scheme %q action %q key %q is more than two presses", scheme, action, k)
+				}
+				for _, p := range parts {
+					if p == "" {
+						t.Errorf("scheme %q action %q key %q has an empty press", scheme, action, k)
+					}
+				}
+			}
+		}
+	}
+}
+
+// Every go-to key leads to a screen the reader can open, read from the table
+// the page itself embeds rather than from the Go source.
+func TestGoToKeysLeadToScreens(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	blob := extractShortcutsJSON(t, b.page("/tasks"))
+	want := map[string]string{
+		"goInbox": "/inbox", "goMyWork": "/mine", "goTasks": "/tasks", "goProjects": "/projects",
+		"goActivity": "/activity", "goSettings": "/settings", "goStats": "/stats",
+	}
+	if len(blob.Go) != len(want) {
+		t.Errorf("the page embeds go-to screens %v, want %v", blob.Go, want)
+	}
+	for action, path := range want {
+		if blob.Go[action] != path {
+			t.Errorf("%s leads to %q, want %q", action, blob.Go[action], path)
+			continue
+		}
+		b.page(path)
 	}
 }
 
@@ -183,6 +303,9 @@ func TestSetKeySchemePersists(t *testing.T) {
 	wantStatus(t, resp, http.StatusSeeOther)
 
 	settings := b.page("/settings")
+	if !strings.Contains(between(t, settings, `<select id="keyscheme"`, "</select>"), `<option value="off" >Off</option>`) {
+		t.Errorf("the scheme picker does not offer Off:\n%s", settings)
+	}
 	if !strings.Contains(settings, `<option value="vim" selected>Vim</option>`) {
 		t.Errorf("the vim scheme did not stick across a reload:\n%s", settings)
 	}
@@ -237,11 +360,11 @@ func TestHelpOverlayMarkupIsAnEmptyDialogShell(t *testing.T) {
 		t.Fatalf("the help overlay has nowhere for the script to render bindings:\n%s", page)
 	}
 	rest := page[start:]
-	listEnd := strings.Index(rest, "</dl>")
+	listEnd := strings.Index(rest, "</div>")
 	if listEnd < 0 {
 		t.Fatalf("the help overlay list is never closed:\n%s", page)
 	}
-	if strings.Contains(rest[:listEnd], "<dt>") {
+	if strings.Contains(rest[:listEnd], "<dt>") || strings.Contains(rest[:listEnd], "<h3>") {
 		t.Errorf("the help overlay ships a hardcoded binding list rather than an empty shell:\n%s", page)
 	}
 }
@@ -251,6 +374,15 @@ func TestHelpOverlayMarkupIsAnEmptyDialogShell(t *testing.T) {
 type shortcutsBlob struct {
 	Scheme   string                         `json:"scheme"`
 	Bindings map[string]map[string][]string `json:"bindings"`
+	Go       map[string]string              `json:"go"`
+	Groups   []struct {
+		Value string `json:"value"`
+		Label string `json:"label"`
+	} `json:"groups"`
+	Actions []struct {
+		Name  string `json:"name"`
+		Group string `json:"group"`
+	} `json:"actions"`
 }
 
 func extractShortcutsJSON(t *testing.T, page string) shortcutsBlob {
@@ -337,5 +469,81 @@ func TestNoSchemeOverridesAnActionThatDoesNotExist(t *testing.T) {
 				t.Errorf("scheme %q carries a binding for %q, which is not a shortcut action", scheme, action)
 			}
 		}
+	}
+}
+
+// The help overlay heads its actions Navigate, Lists, Task and General, in
+// that order, the same four the app's help uses, and every action sits under
+// one of them.
+func TestHelpGroupsAreTheSharedFour(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	blob := extractShortcutsJSON(t, b.page("/tasks"))
+	var groups []string
+	for _, g := range blob.Groups {
+		groups = append(groups, g.Value)
+	}
+	if want := []string{"Navigate", "Lists", "Task", "General"}; strings.Join(groups, ",") != strings.Join(want, ",") {
+		t.Fatalf("help groups = %v, want %v", groups, want)
+	}
+	for _, a := range blob.Actions {
+		if !containsKey(groups, a.Group) {
+			t.Errorf("action %q sits in group %q, which the overlay does not draw", a.Name, a.Group)
+		}
+	}
+	if len(blob.Actions) != len(web.ShortcutActionNames()) {
+		t.Errorf("the page embeds %d actions, want %d", len(blob.Actions), len(web.ShortcutActionNames()))
+	}
+}
+
+// Each task key reaches a control the task screen already draws, marked with
+// data-shortcut-target. The check reads the one element carrying the mark,
+// so a mark that drifted onto some other control fails it.
+func TestTaskScreenMarksTheControlsTheTaskKeysPress(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "one")
+	page := b.page("/tasks/" + ref)
+	want := map[string]string{
+		"star":            `class="star`,
+		"priority":        `class="priobtn"`,
+		"assign":          `name="assignee"`,
+		"due":             `name="due_at"`,
+		"tag":             `name="tag"`,
+		"snooze":          `class="flowgo snoozebtn"`,
+		"editDescription": `name="body"`,
+		"copyRef":         `data-shortcut-ref="` + strings.ToUpper(ref) + `"`,
+	}
+	for action, mark := range want {
+		tag := openTag(t, page, `data-shortcut-target="`+action+`"`)
+		if tag == "" {
+			t.Errorf("the task screen marks nothing for %s", action)
+			continue
+		}
+		if !strings.Contains(tag, mark) {
+			t.Errorf("the %s mark sits on %s, want the element carrying %s", action, tag, mark)
+		}
+	}
+}
+
+// A list row carries its own star and priority marks, so s and p act on the
+// focused row, and the view switch is marked for v.
+func TestTaskRowsMarkTheirOwnControls(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	b := f.as("alice")
+	ref := b.createTask("infra", "one")
+	page := b.page("/tasks")
+	row := between(t, page, `<li id="t-`+ref+`"`, "</li>")
+	for action, mark := range map[string]string{"star": `class="star`, "priority": `class="priobtn"`} {
+		tag := openTag(t, row, `data-shortcut-target="`+action+`"`)
+		if !strings.Contains(tag, mark) {
+			t.Errorf("the row's %s mark sits on %q, want the element carrying %s", action, tag, mark)
+		}
+	}
+	if tag := openTag(t, page, `data-shortcut-target="switchView"`); !strings.Contains(tag, `id="tasks-views"`) {
+		t.Errorf("the switchView mark sits on %q, want the view switch", tag)
 	}
 }

@@ -457,7 +457,7 @@
           {{$p := prio .Task.Priority}}
           {{if and ($.Columns.Show "tasks" "priority") .Prioritise}}
           <span class="priomenu">
-            <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio"
+            <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio" data-shortcut-target="priority"
                     aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Task.Ref)}}" title="{{t "Change the priority of %s" (ref .Task.Ref)}}">
               <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
             </button>
@@ -908,7 +908,7 @@
       {{if .DeletedAt}}<span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
       {{else}}
       <span class="priomenu">
-        <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
+        <button type="button" class="priobtn" data-focus="prio" data-shortcut-target="priority" popovertarget="prio-{{.Ref}}"
                 aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Ref)}}" title="{{t "Change the priority of %s" (ref .Ref)}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
@@ -1393,7 +1393,7 @@
      Replaced after an in-place filter (assets/feel.js), never by a live
      refresh. The swap keeps the scroll where it was. */}}
 {{define "taskview-links"}}
-<nav class="viewswitch viewlinks" id="tasks-views" aria-label="{{t "How to draw the tasks"}}" hx-swap="innerHTML show:none">
+<nav class="viewswitch viewlinks" id="tasks-views" data-shortcut-target="switchView" aria-label="{{t "How to draw the tasks"}}" hx-swap="innerHTML show:none">
   <span class="viewswitch-label" id="viewswitch-label">{{t "View as"}}</span>
   <div class="segmented" role="group" aria-labelledby="viewswitch-label">
     {{range .Views}}<a class="segment{{if .Selected}} is-on{{end}}" href="{{.Href}}" data-view="{{.Value}}"{{if .Selected}} aria-current="page"{{end}}>{{t .Label}}</a>{{end}}

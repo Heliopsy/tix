@@ -176,6 +176,8 @@ var jsMessages = []string{
 	"Filter suggestions",
 	"Copied",
 	"Copy failed",
+	"Copied %s",
+	"or",
 	"%d new, show",
 	"Nothing ticked yet. A token needs at least one scope.",
 	"This token can use: %s",

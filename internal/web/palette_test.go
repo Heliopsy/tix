@@ -263,8 +263,8 @@ func TestThePaletteShortcutIsBoundInEveryScheme(t *testing.T) {
 	t.Parallel()
 	for _, scheme := range web.KeySchemes() {
 		keys := web.KeyBindingsFor(scheme)["palette"]
-		if !equalKeys(keys, []string{"ctrl+k", "meta+k"}) {
-			t.Errorf("scheme %q binds the palette to %v, want ctrl+k and meta+k", scheme, keys)
+		if !containsKey(keys, "ctrl+k") || !containsKey(keys, "meta+k") {
+			t.Errorf("scheme %q binds the palette to %v, want ctrl+k and meta+k among them", scheme, keys)
 		}
 	}
 }
