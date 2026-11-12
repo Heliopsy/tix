@@ -53,7 +53,7 @@ func TestTheActivityFeedNarrowsToATimeWindow(t *testing.T) {
 
 	at := func(d time.Duration) string { return start.Add(d).Format("2006-01-02T15:04") }
 	for _, tc := range []struct {
-		name, query    string
+		name, query   string
 		kept, dropped string
 	}{
 		{"from", "from=" + at(time.Hour), late, early},

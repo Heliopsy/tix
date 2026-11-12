@@ -66,5 +66,6 @@ curl -H "Authorization: Bearer $TIX_TOKEN" "$TIX_SERVER/api/v1/audit?via=mcp&tok
 ```
 
 `--via` and `via=` repeat for alternatives and refuse a channel that does not exist. `--token` and `token=`
-match the token's name. The Activity screen has a channel dropdown and a token box, and every row's
+match the token's name. The Activity screen has a channel dropdown, a token box, an action box and a From and To
+time window, and every row's
 channel links to the feed narrowed to it. The table output of `tix audit ls` has a `VIA` column.
