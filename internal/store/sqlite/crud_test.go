@@ -696,8 +696,11 @@ func TestAuthRoundTrip(t *testing.T) {
 			t.Fatalf("last seen before any use = %v, %v; want the sign-in time", seen, err)
 		}
 		touched := clk.Now().Add(5 * time.Minute)
-		if err := tx.TouchSession(ctx, "session-hash", touched); err != nil {
+		if err := tx.TouchSession(ctx, "session-hash", touched, time.Time{}); err != nil {
 			return err
+		}
+		if _, kept, err := tx.GetSessionByHash(ctx, "session-hash"); err != nil || kept.After(clk.Now().Add(time.Hour)) {
+			t.Fatalf("expiry after a touch with no renewal = %v, %v; want it left alone", kept, err)
 		}
 		if seen, err = tx.GetSessionLastSeen(ctx, "session-hash"); err != nil || !seen.Equal(touched.UTC()) {
 			t.Fatalf("last seen after a touch = %v, %v; want %v", seen, err, touched)
@@ -705,15 +708,41 @@ func TestAuthRoundTrip(t *testing.T) {
 		if _, err := tx.GetSessionLastSeen(ctx, "nope"); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("last seen of a missing session = %v, want not found", err)
 		}
-		if err := tx.TouchSession(ctx, "nope", touched); !core.IsKind(err, core.KindNotFound) {
+		if err := tx.TouchSession(ctx, "nope", touched, touched.Add(time.Hour)); !core.IsKind(err, core.KindNotFound) {
 			t.Fatalf("touching a missing session = %v, want not found", err)
+		}
+		renewed := clk.Now().Add(90 * time.Minute)
+		if err := tx.TouchSession(ctx, "session-hash", touched.Add(time.Minute), renewed); err != nil {
+			return err
+		}
+		if _, moved, err := tx.GetSessionByHash(ctx, "session-hash"); err != nil || !moved.Equal(renewed.UTC()) {
+			t.Fatalf("expiry after a renewing touch = %v, %v; want %v", moved, err, renewed)
+		}
+		if seen, err = tx.GetSessionLastSeen(ctx, "session-hash"); err != nil || !seen.Equal(touched.Add(time.Minute).UTC()) {
+			t.Fatalf("last seen after a renewing touch = %v, %v", seen, err)
+		}
+		if listed, err := tx.ListActorSessions(ctx, f.actor.ID, clk.Now(), core.Page{Limit: 10}); err != nil ||
+			len(listed) != 1 || !listed[0].ExpiresAt.Equal(renewed.UTC()) {
+			t.Fatalf("listed sessions after renewal = %+v, %v; want the renewed expiry", listed, err)
 		}
 		if err := tx.CreateSession(ctx, f.actor.ID, "kept-hash", clk.Now().Add(time.Hour),
 			core.SessionOrigin{Method: core.LoginMethodPassword, Remembered: true}); err != nil {
 			return err
 		}
-		if origin, err := tx.GetSessionOrigin(ctx, "kept-hash"); err != nil || !origin.Remembered {
-			t.Fatalf("remembered origin = %+v, %v", origin, err)
+		if origin, err := tx.GetSessionOrigin(ctx, "kept-hash"); err != nil || !origin.Remembered ||
+			!origin.SignedInAt.Equal(clk.Now().UTC()) {
+			t.Fatalf("remembered origin = %+v, %v; want remembered, signed in now", origin, err)
+		}
+		earlier := clk.Now().Add(-48 * time.Hour)
+		if err := tx.CreateSession(ctx, f.actor.ID, "switched-hash", clk.Now().Add(time.Hour),
+			core.SessionOrigin{Method: core.LoginMethodSwitch, SignedInAt: earlier}); err != nil {
+			return err
+		}
+		if origin, err := tx.GetSessionOrigin(ctx, "switched-hash"); err != nil || !origin.SignedInAt.Equal(earlier.UTC()) {
+			t.Fatalf("carried sign-in time = %+v, %v; want %v", origin, err, earlier)
+		}
+		if err := tx.DeleteSession(ctx, "switched-hash"); err != nil {
+			return err
 		}
 		if err := tx.DeleteSession(ctx, "kept-hash"); err != nil {
 			return err

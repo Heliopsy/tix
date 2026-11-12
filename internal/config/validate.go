@@ -231,6 +231,8 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 	}{
 		{"session.idle_timeout", cfg.Session.IdleTimeout},
 		{"session.remember_ttl", cfg.Session.RememberTTL},
+		{"session.max_lifetime", cfg.Session.MaxLifetime},
+		{"session.remember_max_lifetime", cfg.Session.RememberMaxLifetime},
 	} {
 		if window.d < 0 || (window.d > 0 && window.d < core.MinSessionDuration) {
 			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).

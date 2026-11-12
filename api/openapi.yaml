@@ -13305,6 +13305,13 @@ components:
           description: SecondFactorEnrollmentRequired is true, on the answer to WhoAmI,
             while the policy refuses this person everything but enrolment.
           type: boolean
+        session_expires_at:
+          description: SessionExpiresAt is when the session the request authenticated
+            with ends unless it is used again, on the answer to WhoAmI.
+          format: date-time
+          type:
+            - "null"
+            - string
         tenant_id:
           description: TenantID is the tenant the actor acts in.
           type: string
@@ -16456,6 +16463,15 @@ components:
         idle_timeout:
           description: IdleTimeout ends a session unused for this long; zero is off.
           type: string
+        max_lifetime:
+          description: MaxLifetime is how long after the sign-in a session in use
+            may be renewed to; zero means a session ends TTL after the sign-in, used
+            or not.
+          type: string
+        remember_max_lifetime:
+          description: RememberMaxLifetime is MaxLifetime for a "keep me signed in"
+            sign-in, which is renewed by RememberTTL.
+          type: string
         remember_ttl:
           description: RememberTTL is how long a "keep me signed in" sign-in lasts;
             zero means the choice is not offered.
@@ -16473,7 +16489,8 @@ components:
             shorten.
           type: string
         ttl:
-          description: TTL is how long a sign-in lasts from the moment it is made.
+          description: TTL is how long a sign-in lasts from the moment it is made,
+            and again from each use while MaxLifetime allows.
           type: string
       type: object
     SnoozeInput:

@@ -49,6 +49,8 @@ type serveOptions struct {
 	sessionTTL         time.Duration
 	sessionIdleTimeout time.Duration
 	sessionRememberTTL time.Duration
+	sessionMax         time.Duration
+	sessionRememberMax time.Duration
 }
 
 // serveConfigFlags are the serve flags that set a configuration key, each
@@ -67,7 +69,8 @@ func serveConfigFlags(cmd *cobra.Command) map[string]string {
 	}
 	for flag, key := range map[string]string{
 		"session-ttl": "session.ttl", "session-idle-timeout": "session.idle_timeout",
-		"session-remember-ttl": "session.remember_ttl",
+		"session-remember-ttl": "session.remember_ttl", "session-max-lifetime": "session.max_lifetime",
+		"session-remember-max-lifetime": "session.remember_max_lifetime",
 	} {
 		if f.Changed(flag) {
 			d, _ := f.GetDuration(flag)
@@ -123,11 +126,17 @@ func newServeCmd(g *globals) *cobra.Command {
 	f.Int64Var(&o.artifactMaxBytes, "artifact-max-bytes", core.DefaultArtifactMaxBytes,
 		"largest artifact blob accepted, in bytes (artifacts.max_bytes); a tenant may only lower it")
 	f.DurationVar(&o.sessionTTL, "session-ttl", core.DefaultSessionTTL.D(),
-		"how long a sign-in lasts (session.ttl); a tenant may only shorten it")
+		"how long a sign-in lasts, renewed by each use (session.ttl); a tenant may only shorten it")
 	f.DurationVar(&o.sessionIdleTimeout, "session-idle-timeout", 0,
 		"end sessions unused this long, 0 for never (session.idle_timeout); a tenant may only shorten it")
 	f.DurationVar(&o.sessionRememberTTL, "session-remember-ttl", core.DefaultSessionRememberTTL.D(),
 		"how long a keep me signed in sign-in lasts, 0 to stop offering it (session.remember_ttl)")
+	f.DurationVar(&o.sessionMax, "session-max-lifetime", core.DefaultSessionMaxLifetime.D(),
+		"how long after sign-in use may keep a session alive, 0 to end it session-ttl after sign-in "+
+			"(session.max_lifetime)")
+	f.DurationVar(&o.sessionRememberMax, "session-remember-max-lifetime",
+		core.DefaultSessionRememberMaxLifetime.D(),
+		"how long after sign-in use may keep a keep me signed in session alive (session.remember_max_lifetime)")
 	f.StringSliceVar(&o.artifactTypes, "artifact-allowed-types", core.DefaultArtifactTypes,
 		"media types and patterns such as image/* an artifact blob may carry (artifacts.allowed_types)")
 	f.DurationVar(&o.requestTimeout, "request-timeout", 0, "per-request timeout")

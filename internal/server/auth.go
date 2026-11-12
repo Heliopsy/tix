@@ -18,7 +18,7 @@ import (
 type StoreCredentials struct {
 	store store.Store
 	// sessions are the server's session settings, which the tenant narrows
-	// into the idle timeout a session is held to.
+	// into the idle timeout and renewal a session is held to.
 	sessions core.SessionPolicy
 }
 
@@ -93,11 +93,19 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 		if session.LastSeenAt, err = tx.GetSessionLastSeen(ctx, hash); err != nil {
 			return err
 		}
+		origin, err := tx.GetSessionOrigin(ctx, hash)
+		if err != nil {
+			return err
+		}
+		session.CreatedAt, session.Remembered = origin.SignedInAt, origin.Remembered
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
 			return err
 		}
-		session.IdleTimeout = core.EffectiveSessionPolicy(c.sessions, *tenant).IdleTimeout.D()
+		policy := core.EffectiveSessionPolicy(c.sessions, *tenant)
+		session.IdleTimeout = policy.IdleTimeout.D()
+		window, limit := policy.Renewal(origin.Remembered)
+		session.Window, session.Limit = window.D(), limit.D()
 		if actor, err := tx.GetActor(ctx, actorID); err == nil {
 			session.Handle = actor.Handle
 		}
@@ -116,14 +124,15 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 	return out, nil
 }
 
-// TouchSession records that a session authenticated a request.
-func (c *StoreCredentials) TouchSession(ctx context.Context, hash string, at time.Time) error {
+// TouchSession records that a session authenticated a request and, when
+// expires is not zero, the expiry that use renewed it to.
+func (c *StoreCredentials) TouchSession(ctx context.Context, hash string, at, expires time.Time) error {
 	scope, ok := core.TenantFrom(ctx)
 	if !ok {
 		return nil
 	}
 	return c.store.Update(ctx, scope, func(tx store.Tx) error {
-		return tx.TouchSession(ctx, hash, at)
+		return tx.TouchSession(ctx, hash, at, expires)
 	})
 }
 

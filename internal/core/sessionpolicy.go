@@ -14,6 +14,14 @@ const DefaultSessionTTL = Duration(12 * time.Hour)
 // when the operator sets nothing.
 const DefaultSessionRememberTTL = Duration(30 * 24 * time.Hour)
 
+// DefaultSessionMaxLifetime is how long an ordinary sign-in may be kept alive
+// by use before it has to sign in again.
+const DefaultSessionMaxLifetime = Duration(30 * 24 * time.Hour)
+
+// DefaultSessionRememberMaxLifetime is how long a "keep me signed in" sign-in
+// may be kept alive by use before it has to sign in again.
+const DefaultSessionRememberMaxLifetime = Duration(90 * 24 * time.Hour)
+
 // MinSessionDuration is the shortest lifetime or idle timeout accepted. Use is
 // recorded at most once a minute, so anything shorter could not be honoured.
 const MinSessionDuration = Duration(time.Minute)
@@ -25,13 +33,20 @@ const SessionTouchInterval = time.Minute
 // SessionPolicy is how long a new sign-in on a tenant lasts and how long it
 // may sit unused: the server's session settings narrowed by the tenant's own.
 type SessionPolicy struct {
-	// TTL is how long a sign-in lasts from the moment it is made.
+	// TTL is how long a sign-in lasts from the moment it is made, and again
+	// from each use while MaxLifetime allows.
 	TTL Duration `json:"ttl" yaml:"ttl"`
 	// IdleTimeout ends a session unused for this long; zero is off.
 	IdleTimeout Duration `json:"idle_timeout" yaml:"idle_timeout"`
 	// RememberTTL is how long a "keep me signed in" sign-in lasts; zero means
 	// the choice is not offered.
 	RememberTTL Duration `json:"remember_ttl" yaml:"remember_ttl"`
+	// MaxLifetime is how long after the sign-in a session in use may be
+	// renewed to; zero means a session ends TTL after the sign-in, used or not.
+	MaxLifetime Duration `json:"max_lifetime" yaml:"max_lifetime"`
+	// RememberMaxLifetime is MaxLifetime for a "keep me signed in" sign-in,
+	// which is renewed by RememberTTL.
+	RememberMaxLifetime Duration `json:"remember_max_lifetime" yaml:"remember_max_lifetime"`
 	// ServerTTL is the server's session.ttl, which a tenant may only shorten.
 	ServerTTL Duration `json:"server_ttl" yaml:"server_ttl"`
 	// ServerIdleTimeout is the server's session.idle_timeout, zero when off.
@@ -52,11 +67,21 @@ func (p SessionPolicy) Lifetime(remember bool) (Duration, bool) {
 	return p.TTL, false
 }
 
+// Renewal is how far each use pushes a session's expiry, and how long after
+// the sign-in it may be pushed to. A zero limit means it is never renewed.
+func (p SessionPolicy) Renewal(remembered bool) (window, limit Duration) {
+	if remembered && p.RememberTTL > 0 {
+		return p.RememberTTL, p.RememberMaxLifetime
+	}
+	return p.TTL, p.MaxLifetime
+}
+
 // EffectiveSessionPolicy narrows the server's session settings by a tenant's
 // own. A tenant value the server has since tightened past is clamped.
 func EffectiveSessionPolicy(server SessionPolicy, t Tenant) SessionPolicy {
 	out := SessionPolicy{
 		TTL: server.TTL, IdleTimeout: server.IdleTimeout, RememberTTL: server.RememberTTL,
+		MaxLifetime: server.MaxLifetime, RememberMaxLifetime: server.RememberMaxLifetime,
 		ServerTTL: server.TTL, ServerIdleTimeout: server.IdleTimeout, ServerRememberTTL: server.RememberTTL,
 	}
 	if t.SessionTTL > 0 && t.SessionTTL < out.TTL {

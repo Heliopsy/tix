@@ -14,7 +14,7 @@
   <input id="password" name="password" type="password" autocomplete="current-password" required>
   {{/* Drawn only where the tenant offers a remembered sign-in longer than
        an ordinary one. Unticked, the cookie ends with the browser. */}}
-  {{with .Data.RememberFor}}<div class="remember"><label for="remember"><input id="remember" type="checkbox" name="remember" value="on"> {{t "Keep me signed in"}}</label>{{template "tip" (tip "Keep me signed in" "Stay signed in on this browser after it closes, until the time shown. Leave it unticked on a shared computer. If this tenant ends sessions left unused, that still applies.")}}<p class="note">{{tt "Up to %s on this browser." .Human}}</p></div>{{end}}
+  {{with .Data.RememberFor}}<div class="remember"><label for="remember"><input id="remember" type="checkbox" name="remember" value="on"> {{t "Keep me signed in"}}</label>{{template "tip" (tip "Keep me signed in" "Stay signed in on this browser after it closes. Each visit keeps it going, up to a limit this server sets. Leave it unticked on a shared computer. If this tenant ends sessions left unused, that still applies.")}}<p class="note">{{tt "For %s after your last visit, on this browser." .Human}}</p></div>{{end}}
   <div class="actions"><button type="submit">{{t "Sign in"}}</button></div>
 </form>
 </div>

@@ -532,9 +532,11 @@ type AuthTx interface {
 	DeleteUser(ctx context.Context, id string) error
 
 	// CreateSession stores a session token hash for an actor, with how the
-	// sign-in that minted it went.
+	// sign-in that minted it went. Its created_at is origin.SignedInAt when
+	// set.
 	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time, origin core.SessionOrigin) error
-	// GetSessionOrigin returns how the session behind a hash was minted.
+	// GetSessionOrigin returns how the session behind a hash was minted,
+	// SignedInAt being its created_at.
 	GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error)
 	// DeleteActorSessions ends every session an actor holds, so removing or
 	// disabling a user takes effect immediately rather than at expiry.
@@ -551,8 +553,9 @@ type AuthTx interface {
 	// authenticated a request, its sign-in time when it never has since.
 	GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error)
 	// TouchSession records that the session behind a hash authenticated a
-	// request at the given time.
-	TouchSession(ctx context.Context, tokenHash string, at time.Time) error
+	// request at the given time and, when expiresAt is not zero, moves its
+	// expiry there.
+	TouchSession(ctx context.Context, tokenHash string, at, expiresAt time.Time) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 

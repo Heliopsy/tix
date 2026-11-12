@@ -175,6 +175,12 @@ type Actor struct {
 	// SessionID is the stored browser session the request authenticated
 	// with, never the cookie value. It is never serialised.
 	SessionID string `json:"-" yaml:"-"`
+	// Term is that session's expiry as this request left it. It is never
+	// serialised; WhoAmI reports it as SessionExpiresAt.
+	Term *SessionTerm `json:"-" yaml:"-"`
+	// SessionExpiresAt is when the session the request authenticated with
+	// ends unless it is used again, on the answer to WhoAmI.
+	SessionExpiresAt *time.Time `json:"session_expires_at,omitempty" yaml:"session_expires_at,omitempty"`
 	// ProjectID restricts the actor to one project when set, as a
 	// project-scoped token does.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
