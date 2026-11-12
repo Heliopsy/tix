@@ -196,15 +196,20 @@ same reason an unrecorded plan is.
 ## The loop
 
 ```sh
-claim=$(tix claim next -p default -s todo -o json -q) || exit $?
+claim=$(tix claim next -p default -s todo --start -o json -q) || exit $?
 ref=$(jq -r .task.ref <<<"$claim")
 token=$(jq -r .lease_token <<<"$claim")
 
-tix task mv "$ref" doing --lease-token "$token" -q
-# ... do the work ...
+# ... do the work; the task is already in doing ...
 tix claim release "$ref" --token "$token" --status done \
   --result exit_code=0 --comment "what happened"
 ```
+
+That is two calls. `--start` moves the task to its first in-progress state
+(`doing` on the default workflow) in the same write as the claim, and the
+release moves it to `done` and gives the lease up. If you would rather finish
+with `task mv`, `tix task mv "$ref" done --lease-token "$token"` also releases
+your lease, because the task is finished; there is no release to run after it.
 
 - `tix claim next` picks the highest-priority unblocked, unclaimed,
   **non-terminal** task matching the filter and claims it atomically. No
@@ -230,8 +235,14 @@ tix claim release "$ref" --token "$token" --status done \
 - A **snoozed** task is invisible to the queue: `claim next` skips it and
   `claim task REF` refuses it with exit `6` (`precondition`) naming the wake
   time, until it wakes on its own or somebody runs `tix task unsnooze REF`.
-- Claiming does **not** transition the task. Move it yourself (`task mv`) or
-  use `--on-start` with `claim exec`.
+- A plain claim does **not** transition the task. Pass `--start` to `claim
+  next` or `claim task` to move it to the first in-progress state in the same
+  write, or `--start-status STATE` to name the state. A task already in
+  progress stays where it is. If the move is refused (exit `2` for a state the
+  workflow lacks, exit `6` for no edge to it), **nothing is claimed**. `claim
+  exec --on-start STATE` starts the task the same way. `--start` is opt-in on
+  purpose: a script that claims and then runs `task mv REF doing` itself keeps
+  working.
 - There is no `tix claim` subcommand that lists leases. To see what is
   currently held (which is how you tell whether another agent is already on
   the queue), ask the task listing: `tix task ls --filter 'claimed:yes'`.
@@ -257,7 +268,10 @@ task's **status or its results**:
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T`: required whenever the task is
-  currently claimed.
+  currently claimed, **including by you**. The token, not your account, proves
+  the claim: two workers can share one account, and a worker whose lease
+  lapsed is still logged in. Moving into a finished state (`done`,
+  `cancelled`) with your token also releases the lease.
 - `tix artifact put REF --lease-token T`: required whenever the task is
   currently claimed. `claim release --result` and `claim exec` already carry
   results under the token, so reach for this one when you are recording
@@ -313,6 +327,14 @@ list:
 ```console
 $ tix artifact put default-2 --kind result --payload '{"stale":true}'
 error: lease_expired: task "default-2" is claimed; supply the lease token
+```
+
+When you are the holder and just forgot the token, the error says so and
+names the flag. The token is the `lease_token` field of your claim's output:
+
+```console
+$ tix task mv default-2 doing
+error: lease_expired: task "default-2" is claimed by you; pass the lease_token your claim printed (--lease-token TOKEN on the command line, lease_token over the API)
 ```
 
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
@@ -413,7 +435,7 @@ tix claim exec -p default -s todo --on-start doing --on-failure blocked -- ./wor
 | Flag | Effect |
 | --- | --- |
 | `--ref` | claim this task instead of the next eligible one |
-| `--on-start` | move here before running (often required, see below) |
+| `--on-start` | move here as the task is claimed (often required, see below) |
 | `--on-success` | release status on exit 0 (default `done`) |
 | `--on-failure` | release status on nonzero exit |
 | `-p / -s / -l / --ttl / --actor` | same as `claim next` |
@@ -434,18 +456,19 @@ and the process exits `2`, not the child's status. The task is left claimed
 under a lease nobody is renewing, so it comes back when the lease lapses.
 Always set `--on-start` unless you know the workflow allows a direct edge.
 
-Equally, do not point `--on-start` at the status the task is already in. That
-is an illegal self-transition, and exec claims the task, fails the move and
-stops **before** the child runs:
+`--on-start` is the claim's own `--start-status`: the move happens in the
+same write as the claim. A task already in that status stays put. A status the
+task cannot reach in one step is refused, **nothing is claimed**, and the
+child never runs:
 
 ```console
-$ tix claim exec --ref default-2 --on-start doing -- true
-claimed DEFAULT-2 until 2026-10-11T13:40:40Z
-error: precondition_failed: cannot move task "default-2" from "doing" to "doing"; allowed targets are todo, blocked, done, cancelled
+$ tix claim exec --ref default-2 --on-start done -- true
+error: precondition_failed: cannot move task "default-2" from "todo" to "done"; allowed targets are doing, blocked, cancelled
 ```
 
-That is exit `6`, which is not in exec's table below, so a child exiting `6`
-and a refused `--on-start` look alike, so read the message.
+That is exit `6` (exit `2` for a status the workflow lacks), which is not in
+exec's table below, so a child exiting `6` and a refused `--on-start` look
+alike; read the message.
 
 Exec's exit codes are not the normal table, because the child's own exit
 status is threaded through:
@@ -488,7 +511,8 @@ that the work did not happen.
 `tix task mv REF STATUS --hops` reaches a status the workflow only gets to
 through another state: it prints the route, then applies one ordinary
 transition per hop, so the audit trail records every state the task passed
-through. With `--dry-run` it prints the route and writes nothing. When two
+through. With `--dry-run` it prints the route, makes every check the real
+hops would, and writes nothing. When two
 routes are equally short it refuses rather than guessing, and asks you to name
 one, written `doing>done`.
 
@@ -783,6 +807,10 @@ fast path when you're closing the task anyway, and need no token of their own.
 
 Every mutating command takes `--dry-run`, which reports what it would do and
 writes nothing. Use it when you are unsure a transition or a delete is legal.
+`task mv --dry-run` runs every check the move runs (the state, the edge, a
+required comment or scope, the lease token, `--version`) and fails with the
+same error and exit code. A state the workflow lacks is exit `2`, and the
+message lists the workflow's states, so you do not need `workflow get`.
 
 ### Post progress on bigger tasks
 

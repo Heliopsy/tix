@@ -31,11 +31,9 @@ prints `using local database PATH` on standard error, `-q` included.
 #!/bin/sh
 set -eu
 
-claim=$(tix claim next -p infra -o json -q) || exit 0   # exit 3: empty queue, or a filter naming nothing
+claim=$(tix claim next -p infra --start -o json -q) || exit 0   # exit 3: empty queue, or a filter naming nothing
 ref=$(printf '%s' "$claim" | jq -r .task.ref)
 token=$(printf '%s' "$claim" | jq -r .lease_token)
-
-tix task mv "$ref" doing --lease-token "$token" -q
 
 # ... do the work, renewing on a ticker ...
 tix claim renew "$ref" --token "$token" --ttl 15m -q
@@ -45,6 +43,11 @@ tix claim release "$ref" --token "$token" --status done --result exit_code=0 --c
 
 Three things make this safe: the claim is atomic, the lease expires on its own, and every write after the claim
 requires the token the claim minted.
+
+`--start` moves the task to its first in-progress state (`doing` on the default workflow) in the claim's own
+transaction, so the loop is a claim, the work and a release. Finishing with `tix task mv "$ref" done
+--lease-token "$token"` instead of the release works too: a move into a terminal state under your own token
+releases the lease in the same write.
 
 ## Claiming
 
@@ -58,6 +61,8 @@ each get a different task, with no lock, no coordinator and no server process.
 | `-l, --tag` | restrict to tags |
 | `--ttl` | how long the lease holds; falls back to the task's lease, the project's, an authored workflow's `default_lease`, the tenant's, the deployment's, then 30m (see [How long a lease lasts](#how-long-a-lease-lasts)) |
 | `--actor` | claim on behalf of another actor |
+| `--start` | also move the task to the first in-progress state its workflow allows from where it is |
+| `--start-status` | the state `--start` moves the task to; implies `--start` |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
 not snoozed, and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal
@@ -75,6 +80,24 @@ gives: a tag exists by being applied, so an unused tag and an unknown one are th
 
 `tix claim task REF` claims one named task instead of taking the next. It fails with exit 4 when the task is
 already held.
+
+### Claiming and starting in one call
+
+`--start` on `claim next` and `claim task`, and `start` / `start_status` on `POST /api/v1/claims/next` and
+`POST /api/v1/tasks/REF/claim` (so the MCP claim tools too), move the task in the same transaction as the claim.
+The state is `--start-status` when given, else the first state in the workflow's order whose category is in
+progress and which has an edge from where the task is. A task already there, or already in progress when no
+state is named, stays put. The audit trail holds the claim and then an ordinary transition, and the claim's
+JSON carries `started_from` with the status the task left.
+
+If the move is refused, nothing is claimed: a state the workflow lacks is exit 2 and lists its states, a state
+with no edge from here is exit 6. A worker is never left holding a task in a state it did not ask for.
+
+It is opt-in, and deliberately not the default. The worker shape this page used to show, and plenty of scripts
+written from it, claim and then run `tix task mv REF doing` themselves; a claim that had already moved the task
+would turn that second call into a refused `doing` to `doing` move. A tenant or workflow setting was considered
+and left out, because a claim whose behaviour depends on a setting the worker cannot see is the same surprise
+in another place.
 
 A snoozed task is not work anybody should start. `claim next` skips it until its wake time passes, and
 `tix claim task REF` refuses it with exit 6 (`precondition`) and the wake time in `details.snoozed_until`.
@@ -112,8 +135,9 @@ lease alone: the holder can still finish or release it.
 ```
 
 `lease_token` is the only field that is not derivable from a later read. Capture it before anything else can
-fail. `priority` is numeric: 1 highest, 3 normal, 5 lowest. Claiming does not by itself transition the task, so
-`status` is whatever it was; move it yourself, or let `claim exec --on-start` do it.
+fail. `priority` is numeric: 1 highest, 3 normal, 5 lowest. A claim without `--start` does not transition the
+task, so `status` is whatever it was; with `--start` it is the state the task was moved to, and `started_from`
+says where it was.
 
 ## Leases
 
@@ -219,6 +243,11 @@ that lease's token.
 - `tix task mv` needs `--lease-token` when the task is claimed
 - `tix artifact put` needs `--lease-token` when the task is claimed
 
+This holds for the holder too. The token proves the process that holds the lease, not the account it runs
+under: several workers often share one agent token, and a worker whose lease lapsed and whose task was then
+re-claimed by the same account is exactly the zombie the guard is for. So a holder that leaves the token out is
+refused like anybody else, and the message says it is the holder and names the flag and the field to pass.
+
 A token that is not the one currently held, and no token at all, both fail with exit 4 and a `lease_expired`
 error:
 
@@ -227,7 +256,7 @@ $ tix claim renew default-1 --token stale
 error: lease_expired: the lease on task "default-1" is no longer held under that token; claim it again
 
 $ tix task mv default-1 done
-error: lease_expired: task "default-1" is claimed; supply the lease token
+error: lease_expired: task "default-1" is claimed by you; pass the lease_token your claim printed (--lease-token TOKEN on the command line, lease_token over the API)
 
 $ tix artifact put default-1 --kind result --payload '{"stale":true}'
 error: lease_expired: task "default-1" is claimed; supply the lease token
@@ -276,7 +305,7 @@ tix claim exec --ref infra-42 --on-start doing --on-failure blocked -- make test
 
 | Flag | Effect |
 | --- | --- |
-| `--on-start` | status to move the task to before running the child |
+| `--on-start` | status to move the task to, in the same write as the claim, before running the child |
 | `--on-success` | status to release to when the child exits 0 (default `done`) |
 | `--on-failure` | status to release to when the child exits non-zero |
 | `--ref` | claim this task instead of the next eligible one |
@@ -531,7 +560,31 @@ tix claim release infra-42 --token "$TOKEN" --status done \
 ```
 
 `--result` takes repeatable `key=value` pairs, `--comment` records a comment with the release, and `--status`
-transitions the task if the workflow allows that edge from the current state.
+transitions the task if the workflow allows that edge from the current state. A status the workflow does not
+define is exit 2, and the message lists the states it does.
+
+### Finishing releases the lease
+
+`tix task mv REF done --lease-token TOKEN`, or any move into a terminal state (a `done` or `cancelled`
+category) under the caller's own live token, gives the lease up in the same write. The audit trail shows the
+transition and then a `task.release` with `reason: terminal`, and a `task.released` event follows the
+`task.transitioned` one. A move into a non-terminal state keeps the lease.
+
+A script that still runs `tix claim release REF --token TOKEN` afterwards keeps working: a release whose token
+no longer matches succeeds without writing anything when the task is unclaimed, finished, and the release
+carries no status, result or comment. One that carries something to write is refused with `lease_expired`, so
+a stale token cannot attach a result to finished work.
+
+A move into a terminal state while somebody else holds a live lease is refused for want of their token, as
+before.
+
+## Dry runs
+
+`tix task mv REF STATE --dry-run`, with or without `--hops`, and `dry_run` on `POST /api/v1/tasks/REF/transition`
+and `/route`, run the move inside its transaction and roll it back. Every check the move makes is made: the
+state exists, the edge exists, a required comment or scope, the lease token and `--version`. A refused dry run
+fails with the same error and exit code as the move, so `--dry-run` approving a state means the move will take
+it. A route dry run judges each hop against the state the hops before it would leave.
 
 ## Watching instead of polling
 
