@@ -214,6 +214,9 @@
     }
 
     function announce() {
+      if (document.documentElement) {
+        document.documentElement.setAttribute("data-live", live ? "on" : "off");
+      }
       setStale(live ? "" : tix.staleNotice(poll !== null));
     }
 
