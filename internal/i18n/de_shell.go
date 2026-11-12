@@ -37,7 +37,6 @@ func init() {
 		"Sources":            "Quellen",
 		"Runs":               "Läufe",
 		"Keyboard shortcuts": "Tastenkürzel",
-		"Admin":              "Admin",
 		"Starred projects":   "Favorisierte Projekte",
 		"overdue tasks":      "überfällige Aufgaben",
 

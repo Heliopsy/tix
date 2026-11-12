@@ -37,7 +37,6 @@ func init() {
 		"Sources":            "Sources",
 		"Runs":               "Exécutions",
 		"Keyboard shortcuts": "Raccourcis clavier",
-		"Admin":              "Admin",
 		"Starred projects":   "Projets favoris",
 		"overdue tasks":      "tâches en retard",
 
