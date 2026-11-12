@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* A list row's More actions (templates/tasks.html "row-more"): the lane card's
+   menu, opened from the dots at the row's end. Drawn quietly, like the lane
+   card's, so a row of dots down the list does not read as a column of
+   buttons; the menu itself is the lane card's (.lanemore-menu in
+   420-lanes.css). */
+li.task .rowmore { flex: 0 0 auto; margin-inline-start: var(--space-1); }
+li.task .rowmore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+li.task .rowmore-btn:hover,
+li.task .rowmore-btn:focus-visible { color: var(--ink); background: var(--accent-soft); }
+@media (pointer: coarse) {
+  li.task .rowmore-btn { min-width: 40px; min-height: 40px; }
+}
+.lanemore-menu .assignme,
+.lanemore-menu .duefield-clear { display: flex; flex-direction: column; margin: 0; }

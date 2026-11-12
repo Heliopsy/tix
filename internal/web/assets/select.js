@@ -232,6 +232,33 @@
     tix.setSelectMode(t ? !on() : false);
   }, true);
 
+  // Select in a list row's More actions menu enters the mode with that row
+  // ticked. Without this file it is a link to the screen in select mode.
+  tix.pickRow = function (ref) {
+    if (!state()) return false;
+    var box = null;
+    boxes().forEach(function (b) { if (b.value === ref) box = b; });
+    if (!box) return false;
+    setMode(true);
+    pick(box, true);
+    state().anchor = box.value;
+    sync();
+    return true;
+  };
+  doc.addEventListener("click", function (event) {
+    var el = event.target;
+    var link = el && el.closest ? el.closest("[data-select-row]") : null;
+    if (!link || !tix.pickRow(link.getAttribute("data-select-row"))) return;
+    event.preventDefault();
+    event.stopPropagation();
+    var menu = link.closest("[popover]");
+    if (menu && typeof menu.hidePopover === "function") {
+      try { menu.hidePopover(); } catch (e) { /* already shut */ }
+    }
+    var row = rowOf(link);
+    if (row && row.focus) row.focus();
+  }, true);
+
   // The toggle is a link drawn as a button, so Space presses it too.
   doc.addEventListener("keydown", function (event) {
     var el = event.target;

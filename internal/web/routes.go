@@ -185,6 +185,8 @@ const (
 	RouteTaskMove        = "/tasks/{ref}/transition"
 	RouteTaskComplete    = "/tasks/{ref}/complete"
 	RouteTaskPriority    = "/tasks/{ref}/priority"
+	RouteTaskAssign      = "/tasks/{ref}/assign"
+	RouteTaskDue         = "/tasks/{ref}/due"
 	RouteTaskDelete      = "/tasks/{ref}/delete"
 	RouteTaskRestore     = "/tasks/{ref}/restore"
 	RouteTaskPurge       = "/tasks/{ref}/purge"

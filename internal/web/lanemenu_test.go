@@ -80,7 +80,8 @@ func TestALaneCardsMoreActionsSurviveEveryHiddenField(t *testing.T) {
 	forms := map[string][]string{
 		"/tasks/" + ref + "/star":                 {`name="next" value="/tasks"`},
 		"/tasks/" + ref + "/priority":             {`name="priority" value="1"`, `name="priority" value="5"`},
-		"/tasks/" + ref:                           {`name="version" value="`, `name="title" value="full control"`, `name="assignee"`, `list="lane-handles"`},
+		"/tasks/" + ref + "/assign":               {`name="assignee"`, `list="lane-handles"`},
+		"/tasks/" + ref + "/due":                  {`name="due" value=""`, `data-date-pattern=`},
 		"/tasks/" + ref + "/tags":                 {`name="tag" required`},
 		"/tasks/" + ref + "/tags/remove":          {`name="tag" value="ops"`},
 		"/tasks/" + ref + "/delete?next=%2Ftasks": {`Delete task`},
@@ -105,8 +106,14 @@ func TestALaneCardsMoreActionsSurviveEveryHiddenField(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(strings.SplitN(menuForm(t, menu, "/tasks/"+ref+"/delete?next=%2Ftasks"), ">", 2)[0], `hx-select-oob="#toast"`) {
-		t.Error("a delete from the menu does not bring the toast and its Undo")
+	for action := range forms {
+		if !strings.Contains(strings.SplitN(menuForm(t, menu, action), ">", 2)[0], `hx-select-oob="#toast"`) {
+			t.Errorf("the form posting to %s does not bring the toast and its Undo", action)
+		}
+	}
+	if form := menuForm(t, menu, "/tasks/"+ref+"/assign\" class=\"assignme"); form == "" ||
+		!strings.Contains(form, `name="assignee" value="me"`) || !strings.Contains(form, `hx-select-oob="#toast"`) {
+		t.Errorf("the menu has no Assign to me that swaps the card and the toast:\n%s", menu)
 	}
 	if got := routeButtons(menu); !slices.Contains(got, "doing") || slices.Contains(got, "blocked") {
 		t.Errorf("the menu's moves are %v, want doing and never the move needing a comment", got)

@@ -422,7 +422,7 @@
             <div id="lflow-{{.Task.Ref}}" class="flowmenu lanepop" popover>
               <p class="flowhead">{{t "Move"}} <span class="mono">{{ref .Task.Ref}}</span> {{t "from"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                    hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="status">
                 {{template "csrf" $.CSRF}}
                 <input type="hidden" name="next" value="{{$v.Self}}">
@@ -449,7 +449,7 @@
             <div id="lprio-{{.Task.Ref}}" class="flowmenu priopop lanepop" popover>
               <p class="flowhead">{{t "Priority of"}} <span class="mono">{{ref .Task.Ref}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/priority"
-                    hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="prio">
                 {{template "csrf" $.CSRF}}
                 <input type="hidden" name="next" value="{{$v.Self}}">
@@ -494,7 +494,7 @@
           <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
           {{if $.CanStar}}
           <form method="post" action="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}"
-                hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -505,7 +505,7 @@
           {{if .Write}}
           {{if snoozed .Task}}
           <form method="post" action="/tasks/{{.Task.Ref}}/snooze/remove"
-                hx-post="/tasks/{{.Task.Ref}}/snooze/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/snooze/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -521,7 +521,7 @@
           <p class="flowhead lanemore-sect">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}}</p>
           {{if .Tick}}
           <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -542,7 +542,7 @@
           <p class="flowhead lanemore-sect">{{t "Move"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
           {{if .Moves}}
           <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -567,7 +567,7 @@
           {{$p := prio .Task.Priority}}
           <p class="flowhead lanemore-sect">{{t "Priority"}}</p>
           <form method="post" action="/tasks/{{.Task.Ref}}/priority" class="lanemore-prio"
-                hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -580,26 +580,26 @@
           {{end}}
 
           {{if .Write}}
-          <form method="post" action="/tasks/{{.Task.Ref}}" class="lanemore-field"
-                hx-post="/tasks/{{.Task.Ref}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+          <form method="post" action="/tasks/{{.Task.Ref}}/assign" class="lanemore-field"
+                hx-post="/tasks/{{.Task.Ref}}/assign" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
-            <input type="hidden" name="version" value="{{.Task.Version}}">
-            <input type="hidden" name="title" value="{{.Task.Title}}">
             <label class="flowhead lanemore-sect" for="lwho-{{.Task.Ref}}">{{t "Assignee"}}</label>
             <span class="lanemore-row">
               <input id="lwho-{{.Task.Ref}}" name="assignee" list="lane-handles" autocomplete="off" value="{{$v.Names.Label .Task.AssigneeActorID}}">
               <button type="submit" class="secondary">{{t "Save"}}</button>
             </span>
           </form>
+          {{template "assign-me" (assignMe .Task.Ref .Task.AssigneeActorID $.Actor $v.Self $.CSRF $card)}}
+          {{template "due-field" (dueField .Task.Ref .Task.DueAt $v.Self $.CSRF (print "ldue-" .Task.Ref) $card)}}
           <p class="flowhead lanemore-sect">{{t "Tags"}}</p>
           {{if .Task.Tags}}
           <ul class="tagchips lanemore-tags">
             {{range .Task.Tags}}
             <li>
               <form method="post" action="/tasks/{{$ref}}/tags/remove"
-                    hx-post="/tasks/{{$ref}}/tags/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-post="/tasks/{{$ref}}/tags/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
                 {{template "csrf" $.CSRF}}
                 <input type="hidden" name="next" value="{{$v.Self}}">
@@ -611,7 +611,7 @@
           </ul>
           {{end}}
           <form method="post" action="/tasks/{{.Task.Ref}}/tags" class="lanemore-field"
-                hx-post="/tasks/{{.Task.Ref}}/tags" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                hx-post="/tasks/{{.Task.Ref}}/tags" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                 hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
             {{template "csrf" $.CSRF}}
             <input type="hidden" name="next" value="{{$v.Self}}">
@@ -685,6 +685,7 @@
   {{end}}
 </div>
 {{end}}
+{{if and $v.Bulk.Write (not $v.Trash)}}<datalist id="row-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
 {{if $v.Arrange.Vertical}}
 {{/* A grouped list: a heading per project or state with its rows under it,
      each heading carrying the same menu as a lane or a board column. The
@@ -980,8 +981,107 @@
       <input type="hidden" name="next" value="{{$v.Self}}">
       <button type="submit" class="secondary" aria-label="{{t "Restore %s" (ref .Ref)}}">{{t "Restore"}}</button>
     </form>
-    {{template "dlg-open" ((opener (print "task-purge-" .Ref) (t "Delete permanently") "trash" "danger small purgeopen" $r.Here).Named (t "Delete %s permanently" (ref .Ref)))}}{{end}}
+    {{template "dlg-open" ((opener (print "task-purge-" .Ref) (t "Delete permanently") "trash" "danger small purgeopen" $r.Here).Named (t "Delete %s permanently" (ref .Ref)))}}
+    {{else}}{{template "row-more" (taskRow $r .)}}{{end}}
   </li>
+{{end}}{{end}}
+
+{{/* row-more is a list row's More actions menu, the lane card's menu for a
+     row: open, complete, move, star, snooze, assign, due date, tags and
+     select. Every entry is a form or a link to a route that already exists,
+     so it works without scripting; with it, the row is data-inplace, so a
+     form here swaps the row and the toast and nothing else. */}}
+{{define "row-more"}}{{$r := .Root}}{{$v := $r.Data}}{{with .Task}}
+  {{$ref := .Ref}}
+  {{$done := index $v.CompleteState .ProjectID}}
+  {{$moves := $v.Flow (index $v.Moves .ProjectID) .Status}}
+  <span class="rowmore">
+    <button type="button" class="rowmore-btn" popovertarget="rmore-{{.Ref}}" data-focus="more"
+            aria-label="{{t "More actions for %s" (ref .Ref)}}" title="{{t "More actions"}}">
+      <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+    </button>
+    <div id="rmore-{{.Ref}}" class="flowmenu lanepop lanemore-menu rowmore-menu" popover data-lane-menu>
+      <p class="flowhead"><span class="mono">{{ref .Ref}}</span></p>
+      <a class="flowgo" href="/tasks/{{.Ref}}?next={{$v.Self | urlquery}}">{{t "Open the task"}}</a>
+      {{if $done}}
+      <form method="post" action="/tasks/{{.Ref}}/complete">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <button type="submit" class="flowgo">{{if eq .Status $done}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}}</button>
+      </form>
+      {{end}}
+      {{if $r.CanStar}}
+      <form method="post" action="/tasks/{{.Ref}}/star{{if .Starred}}/remove{{end}}">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <button type="submit" class="flowgo">{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}</button>
+      </form>
+      {{end}}
+      {{if $moves}}
+      <p class="flowhead lanemore-sect">{{t "Move"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
+      <form method="post" action="/tasks/{{.Ref}}/transition">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        {{range $moves}}
+        <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+          <span class="flowto">{{.To.Label}}</span>
+          {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+        </button>
+        {{end}}
+      </form>
+      {{end}}
+      {{if $v.Bulk.Write}}
+      {{if snoozed .}}
+      <form method="post" action="/tasks/{{.Ref}}/snooze/remove">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <button type="submit" class="flowgo">{{t "Unsnooze"}}</button>
+      </form>
+      {{else}}
+      <p class="flowhead lanemore-sect">{{t "Snooze"}}</p>
+      {{template "snooze-choices" (snoozeForm .Ref $v.Self $r.CSRF (print "rsnooze-" .Ref) "")}}
+      {{end}}
+      <form method="post" action="/tasks/{{.Ref}}/assign" class="lanemore-field">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <label class="flowhead lanemore-sect" for="rwho-{{.Ref}}">{{t "Assignee"}}</label>
+        <span class="lanemore-row">
+          <input id="rwho-{{.Ref}}" name="assignee" list="row-handles" autocomplete="off" value="{{$v.Names.Label .AssigneeActorID}}" placeholder="{{t "unassigned"}}">
+          <button type="submit" class="secondary">{{t "Save"}}</button>
+        </span>
+      </form>
+      {{template "assign-me" (assignMe .Ref .AssigneeActorID $r.Actor $v.Self $r.CSRF "")}}
+      {{template "due-field" (dueField .Ref .DueAt $v.Self $r.CSRF (print "rdue-" .Ref) "")}}
+      <p class="flowhead lanemore-sect">{{t "Tags"}}</p>
+      {{if .Tags}}
+      <ul class="tagchips lanemore-tags">
+        {{range .Tags}}
+        <li>
+          <form method="post" action="/tasks/{{$ref}}/tags/remove">
+            {{template "csrf" $r.CSRF}}
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            <input type="hidden" name="tag" value="{{.}}">
+            <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove the tag %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}} {{template "icon" "x"}}</button>
+          </form>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+      <form method="post" action="/tasks/{{.Ref}}/tags" class="lanemore-field">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <span class="lanemore-row">
+          <input id="rtag-{{.Ref}}" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
+          <button type="submit" class="secondary">{{t "Add"}}</button>
+        </span>
+      </form>
+      {{end}}
+      {{if and $v.Bulk.Any (not $v.Selecting)}}
+      <a class="flowgo lanemore-sect" href="{{$v.SelectHref}}" data-select-row="{{.Ref}}" data-no-press>{{t "Select"}}</a>
+      {{end}}
+      <button type="button" class="flowclose" popovertarget="rmore-{{.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
+  </span>
 {{end}}{{end}}
 
 {{/* Add with details. The title leads and is the one large control, because
@@ -1149,6 +1249,7 @@
       <datalist id="bulk-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
       <div class="bulkpair">
         <button type="submit" id="bulk-who-set" formaction="/tasks/bulk?action=assign">{{t "Assign"}}</button>
+        <button type="submit" class="secondary" formaction="/tasks/bulk?action=assign" name="assign_me" value="1">{{t "Assign to me"}}</button>
       </div>
       <button type="button" class="flowclose" popovertarget="bulk-who" popovertargetaction="hide">{{t "Close"}}</button>
     </div>
