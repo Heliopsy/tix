@@ -24,8 +24,10 @@ Browsers use a session cookie obtained from `POST /api/v1/auth/login`. The cooki
 server is reached over TLS. It ends when the browser closes, unless the step that completes the sign-in sent
 `"remember": true` and the tenant offers Keep me signed in: then the session lasts the tenant's remember_ttl,
 the answer's session carries `"remembered": true`, and the cookie persists with a `Max-Age` ending with the
-session. `GET /api/v1/auth/session-policy` needs no credential and answers the tenant's `ttl`,
-`idle_timeout` and `remember_ttl` in force, beside the server's; `0s` means off. A session left unused past
+session. Each use renews a session to its `ttl` (or `remember_ttl`) past that use, at most once a minute and
+never past `max_lifetime` (or `remember_max_lifetime`) after the sign-in; a remembered session's cookie is sent
+again with the new `Max-Age` when that happens, and `GET /whoami` with a session carries `session_expires_at`. `GET /api/v1/auth/session-policy` needs no credential and answers the tenant's `ttl`,
+`idle_timeout`, `remember_ttl`, `max_lifetime` and `remember_max_lifetime` in force, beside the server's; `0s` means off. A session left unused past
 the idle timeout answers `401` like an expired one. See [configuration.md](configuration.md#sign-in-sessions).
 
 A missing or invalid credential is `401`. A valid credential without the required scope is `403`.

@@ -20,8 +20,9 @@ that create an account or reset a password from the machine serving tix.
 
 Below the password sits Keep me signed in, with how long it lasts, where the tenant offers it (see
 [configuration.md](configuration.md#sign-in-sessions)). Unticked, the sign-in lasts the tenant's session lifetime,
-12h unless the operator or tenant says otherwise, and its cookie ends when the browser closes. Ticked, it lasts
-the remembered lifetime, 30d by default, and the cookie persists until then. The choice rides through the
+12h unless the operator or tenant says otherwise, renewed by each use for up to 30d, and its cookie ends when the
+browser closes. Ticked, it lasts the remembered lifetime, 30d by default, renewed by each use for up to 90d, and
+the cookie persists until then, moving with each renewal. The choice rides through the
 second factor and password change steps. Where the tenant turned it off, or the server did, the box is not
 drawn. An idle timeout, where one is set, ends a remembered session left unused like any other.
 
