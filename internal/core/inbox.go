@@ -110,6 +110,8 @@ func (i InboxItem) Read() bool { return i.ReadAt != nil }
 type InboxFilter struct {
 	// Unread keeps only the items not yet read.
 	Unread bool `json:"unread,omitempty" yaml:"unread,omitempty"`
+	// Kinds keeps only items of these kinds; empty keeps every kind.
+	Kinds []InboxKind `json:"kinds,omitempty" yaml:"kinds,omitempty"`
 	// Page is the cursor and size of the page asked for.
 	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
