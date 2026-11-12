@@ -954,7 +954,8 @@ func (h *handler) setPriority(w http.ResponseWriter, r *http.Request) error {
 // straight from the opening state to a terminal one, so this walks the
 // shortest legal path and applies each transition. Doing it any other way
 // would mean the tick box works only for tasks that happen to be one step
-// from done.
+// from done. The toast offers the way back to the state it left, when the
+// workflow has one, as a move's does.
 func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 	ref, err := taskRefOf(r)
 	if err != nil {
@@ -1003,7 +1004,8 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 		// the plain list.
 		back = RouteTasks
 	}
-	redirectTo(w, r, back, "t-"+task.Ref, done+output.ShowRef(task.Ref))
+	undo := undoRoute(flow.Definition, target, task.Status)
+	redirectTo(w, r, withUndo(back, undo), "t-"+task.Ref, done+output.ShowRef(task.Ref))
 	return nil
 }
 
