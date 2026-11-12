@@ -1018,7 +1018,7 @@
       </form>
       {{end}}
       {{if $moves}}
-      <p class="flowhead lanemore-sect">{{t "Move"}} <span class="pill status {{slug .Status}}">{{.Status}}</span></p>
+      <p class="flowhead lanemore-sect">{{t "Move"}} <span class="pill status {{slug .Status}} flowfrom">{{.Status}}</span></p>
       <form method="post" action="/tasks/{{.Ref}}/transition">
         {{template "csrf" $r.CSRF}}
         <input type="hidden" name="next" value="{{$v.Self}}">
