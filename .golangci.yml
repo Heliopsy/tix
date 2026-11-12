@@ -49,6 +49,10 @@ linters:
 
   exclusions:
     rules:
+      # The German and French catalogs are prose in those languages, which an
+      # English spelling list reads as typos (Konfiguration, exemple).
+      - path: 'internal/i18n/(de|fr)_[^/]*\.go'
+        linters: [misspell]
       # The query builder itself is the one place raw database calls belong.
       - path: 'internal/store/sql/'
         linters: [forbidigo]
