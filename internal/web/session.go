@@ -335,7 +335,7 @@ func settingsPrefs(p prefsView) prefsView {
 // finds it empty, which is the same state in which the footer offers no link
 // to it.
 func (h *handler) showRelease(w http.ResponseWriter, r *http.Request) error {
-	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.state(), changelog.Entries()))
+	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.State(), changelog.Entries()))
 }
 
 // doLogout ends the session the browser presented.

@@ -14,6 +14,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/release"
 	"github.com/heliopsy/tix/internal/server"
 	"github.com/heliopsy/tix/internal/web"
 )
@@ -85,9 +86,11 @@ func Build(conn *connect.Conn, cfg *config.Resolved, p Params) (*server.Server, 
 		return nil, err
 	}
 	c := cfg.Config
+	releases := release.NewWatch()
 	return server.Assemble(server.Options{
-		Logger:  p.Logger,
-		Service: conn.Service,
+		Logger:   p.Logger,
+		Service:  conn.Service,
+		Releases: releases,
 		WebHandler: web.Handler(conn.Service,
 			web.WithSecureCookies(p.CertFile != ""),
 			web.WithTimeStyle(TimeStyle(cfg)),
@@ -97,7 +100,8 @@ func Build(conn *connect.Conn, cfg *config.Resolved, p Params) (*server.Server, 
 			web.WithLeasePolicy(c.Lease.Policy()),
 			web.WithSSH(p.SSHListen, c.SSH.PublicAddress),
 			web.WithImportLimit(c.Server.MaxImportBytes),
-			web.WithArtifactLimit(c.Artifacts.MaxBytes)),
+			web.WithArtifactLimit(c.Artifacts.MaxBytes),
+			web.WithReleaseWatch(releases)),
 		Store:                      conn.Store,
 		Clock:                      p.Clock,
 		TenantID:                   conn.Info.TenantID,

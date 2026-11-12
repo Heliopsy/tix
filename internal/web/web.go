@@ -15,6 +15,7 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/release"
 )
 
 //go:embed templates
@@ -198,7 +199,7 @@ type handler struct {
 	targetHint     string
 	targetDescribe string
 	style          output.TimeStyle
-	releases       *releaseWatch
+	releases       *release.Watch
 	themes         *core.ThemeRegistry
 	leases         lease.Policy
 	pageSize       int
@@ -212,7 +213,7 @@ type handler struct {
 // Handler returns an http.Handler serving the browser interface.
 func Handler(svc core.Service, opts ...Option) http.Handler {
 	h := &handler{
-		releases:      newReleaseWatch(),
+		releases:      release.NewWatch(),
 		svc:           svc,
 		mux:           http.NewServeMux(),
 		logger:        slog.New(slog.NewTextHandler(discard{}, nil)),

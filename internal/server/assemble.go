@@ -16,6 +16,7 @@ import (
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/presence"
+	"github.com/heliopsy/tix/internal/release"
 	"github.com/heliopsy/tix/internal/retention"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
@@ -45,8 +46,11 @@ type Options struct {
 	// Egress is the operator's policy for tenant-supplied urls, strict when
 	// zero. AllowPrivateWebhookTargets widens it for deliveries only.
 	Egress egress.Policy
-	Logger *slog.Logger
-	Clock  clock.Clock
+	// Releases is the process's release check, shared with the browser
+	// interface so both report the same answer. Nil starts one for the API.
+	Releases *release.Watch
+	Logger   *slog.Logger
+	Clock    clock.Clock
 
 	// TenantID serves requests whose Host maps to no tenant. Leaving it empty
 	// answers an unknown host with not found instead.
@@ -117,6 +121,9 @@ func Assemble(opts Options) (*Server, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.New()
 	}
+	if opts.Releases == nil {
+		opts.Releases = release.NewWatch()
+	}
 
 	latest, err := migrations.Latest()
 	if err != nil {
@@ -149,6 +156,7 @@ func Assemble(opts Options) (*Server, error) {
 		PublicURL:        opts.PublicURL,
 		Probe:            opts.Store,
 		ExpectedSchema:   latest,
+		Releases:         opts.Releases,
 	})
 	if err != nil {
 		return nil, err

@@ -266,7 +266,7 @@ func (h *handler) renderConnect(w http.ResponseWriter, r *http.Request, status i
 		return err
 	}
 	t := onboard.Target{URL: baseURL(r), Tenant: h.tenantKey(r), Token: tokenSlot,
-		Version: h.releases.state().Running, SSH: h.sshAddress(r)}
+		Version: h.releases.State().Running, SSH: h.sshAddress(r)}
 	q := connectQueryOf(r)
 	v := connectView{URL: t.URL, Tenant: t.Tenant, Handle: actor.Handle, Self: q.self(),
 		Verify: onboard.Verify(), Preview: onboard.MCPPreview(),
@@ -360,7 +360,7 @@ func (h *handler) redirectDocs(w http.ResponseWriter, r *http.Request) error {
 		return core.NotFound("no documentation page %q", page)
 	}
 	ref := "main"
-	if v := h.releases.state().Running; semverTag(v) {
+	if v := h.releases.State().Running; semverTag(v) {
 		ref = "v" + strings.TrimPrefix(v, "v")
 	}
 	target := docsRepo + ref + "/docs/" + page
