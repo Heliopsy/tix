@@ -1772,7 +1772,7 @@ going back a page.
 | Clicking a title | `tix_title_click` | `edit` makes a click on a listed title rename it in place, with an open link beside it; absent or anything else opens the task |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
 | List groups | `tix_list_group` | `project` or `status` draws the list under a heading per project or per state; anything else, including no cookie, is one ungrouped list |
-| Language | `tix_lang` | `en` or `bg` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
+| Language | `tix_lang` | `en`, `bg`, `de` or `fr` draws every screen in that language; anything else, including no cookie, follows the browser's `Accept-Language` |
 | Colour rows by | `tix_tint` | What the stripe down a task row and the edge of a board card stands for: `status`, `priority` or `none`. Anything else, including no cookie, is the project's own colour |
 | Project names in pickers | `tix_project_label` | How a project reads in every control that chooses one: `key-name` (`INFRA · Infrastructure`), `name` or `key`. Anything else, including no cookie, is the name with the key, `Infrastructure (INFRA)`. The option's value is always the key |
 
@@ -2054,7 +2054,8 @@ stylesheet with no OLED twin.
 ## Language and info tips
 
 Every screen is drawn in the language the browser asks for in `Accept-Language`, and says so in the
-root element's `lang`. English and Bulgarian ship; a header naming neither gets English. Keys are the
+root element's `lang`. English, Bulgarian, German and French ship; a header naming none of them gets
+English. German and French use the app's words for what the two share. Keys are the
 English text (`internal/i18n`), so a word a catalog lacks reads in English rather than as a blank.
 Settings can override the browser's choice for this browser (`tix_lang`).
 
@@ -2079,7 +2080,9 @@ A placeholder is italic, in the muted colour and the body font even in a monospa
 not read as a value already saved, and one that gives an example says so: "For example, laptop".
 
 To add a language, add `internal/i18n/<lang>_*.go` files registering one entry per key. The tests in
-`internal/web/i18n_internal_test.go` name every key it is missing.
+`internal/web/i18n_internal_test.go` name every key it is missing. Bulgarian is complete and a new string
+needs its entry (`i18n.Complete`); German and French may trail by up to 5% of the keys (`i18n.Coverage`),
+and what they lack reads in English.
 
 ## The second factor
 

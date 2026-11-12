@@ -53,7 +53,7 @@ func TestABrowserAskingForBulgarianGetsBulgarian(t *testing.T) {
 func TestABrowserAskingForNothingGetsEnglish(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
-	for _, lang := range []string{"", "de-DE,fr;q=0.8"} {
+	for _, lang := range []string{"", "es-ES,it;q=0.8"} {
 		b := f.as("alice")
 		b.lang = lang
 		page := b.page("/tasks")
@@ -104,5 +104,41 @@ func TestALanguageChosenOnSettingsOutranksTheBrowser(t *testing.T) {
 	wantStatus(t, b.post("/language", url.Values{"lang": {"xx"}, "next": {"/tasks"}}), http.StatusSeeOther)
 	if !strings.Contains(b.page("/tasks"), `<html lang="en"`) {
 		t.Errorf("an unknown language did not go back to the browser's own")
+	}
+}
+
+// TestGermanAndFrenchBrowsersGetTheirLanguage checks the two languages shared
+// with the app: the root's lang, the navigation, and the settings picker
+// naming each in its own language.
+func TestGermanAndFrenchBrowsersGetTheirLanguage(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	cases := []struct {
+		header, lang, tasks, projects string
+	}{
+		{"de-DE,de;q=0.9,en;q=0.5", "de", "<span>Aufgaben</span>", "<span>Projekte</span>"},
+		{"fr-FR,fr;q=0.9,en;q=0.5", "fr", "<span>Tâches</span>", "<span>Projets</span>"},
+	}
+	for _, tc := range cases {
+		b := f.as("alice")
+		b.lang = tc.header
+		page := b.page("/tasks")
+		if !strings.Contains(page, `<html lang="`+tc.lang+`"`) {
+			t.Errorf("%s: root does not say lang=%s", tc.header, tc.lang)
+		}
+		menu := nav(t, page)
+		if !strings.Contains(menu, tc.tasks) || !strings.Contains(menu, tc.projects) || strings.Contains(menu, "<span>Tasks</span>") {
+			t.Errorf("%s: navigation is not translated:\n%s", tc.header, menu)
+		}
+		head := between(t, page, "<head>", "</head>")
+		if !strings.Contains(head, `<script id="tix-i18n" type="application/json">`) {
+			t.Errorf("%s: no script table", tc.header)
+		}
+	}
+	form := between(t, f.as("alice").page("/settings"), `action="/language"`, "</form>")
+	for _, want := range []string{`<option value="de" >Deutsch</option>`, `<option value="fr" >Français</option>`} {
+		if !strings.Contains(form, want) {
+			t.Errorf("the language row lacks %s:\n%s", want, form)
+		}
 	}
 }

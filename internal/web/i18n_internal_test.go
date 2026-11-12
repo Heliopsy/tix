@@ -111,6 +111,8 @@ func TestTheLiteralCheckSeesTextAndAttributes(t *testing.T) {
 // helpers, the labels Go hands them, the flashes and titles handlers set, and
 // the texts the scripts write. A missing entry would read in English; an
 // entry nothing asks for is a translation left behind when its key changed.
+// A language outside i18n.Complete may miss keys, within i18n.Coverage, so a
+// new screen does not wait on every catalog.
 func TestEveryLanguageCoversEveryKey(t *testing.T) {
 	t.Parallel()
 	keys := allKeys(t)
@@ -137,10 +139,30 @@ func TestEveryLanguageCoversEveryKey(t *testing.T) {
 		sort.Strings(missing)
 		sort.Strings(unused)
 		for _, key := range missing {
-			t.Errorf("%s has no entry for %q (from %s)", lang, key, keys[key])
+			if i18n.Complete[lang] {
+				t.Errorf("%s has no entry for %q (from %s)", lang, key, keys[key])
+			}
+		}
+		if got := 1 - float64(len(missing))/float64(len(keys)); !i18n.Complete[lang] && got < i18n.Coverage {
+			t.Errorf("%s holds %.1f%% of the keys, under the %.0f%% floor; first missing: %q",
+				lang, got*100, i18n.Coverage*100, missing[:min(len(missing), 20)])
 		}
 		for _, key := range unused {
 			t.Errorf("%s has an entry for %q, which nothing asks for", lang, key)
+		}
+	}
+}
+
+func TestEveryShippedLanguageIsNamedInItself(t *testing.T) {
+	t.Parallel()
+	for _, lang := range i18n.Languages() {
+		if languageNames[lang] == "" {
+			t.Errorf("%s has no name in the language picker", lang)
+		}
+	}
+	for _, lang := range []string{i18n.German, i18n.French} {
+		if !i18n.Supported(lang) {
+			t.Errorf("%s is not shipped", lang)
 		}
 	}
 }
