@@ -2262,6 +2262,33 @@ anyone who can steer requests and watch their sizes, which is the BREACH attack.
 form carries is masked with a fresh one-time pad on every response, and the cookie's own value is
 never on a page. The check accepts the masked value or the plain one.
 
+## Installing as an app
+
+The interface can be installed as an app: Install in a desktop Chromium browser, Add to Home Screen on a
+phone, Add to Dock in Safari. Every page links `/manifest.webmanifest`, which names the app after your tenant
+(tix on the sign-in screen), opens `/` in a window of its own, and uses the tix icon, with a full-bleed variant
+for launchers that crop icons to a shape. The browser bar takes the page's own white, or its dark grey under a
+dark system scheme. The manifest is built per request, so its shortcuts are in your language.
+
+**Launcher shortcuts.** A long press on the icon, or its context menu, offers the app's shortcuts: Quick add
+opens the task list with the quick add box focused (`/tasks?add=`), Inbox opens the inbox and My work opens
+My work. They are the same three the tix-mobile app offers, with the same names.
+
+**Sharing to tix.** Once installed on a phone, tix is offered in other apps' Share menus. A share arrives at
+`/share?title=...&text=...&url=...`, which joins the three into one line and opens the task list with it in
+quick add, focused and previewed: the title first unless the text already starts with it, then the text, then
+the address unless the text already holds it, all on one line. Nothing is created until you press Add, so the
+line can be fixed first; a `#word` or `@name` in shared text is read as quick-add syntax like anything typed,
+and the preview shows it. A share while signed out goes through sign-in and comes back to quick add.
+`/tasks?add=LINE` does the same from any link; the line is not kept in the pager or the filter links, and
+staying on the list after the add does not put it back in the box.
+
+**The service worker.** `/sw.js` is a service worker at scope `/`, registered by `assets/pwa.js` and served
+`no-cache` so a new release's worker is picked up at once. It caches nothing and answers nothing: every request
+goes to the network exactly as without it. Every screen but sign-in is a tenant's data, and a cached copy would
+be one more place it outlives a sign-out on a shared machine, so the installed app needs the server like the
+browser tab does. The worker exists because some browsers offer Install only to a page one controls.
+
 ## Something to look at
 
 An empty install is a poor demonstration of screens whose whole job is showing work in progress.
