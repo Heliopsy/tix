@@ -26,6 +26,7 @@ var helpDocs = map[string]helpDoc{
 	"/settings/notifications/{id}":       {"web-ui.md", "notification-channels"},
 	RouteRelease:                         {"web-ui.md", "the-release-screen"},
 	"/activity":                          {"web-ui.md", "activity"},
+	RouteLiveEvents:                      {"web-ui.md", "live-events"},
 	"/stats":                             {"statistics.md", "what-each-figure-means"},
 	"/admin/status":                      {"web-ui.md", "server-administration"},
 	"/projects":                          {"web-ui.md", "projects"},

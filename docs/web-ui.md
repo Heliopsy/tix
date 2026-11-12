@@ -71,8 +71,8 @@ project is a lookup on every page, and a longer list is what that screen is for.
 one you can no longer read, is left out.
 
 **Manage** holds Trash and the screens Configure and Data used to: Workflows, Tenant, Domains, Users, Tokens,
-SSH keys, Status, Connections, Webhooks, Import and export, and Sync. It was called Admin; the screens kept
-their `/admin/...` addresses and the group kept its id, `admin`, so a fold saved in the cookie still applies.
+SSH keys, Status, Connections, Webhooks, Live events, Import and export, and Sync. It was called Admin; the
+screens kept their `/admin/...` addresses and the group kept its id, `admin`, so a fold saved in the cookie still applies.
 The configuration screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a
 reader with neither gets no Manage heading at all. A global admin also gets Global admin there, whatever the
 preference says: every tenant with Create a tenant, Rename and Delete, each opening a dialog; the global
@@ -1540,6 +1540,29 @@ groups several steps), and says Copied for a moment. The JSON is part of the pag
 second request, and where the browser offers no Clipboard API (a page served over plain HTTP) it falls
 back to the older copy command. Audit entries never hold a token's secret, so neither does the copy. On
 the command line `tix audit ls -o json` prints the same entries.
+
+## Live events
+
+`/events`, under Manage with Advanced screens on, is the tenant's raw event stream: every event as clients
+receive it over the WebSocket, newest first, the browser's `tix watch` and the app's Live events screen.
+Activity is the audit log, kept and searchable; Live events keeps nothing, so a reload starts from now.
+Each row shows the sequence number, the event type, the time, who caused it (the handle, else the actor's
+id, else system) and the subject, a task by its reference and a project by its key. Open goes to the task
+or the project when there is one, and Details opens the event as JSON with a Copy JSON button.
+
+The filter is a plain `GET` form, so a narrowed stream is a link somebody can send: `type` takes event
+types separated by commas, with a trailing `*` matching a prefix (`task.*`), and `project` a project key;
+both are sent to the server with the subscription. `actor` takes handles or ids separated by commas and is
+matched in the browser, as `tix watch --actor` is. `since` replays the events after that sequence number,
+then follows live; empty starts from now. When the server no longer keeps events that far back the screen
+says so and carries on from now. A project key that names no project, or a sequence number that is not a
+whole number above zero, draws the reason and a way back to the whole stream instead of subscribing.
+
+Pause holds the list still and counts what arrives meanwhile ("Paused, 3 new events."); Resume puts those
+on top. Clear the list empties it. The screen keeps the latest 500 events and drops older ones. The line
+above the list says whether it is connecting, live or offline; offline reconnects with backoff and resumes
+after the last event it showed, so a dropped connection loses nothing the server still keeps. Following
+events needs JavaScript; without it the filter still works as a link.
 
 ## Housekeeping
 

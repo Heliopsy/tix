@@ -1,0 +1,92 @@
+{{define "content"}}
+{{$v := .Data}}
+<div class="headtip"><h1>{{t "Live events"}}</h1>{{template "tip" (tip "Live events" "Every event this tenant emits, as clients receive it: the stream tix watch prints. Nothing here is stored; a reload starts from now unless you replay from a sequence number. Activity is the audit log, kept and searchable." "docs/web-ui.md")}}{{template "help" $}}</div>
+<p class="lede">{{t "The tenant's events as they happen, newest first."}}</p>
+
+{{/* The filter is a plain GET form, so a narrowed stream is a link somebody
+     can send and works without a script; only following it needs one. The
+     types and the project go to the server, the actors are matched here, as
+     tix watch --actor does. */}}
+<form method="get" action="/events" class="filterbar liveeventsfilter">
+  <span class="field">
+    <label for="le-type">{{t "Event types"}}</label>
+    <input id="le-type" name="type" value="{{$v.Query.Types}}" autocomplete="off" spellcheck="false" data-shortcut-target="filter">
+    {{template "tip" (tip "Event types" "Comma separated, sent to the server. A trailing * matches a prefix, as in task.*.")}}
+  </span>
+  <span class="field">
+    <label for="le-project">{{t "Project"}}</label>
+    <select id="le-project" name="project">
+      <option value="">{{t "Every project"}}</option>
+      {{$project := $v.Query.Project}}
+      {{range $v.Projects}}<option value="{{.Key}}" {{if eq (key .Key) (key $project)}}selected{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
+    </select>
+  </span>
+  <span class="field">
+    <label for="le-actor">{{t "Actors"}}</label>
+    <input id="le-actor" name="actor" value="{{$v.Query.Actor}}" autocomplete="off" spellcheck="false">
+    {{template "tip" (tip "Actors" "Handles or ids, comma separated. Matched in this browser, as tix watch does.")}}
+  </span>
+  <span class="field">
+    <label for="le-since">{{t "Replay from sequence number"}}</label>
+    <input id="le-since" name="since" value="{{$v.Query.Since}}" inputmode="numeric" autocomplete="off">
+    {{template "tip" (tip "Replay from sequence number" "Shows the events after this number again, then follows live. Empty starts from now.")}}
+  </span>
+  <button class="secondary" type="submit">{{t "Apply"}}</button>
+</form>
+{{if not $v.ProjectsWhole}}<p class="muted short-projects">{{t "This picker does not list every project in this tenant, so a project missing from it cannot be chosen here."}}</p>{{end}}
+
+{{if $v.Query.Active}}
+<p class="activechips">
+  <span class="muted">{{t "Showing"}}</span>
+  {{if $v.Query.Types}}<a class="chip removable" href="{{$v.Query.Without "type"}}">{{t "type %s" $v.Query.Types}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Project}}<a class="chip removable" href="{{$v.Query.Without "project"}}">{{t "project %s" (key $v.Query.Project)}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Actor}}<a class="chip removable" href="{{$v.Query.Without "actor"}}">{{t "actor %s" $v.Query.Actor}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Since}}<a class="chip removable" href="{{$v.Query.Without "since"}}">{{t "after #%s" $v.Query.Since}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  <a class="clear" href="/events">{{t "Clear all"}}</a>
+</p>
+{{end}}
+
+{{if $v.Problem}}
+<p class="flash error liveevents-problem" role="alert">{{t $v.Problem $v.ProblemArg}} <a href="/events" data-way-back>{{t "Follow every event"}}</a></p>
+{{else}}
+{{/* Everything events.js needs is on this element: where the stream is, the
+     server half of the filter, the actors to keep, the replay point, the
+     project keys a row names and links by, and how many rows to keep. A
+     server with no event stream draws no data-events, and the script stays
+     out of it. */}}
+<section id="live-events" class="liveevents"{{with .EventsPath}} data-events="{{.}}"{{end}} data-filter="{{$v.Filter}}" data-actors="{{$v.Actors}}" data-since="{{$v.Since}}" data-keys="{{$v.Keys}}" data-cap="{{$v.Cap}}">
+  <div class="liveevents-bar">
+    <p class="liveevents-state" data-le-state="{{if .EventsPath}}connecting{{else}}off{{end}}" role="status" aria-live="polite">{{if .EventsPath}}{{t "Connecting to the event stream"}}{{else}}{{t "This server does not stream events."}}{{end}}</p>
+    <button type="button" class="secondary" data-le-pause aria-pressed="false" data-needs-js>{{t "Pause"}}</button>
+    <button type="button" class="secondary" data-le-clear data-needs-js>{{t "Clear the list"}}</button>
+  </div>
+  <noscript><p class="muted">{{t "Following events needs JavaScript. The filters above still make a link you can send."}}</p></noscript>
+  <p class="liveevents-notice" data-le-notice role="status" hidden></p>
+  <p class="liveevents-paused" data-le-paused role="status" hidden></p>
+  <p class="muted liveevents-cap">{{t "Keeping the latest %d events; older ones are dropped." $v.Cap}}</p>
+  <div class="card liveevents-card">
+    <table class="liveevents-table">
+      <thead><tr><th scope="col">{{t "Sequence"}}</th><th scope="col">{{t "Type"}}</th><th scope="col">{{t "Time"}}</th><th scope="col">{{t "Actor"}}</th><th scope="col">{{t "Subject"}}</th><th scope="col"><span class="sr-only">{{t "Actions"}}</span></th></tr></thead>
+      <tbody data-le-rows></tbody>
+    </table>
+    <div class="liveevents-empty" data-le-empty>
+      <p><strong>{{t "Waiting for events"}}</strong></p>
+      <p class="muted">{{t "Changes in this tenant show up here as they happen. Earlier ones are not shown unless you replay from a sequence number."}}</p>
+    </div>
+  </div>
+</section>
+{{/* One dialog for every row's details, filled by events.js when a row's
+     Details is pressed. Copy JSON is the site's copy button (assets/copy.js),
+     handed the event's JSON. */}}
+<dialog id="live-event" class="actiondlg wide liveevents-dlg" aria-labelledby="live-event-title" data-dlg>
+<div class="actiondlg-head"><h2 id="live-event-title" data-le-title>{{t "Event"}}</h2><a class="actiondlg-x" href="{{$v.Query.Href}}" data-dlg-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</a></div>
+<pre class="liveevents-json" data-le-json></pre>
+<div class="actions">
+  <button type="button" class="btn" data-le-copy data-copy-text="">{{t "Copy JSON"}}</button>
+  <a class="btn secondary" data-le-open href="{{$v.Query.Href}}" hidden>{{t "Open"}}</a>
+  <a class="btn link" href="{{$v.Query.Href}}" data-dlg-close>{{t "Close"}}</a>
+</div>
+</dialog>
+<script src="/assets/events.js" defer></script>
+{{end}}
+{{end}}

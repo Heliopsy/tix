@@ -223,6 +223,7 @@ var paletteScreens = []paletteScreen{
 	{RouteStatus, "Status", "Manage", true, false},
 	{RouteConnections, "Connections", "Manage", true, false},
 	{RouteWebhooks, "Webhooks", "Manage", true, false},
+	{RouteLiveEvents, "Live events", "Manage", true, false},
 	{RouteTransfer, "Import and export", "Manage", true, false},
 	{RouteSync, "Sync", "Manage", true, false},
 	{RouteSettings, "Settings", "", false, false},
