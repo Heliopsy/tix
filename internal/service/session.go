@@ -610,12 +610,18 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 	}
 	ttl, remembered := policy.Lifetime(rememberFrom(ctx))
 	origin.Remembered = remembered
+	_, limit := policy.Renewal(remembered)
+	if origin.SignedInAt.IsZero() {
+		origin.SignedInAt = signedInFrom(ctx)
+	}
 	minted, err := auth.MintSession(l.clock, auth.SessionInput{
-		ActorID:  actor.ID,
-		TenantID: scope.TenantID,
-		Handle:   actor.Handle,
-		Role:     actor.Role,
-		TTL:      ttl.D(),
+		ActorID:    actor.ID,
+		TenantID:   scope.TenantID,
+		Handle:     actor.Handle,
+		Role:       actor.Role,
+		TTL:        ttl.D(),
+		SignedInAt: origin.SignedInAt,
+		Limit:      limit.D(),
 	})
 	if err != nil {
 		return nil, err
@@ -626,6 +632,7 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 			return err
 		}
 		origin.UserAgent = core.TruncateUserAgent(m.via.UserAgent)
+		origin.SignedInAt = minted.Stored.CreatedAt
 		if err := m.tx.CreateSession(ctx, actor.ID, minted.Stored.TokenHash, minted.Session.ExpiresAt,
 			origin); err != nil {
 			return err

@@ -84,8 +84,8 @@ type Options struct {
 	// ArtifactRoutes, the web handler's own, take a body sized to carry it.
 	MaxArtifactBytes int64
 	ArtifactRoutes   []string
-	// Sessions are the server's session settings; the idle timeout is
-	// enforced as each request authenticates.
+	// Sessions are the server's session settings; the idle timeout and
+	// renewal are applied as each request authenticates.
 	Sessions        core.SessionPolicy
 	ShutdownTimeout time.Duration
 

@@ -12,15 +12,23 @@ import (
 )
 
 // touchingSessionStore records every TouchSession call and moves the stored
-// last-seen time the way the real store does.
+// last-seen time and expiry the way the real store does. A gone session
+// answers not found, as a row deleted between lookup and touch does.
 type touchingSessionStore struct {
 	*fakeSessionStore
 	touches []time.Time
+	gone    bool
 }
 
-func (s *touchingSessionStore) TouchSession(_ context.Context, hash string, at time.Time) error {
+func (s *touchingSessionStore) TouchSession(_ context.Context, hash string, at, expires time.Time) error {
+	if s.gone {
+		return core.NotFound("session not found")
+	}
 	s.touches = append(s.touches, at)
 	s.byHash[hash].LastSeenAt = at
+	if !expires.IsZero() {
+		s.byHash[hash].ExpiresAt = expires
+	}
 	return nil
 }
 

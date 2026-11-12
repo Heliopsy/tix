@@ -339,8 +339,8 @@ type Artifacts struct {
 // Session bounds how long a sign-in lasts, for this deployment. A tenant may
 // tighten each and loosen none.
 type Session struct {
-	// TTL is how long a sign-in lasts from the moment it is made, 12h by
-	// default.
+	// TTL is how long a sign-in lasts from the moment it is made, and from
+	// each use after, 12h by default.
 	TTL core.Duration `yaml:"ttl"`
 	// IdleTimeout ends a session nobody used for this long. Zero, the
 	// default, turns it off.
@@ -348,11 +348,19 @@ type Session struct {
 	// RememberTTL is how long a "keep me signed in" sign-in lasts, 30d by
 	// default. Zero stops offering it.
 	RememberTTL core.Duration `yaml:"remember_ttl"`
+	// MaxLifetime is how long after the sign-in use may keep a session
+	// alive, 30d by default. Zero stops renewal: a session ends TTL after it
+	// was made.
+	MaxLifetime core.Duration `yaml:"max_lifetime"`
+	// RememberMaxLifetime is MaxLifetime for a "keep me signed in" session,
+	// 90d by default.
+	RememberMaxLifetime core.Duration `yaml:"remember_max_lifetime"`
 }
 
 // Policy is the deployment's session settings before any tenant narrows them.
 func (s Session) Policy() core.SessionPolicy {
-	return core.SessionPolicy{TTL: s.TTL, IdleTimeout: s.IdleTimeout, RememberTTL: s.RememberTTL}
+	return core.SessionPolicy{TTL: s.TTL, IdleTimeout: s.IdleTimeout, RememberTTL: s.RememberTTL,
+		MaxLifetime: s.MaxLifetime, RememberMaxLifetime: s.RememberMaxLifetime}
 }
 
 // ArtifactBodyLimit is the request body an artifact upload of at most maxBytes
@@ -664,7 +672,8 @@ func Defaults() Config {
 		Auth:     Auth{Mode: DefaultAuthMode},
 		Artifacts: Artifacts{
 			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
-		Session:  Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL},
+		Session: Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,
+			MaxLifetime: core.DefaultSessionMaxLifetime, RememberMaxLifetime: core.DefaultSessionRememberMaxLifetime},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
 		SSH: SSH{

@@ -4,26 +4,29 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 )
 
-// WithSessionPolicy sets the server's session.ttl, session.idle_timeout and
-// session.remember_ttl. A zero lifetime keeps the built-in 12h.
+// WithSessionPolicy sets the server's session settings. A zero lifetime keeps
+// the built-in 12h; a zero maximum lifetime turns renewal off.
 func WithSessionPolicy(p core.SessionPolicy) Option {
 	return func(l *Local) {
 		if p.TTL <= 0 {
 			p.TTL = core.DefaultSessionTTL
 		}
 		l.sessionDefaults = core.SessionPolicy{TTL: p.TTL, IdleTimeout: max(p.IdleTimeout, 0),
-			RememberTTL: max(p.RememberTTL, 0)}
+			RememberTTL: max(p.RememberTTL, 0), MaxLifetime: max(p.MaxLifetime, 0),
+			RememberMaxLifetime: max(p.RememberMaxLifetime, 0)}
 	}
 }
 
 // defaultSessionPolicy is what a service built without WithSessionPolicy uses.
 func defaultSessionPolicy() core.SessionPolicy {
-	return core.SessionPolicy{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL}
+	return core.SessionPolicy{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,
+		MaxLifetime: core.DefaultSessionMaxLifetime, RememberMaxLifetime: core.DefaultSessionRememberMaxLifetime}
 }
 
 // SessionPolicy reports the session settings a new sign-in on the current
@@ -103,5 +106,20 @@ func withRemember(ctx context.Context, remember bool) context.Context {
 // rememberFrom reports whether the sign-in asked to be kept signed in.
 func rememberFrom(ctx context.Context) bool {
 	v, _ := ctx.Value(rememberCtxKey{}).(bool)
+	return v
+}
+
+// signedInCtxKey carries the sign-in time a session continuing an earlier one
+// keeps, so its maximum lifetime runs from the original sign-in.
+type signedInCtxKey struct{}
+
+// withSignedIn records when the sign-in a new session continues happened.
+func withSignedIn(ctx context.Context, at time.Time) context.Context {
+	return context.WithValue(ctx, signedInCtxKey{}, at)
+}
+
+// signedInFrom returns the sign-in time a new session continues, or zero.
+func signedInFrom(ctx context.Context) time.Time {
+	v, _ := ctx.Value(signedInCtxKey{}).(time.Time)
 	return v
 }

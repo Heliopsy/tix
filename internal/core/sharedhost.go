@@ -2,7 +2,10 @@
 
 package core
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // HeaderTenant names the tenant a request is for, on a host that serves
 // several. A host bound to one tenant refuses it when it names another.
@@ -23,6 +26,23 @@ type SessionOrigin struct {
 	UserAgent string
 	// Remembered reports a "keep me signed in" session.
 	Remembered bool
+	// SignedInAt is when the person signed in. A tenant switch carries it
+	// over, so moving between tenants does not restart the maximum lifetime.
+	// Zero is the moment the session is stored.
+	SignedInAt time.Time
+}
+
+// SessionTerm is a session's expiry as the request that used it left it.
+type SessionTerm struct {
+	// ExpiresAt is when the session ends unless it is used again.
+	ExpiresAt time.Time
+	// Remembered marks a "keep me signed in" session, whose browser cookie
+	// lasts as long as the session.
+	Remembered bool
+	// Renewed reports that this request pushed ExpiresAt later.
+	Renewed bool
+	// CheckedAt is when the request was checked, by the server's clock.
+	CheckedAt time.Time
 }
 
 // ServedHost describes the host a request arrived on, as the transport

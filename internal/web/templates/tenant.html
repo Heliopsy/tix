@@ -102,7 +102,7 @@
        the next sign-in; the idle timeout to every session at once. */}}
   <div class="field-label">
     <label for="session_ttl">{{t "Sign-in lasts"}}</label>
-    {{template "field-info" "How long a sign-in on this tenant lasts from the moment it is made, such as 8h. It can be shorter than the server's but not longer. Sessions already signed in keep the expiry they were given."}}
+    {{template "field-info" "How long a sign-in on this tenant lasts after it is made and again after each use, such as 8h, up to the server's maximum lifetime. It can be shorter than the server's but not longer. A new value applies from each session's next use."}}
   </div>
   <input id="session_ttl" name="session_ttl" class="mono"
          value="{{if .Data.Tenant.SessionTTL}}{{.Data.Tenant.SessionTTL.Human}}{{end}}"

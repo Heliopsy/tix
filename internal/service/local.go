@@ -319,6 +319,10 @@ func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
 	}
 	out := *actor
 	out.GlobalAdmin = global
+	if actor.Term != nil {
+		expires := actor.Term.ExpiresAt
+		out.SessionExpiresAt = &expires
+	}
 	if err := l.describeAccount(ctx, &out); err != nil {
 		return nil, err
 	}

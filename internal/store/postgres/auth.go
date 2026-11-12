@@ -301,7 +301,7 @@ func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expir
 		Set("id", id.New()).
 		Set("actor_id", actorID).
 		Set("token_hash", tokenHash).
-		Set("created_at", t.now()).
+		Set("created_at", t.signedIn(origin.SignedInAt)).
 		Set("expires_at", timeArg(expiresAt)).
 		Set("method", origin.Method).
 		Set("user_agent", origin.UserAgent).
@@ -335,22 +335,32 @@ func (t *tx) GetSessionByHash(ctx context.Context, tokenHash string) (string, ti
 // GetSessionOrigin returns how the session behind a hash was minted.
 func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error) {
 	b := t.builder("sessions").
-		Select("method", "second_factor", "remembered").
+		Select("method", "second_factor", "remembered", "created_at").
 		Where("token_hash = ?", tokenHash).
 		Limit(1)
 	q, args := b.SelectQuery()
 	var (
-		out    core.SessionOrigin
-		factor bool
+		out     core.SessionOrigin
+		factor  bool
+		created sql.NullTime
 	)
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor, &out.Remembered); err != nil {
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor, &out.Remembered, &created); err != nil {
 		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
 			return core.SessionOrigin{}, core.NotFound("session not found")
 		}
 		return core.SessionOrigin{}, mapErr(err, "reading session")
 	}
 	out.SecondFactor = factor
+	out.SignedInAt = scanTime(created)
 	return out, nil
+}
+
+// signedIn is the created_at a session is stored with: at, or now when zero.
+func (t *tx) signedIn(at time.Time) time.Time {
+	if at.IsZero() {
+		return t.now()
+	}
+	return at.UTC()
 }
 
 var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash",
@@ -642,11 +652,15 @@ func (t *tx) GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Tim
 	return scanTime(created), nil
 }
 
-// TouchSession records that the session behind a hash authenticated a request.
-func (t *tx) TouchSession(ctx context.Context, tokenHash string, at time.Time) error {
+// TouchSession records that the session behind a hash authenticated a
+// request, and the expiry that use renewed it to when expiresAt is not zero.
+func (t *tx) TouchSession(ctx context.Context, tokenHash string, at, expiresAt time.Time) error {
 	b := t.builder("sessions").
 		Where("token_hash = ?", tokenHash).
 		Set("last_seen_at", timeArg(at))
+	if !expiresAt.IsZero() {
+		b = b.Set("expires_at", timeArg(expiresAt))
+	}
 	n, err := t.execUpdate(ctx, b, "touching session")
 	if err != nil {
 		return err

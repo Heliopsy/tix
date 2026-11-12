@@ -541,6 +541,9 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 		// one that was. Only a cookie identifies a session; a bearer token does not.
 		if c, err := r.Cookie(wire.SessionCookieName); err == nil && c.Value != "" {
 			ctx = service.WithSessionToken(ctx, c.Value)
+			if renewed := auth.RenewedSessionCookie(c.Value, actor.Term, rt.secureCookie(r)); renewed != nil {
+				http.SetCookie(w, renewed)
+			}
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

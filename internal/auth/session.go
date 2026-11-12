@@ -38,6 +38,12 @@ type StoredSession struct {
 	LastSeenAt time.Time
 	// IdleTimeout ends the session once unused this long; zero is off.
 	IdleTimeout time.Duration
+	// Remembered marks a "keep me signed in" session.
+	Remembered bool
+	// Window is how far past a use the session's expiry is pushed, and Limit
+	// how long after CreatedAt it may be pushed to. A zero Limit is no renewal.
+	Window time.Duration
+	Limit  time.Duration
 }
 
 // Active reports whether the session may still authenticate at time now.
@@ -54,9 +60,27 @@ func (s StoredSession) stale(now time.Time) bool {
 	return now.Sub(s.LastSeenAt) >= core.SessionTouchInterval
 }
 
-// SessionToucher records the time a session last authenticated a request.
+// Renewed is the expiry a use at now moves the session to, or the zero time
+// when it would not move it later. It never passes CreatedAt plus the larger
+// of Limit and Window, so a Limit below Window renews nothing.
+func (s StoredSession) Renewed(now time.Time) time.Time {
+	if s.Window <= 0 || s.Limit <= 0 {
+		return time.Time{}
+	}
+	next := now.Add(s.Window)
+	if ceiling := s.CreatedAt.Add(max(s.Limit, s.Window)); next.After(ceiling) {
+		next = ceiling
+	}
+	if !next.After(s.ExpiresAt) {
+		return time.Time{}
+	}
+	return next
+}
+
+// SessionToucher records the time a session last authenticated a request
+// and, when expires is not zero, the expiry that use renewed it to.
 type SessionToucher interface {
-	TouchSession(ctx context.Context, hash string, at time.Time) error
+	TouchSession(ctx context.Context, hash string, at, expires time.Time) error
 }
 
 // String renders the session without its hash or token value.
@@ -72,6 +96,11 @@ type SessionInput struct {
 	Handle   string
 	Role     core.Role
 	TTL      time.Duration
+	// SignedInAt is when the person signed in, for a session that continues
+	// an earlier one, as a tenant switch does; zero is now. Limit bounds such
+	// a session's expiry as it bounds the earlier one's renewal.
+	SignedInAt time.Time
+	Limit      time.Duration
 }
 
 // MintedSession carries the session returned to the caller and the row to store.
@@ -100,7 +129,14 @@ func MintSession(clk clock.Clock, in SessionInput) (*MintedSession, error) {
 		return nil, err
 	}
 	now := clk.Now()
+	signedIn := now
+	if !in.SignedInAt.IsZero() && in.SignedInAt.Before(now) {
+		signedIn = in.SignedInAt
+	}
 	expires := now.Add(in.TTL)
+	if ceiling := signedIn.Add(max(in.Limit, in.TTL)); in.Limit > 0 && ceiling.Before(expires) && ceiling.After(now) {
+		expires = ceiling
+	}
 	return &MintedSession{
 		Session: core.Session{
 			Token:     secret,
@@ -116,7 +152,7 @@ func MintSession(clk clock.Clock, in SessionInput) (*MintedSession, error) {
 			TenantID:  in.TenantID,
 			Handle:    in.Handle,
 			Role:      in.Role,
-			CreatedAt: now,
+			CreatedAt: signedIn,
 			ExpiresAt: expires,
 		},
 	}, nil
@@ -152,9 +188,17 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 	if !stored.Active(now) {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
+	term := core.SessionTerm{ExpiresAt: stored.ExpiresAt, Remembered: stored.Remembered, CheckedAt: now}
 	if toucher, ok := v.lookup.(SessionToucher); ok && stored.stale(now) {
-		if err := toucher.TouchSession(ctx, stored.TokenHash, now); err != nil {
+		renewed := stored.Renewed(now)
+		if err := toucher.TouchSession(ctx, stored.TokenHash, now, renewed); err != nil {
+			if core.IsKind(err, core.KindNotFound) {
+				return nil, core.Unauthenticated("invalid credentials")
+			}
 			return nil, core.Internal("recording session use").Wrap(err)
+		}
+		if !renewed.IsZero() {
+			term.ExpiresAt, term.Renewed = renewed, true
 		}
 	}
 	// The role is the caller's authority and it belongs to the membership, so
@@ -171,6 +215,7 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 		Handle:    stored.Handle,
 		Role:      stored.Role,
 		SessionID: SessionRef(stored.TokenHash),
+		Term:      &term,
 	}, nil
 }
 
@@ -215,6 +260,20 @@ func SessionCookie(s core.Session, secure bool) *http.Cookie {
 		c.Expires = s.ExpiresAt
 		c.MaxAge = max(1, int(s.ExpiresAt.Sub(s.CreatedAt)/time.Second))
 	}
+	return c
+}
+
+// RenewedSessionCookie is the cookie a remembered session is sent again in
+// once a use renewed it, so the browser keeps it as long as the server does.
+// It answers nil for any other session, whose cookie ends with the browser
+// and needs no renewing.
+func RenewedSessionCookie(token string, term *core.SessionTerm, secure bool) *http.Cookie {
+	if token == "" || term == nil || !term.Renewed || !term.Remembered {
+		return nil
+	}
+	// #nosec G124 -- delegates to NewSessionCookie, which sets HttpOnly and SameSite.
+	c := NewSessionCookie(token, term.ExpiresAt, secure)
+	c.MaxAge = max(1, int(term.ExpiresAt.Sub(term.CheckedAt)/time.Second))
 	return c
 }
 

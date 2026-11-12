@@ -116,6 +116,8 @@ var unshadowedKeys = map[string]string{
 	"session.ttl":                    "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-ttl joins the flag layer only when Changed",
 	"session.idle_timeout":           "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-idle-timeout joins the flag layer only when Changed",
 	"session.remember_ttl":           "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-remember-ttl joins the flag layer only when Changed",
+	"session.max_lifetime":           "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-max-lifetime joins the flag layer only when Changed",
+	"session.remember_max_lifetime":  "connect.Dial and serving.Build, into service.WithSessionPolicy and server.Options.Sessions; tix serve --session-remember-max-lifetime joins the flag layer only when Changed",
 	"artifacts.allowed_types":        "connect.Dial, into service.WithArtifactLimits; tix serve --artifact-allowed-types joins the flag layer only when Changed",
 }
 
