@@ -832,7 +832,9 @@ up to the hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday)
 date and time field with its own Snooze button. Every choice is read in the time zone chosen under
 Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed is
 refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said inside
-the card. List rows have no snooze control of their own; open the task or use the lanes.
+the card. List rows have no snooze control of their own; open the task, use the lanes, or on a touch
+screen [swipe the row](#swiping-a-row) towards the start of the line, which snoozes it until tomorrow
+morning.
 
 Each choice is a plain form posting to `/tasks/REF/snooze` with `until` set to `later`, `tomorrow` or
 `next-week`, or with the picked time in `at`, so it works with no script. With htmx a lane card's
@@ -1294,9 +1296,10 @@ there and says why in a toast.
 answer can bring its toast with it. It leaves on its own after five seconds, ten when it offers Undo,
 and stays while the pointer or focus is on it. Undo is offered for a move whose way back the task's
 workflow allows (directly or through other states; a workflow with no way back offers none), for a
-priority change, and for a soft delete, which it restores. It is an ordinary form, so it works with
-scripting off. The redirect carries it as `flashundo`, which every address the screen builds from the
-request drops, as it drops `flash`.
+complete from the list (the way back to the state it left), for a priority change, for a snooze (it
+wakes the task, or puts back the wake time it had), and for a soft delete, which it restores. It is an
+ordinary form, so it works with scripting off. The redirect carries it as `flashundo`, which every
+address the screen builds from the request drops, as it drops `flash`.
 
 Undo is a browser convenience over ordinary operations, not an operation of its own, so the command line
 and the API undo the same things directly: a move with `tix task mv` (or `--hops` when the way back passes
@@ -1351,6 +1354,25 @@ a browser without scripting. The list, board and lanes switch swaps the page ins
 menu at the foot of the sidebar for anyone who does not know to press it. The overlay used to be
 looked up once when the page first loaded, so after the first boosted navigation "?" opened a copy
 nobody could see.
+
+### Swiping a row
+
+On a touch screen a task list row swipes the way the app's rows do. Towards the end of the line (right,
+in a left-to-right language) it slides over a green strip with a tick and **Complete**; towards the start
+over an amber strip with a clock and **Snooze**. Let go past 30% of the row's width and the action is
+taken in place, with Undo in the toast; let go short of it and the row slides back with nothing changed.
+Snooze wakes the task tomorrow morning (the `tomorrow` preset); for another time use the task's own menu.
+
+Only a finger or a pen swipes: a mouse drag still selects text. The list scrolls as before, since a
+gesture that starts mostly vertical is left to the browser (the rows declare `touch-action: pan-y`), and a
+swipe that starts on the title or a chip does not also open it. A finished row offers only Snooze, a
+reader without `task:transition` is not offered Complete, one without `task:write` is not offered Snooze,
+and a deleted row does not move. Under reduced motion the row does not animate; the swipe still works.
+
+It is a shortcut and nothing more: the tick and the task's snooze menu do the same with a keyboard or a
+screen reader. The row carries its targets as `data-swipe-complete` and `data-swipe-snooze`;
+`assets/swipe.js` posts them as an ordinary form inside the row, and the decisions (direction, threshold)
+are in `decide.js`.
 
 ## The command palette
 
