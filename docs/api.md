@@ -557,6 +557,16 @@ default made explicit), and `snoozed=any` both. Reading one task by reference al
 A snoozed task is not claimable: `/claims/next` skips it, and `POST /tasks/{ref}/claim` answers
 `precondition` with the wake time in `details.snoozed_until` until it wakes or is unsnoozed.
 
+### Claiming, starting and finishing
+
+`{"start": true}` on `POST /claims/next` or `POST /tasks/{ref}/claim` also moves the task, in the claim's
+transaction, to the first in-progress state its workflow allows from where it is; `"start_status"` names the
+state and implies `start`. The answer carries `started_from` when the task moved. A refused move refuses the
+claim, so nothing is held. `POST /tasks/{ref}/transition` into a terminal state with the caller's own
+`lease_token` releases the lease in the same write. `"dry_run": true` on `/transition` and `/route` makes every
+check the move makes and writes nothing, answering the task as the move would leave it. See
+[agents.md](agents.md#claiming-and-starting-in-one-call).
+
 ### Arranging views
 
 Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of the task
