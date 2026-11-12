@@ -187,9 +187,10 @@ lists them beside the rest. [docs/filtering.md](filtering.md#snoozed-tasks).
 holding that project's open work as cards. A card ticks, changes status and changes priority where it
 sits, without leaving the screen. [docs/web-ui.md](web-ui.md#lanes).
 
-**A task over the list, and titles renamed where they are listed.** Two per-browser settings: a task
-followed from a listing can open in a dialog over it instead of its own page, and a click on a listed
-title can rename it in place. [docs/web-ui.md](web-ui.md#opening-a-task-in-a-dialog).
+**A task over or beside the list, and titles renamed where they are listed.** Two per-browser settings:
+a task followed from a listing can open in a dialog over it, or in a resizable panel beside it on a wide
+window, instead of its own page, and a click on a listed title can rename it in place.
+[docs/web-ui.md](web-ui.md#opening-a-task-in-a-dialog).
 
 **Undo.** A status change, a priority change and a soft delete in the browser come back with a toast
 offering Undo. Elsewhere the same undo is an ordinary command: `tix task mv` back, `tix task edit

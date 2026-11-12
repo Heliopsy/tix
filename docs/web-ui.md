@@ -1690,7 +1690,7 @@ going back a page.
 | Hover effects | `tix_hover` | `0` turns hover highlights off and puts `data-hover="off"` on `<html>`; absent or anything else leaves them on |
 | Columns | `tix_columns` | which optional columns each listing leaves out |
 | Hidden projects | `tix_hidden_projects` | which projects a listing leaves out |
-| Task opens in | `tix_task_open` | `dialog` opens a task followed from a listing in a dialog over it; absent or anything else opens its own page |
+| Task opens in | `tix_task_open` | `dialog` opens a task followed from a listing in a dialog over it, `pane` in a panel beside it on a wide window; absent or anything else opens its own page |
 | Clicking a title | `tix_title_click` | `edit` makes a click on a listed title rename it in place, with an open link beside it; absent or anything else opens the task |
 | Task view | `tix_task_view` | `board` draws the task screen as columns, `lanes` as one lane per project; anything else, including no cookie, is the list |
 | List groups | `tix_list_group` | `project` or `status` draws the list under a heading per project or per state; anything else, including no cookie, is one ungrouped list |
@@ -1779,7 +1779,7 @@ explanation is behind the (i) beside the name. At 900px and below each row stack
 its description. On/off preferences are switches: a submit button with `role="switch"` and
 `aria-checked`, its state in words (On and Off, Shown and Hidden), so they still post with scripting
 off. A choice between two named positions is not on or off, so it is a segmented control naming both:
-Task opens in is Page or Dialog, Clicking a title is Open the task or Edit the title, as Task view and
+Task opens in is Page, Dialog or Panel, Clicking a title is Open the task or Edit the title, as Task view and
 List groups name theirs. Each segment is a submit button posting its own position (`open=page`,
 `click=edit`); a post naming none flips the setting, as the switch did.
 
@@ -1838,6 +1838,39 @@ the task and shows the error screen's message above it. A task that cannot be op
 its own page, which explains why. Under 600px the dialog fills the screen.
 
 A click with a modifier, a middle click, and any click without scripting open the full page.
+
+### Opening a task beside the list
+
+With Task opens in set to Panel, a task followed from a listing on a window at least 1100px wide opens
+in a panel on the right of the window, and the page beside it keeps the rest. It is the task dialog
+above, opened without a modal (`show()` rather than `showModal()`) and marked `data-shown="pane"`, so
+the request, the answer, the history entry and what a save does are the dialog's, unchanged. What
+differs is that the listing stays usable: its row for the task is marked `aria-current="true"` (again
+after a live refresh redraws it), and another task followed from it replaces the one in the panel and
+the panel's history entry, so Back still closes the panel rather than walking every task looked at.
+Focus moves into the panel when it opens and stays in the listing when the listing replaces its task.
+
+Escape inside the panel, its Close button and Back close it. Escape from a field in the panel does
+not, so a comment being typed is not thrown away, and an open menu takes Escape first. The keyboard
+shortcuts act on the listing while focus is outside the panel and stand down inside it. A navigation
+of the page beside the panel closes it and gives its history entry back to the listing first, so htmx's
+snapshot never holds an open panel. A reload of the task's address draws the task's own page.
+
+Between the listing and the panel is a divider, a `role="separator"` announcing the panel's width in
+`aria-valuenow`, drawn as an accent line while hovered, focused or dragged. Drag it, or with focus on it
+press Left to widen the panel and Right to narrow it by 16px (64px with Shift), Home and End for the
+bounds, and Enter or a double click to reset. The panel is 460px until moved, at least 360px and at most
+720px or 60% of the room beside the sidebar, the bounds the tix-mobile app's task panel uses. The width
+is kept per browser in the `tix_pane` cookie as `w=NNN`, a year, removed at the default; the server does
+not read it, since only the script draws the panel.
+
+1100px is the sidebar's 900px column plus room for a usable list beside a 360px panel. On a narrower
+window Panel opens the task in the dialog, which is what a phone gets, and a window resized across the
+breakpoint moves an open task between the two. The panel slides in only under
+`prefers-reduced-motion: no-preference`. Without scripting every title is a link to the task's page.
+
+The task in the panel is not live, as in the dialog: a save made in it refreshes the listing, but a
+change made elsewhere reaches the panel when the task is opened again. The listing stays live.
 
 ### Renaming a title in place
 
