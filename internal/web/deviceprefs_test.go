@@ -90,7 +90,8 @@ func TestEverySettingSaysWhereItIsKept(t *testing.T) {
 	}
 	for _, id := range []string{"second-factor", "sessions", "calendar"} {
 		head := between(t, main, `id="`+id+`"`, "</h2>")
-		after := between(t, main[strings.Index(main, `id="`+id+`"`):], "</h2>", "</div>")
+		_, rest, _ := strings.Cut(main, `id="`+id+`"`)
+		after := between(t, rest, "</h2>", "</div>")
 		if head == "" || !strings.Contains(after, `data-scope="account"`) {
 			t.Errorf("section %s does not say it is kept with the account: %q", id, after)
 		}
@@ -99,7 +100,7 @@ func TestEverySettingSaysWhereItIsKept(t *testing.T) {
 		t.Error("settings carries no search box")
 	}
 	tenant := contentOf(t, b.page("/admin/tenant"))
-	if head := tenant[:strings.Index(tenant, "<h2")]; !strings.Contains(head, `data-scope="tenant" title=`) ||
+	if head, _, _ := strings.Cut(tenant, "<h2"); !strings.Contains(head, `data-scope="tenant" title=`) ||
 		!strings.Contains(head, ">Whole tenant</span>") {
 		t.Error("the tenant screen does not say its settings are for the whole tenant")
 	}
