@@ -111,7 +111,7 @@ func (l *Local) TaskLease(ctx context.Context, ref core.TaskRef) (*core.LeaseGra
 
 // claimTask takes a lease on one task.
 func (l *Local) claimTask(ctx context.Context, ref core.TaskRef, in core.ClaimInput) (*core.Claim, error) {
-	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
+	actor, err := l.authorizeClaim(ctx, in.Starts())
 	if err != nil {
 		return nil, err
 	}
@@ -161,10 +161,14 @@ func (l *Local) claimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 		}
 
 		out, err = l.recordClaim(ctx, m, task, token, until)
-		if out != nil {
-			out.Lease = &grant
+		if err != nil {
+			return err
 		}
-		return err
+		out.Lease = &grant
+		if in.Starts() {
+			return l.startClaim(ctx, m, out, in.StartStatus)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -172,9 +176,22 @@ func (l *Local) claimTask(ctx context.Context, ref core.TaskRef, in core.ClaimIn
 	return out, nil
 }
 
+// authorizeClaim checks the caller may claim and, for a claim that starts the
+// task, may move it too.
+func (l *Local) authorizeClaim(ctx context.Context, starts bool) (*core.Actor, error) {
+	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
+	if err != nil || !starts {
+		return actor, err
+	}
+	if _, err := l.authorize(ctx, authz.ActionTaskTransition, authz.Resource{}); err != nil {
+		return nil, err
+	}
+	return actor, nil
+}
+
 // claimNext claims the highest-priority unblocked task matching the filter.
 func (l *Local) claimNext(ctx context.Context, in core.ClaimNextInput) (*core.Claim, error) {
-	actor, err := l.authorize(ctx, authz.ActionTaskClaim, authz.Resource{})
+	actor, err := l.authorizeClaim(ctx, in.Starts())
 	if err != nil {
 		return nil, err
 	}
@@ -258,10 +275,16 @@ func (l *Local) claimNextOnce(ctx context.Context, m *mutation, actor *core.Acto
 		return nil, err
 	}
 	out, err := l.recordClaim(ctx, m, task, token, until)
-	if out != nil {
-		out.Lease = &grant
+	if err != nil {
+		return nil, err
 	}
-	return out, err
+	out.Lease = &grant
+	if in.Starts() {
+		if err := l.startClaim(ctx, m, out, in.StartStatus); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // applyTaskLease settles a queue claim's lease once the compare-and-swap has
@@ -366,6 +389,9 @@ func (l *Local) ReleaseLease(ctx context.Context, ref core.TaskRef, token string
 		if err != nil {
 			return err
 		}
+		if !ok && alreadyReleased(task, wf, in, m.now) {
+			return nil
+		}
 		if !ok {
 			return staleLease(task)
 		}
@@ -384,6 +410,15 @@ func (l *Local) ReleaseLease(ctx context.Context, ref core.TaskRef, token string
 		return m.Record("task.release", core.EventTaskReleased, "task", task.ID, task.ProjectID,
 			task, released, payload)
 	})
+}
+
+// alreadyReleased reports a release with nothing to write, of a finished task
+// nobody holds: what a worker sends after its move into a terminal state gave
+// the lease up. Accepting it keeps a move-then-release script working, and
+// writes nothing a stale token could not be trusted with.
+func alreadyReleased(task *core.Task, wf *core.Workflow, in core.ReleaseInput, now time.Time) bool {
+	return !task.ClaimedAtTime(now) && wf.Definition.IsTerminal(task.Status) &&
+		in.Status == "" && len(in.Result) == 0 && in.Comment == ""
 }
 
 // applyRelease writes the final status, the result artifact and the closing
@@ -565,7 +600,12 @@ func (l *Local) sweepOne(ctx context.Context, m *mutation, before core.Task, wor
 // else's. Every outcome here is the same fact -- this caller does not hold
 // this lease -- so every one of them is a lease expiry, which a worker answers
 // by claiming again rather than by retrying.
-func requireLeaseToken(ctx context.Context, tx store.Tx, task *core.Task, token string, now time.Time) error {
+//
+// A missing token is refused even when the caller's own actor holds the lease.
+// The token proves the process holding the claim, not the account: workers
+// share agent accounts, and a worker whose lease lapsed and was re-claimed by
+// the same account is exactly the zombie this guard exists for.
+func requireLeaseToken(ctx context.Context, tx store.Tx, task *core.Task, token string, now time.Time, actorID string) error {
 	if !task.ClaimedAtTime(now) {
 		if token != "" {
 			return staleLease(task)
@@ -573,6 +613,10 @@ func requireLeaseToken(ctx context.Context, tx store.Tx, task *core.Task, token 
 		return nil
 	}
 	if token == "" {
+		if task.ClaimedByActorID == actorID {
+			return core.LeaseExpired("task %q is claimed by you; pass the lease_token your claim printed "+
+				"(--lease-token TOKEN on the command line, lease_token over the API)", task.Ref)
+		}
 		return core.LeaseExpired("task %q is claimed; supply the lease token", task.Ref)
 	}
 	ok, err := tx.RenewLease(ctx, task.ID, token, *task.LeaseExpiresAt)
@@ -754,7 +798,7 @@ func (l *Local) releasableStatus(wf *core.Workflow, task *core.Task, actor *core
 		return nil
 	}
 	if !wf.Definition.HasState(in.Status) {
-		return core.Invalid("status %q is not defined by workflow %q", in.Status, wf.Key)
+		return wf.Definition.UnknownState(in.Status)
 	}
 	if in.Status == task.Status {
 		return core.Invalid("task %q is already in status %q", task.Ref, in.Status)

@@ -13825,6 +13825,10 @@ components:
           description: LeaseToken proves the claim. Renewing, releasing and writing
             artifacts need it; keep it secret.
           type: string
+        started_from:
+          description: StartedFrom is the status the task was in before a claim that
+            starts it moved it; empty when the claim did not move the task.
+          type: string
         task:
           $ref: '#/components/schemas/Task'
           description: Task is the claimed task as it stands after the claim.
@@ -13835,6 +13839,15 @@ components:
         actor_id:
           description: ActorID claims on behalf of another actor, by identifier or
             handle; empty claims for the caller.
+          type: string
+        start:
+          description: Start moves the task, in the claim's own transaction, to the
+            first in-progress state its workflow allows from where it is. A task already
+            in progress stays put; no such state refuses the claim.
+          type: boolean
+        start_status:
+          description: StartStatus names the state Start moves the task to, and implies
+            Start.
           type: string
         ttl:
           description: TTL is how long the lease holds, a duration such as "30m".
@@ -13855,6 +13868,15 @@ components:
           items:
             type: string
           type: array
+        start:
+          description: Start moves the task, in the claim's own transaction, to the
+            first in-progress state its workflow allows from where it is. A task already
+            in progress stays put; no such state refuses the claim.
+          type: boolean
+        start_status:
+          description: StartStatus names the state Start moves the task to, and implies
+            Start.
+          type: string
         statuses:
           description: Statuses restricts the queue to tasks in any of these statuses;
             empty means every status that is not terminal.
@@ -16009,6 +16031,11 @@ components:
           description: CustomFields are custom field values set on the last hop, keyed
             by field definition key.
           type: object
+        dry_run:
+          description: 'DryRun walks the route in one transaction and rolls it back:
+            each hop is judged against the state the hops before it would leave, and
+            nothing is written.'
+          type: boolean
         lease_token:
           description: LeaseToken proves the caller's claim when the task is leased.
           type: string
@@ -16039,6 +16066,9 @@ components:
           type:
             - array
             - "null"
+        dry_run:
+          description: DryRun is true when the route was judged and nothing was written.
+          type: boolean
         from:
           description: From is the status the task started in.
           type: string
@@ -18075,6 +18105,11 @@ components:
           description: CustomFields merges values over the stored ones by field key;
             a null value clears that field.
           type: object
+        dry_run:
+          description: DryRun runs every check the move runs and writes nothing; the
+            answer is the task as the move would leave it, and a refusal is the move's
+            own.
+          type: boolean
         lease_token:
           description: LeaseToken is the claim's token, required while the task is
             claimed.

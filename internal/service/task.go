@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/heliopsy/tix/internal/id"
 	"strconv"
 	"strings"
@@ -513,6 +514,8 @@ func changedTaskFields(before, after *core.Task) []string {
 }
 
 // transitionTask moves a task along an edge its project's workflow permits.
+// A dry run makes the move and rolls it back, so it refuses exactly what the
+// move refuses and answers the task the move would leave.
 func (l *Local) transitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -528,93 +531,129 @@ func (l *Local) transitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 		if err != nil {
 			return err
 		}
-		if err := l.authorizeTask(ctx, authz.ActionTaskTransition, task); err != nil {
-			return err
+		out, err = l.applyTransition(ctx, m, task, in)
+		if err == nil && in.DryRun {
+			return errDryRun
 		}
-		if err := checkVersion(task, in.Version); err != nil {
-			return err
-		}
-		def, err := workflowForTask(ctx, m.tx, task)
-		if err != nil {
-			return err
-		}
-		if !def.HasState(in.To) {
-			return core.Invalid("status %q is not a state of this project's workflow", in.To)
-		}
-		edge, ok := def.CanTransition(task.Status, in.To)
-		if !ok {
-			return core.Precondition("cannot move task %q from %q to %q; allowed targets are %s",
-				task.Ref, task.Status, in.To, strings.Join(allowedTargets(def, task.Status), ", "))
-		}
-		comment := strings.TrimSpace(in.Comment)
-		if edge.RequiresComment && comment == "" {
-			return core.Invalid("moving from %q to %q requires a comment", task.Status, in.To)
-		}
-		if len(comment) > core.MaxCommentLength {
-			return core.Invalid("comment must be at most %d characters", core.MaxCommentLength)
-		}
-		if !l.mayCross(actor, edge, task.ProjectID) {
-			return core.Forbidden("moving from %q to %q requires scope %q",
-				task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
-		}
-		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
-			return err
-		}
-
-		if in.CustomFields != nil {
-			defs, err := m.tx.ListFieldDefs(ctx, task.ProjectID)
-			if err != nil {
-				return err
-			}
-			fields, err := mergeTaskFields(defs, task.CustomFields, in.CustomFields)
-			if err != nil {
-				return err
-			}
-			task.CustomFields = fields
-		}
-
-		before := *task
-		task.Status = in.To
-		now := m.now
-		if def.IsTerminal(in.To) {
-			task.CompletedAt = &now
-		} else {
-			task.CompletedAt = nil
-			if task.StartedAt == nil && in.To != def.Initial {
-				task.StartedAt = &now
-			}
-		}
-		next, err := spawnOccurrence(ctx, m, def, task, in.To)
-		if err != nil {
-			return err
-		}
-		if err := m.tx.UpdateTask(ctx, task); err != nil {
-			return err
-		}
-		if comment != "" {
-			c := &core.Comment{TaskID: task.ID, AuthorActorID: actor.ID, Body: comment}
-			if err := m.tx.CreateComment(ctx, c); err != nil {
-				return err
-			}
-			if err := m.notifyComment(ctx, task, c); err != nil {
-				return err
-			}
-		}
-		m.notifyStatus(task, before.Status, task.Status)
-		if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
-			before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
-			return err
-		}
-		if err := recordOccurrence(m, task, next); err != nil {
-			return err
-		}
-		out, err = m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
 		return err
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errDryRun) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// errDryRun rolls back a write that was only being judged.
+var errDryRun = errors.New("dry run")
+
+// applyTransition moves a loaded task inside an open write, with every check
+// a transition makes. A move into a terminal state under the caller's live
+// lease token also gives the lease up, since nothing is left to hold it for.
+func (l *Local) applyTransition(ctx context.Context, m *mutation, task *core.Task, in core.TransitionInput) (*core.Task, error) {
+	if err := l.authorizeTask(ctx, authz.ActionTaskTransition, task); err != nil {
+		return nil, err
+	}
+	if err := checkVersion(task, in.Version); err != nil {
+		return nil, err
+	}
+	def, err := workflowForTask(ctx, m.tx, task)
+	if err != nil {
+		return nil, err
+	}
+	if !def.HasState(in.To) {
+		return nil, def.UnknownState(in.To)
+	}
+	edge, ok := def.CanTransition(task.Status, in.To)
+	if !ok {
+		return nil, core.Precondition("cannot move task %q from %q to %q; allowed targets are %s",
+			task.Ref, task.Status, in.To, strings.Join(allowedTargets(def, task.Status), ", "))
+	}
+	comment := strings.TrimSpace(in.Comment)
+	if edge.RequiresComment && comment == "" {
+		return nil, core.Invalid("moving from %q to %q requires a comment", task.Status, in.To)
+	}
+	if len(comment) > core.MaxCommentLength {
+		return nil, core.Invalid("comment must be at most %d characters", core.MaxCommentLength)
+	}
+	if !l.mayCross(m.actor, edge, task.ProjectID) {
+		return nil, core.Forbidden("moving from %q to %q requires scope %q",
+			task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
+	}
+	if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now, m.actor.ID); err != nil {
+		return nil, err
+	}
+
+	if in.CustomFields != nil {
+		defs, err := m.tx.ListFieldDefs(ctx, task.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		fields, err := mergeTaskFields(defs, task.CustomFields, in.CustomFields)
+		if err != nil {
+			return nil, err
+		}
+		task.CustomFields = fields
+	}
+
+	before := *task
+	task.Status = in.To
+	now := m.now
+	if def.IsTerminal(in.To) {
+		task.CompletedAt = &now
+	} else {
+		task.CompletedAt = nil
+		if task.StartedAt == nil && in.To != def.Initial {
+			task.StartedAt = &now
+		}
+	}
+	next, err := spawnOccurrence(ctx, m, def, task, in.To)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.tx.UpdateTask(ctx, task); err != nil {
+		return nil, err
+	}
+	if comment != "" {
+		c := &core.Comment{TaskID: task.ID, AuthorActorID: m.actor.ID, Body: comment}
+		if err := m.tx.CreateComment(ctx, c); err != nil {
+			return nil, err
+		}
+		if err := m.notifyComment(ctx, task, c); err != nil {
+			return nil, err
+		}
+	}
+	m.notifyStatus(task, before.Status, task.Status)
+	if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
+		before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
+		return nil, err
+	}
+	if err := recordOccurrence(m, task, next); err != nil {
+		return nil, err
+	}
+	if def.IsTerminal(in.To) && in.LeaseToken != "" {
+		if err := releaseFinished(ctx, m, task, in.LeaseToken); err != nil {
+			return nil, err
+		}
+	}
+	return m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+}
+
+// releaseFinished gives up the lease a move into a terminal state was made
+// under. The token was proved by requireLeaseToken in this same transaction.
+func releaseFinished(ctx context.Context, m *mutation, task *core.Task, token string) error {
+	ok, err := m.tx.ReleaseLease(ctx, task.ID, token)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return staleLease(task)
+	}
+	released, err := m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+	if err != nil {
+		return err
+	}
+	return m.Record("task.release", core.EventTaskReleased, "task", task.ID, task.ProjectID,
+		task, released, map[string]any{"status": released.Status, "reason": "terminal"})
 }
 
 // transitionRoute walks a task through a route of states, one ordinary
@@ -663,15 +702,11 @@ func (l *Local) transitionRoute(ctx context.Context, ref core.TaskRef, in core.R
 	}
 
 	out := &core.RouteResult{From: task.Status, Route: steps, Task: task}
+	if in.DryRun {
+		return l.dryRoute(ctx, actor, task, in, out)
+	}
 	for i, to := range steps {
-		hop := core.TransitionInput{To: to, Comment: in.Comment, LeaseToken: in.LeaseToken}
-		if i == 0 {
-			hop.Version = in.Version
-		}
-		if i == len(steps)-1 {
-			hop.CustomFields = in.CustomFields
-		}
-		moved, err := l.TransitionTask(ctx, core.TaskRef{ID: task.ID}, hop)
+		moved, err := l.TransitionTask(ctx, core.TaskRef{ID: task.ID}, routeHop(in, steps, i))
 		if err != nil {
 			if i == 0 {
 				return nil, err
@@ -681,6 +716,51 @@ func (l *Local) transitionRoute(ctx context.Context, ref core.TaskRef, in core.R
 		}
 		out.Applied = append(out.Applied, to)
 		out.Task = moved
+	}
+	return out, nil
+}
+
+// routeHop is the transition for one hop of a route: the version is checked
+// on the first, and the custom fields land on the last.
+func routeHop(in core.RouteInput, steps []string, i int) core.TransitionInput {
+	hop := core.TransitionInput{To: steps[i], Comment: in.Comment, LeaseToken: in.LeaseToken}
+	if i == 0 {
+		hop.Version = in.Version
+	}
+	if i == len(steps)-1 {
+		hop.CustomFields = in.CustomFields
+	}
+	return hop
+}
+
+// dryRoute walks a route in one write and rolls it back, so each hop is judged
+// against what the hops before it would leave, and reports it the way the
+// real route would.
+func (l *Local) dryRoute(ctx context.Context, actor *core.Actor, task *core.Task, in core.RouteInput,
+	out *core.RouteResult,
+) (*core.RouteResult, error) {
+	out.DryRun = true
+	err := l.write(ctx, actor, func(m *mutation) error {
+		current, err := liveTask(ctx, m.tx, core.TaskRef{ID: task.ID})
+		if err != nil {
+			return err
+		}
+		for i, to := range out.Route {
+			moved, err := l.applyTransition(ctx, m, current, routeHop(in, out.Route, i))
+			if err != nil {
+				if i == 0 {
+					return err
+				}
+				out.Stopped, out.Reason = to, err.Error()
+				return errDryRun
+			}
+			out.Applied = append(out.Applied, to)
+			out.Task, current = moved, moved
+		}
+		return errDryRun
+	})
+	if err != nil && !errors.Is(err, errDryRun) {
+		return nil, err
 	}
 	return out, nil
 }

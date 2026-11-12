@@ -793,6 +793,10 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 		m.leases[msg.ref.ID] = msg.token
 	case actionRelease:
 		delete(m.leases, msg.ref.ID)
+	case actionTransition:
+		if msg.released {
+			delete(m.leases, msg.ref.ID)
+		}
 	}
 	m.status, m.err = msg.statusText(), ""
 	if msg.kind == actionNewProject || msg.kind == actionStarProject || msg.kind == actionUnstarProject {

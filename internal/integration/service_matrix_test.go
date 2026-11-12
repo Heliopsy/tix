@@ -305,6 +305,78 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "claim next and start in one call",
+		covers: []string{"CreateProject", "CreateTask", "ClaimNext"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			_, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "queued"})
+			mustf(t, tg, err, "creating the task")
+			claim, err := tg.svc.ClaimNext(tg.ctx, core.ClaimNextInput{ProjectRefs: []string{p.Key}, Start: true})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"status": claim.Task.Status, "started_from": claim.StartedFrom}, nil
+		},
+	},
+	{
+		name:   "claim by ref with an unknown start status",
+		covers: []string{"CreateProject", "CreateTask", "ClaimTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{StartStatus: "bogus"})
+			return nil, err
+		},
+	},
+	{
+		name:   "a transition dry run refuses an unknown state",
+		covers: []string{"CreateProject", "CreateTask", "TransitionTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.TransitionTask(tg.ctx, core.TaskRef{ID: task.ID},
+				core.TransitionInput{To: "review", DryRun: true})
+			return nil, err
+		},
+	},
+	{
+		name:   "a route dry run writes nothing",
+		covers: []string{"CreateProject", "CreateTask", "TransitionRoute", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			out, err := tg.svc.TransitionRoute(tg.ctx, core.TaskRef{ID: task.ID},
+				core.RouteInput{To: "done", DryRun: true})
+			if err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the task back")
+			return sig{"dry_run": out.DryRun, "would_be": out.Task.Status, "status": after.Status}, nil
+		},
+	},
+	{
+		name:   "finishing under the lease releases it",
+		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "TransitionTask", "ReleaseLease"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			claim, err := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{Start: true})
+			mustf(t, tg, err, "claiming and starting the task")
+			done, err := tg.svc.TransitionTask(tg.ctx, core.TaskRef{ID: task.ID},
+				core.TransitionInput{To: "done", LeaseToken: claim.LeaseToken})
+			if err != nil {
+				return nil, err
+			}
+			err = tg.svc.ReleaseLease(tg.ctx, core.TaskRef{ID: task.ID}, claim.LeaseToken, core.ReleaseInput{})
+			return sig{"status": done.Status, "claimed_by": done.ClaimedByActorID, "late_release": err == nil}, nil
+		},
+	},
+	{
 		name:   "a forced reclaim frees the lease and leaves the status alone",
 		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "ForceReclaim", "GetTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

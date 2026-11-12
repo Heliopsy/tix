@@ -131,7 +131,7 @@ func FindRoute(def WorkflowDefinition, from, to string) (Route, error) {
 		return Route{}, Invalid("task is already in %q", to)
 	}
 	if !def.HasState(to) {
-		return Route{}, Invalid("status %q is not a state of this project's workflow", to)
+		return Route{}, def.UnknownState(to)
 	}
 	var found []Route
 	for _, r := range Routes(def, from) {

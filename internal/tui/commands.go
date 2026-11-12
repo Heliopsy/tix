@@ -280,6 +280,7 @@ func (m Model) transition(route string) tea.Cmd {
 		msg := actionMsg{kind: actionTransition, ref: ref, label: label, err: err}
 		if err == nil {
 			msg.sentence = routeSentence(label, from, result)
+			msg.released = in.LeaseToken != "" && result.Task != nil && result.Task.ClaimedByActorID == ""
 		}
 		return msg
 	}

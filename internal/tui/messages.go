@@ -348,6 +348,10 @@ type actionMsg struct {
 	// line is the quick-add line a create was typed as, so a refused create
 	// reopens the prompt holding it.
 	line string
+
+	// released reports a move into a finished state that gave up the lease
+	// this session held, so the session stops offering to renew or release it.
+	released bool
 }
 
 // name is what an action calls its subject on screen. A task's identifier is
