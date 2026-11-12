@@ -84,6 +84,17 @@
     var live = false;
     var again = false;
     var dropped = false;
+    var latest = null;
+
+    // note tells the shell's connection indicator (assets/livestatus.js)
+    // what this stream just went through. It only reports; nothing here
+    // waits on it or reads it back.
+    function note(what) {
+      if (tix.liveNote) {
+        what.stream = spec.id;
+        tix.liveNote(what);
+      }
+    }
 
     // A refresh asked for while one is still on its way is run again when
     // that one lands, never dropped. The coalescer's trailing run used to
@@ -115,7 +126,15 @@
       }
       var target = bound;
       pending = fetch(spec.href(target), { credentials: "same-origin" })
-        .then(function (resp) { return resp.ok ? resp.text() : null; })
+        .then(function (resp) {
+          note(resp.ok ? { kind: "fetched" } : { kind: "fetch-failed", status: resp.status });
+          return resp.ok ? resp.text() : null;
+        }, function (err) {
+          // Only a request that never got an answer is the server out of
+          // reach; a failure drawing the answer is caught further down.
+          note({ kind: "fetch-failed", message: err && err.message ? String(err.message) : "" });
+          return null;
+        })
         .then(function (html) {
           // A boosted navigation can swap the page in before htmx:load moves
           // the binding, so the element this was asked for may already be
@@ -211,6 +230,7 @@
       attempt++;
       startPolling();
       announce();
+      note({ kind: "retrying", attempt: attempt, wait: wait });
       retry = window.setTimeout(connect, wait);
     }
 
@@ -246,10 +266,15 @@
         return;
       }
       socket = opening;
+      latest = opening;
+      note({ kind: "connecting" });
+      var opened = false;
       opening.addEventListener("open", function () {
         if (socket !== opening) {
           return;
         }
+        opened = true;
+        note({ kind: "open" });
         attempt = 0;
         live = true;
         stopPolling();
@@ -266,7 +291,16 @@
         }
         received(opening, message);
       });
-      opening.addEventListener("close", function () {
+      // The close is reported whether or not an error got here first: the
+      // error event carries nothing, and the close code is the only thing a
+      // browser says about why.
+      opening.addEventListener("close", function (event) {
+        if (latest === opening) {
+          note({
+            kind: "closed", opened: opened,
+            code: event && event.code, reason: event && event.reason ? String(event.reason) : ""
+          });
+        }
         if (socket === opening) {
           closed();
         }
@@ -309,6 +343,9 @@
       // cursor, subscribe from now, and re-fetch the fragment whole: the
       // server's rendering is the answer, so a refresh is always correct
       // however much was missed.
+      if (parsed.type === "error") {
+        note({ kind: "refused", message: parsed.error && parsed.error.message ? String(parsed.error.message) : "" });
+      }
       if (parsed.type === "error" && tix.resumeRefused(parsed.error)) {
         seq = 0;
         subscribe(conn);
@@ -321,6 +358,7 @@
       if (parsed.event.seq > seq) {
         seq = parsed.event.seq;
       }
+      note({ kind: "event", seq: parsed.event.seq });
       if (!spec.wants(bound, parsed.event)) {
         return;
       }
@@ -343,6 +381,7 @@
         window.clearTimeout(deferred);
         deferred = null;
       }
+      latest = null;
       if (socket) {
         var going = socket;
         socket = null;
@@ -352,6 +391,7 @@
       bound = next;
       seq = 0;
       attempt = 0;
+      note({ kind: bound ? "bound" : "unbound" });
       trigger = bound ? tix.coalescer(spec.window(bound), refresh, null, spec.cap) : null;
       setStale("");
       connect();
@@ -370,7 +410,18 @@
       schedule();
     }
 
-    return { rebind: rebind, woken: woken, poke: schedule, settled: settled };
+    // retryNow is Reconnect now: a socket that is down is opened at once,
+    // whatever the backoff was waiting for, and the screen is fetched again.
+    function retryNow() {
+      if (!bound || live) {
+        return;
+      }
+      attempt = 0;
+      connect();
+      schedule();
+    }
+
+    return { rebind: rebind, woken: woken, poke: schedule, settled: settled, retryNow: retryNow };
   }
 
   // The activity feed. Its fragment is the row list itself, so the response
@@ -587,6 +638,13 @@
     screen.rebind();
     badge.rebind();
   }
+
+  // liveRetry is the connection details' Reconnect now, for every stream.
+  tix.liveRetry = function () {
+    feed.retryNow();
+    screen.retryNow();
+    badge.retryNow();
+  };
 
   rebindAll();
   document.addEventListener("htmx:load", rebindAll);

@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The live connection indicator beside the tenant's name, and its details
+   dialog (assets/livestatus.js). Live is a green dot alone; every other
+   state adds its word, so a degraded state is never only a colour. */
+.livestatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  min-width: 28px;
+  justify-content: center;
+  padding: 0 6px;
+  margin-right: auto;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.livestatus[hidden] { display: none; }
+.livestatus:hover, .livestatus:focus-visible { background: var(--accent-soft); }
+.livedot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.livestatus[data-live-mode="connecting"] .livedot { background: var(--muted); }
+.livestatus[data-live-mode="polling"] .livedot,
+.livestatus[data-live-mode="reconnecting"] .livedot { background: var(--warn); }
+.livestatus[data-live-mode="polling"],
+.livestatus[data-live-mode="reconnecting"] { color: var(--warn); background: var(--warn-soft); }
+.livestatus[data-live-mode="offline"] .livedot { background: var(--danger); }
+.livestatus[data-live-mode="offline"] { color: var(--danger); background: var(--danger-soft); }
+.livelabel:empty { display: none; }
+/* On a desktop a word does not fit beside the tenant's name, so a degraded
+   state takes its own row between the name and Search. */
+@media (min-width: 900px) {
+  .side-head .livestatus:not([data-live-mode="live"]):not([data-live-mode="connecting"]) {
+    order: 2;
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    margin: var(--space-2) 0 0;
+    padding: 4px var(--space-2);
+  }
+  .side-collapsed .side-head .livestatus { flex: 0 0 auto; padding: 0 6px; }
+  .side-collapsed .livestatus { margin: 0; }
+  .side-collapsed .livelabel { display: none; }
+}
+
+.livedetails { max-width: 560px; }
+.livedetails h3 { margin-block: var(--space-4) var(--space-2); font-size: var(--text-sm); }
+.livedetails button.actiondlg-x { padding: 0; border: 0; border-radius: var(--radius); background: transparent; color: var(--muted); }
+.livedetails button.actiondlg-x:hover { background: var(--surface); color: var(--ink); }
+.liveprops { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--space-3); margin: 0; font-size: var(--text-sm); }
+.liveprops dt { color: var(--muted); }
+.liveprops dd { margin: 0; overflow-wrap: anywhere; }
+.liveprops[hidden] { display: none; }
+.livehint { margin: 0 0 var(--space-2); padding: var(--space-2) var(--space-3); border-radius: 6px; background: var(--warn-soft); color: var(--ink); font-size: var(--text-sm); }
+.livehistory { font-size: var(--text-sm); max-height: 12em; overflow-y: auto; }
+.livehistory li { display: flex; gap: var(--space-3); }
+.livewhen { color: var(--muted); font-variant-numeric: tabular-nums; }
+.liveerr { color: var(--danger); }
+.livecopied:empty { display: none; }

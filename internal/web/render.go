@@ -204,9 +204,11 @@ type view struct {
 	ShortcutsJSON   template.JS
 	// PaletteJSON is the command palette's fixed entries; see palette.go.
 	PaletteJSON template.JS
-	Columns     columnPrefs
-	ColumnPage  string
-	Here        string
+	// LiveWords is the live connection indicator's texts; see livestatus.go.
+	LiveWords  template.JS
+	Columns    columnPrefs
+	ColumnPage string
+	Here       string
 	// Dialog is which of the screen's dialogs is drawn open, and what a
 	// refused submission from it was sent with. See actiondlg.go.
 	Dialog  dialogState
@@ -522,6 +524,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		LanguageChoices: languageChoices(r),
 		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
 		PaletteJSON:     paletteJSON(langOf(r), advancedMode(r), tenantAdmin(r)),
+		LiveWords:       liveWordsJSON(langOf(r)),
 		Data:            data,
 	}
 }

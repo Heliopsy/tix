@@ -1222,3 +1222,46 @@
      name with its Built-in label, the states and the fields a project made
      from it gets. Takes a templateCard. */}}
 {{define "wfpick-template"}}<span class="wfpick-text"><span class="wfpick-purpose">{{.Purpose}}</span><span class="wfpick-name">{{.Name}}<span class="pill wfpick-builtin">{{t "Built-in"}}</span></span><span class="wfpick-states">{{.States}}</span>{{with .Fields}}<span class="wfpick-fields">{{t "Fields"}}: {{join .}}</span>{{end}}{{if .Held}}<span class="wfpick-fields">{{t "Already in this tenant"}}</span>{{end}}</span>{{end}}
+
+{{/* live-details is the live connection indicator's dialog (assets/
+     livestatus.js): how live updates reach this page, what failed last and
+     what it may mean, with Reconnect now and Copy details. The labels are
+     drawn here; the values are the script's, since only the page knows
+     them. It is opened only by the indicator, which needs scripting. */}}
+{{define "live-details"}}
+<dialog id="live-details" class="actiondlg livedetails" aria-labelledby="live-details-title">
+<div class="actiondlg-head"><h2 id="live-details-title">{{t "Connection details"}}</h2><button type="button" class="actiondlg-x" data-live-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</button></div>
+<p class="muted" data-live-field="summary"></p>
+<dl class="liveprops">
+  <dt>{{t "Server"}}</dt><dd data-live-field="host"></dd>
+  <dt>{{t "State"}}</dt><dd data-live-field="mode"></dd>
+  <dt>{{t "Carried over"}}</dt><dd data-live-field="transport"></dd>
+  <dt>{{t "Since"}}</dt><dd data-live-field="since"></dd>
+  <dt>{{t "Last reached the server"}}</dt><dd data-live-field="contact"></dd>
+  <dt>{{t "Last event"}}</dt><dd data-live-field="event"></dd>
+  <dt>{{t "Failures in a row"}}</dt><dd data-live-field="failures"></dd>
+  <dt>{{t "Next try"}}</dt><dd data-live-field="next"></dd>
+</dl>
+<h3>{{t "Last error"}}</h3>
+<p data-live-noerror>{{t "Nothing has failed since this page was loaded."}}</p>
+<dl class="liveprops" data-live-error hidden>
+  <dt>{{t "What"}}</dt><dd data-live-field="kind"></dd>
+  <dt>{{t "When"}}</dt><dd data-live-field="at"></dd>
+  <dt>{{t "During"}}</dt><dd data-live-field="source"></dd>
+  <dt>{{t "Close code"}}</dt><dd data-live-field="code"></dd>
+  <dt>{{t "HTTP status"}}</dt><dd data-live-field="status"></dd>
+  <dt>{{t "Message"}}</dt><dd data-live-field="message"></dd>
+</dl>
+<h3 data-live-hints-head hidden>{{t "What it may mean"}}</h3>
+<div data-live-hints></div>
+<h3>{{t "Recent changes"}}</h3>
+<p class="muted" data-live-history-empty>{{t "Nothing yet."}}</p>
+<ul class="plain livehistory" data-live-history></ul>
+<p class="livecopied" role="status" aria-live="polite" data-live-copied></p>
+<div class="actions">
+  <button type="button" class="secondary" data-live-copy>{{t "Copy details"}}</button>
+  <button type="button" data-live-reconnect>{{t "Reconnect now"}}</button>
+  <button type="button" class="secondary" data-live-close>{{t "Close"}}</button>
+</div>
+</dialog>
+{{end}}
