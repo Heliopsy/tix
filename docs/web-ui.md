@@ -1431,9 +1431,12 @@ plain `GET` form, so a narrowed feed is a link somebody can send: `q` searches t
 reference such as `infra-5` works), `kind` picks a kind of record (tasks, comments, artifacts,
 projects, workflows, users, memberships, sign-ins, API tokens, webhooks, the tenant), `via` the
 channel a change came through (web, API token, CLI on the database, CLI through a server, SSH, MCP, sync,
-import, system, or unknown for entries older than the channel), `token` the API token by name, and the
-actor's name on any row narrows to that actor. A `source` link from before the channel existed still
-filters by surface.
+import, system, or unknown for entries older than the channel), `token` the API token by name, `action`
+the action an entry records, matched exactly (`task.create`, `task.update`; the box suggests the actions
+on the page), and `from` and `to` a time window, picked as a date and time and read in your own time zone.
+`to` includes the minute it names, and a bare date in a typed link (`to=2026-11-12`) includes that whole
+day. The actor's name on any row narrows to that actor. A `source` link from before the channel existed
+still filters by surface.
 
 Every row ends with its channel as an icon and a few words: "via web", "via SSH", "via token ci-agent",
 "via MCP (token scout-runner)", "via CLI", and "via sync (token ci-runner)" for a sync or import an agent
