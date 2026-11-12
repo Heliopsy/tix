@@ -5,7 +5,8 @@ package web
 import "net/http"
 
 // TaskOpenCookie remembers whether following a task link opens the task
-// screen as a page or in a dialog over the page it was followed from.
+// screen as a page, in a dialog over the page it was followed from, or in a
+// panel beside it.
 const TaskOpenCookie = "tix_task_open"
 
 // TitleClickCookie remembers whether clicking a task's title in a listing
@@ -18,11 +19,18 @@ const TitleClickCookie = "tix_title_click"
 // inside it, so a save's redirect is answered the same way.
 const DialogHeader = "X-Tix-Dialog"
 
-// taskDialogMode reports whether this browser opens tasks in a dialog. Only
-// "dialog" does; absent or anything else is the page, which is what the
-// interface did before the preference existed.
+// taskDialogMode reports whether this browser opens tasks in the task dialog:
+// "dialog", or "pane", which is the same element shown beside the listing on
+// a wide window and as the dialog on a narrow one. Absent or anything else is
+// the page, which is what the interface did before the preference existed.
 func taskDialogMode(r *http.Request) bool {
-	return cookieValue(r, TaskOpenCookie) == "dialog"
+	v := cookieValue(r, TaskOpenCookie)
+	return v == "dialog" || v == "pane"
+}
+
+// taskPaneMode reports whether this browser opens tasks in the panel.
+func taskPaneMode(r *http.Request) bool {
+	return cookieValue(r, TaskOpenCookie) == "pane"
 }
 
 // titleEditMode reports whether clicking a title in a listing edits it. Only
@@ -37,16 +45,17 @@ func dialogRequest(r *http.Request) bool {
 	return r != nil && r.Header.Get(DialogHeader) == "1"
 }
 
-// toggleTaskOpen sets whether this browser opens a task as a page or in a
-// dialog: the position the form names, or the other one when it names none,
-// which is what the form posted before it named both. Both states are written
+// toggleTaskOpen sets whether this browser opens a task as a page, in a
+// dialog or in the panel: the position the form names, or when it names none
+// the page from either of the others and the dialog from the page, which is
+// what the form posted before it named its positions. Both states are written
 // explicitly so a stored choice never depends on how an absent cookie is read.
 func (h *handler) toggleTaskOpen(w http.ResponseWriter, r *http.Request) error {
 	value := "dialog"
 	if taskDialogMode(r) {
 		value = "page"
 	}
-	if named := field(r, "open"); named == "page" || named == "dialog" {
+	if named := field(r, "open"); named == "page" || named == "dialog" || named == "pane" {
 		value = named
 	}
 	h.setPreference(w, r, TaskOpenCookie, value)

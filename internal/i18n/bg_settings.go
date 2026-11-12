@@ -45,9 +45,7 @@ func init() {
 		"Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.": "Влачи карта между колоните на таблото, за да я преместиш. Менюто „Премести“ на всяка карта работи винаги, с или без влачене, така че изключването не пречи при работа с клавиатура или с докосване.",
 		"Drag board cards between columns.": "Влачи картите между колоните на таблото.",
 
-		"Task opens in": "Задачата се отваря в",
-		"Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab.": "Страница напуска списъка и отваря собствения екран на задачата. Диалог отваря задачата върху списъка, в който си: адресът се сменя, така че презареждане или копирана връзка отварят цялата страница, Назад или Escape го затварят, а промените, запазени в него, обновяват списъка отдолу. Ctrl-щракване или щракване със средния бутон все така отваря нов раздел.",
-		"Open a task as its own page, or in a dialog over the list.": "Отваряй задачата като отделна страница или в диалог върху списъка.",
+		"Task opens in":    "Задачата се отваря в",
 		"Page":             "Страница",
 		"Dialog":           "Диалог",
 		"Clicking a title": "Щракване върху заглавие",

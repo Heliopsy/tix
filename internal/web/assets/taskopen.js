@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// A task opened in a dialog over the page, and a title renamed where it is
-// listed. Both are preferences (internal/web/taskopen.go) and both stand
-// down to plain links: with this file absent, or the preference off, every
-// title is a link to the task's own page, which is the page a reload or a
-// copied address of the dialog draws too.
+// A task opened in a dialog over the page or in a panel beside it, and a
+// title renamed where it is listed. Both are preferences
+// (internal/web/taskopen.go) and both stand down to plain links: with this
+// file absent, or the preference off, every title is a link to the task's
+// own page, which is the page a reload or a copied address of the dialog
+// draws too.
+//
+// The panel is the dialog shown without a modal (show() rather than
+// showModal()) and fixed to the right of the window, so everything below
+// that keeps history, focus and a save's answer right serves both. On a
+// window too narrow for it the same element opens as the dialog.
 //
 // The decisions are in decide.js and covered by internal/web/jstest. What
 // is here is the wiring, bound at the document so a boosted navigation that
@@ -35,6 +41,176 @@
   function isOpen() {
     var dlg = dialog();
     return !!(dlg && dlg.open);
+  }
+
+  // -- the panel ----------------------------------------------------------------
+
+  var PANE_COOKIE = "tix_pane";
+  var YEAR = 60 * 60 * 24 * 365;
+
+  function paneChosen() {
+    var dlg = dialog();
+    return !!(dlg && dlg.hasAttribute("data-task-pane"));
+  }
+
+  // inPane reports whether the dialog is open beside the listing.
+  function inPane() {
+    var dlg = dialog();
+    return !!(dlg && dlg.open && dlg.getAttribute("data-shown") === "pane");
+  }
+
+  function windowWidth() {
+    return window.innerWidth || 0;
+  }
+
+  function rootEl() {
+    return document.documentElement || null;
+  }
+
+  function closest(target, selector) {
+    return target && typeof target.closest === "function" ? target.closest(selector) : null;
+  }
+
+  function menuOpen() {
+    try {
+      return !!document.querySelector(":popover-open");
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // paneSpace is the room beside the sidebar, which the panel takes at most
+  // 60% of.
+  function paneSpace() {
+    var side = document.querySelector("aside.side");
+    var taken = side && side.getBoundingClientRect ? side.getBoundingClientRect().width : 0;
+    return windowWidth() - taken;
+  }
+
+  function readPaneCookie() {
+    var all = "";
+    try {
+      all = typeof document.cookie === "string" ? document.cookie : "";
+    } catch (err) {
+      return "";
+    }
+    var pairs = all.split(";");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].replace(/^\s+/, "");
+      if (pair.indexOf(PANE_COOKIE + "=") === 0) {
+        return pair.slice(PANE_COOKIE.length + 1);
+      }
+    }
+    return "";
+  }
+
+  function paneWidth() {
+    var kept = tix.paneParse(readPaneCookie());
+    return tix.paneClamp(kept === null ? tix.paneLimits.def : kept, paneSpace());
+  }
+
+  // drawPaneWidth sets the panel's width and what its divider announces.
+  function drawPaneWidth(width) {
+    var root = rootEl();
+    if (root && root.style && root.style.setProperty) {
+      root.style.setProperty("--pane-w", width + "px");
+    }
+    var dlg = dialog();
+    var handle = dlg && dlg.querySelector("[data-pane-resize]");
+    if (handle) {
+      handle.setAttribute("aria-valuemin", String(tix.paneLimits.min));
+      handle.setAttribute("aria-valuemax", String(tix.paneMax(paneSpace())));
+      handle.setAttribute("aria-valuenow", String(width));
+    }
+  }
+
+  // savePaneWidth keeps a width for this browser, as the sidebar keeps its
+  // own (sidebar.js), and draws it; null is the default.
+  function savePaneWidth(width) {
+    var value = tix.paneFormat(width);
+    var secure = window.location.protocol === "https:" ? "; Secure" : "";
+    try {
+      document.cookie = PANE_COOKIE + "=" + value + "; Path=/; Max-Age=" + (value ? YEAR : 0) + "; SameSite=Lax" + secure;
+    } catch (err) {
+      // A browser refusing cookies keeps the width until the panel closes.
+    }
+    drawPaneWidth(tix.paneClamp(width === null ? tix.paneLimits.def : width, paneSpace()));
+  }
+
+  // markRow marks the row of the task in the panel, wherever the listing
+  // draws one, and unmarks any other. Called again after a refresh redraws
+  // the listing.
+  function markRow() {
+    var marked = document.querySelectorAll ? document.querySelectorAll("[data-pane-current]") : [];
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].removeAttribute("aria-current");
+      marked[i].removeAttribute("data-pane-current");
+    }
+    if (!inPane()) {
+      return;
+    }
+    var body = dialogBody();
+    var frag = body && body.querySelector("[data-task-dialog]");
+    var ref = (frag && frag.getAttribute("data-task-dialog")) || tix.taskRefOf(here(), origin);
+    if (!ref || !document.querySelectorAll) {
+      return;
+    }
+    var esc = window.CSS && window.CSS.escape ? window.CSS.escape(ref) : ref;
+    var rows = document.querySelectorAll('[data-shortcut-href="/tasks/' + esc + '"]');
+    for (var j = 0; j < rows.length; j++) {
+      rows[j].setAttribute("aria-current", "true");
+      rows[j].setAttribute("data-pane-current", "");
+    }
+  }
+
+  function setPaneOpen(open) {
+    var root = rootEl();
+    if (!root) {
+      return;
+    }
+    if (open) {
+      root.setAttribute("data-pane-open", "");
+    } else {
+      root.removeAttribute("data-pane-open");
+    }
+  }
+
+  // showIn opens the closed dialog beside the listing or over it.
+  function showIn(dlg, where) {
+    if (where === "pane" && typeof dlg.show === "function") {
+      dlg.setAttribute("data-shown", "pane");
+      drawPaneWidth(paneWidth());
+      setPaneOpen(true);
+      dlg.show();
+      return;
+    }
+    dlg.removeAttribute("data-shown");
+    setPaneOpen(false);
+    dlg.showModal();
+  }
+
+  function unpane() {
+    var dlg = dialog();
+    if (dlg) {
+      dlg.removeAttribute("data-shown");
+    }
+    setPaneOpen(false);
+    markRow();
+  }
+
+  // switching is set while an open task moves between the panel and the
+  // dialog, so the close that move makes is not taken for the reader's.
+  var switching = false;
+
+  function reshow(where) {
+    var dlg = dialog();
+    if (!dlg || !dlg.open) {
+      return;
+    }
+    switching = true;
+    dlg.close();
+    showIn(dlg, where);
+    markRow();
   }
 
   // poke asks the page's live binding to refresh now (live.js), so the row
@@ -79,12 +255,12 @@
   var expectPop = false;
   var closing = false;
 
-  function load(href, how) {
+  function load(href, how, keepFocus) {
     var dlg = dialog();
     if (!dlg || !window.htmx) {
       return false;
     }
-    pending = { href: href, how: how };
+    pending = { href: href, how: how, keep: !!keepFocus };
     window.htmx.ajax("GET", href, {
       source: dlg,
       target: "#taskdlg-body",
@@ -97,6 +273,12 @@
   function openTask(href, from) {
     opener = from || document.activeElement;
     openerRef = tix.taskRefOf(href, origin);
+    // Another task followed from the listing beside the open panel takes
+    // the panel's place in history, so Back still closes it, and focus
+    // stays in the listing the reader is going down.
+    if (inPane()) {
+      return load(href, "replace", true);
+    }
     over = here();
     under = over;
     if (!load(href, "push")) {
@@ -110,6 +292,7 @@
     var dlg = dialog();
     var how = pending ? pending.how : "";
     var href = pending ? pending.href : "";
+    var keep = pending ? pending.keep : false;
     pending = null;
     if (!dlg) {
       return;
@@ -124,10 +307,11 @@
       body.scrollTop = 0;
     }
     if (!dlg.open) {
-      dlg.showModal();
+      showIn(dlg, tix.paneOpensIn(paneChosen(), windowWidth()));
     }
+    markRow();
     var close = dlg.querySelector("[data-dialog-close]");
-    if (how && close) {
+    if (how && close && !keep) {
       close.focus();
     }
   }
@@ -159,6 +343,7 @@
       dlg.close();
     }
     closing = false;
+    unpane();
     var body = dialogBody();
     if (body) {
       body.innerHTML = "";
@@ -327,9 +512,14 @@
   // A close the page did not ask for, such as the browser's own escape
   // after the cancel above was refused, still has to put history back.
   document.addEventListener("close", function (event) {
+    if (event.target === dialog() && switching) {
+      switching = false;
+      return;
+    }
     if (closing || event.target !== dialog()) {
       return;
     }
+    unpane();
     var state = window.history.state;
     if (state && state.tixDialog) {
       expectPop = true;
@@ -480,7 +670,7 @@
   document.addEventListener("click", function (event) {
     var target = event.target;
     var dlg = dialog();
-    if (dlg && target === dlg && isOpen()) {
+    if (dlg && target === dlg && isOpen() && !inPane()) {
       requestClose();
       return;
     }
@@ -555,6 +745,130 @@
     event.stopPropagation();
     startEdit(link);
   }, true);
+
+  // -- the panel's keys, divider and neighbours ---------------------------------
+
+  // Escape inside the panel closes it, as it closes the dialog. A menu open
+  // in it takes the key first, and so does a field: Escape there must not
+  // throw away what is being typed beside a listing still in view.
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape" || event.defaultPrevented || !inPane()) {
+      return;
+    }
+    var dlg = dialog();
+    if (!dlg.contains(event.target) || menuOpen() || tix.isTypingTarget(event.target)) {
+      return;
+    }
+    event.preventDefault();
+    requestClose();
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (!closest(event.target, "[data-pane-resize]") || !inPane()) {
+      return;
+    }
+    var next = tix.paneKey(event.key, event.shiftKey, paneWidth(), paneSpace());
+    if (next === null) {
+      return;
+    }
+    event.preventDefault();
+    savePaneWidth(next === "reset" ? null : next);
+  });
+
+  document.addEventListener("dblclick", function (event) {
+    if (closest(event.target, "[data-pane-resize]") && inPane()) {
+      savePaneWidth(null);
+    }
+  });
+
+  var drag = null;
+
+  document.addEventListener("pointerdown", function (event) {
+    var handle = closest(event.target, "[data-pane-resize]");
+    if (!handle || event.button !== 0 || !inPane()) {
+      return;
+    }
+    event.preventDefault();
+    drag = { id: event.pointerId, width: null };
+    if (handle.setPointerCapture) {
+      handle.setPointerCapture(event.pointerId);
+    }
+    var root = rootEl();
+    if (root) {
+      root.setAttribute("data-pane-drag", "");
+    }
+  });
+
+  document.addEventListener("pointermove", function (event) {
+    if (!drag || event.pointerId !== drag.id) {
+      return;
+    }
+    var root = rootEl();
+    drag.width = tix.paneDrop(event.clientX, root && root.clientWidth ? root.clientWidth : windowWidth(), paneSpace());
+    if (drag.width !== null) {
+      drawPaneWidth(drag.width);
+    }
+  });
+
+  function endDrag(event, keep) {
+    if (!drag || event.pointerId !== drag.id) {
+      return;
+    }
+    var width = drag.width;
+    drag = null;
+    var root = rootEl();
+    if (root) {
+      root.removeAttribute("data-pane-drag");
+    }
+    if (keep && width !== null) {
+      savePaneWidth(width);
+    } else {
+      drawPaneWidth(paneWidth());
+    }
+  }
+
+  document.addEventListener("pointerup", function (event) {
+    endDrag(event, true);
+  });
+  document.addEventListener("pointercancel", function (event) {
+    endDrag(event, false);
+  });
+
+  // A navigation of the page beside the panel makes the panel's entry the
+  // listing's again and closes it before htmx takes its snapshot, so neither
+  // Back nor the snapshot brings back a panel over a page it was not opened
+  // over.
+  document.addEventListener("htmx:beforeHistorySave", function () {
+    if (!inPane()) {
+      return;
+    }
+    var state = window.history.state;
+    if (state && state.tixDialog) {
+      window.history.replaceState(null, "", state.over);
+    }
+    opener = null;
+    openerRef = "";
+    closeNow();
+  });
+
+  // A refresh of the listing redraws its rows without the mark.
+  document.addEventListener("htmx:load", markRow);
+  document.addEventListener("tix:regions", markRow);
+
+  // A window resized across the breakpoint moves an open task between the
+  // panel and the dialog; within it, the panel keeps to its bounds.
+  window.addEventListener("resize", function () {
+    var dlg = dialog();
+    if (!dlg || !dlg.open || !paneChosen()) {
+      return;
+    }
+    var where = tix.paneOpensIn(true, windowWidth());
+    if (where !== (inPane() ? "pane" : "dialog")) {
+      reshow(where);
+    } else if (where === "pane") {
+      drawPaneWidth(paneWidth());
+    }
+  });
 
   // openTaskHref is what the command palette asks first (palette.js): a
   // task it offers opens in the dialog when the page has one, and focus

@@ -850,15 +850,20 @@
 {{end}}
 {{end}}
 
-{{/* The dialog a task opens in, when this browser chose Dialog
+{{/* The dialog a task opens in, when this browser chose Dialog or Panel
      (taskopen.go). Empty until assets/taskopen.js asks for a task into it.
      Every request made from inside it targets its body, adds no history entry
      of its own and carries the header that makes the server answer with the
      task screen alone, so a save's redirect is drawn in place. */}}
 {{define "task-dialog-host"}}
-<dialog id="taskdlg" class="taskdlg" aria-labelledby="taskdlg-title"
+<dialog id="taskdlg" class="taskdlg" aria-labelledby="taskdlg-title"{{if .TaskPane}} data-task-pane{{end}}
         hx-target="#taskdlg-body" hx-swap="innerHTML show:none" hx-push-url="false"
         hx-headers='{"X-Tix-Dialog": "1"}'>
+  {{/* With Panel the same element opens beside the listing on a wide
+       window (assets/taskopen.js), and this is the line between them: a
+       separator, so it is focusable and announced with the panel's width,
+       which the script fills in. Hidden while the element is a dialog. */}}
+  {{if .TaskPane}}<div class="pane-resize" data-pane-resize role="separator" aria-orientation="vertical" aria-controls="taskdlg" aria-label="{{t "Resize task panel"}}" tabindex="0"></div>{{end}}
   <div id="taskdlg-body" class="taskdlg-body"></div>
 </dialog>
 {{end}}

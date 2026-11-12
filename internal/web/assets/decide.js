@@ -632,6 +632,91 @@
     return state.over === under ? "reopen" : "reload";
   };
 
+  // The task panel: Task opens in set to Panel shows the task dialog beside
+  // the listing on a window at least paneLimits.from wide (taskopen.js). The
+  // widths are tix-mobile's task panel's (lib/src/core/theme/layout.dart);
+  // the breakpoint is higher than its 840 because the web's sidebar is a
+  // 224px column from 900px up, not a rail.
+  var PANE = { from: 1100, min: 360, max: 720, def: 460, share: 0.6, step: 16, bigStep: 64 };
+  tix.paneLimits = PANE;
+
+  // paneOpensIn is where a task followed from a listing opens when the page
+  // carries the task dialog: "pane" beside it, or "dialog" over it, which is
+  // also what Panel falls back to on a narrow window.
+  tix.paneOpensIn = function (paneChosen, windowWidth) {
+    return paneChosen && Number(windowWidth) >= PANE.from ? "pane" : "dialog";
+  };
+
+  // paneMax is the widest the panel may be with space beside the sidebar:
+  // 60% of it, within the panel's own bounds.
+  tix.paneMax = function (space) {
+    var n = Number(space);
+    if (!isFinite(n) || n <= 0) {
+      return PANE.max;
+    }
+    return Math.max(PANE.min, Math.min(PANE.max, Math.round(n * PANE.share)));
+  };
+
+  // paneClamp bounds a width to what the panel may be; null for no number.
+  tix.paneClamp = function (px, space) {
+    if (px === null || px === undefined || px === "") {
+      return null;
+    }
+    var n = Math.round(Number(px));
+    if (!isFinite(n)) {
+      return null;
+    }
+    return Math.min(tix.paneMax(space), Math.max(PANE.min, n));
+  };
+
+  // paneKey is the width a key on the divider asks for: a number, "reset",
+  // or null for a key it ignores. The panel is right of the divider, so Left
+  // widens it.
+  tix.paneKey = function (key, shift, width, space) {
+    var step = shift ? PANE.bigStep : PANE.step;
+    switch (key) {
+      case "ArrowLeft":
+        return tix.paneClamp(width + step, space);
+      case "ArrowRight":
+        return tix.paneClamp(width - step, space);
+      case "Home":
+        return PANE.min;
+      case "End":
+        return tix.paneMax(space);
+      case "Enter":
+        return "reset";
+      default:
+        return null;
+    }
+  };
+
+  // paneDrop is the width a drag of the divider to clientX asks for, the
+  // panel running to the window's right edge.
+  tix.paneDrop = function (clientX, windowWidth, space) {
+    return tix.paneClamp(Number(windowWidth) - Number(clientX), space);
+  };
+
+  // paneParse reads the tix_pane cookie's value, "w=NNN": the width, or null
+  // for the default or anything unreadable.
+  tix.paneParse = function (value) {
+    var m = /(?:^|&)w=(\d+)(?:&|$)/.exec(String(value || ""));
+    if (!m || Number(m[1]) <= 0) {
+      return null;
+    }
+    return Math.min(PANE.max, Math.max(PANE.min, Number(m[1])));
+  };
+
+  // paneFormat writes a width as the cookie's value: "" for the default,
+  // which removes the cookie.
+  tix.paneFormat = function (width) {
+    var n = width === null || width === undefined ? null : Math.round(Number(width));
+    if (n === null || !isFinite(n) || n <= 0) {
+      return "";
+    }
+    n = Math.min(PANE.max, Math.max(PANE.min, n));
+    return n === PANE.def ? "" : "w=" + n;
+  };
+
   // titleStep decides what finishing a title edit does. refused is the value
   // last refused, passed only when the field lost focus, so leaving a refused
   // value does not send it again; Enter always does.

@@ -238,15 +238,17 @@
       {{template "csrf" .CSRF}}
       <input type="hidden" name="next" value="{{savedNext "Task opens in" "listings"}}">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab."}}</div>
-        <span class="sethelp" id="taskopen-help">{{t "Open a task as its own page, or in a dialog over the list."}}</span>
+        <div class="setname-line"><span class="setname" id="taskopen-name">{{t "Task opens in"}}</span>{{template "field-info" "Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. Panel opens it the same way beside the listing on a window at least 1100 pixels wide, with a divider you can drag, and as a dialog on a narrower one. A ctrl-click or a middle click still opens a new tab."}}</div>
+        <span class="sethelp" id="taskopen-help">{{t "Open a task as its own page, in a dialog over the list, or in a panel beside it."}}</span>
       </div>
-      {{/* Two named positions, not a switch: a switch drawn off beside "Page"
+      {{/* Named positions, not a switch: a switch drawn off beside "Page"
            read as the page being off. Each segment posts its own position. */}}
       <div class="setrow-ctl">
         <div class="segmented" role="group" aria-labelledby="taskopen-name" aria-describedby="taskopen-help" data-choice="taskopen">
           <button type="submit" name="open" value="page" class="segment{{if not .TaskDialog}} is-on{{end}}"{{if not .TaskDialog}} aria-current="true"{{end}}>{{t "Page"}}</button>
-          <button type="submit" name="open" value="dialog" class="segment{{if .TaskDialog}} is-on{{end}}"{{if .TaskDialog}} aria-current="true"{{end}}>{{t "Dialog"}}</button>
+          {{$dlg := and .TaskDialog (not .TaskPane)}}
+          <button type="submit" name="open" value="dialog" class="segment{{if $dlg}} is-on{{end}}"{{if $dlg}} aria-current="true"{{end}}>{{t "Dialog"}}</button>
+          <button type="submit" name="open" value="pane" class="segment{{if .TaskPane}} is-on{{end}}"{{if .TaskPane}} aria-current="true"{{end}}>{{t "Panel"}}</button>
         </div>
       </div>
     </form>

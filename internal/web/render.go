@@ -181,6 +181,9 @@ type view struct {
 	// TaskDialog is whether this page carries the dialog a task opens in.
 	// Never on the task screen itself, which is what the dialog would show.
 	TaskDialog bool
+	// TaskPane is whether the dialog is shown beside the listing on a wide
+	// window rather than over it.
+	TaskPane bool
 	// TitleEdit is whether a click on a listed task's title edits it.
 	TitleEdit bool
 	// InDialog is whether this answer is the task screen drawn for the
@@ -511,6 +514,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Hover:           hoverEffects(r),
 		ShareOrigin:     httpapi.PublicOrigin(r),
 		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
+		TaskPane:        taskPaneMode(r),
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
