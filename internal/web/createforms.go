@@ -31,6 +31,8 @@ type taskForm struct {
 
 	// Quick marks the one-line box, whose title is a quick-add line.
 	Quick bool
+	// Another is the box's Add another checkbox.
+	Another bool
 }
 
 // More reports whether the folded fields hold anything, which is when the
@@ -46,6 +48,7 @@ func readTaskForm(r *http.Request) taskForm {
 		Priority: field(r, "priority"), Due: field(r, "due_at"), Assignee: field(r, "assignee"),
 		Tags: field(r, "tags"), Repeat: field(r, "repeat"), Parent: field(r, "parent"),
 		DependsOn: field(r, "depends_on"), Lease: field(r, "lease"), Quick: field(r, "quick") != "",
+		Another: field(r, "another") != "",
 	}
 }
 

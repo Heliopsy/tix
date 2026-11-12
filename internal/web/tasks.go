@@ -273,6 +273,10 @@ type tasksView struct {
 	// in the box after a refusal.
 	Quick     quickPreview
 	QuickLine string
+	// QuickAnother draws Add another ticked, and QuickFocus focuses the box,
+	// which only the listing an Add another redirect lands on does.
+	QuickAnother bool
+	QuickFocus   bool
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -412,6 +416,7 @@ func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
 	}
 	h.rememberTaskView(w, r)
 	h.rememberLanesGroup(w, r)
+	data.QuickFocus = h.takeQuickFocus(w, r)
 	title := "Tasks"
 	if data.Trash {
 		title = "Trash"
@@ -679,6 +684,7 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) 
 		Projects:      projects,
 		Tags:          tags,
 		Templates:     h.addTemplates(r),
+		QuickAnother:  addAnother(r),
 		Priorities:    priorityChoices,
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),
@@ -831,6 +837,9 @@ func doneState(d core.WorkflowDefinition) string {
 // createTask creates a task from the list screen's form.
 func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	form := readTaskForm(r)
+	if form.Quick {
+		h.rememberAddAnother(w, r, form.Another)
+	}
 	in, err := form.input(r, h.readerNow(r), h.readerStyle(r).DateOrder())
 	if err == nil && form.Quick {
 		in, err = h.quickInput(r, in)
@@ -841,6 +850,13 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	task, err := h.svc.CreateTask(r.Context(), in)
 	if err != nil {
 		return h.refuseTask(w, r, form, err)
+	}
+	// Add another is the choice made on the row itself, so it wins over the
+	// preference: the reader is typing a run of tasks and wants the box back.
+	if form.Quick && form.Another {
+		h.markQuickFocus(w, r)
+		redirectTo(w, r, listingReferer(r), "t-"+task.Ref, "task created")
+		return nil
 	}
 	// Both add paths land here, the one-line box and Add with details, so the
 	// preference governs both rather than one of them. Staying returns to the
@@ -870,6 +886,7 @@ func (h *handler) refuseTask(w http.ResponseWriter, r *http.Request, form taskFo
 	}
 	if form.Quick {
 		data.Form.Project, data.QuickLine = form.Project, form.Title
+		data.QuickAnother = form.Another
 		data.Quick = h.previewLine(r, form.Title)
 		data.Quick.Error = refusalMessage(err)
 		return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "tasks.html", "Tasks", data)

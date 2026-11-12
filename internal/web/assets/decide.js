@@ -23,11 +23,13 @@
     if (typeof key !== "string") {
       return "";
     }
+    // Shift on a chord is named, so ctrl+shift+v is not ctrl+v.
+    var shift = event.shiftKey ? "shift+" : "";
     if (event.ctrlKey && key.length === 1) {
-      return "ctrl+" + key.toLowerCase();
+      return "ctrl+" + shift + key.toLowerCase();
     }
     if (event.metaKey && key.length === 1) {
-      return "meta+" + key.toLowerCase();
+      return "meta+" + shift + key.toLowerCase();
     }
     // A letter carries its shift in its case; a named key says so.
     if (event.shiftKey && key.length > 1) {
@@ -942,6 +944,88 @@
       return { act: "close" };
     }
     return { act: "none" };
+  };
+
+  // The quick-add box's suggestions, drawn by the same filterbar.js under
+  // data-suggest-mode="quick". quickTokenAt finds the word the caret is in
+  // when it opens with #, @ or +, the sigils quick add completes. A bare
+  // word is the title and gets nothing, and so does a word inside an open
+  // quote, which the parser keeps as title text.
+  tix.quickTokenAt = function (text, caret) {
+    var value = String(text || "");
+    var at = typeof caret === "number" ? caret : value.length;
+    if ((value.slice(0, at).match(/["„“]/g) || []).length % 2 === 1) {
+      return null;
+    }
+    var start = at;
+    while (start > 0 && !/\s/.test(value.charAt(start - 1))) {
+      start--;
+    }
+    var end = at;
+    while (end < value.length && !/\s/.test(value.charAt(end))) {
+      end++;
+    }
+    var sigil = value.charAt(start);
+    if ("#@+".indexOf(sigil) < 0 || end === start) {
+      return null;
+    }
+    return { start: start, end: end, neg: false, key: sigil, typed: value.slice(start + 1, end) };
+  };
+
+  // quickTag and quickHandle mirror internal/quickadd's validTag and
+  // validHandle: what may follow # or @ and still be read as a token.
+  var quickTag = /^(?=.*\p{L})[\p{L}\p{N}][\p{L}\p{N}_\-/.]*$/u;
+  var quickHandle = /^[\p{L}\p{N}]([\p{L}\p{N}_.+-]*[\p{L}\p{N}])?$/u;
+
+  // quickWord is how a value is written into the line: the sigil form when
+  // the parser reads it as one, the keyed form when only that carries it,
+  // and nothing for a value with whitespace, which no quick-add word holds.
+  function quickWord(sigil, key, valid, value) {
+    if (/[\s"„“”«»]/.test(value)) {
+      return "";
+    }
+    return valid.test(value) && !/[-/.]$/.test(value) ? sigil + value : key + ":" + value;
+  }
+
+  // quickSuggest lists what a quick-add token completes to: tags after #,
+  // handles after @, projects (noted with their names) after +.
+  tix.quickSuggest = function (data, tok, limit) {
+    if (!data || !tok) {
+      return [];
+    }
+    var values;
+    var show;
+    if (tok.key === "#") {
+      values = (data.tag || []).map(function (v) { return { value: String(v) }; });
+      show = function (v) { return { label: "#" + v.value, insert: quickWord("#", "tag", quickTag, v.value), note: "" }; };
+    } else if (tok.key === "@") {
+      values = (data.person || []).map(function (v) { return { value: String(v) }; });
+      show = function (v) { return { label: "@" + v.value, insert: quickWord("@", "assignee", quickHandle, v.value), note: "" }; };
+    } else if (tok.key === "+") {
+      values = (data.project || []).map(function (p) { return { value: p.k, note: p.n, match: p.k + " " + p.n }; });
+      show = function (v) { return { label: "+" + v.value, insert: "+" + v.value, note: v.note || "" }; };
+    } else {
+      return [];
+    }
+    var out = rank(values, tok.typed, show).filter(function (s) { return s.insert !== ""; });
+    out = out.slice(0, limit || 8);
+    if (out.length === 1 && out[0].insert.toLowerCase() === (tok.key + tok.typed).toLowerCase()) {
+      return [];
+    }
+    return out;
+  };
+
+  // firstLine is what Quick add from the clipboard puts in the box: the
+  // first line with anything on it, trimmed, or "" when there is none.
+  tix.firstLine = function (text) {
+    var lines = String(text == null ? "" : text).split(/\r\n|\r|\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line) {
+        return line;
+      }
+    }
+    return "";
   };
 
   // filterParams is what the box's in-place filter asks for: the form's

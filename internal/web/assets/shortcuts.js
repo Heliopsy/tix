@@ -250,6 +250,9 @@
     open: openSelected,
     back: goBack,
     "new": function () { focusTarget("new"); },
+    // Answers false where there is no quick-add box, so the key is the
+    // browser's there.
+    quickPaste: function () { return typeof tix.quickPaste === "function" && tix.quickPaste(); },
     editTitle: function () { focusTarget("editTitle"); },
     comment: function () { focusTarget("comment"); },
     transition: function () { focusTarget("transition"); },
