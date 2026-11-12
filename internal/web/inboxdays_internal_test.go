@@ -12,7 +12,9 @@ import (
 func TestInboxDaysAreCountedInTheReadersZone(t *testing.T) {
 	zone := time.FixedZone("plus3", 3*3600)
 	now := time.Date(2026, 11, 12, 1, 0, 0, 0, zone)
-	at := func(d time.Duration) inboxRow { return inboxRow{InboxItem: core.InboxItem{CreatedAt: now.Add(-d).UTC()}} }
+	at := func(d time.Duration) inboxRow {
+		return inboxRow{InboxItem: core.InboxItem{CreatedAt: now.Add(-d).UTC()}}
+	}
 	rows := []inboxRow{at(30 * time.Minute), at(90 * time.Minute), at(25 * time.Hour), at(26 * time.Hour), at(50 * time.Hour)}
 	groups := groupInboxByDay(rows, now, zone)
 	var got []string
