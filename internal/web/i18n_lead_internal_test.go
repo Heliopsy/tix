@@ -22,7 +22,7 @@ func init() {
 	})
 }
 
-// The settings screen's labels: shortcut actions and schemes, colouring.
+// The settings screen's labels: shortcut actions, groups and schemes, colouring.
 func init() {
 	labelSets = append(labelSets, func() []string {
 		var out []string
@@ -32,6 +32,7 @@ func init() {
 		for _, s := range KeySchemes() {
 			out = append(out, keySchemeLabel(s))
 		}
+		out = append(out, shortcutGroups...)
 		for _, v := range tintLabels {
 			out = append(out, v)
 		}

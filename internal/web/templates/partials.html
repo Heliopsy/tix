@@ -265,7 +265,7 @@
 {{define "star"}}<form method="post" class="starform" action="{{.Action}}">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Next}}">
-  <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
+  <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" data-shortcut-target="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
           aria-label="{{if .Starred}}{{t "Unstar %s" (ref .Ref)}}{{else}}{{t "Star %s" (ref .Ref)}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
   </button>
@@ -510,7 +510,7 @@
       <h2 id="shortcuts-help-title">{{t "Keyboard shortcuts"}}</h2>
       <button type="button" class="secondary" data-shortcuts-close>{{t "Close"}}</button>
     </div>
-    <dl class="shortcuts-help-list" id="shortcuts-help-list"></dl>
+    <div class="shortcuts-help-list" id="shortcuts-help-list"></div>
   </div>
 </div>
 {{end}}

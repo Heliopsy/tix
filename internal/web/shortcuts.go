@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/i18n"
 )
@@ -22,6 +23,7 @@ const (
 	KeySchemeDefault KeyScheme = "default"
 	KeySchemeVim     KeyScheme = "vim"
 	KeySchemeEmacs   KeyScheme = "emacs"
+	KeySchemeOff     KeyScheme = "off"
 )
 
 // KeySchemes lists every shipped scheme.
@@ -34,7 +36,9 @@ const (
 // two actions the browser interface does not offer at all. Either one would
 // therefore resolve to a table already shipped under another name, which is a
 // second entry in the picker that changes nothing when chosen.
-func KeySchemes() []KeyScheme { return []KeyScheme{KeySchemeDefault, KeySchemeVim, KeySchemeEmacs} }
+func KeySchemes() []KeyScheme {
+	return []KeyScheme{KeySchemeDefault, KeySchemeVim, KeySchemeEmacs, KeySchemeOff}
+}
 
 // KeySchemeCookie remembers the keyboard scheme this browser asked for. Like
 // ThemeCookie, an absent or unrecognised value falls back to the default
@@ -69,10 +73,24 @@ func keySchemeLabel(s KeyScheme) string {
 		return "Vim"
 	case KeySchemeEmacs:
 		return "Emacs"
+	case KeySchemeOff:
+		return "Off"
 	default:
 		return "Default"
 	}
 }
+
+// The groups the help overlay heads its actions with, in the order it draws
+// them. The app's help uses the same four.
+const (
+	groupNavigate = "Navigate"
+	groupLists    = "Lists"
+	groupTask     = "Task"
+	groupGeneral  = "General"
+)
+
+// shortcutGroups lists the help overlay's groups in the order it draws them.
+var shortcutGroups = []string{groupNavigate, groupLists, groupTask, groupGeneral}
 
 // shortcutAction is one action the shortcut layer can drive, in the order the
 // help overlay lists it. This is the entire vocabulary: a scheme may only
@@ -81,106 +99,160 @@ func keySchemeLabel(s KeyScheme) string {
 type shortcutAction struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
+	Group string `json:"group"`
 }
 
-// shortcutActions covers exactly what the web UI can do today. Claiming a
-// task is deliberately absent: the browser interface does not expose
-// ClaimTask or ClaimNext at all (see Exemptions in routes.go, "claiming is
-// the agent work queue"), so there is nothing here for a key to drive and
-// binding one would be the bug the TUI just had to fix. Left/right and
-// column navigation are absent for the same reason: the web UI has no
-// keyboard concept of moving between board columns, only a single ordered
-// list of rows.
+// shortcutActions covers exactly what the web UI can do today, under the
+// labels the app's help uses for the same actions (one key table for both
+// surfaces, openspec/changes/unified-keys). Claiming a task is absent: the
+// browser interface does not expose ClaimTask or ClaimNext at all (see
+// Exemptions in routes.go). Go to Manage and Delete are in the shared table
+// but not here: the web has no Manage landing page, and deleting from the
+// keyboard is the app's alone.
 var shortcutActions = []shortcutAction{
-	{"up", "Move selection up"},
-	{"down", "Move selection down"},
-	{"top", "Jump to the first task"},
-	{"bottom", "Jump to the last task"},
-	{"open", "Open the selected task"},
-	{"back", "Go back"},
-	{"new", "Focus the new task field"},
-	{"quickPaste", "Quick add from the clipboard"},
-	{"editTitle", "Focus the title field"},
-	{"comment", "Focus the comment field"},
-	{"transition", "Open the move menu"},
-	{"select", "Select or unselect the focused task"},
-	{"extendUp", "Extend the selection up"},
-	{"extendDown", "Extend the selection down"},
-	{"selectAll", "Select every task in the list"},
-	{"complete", "Mark the focused task done"},
-	{"filter", "Focus the filter field"},
-	{"palette", "Open the command palette"},
-	{"help", "Show this help"},
+	{"goInbox", "Go to Inbox", groupNavigate},
+	{"goMyWork", "Go to My work", groupNavigate},
+	{"goTasks", "Go to Tasks", groupNavigate},
+	{"goProjects", "Go to Projects", groupNavigate},
+	{"goActivity", "Go to Activity", groupNavigate},
+	{"goSettings", "Go to Settings", groupNavigate},
+	{"goStats", "Go to Statistics", groupNavigate},
+	{"down", "Move selection down", groupLists},
+	{"up", "Move selection up", groupLists},
+	{"top", "Jump to the first task", groupLists},
+	{"bottom", "Jump to the last task", groupLists},
+	{"pageDown", "Page down", groupLists},
+	{"pageUp", "Page up", groupLists},
+	{"open", "Open the selected task", groupLists},
+	{"back", "Go back", groupLists},
+	{"select", "Select or unselect the focused task", groupLists},
+	{"extendDown", "Extend the selection down", groupLists},
+	{"extendUp", "Extend the selection up", groupLists},
+	{"selectAll", "Select every task in the list", groupLists},
+	{"filter", "Focus the filter field", groupLists},
+	{"refresh", "Refresh", groupLists},
+	{"switchView", "Switch view", groupLists},
+	{"new", "New task", groupLists},
+	{"quickPaste", "Quick add from the clipboard", groupLists},
+	{"complete", "Mark done", groupTask},
+	{"editTitle", "Edit the title", groupTask},
+	{"editDescription", "Edit the description", groupTask},
+	{"transition", "Move to another status", groupTask},
+	{"comment", "Comment", groupTask},
+	{"tag", "Add a tag", groupTask},
+	{"star", "Star or unstar", groupTask},
+	{"priority", "Set the priority", groupTask},
+	{"assign", "Assign", groupTask},
+	{"due", "Set the due date", groupTask},
+	{"snooze", "Snooze or unsnooze", groupTask},
+	{"copyRef", "Copy the reference", groupTask},
+	{"palette", "Open the command palette", groupGeneral},
+	{"help", "Show this help", groupGeneral},
 }
 
-// The palette is ctrl+k, as it is in the TUI, and meta+k for a Mac's command
-// key. No scheme rebinds it: neither chord is one the browser keeps from page
-// script, and no scheme spends either on something else.
+// shortcutDestinations are the screens the go-to actions open.
+var shortcutDestinations = map[string]string{
+	"goInbox":    RouteInbox,
+	"goMyWork":   RouteMine,
+	"goTasks":    RouteTasks,
+	"goProjects": RouteProjects,
+	"goActivity": RouteActivity,
+	"goSettings": RouteSettings,
+	"goStats":    RouteStats,
+}
+
+// A key is written the way assets/decide.js's comboOf names a keydown: the
+// key itself, or ctrl+, meta+, alt+ or shift+ and the key. Two keys pressed
+// one after the other are written with a space between them ("g i"); the
+// shortcut script waits up to a second for the second one.
 //
-// baseKeyBindings are the default scheme's bindings, taken from
-// internal/tui/keys.go's DefaultKeyMap so a key means the same thing on both
-// surfaces: Up/Down/Top/Bottom already carry vi aliases (j/k, g/G) there,
-// because that is the TUI's own scheme-independent default, not something
-// specific to a "vim" choice.
+// The palette is ctrl+k, as it is in the TUI, and meta+k for a Mac's command
+// key. No scheme takes either chord away.
+//
+// baseKeyBindings are the default scheme's bindings, the Default column of
+// the key table the web and the app share. j/k and g/G are there in every
+// scheme, as they are in the TUI's own default.
 var baseKeyBindings = map[string][]string{
-	"up":         {"ArrowUp", "k"},
+	"goInbox":    {"g i"},
+	"goMyWork":   {"g m"},
+	"goTasks":    {"g t"},
+	"goProjects": {"g p"},
+	"goActivity": {"g a"},
+	"goSettings": {"g s"},
+	"goStats":    {"g S"},
 	"down":       {"ArrowDown", "j"},
+	"up":         {"ArrowUp", "k"},
 	"top":        {"g", "Home"},
 	"bottom":     {"G", "End"},
+	"pageDown":   {"PageDown"},
+	"pageUp":     {"PageUp"},
 	"open":       {"Enter"},
 	"back":       {"Escape"},
-	"new":        {"n"},
-	"editTitle":  {"e"},
-	"comment":    {"m"},
-	"transition": {"t"},
 	"select":     {"x"},
-	"extendUp":   {"shift+ArrowUp"},
 	"extendDown": {"shift+ArrowDown"},
+	"extendUp":   {"shift+ArrowUp"},
 	"selectAll":  {"ctrl+a", "meta+a"},
-	// e is editTitle here and the terminal's edit key, so done takes d.
-	"complete": {"d"},
-	"filter":   {"/"},
-	"palette":  {"ctrl+k", "meta+k"},
-	"help":     {"?"},
+	"filter":     {"/"},
+	"refresh":    {"r"},
+	"switchView": {"v"},
+	"new":        {"n"},
 	// The app's chord. In a text field it stays the browser's paste as plain
 	// text, since the shortcut layer stands down there.
-	"quickPaste": {"ctrl+shift+v", "meta+shift+v"},
+	"quickPaste":      {"ctrl+shift+v", "meta+shift+v"},
+	"complete":        {"d"},
+	"editTitle":       {"e"},
+	"editDescription": {"E"},
+	"transition":      {"t"},
+	"comment":         {"m"},
+	"tag":             {"#"},
+	"star":            {"s", "*"},
+	"priority":        {"p"},
+	"assign":          {"a"},
+	"due":             {"u"},
+	"snooze":          {"z"},
+	"copyRef":         {"y"},
+	"palette":         {"ctrl+k", "meta+k"},
+	"help":            {"?"},
 }
 
 // keySchemeOverrides are the actions each scheme rebinds away from the base,
 // mirroring internal/tui/scheme.go's schemeKeys: an action this map does not
-// name for a scheme keeps the base binding, so no scheme can leave one
-// unbound.
+// name for a scheme keeps the base binding. A nil list unbinds the action.
 //
-// The emacs row diverges from internal/tui/scheme.go's SchemeEmacs on
-// several keys because the browser itself owns those chords and never
-// delivers them to page script, no matter how early preventDefault runs:
-// ctrl+n opens a new window, ctrl+p opens the print dialog, ctrl+e is
-// Chrome's "search this engine" omnibox shortcut, ctrl+s opens Save Page As,
-// and ctrl+t opens a new tab. Binding them anyway would look like the vim
-// scheme's "/" for Filter but silently do nothing, which is the same bug the
-// TUI just had to fix for a different reason. Each is dropped in favour of
-// the closest key that does reach the page, noted inline below.
+// Some of the app's keys for these schemes are chords the browser itself
+// owns and never delivers to page script, no matter how early preventDefault
+// runs: ctrl+n opens a new window, ctrl+p prints, ctrl+s saves the page,
+// ctrl+l focuses the address bar, ctrl+f is find and ctrl+b toggles the
+// bookmarks bar in Firefox. The web drops each and keeps the other keys the
+// shared table gives the action.
 var keySchemeOverrides = map[KeyScheme]map[string][]string{
 	KeySchemeVim: {
-		"new":       {"o"},
-		"editTitle": {"i"},
-		"comment":   {"a"},
-		"filter":    {"/", ":"},
+		"back":            {"Escape", "h"},
+		"open":            {"Enter", "l"},
+		"top":             {"g g", "Home"},
+		"pageDown":        {"ctrl+d", "PageDown"},
+		"pageUp":          {"ctrl+u", "PageUp"},
+		"select":          {"v"},
+		"extendDown":      {"J", "shift+ArrowDown"},
+		"extendUp":        {"K", "shift+ArrowUp"},
+		"switchView":      {"g v"},
+		"new":             {"o"},
+		"editTitle":       {"i"},
+		"editDescription": {"D"},
+		"filter":          {"/", ":"},
 	},
 	KeySchemeEmacs: {
-		"up":     {"ArrowUp"},        // ctrl+p is the browser's print shortcut
-		"down":   {"ArrowDown"},      // ctrl+n opens a new browser window
-		"top":    {"Home", "ctrl+a"}, // ctrl+a (select all) is safe to intercept
-		"bottom": {"End"},            // ctrl+e is Chrome's omnibox search shortcut
-		"back":   {"Escape", "ctrl+g"},
-		// ctrl+a is top here, as it is in the terminal interface, so select
-		// all takes a key no scheme uses.
-		"selectAll": {"*"},
-		// Filter keeps the base "/": the TUI binds it only to ctrl+s, which
-		// opens Save Page As and cannot be overridden from script.
-		// EditTitle keeps the base "e": the TUI binds it to ctrl+t, which
-		// opens a new browser tab and cannot be overridden from script.
+		"palette":  {"ctrl+k", "meta+k", "alt+x"},
+		"back":     {"Escape", "ctrl+g"},
+		"down":     {"ArrowDown"}, // ctrl+n opens a new browser window
+		"up":       {"ArrowUp"},   // ctrl+p is the browser's print shortcut
+		"top":      {"alt+<", "Home"},
+		"bottom":   {"alt+>", "End"},
+		"pageDown": {"ctrl+v", "PageDown"},
+		"pageUp":   {"alt+v", "PageUp"},
+		"select":   {"ctrl+space", "x"},
+		// Filter keeps "/": the app's ctrl+s opens Save Page As. Refresh
+		// keeps "r": the app's ctrl+l focuses the address bar.
 	},
 }
 
@@ -194,9 +266,18 @@ func ShortcutActionNames() []string {
 	return out
 }
 
+// IsChord reports whether a key is pressed with ctrl or meta held, the only
+// keys the Off scheme keeps.
+func IsChord(key string) bool {
+	return strings.HasPrefix(key, "ctrl+") || strings.HasPrefix(key, "meta+")
+}
+
 // KeyBindingsFor resolves one scheme's full binding table, base bindings
 // first and the scheme's own overrides layered on top, exactly as
 // internal/tui/scheme.go's KeyMapFor layers schemeKeys over DefaultKeyMap.
+// Off is the default table with every key but the ctrl and meta chords taken
+// out, so typing a letter anywhere does nothing while ctrl+k still opens the
+// palette.
 func KeyBindingsFor(scheme KeyScheme) map[string][]string {
 	out := make(map[string][]string, len(baseKeyBindings))
 	for action, keys := range baseKeyBindings {
@@ -204,6 +285,11 @@ func KeyBindingsFor(scheme KeyScheme) map[string][]string {
 	}
 	for action, keys := range keySchemeOverrides[scheme] {
 		out[action] = append([]string{}, keys...)
+	}
+	if scheme == KeySchemeOff {
+		for action, keys := range out {
+			out[action] = slices.DeleteFunc(keys, func(k string) bool { return !IsChord(k) })
+		}
 	}
 	return out
 }
@@ -222,8 +308,10 @@ type shortcutSchemeChoice struct {
 type shortcutData struct {
 	Scheme   string                         `json:"scheme"`
 	Schemes  []shortcutSchemeChoice         `json:"schemes"`
+	Groups   []shortcutSchemeChoice         `json:"groups"`
 	Actions  []shortcutAction               `json:"actions"`
 	Bindings map[string]map[string][]string `json:"bindings"`
+	Go       map[string]string              `json:"go"`
 }
 
 // shortcutDataFor builds the embedded binding table for one active scheme,
@@ -237,11 +325,17 @@ func shortcutDataFor(active KeyScheme) shortcutData {
 		bindings[string(s)] = KeyBindingsFor(s)
 		choices = append(choices, shortcutSchemeChoice{Value: string(s), Label: keySchemeLabel(s)})
 	}
+	groups := make([]shortcutSchemeChoice, 0, len(shortcutGroups))
+	for _, g := range shortcutGroups {
+		groups = append(groups, shortcutSchemeChoice{Value: g, Label: g})
+	}
 	return shortcutData{
 		Scheme:   string(active),
 		Schemes:  choices,
+		Groups:   groups,
 		Actions:  shortcutActions,
 		Bindings: bindings,
+		Go:       shortcutDestinations,
 	}
 }
 
@@ -295,6 +389,9 @@ func shortcutsJSON(active KeyScheme, lang string) template.JS {
 	}
 	for i := range data.Schemes {
 		data.Schemes[i].Label = i18n.T(lang, data.Schemes[i].Label)
+	}
+	for i := range data.Groups {
+		data.Groups[i].Label = i18n.T(lang, data.Groups[i].Label)
 	}
 	raw, err := json.Marshal(data)
 	if err != nil {

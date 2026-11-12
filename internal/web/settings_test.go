@@ -350,8 +350,9 @@ func TestSettingsPageComparesEveryScheme(t *testing.T) {
 		for _, action := range web.ShortcutActionNames() {
 			for _, key := range table[action] {
 				// html/template's text-node escaper renders "+" as "&#43;",
-				// which every emacs ctrl chord carries.
-				escaped := strings.ReplaceAll(key, "+", "&#43;")
+				// which every chord carries, and the angle brackets of
+				// emacs's alt+< and alt+> as entities.
+				escaped := strings.NewReplacer("+", "&#43;", "<", "&lt;", ">", "&gt;").Replace(key)
 				if !strings.Contains(page, "<kbd>"+escaped+"</kbd>") {
 					t.Errorf("the settings page does not show %q's %q binding %q:\n%s",
 						scheme, action, key, page)

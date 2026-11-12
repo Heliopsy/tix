@@ -14,14 +14,23 @@
   var tix = global.tix = global.tix || {};
 
   // comboOf renders a keydown event the same way the binding table names a
-  // key, so a lookup is a single map access. Ctrl and a Mac's command key
-  // are represented, and Shift on a named key (Shift+ArrowDown extends the
-  // selection); none of the shipped schemes use alt. Command used to read as the bare key, so command+g jumped to the
-  // top of a list on a Mac instead of doing what the browser does with it.
+  // key, so a lookup is a single map access. Ctrl, a Mac's command key and
+  // alt are represented, and Shift on a named key (Shift+ArrowDown extends
+  // the selection). Command used to read as the bare key, so command+g jumped
+  // to the top of a list on a Mac instead of doing what the browser does
+  // with it. Ctrl and alt together are AltGr on many layouts, which is how
+  // "#" or "@" is typed there, so a symbol typed that way reads as itself;
+  // ctrl+alt with a letter or digit is nobody's shortcut here.
   tix.comboOf = function (event) {
     var key = event && event.key;
     if (typeof key !== "string") {
       return "";
+    }
+    if (event.ctrlKey && event.altKey) {
+      return key.length === 1 && !/^[a-z0-9]$/i.test(key) ? key : "";
+    }
+    if (event.ctrlKey && key === " ") {
+      return "ctrl+space";
     }
     // Shift on a chord is named, so ctrl+shift+v is not ctrl+v.
     var shift = event.shiftKey ? "shift+" : "";
@@ -31,11 +40,119 @@
     if (event.metaKey && key.length === 1) {
       return "meta+" + shift + key.toLowerCase();
     }
+    if (event.altKey) {
+      var typed = altKey(key, event.code, event.shiftKey);
+      return typed ? "alt+" + typed : "";
+    }
     // A letter carries its shift in its case; a named key says so.
     if (event.shiftKey && key.length > 1) {
       return "shift+" + key;
     }
     return key;
+  };
+
+  // altKey is the key an alt chord names. A Mac's option key types a
+  // different character (option+x is "≈"), so a key outside plain ASCII is
+  // read from the physical key instead: KeyX is x, shifted Comma is "<".
+  var altCodes = { Comma: [",", "<"], Period: [".", ">"] };
+  function altKey(key, code, shift) {
+    if (key.length === 1 && key.charCodeAt(0) > 32 && key.charCodeAt(0) < 127) {
+      return key.toLowerCase();
+    }
+    if (typeof code !== "string") {
+      return "";
+    }
+    if (/^Key[A-Z]$/.test(code)) {
+      return code.charAt(3).toLowerCase();
+    }
+    var pair = altCodes[code];
+    return pair ? pair[shift ? 1 : 0] : "";
+  }
+
+  // sequencePrefixes names every key that starts a two-key sequence in one
+  // scheme's combo table ("g" for "g i"), so a press can tell at once whether
+  // to wait for a second key.
+  tix.sequencePrefixes = function (byCombo) {
+    var out = {};
+    for (var combo in byCombo || {}) {
+      if (!Object.prototype.hasOwnProperty.call(byCombo, combo)) {
+        continue;
+      }
+      var gap = combo.indexOf(" ");
+      if (gap > 0) {
+        out[combo.slice(0, gap)] = true;
+      }
+    }
+    return out;
+  };
+
+  // keyStep decides what one key press does, given the key still waiting for
+  // a second one (pending, "" for none). It answers the action to run now
+  // ("" for none), the key now waiting, and for a waiting key the action to
+  // run if no second key comes in time (lone): a lone g is the top of the
+  // list in the default scheme once the wait is over. A second key that
+  // completes nothing drops the wait and is read on its own, and Escape only
+  // drops it.
+  tix.keyStep = function (byCombo, prefixes, pending, combo) {
+    var table = byCombo || {};
+    var starts = prefixes || {};
+    var own = Object.prototype.hasOwnProperty;
+    if (pending) {
+      var seq = pending + " " + combo;
+      if (own.call(table, seq)) {
+        return { action: table[seq], pending: "", lone: "" };
+      }
+      if (combo === "Escape") {
+        return { action: "", pending: "", lone: "" };
+      }
+    }
+    if (own.call(starts, combo)) {
+      return { action: "", pending: combo, lone: own.call(table, combo) ? table[combo] : "" };
+    }
+    return { action: own.call(table, combo) ? table[combo] : "", pending: "", lone: "" };
+  };
+
+  // pageIndex is the row a page down (delta 1) or up (-1) moves the
+  // selection to: perPage rows on from the focused one (at), or the first or
+  // last row when none is focused, never past either end. -1 means there is
+  // no row, and the key keeps its native scroll.
+  tix.pageIndex = function (at, count, perPage, delta) {
+    if (!(count > 0)) {
+      return -1;
+    }
+    if (at < 0 || at >= count) {
+      return delta > 0 ? 0 : count - 1;
+    }
+    var step = Math.max(1, Math.floor(perPage) || 1);
+    return Math.min(count - 1, Math.max(0, at + delta * step));
+  };
+
+  // nextView is the view the switch moves to: the one after the current, and
+  // the first after the last. -1 when there is nothing to switch to.
+  tix.nextView = function (count, current) {
+    if (!(count > 1)) {
+      return -1;
+    }
+    return current >= 0 && current < count - 1 ? current + 1 : 0;
+  };
+
+  // refOfRow is the reference a task row stands for, read from the address
+  // it opens, drawn upper case the way the server draws a reference.
+  tix.refOfRow = function (href) {
+    return tix.taskRefOf(href, "").toUpperCase();
+  };
+
+  // targetPress is what a key bound to a control does with it: a field takes
+  // focus, so the reader types into it, and anything else is pressed.
+  tix.targetPress = function (el) {
+    if (!el) {
+      return "";
+    }
+    if (el.isContentEditable) {
+      return "focus";
+    }
+    var tag = el.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ? "focus" : "click";
   };
 
   // pressesNatively reports whether a key is the focused control's own way of

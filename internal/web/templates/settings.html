@@ -366,7 +366,7 @@
       </div>
     </form>
 
-    {{/* A fourteen row table of key names answers one question, asked once:
+    {{/* A long table of key names answers one question, asked once:
          what changes if I switch. It opens over the screen from a button on
          the row it is about, rather than folding open inside the list. */}}
     <div class="setrow">
@@ -390,7 +390,7 @@
               {{range .Data.Shortcuts.Rows}}
               <tr>
                 <td data-label="{{t "Action"}}">{{t .Label}}</td>
-                {{range $i, $keys := .Cells}}<td data-label="{{t (index $.Data.Shortcuts.Schemes $i).Label}}">{{range $j, $key := $keys}}{{if $j}} {{t "or"}} {{end}}<kbd>{{$key}}</kbd>{{end}}</td>{{end}}
+                {{range $i, $keys := .Cells}}<td data-label="{{t (index $.Data.Shortcuts.Schemes $i).Label}}">{{range $j, $key := $keys}}{{if $j}} {{t "or"}} {{end}}<kbd>{{$key}}</kbd>{{else}}&mdash;{{end}}</td>{{end}}
               </tr>
               {{end}}
             </tbody>

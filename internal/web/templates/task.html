@@ -19,7 +19,7 @@
      the dialog's own body is what its forms swap already. */}}
 <header class="titlebar taskhead"{{if $in}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
   <div class="taskhead-line">
-    <span class="ref">{{ref $t.Ref}}</span>
+    <span class="ref" data-shortcut-target="copyRef" data-shortcut-ref="{{ref $t.Ref}}">{{ref $t.Ref}}</span>
     {{if .Data.Parent}}<span class="taskhead-parent">{{t "in"}} <a class="mono" href="/tasks/{{.Data.Parent.Ref}}" title="{{.Data.Parent.Title}}">{{ref .Data.Parent.Ref}}</a></span>{{end}}
   </div>
   <div class="taskhead-title">
@@ -71,9 +71,9 @@
   <form method="post" class="snoozeform" action="/tasks/{{$t.Ref}}/snooze/remove">
     {{template "csrf" $.CSRF}}
     <input type="hidden" name="next" value="{{$.Here}}">
-    <button type="submit" class="flowgo snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
+    <button type="submit" class="flowgo snoozebtn" data-focus="snooze" data-shortcut-target="snooze">{{t "Unsnooze"}}</button>
   </form>
-  {{else}}<button type="button" class="flowgo snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
+  {{else}}<button type="button" class="flowgo snoozebtn" data-focus="snooze" data-shortcut-target="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
           aria-label="{{t "Snooze %s" (ref $t.Ref)}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze…"}}</button>{{end}}
   {{end}}
   {{/* Offered only beside a live lease and only to a reader who holds
@@ -187,7 +187,7 @@
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}"{{with $t.AssigneeActorID}} title="{{.}}"{{end}} placeholder="{{t "unassigned"}}">
+          <input id="{{.IDPrefix}}assignee" name="assignee" data-shortcut-target="assign" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}"{{with $t.AssigneeActorID}} title="{{.}}"{{end}} placeholder="{{t "unassigned"}}">
           <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
@@ -200,7 +200,7 @@
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}due" name="due_at" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
+          <input id="{{.IDPrefix}}due" name="due_at" data-shortcut-target="due" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
           {{template "date-pick" (print .IDPrefix "due")}}
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
@@ -233,7 +233,7 @@
         {{if .Data.CanWrite}}
         <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd propform">
           {{template "csrf" .CSRF}}
-          <input id="{{.IDPrefix}}tag" name="tag" required placeholder="{{t "Add a tag"}}">
+          <input id="{{.IDPrefix}}tag" name="tag" data-shortcut-target="tag" required placeholder="{{t "Add a tag"}}">
           <button class="propsave" type="submit">{{t "Add"}}</button>
         </form>
         {{end}}
@@ -324,7 +324,7 @@
         <div class="field-label"><label class="sr-only" for="{{.IDPrefix}}body">{{t "Description"}}</label>
           {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as INFRA-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
           {{template "md-preview" (print .IDPrefix "body")}}</div>
-        <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" data-md-editor placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+        <textarea id="{{.IDPrefix}}body" name="body" data-shortcut-target="editDescription" data-mention="actor-handles" data-md-editor placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
         <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
         <div class="actions"><button type="submit">{{t "Save"}}</button></div>
       </form>
@@ -526,7 +526,7 @@
     <dt>{{t "Priority"}}</dt>
     <dd>{{if .Data.CanWrite}}
       <span class="priomenu">
-        <button type="button" class="priobtn" data-focus="prio" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
+        <button type="button" class="priobtn" data-focus="prio" data-shortcut-target="priority" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
                 aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
