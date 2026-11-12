@@ -34,14 +34,16 @@ func newInboxCmd(g *globals) *cobra.Command {
 
 func inboxLsCmd(g *globals) *cobra.Command {
 	var unread bool
+	var kinds []string
 	var limit int
 	var cursor string
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List your inbox, newest first",
 		Long: "List your inbox items, newest first, each with its task, who caused it, what " +
-			"happened and when.\n\n" + inboxHelp + "\n\nExit codes: 2 bad cursor, 5 permission denied.",
-		Example: "  tix inbox ls\n  tix inbox ls --unread -o json",
+			"happened and when. --kind keeps only the kinds named.\n\n" + inboxHelp +
+			"\n\nExit codes: 2 bad cursor or unknown kind, 5 permission denied.",
+		Example: "  tix inbox ls\n  tix inbox ls --unread -o json\n  tix inbox ls --kind mention,assigned",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -52,7 +54,11 @@ func inboxLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, next, err := conn.Service.ListInbox(ctx, core.InboxFilter{Unread: unread,
+			only := make([]core.InboxKind, 0, len(kinds))
+			for _, k := range kinds {
+				only = append(only, core.InboxKind(k))
+			}
+			items, next, err := conn.Service.ListInbox(ctx, core.InboxFilter{Unread: unread, Kinds: only,
 				Page: core.Page{Limit: size, Cursor: cursor}})
 			if err != nil {
 				return err
@@ -64,6 +70,7 @@ func inboxLsCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&unread, "unread", false, "list only unread items")
+	cmd.Flags().StringSliceVar(&kinds, "kind", nil, "list only items of these kinds: mention, assigned, status, comment")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd

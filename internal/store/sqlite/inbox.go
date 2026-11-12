@@ -81,6 +81,13 @@ func (t *tx) ListInbox(ctx context.Context, recipientID string, f core.InboxFilt
 	if f.Unread {
 		b.Where("inbox_items.read_at IS NULL")
 	}
+	if len(f.Kinds) > 0 {
+		kinds := make([]string, len(f.Kinds))
+		for i, k := range f.Kinds {
+			kinds[i] = string(k)
+		}
+		b.WhereIn("inbox_items.kind", kinds)
+	}
 	rows, err := t.query(ctx, spec.apply(b, "inbox_items.id"), "listing inbox")
 	if err != nil {
 		return nil, err

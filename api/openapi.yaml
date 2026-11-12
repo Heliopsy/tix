@@ -4305,6 +4305,14 @@ paths:
           name: unread
           schema:
             type: boolean
+        - description: 'Kind keeps items of one kind: mention, assigned, status or
+            comment; repeat it for several.'
+          in: query
+          name: kind
+          schema:
+            items:
+              type: string
+            type: array
       responses:
         "200":
           content:

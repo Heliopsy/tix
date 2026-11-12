@@ -227,6 +227,8 @@ type InboxQuery struct {
 	PageQuery
 	// Unread is true to keep unread items only.
 	Unread bool `query:"unread"`
+	// Kind keeps items of one kind: mention, assigned, status or comment; repeat it for several.
+	Kind []string `query:"kind"`
 }
 
 // ProjectListQuery is the filter a project listing reads.
