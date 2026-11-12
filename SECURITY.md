@@ -49,9 +49,9 @@ web UI. Findings of particular interest:
 - API tokens are shown once and stored hashed. Rotate them with `tix token revoke`.
 - A sign-in lasts `session.ttl` (12h) from when it was made and from each use after, never past
   `session.max_lifetime` (30d) from the sign-in; a tenant can only shorten `session.ttl`. Set
-  `session.idle_timeout` to end sessions left unused; it applies at once, Keep me signed in sessions
-  included. Keep me signed in (`session.remember_ttl`, 30d, renewed up to
-  `session.remember_max_lifetime`, 90d) is the only sign-in whose cookie outlives the browser; set it to 0 on a deployment used from shared machines. See
+  `session.idle_timeout` to end sessions left unused; it applies at once, Keep me signed in sessions included.
+  Keep me signed in (`session.remember_ttl`, 30d, renewed up to `session.remember_max_lifetime`, 90d) is the
+  only sign-in whose cookie outlives the browser; set it to 0 on a deployment used from shared machines. See
   [docs/configuration.md](docs/configuration.md#sign-in-sessions).
 - Every audit entry records the access channel: the token's ID and name, an opaque session
   reference, the SSH key fingerprint, the client address and a truncated user agent. Any

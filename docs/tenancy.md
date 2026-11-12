@@ -123,11 +123,12 @@ tix tenant edit acme --session-ttl ""             # back to the server's
 tix tenant session-policy                         # what is in force, beside the server's
 ```
 
-The same settings are on the browser's Tenant screen, `e` on the terminal's tenant screen, and
-`session_ttl`, `session_idle_timeout` and `session_remember_ttl` on `PATCH /api/v1/tenants/{ref}`. None can
-go past the server's (`session.ttl`, `session.idle_timeout`, `session.remember_ttl`); a value that would is
-refused with the server's named. A new lifetime applies from each session's next use. The idle timeout is checked on every request, so it applies at once, to remembered
-sessions too. See [configuration.md](configuration.md#sign-in-sessions).
+The same settings are on the browser's Tenant screen, `e` on the terminal's tenant screen, and `session_ttl`,
+`session_idle_timeout` and `session_remember_ttl` on `PATCH /api/v1/tenants/{ref}`. None can go past the
+server's (`session.ttl`, `session.idle_timeout`, `session.remember_ttl`); a value that would is refused with
+the server's named. A new lifetime applies from each session's next use. The idle timeout is checked on every
+request, so it applies at once, to remembered sessions too. See
+[configuration.md](configuration.md#sign-in-sessions).
 
 ### The trash
 

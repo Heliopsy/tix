@@ -474,12 +474,13 @@ minted before the server recorded use counts as last used when it signed in. `ti
 sets it.
 
 `session.remember_ttl` is how long a sign-in lasts, after it is made and after each use, when the person ticks
-Keep me signed in on the web sign-in screen or passes `tix login --remember`, `30d` by default. `0` stops offering it, and so does any value no longer
-than `session.ttl`, since remembering would grant nothing. A remembered browser session gets a persistent cookie
-whose `Max-Age` ends with the session, sent again with the new `Max-Age` whenever a request renews it; any other gets a cookie that ends when the browser closes. The idle
-timeout still applies to a remembered session: one left unused past it is ended like any other, so an operator
-who wants Keep me signed in to survive a weekend sets the idle timeout longer than that or leaves it off.
-`tix serve --session-remember-ttl` sets it.
+Keep me signed in on the web sign-in screen or passes `tix login --remember`, `30d` by default. `0` stops
+offering it, and so does any value no longer than `session.ttl`, since remembering would grant nothing. A
+remembered browser session gets a persistent cookie whose `Max-Age` ends with the session, sent again with the
+new `Max-Age` whenever a request renews it; any other gets a cookie that ends when the browser closes. The
+idle timeout still applies to a remembered session: one left unused past it is ended like any other, so an
+operator who wants Keep me signed in to survive a weekend sets the idle timeout longer than that or leaves it
+off. `tix serve --session-remember-ttl` sets it.
 
 Each value is at least a minute. A tenant administrator can tighten all three for their tenant
 (`tix tenant edit --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl 7d`, or `off`, the tenant
