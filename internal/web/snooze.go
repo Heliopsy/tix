@@ -82,12 +82,16 @@ func (h *handler) snoozeTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	undo := undoUnsnoozePrefix
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && before.SnoozedAt(time.Now()) {
+		undo = undoSnoozePrefix + snoozeAtValue(before.SnoozedUntil, style.Location())
+	}
 	task, err := h.svc.SnoozeTask(r.Context(), ref, core.SnoozeInput{Until: until})
 	if err != nil {
 		return err
 	}
-	redirectTo(w, r, h.backFrom(r), "t-"+ref.String(),
-		"snoozed "+task.Ref+" until "+style.FormatPtr(task.SnoozedUntil))
+	redirectToUndo(w, r, h.backFrom(r), "t-"+ref.String(),
+		"snoozed "+task.Ref+" until "+style.FormatPtr(task.SnoozedUntil), undo)
 	return nil
 }
 
@@ -97,10 +101,14 @@ func (h *handler) unsnoozeTask(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && before.SnoozedAt(time.Now()) {
+		undo = undoSnoozePrefix + snoozeAtValue(before.SnoozedUntil, h.readerStyle(r).Location())
+	}
 	if _, err := h.svc.UnsnoozeTask(r.Context(), ref); err != nil {
 		return err
 	}
-	redirectTo(w, r, h.backFrom(r), "t-"+ref.String(), "unsnoozed "+ref.String())
+	redirectToUndo(w, r, h.backFrom(r), "t-"+ref.String(), "unsnoozed "+ref.String(), undo)
 	return nil
 }
 

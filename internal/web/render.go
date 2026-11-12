@@ -530,8 +530,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 const undoPriorityPrefix = "priority:"
 
 // UndoAction is where the toast's Undo posts: the restore route for a soft
-// delete, the priority route for a priority change, the transition route
-// for a move. Empty when there is nothing to undo.
+// delete, the route its undoKind names for a quick action, the transition
+// route for a move. Empty when there is nothing to undo.
 func (v view) UndoAction() string {
 	if v.UndoBulk() != nil {
 		return RouteTasksBulk
@@ -540,27 +540,30 @@ func (v view) UndoAction() string {
 		return ""
 	}
 	base := "/tasks/" + url.PathEscape(v.FlashRef)
-	switch {
-	case v.FlashUndo == UndoRestore:
+	if v.FlashUndo == UndoRestore {
 		return base + "/restore"
-	case strings.HasPrefix(v.FlashUndo, undoPriorityPrefix):
-		return base + "/priority"
-	default:
-		return base + "/transition"
 	}
+	if kind, _, ok := undoKindOf(v.FlashUndo); ok {
+		return strings.Replace(kind.route, "{ref}", url.PathEscape(v.FlashRef), 1)
+	}
+	return base + "/transition"
 }
 
 // UndoField is the one field the Undo form submits besides the token and
-// the page to come back to: the priority or the route, by name and value.
+// the page to come back to: the value a quick action had, or the route, by
+// name and value. A kind that needs no value submits none.
 func (v view) UndoField() [2]string {
 	if v.UndoBulk() != nil {
 		return [2]string{"action", string(core.BulkRestore)}
 	}
-	if p, ok := strings.CutPrefix(v.FlashUndo, undoPriorityPrefix); ok {
-		return [2]string{"priority", p}
-	}
 	if v.FlashUndo == UndoRestore {
 		return [2]string{}
+	}
+	if kind, value, ok := undoKindOf(v.FlashUndo); ok {
+		if kind.field == "" {
+			return [2]string{}
+		}
+		return [2]string{kind.field, value}
 	}
 	return [2]string{"route", v.FlashUndo}
 }
