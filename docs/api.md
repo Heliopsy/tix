@@ -672,7 +672,7 @@ muted creates nothing. Editing a comment or a description mentions only handles 
 
 | Route | Does |
 | --- | --- |
-| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `limit` and `cursor` as every listing |
+| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `?kind=` (repeatable: `mention`, `assigned`, `status`, `comment`) for some kinds only, `limit` and `cursor` as every listing |
 | `GET /inbox/count` | `{"unread": N}` |
 | `PUT /inbox/{id}/read` | Marks one item read and answers it |
 | `DELETE /inbox/{id}/read` | Marks one item unread and answers it |

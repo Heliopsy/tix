@@ -151,7 +151,7 @@ func TestTheInboxListRedrawsLiveOnInboxUpdated(t *testing.T) {
 	f := newFixture(t)
 	page := f.as("alice").page("/inbox?show=unread")
 	binding := between(t, page, `<div id="live-screen"`, ">")
-	for _, want := range []string{`data-live="/inbox?show=unread"`, `data-live-regions="inbox-bar inbox-list"`,
+	for _, want := range []string{`data-live="/inbox?show=unread"`, `data-live-regions="inbox-summary inbox-bar inbox-list"`,
 		`inbox.updated`} {
 		if !strings.Contains(binding, want) {
 			t.Errorf("the inbox's live binding lacks %s: %s", want, binding)
