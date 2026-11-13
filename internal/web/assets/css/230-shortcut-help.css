@@ -45,7 +45,9 @@
 
 .shortcuts-help-list {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* The description keeps room for its longest word: a long chord such as
+     ctrl+shift+v widened the keys column until a phone's descriptions spilled. */
+  grid-template-columns: auto minmax(min-content, 1fr);
   gap: 8px 16px;
   margin: 0;
   max-width: 100%;
