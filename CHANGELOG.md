@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.60.0](https://github.com/Heliopsy/tix/compare/v0.59.0...v0.60.0) (2026-11-13)
+
+
+### Features
+
+* **api:** answer the task listing's tally when asked ([79b2cec](https://github.com/Heliopsy/tix/commit/79b2cec503a4ebd48580bd7f19c6ef5231cb1943))
+* **auth:** renew a session on use, up to a maximum lifetime ([40b3602](https://github.com/Heliopsy/tix/commit/40b360252e8dd4375aa2f83c25b6fe6e42f637c2))
+* **i18n:** French catalog for the web, worded after the app ([af75a49](https://github.com/Heliopsy/tix/commit/af75a49b68761b7bef2ed4f774ddad7429825539))
+* **i18n:** German and French text for the diagnostics section ([f106fac](https://github.com/Heliopsy/tix/commit/f106facb0d944cd7781c5781f6993317c8ce17ad))
+* **i18n:** German catalog for the web, worded after the app ([3fd64a9](https://github.com/Heliopsy/tix/commit/3fd64a991eb77c2db30c182111bd7560c747a1b4))
+* **service:** list the inbox by kind ([2f64bdd](https://github.com/Heliopsy/tix/commit/2f64bdd57eab599353bb2ff2cb9f1a447be2ef82))
+* **web:** a Live events screen that follows the tenant's event stream ([066ae1e](https://github.com/Heliopsy/tix/commit/066ae1e58060b974384014d8d8f59c639b13d38d))
+* **web:** copy diagnostics for a bug report from the release screen ([902382f](https://github.com/Heliopsy/tix/commit/902382fc14cb1384ad6df5f47b866897732c11db))
+* **web:** inbox by day, kind chips, a summary card and Stop on each item ([7649029](https://github.com/Heliopsy/tix/commit/7649029ca0ed9205e43970f47b9dd8a26c045c39))
+* **web:** install the web interface as an app, with launcher shortcuts and a share target ([7adf54b](https://github.com/Heliopsy/tix/commit/7adf54bb3c19880853c4543b50be2e29ce5b9a8a))
+* **web:** offer Deutsch and Français, keep Bulgarian complete and the others above 95% ([8f5c074](https://github.com/Heliopsy/tix/commit/8f5c074ee0b9ca4b90a8439d2455041bf18740bf))
+* **web:** offer Undo after completing or snoozing from the list ([134ab78](https://github.com/Heliopsy/tix/commit/134ab782a4eb142db8c4575f12e4705f1b997d1b))
+* **web:** one keyboard table with the app: go-to chords, task keys and an Off scheme ([9cdbff3](https://github.com/Heliopsy/tix/commit/9cdbff319f555137179f4701edd801401309ca51))
+* **web:** open a task in a resizable panel beside the list ([5a8c0c0](https://github.com/Heliopsy/tix/commit/5a8c0c078aa58c3069bf86143628f8e0552dc363))
+* **web:** palette creates from templates, switches tenant, picks a scheme and acts on the open task ([94f570d](https://github.com/Heliopsy/tix/commit/94f570d81024ad25ff1f31eb3d98942a9a74485e))
+* **web:** quick add completes #tag, [@handle](https://github.com/handle) and +project, adds another and pastes ([bd69574](https://github.com/Heliopsy/tix/commit/bd69574a1eb95b5d69c15381ab82f92972e8d9af))
+* **web:** row actions menu, assign to me, due date on lane cards and undo for every quick action ([85ae13a](https://github.com/Heliopsy/tix/commit/85ae13a530f49957d650c592b68dda0824273a8c))
+* **web:** settings search, where each setting is kept, start screen, reduce motion and browser notifications ([0c4f62c](https://github.com/Heliopsy/tix/commit/0c4f62ca92f759dc4d4bdb2832cc582dadd740b8))
+* **web:** show the live connection state in the shell, with its details ([2743c89](https://github.com/Heliopsy/tix/commit/2743c89b71c4deac7c3be7f50cade3f30a4ba0ef))
+* **web:** swipe a task row on a touch screen to complete or snooze it ([5df86e5](https://github.com/Heliopsy/tix/commit/5df86e5638d9eb1458d9dddada7fd3b03f1a4a99))
+
+
+### Bug Fixes
+
+* **i18n:** cover the new web strings in German and French ([3fc77a3](https://github.com/Heliopsy/tix/commit/3fc77a353dc5508c1ad39e4cec405e9355cdab5d))
+* **i18n:** follow session renewal and the task panel in German and French ([3b9c409](https://github.com/Heliopsy/tix/commit/3b9c409726de275ae474dc409595d93cd2624cb7))
+* **i18n:** follow the Manage group and waiting-on keys in German and French ([0a4f890](https://github.com/Heliopsy/tix/commit/0a4f8902e6096504df54349948ea7bc0033dec6b))
+* **i18n:** mark the diagnostics catalog as interface text for gosec ([dd2c831](https://github.com/Heliopsy/tix/commit/dd2c831861e49476f8b167f9910151d1c5a3f95a))
+* **i18n:** mark the live status catalog as interface text for gosec ([7500991](https://github.com/Heliopsy/tix/commit/7500991f58136c21e35ed80f1a838fd3bb214804))
+* **web:** file Live events under Manage and let its cells wrap ([d995fda](https://github.com/Heliopsy/tix/commit/d995fda265f2952456a63168dec0e0c42b3dc8d5))
+* **web:** give the live events table the standard row states ([dd617d5](https://github.com/Heliopsy/tix/commit/dd617d5fd772f042464803a1e7267bf98ad29875))
+* **web:** give the quick add box back its room on a phone ([e15884c](https://github.com/Heliopsy/tix/commit/e15884ce6e15e7dd39beffe78279118e182d9d25))
+* **web:** keep quick add from the clipboard in the shared key table, and follow the new key labels in German and French ([89569f1](https://github.com/Heliopsy/tix/commit/89569f19780329d4530558818b5b65a794d79af9))
+* **web:** keep the quick add row on one line on a phone and a tablet ([c9a972c](https://github.com/Heliopsy/tix/commit/c9a972c5f6aee3731e633639a576a3f901083e46))
+* **web:** label the live event link Show, since the inbox already owns Open in Bulgarian ([eba81f3](https://github.com/Heliopsy/tix/commit/eba81f3a573cd1c67d8afcf40fb2425ec898d357))
+* **web:** tell the row menu's current status apart from the status column ([07805d7](https://github.com/Heliopsy/tix/commit/07805d73592dae2aab62ba16398ad3137913dbda))
+* **web:** wrap a long tag inside the row menu's chips ([9f8908c](https://github.com/Heliopsy/tix/commit/9f8908c910813ddd39f07de8137ab500eb8a8b95))
+
+
+### Dependencies
+
+* **lint:** keep misspell off the German and French catalogs ([8521507](https://github.com/Heliopsy/tix/commit/8521507e1477625a254510cb279b8150cc31a099))
+
 ## [0.59.0](https://github.com/Heliopsy/tix/compare/v0.58.0...v0.59.0) (2026-11-12)
 
 
