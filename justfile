@@ -322,6 +322,18 @@ release-files-check HEAD_REF="":
     fi
     echo "release files match $tag"
 
+# release-please's pull request runs only the Gate job in CI, on the strength
+# of this: it fails unless the change since BASE touches nothing but the files
+# release-please writes. --no-renames, so code moved onto a release file's name
+# still shows its old path. In CI HEAD is the merge commit and HEAD^1 its base.
+release-pr-files BASE="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git diff --no-renames --name-only "{{BASE}}" HEAD | scripts/release-pr-files.sh
+# The guard above, against the paths it must refuse.
+release-pr-files-test:
+    @bash scripts/release-pr-files_test.sh
+
 os-scope BASE="origin/main":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -599,7 +611,7 @@ actionlint: (tool "actionlint")
 # info on made the gate depend on which shellcheck release the runner had,
 # which is how it failed on a machine where it had just passed. SC2189 is an
 # error and is still caught, verified against the commit that motivated this.
-shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh" ".github/actions/fetch-release-asset.sh")
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh" "scripts/release-pr-files.sh" "scripts/release-pr-files_test.sh" ".github/actions/fetch-release-asset.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # The jq filter that renders the agent panes, which is the only thing between a
 # lease token and a published video. shellcheck cannot read it and bash -n
@@ -1262,10 +1274,10 @@ release-dry: (tool "goreleaser" "build" "--snapshot" "--clean")
 # ---------------------------------------------------------------- aggregates
 
 # Fast pre-push gate set. Run this before every commit.
-check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck streamtest scenecheck test smoke jstest spec docs-check
+check: fmt-check vet tidy-check lint mdlint yamllint actionlint shellcheck streamtest release-pr-files-test scenecheck test smoke jstest spec docs-check
 
 # The entire CI suite, locally, in containers. Matches what GitHub runs.
-ci: tidy-check fmt-check vet shards-check lint build pg-up test-shards cover-floor smoke jstest streamtest scenecheck sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
+ci: tidy-check fmt-check vet shards-check lint build pg-up test-shards cover-floor smoke jstest streamtest release-pr-files-test scenecheck sec vuln secrets trivy actionlint hadolint yamllint mdlint spec docs-check release-dry image-gate
     @echo ""
     @echo "all CI gates passed"
 

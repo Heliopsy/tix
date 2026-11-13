@@ -9,6 +9,9 @@ permissions: read-all
 jobs:
   review:
     name: Dependency Review
+    # Skipped on release-please's pull request, which changes only release
+    # files; CI's Gate job enforces that. See the top of ci.yaml.
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     # Not ho-z10: a pull request can start this and it checks the pull
     # request's own code out. See the note in codeql.yaml.
     runs-on: ubuntu-24.04
