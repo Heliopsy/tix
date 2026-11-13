@@ -24,5 +24,11 @@ func init() {
 		"Show tasks as a board":            "Aufgaben als Board anzeigen",
 		"Show tasks in lanes":              "Aufgaben in Bahnen anzeigen",
 		"Switch the colour scheme":         "Farbschema wechseln",
+		"Task":                             "Aufgabe",
+		"Switch to":                        "Wechseln zu",
+		"New task from %s":                 "Neue Aufgabe aus %s",
+		"Write the description":            "Beschreibung schreiben",
+		"Change the status":                "Status ändern",
+		"Change the due date":              "Fälligkeitsdatum ändern",
 	})
 }
