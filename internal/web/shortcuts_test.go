@@ -207,7 +207,8 @@ func TestEmacsSchemeDropsBrowserReservedChords(t *testing.T) {
 }
 
 // Off is chords only: no single key, and no sequence of them, runs
-// anything, while the palette and select all still answer.
+// anything, while the palette, select all and quick add from the clipboard
+// still answer.
 func TestOffSchemeKeepsOnlyChords(t *testing.T) {
 	t.Parallel()
 	table := web.KeyBindingsFor(web.KeySchemeOff)
@@ -218,8 +219,9 @@ func TestOffSchemeKeepsOnlyChords(t *testing.T) {
 		}
 	}
 	want := map[string][]string{
-		"palette":   {"ctrl+k", "meta+k"},
-		"selectAll": {"ctrl+a", "meta+a"},
+		"palette":    {"ctrl+k", "meta+k"},
+		"selectAll":  {"ctrl+a", "meta+a"},
+		"quickPaste": {"ctrl+shift+v", "meta+shift+v"},
 	}
 	if len(bound) != len(want) {
 		t.Errorf("off binds %v, want only %v", bound, want)
