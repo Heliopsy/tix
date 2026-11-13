@@ -18,8 +18,8 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
-	github.com/swaggest/jsonschema-go v0.3.78
+	github.com/spf13/pflag v1.1.0
+	github.com/swaggest/jsonschema-go v0.3.79
 	github.com/swaggest/openapi-go v0.2.61
 	github.com/yuin/goldmark/v2 v2.1.15
 	go.yaml.in/yaml/v4 v4.0.0
