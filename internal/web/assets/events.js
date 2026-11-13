@@ -282,7 +282,7 @@
       var open = doc.createElement("a");
       open.className = "btn link small";
       open.href = href;
-      open.textContent = say("Open");
+      open.textContent = say("Show");
       actions.appendChild(open);
     }
     var details = doc.createElement("button");

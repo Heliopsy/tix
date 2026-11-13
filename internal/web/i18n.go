@@ -254,7 +254,7 @@ var jsMessages = []string{
 	"The server refused this subscription: %s",
 	"Not following events.",
 	"system",
-	"Open",
+	"Show",
 	"Details",
 	"Event #%d",
 }

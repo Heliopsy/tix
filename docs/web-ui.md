@@ -1547,7 +1547,7 @@ the command line `tix audit ls -o json` prints the same entries.
 receive it over the WebSocket, newest first, the browser's `tix watch` and the app's Live events screen.
 Activity is the audit log, kept and searchable; Live events keeps nothing, so a reload starts from now.
 Each row shows the sequence number, the event type, the time, who caused it (the handle, else the actor's
-id, else system) and the subject, a task by its reference and a project by its key. Open goes to the task
+id, else system) and the subject, a task by its reference and a project by its key. Show goes to the task
 or the project when there is one, and Details opens the event as JSON with a Copy JSON button.
 
 The filter is a plain `GET` form, so a narrowed stream is a link somebody can send: `type` takes event

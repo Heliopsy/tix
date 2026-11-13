@@ -2,12 +2,12 @@
 
 ### Requirement: Live events screen
 
-The web UI SHALL serve a Live events screen at `/events` that follows the tenant's event stream over the WebSocket and lists events newest first, each row showing its sequence number, type, time, actor and subject, with Open linking to the subject's task or project and Details showing the event as JSON with a Copy JSON button. It SHALL keep at most 500 events and say so.
+The web UI SHALL serve a Live events screen at `/events` that follows the tenant's event stream over the WebSocket and lists events newest first, each row showing its sequence number, type, time, actor and subject, with Show linking to the subject's task or project and Details showing the event as JSON with a Copy JSON button. It SHALL keep at most 500 events and say so.
 
 #### Scenario: An event arrives
 
 - **WHEN** a reader has `/events` open and a task is created
-- **THEN** a row for `task.created` appears at the top with the task's reference and an Open link to it
+- **THEN** a row for `task.created` appears at the top with the task's reference and a Show link to it
 
 ### Requirement: Live events filter
 
