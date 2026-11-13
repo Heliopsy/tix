@@ -106,6 +106,7 @@ func TestDefaultSchemeIsTheSharedKeyTable(t *testing.T) {
 		"refresh":         {"r"},
 		"switchView":      {"v"},
 		"new":             {"n"},
+		"quickPaste":      {"ctrl+shift+v", "meta+shift+v"},
 		"complete":        {"d"},
 		"editTitle":       {"e"},
 		"editDescription": {"E"},
