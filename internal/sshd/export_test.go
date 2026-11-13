@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 	gossh "golang.org/x/crypto/ssh"
@@ -37,13 +38,14 @@ func SeedBoard(t *testing.T, st store.Store, svc core.Service, p Person) {
 // RequireFactor turns a tenant's second factor requirement on for surface.
 var RequireFactor = requireFactor
 
-// EnrolFactor enrols the person's second factor and returns its secret.
-func EnrolFactor(t *testing.T, svc core.Service, p Person) string {
-	secret, _ := enrolFactor(t, svc, person{tenantID: p.TenantID, actor: p.Actor, signer: p.Signer})
+// EnrolFactor enrols the person's second factor, on a service running on clk,
+// and returns its secret.
+func EnrolFactor(t *testing.T, svc core.Service, clk clock.Clock, p Person) string {
+	secret, _ := enrolFactor(t, svc, clk, person{tenantID: p.TenantID, actor: p.Actor, signer: p.Signer})
 	return secret
 }
 
-// TOTPNow is the code an authenticator holding secret shows now.
+// TOTPNow is the code an authenticator holding secret shows at clk's now.
 var TOTPNow = totpNow
 
 // SessionContext is a context acting as actor.
