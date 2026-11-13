@@ -45,9 +45,7 @@ func init() {
 		"Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.": "Ziehen Sie eine Karte zwischen Board-Spalten, um sie zu verschieben. Das Menü Verschieben jeder Karte funktioniert immer, mit oder ohne Ziehen, daher kostet das Ausschalten bei Tastatur- oder Touch-Bedienung nichts.",
 		"Drag board cards between columns.": "Board-Karten zwischen Spalten ziehen.",
 
-		"Task opens in": "Aufgabe öffnet als",
-		"Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab.": "Seite verlässt die Liste für den eigenen Bildschirm der Aufgabe. Dialog öffnet die Aufgabe über der aktuellen Liste: Die Adresse ändert sich, sodass ein Neuladen oder ein kopierter Link die volle Seite öffnet, Zurück oder Escape schließt ihn, und Speichern darin aktualisiert die Liste darunter. Strg-Klick oder Mittelklick öffnet weiterhin einen neuen Tab.",
-		"Open a task as its own page, or in a dialog over the list.": "Eine Aufgabe als eigene Seite oder in einem Dialog über der Liste öffnen.",
+		"Task opens in":    "Aufgabe öffnet als",
 		"Page":             "Seite",
 		"Dialog":           "Dialog",
 		"Clicking a title": "Klick auf einen Titel",
