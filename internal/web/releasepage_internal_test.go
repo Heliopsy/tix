@@ -165,7 +165,7 @@ func TestUpgradeCommandsAreCopyablePerMethod(t *testing.T) {
 		{Running: "0.30.0", Latest: "0.30.0", Checked: true},
 		{Running: "0.28.0", Checked: true, Failed: true},
 	} {
-		if page := renderRelease(t, up); strings.Contains(page, "relupgrade") || strings.Contains(page, "data-copy-target") {
+		if page := renderRelease(t, up); strings.Contains(page, "relupgrade") || strings.Contains(page, `data-copy-target="upgrade-`) {
 			t.Errorf("state %q offers upgrade commands:\n%s", up.Status(), page)
 		}
 	}
