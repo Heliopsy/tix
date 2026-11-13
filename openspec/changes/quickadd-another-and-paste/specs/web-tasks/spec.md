@@ -21,9 +21,10 @@ remembered in the `tix_add_another` cookie, so it works without scripting.
 ### Requirement: Quick add from the clipboard
 
 The quick-add row SHALL carry a Quick add from the clipboard button, drawn hidden and revealed only
-where the browser can read the clipboard. Pressing it, or `ctrl+shift+v` or `meta+shift+v` on a task
-screen outside a text field, SHALL put the clipboard's first non-empty line in the box and focus it
-without adding. An empty or unreadable clipboard SHALL show "The clipboard holds no text."
+where the browser can read the clipboard, and SHALL leave it out on a phone-width window. Pressing
+it, or `ctrl+shift+v` or `meta+shift+v` on a task screen outside a text field, SHALL put the
+clipboard's first non-empty line in the box and focus it without adding.
+An empty or unreadable clipboard SHALL show "The clipboard holds no text."
 
 #### Scenario: A multi-line clipboard
 

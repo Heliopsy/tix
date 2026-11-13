@@ -345,7 +345,8 @@ the task, whatever Open a new task says; it is posted with the line and remember
 (`tix_add_another`), so it works with scripting off. **Quick add from the clipboard**, the clipboard button
 beside the box, or ctrl+shift+v (command+shift+v on a Mac) outside a text field on the task screens, puts the
 clipboard's first non-empty line in the box and focuses it without adding; an empty or unreadable clipboard
-says "The clipboard holds no text." The button is only shown where the browser lets a page read the clipboard.
+says "The clipboard holds no text." The button is only shown where the browser lets a page read the clipboard,
+and not on a phone, which pastes into the box from its own menu.
 Add with details has a field per attribute and stores its title as typed. Its Due date field, like the task
 screen's Due row, is a text field taking a word (`tomorrow`, `fri`), an offset (`+3d`, `+2w`), `YYYY-MM-DD`,
 or a date in the order the reader's date format writes one (`06.11.2026` under Dotted); its (i) tip shows
