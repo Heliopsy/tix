@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -29,7 +30,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// The stand-in runs with GODEBUG=gctrace=1 like the real server, so its own
+// collections would print real gctrace lines over the scripted one and leave
+// the heap the test reads to the runtime's timing. Collection stays off.
 func fakeTix(args []string) int {
+	debug.SetGCPercent(-1)
 	switch {
 	case slices.Contains(args, "serve"):
 		i := slices.Index(args, "--listen")
