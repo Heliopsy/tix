@@ -90,7 +90,9 @@
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
   </select>{{end}}
-  <button type="submit">{{t "Add"}}</button>
+  {{/* On a phone the words go and the plus stays, so the box keeps its width;
+       the words stay the button's name. */}}
+  <button type="submit" class="quicksubmit">{{template "icon" "plus"}}<span class="quicksubmit-label">{{t "Add"}}</span></button>
   {{/* Posted with the line and remembered by the add, so it works with
        scripting off: ticked, an add comes back to this listing with the box
        empty and focused rather than opening the task. */}}

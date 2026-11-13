@@ -21,6 +21,9 @@
 
 .quickadd .quickpaste[hidden] { display: none; }
 
+/* Add carries a plus before its word; the word goes on a phone. */
+.quickadd .quicksubmit { align-items: center; display: inline-flex; gap: 6px; }
+
 /* A phone: the words go and the box keeps the width; the checkbox keeps its
    accessible name from the hidden words. */
 @media (max-width: 599px) {
@@ -43,8 +46,15 @@
 
 /* A phone's row has no room for the paste button without pushing Add with
    details onto a second line, and a phone pastes into the box from its own
-   menu. The box gives up a little of its basis for the checkbox. */
+   menu. Add keeps only its plus, and the room its word took goes to the box. */
 @media (max-width: 639px) {
   .quickadd .quickpaste { display: none; }
-  .quickadd input[name="title"] { flex-basis: 48px; }
+  .quickadd .quicksubmit { flex: 0 0 auto; padding-inline: var(--space-2); }
+  .quickadd .quicksubmit-label {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
 }
