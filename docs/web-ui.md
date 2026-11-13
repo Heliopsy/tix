@@ -1462,7 +1462,8 @@ Some of the app's keys never reach a web page, because the browser keeps them: c
 ctrl+p prints, ctrl+s saves the page, ctrl+l focuses the address bar, ctrl+f finds and ctrl+b toggles
 Firefox's bookmarks bar. Where the app's Vim or Emacs scheme uses one of those, the web keeps the other
 keys the table gives the action. ctrl+digit switches tabs, so the app's ctrl+1 to ctrl+7 are not here
-either. Off binds no single key at all, only the ctrl and command chords: the palette and select all.
+either. Off binds no single key at all, only the ctrl and command chords: the palette, select all and
+quick add from the clipboard.
 The terminal interface keeps its own table (see [tui.md](tui.md)); the keys it shares with this one,
 `m` comment, `t` move, `e` edit, `*` star, `p` priority, `/` filter, `?` help and ctrl+k, agree.
 
@@ -1491,6 +1492,7 @@ The terminal interface keeps its own table (see [tui.md](tui.md)); the keys it s
 | Refresh | `r` | `r` | `r` | none |
 | Switch view | `v` | `g v` | `v` | none |
 | New task | `n` | `o` | `n` | none |
+| Quick add from the clipboard | `ctrl+shift+v`, `meta+shift+v` | `ctrl+shift+v`, `meta+shift+v` | `ctrl+shift+v`, `meta+shift+v` | `ctrl+shift+v`, `meta+shift+v` |
 | Mark done | `d` | `d` | `d` | none |
 | Edit the title | `e` | `i` | `e` | none |
 | Edit the description | `E` | `D` | `E` | none |
