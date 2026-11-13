@@ -32,3 +32,19 @@
     width: 1px;
   }
 }
+
+/* Below a laptop the row holds the paste button and Add another besides,
+   so Add with details and From template keep only their icons, as on a
+   phone; with their words From template ran past a tablet's edge. */
+@media (max-width: 899px) {
+  .quickadd .addmore-open, .quickadd .addtpl-open { padding-inline: var(--space-2); }
+  .quickadd .addmore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+
+/* A phone's row has no room for the paste button without pushing Add with
+   details onto a second line, and a phone pastes into the box from its own
+   menu. The box gives up a little of its basis for the checkbox. */
+@media (max-width: 639px) {
+  .quickadd .quickpaste { display: none; }
+  .quickadd input[name="title"] { flex-basis: 48px; }
+}
