@@ -33,7 +33,6 @@ func init() {
 		"Changes in this tenant show up here as they happen. Earlier ones are not shown unless you replay from a sequence number.": "Промените в този наемател се появяват тук, докато се случват. По-ранните не се показват, освен ако не възпроизведете от пореден номер.",
 		"Event":                  "Събитие",
 		"Event #%d":              "Събитие №%d",
-		"Open":                   "Отвори",
 		"Details":                "Подробности",
 		"Live":                   "На живо",
 		"Offline. Reconnecting.": "Няма връзка. Свързване отново.",
