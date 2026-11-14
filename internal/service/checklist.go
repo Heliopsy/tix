@@ -28,6 +28,9 @@ func (l *Local) checkTaskItem(ctx context.Context, ref core.TaskRef, in core.Che
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, task); err != nil {
 			return err
 		}
+		if err := m.requireClaim(ctx, task); err != nil {
+			return err
+		}
 		if err := checkVersion(task, in.Version); err != nil {
 			return err
 		}

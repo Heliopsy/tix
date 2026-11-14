@@ -763,6 +763,9 @@ type tokenForm struct {
 	Name   string
 	Scopes []core.Scope
 	Expiry string
+	// RequireClaim is the "require a claim" checkbox, kept ticked when a
+	// refused form is drawn again.
+	RequireClaim bool
 }
 
 // newTokenForm is the empty form, carrying the proposed expiry.
@@ -776,7 +779,7 @@ func newTokenForm() tokenForm { return tokenForm{Expiry: defaultTokenExpiry} }
 // the re-rendered select with nothing selected, which showed the reader the
 // first option while the handler meant the default.
 func tokenFormOf(r *http.Request) tokenForm {
-	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires")}
+	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires"), RequireClaim: field(r, "require_claim") != ""}
 	if out.Expiry == "" {
 		out.Expiry = defaultTokenExpiry
 	}
@@ -993,7 +996,7 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
 		return h.refuseToken(w, r, form, err)
 	}
 	issued, err := h.svc.CreateToken(r.Context(), core.CreateTokenInput{
-		Name: form.Name, Scopes: form.Scopes, ExpiresAt: expiresAt})
+		Name: form.Name, Scopes: form.Scopes, ExpiresAt: expiresAt, RequireClaim: form.RequireClaim})
 	if err != nil {
 		return h.refuseToken(w, r, form, err)
 	}

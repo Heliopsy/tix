@@ -1044,6 +1044,10 @@ type CreateTokenInput struct {
 	// ExpiresAt is when the token stops working, an RFC 3339 timestamp; omitted
 	// means it does not expire.
 	ExpiresAt *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
+	// RequireClaim mints a token that changes a task only while its actor
+	// holds a live claim on it: moves, edits, project moves and deletes are
+	// refused otherwise. Claiming, creating, commenting and reading are not.
+	RequireClaim bool `json:"require_claim,omitempty" yaml:"require_claim,omitempty"`
 }
 
 // Validate checks the input.

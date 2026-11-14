@@ -333,6 +333,9 @@ func (l *Local) updateTask(ctx context.Context, ref core.TaskRef, in core.Update
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, task); err != nil {
 			return err
 		}
+		if err := m.requireClaim(ctx, task); err != nil {
+			return err
+		}
 		if err := checkVersion(task, in.Version); err != nil {
 			return err
 		}
@@ -551,6 +554,9 @@ var errDryRun = errors.New("dry run")
 // lease token also gives the lease up, since nothing is left to hold it for.
 func (l *Local) applyTransition(ctx context.Context, m *mutation, task *core.Task, in core.TransitionInput) (*core.Task, error) {
 	if err := l.authorizeTask(ctx, authz.ActionTaskTransition, task); err != nil {
+		return nil, err
+	}
+	if err := m.requireClaim(ctx, task); err != nil {
 		return nil, err
 	}
 	if err := checkVersion(task, in.Version); err != nil {
@@ -797,6 +803,9 @@ func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delete
 		for i := range subtree {
 			t := &subtree[i]
 			if err := l.authorizeTask(ctx, authz.ActionTaskDelete, t); err != nil {
+				return err
+			}
+			if err := m.requireClaim(ctx, t); err != nil {
 				return err
 			}
 			if err := m.tx.DeleteTask(ctx, t.ID, in.Hard); err != nil {

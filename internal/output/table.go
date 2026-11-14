@@ -195,11 +195,12 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "WAITING"}
-	projectHeader         = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
-	workflowHeader        = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "REACTIONS", "CREATED"}
-	tokenHeader           = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "WAITING"}
+	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
+	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
+	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "REACTIONS", "CREATED"}
+	tokenHeader    = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CLAIM", "CREATED", "EXPIRES", "LAST USED",
+		"REVOKED"}
 	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "VIA", "OCCURRED"}
 	endpointHeader        = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
@@ -210,7 +211,7 @@ var (
 	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "2FA", "CREATED", "DISABLED"}
 	accountLogHeader      = table.Row{"WHEN", "ACTION", "TENANT", "BY", "VIA", "DETAIL"}
 	sessionHeader         = table.Row{"ID", "CREATED", "EXPIRES", "METHOD", "2FA", "CURRENT", "USER AGENT"}
-	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "CLAIM", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
 	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
 	depHeader             = table.Row{"TASK", "DEPENDS ON", "CREATED"}
@@ -355,7 +356,17 @@ func accountLogDetail(d map[string]any) string {
 }
 
 func (p Painter) issuedRow(t core.IssuedToken) table.Row {
-	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, p.style.FormatPtr(t.ExpiresAt)}
+	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), claimRule(t.RequireClaim), t.Token,
+		p.style.FormatPtr(t.ExpiresAt)}
+}
+
+// claimRule is a token's CLAIM cell: "required" when it changes only tasks
+// its actor has claimed, empty otherwise.
+func claimRule(required bool) string {
+	if required {
+		return "required"
+	}
+	return ""
 }
 
 func (p Painter) claimRow(c core.Claim) table.Row {
@@ -653,7 +664,7 @@ func (p Painter) tokenRow(t core.APIToken) table.Row {
 		scopes = append(scopes, string(s))
 	}
 	return table.Row{
-		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID,
+		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID, claimRule(t.RequireClaim),
 		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.ExpiresAt),
 		p.style.FormatPtr(t.LastUsedAt), p.style.FormatPtr(t.RevokedAt),
 	}

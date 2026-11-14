@@ -440,7 +440,7 @@ func (t *tx) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, e
 
 var tokenColumns = []string{
 	"id", "tenant_id", "actor_id", "name", "scopes", "project_id",
-	"created_at", "expires_at", "last_used_at", "revoked_at",
+	"created_at", "expires_at", "last_used_at", "revoked_at", "require_claim",
 }
 
 func scanToken(s scanner) (core.APIToken, error) {
@@ -454,7 +454,7 @@ func scanToken(s scanner) (core.APIToken, error) {
 		revoked  sql.NullTime
 	)
 	if err := s.Scan(&tk.ID, &tk.TenantID, &tk.ActorID, &tk.Name, &scopes, &project,
-		&created, &expires, &lastUsed, &revoked); err != nil {
+		&created, &expires, &lastUsed, &revoked, &tk.RequireClaim); err != nil {
 		return core.APIToken{}, mapErr(err, "scanning api token")
 	}
 	tk.ProjectID = text(project)
@@ -491,7 +491,8 @@ func (t *tx) CreateToken(ctx context.Context, tk *core.APIToken, tokenHash strin
 		Set("created_at", timeArg(tk.CreatedAt)).
 		Set("expires_at", nullTimeArg(tk.ExpiresAt)).
 		Set("last_used_at", nullTimeArg(tk.LastUsedAt)).
-		Set("revoked_at", nullTimeArg(tk.RevokedAt))
+		Set("revoked_at", nullTimeArg(tk.RevokedAt)).
+		Set("require_claim", tk.RequireClaim)
 	_, err = t.execInsert(ctx, ins, "creating api token %q", tk.Name)
 	return err
 }

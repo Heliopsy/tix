@@ -29,6 +29,9 @@ func (l *Local) AddTag(ctx context.Context, ref core.TaskRef, tag string) error 
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, task); err != nil {
 			return err
 		}
+		if err := m.requireClaim(ctx, task); err != nil {
+			return err
+		}
 		tag, err := attachTaskLabel(ctx, m.tx, task.ID, name)
 		if err != nil {
 			return err
@@ -55,6 +58,9 @@ func (l *Local) RemoveTag(ctx context.Context, ref core.TaskRef, tag string) err
 			return err
 		}
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, task); err != nil {
+			return err
+		}
+		if err := m.requireClaim(ctx, task); err != nil {
 			return err
 		}
 		tag, err := tagByName(ctx, m.tx, name)

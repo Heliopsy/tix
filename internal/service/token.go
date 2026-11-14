@@ -155,7 +155,8 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 		minted.Issued.APIToken = tok
 		out = minted.Issued
 		return m.Record(auditTokenCreate, eventTokenCreated, "api_token", tok.ID, tok.ProjectID, nil, tok,
-			map[string]any{"name": tok.Name, "actor_id": tok.ActorID, "scopes": scopeStrings(tok.Scopes)})
+			map[string]any{"name": tok.Name, "actor_id": tok.ActorID, "scopes": scopeStrings(tok.Scopes),
+				"require_claim": tok.RequireClaim})
 	})
 	if err != nil {
 		return nil, err
@@ -332,7 +333,7 @@ func (l *Local) RotateToken(ctx context.Context, ref string, in core.RotateToken
 		}
 		minted, err := auth.MintAPIToken(l.clock, actor.TenantID, core.CreateTokenInput{
 			Name: cur.Name, ActorID: cur.ActorID, Scopes: cur.Scopes, ProjectID: cur.ProjectID,
-			ExpiresAt: rotatedExpiry(cur, m.now),
+			ExpiresAt: rotatedExpiry(cur, m.now), RequireClaim: cur.RequireClaim,
 		})
 		if err != nil {
 			return err

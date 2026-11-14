@@ -23,7 +23,7 @@
   <tbody>
   {{range .Data.Tokens}}
     <tr>
-      <td class="token">{{.Name}}</td>
+      <td class="token">{{.Name}}{{if .RequireClaim}} <span class="muted tok-claim">{{t "claim required"}}</span>{{end}}</td>
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
       {{if $.Data.Owners}}<td title="{{.ActorID}}"><a class="who-name" href="{{actorHref .ActorID}}">{{.Owner}}</a>{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
@@ -114,6 +114,10 @@
     {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{t .Label}}</option>{{end}}
   </select>
   {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="require_claim"><input id="require_claim" type="checkbox" name="require_claim" value="1"{{if .Data.Form.RequireClaim}} checked{{end}}> {{t "Require a claim before changing a task"}}</label>
+    {{template "field-info" "Whatever holds this token may move, edit, tag, move to another project or delete a task only while it holds a live claim on it, so every change it makes is tied to work it took. Claiming, creating tasks, commenting and reading stay open. Tick it for an AI agent; leave it clear for a person's script. Rotating the token keeps the setting."}}
+  </div>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Issue token"}}</button></div>
 </form>
 {{template "dlg-end"}}
