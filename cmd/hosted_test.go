@@ -196,6 +196,8 @@ var pathFlags = map[string]bool{
 	"project edit --icon-file":       true,
 	"project icon --out":             true,
 	"sync source add --file":         true,
+	"tenant edit --icon-file":        true,
+	"tenant icon --out":              true,
 	"sync source add --mapping":      true,
 	"sync source add --mapping-file": true,
 	"user key add --file":            true,

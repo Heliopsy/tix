@@ -140,7 +140,7 @@ func StandingWithdrawn(ctx context.Context, tx store.Tx, actorID string) (bool, 
 }
 
 // describeAccount fills in what WhoAmI tells a caller about themselves. Every
-// credential learns its tenant's key, name and resolved theme, which every
+// credential learns its tenant's key, name, icon and resolved theme, which every
 // member sees on every page anyway. A person also learns their account, and
 // for an interactive credential (a session, an SSH sign-in, a shell holding
 // the database) or a token carrying account:read every tenant the account is
@@ -156,6 +156,7 @@ func (l *Local) describeAccount(ctx context.Context, out *core.Actor) error {
 	if err := l.read(ctx, out, func(tx store.Tx) error {
 		if t, err := tx.GetTenant(ctx); err == nil {
 			out.TenantKey, out.TenantName = t.Key, t.Name
+			out.TenantIcon, out.TenantIconName, out.TenantIconImage = t.Icon, t.IconName, t.IconImage
 			theme := l.ResolveTheme(t)
 			out.Theme = &theme
 		}

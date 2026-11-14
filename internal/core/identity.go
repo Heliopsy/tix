@@ -206,6 +206,15 @@ type Actor struct {
 	// WhoAmI.
 	TenantKey  string `json:"tenant_key,omitempty" yaml:"tenant_key,omitempty"`
 	TenantName string `json:"tenant_name,omitempty" yaml:"tenant_name,omitempty"`
+	// TenantIcon is the text icon of the actor's tenant, on the answer to
+	// WhoAmI. At most one of the three tenant icon fields is set.
+	TenantIcon string `json:"tenant_icon,omitempty" yaml:"tenant_icon,omitempty"`
+	// TenantIconName is the built-in icon of the actor's tenant, on the
+	// answer to WhoAmI.
+	TenantIconName string `json:"tenant_icon_name,omitempty" yaml:"tenant_icon_name,omitempty"`
+	// TenantIconImage is the digest of the uploaded icon image of the actor's
+	// tenant, on the answer to WhoAmI, read from GET /api/v1/tenants/{ref}/icon.
+	TenantIconImage string `json:"tenant_icon_image,omitempty" yaml:"tenant_icon_image,omitempty"`
 	// Theme is the palette the actor's tenant resolves to, as the browser
 	// renders it, on the answer to WhoAmI.
 	Theme *Theme `json:"theme,omitempty" yaml:"theme,omitempty"`
@@ -391,6 +400,15 @@ type AccountMembership struct {
 	// Host is the tenant's own address, a domain not marked shared; empty when
 	// it is served only on a shared host.
 	Host string `json:"host" yaml:"host"`
+	// Icon is the tenant's text icon, one emoji or a one or two letter
+	// monogram. At most one of Icon, IconName and IconImage is set; with none
+	// a surface draws a monogram of the tenant's name.
+	Icon string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName names the tenant's built-in icon, from the set projects use.
+	IconName string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconImage is the digest of the tenant's uploaded icon image, whose
+	// bytes are read from GET /api/v1/tenants/{ref}/icon.
+	IconImage string `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 }
 
 // Membership grants a human a role within one tenant.

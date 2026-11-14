@@ -31,6 +31,7 @@ var inputReaches = []inputReach{
 	{"tix global-admin grant", core.GlobalAdminInput{}, map[string]string{"email": "arg"}},
 	{"tix tenant edit", core.UpdateTenantInput{}, map[string]string{
 		"name": "--name", "theme": "--theme",
+		"icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
 		"require_totp_ssh": "--require-totp-ssh", "mfa_policy": "--mfa-policy", "mfa_grace": "--mfa-grace",
 		"lease_default": "--lease-default", "lease_max": "--lease-max",

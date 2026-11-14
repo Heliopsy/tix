@@ -371,6 +371,11 @@ func (f *fakeService) GetProjectIcon(context.Context, string) (*core.ProjectIcon
 	return nil, core.Internal("the terminal interface read an icon image")
 }
 
+// GetTenantIcon refuses: the terminal never reads an icon image.
+func (f *fakeService) GetTenantIcon(context.Context, string) (*core.TenantIconImage, error) {
+	return nil, core.Internal("the terminal interface read an icon image")
+}
+
 func (f *fakeService) GetProject(_ context.Context, ref string) (*core.Project, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

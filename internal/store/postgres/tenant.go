@@ -16,7 +16,7 @@ import (
 // selected, so every tenant read on this engine answered with no theme while
 // the column held one.
 var tenantColumns = []string{
-	"id", "key", "name", "theme",
+	"id", "key", "name", "theme", "icon", "icon_name", "icon_image",
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
@@ -41,7 +41,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		sessKeep  string
 		mfaAt     sql.NullTime
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme, &t.Icon, &t.IconName, &t.IconImage,
 		&t.RequireTOTPWeb, &t.RequireTOTPCLI, &t.RequireTOTPSSH,
 		&leaseDef, &leaseMax, &t.TrashOff,
 		&t.TimeFormat, &t.Timezone,
@@ -143,6 +143,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", in.RequireTOTPWeb).
 		Set("require_totp_cli", in.RequireTOTPCLI).
 		Set("require_totp_ssh", in.RequireTOTPSSH).
@@ -174,6 +177,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", in.RequireTOTPWeb).
 		Set("require_totp_cli", in.RequireTOTPCLI).
 		Set("require_totp_ssh", in.RequireTOTPSSH).

@@ -85,19 +85,22 @@ const MaxProjectIconRunes = 2
 
 // NormalizeProjectIcon trims an icon and checks it is a short printable token,
 // which is satisfied by one emoji or a one or two letter monogram.
-func NormalizeProjectIcon(s string) (string, error) {
+func NormalizeProjectIcon(s string) (string, error) { return normalizeIcon("project", s) }
+
+// normalizeIcon is NormalizeProjectIcon for the icon of what.
+func normalizeIcon(what, s string) (string, error) {
 	icon := strings.TrimSpace(s)
 	if icon == "" {
 		return "", nil
 	}
 	runes := []rune(icon)
 	if len(runes) > MaxProjectIconRunes {
-		return "", Invalid("project icon %q is longer than %d characters; use a single emoji or a short monogram",
-			s, MaxProjectIconRunes)
+		return "", Invalid("%s icon %q is longer than %d characters; use a single emoji or a short monogram",
+			what, s, MaxProjectIconRunes)
 	}
 	for _, r := range runes {
 		if unicode.IsControl(r) || unicode.IsSpace(r) || !unicode.IsPrint(r) {
-			return "", Invalid("project icon %q contains a character that cannot be displayed", s)
+			return "", Invalid("%s icon %q contains a character that cannot be displayed", what, s)
 		}
 	}
 	return icon, nil

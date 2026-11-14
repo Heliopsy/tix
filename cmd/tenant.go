@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/config"
@@ -22,7 +23,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 	}
 	cmd.AddCommand(
 		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
-		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
+		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantIconCmd(g), tenantRmCmd(g),
 		tenantSessionPolicyCmd(g),
 	)
 	return cmd
@@ -260,6 +261,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var mfaPolicy, mfaGrace string
 	var artifactMax, artifactTypes string
 	var sessionTTL, sessionIdle, sessionRemember string
+	var icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -302,19 +304,28 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"them to the server's. A new lifetime applies to the next sign-in; the idle\n" +
 			"timeout applies at once, remembered sessions included. tix tenant\n" +
 			"session-policy shows what is in force.\n\n" +
+			"The icon is drawn beside the tenant's name wherever tenants are listed to\n" +
+			"switch between. It is one of --icon (an emoji or a one or two letter\n" +
+			"monogram), --icon-name (a built-in icon) or --icon-file (an image); setting\n" +
+			"one replaces whichever the tenant had, and setting any of them empty clears\n" +
+			"it. With no icon, surfaces draw a monogram of the name.\n\n" +
 			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
 			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
 			"stay there untouched, and --trash on brings them back into reach.\n\n" +
 			"--time-format and --timezone set the date format and zone this tenant's people\n" +
 			"read dates in unless they chose their own (tix user time). Either as \"\" falls\n" +
 			"back to the deployment's output.time_format and output.timezone.\n\n" +
-			"Exit codes: 2 --trash is not on or off, an unknown --mfa-policy, or an unknown format or timezone;\n" +
+			"Exit codes: 2 --trash is not on or off, an unknown --mfa-policy, an unknown format or timezone, or an\n" +
+			"invalid icon;\n" +
 			"3 unknown tenant or unknown theme; 6 no second factor key, or you hold no second factor and asked for\n" +
 			"--mfa-policy required.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
 			"  tix tenant edit acme --theme '#7a3ef0'\n" +
 			"  tix tenant edit acme --theme \"\"\n" +
+			"  tix tenant edit acme --icon-name rocket\n" +
+			"  tix tenant edit acme --icon-file logo.png\n" +
+			"  tix tenant edit acme --icon \"\"\n" +
 			"  tix tenant edit acme --require-totp-web\n" +
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
 			"  tix tenant edit acme --mfa-policy required --mfa-grace 7d\n" +
@@ -409,6 +420,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			if cmd.Flags().Changed("timezone") {
 				in.Timezone = &timezone
 			}
+			if err := tenantIconFlags(cmd, icon, iconName, iconFile, &in); err != nil {
+				return err
+			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
 				return err
@@ -448,6 +462,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&sessionRemember, "session-remember-ttl", "",
 		"how long keep me signed in lasts, such as 7d, or off; \"\" uses the server's")
 	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
+	cmd.Flags().StringVar(&icon, "icon", "", "an emoji or a short monogram shown beside the tenant's name")
+	cmd.Flags().StringVar(&iconName, "icon-name", "", "a built-in icon shown beside the tenant's name ("+builtinIconList()+")")
+	cmd.Flags().StringVar(&iconFile, "icon-file", "", iconFileUsage)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	cmd.Flags().StringVar(&timeFormat, "time-format", "",
@@ -456,6 +473,68 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"the IANA timezone this tenant's people read dates in, or \"\" for the deployment setting")
 	_ = cmd.RegisterFlagCompletionFunc("trash", fixedCompletion([]string{"on", "off"}))
 	_ = cmd.RegisterFlagCompletionFunc("time-format", fixedCompletion(core.TimeFormatNames))
+	return cmd
+}
+
+// tenantIconFlags reads --icon, --icon-name and --icon-file into an update,
+// each only when given, since an empty value clears the icon.
+func tenantIconFlags(cmd *cobra.Command, icon, iconName, iconFile string, in *core.UpdateTenantInput) error {
+	if cmd.Flags().Changed("icon") {
+		in.Icon = &icon
+	}
+	if cmd.Flags().Changed("icon-name") {
+		in.IconName = &iconName
+	}
+	if cmd.Flags().Changed("icon-file") {
+		file, err := readIconFile(cmd, iconFile)
+		if err != nil {
+			return err
+		}
+		in.IconFile = file
+	}
+	if !in.IconChanged() {
+		return nil
+	}
+	return in.Validate()
+}
+
+// tenantIconCmd saves a tenant's uploaded icon image.
+func tenantIconCmd(g *globals) *cobra.Command {
+	var out string
+	cmd := &cobra.Command{
+		Use:   "icon REF",
+		Short: "Save a tenant's uploaded icon image",
+		Long: "Write a tenant's uploaded icon image to the file --out names, or to standard output when that is not a terminal. " +
+			"Any member of the tenant may read it.\n\n" +
+			"Exit codes: 2 standard output is a terminal and no --out was given, 3 unknown tenant or no uploaded icon.",
+		Example: "  tix tenant icon acme --out acme.png\n  tix tenant icon acme > acme.png",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := localFile(cmd, "--out", out); err != nil {
+				return err
+			}
+			if out == "" && writesToTerminal(cmd) {
+				return core.Invalid("standard output is a terminal; name a file with --out or redirect the output")
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			img, err := conn.Service.GetTenantIcon(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			if out == "" {
+				_, err = cmd.OutOrStdout().Write(img.Data)
+				return err
+			}
+			if err := os.WriteFile(out, img.Data, 0o600); err != nil {
+				return core.Internal("writing icon to %q: %v", out, err).Wrap(err)
+			}
+			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
+		},
+	}
+	cmd.Flags().StringVar(&out, "out", "", "file to write the image to")
 	return cmd
 }
 

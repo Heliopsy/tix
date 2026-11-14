@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,6 +21,31 @@ func (c *Client) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*
 // GetTenant returns one tenant.
 func (c *Client) GetTenant(ctx context.Context, ref string) (*core.Tenant, error) {
 	return call[core.Tenant](ctx, c, http.MethodGet, routePath(wire.RouteTenant, "ref", tenantRef(ref)), nil, nil)
+}
+
+// GetTenantIcon fetches a tenant's uploaded icon image.
+func (c *Client) GetTenantIcon(ctx context.Context, ref string) (*core.TenantIconImage, error) {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	req, err := c.newRequest(ctx, http.MethodGet, routePath(wire.RouteTenantIcon, "ref", tenantRef(ref)), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(wire.HeaderAccept, "image/*, "+wire.ContentJSON)
+	resp, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, core.MaxProjectIconBytes+1))
+	if err != nil {
+		return nil, core.Internal("reading the icon of tenant %q: %v", ref, err).Wrap(err)
+	}
+	return &core.TenantIconImage{
+		ContentType: resp.Header.Get(wire.HeaderContentType),
+		Digest:      strings.Trim(resp.Header.Get("ETag"), `"`),
+		Data:        data,
+	}, nil
 }
 
 // tenantRef renders a tenant reference for a URL.

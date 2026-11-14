@@ -239,8 +239,13 @@ func memberLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	return out
 }
 
-// membershipLines list the reader's tenants with the role held in each and
-// what choosing one does: switch, or the login or ssh command that reaches it.
+// tenantMarkWidth is the column a tenant's icon or monogram takes, two cells
+// and a space.
+const tenantMarkWidth = 3
+
+// membershipLines list the reader's tenants, each behind its icon or
+// monogram, with the role held in each and what choosing one does: switch,
+// or the login or ssh command that reaches it.
 func membershipLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	listed := listedMemberships(state)
 	if len(listed) == 0 {
@@ -251,7 +256,7 @@ func membershipLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	for i, m := range listed {
 		selected := selectedRow(rows, state.Selected) == first+i
 		out = append(out, TenantLine{
-			Text: SelectionMarker(selected) + pad(m.TenantKey, tenantLabelWidth) +
+			Text: SelectionMarker(selected) + pad(m.IconText(), tenantMarkWidth) + pad(m.TenantKey, tenantLabelWidth) +
 				pad(string(m.Role), 8) + membershipNote(state, m.TenantKey),
 			Selected: selected,
 		})

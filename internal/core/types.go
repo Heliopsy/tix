@@ -22,6 +22,16 @@ type Tenant struct {
 	// surface. Empty means nobody chose, and the accent is derived from the
 	// tenant's own identity instead; see ThemeRegistry.Resolve.
 	Theme string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// Icon is a text icon, one emoji or a one or two letter monogram, drawn
+	// beside the tenant's name wherever tenants are listed to switch between.
+	// At most one of Icon, IconName and IconImage is set; with none, a surface
+	// draws a monogram of the name.
+	Icon string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName names one of the built-in icons, the same set a project offers.
+	IconName string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconImage is the digest of an uploaded icon image, whose bytes are read
+	// from GET /api/v1/tenants/{ref}/icon.
+	IconImage string `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 	// RequireTOTPWeb requires a second factor when signing in to the browser
 	// interface. Each surface is set independently and defaults to false.
 	RequireTOTPWeb bool `json:"require_totp_web" yaml:"require_totp_web"`

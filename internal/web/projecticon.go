@@ -35,11 +35,19 @@ type iconChoice struct {
 	Label string
 }
 
-// iconPicker is what the icon picker on a project form renders.
+// iconPicker is what the icon picker on a project or tenant form renders.
+// A tenant's picker carries its icon in a Project, since the fields are the
+// same, and Tenant set.
 type iconPicker struct {
 	Project  core.Project
 	Kind     string
 	Builtins []iconChoice
+	// Mark is the preview of the icon the form starts on.
+	Mark iconMark
+	// Tenant marks the tenant settings form's picker, whose No icon draws
+	// Fallback, a monogram of the name.
+	Tenant   bool
+	Fallback string
 }
 
 // newIconPicker opens the picker on the kind the project already carries.
@@ -55,15 +63,24 @@ func newIconPicker(p core.Project) iconPicker {
 			kind = iconKindNone
 		}
 	}
-	out := iconPicker{Project: p, Kind: kind}
+	out := iconPicker{Project: p, Kind: kind, Mark: markOf(p, true)}
 	for _, b := range core.BuiltinIcons() {
 		out.Builtins = append(out.Builtins, iconChoice{Name: b.Name, Label: builtinIconLabels[b.Name]})
 	}
 	return out
 }
 
-// iconMark is a project icon as a template draws it: exactly one of Text,
-// Builtin and Image is set, or none.
+// newTenantIconPicker opens the picker on the icon the tenant carries.
+func newTenantIconPicker(t core.Tenant) iconPicker {
+	out := newIconPicker(core.Project{ID: t.ID, Key: t.Key, Name: t.Name,
+		Icon: t.Icon, IconName: t.IconName, IconImage: t.IconImage})
+	out.Mark, out.Tenant = tenantMark(t.Key, t.Name, t.Icon, t.IconName, t.IconImage, true), true
+	out.Fallback = core.Monogram(t.Name)
+	return out
+}
+
+// iconMark is a project or tenant icon as a template draws it: exactly one
+// of Text, Builtin and Image is set, or none.
 type iconMark struct {
 	Key     string
 	Name    string
@@ -71,6 +88,19 @@ type iconMark struct {
 	Builtin string
 	Image   string
 	Hidden  bool
+	// Tenant says the icon is a tenant's, whose image is served under
+	// /tenants rather than /projects.
+	Tenant bool
+}
+
+// tenantMark is a tenant's icon as a template draws it, or a monogram of the
+// tenant's name when it carries none.
+func tenantMark(key, name, text, builtin, image string, hidden bool) iconMark {
+	m := iconMark{Key: key, Name: name, Text: text, Builtin: builtin, Image: image, Hidden: hidden, Tenant: true}
+	if !m.Any() {
+		m.Text = core.Monogram(name)
+	}
+	return m
 }
 
 // Any reports whether there is an icon to draw.
@@ -165,12 +195,28 @@ func (h *handler) showProjectIcon(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	etag := wire.IconETag(img.Digest)
+	return writeIconImage(w, r, img.Digest, img.ContentType, img.Data)
+}
+
+// showTenantIcon answers with a tenant's uploaded icon image, for any member
+// of that tenant, so the switcher draws the tenants it lists.
+func (h *handler) showTenantIcon(w http.ResponseWriter, r *http.Request) error {
+	img, err := h.svc.GetTenantIcon(r.Context(), r.PathValue("key"))
+	if err != nil {
+		return err
+	}
+	return writeIconImage(w, r, img.Digest, img.ContentType, img.Data)
+}
+
+// writeIconImage answers with an icon image, kept for good when the address
+// names its digest.
+func writeIconImage(w http.ResponseWriter, r *http.Request, digest, contentType string, data []byte) error {
+	etag := wire.IconETag(digest)
 	hdr := w.Header()
 	hdr.Set("ETag", etag)
 	hdr.Set("X-Content-Type-Options", "nosniff")
 	hdr.Set("Content-Security-Policy", wire.IconPolicy)
-	if r.URL.Query().Get("v") == img.Digest {
+	if r.URL.Query().Get("v") == digest {
 		hdr.Set("Cache-Control", iconCacheControl)
 	} else {
 		hdr.Set("Cache-Control", "private, no-cache")
@@ -179,9 +225,9 @@ func (h *handler) showProjectIcon(w http.ResponseWriter, r *http.Request) error 
 		w.WriteHeader(http.StatusNotModified)
 		return nil
 	}
-	hdr.Set("Content-Type", img.ContentType)
-	hdr.Set("Content-Length", strconv.Itoa(len(img.Data)))
+	hdr.Set("Content-Type", contentType)
+	hdr.Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP and drawn only through <img>
+	_, err := w.Write(data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP and drawn only through <img>
 	return err
 }

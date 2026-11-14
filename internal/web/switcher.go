@@ -26,6 +26,7 @@ func (h *handler) switchRoutes() []route {
 	return []route{
 		get(RouteSwitch, switchTemplate, h.showSwitch, "WhoAmI"),
 		post(RouteSwitch, h.doSwitch, "SwitchTenant"),
+		getFile(RouteTenantIcon, h.showTenantIcon, "GetTenantIcon"),
 	}
 }
 
@@ -42,6 +43,9 @@ type tenantSwitcher struct {
 	Here        string
 	Next        string
 	Opener      dialogOpener
+	// Mark is the current tenant's icon, drawn on the button opening the
+	// dialog.
+	Mark iconMark
 }
 
 // switcherRow is one of the reader's tenants.
@@ -49,6 +53,8 @@ type switcherRow struct {
 	Key  string
 	Name string
 	Role core.Role
+	// Mark is the tenant's icon, or a monogram of its name.
+	Mark iconMark
 	// Current marks the tenant this session is in; it has no button.
 	Current bool
 	// Switch offers the Switch button: the tenant is served on this host.
@@ -89,12 +95,15 @@ func (h *handler) switcherFor(r *http.Request, me *core.Actor, here string) *ten
 		scheme = "https"
 	}
 	name := me.TenantName
-	out := &tenantSwitcher{Current: me.TenantKey, GlobalAdmin: me.GlobalAdmin, CSRF: csrfFrom(r), Here: here}
+	out := &tenantSwitcher{Current: me.TenantKey, GlobalAdmin: me.GlobalAdmin, CSRF: csrfFrom(r), Here: here,
+		Mark: tenantMark(me.TenantKey, me.TenantName, me.TenantIcon, me.TenantIconName, me.TenantIconImage, true)}
 	for _, m := range me.Memberships {
-		row := switcherRow{Key: m.TenantKey, Name: m.TenantName, Role: m.Role, Current: m.TenantID == me.TenantID}
+		row := switcherRow{Key: m.TenantKey, Name: m.TenantName, Role: m.Role, Current: m.TenantID == me.TenantID,
+			Mark: tenantMark(m.TenantKey, m.TenantName, m.Icon, m.IconName, m.IconImage, true)}
 		switch {
 		case row.Current:
 			name = m.TenantName
+			out.Mark = row.Mark
 		case served.Serves(m.TenantID, m.Host):
 			row.Switch = true
 		case m.Host != "":
@@ -104,6 +113,21 @@ func (h *handler) switcherFor(r *http.Request, me *core.Actor, here string) *ten
 	}
 	out.Opener = newOpener(switcherDialog, name, "tenant-switch", "", here)
 	return out
+}
+
+// brandMark is the icon the reader's tenant set for itself, for the page
+// header, or nothing when it set none: the header keeps the logo rather than
+// a monogram of the name written beside it.
+func brandMark(me *core.Actor) iconMark {
+	if me == nil {
+		return iconMark{}
+	}
+	m := iconMark{Key: me.TenantKey, Name: me.TenantName, Text: me.TenantIcon, Builtin: me.TenantIconName,
+		Image: me.TenantIconImage, Hidden: true, Tenant: true}
+	if m.Key == "" {
+		return iconMark{}
+	}
+	return m
 }
 
 // whoAmI is the reader's identity for the page frame, or nil when there is

@@ -8,10 +8,10 @@ package sql
 // tenant needs every tenant it belongs to. It reads the account's actors and
 // their memberships, never anything they own, and skips deleted tenants. Each
 // row carries its tenant's own address, the first domain not marked shared,
-// verified ones first, or the empty string.
+// verified ones first, or the empty string, and the tenant's icon.
 func AccountMembershipsQuery(d Dialect, userID string) (string, []any) {
 	b := &Builder{dialect: d}
-	q := "SELECT a.tenant_id, t.key, t.name, a.id, a.handle, m.role, " + tenantAddressColumn("a.tenant_id") +
+	q := "SELECT a.tenant_id, t.key, t.name, a.id, a.handle, m.role, " + tenantAddressColumn("a.tenant_id") + ", t.icon, t.icon_name, t.icon_image" +
 		" FROM actors a" +
 		" JOIN tenant_members m ON m.tenant_id = a.tenant_id AND m.actor_id = a.id" +
 		" JOIN tenants t ON t.id = a.tenant_id" +

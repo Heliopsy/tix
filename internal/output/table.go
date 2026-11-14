@@ -203,7 +203,7 @@ var (
 	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "VIA", "OCCURRED"}
 	endpointHeader        = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader          = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	tenantHeader          = table.Row{"ID", "KEY", "NAME", "ICON", "THEME", "CREATED", "DELETED"}
 	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
 	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
 	userHeader            = table.Row{"ID", "EMAIL", "NAME", "2FA", "CREATED", "DISABLED"}
@@ -577,6 +577,12 @@ func (p Painter) taskRow(t core.Task) table.Row {
 	}
 }
 
+// tenantIconCell is a tenant's icon as a table cell, read the way a project's
+// is, and empty when the tenant set none.
+func tenantIconCell(t core.Tenant) string {
+	return projectIconCell(core.Project{Icon: t.Icon, IconName: t.IconName, IconImage: t.IconImage})
+}
+
 // projectIconCell is a project's icon as a table cell: a text icon as it is, a
 // built-in one as its fallback glyph and name, an image as a mark and a word.
 func projectIconCell(p core.Project) string {
@@ -698,7 +704,7 @@ func (p Painter) tenantRow(t core.Tenant) table.Row {
 		theme = "(derived)"
 	}
 	return table.Row{
-		t.ID, t.Key, truncate(t.Name, 40), theme,
+		t.ID, t.Key, truncate(t.Name, 40), tenantIconCell(t), theme,
 		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.DeletedAt),
 	}
 }

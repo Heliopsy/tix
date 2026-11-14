@@ -630,6 +630,31 @@ func TestTenantRowNamesTheThemeOrSaysItIsDerived(t *testing.T) {
 	}
 }
 
+// TestTenantRowShowsTheIconAsText pins the ICON column: a terminal draws no
+// image or sprite, so each kind is named in text, and no icon is empty.
+func TestTenantRowShowsTheIconAsText(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(*core.Tenant)
+		want   string
+	}{
+		{"text", func(t *core.Tenant) { t.Icon = "A" }, "A"},
+		{"built-in", func(t *core.Tenant) { t.IconName = "rocket" }, "\U0001F680 rocket"},
+		{"image", func(t *core.Tenant) { t.IconImage = "abc" }, core.ProjectImageGlyph + " image"},
+		{"none", func(*core.Tenant) {}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tenant := sampleTenant()
+			c.mutate(&tenant)
+			out := render(t, FormatTable, []core.Tenant{tenant})
+			if got := cellAt(t, out, "ICON", 0); got != c.want {
+				t.Errorf("ICON = %q, want %q\n%s", got, c.want, out)
+			}
+		})
+	}
+}
+
 // TestNonStructSlicesPrintTheirElements covers the reflected fallback's
 // scalar-slice path, where there are no columns to build: each element on its
 // own line, and an empty one saying there was nothing rather than printing

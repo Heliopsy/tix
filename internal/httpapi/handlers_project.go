@@ -116,7 +116,13 @@ func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	etag := wire.IconETag(img.Digest)
+	writeIcon(w, r, img.Digest, img.ContentType, img.Data)
+}
+
+// writeIcon answers with an icon image, typed and fingerprinted, under a
+// sandboxing policy, or 304 when the reader already holds it.
+func writeIcon(w http.ResponseWriter, r *http.Request, digest, contentType string, data []byte) {
+	etag := wire.IconETag(digest)
 	h := w.Header()
 	h.Set("ETag", etag)
 	h.Set("Cache-Control", "private, no-cache")
@@ -126,10 +132,10 @@ func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	h.Set(wire.HeaderContentType, img.ContentType)
-	h.Set("Content-Length", strconv.Itoa(len(img.Data)))
+	h.Set(wire.HeaderContentType, contentType)
+	h.Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
+	_, _ = w.Write(data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
 }
 
 // handleUpdateProject changes one project.

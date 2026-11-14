@@ -161,6 +161,9 @@ const (
 	RouteProjectArch     = "/projects/{key}/archive"
 	RouteProjectDel      = "/projects/{key}/delete"
 	RouteProjectIcon     = "/projects/{key}/icon"
+	// RouteTenantIcon is a tenant's uploaded icon image, which any member of
+	// it reads, so the switcher draws every tenant it lists.
+	RouteTenantIcon = "/tenants/{key}/icon"
 	// RouteProjectStar and RouteProjectUnstar set and clear the reader's own
 	// star on a project.
 	RouteProjectStar   = "/projects/{key}/star"

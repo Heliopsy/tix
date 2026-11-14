@@ -914,10 +914,10 @@
      a built-in one from the sprite, an uploaded one through <img>, where an
      SVG runs no script and fetches nothing. Hidden is for an icon beside a
      text that already names the project. Takes projIcon's iconMark. */}}
-{{define "proj-icon"}}{{if .Image}}<img class="proj-icon proj-icon-img" src="/projects/{{.Key}}/icon?v={{.Image}}" width="16" height="16" alt="{{if not .Hidden}}{{.Name}}{{end}}"{{if .Hidden}} aria-hidden="true"{{else}} title="{{.Name}}"{{end}}>{{else if .Builtin}}<svg class="proj-icon proj-icon-svg" width="16" height="16"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}"{{end}}>{{if not .Hidden}}<title>{{.Name}}</title>{{end}}<use href="/assets/icons.svg#pi-{{.Builtin}}"/></svg>{{else if .Text}}<span class="proj-icon"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}" title="{{.Name}}"{{end}}>{{.Text}}</span>{{end}}{{end}}
+{{define "proj-icon"}}{{if .Image}}<img class="proj-icon proj-icon-img" src="{{if .Tenant}}/tenants{{else}}/projects{{end}}/{{.Key}}/icon?v={{.Image}}" width="16" height="16" alt="{{if not .Hidden}}{{.Name}}{{end}}"{{if .Hidden}} aria-hidden="true"{{else}} title="{{.Name}}"{{end}}>{{else if .Builtin}}<svg class="proj-icon proj-icon-svg" width="16" height="16"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}"{{end}}>{{if not .Hidden}}<title>{{.Name}}</title>{{end}}<use href="/assets/icons.svg#pi-{{.Builtin}}"/></svg>{{else if .Text}}<span class="proj-icon"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}" title="{{.Name}}"{{end}}>{{.Text}}</span>{{end}}{{end}}
 
 {{/* icon-picker is the icon field of the project creation and settings
-     forms: a kind chosen in a segmented control, one pane per kind, and a
+     forms and of the tenant settings form: a kind chosen in a segmented control, one pane per kind, and a
      preview of what the project will carry. The panes are switched by CSS
      alone (app.css, .iconpick) so the form works without script;
      assets/iconpick.js only keeps the preview current while choosing. The
@@ -926,7 +926,7 @@
 <fieldset class="iconpick" data-iconpick>
   <legend class="iconpick-legend">{{t "Icon"}}</legend>{{template "tip" (tip "Icon" "Emoji takes one emoji or one or two letters. Icon picks a symbol drawn in the interface's own style. Upload takes a PNG, JPEG, WebP or SVG of up to 64 KB, shown as an image; an SVG that carries script is refused. The terminal shows a text stand-in for the last two." "docs/web-ui.md")}}
   <div class="iconpick-head">
-    <span class="iconpick-preview{{with projClass .Project.Color}} {{.}}{{end}}"{{with projStyle .Project.Color}} style="{{.}}"{{end}} data-iconpick-preview aria-hidden="true">{{$mark := projIcon .Project true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{end}}</span>
+    <span class="iconpick-preview{{with projClass .Project.Color}} {{.}}{{end}}"{{with projStyle .Project.Color}} style="{{.}}"{{end}} data-iconpick-preview{{with .Fallback}} data-iconpick-fallback="{{.}}"{{end}} aria-hidden="true">{{if .Mark.Any}}{{template "proj-icon" .Mark}}{{end}}</span>
     <div class="segmented iconpick-kinds" role="radiogroup" aria-label="{{t "Icon kind"}}">
       <label class="segment"><input type="radio" name="icon_kind" value="text" {{if eq .Kind "text"}}checked{{end}}>{{t "Emoji"}}</label>
       <label class="segment"><input type="radio" name="icon_kind" value="builtin" {{if eq .Kind "builtin"}}checked{{end}}>{{t "Icon"}}</label>
@@ -960,7 +960,7 @@
     <p class="muted">{{t "PNG, JPEG, WebP or SVG, up to 64 KB."}}{{if .Project.IconImage}} {{t "Leave it empty to keep the current image."}}{{end}}</p>
   </div>
   <div class="iconpick-pane" data-pane="none">
-    <p class="muted">{{t "The project shows no icon. Saving removes the one it has."}}</p>
+    <p class="muted">{{if .Tenant}}{{t "The tenant shows a monogram of its name. Saving removes the icon it has."}}{{else}}{{t "The project shows no icon. Saving removes the one it has."}}{{end}}</p>
   </div>
 </fieldset>
 {{end}}
@@ -1230,7 +1230,7 @@
      Without scripting it is the link to ?dialog=tenants, which draws the
      same list in place. A reader in one tenant gets nothing here; the
      tenant's name above is the whole story. Takes the view. */}}
-{{define "tenant-open"}}{{with .Switcher}}{{if .Many}}<a href="{{.Opener.Href}}" class="nav-tenant" data-dlg-open="tenants" aria-haspopup="dialog" data-rail-name="{{t "Switch tenant"}}" aria-label="{{t "Switch tenant, now %s" .Opener.Label}}"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{.Opener.Label}}</span></a>{{end}}{{end}}{{end}}
+{{define "tenant-open"}}{{with .Switcher}}{{if .Many}}<a href="{{.Opener.Href}}" class="nav-tenant" data-dlg-open="tenants" aria-haspopup="dialog" data-rail-name="{{t "Switch tenant"}}" aria-label="{{t "Switch tenant, now %s" .Opener.Label}}">{{if .Mark.Any}}<span class="nav-icon tenant-mark" data-tenant-mark>{{template "proj-icon" .Mark}}</span>{{else}}<svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg>{{end}}<span>{{.Opener.Label}}</span></a>{{end}}{{end}}{{end}}
 
 {{/* tenant-switcher is the dialog tenant-open opens. Takes the view. */}}
 {{define "tenant-switcher"}}{{with .Switcher}}{{if .Many}}
@@ -1247,6 +1247,7 @@
 <ul class="rows tenantswitch-list">
 {{range .Rows}}{{$row := .}}
   <li class="tenantswitch-row">
+    <span class="tenantswitch-mark tenant-mark" data-tenant-mark>{{template "proj-icon" .Mark}}</span>
     <span class="tenantswitch-name">{{.Name}} <span class="mono muted">{{.Key}}</span></span>
     <span class="chip">{{.Role}}</span>
     {{if .Current}}<span class="tenantswitch-current" aria-current="true">{{t "Current"}}</span>

@@ -67,7 +67,7 @@ type TenantService interface {
 	// to one tenant.
 	ListTenants(ctx context.Context, page Page) ([]Tenant, string, error)
 	// UpdateTenant changes the caller's tenant, or for a global admin any
-	// tenant: its name, theme, lease bounds,
+	// tenant: its name, theme, icon, lease bounds,
 	// second-factor requirements and trash setting. Fields left out are
 	// unchanged. A lease default longer than the maximum, an unknown theme, or a
 	// second-factor requirement with no sealing key configured is refused.
@@ -76,6 +76,13 @@ type TenantService interface {
 	// tenant, so its data stops being reachable and its domains stop
 	// resolving. No row is destroyed.
 	DeleteTenant(ctx context.Context, ref string) error
+	// GetTenantIcon returns a tenant's uploaded icon image, by identifier or
+	// key; an empty reference means the caller's tenant. Any member of the
+	// tenant may read it, from a credential in any tenant they belong to, so
+	// a tenant switcher can draw every tenant it lists; a token reaches
+	// another tenant's icon only when it carries account:read. A tenant
+	// without an image, or one the caller does not belong to, is not found.
+	GetTenantIcon(ctx context.Context, ref string) (*TenantIconImage, error)
 
 	// ListTenantUsers lists the users of any tenant, with each one's role
 	// there, keyset paginated. People removed from the tenant are left out

@@ -76,6 +76,8 @@ const (
 
 	RouteTenants = APIPrefix + "/tenants"
 	RouteTenant  = APIPrefix + "/tenants/{ref}"
+	// The icon image of a tenant, which any member of it reads.
+	RouteTenantIcon = APIPrefix + "/tenants/{ref}/icon"
 	// The users of a named tenant, which only a global admin reaches.
 	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
 	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
@@ -244,11 +246,11 @@ const (
 	ContentNDJSON = "application/x-ndjson"
 )
 
-// IconPolicy is the content security policy a project icon image is served
+// IconPolicy is the content security policy a project or tenant icon image is served
 // under, so an SVG opened on its own runs no script and loads nothing.
 const IconPolicy = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
-// IconETag is the strong entity tag of a project icon image.
+// IconETag is the strong entity tag of a project or tenant icon image.
 func IconETag(digest string) string { return `"` + digest + `"` }
 
 // Header names.
