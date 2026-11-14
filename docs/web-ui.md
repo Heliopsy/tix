@@ -1748,6 +1748,11 @@ line saying what the token will be able to do. Select all ticks each scope you h
 administrator gets `*` as its own choice with a warning. The issued token's confirmation lists the scopes it
 was granted.
 
+Under the expiry, **Require a claim before changing a task** mints a token that moves, edits, tags, moves to
+another project or deletes a task only while its actor holds a live claim on it. It starts unticked, a refused
+form comes back with it as it was sent, and the listing marks such a token *claim required* beside its name.
+See [agents.md](agents.md#tokens-that-require-a-claim).
+
 ### Rotating a token
 
 On the API tokens screen every live token has a Rotate button beside Revoke, on the whole-tenant listing, on

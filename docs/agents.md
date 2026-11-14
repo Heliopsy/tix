@@ -388,8 +388,54 @@ The token value is printed once and cannot be retrieved again. Supply it with `-
 environment variable, or a named context (`tix ctx add NAME --server URL --token TOKEN --use`), which every
 command then presents. `tix whoami` says which one is in use.
 
-`tix token ls` lists what a tenant holds, with the name, scopes, creation time, expiry and last use of each;
-`tix token rm ID` revokes one, and a revoked token stops authenticating immediately.
+`tix token ls` lists what a tenant holds, with the name, scopes, claim requirement, creation time, expiry and
+last use of each; `tix token rm ID` revokes one, and a revoked token stops authenticating immediately.
+
+### Running AI agents
+
+Give every agent its own token, and do not share one admin token between agents. When several agents work
+through one token, history cannot tell them apart and nothing stops one from moving a task another is
+working. A setup that keeps them apart:
+
+```sh
+tix token create worker-1 --actor worker-1 --project infra --require-claim \
+  --scope task:read --scope task:claim --scope task:transition --scope comment:write
+```
+
+- **One token per agent.** Each agent's changes then carry its own token name in the audit trail.
+- **`--actor`** an agent actor of its own, if you want claims and history to name the agent rather than you.
+  A claim belongs to an actor, so two tokens acting as the same actor share their claims.
+- **`--project`** confines the token to the project the agent works in.
+- **Minimal scopes.** The four above work a queue; add others only when the agent needs them.
+- **`--require-claim`** refuses any change to a task the agent's actor has not claimed.
+
+### Tokens that require a claim
+
+A token minted with `--require-claim` (`require_claim` over the API, a checkbox on the browser's issue form,
+the "require a claim" field in the terminal's token form) changes a task only while its actor holds a live
+claim on it. Without one, these are refused as permission denied, exit `5` (HTTP `403`):
+
+- moving a task (`tix task mv`, `tix task done`, a route, a bulk move, the board), dry runs included;
+- editing its fields, ticking a checklist item, adding or removing a tag;
+- moving it to another project;
+- deleting it, and every subtask of a cascading delete;
+- each task of a bulk action, reported as that task's refusal while the rest are applied.
+
+The message says what to run:
+
+```console
+$ tix task mv infra-12 done
+error: forbidden: this token requires a claim on infra-12 before changing it; run: tix claim task infra-12 --start
+```
+
+Claiming is not affected, so `tix claim task REF --start` and `tix claim next --start` claim and move in one
+step. Nor are creating tasks, commenting, reactions, reading, renewing and releasing a claim. A claim held by
+another actor, or one whose lease has run out, does not count. Moving a claimed task still needs the lease
+token, as it always has, and a move into a finished state under it releases the lease.
+
+The setting is fixed when the token is minted. Tokens have no edit path; `tix token rotate` keeps it, and to
+change it you issue a new token and revoke the old one. People signed in, SSH sessions, a shell holding the
+database and tokens without the setting behave exactly as before.
 
 ### Names and expiry
 
@@ -429,7 +475,7 @@ does what it was told. The ninety days belong to the two surfaces a person drive
 ### Rotating a token
 
 `tix token rotate ID|NAME` replaces a token in one step: it issues a new one with the same name, scopes,
-project and lifetime, prints its value once, and retires the old one.
+project, claim requirement and lifetime, prints its value once, and retires the old one.
 
 ```sh
 tix token rotate ci                  # the old value stops at once

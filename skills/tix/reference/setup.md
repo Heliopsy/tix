@@ -146,6 +146,19 @@ nothing is created. An admin email that already has an account becomes an admin
 of the new tenant with its own password and second factor, so no password is
 printed for it.
 
+For an agent, mint one token per agent with `--require-claim`, and if you
+want history to name the agent, `--actor` an agent actor of its own:
+
+```sh
+tix token create worker-1 --actor worker-1 --project infra --require-claim \
+  --scope task:read --scope task:claim --scope task:transition --scope comment:write
+```
+
+Such a token changes a task (move, edit, tag, project move, delete) only
+while its actor holds a live claim on it; anything else is exit `5`, with a
+message naming `tix claim task REF --start`. Claiming, `task add`, comments
+and reads are unaffected. `tix token rotate` keeps the setting.
+
 `--project` on `token create` takes either the project's key or its id, same
 as `-p`/`--project` everywhere else (`--project infra` works); an unknown key
 or id is a clean `not_found`, exit `3`.
@@ -161,7 +174,8 @@ error: conflict: a token named "ci-agent" already exists; revoke it or choose an
 That is exit `4`. Revoking frees the name.
 
 To replace a token, rotate it: `tix token rotate NAME` issues a new one with
-the same name, scopes, project and lifetime (counted from now), prints it once,
+the same name, scopes, project, claim requirement and lifetime (counted from
+now), prints it once,
 and retires the old one. You may rotate the token you run on without
 `token:admin`. `--grace 10m` (up to `24h`) keeps the old value working while you
 swap, so nothing fails mid-run:

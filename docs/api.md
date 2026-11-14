@@ -33,6 +33,10 @@ means off. A session left unused past the idle timeout answers `401` like an exp
 [configuration.md](configuration.md#sign-in-sessions).
 
 A missing or invalid credential is `401`. A valid credential without the required scope is `403`.
+A token created with `"require_claim": true` on `POST /api/v1/tokens` also gets `403` for a move, edit, tag
+change, project move or delete of a task its actor holds no live claim on, with `details.claim_required`
+naming the task; token listings carry `require_claim`. See
+[agents.md](agents.md#tokens-that-require-a-claim).
 
 A client may name itself in `X-Tix-Client`: `cli` or `mcp`. The tix client and `tix mcp` send it. It only
 changes how a token request is recorded in the audit log (`cli-remote` or `mcp` instead of `api`) and grants
