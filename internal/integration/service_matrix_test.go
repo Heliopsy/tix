@@ -534,6 +534,38 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "tenant icon round-trip",
+		covers: []string{"UpdateTenant", "GetTenantIcon"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, missing := tg.svc.GetTenantIcon(tg.ctx, "")
+			name := "rocket"
+			named, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{IconName: &name})
+			mustf(t, tg, err, "setting a built-in tenant icon")
+			png := []byte("\x89PNG\r\n\x1a\ntenant matrix")
+			pictured, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{
+				IconFile: &core.ProjectIconFile{Data: png}})
+			if err != nil {
+				return nil, err
+			}
+			img, err := tg.svc.GetTenantIcon(tg.ctx, "")
+			if err != nil {
+				return nil, err
+			}
+			empty := ""
+			cleared, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{Icon: &empty})
+			mustf(t, tg, err, "clearing the tenant icon")
+			return sig{
+				"missing":      core.KindOf(missing),
+				"named":        named.IconName,
+				"kind":         string(pictured.IconKind()),
+				"digest_match": pictured.IconImage == img.Digest,
+				"type":         img.ContentType,
+				"bytes":        string(img.Data),
+				"cleared":      string(cleared.IconKind()),
+			}, nil
+		},
+	},
+	{
 		name: "inbox round-trip",
 		covers: []string{"ListInbox", "CountInbox", "ReadInboxItem", "UnreadInboxItem", "ReadAllInbox",
 			"GetInboxPrefs", "PutInboxPrefs"},
