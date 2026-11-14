@@ -234,6 +234,7 @@ Operations that do not speak JSON are left out, whatever the overlay says. Use t
 | `project_icon` | answers an image |
 | `snapshot_export` | answers NDJSON (`tix export`) |
 | `snapshot_import` | reads NDJSON (`tix import`) |
+| `tenant_icon` | answers an image |
 
 `tix mcp --list` prints every operation, its tool name, the scope it needs and what became of it, without
 contacting a server. `-o json` makes it a table a script can read.

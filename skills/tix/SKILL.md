@@ -663,7 +663,9 @@ A project's JSON may carry an icon as one of `icon` (an emoji or monogram),
 `icon_name` (a built-in symbol such as `rocket`) or `icon_image` (the digest of
 an uploaded image, fetched with `tix project icon KEY --out FILE`). Set one with
 `tix project edit KEY --icon`, `--icon-name` or `--icon-file`; it replaces the
-others. None of it affects how tasks are listed or claimed.
+others. None of it affects how tasks are listed or claimed. A tenant carries
+the same three fields, set with `tix tenant edit REF --icon`, `--icon-name` or
+`--icon-file` and fetched with `tix tenant icon REF --out FILE`.
 
 **Titles are literal unless you pass `--parse`.** `tix task add` stores the
 title you give it, `#`, `@` and `!` included, so pass issue titles and commit
