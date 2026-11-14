@@ -30,7 +30,7 @@
   </li>
   {{end}}
 </ul>
-<form method="post" action="/admin/tenant" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" action="/admin/tenant">
   {{template "csrf" .CSRF}}
   <label for="name">{{t "Display name"}}</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>

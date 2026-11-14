@@ -73,9 +73,21 @@ func (l *Local) GetTenantIcon(ctx context.Context, ref string) (*core.TenantIcon
 	if strings.TrimSpace(ref) == "" {
 		ref = actor.TenantID
 	}
-	global, err := l.globalAllowed(ctx)
+	tenant, accountID, err := l.iconTenant(ctx, actor, ref)
 	if err != nil {
 		return nil, err
+	}
+	if tenant.ID != actor.TenantID {
+		err := l.mayReadTenantIcon(ctx, actor, accountID, tenant.ID)
+		if core.IsKind(err, core.KindForbidden) {
+			return nil, core.NotFound("tenant %q", ref)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if tenant.IconImage == "" {
+		return nil, core.NotFound("tenant %q has no icon image", tenant.Key)
 	}
 	var out *core.TenantIconImage
 	err = l.read(ctx, actor, func(tx store.Tx) error {
@@ -83,26 +95,7 @@ func (l *Local) GetTenantIcon(ctx context.Context, ref string) (*core.TenantIcon
 		if err != nil {
 			return err
 		}
-		t, err := lookupTenant(ctx, u, ref)
-		if err != nil {
-			return err
-		}
-		if t.DeletedAt != nil {
-			return core.NotFound("tenant %q", ref)
-		}
-		if t.ID != actor.TenantID && !global {
-			member, err := memberOf(ctx, tx, u, actor, t.ID)
-			if err != nil {
-				return err
-			}
-			if !member {
-				return core.NotFound("tenant %q", ref)
-			}
-		}
-		if t.IconImage == "" {
-			return core.NotFound("tenant %q has no icon image", t.Key)
-		}
-		out, err = u.GetTenantIcon(ctx, t.ID)
+		out, err = u.GetTenantIcon(ctx, tenant.ID)
 		return err
 	})
 	if err != nil {
@@ -111,23 +104,56 @@ func (l *Local) GetTenantIcon(ctx context.Context, ref string) (*core.TenantIcon
 	return out, nil
 }
 
-// memberOf reports whether the account behind actor belongs to tenantID. A
-// token answers only when it carries account:read, the scope that lets it
-// list its owner's tenants at all, so a token cannot probe them one by one.
-func memberOf(ctx context.Context, tx store.Tx, u store.UnscopedTx, actor *core.Actor, tenantID string) (bool, error) {
-	if actor.TokenID != "" && !actor.HasScope(core.ScopeAccountRead) {
-		return false, nil
+// iconTenant resolves the live tenant whose icon is asked for and the
+// account behind the actor, empty when it has none.
+func (l *Local) iconTenant(ctx context.Context, actor *core.Actor, ref string) (*core.Tenant, string, error) {
+	var (
+		tenant    *core.Tenant
+		accountID string
+	)
+	err := l.read(ctx, actor, func(tx store.Tx) error {
+		u, err := asUnscoped(tx)
+		if err != nil {
+			return err
+		}
+		if tenant, err = lookupTenant(ctx, u, ref); err != nil {
+			return err
+		}
+		if tenant.DeletedAt != nil {
+			return core.NotFound("tenant %q", ref)
+		}
+		account, err := accountOfActor(ctx, tx, actor.ID)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		accountID = account.ID
+		return nil
+	})
+	return tenant, accountID, err
+}
+
+// mayReadTenantIcon allows a global admin, and an account holding a
+// membership in tenantID, read through membershipsOf. A token answers only
+// when it carries account:read, the scope that lets it list its owner's
+// tenants at all, so a token cannot probe them one by one.
+func (l *Local) mayReadTenantIcon(ctx context.Context, actor *core.Actor, accountID, tenantID string) error {
+	global, err := l.globalAllowed(ctx)
+	if err != nil || global {
+		return err
 	}
-	account, err := accountOfActor(ctx, tx, actor.ID)
-	if core.IsKind(err, core.KindNotFound) {
-		return false, nil
+	refused := core.Forbidden("not a member of the tenant")
+	if accountID == "" || (actor.TokenID != "" && !actor.HasScope(core.ScopeAccountRead)) {
+		return refused
 	}
+	found, err := l.membershipsOf(ctx, accountID)
 	if err != nil {
-		return false, err
+		return err
 	}
-	found, err := u.ListMemberships(ctx, account.ID)
-	if err != nil {
-		return false, err
+	if !slices.ContainsFunc(found, func(m core.AccountMembership) bool { return m.TenantID == tenantID }) {
+		return refused
 	}
-	return slices.ContainsFunc(found, func(m core.AccountMembership) bool { return m.TenantID == tenantID }), nil
+	return nil
 }

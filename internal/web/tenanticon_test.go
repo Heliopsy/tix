@@ -129,8 +129,11 @@ func TestTheTenantSettingsSetTheTenantsIcon(t *testing.T) {
 	}
 
 	_, page := pat.do(http.MethodGet, web.RouteTenant, nil)
-	form := between(t, page, `<form method="post" action="/admin/tenant"`, "</form>")
-	if !strings.HasPrefix(form, `enctype="multipart/form-data">`) || !strings.Contains(form, `data-iconpick`) ||
+	if !strings.Contains(page, `<form method="post" enctype="multipart/form-data" action="/admin/tenant">`) {
+		t.Fatal("the tenant form is not multipart, so an uploaded icon never reaches the server")
+	}
+	form := formAt(t, page, "/admin/tenant")
+	if !strings.Contains(form, `data-iconpick`) ||
 		!strings.Contains(form, `name="icon_kind" value="none" checked`) || !strings.Contains(form, `data-iconpick-fallback="H"`) {
 		t.Fatalf("the tenant form = %q, want a multipart form with the icon picker on No icon", form)
 	}
@@ -174,7 +177,7 @@ func TestTheTenantSettingsSetTheTenantsIcon(t *testing.T) {
 
 	w.setTenantIcon(w.home.ID, core.UpdateTenantInput{IconName: new("rocket")})
 	_, page = pat.do(http.MethodGet, web.RouteTenant, nil)
-	if form := between(t, page, `<form method="post" action="/admin/tenant"`, "</form>"); !strings.Contains(form, `name="icon_kind" value="builtin" checked`) ||
+	if form := formAt(t, page, "/admin/tenant"); !strings.Contains(form, `name="icon_kind" value="builtin" checked`) ||
 		!strings.Contains(form, `name="icon_name" value="rocket" checked`) {
 		t.Errorf("the picker does not open on the tenant's rocket:\n%s", form)
 	}
