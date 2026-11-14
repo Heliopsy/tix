@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.61.0](https://github.com/Heliopsy/tix/compare/v0.60.0...v0.61.0) (2026-11-14)
+
+
+### Features
+
+* a tenant can carry an icon, shown wherever tenants are switched ([6a09c0f](https://github.com/Heliopsy/tix/commit/6a09c0fb8874604959c4fc092fbc15aca003b40a))
+
+
+### Bug Fixes
+
+* read the tenant icon membership through membershipsOf, cover it in the matrix ([5ee2fb9](https://github.com/Heliopsy/tix/commit/5ee2fb9113a8ba31020b27e786797705d4bf5b00))
+
 ## [0.60.0](https://github.com/Heliopsy/tix/compare/v0.59.0...v0.60.0) (2026-11-13)
 
 
