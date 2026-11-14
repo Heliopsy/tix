@@ -19,6 +19,24 @@ tix tenant rm acme
 
 Keys must be valid and unique; a duplicate is exit 4. Creating a tenant needs a [global admin](#global-admins).
 
+### Tenant icon
+
+A tenant can carry an icon, drawn beside its name wherever tenants are listed to switch between: the browser's
+switcher, the apps, `tix tenant ls` and the terminal interface. It is one of the three kinds a project icon can
+be, and whoever may change the tenant's settings sets it:
+
+```sh
+tix tenant edit acme --icon 🚀            # an emoji or a one or two letter monogram
+tix tenant edit acme --icon-name rocket   # a built-in icon, the same set projects use
+tix tenant edit acme --icon-file logo.png # a PNG, JPEG, WebP or SVG of at most 64 KiB
+tix tenant edit acme --icon ""            # clear it
+tix tenant icon acme --out acme.png       # save the uploaded image again
+```
+
+Setting one kind replaces the others. A tenant with no icon is drawn with a monogram of its name, the first
+letter of its first two words. Every member of a tenant can read its icon, from a session or token in any tenant
+they belong to; see [api.md](api.md#tenant-icons).
+
 ### First admins
 
 A tenant created with no members is one nobody can sign in to, since every other call acts on the caller's own

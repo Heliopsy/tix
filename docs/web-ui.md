@@ -48,7 +48,10 @@ global admin, the Global admin area; tenants a global admin is no member of are 
 listed here. Without scripting the entry is a link to `?dialog=tenants`, which draws the list in place.
 Switch mints a session in that tenant and ends the one you had; when that tenant requires a second factor
 your sign-in did not give, it asks for a code first. With one tenant the name at the top is plain text and
-there is no switcher.
+there is no switcher. Each tenant in the list, and the entry that opens it, shows the tenant's icon, or a
+monogram of its name when it has none. A tenant admin sets the icon on the Tenant screen with the same
+Emoji, Icon and Upload picker a project uses, and a tenant's own icon replaces the logo beside its name at
+the top of the sidebar.
 
 **My work's badge** counts your open assigned tasks past their deadline, not all of them: a count of
 everything assigned is never zero for anybody with work, so it says nothing. It reads 99+ past 99 and is
