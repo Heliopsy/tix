@@ -10542,7 +10542,8 @@ paths:
       operationId: tenant.delete
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10597,7 +10598,8 @@ paths:
       operationId: tenant.show
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10639,7 +10641,7 @@ paths:
         - tenant
     patch:
       description: |-
-        UpdateTenant changes the caller's tenant, or for a global admin any tenant: its name, theme, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
+        UpdateTenant changes the caller's tenant, or for a global admin any tenant: its name, theme, icon, lease bounds, second-factor requirements and trash setting. Fields left out are unchanged. A lease default longer than the maximum, an unknown theme, or a second-factor requirement with no sealing key configured is refused.
 
         Command line: `tix tenant edit`.
 
@@ -10647,7 +10649,8 @@ paths:
       operationId: tenant.update
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10705,8 +10708,8 @@ paths:
         - session:
             - tenant:admin
       summary: 'UpdateTenant changes the caller''s tenant, or for a global admin any
-        tenant: its name, theme, lease bounds, second-factor requirements and trash
-        setting'
+        tenant: its name, theme, icon, lease bounds, second-factor requirements and
+        trash setting'
       tags:
         - tenant
       x-tix-openspec:
@@ -10722,7 +10725,8 @@ paths:
       operationId: tenant.domain.list
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10787,6 +10791,56 @@ paths:
         - tenant
       x-tix-openspec:
         - http-api
+  /api/v1/tenants/{ref}/icon:
+    get:
+      description: |-
+        GetTenantIcon returns a tenant's uploaded icon image, by identifier or key; an empty reference means the caller's tenant. Any member of the tenant may read it, from a credential in any tenant they belong to, so a tenant switcher can draw every tenant it lists; a token reaches another tenant's icon only when it carries account:read. A tenant without an image, or one the caller does not belong to, is not found.
+
+        Command line: `tix tenant icon`.
+      operationId: tenant.icon
+      parameters:
+        - description: Tenant key or ID. Only the caller's own tenant is found, unless
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
+          in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            image/*:
+              schema:
+                type: string
+          description: OK
+        "304":
+          description: Not Modified
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer: []
+        - session: []
+      summary: GetTenantIcon returns a tenant's uploaded icon image, by identifier
+        or key; an empty reference means the caller's tenant
+      tags:
+        - tenant
   /api/v1/tenants/{ref}/members:
     post:
       description: |-
@@ -10796,7 +10850,8 @@ paths:
       operationId: tenant.member.add
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10867,7 +10922,8 @@ paths:
       operationId: tenant.user.list
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -10978,7 +11034,8 @@ paths:
       operationId: tenant.user.create
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -11052,7 +11109,8 @@ paths:
       operationId: tenant.user.delete
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -11115,7 +11173,8 @@ paths:
       operationId: tenant.user.update
       parameters:
         - description: Tenant key or ID. Only the caller's own tenant is found, unless
-            the caller is a global admin, who finds any.
+            the caller is a global admin, who finds any; a tenant's icon is found
+            by any member of it.
           in: path
           name: ref
           required: true
@@ -13367,6 +13426,19 @@ components:
           description: Host is the tenant's own address, a domain not marked shared;
             empty when it is served only on a shared host.
           type: string
+        icon:
+          description: Icon is the tenant's text icon, one emoji or a one or two letter
+            monogram. At most one of Icon, IconName and IconImage is set; with none
+            a surface draws a monogram of the tenant's name.
+          type: string
+        icon_image:
+          description: IconImage is the digest of the tenant's uploaded icon image,
+            whose bytes are read from GET /api/v1/tenants/{ref}/icon.
+          type: string
+        icon_name:
+          description: IconName names the tenant's built-in icon, from the set projects
+            use.
+          type: string
         role:
           $ref: '#/components/schemas/Role'
           description: Role is the role the membership grants.
@@ -13446,6 +13518,18 @@ components:
           type:
             - "null"
             - string
+        tenant_icon:
+          description: TenantIcon is the text icon of the actor's tenant, on the answer
+            to WhoAmI. At most one of the three tenant icon fields is set.
+          type: string
+        tenant_icon_image:
+          description: TenantIconImage is the digest of the uploaded icon image of
+            the actor's tenant, on the answer to WhoAmI, read from GET /api/v1/tenants/{ref}/icon.
+          type: string
+        tenant_icon_name:
+          description: TenantIconName is the built-in icon of the actor's tenant,
+            on the answer to WhoAmI.
+          type: string
         tenant_id:
           description: TenantID is the tenant the actor acts in.
           type: string
@@ -14490,6 +14574,20 @@ components:
           type:
             - "null"
             - string
+        icon:
+          description: Icon is a text icon, one emoji or a one or two letter monogram,
+            drawn beside the tenant's name wherever tenants are listed to switch between.
+            At most one of Icon, IconName and IconImage is set; with none, a surface
+            draws a monogram of the name.
+          type: string
+        icon_image:
+          description: IconImage is the digest of an uploaded icon image, whose bytes
+            are read from GET /api/v1/tenants/{ref}/icon.
+          type: string
+        icon_name:
+          description: IconName names one of the built-in icons, the same set a project
+            offers.
+          type: string
         id:
           description: ID is the tenant's unique identifier.
           type: string
@@ -18088,6 +18186,20 @@ components:
           type:
             - "null"
             - string
+        icon:
+          description: Icon is a text icon, one emoji or a one or two letter monogram,
+            drawn beside the tenant's name wherever tenants are listed to switch between.
+            At most one of Icon, IconName and IconImage is set; with none, a surface
+            draws a monogram of the name.
+          type: string
+        icon_image:
+          description: IconImage is the digest of an uploaded icon image, whose bytes
+            are read from GET /api/v1/tenants/{ref}/icon.
+          type: string
+        icon_name:
+          description: IconName names one of the built-in icons, the same set a project
+            offers.
+          type: string
         id:
           description: ID is the tenant's unique identifier.
           type: string
@@ -18632,6 +18744,23 @@ components:
           type:
             - "null"
             - array
+        icon:
+          description: Icon sets a text icon, one emoji or a one or two letter monogram,
+            replacing any icon; empty clears the icon and omitted leaves it. At most
+            one of Icon, IconName and IconFile may be set.
+          type:
+            - "null"
+            - string
+        icon_file:
+          $ref: '#/components/schemas/ProjectIconFile'
+          description: IconFile sets an uploaded image icon, replacing any icon; omitted
+            leaves the icon alone.
+        icon_name:
+          description: IconName sets a built-in icon, the same set a project offers,
+            replacing any icon; empty clears the icon and omitted leaves it.
+          type:
+            - "null"
+            - string
         lease_default:
           description: LeaseDefault is the lease a claim on this tenant gets when
             nothing more specific names one, a duration such as "30m". Zero clears

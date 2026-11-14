@@ -550,6 +550,12 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
+	var icon tenantIcon
+	if in.IconChanged() {
+		if icon, err = resolveTenantIcon(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
+			return nil, core.OnField(err, "icon")
+		}
+	}
 
 	global, err := l.globalAllowed(ctx)
 	if err != nil {
@@ -617,8 +623,16 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if err != nil {
 			return err
 		}
+		if in.IconChanged() {
+			icon.apply(t)
+		}
 		if err := u.UpdateTenant(ctx, t); err != nil {
 			return err
+		}
+		if in.IconChanged() {
+			if err := icon.store(ctx, u, t.ID, before.IconImage); err != nil {
+				return err
+			}
 		}
 		out = t
 		meta := map[string]any{"key": t.Key}

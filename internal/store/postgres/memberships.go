@@ -25,7 +25,7 @@ func (t *tx) ListMemberships(ctx context.Context, userID string) ([]core.Account
 	out := []core.AccountMembership{}
 	for rows.Next() {
 		var m core.AccountMembership
-		if err := rows.Scan(&m.TenantID, &m.TenantKey, &m.TenantName, &m.ActorID, &m.Handle, &m.Role, &m.Host); err != nil {
+		if err := rows.Scan(&m.TenantID, &m.TenantKey, &m.TenantName, &m.ActorID, &m.Handle, &m.Role, &m.Host, &m.Icon, &m.IconName, &m.IconImage); err != nil {
 			return nil, mapErr(err, "scanning a membership")
 		}
 		out = append(out, m)

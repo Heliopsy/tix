@@ -150,6 +150,17 @@ var registry = []Operation{
 		TUI:   "tenant",
 	},
 	{
+		Name: "tenant.icon", Method: "GetTenantIcon", Contract: Contract{Resp: None{}, Status: http.StatusOK, Content: contentImage, Also: map[int]any{http.StatusNotModified: None{}}},
+		// No scope: any member of the tenant reads its icon, from a credential
+		// in any tenant they belong to, because the switcher draws them all.
+		CLI:  "tix tenant icon",
+		HTTP: apiGet(wire.RouteTenantIcon),
+		Web:  webAsset(web.RouteTenantIcon),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a terminal draws no image; the tenant view lists each tenant behind a text stand-in for its icon"),
+		},
+	},
+	{
 		Name: "tenant.delete", Method: "DeleteTenant",
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix tenant rm",

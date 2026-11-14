@@ -111,7 +111,7 @@
            desktop the button is hidden and display:contents dissolves this
            wrapper, so the sidebar is the column it has always been. */}}
       <div class="side-head">
-        <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
+        <a class="brand" href="/" data-rail-name="{{.Brand.Title}}">{{if .TenantMark.Any}}<span class="logo tenant-mark tenant-logo" data-tenant-mark>{{template "proj-icon" .TenantMark}}</span>{{else}}<img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{end}}<span class="brand-name">{{.Brand.Title}}</span></a>
         {{/* Whether changes made elsewhere reach this page: a dot when live,
              a dot and a word when not, opening the connection details
              (assets/livestatus.js). Drawn hidden, and shown by the script

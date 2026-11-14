@@ -49,6 +49,8 @@ func (h *handler) adminRoutes() []route {
 // tenantView is what the tenant administration screen renders.
 type tenantView struct {
 	Tenant core.Tenant
+	// Picker is the tenant's icon picker, the one a project's settings use.
+	Picker iconPicker
 	// Themes are the palettes this deployment resolves, for the picker. The
 	// command line could set one from the start and the browser could not,
 	// which made a tenant-wide setting reachable only by whoever had shell
@@ -161,7 +163,7 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	dateFormat, dateZone := tenantTimeLevels(h.readerSettings(r))
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		DateFormat: dateFormat, DateZone: dateZone,
-		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
+		Tenant: *tenant, Picker: newTenantIconPicker(*tenant), Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
 		Artifacts: *artifacts, Sessions: *sessions,
 		RememberText: rememberText(*tenant),
@@ -263,7 +265,27 @@ func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
 	return row
 }
 
-// updateTenant saves the tenant's display name, theme, lease bounds and trash.
+// tenantIconChoice reads the icon the tenant form asks for into the update.
+// A form naming no icon kind, an older one, leaves the icon alone; Upload with
+// no new file keeps the image the tenant has.
+func (h *handler) tenantIconChoice(r *http.Request, in *core.UpdateTenantInput) error {
+	if _, named := sent(r, "icon_kind"); !named {
+		return nil
+	}
+	tenant, err := h.svc.GetTenant(r.Context(), "")
+	if err != nil {
+		return err
+	}
+	choice, err := iconChoiceOf(r, tenant.IconImage != "")
+	if err != nil {
+		return core.OnField(err, "icon")
+	}
+	in.Icon, in.IconName, in.IconFile = choice.Icon, choice.IconName, choice.IconFile
+	return nil
+}
+
+// updateTenant saves the tenant's display name, theme, icon, lease bounds and
+// trash.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
 	// The empty option clears the theme, so the field is always sent and
@@ -326,6 +348,9 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	if r.PostForm.Has("timezone") {
 		v := field(r, "timezone")
 		in.Timezone = &v
+	}
+	if err := h.tenantIconChoice(r, &in); err != nil {
+		return err
 	}
 	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err

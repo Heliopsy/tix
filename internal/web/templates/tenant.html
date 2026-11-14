@@ -30,7 +30,7 @@
   </li>
   {{end}}
 </ul>
-<form method="post" action="/admin/tenant">
+<form method="post" action="/admin/tenant" enctype="multipart/form-data">
   {{template "csrf" .CSRF}}
   <label for="name">{{t "Display name"}}</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
@@ -55,6 +55,13 @@
   <div class="field-label"><span id="theme-label" class="labeltext">{{t "Theme"}}</span>{{template "tip" (tip "Theme" "The accent this tenant is drawn in. Pick a predefined theme, or choose Custom and set any accent with the picker or as #rrggbb; its tint and its shade for dark schemes are derived from it.")}}</div>
   {{template "colour-field" (themeColours "theme" .Data.Tenant.Theme .Data.Themes)}}
   <p class="note">{{t "Applies to this tenant everywhere: the browser and the terminal interface both read it."}}</p>
+
+  {{/* The tenant's icon, drawn beside its name in the header and in every
+       list of tenants to switch between, so a person in several tells them
+       apart at a glance. The same picker a project uses; with no icon the
+       switcher draws a monogram of the name. */}}
+  {{template "icon-picker" .Data.Picker}}
+  <p class="note">{{t "Shown beside the tenant's name in the sidebar and wherever you switch between tenants."}}</p>
 
   {{/* The lease bounds. Until these existed the only way to change how long
        an agent may hold a task was to author a whole workflow document and

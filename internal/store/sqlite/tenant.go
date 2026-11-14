@@ -13,7 +13,7 @@ import (
 )
 
 var tenantColumns = []string{
-	"id", "key", "name", "theme",
+	"id", "key", "name", "theme", "icon", "icon_name", "icon_image",
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
@@ -42,7 +42,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		sessKeep  string
 		mfaAt     sql.NullString
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme, &t.Icon, &t.IconName, &t.IconImage,
 		&totpWeb, &totpCLI, &totpSSH,
 		&leaseDef, &leaseMax, &trashOff,
 		&t.TimeFormat, &t.Timezone,
@@ -157,6 +157,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
@@ -188,6 +191,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).

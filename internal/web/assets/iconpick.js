@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The project icon picker's preview. The picker works without this: the panes
+// The project and tenant icon picker's preview. The picker works without this: the panes
 // switch in CSS and the form submits whatever is chosen. This only redraws the
 // preview while the reader chooses, including a file not yet uploaded.
 (function () {
@@ -35,6 +35,9 @@
 
   var fileURL = "";
 
+  // A tenant's picker names the monogram its No icon falls back to in
+  // data-iconpick-fallback; a project's names none and draws nothing.
+
   function checked(root, name) {
     var input = root.querySelector('input[name="' + name + '"]:checked');
     return input ? input.value : "";
@@ -58,7 +61,9 @@
       current: preview.getAttribute("data-current"),
     });
     preview.textContent = "";
-    if (shown.kind === "text") {
+    if (shown.kind === "none") {
+      preview.textContent = preview.getAttribute("data-iconpick-fallback") || "";
+    } else if (shown.kind === "text") {
       preview.textContent = shown.value;
     } else if (shown.kind === "builtin") {
       var ns = "http://www.w3.org/2000/svg";

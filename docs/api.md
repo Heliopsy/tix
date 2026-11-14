@@ -166,7 +166,7 @@ the routes the server registers. The areas are the first segment of each operati
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
 | task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/move`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
-| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
+| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `GET /tenants/{ref}/icon`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
 | token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}`, `POST /tokens/{id}/rotate` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
@@ -253,6 +253,27 @@ $ curl -s -H "Authorization: Bearer $TIX_TOKEN" -o logo.png http://127.0.0.1:808
 nosniff`, a `Content-Security-Policy` that forbids script and sandboxes the document, and an `ETag` that
 `If-None-Match` revalidates to `304`. A project whose icon is not an uploaded image answers `404`. Snapshots
 and bundles carry `icon` and `icon_name`, never the image bytes.
+
+### Tenant icons
+
+A tenant carries an icon the same way, so a switcher listing several tenants tells them apart: `icon`,
+`icon_name` or `icon_image` on the tenant, at most one set, with the same built-in names and the same image
+checks as a project. `PATCH /tenants/{ref}` takes `icon`, `icon_name` and `icon_file` exactly as a project
+update does, and needs the same `tenant:admin` as the rest of the tenant settings. Each of `whoami`'s
+`memberships` carries the tenant's `icon`, `icon_name` and `icon_image`, and `whoami` itself carries its own
+tenant's as `tenant_icon`, `tenant_icon_name` and `tenant_icon_image`. A tenant with none is drawn with a
+monogram of its name, the first letter of its first two words.
+
+```console
+$ curl -s -X PATCH -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"icon_name":"rocket"}' http://127.0.0.1:8080/api/v1/tenants/~
+$ curl -s -H "Authorization: Bearer $TIX_TOKEN" -o acme.png http://127.0.0.1:8080/api/v1/tenants/acme/icon
+```
+
+`GET /tenants/{ref}/icon` answers like the project icon route, and any member of the tenant may read it, even
+from a session or token in another of their tenants, since the switcher draws them all. A token reaches
+another tenant's icon only when it carries `account:read`. A tenant the caller does not belong to, or one
+without an uploaded image, answers `404`.
 
 ### Deleting a project
 

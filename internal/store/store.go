@@ -94,6 +94,12 @@ type UnscopedTx interface {
 	CreateTenant(ctx context.Context, t *core.Tenant) error
 	UpdateTenant(ctx context.Context, t *core.Tenant) error
 	DeleteTenant(ctx context.Context, id string) error
+	// PutTenantIcon, GetTenantIcon and DeleteTenantIcon keep a tenant's icon
+	// image on its row. They reach across tenants because a person's
+	// switcher draws the icon of every tenant they belong to.
+	PutTenantIcon(ctx context.Context, img *core.TenantIconImage) error
+	GetTenantIcon(ctx context.Context, tenantID string) (*core.TenantIconImage, error)
+	DeleteTenantIcon(ctx context.Context, tenantID string) error
 	GetUserByEmail(ctx context.Context, email string) (*core.User, string, error)
 	// ListMemberships returns every tenant an account holds a membership in.
 	// An account is global, so deciding whether a change to it reaches past

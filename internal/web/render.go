@@ -167,6 +167,9 @@ type view struct {
 	// Switcher is the reader's tenants, for a reader in more than one; see
 	// switcher.go.
 	Switcher *tenantSwitcher
+	// TenantMark is the current tenant's own icon, drawn in place of the
+	// logo beside its name; empty when the tenant set none.
+	TenantMark iconMark
 	// Side is the sidebar as this browser left it; see sidebar.go.
 	Side     sidebarState
 	DragMove bool
@@ -514,6 +517,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		FactorDue:       factorDue(me),
 		FactorGated:     me != nil && me.SecondFactorEnrollmentRequired,
 		Switcher:        h.switcherFor(r, me, here(r)),
+		TenantMark:      brandMark(me),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),

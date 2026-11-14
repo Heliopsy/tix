@@ -16,6 +16,7 @@ func (rt *Router) registerTenantRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTenant, rt.handleGetTenant)
 	rt.mux.HandleFunc("PATCH "+wire.RouteTenant, rt.handleUpdateTenant)
 	rt.mux.HandleFunc("DELETE "+wire.RouteTenant, rt.handleDeleteTenant)
+	rt.mux.HandleFunc("GET "+wire.RouteTenantIcon, rt.handleGetTenantIcon)
 
 	rt.mux.HandleFunc("GET "+wire.RouteMembers, rt.handleListMembers)
 	rt.mux.HandleFunc("POST "+wire.RouteMembers, rt.handleAddMember)
@@ -80,6 +81,17 @@ func (rt *Router) handleGetTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, tenant)
+}
+
+// handleGetTenantIcon answers with a tenant's uploaded icon image, as the
+// image itself rather than JSON, so it can be saved or drawn directly.
+func (rt *Router) handleGetTenantIcon(w http.ResponseWriter, r *http.Request) {
+	img, err := rt.cfg.Service.GetTenantIcon(r.Context(), tenantRef(r))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeIcon(w, r, img.Digest, img.ContentType, img.Data)
 }
 
 // handleUpdateTenant changes one tenant.

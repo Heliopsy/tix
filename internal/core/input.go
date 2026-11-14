@@ -199,6 +199,16 @@ type UpdateTenantInput struct {
 	// the empty string clears it, which returns the tenant to the accent
 	// derived from its own identity; nil leaves it alone.
 	Theme *string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// Icon sets a text icon, one emoji or a one or two letter monogram,
+	// replacing any icon; empty clears the icon and omitted leaves it. At most
+	// one of Icon, IconName and IconFile may be set.
+	Icon *string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName sets a built-in icon, the same set a project offers, replacing
+	// any icon; empty clears the icon and omitted leaves it.
+	IconName *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconFile sets an uploaded image icon, replacing any icon; omitted leaves
+	// the icon alone.
+	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
 	// RequireTOTPWeb turns the second-factor requirement for browser sign-in
 	// on or off; omitted leaves it alone.
 	//
@@ -269,6 +279,11 @@ type UpdateTenantInput struct {
 func (in UpdateTenantInput) Validate() error {
 	if err := ValidateTimePrefs(in.TimeFormat, in.Timezone); err != nil {
 		return err
+	}
+	if in.IconChanged() {
+		if err := ValidateTenantIconChoice(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
+			return OnField(err, "icon")
+		}
 	}
 	if in.MFAPolicy != nil && !in.MFAPolicy.Valid() {
 		return Invalid("second factor policy %q is not one of off, required", *in.MFAPolicy).
@@ -440,6 +455,11 @@ type UpdateProjectInput struct {
 	// ceiling, a duration such as "4h"; zero inherits the tenant's again and
 	// omitted leaves it.
 	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+}
+
+// IconChanged reports whether the update names the tenant's icon at all.
+func (in UpdateTenantInput) IconChanged() bool {
+	return in.Icon != nil || in.IconName != nil || in.IconFile != nil
 }
 
 // IconChanged reports whether the update names the project's icon at all.
