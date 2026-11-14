@@ -14,6 +14,7 @@ What a green run proves, what it does not, and how to tell the two apart.
 | `just test-shard SHARD` | One CI shard with coverage into `out/coverage/`; `scripts/test-shards.sh names` lists them |
 | `just test-shards` | Every shard in turn, merged into `coverage.out`; then `just cover-floor` applies the floor |
 | `just shards-check` | Fails unless every package is in exactly one shard and CI runs every shard |
+| `just release-pr-files` | Fails unless the change since `origin/main` touches only the files release-please writes |
 | `just jstest` | The web assets' JavaScript suite, on node's own runner |
 | `just check` | The pre-push gate set |
 | `just ci` | Every CI gate, locally, in containers |
@@ -112,6 +113,12 @@ macOS runs the whole suite on main, nightly, and on a pull request that `just os
 something an operating system can tell apart: build constraints, syscall or terminal imports, SSH,
 paths, filesystems. Other pull requests run the `rest` and `store` shards there, which hold every
 package that reaches the operating system.
+
+release-please's pull request runs the Gate job alone. It changes `CHANGELOG.md` and
+`.release-please-manifest.json` on top of code main already tested, so every other CI job, CodeQL
+and Dependency Review skip on a head branch starting `release-please--`, and the run reports them as
+skipped. In exchange Gate runs `just release-pr-files`, which fails the pull request if it changes
+any other file. `just release-pr-files-test` is that guard's own test.
 
 Two things keep the slow packages fast, and both are for tests only:
 
