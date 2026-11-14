@@ -76,6 +76,11 @@ where it came from.
   `tix ctx add` line above for a server, or `tix init` for a local database.
 - **Exit `5` naming "needs an API token":** the server is set but no token is.
   Add one with `tix ctx add ... --token`, as above.
+- **Exit `5` naming "this token requires a claim on REF":** your token was
+  minted with `--require-claim`, so you change a task (move, edit, tag,
+  project move, delete) only while you hold a live claim on it. Run the
+  command the message names, `tix claim task REF --start`, then retry with the
+  lease token. Do not ask for a token without the setting to get around it.
 - **Exit `5` with reason `second_factor_enrollment_required`:** the tenant's
   second factor policy is on and the person your token belongs to has no
   second factor. Nothing but enrolment works until they add one
@@ -363,7 +368,9 @@ not pass one and do not expect a refusal:
   the browser has on a task you hold, since a browser session holds no lease.
 - **`tix task edit`.** Field edits are shared triage: a human re-prioritising
   or re-assigning live work is the queue doing its job. If you care about a
-  concurrent edit, that is what `--version` is for, not the lease.
+  concurrent edit, that is what `--version` is for, not the lease. A token
+  minted with `--require-claim` is the exception: it edits only tasks its
+  actor has claimed, though still without passing the lease token.
 
 `tix comment react ID EMOJI` (and `--remove`) leaves an emoji reaction on a
 comment. It notifies nobody, so it is an acknowledgement, never a substitute
