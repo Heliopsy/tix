@@ -70,8 +70,8 @@ link and Copy reference, and Share… where the browser offers a system share sh
 
 ### Requirement: One actions menu holds every action on the task as a whole
 
-The header SHALL open one actions menu and the Share menu. The actions menu SHALL hold Copy the
-task id, and for a writer Copy to, Save as template and Snooze (or Unsnooze for a snoozed task),
+The header SHALL open one actions menu and the Share menu. The actions menu SHALL hold Copy
+reference, and for a writer Copy to, Save as template and Snooze (or Unsnooze for a snoozed task),
 Reclaim the lease where the reader may reclaim a live lease, and Delete with its permanent and
 subtask options where the reader may delete. Copy link SHALL be in the Share menu. None of these
 SHALL be drawn anywhere else on the screen.
@@ -79,7 +79,7 @@ SHALL be drawn anywhere else on the screen.
 #### Scenario: The menu
 
 - **WHEN** a writer opens the actions menu
-- **THEN** it offers Copy the task id, Copy to, Save as template, Snooze and Delete
+- **THEN** it offers Copy reference, Copy to, Save as template, Snooze and Delete
 
 #### Scenario: No second copy
 
