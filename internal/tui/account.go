@@ -305,6 +305,9 @@ func TokenSummary(t core.APIToken, now time.Time, style output.TimeStyle) string
 	if t.ProjectID != "" {
 		parts = append(parts, "one project")
 	}
+	if t.RequireClaim {
+		parts = append(parts, "claim required")
+	}
 	switch {
 	case t.Retiring(now):
 		parts = append(parts, "rotated, stops "+style.Format(*t.RevokedAt))
@@ -499,6 +502,9 @@ type ScopePicker struct {
 	Ticked map[core.Scope]bool
 	// Sel indexes Rows, and only ever rests on a scope.
 	Sel int
+	// RequireClaim mints a token that changes a task only while its actor
+	// holds a live claim on it, as chosen on the token form.
+	RequireClaim bool
 }
 
 // everythingGroup is the group * is offered under, to a reader who holds it.
@@ -613,6 +619,9 @@ func (p ScopePicker) Lines() []AccountLine {
 	if p.Expiry.Days == 0 {
 		expiry = "never expires"
 	}
+	if p.RequireClaim {
+		expiry += " and requires a claim before changing a task"
+	}
 	out := []AccountLine{{Text: "scopes for token " + p.Name + ", which " + expiry + ":", Heading: true}}
 	for i, r := range p.Rows {
 		if r.Scope == "" {
@@ -696,9 +705,18 @@ func TokenForm(actor *core.Actor) Form {
 			{Key: "name", Label: "name", Kind: FieldText, Limit: 128},
 			{Key: "expires", Label: "expires in", Options: expiries, Value: value},
 			{Key: "preset", Label: "start from", Options: presets, Value: presetNone},
+			{Key: "claim", Label: "require a claim", Options: []string{claimNotRequired, claimRequired},
+				Value: claimNotRequired},
 		},
 	}
 }
+
+// The token form's claim choices: "yes" mints a token that changes a task
+// only while its actor holds a live claim on it.
+const (
+	claimNotRequired = "no"
+	claimRequired    = "yes"
+)
 
 // heldAll reports whether the actor holds every scope.
 func heldAll(actor *core.Actor, scopes []core.Scope) bool {
@@ -1024,6 +1042,7 @@ func (m Model) submitAccountForm(form Form) (Model, tea.Cmd) {
 		}
 		expiry, _ := TokenExpiryFor(form.Value("expires"))
 		picker := NewScopePicker(m.actor, name, expiry, PresetScopes(form.Value("preset")))
+		picker.RequireClaim = form.Value("claim") == claimRequired
 		m.acct.picker, m.err = &picker, ""
 		return m, nil
 	case formRotateToken:
@@ -1191,7 +1210,7 @@ func (m Model) handlePickerKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // issueToken asks the service for the token the picker describes. The expiry is
 // resolved against now here, as the browser resolves it when the form arrives.
 func (m Model) issueToken(p ScopePicker) tea.Cmd {
-	in := core.CreateTokenInput{Name: p.Name, Scopes: p.Scopes()}
+	in := core.CreateTokenInput{Name: p.Name, Scopes: p.Scopes(), RequireClaim: p.RequireClaim}
 	if p.Expiry.Days > 0 {
 		at := m.now().UTC().AddDate(0, 0, p.Expiry.Days)
 		in.ExpiresAt = &at

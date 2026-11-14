@@ -474,7 +474,7 @@ func (t *tx) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, e
 
 var tokenColumns = []string{
 	"id", "tenant_id", "actor_id", "name", "scopes", "project_id",
-	"created_at", "expires_at", "last_used_at", "revoked_at",
+	"created_at", "expires_at", "last_used_at", "revoked_at", "require_claim",
 }
 
 func scanToken(s scanner) (core.APIToken, error) {
@@ -486,11 +486,13 @@ func scanToken(s scanner) (core.APIToken, error) {
 		expires  sql.NullString
 		lastUsed sql.NullString
 		revoked  sql.NullString
+		claim    int64
 	)
 	if err := s.Scan(&tk.ID, &tk.TenantID, &tk.ActorID, &tk.Name, &scopes, &project,
-		&created, &expires, &lastUsed, &revoked); err != nil {
+		&created, &expires, &lastUsed, &revoked, &claim); err != nil {
 		return core.APIToken{}, mapErr(err, "scanning api token")
 	}
+	tk.RequireClaim = claim != 0
 	tk.ProjectID = sqlb.Text(project)
 	if err := sqlb.ParseJSON(scopes, &tk.Scopes); err != nil {
 		return core.APIToken{}, core.Internal("decoding scopes of token %q", tk.ID).Wrap(err)
@@ -534,7 +536,8 @@ func (t *tx) CreateToken(ctx context.Context, tk *core.APIToken, tokenHash strin
 		Set("created_at", sqlb.TimeText(tk.CreatedAt)).
 		Set("expires_at", sqlb.NullTimeText(tk.ExpiresAt)).
 		Set("last_used_at", sqlb.NullTimeText(tk.LastUsedAt)).
-		Set("revoked_at", sqlb.NullTimeText(tk.RevokedAt))
+		Set("revoked_at", sqlb.NullTimeText(tk.RevokedAt)).
+		Set("require_claim", sqlb.BoolInt(tk.RequireClaim))
 	_, err = t.execInsert(ctx, ins, "creating api token %q", tk.Name)
 	return err
 }

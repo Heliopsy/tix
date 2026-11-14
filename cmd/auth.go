@@ -280,7 +280,7 @@ func newTokenCmd(g *globals) *cobra.Command {
 func tokenCreateCmd(g *globals) *cobra.Command {
 	var actor, project, expires string
 	var scopes []string
-	var dryRun bool
+	var dryRun, requireClaim bool
 	cmd := &cobra.Command{
 		Use:   "create NAME",
 		Short: "Mint an API token",
@@ -288,9 +288,16 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 			"The token expires after " + DefaultTokenExpiry + " unless --expires says otherwise, " +
 			"matching the browser form. Pass --expires never for a token that does not expire; " +
 			"nothing else produces one.\n\n" +
+			"--require-claim mints a token that changes a task only while its actor holds a live claim on it: " +
+			"moves, edits, tag changes, project moves and deletes of an unclaimed task are refused with exit 5. " +
+			"Claiming (with --start too), creating, commenting and reading are not affected. It is fixed for the " +
+			"token's life and kept by tix token rotate. For an AI agent, give each agent its own token and " +
+			"actor (--actor), confine it with --project and grant only the scopes it needs.\n\n" +
 			"Exit codes: 2 unknown scope or unreadable expiry, 3 unknown project or actor, 5 permission denied.",
-		Example: "  tix token create agent --scope task:read --scope task:claim",
-		Args:    exactArgs(1),
+		Example: "  tix token create agent --scope task:read --scope task:claim\n" +
+			"  tix token create worker-1 --actor worker-1 --project infra --require-claim \\\n" +
+			"    --scope task:read --scope task:claim --scope task:transition --scope comment:write",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			expiry, err := parseExpiry(expires, time.Now())
 			if err != nil {
@@ -298,13 +305,14 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 			}
 			in := core.CreateTokenInput{
 				Name: args[0], ActorID: actor, ProjectID: project,
-				Scopes: toScopes(scopes), ExpiresAt: expiry,
+				Scopes: toScopes(scopes), ExpiresAt: expiry, RequireClaim: requireClaim,
 			}
 			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
-				return g.render(cmd, newPlan("token.create", in.Name, map[string]any{"scopes": scopes}))
+				return g.render(cmd, newPlan("token.create", in.Name,
+					map[string]any{"scopes": scopes, "require_claim": requireClaim}))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -325,6 +333,8 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	f.StringVar(&expires, "expires", DefaultTokenExpiry,
 		"when the token stops working: a duration such as 90d, a date, an RFC3339 timestamp, "+
 			"or never for a token that does not expire")
+	f.BoolVar(&requireClaim, "require-claim", false,
+		"refuse changes to a task unless the token's actor holds a live claim on it")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	_ = cmd.RegisterFlagCompletionFunc("scope", fixedCompletion(scopeNames()))
 	return cmd
@@ -388,7 +398,8 @@ func tokenRotateCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rotate ID|NAME",
 		Short: "Replace an API token with a new one",
-		Long: "Issue a new token with the same name, scopes, project and lifetime counted from now, and retire " +
+		Long: "Issue a new token with the same name, scopes, project, claim requirement and lifetime counted " +
+			"from now, and retire " +
 			"the old one. The new secret is shown exactly once.\n\n" +
 			"--grace keeps the old token working for up to 24h beside the new one, so whatever holds it can " +
 			"swap without a failed request; the default stops it at once. A token may rotate itself, so an " +

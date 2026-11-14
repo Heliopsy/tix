@@ -143,6 +143,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix token create", core.CreateTokenInput{}, map[string]string{
 		"name": "arg", "actor_id": "--actor", "scopes": "--scope", "project_id": "--project", "expires_at": "--expires",
+		"require_claim": "--require-claim",
 	}},
 	{"tix webhook put", core.WebhookInput{}, map[string]string{
 		"id": "--id", "url": "arg", "secret": "--secret", "event_types": "--event", "active": "--inactive",

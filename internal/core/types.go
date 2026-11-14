@@ -256,6 +256,9 @@ type APIToken struct {
 	// ProjectID restricts the token to one project when set. Empty means every
 	// project the actor can reach.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// RequireClaim refuses a change to a task unless the token's actor holds
+	// a live claim on it. Set when the token is minted; rotation keeps it.
+	RequireClaim bool `json:"require_claim" yaml:"require_claim"`
 	// CreatedAt is when the token was issued, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// ExpiresAt is when the token stops authenticating, RFC 3339. Absent means

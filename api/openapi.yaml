@@ -13326,6 +13326,11 @@ components:
           description: ProjectID restricts the token to one project when set. Empty
             means every project the actor can reach.
           type: string
+        require_claim:
+          description: RequireClaim refuses a change to a task unless the token's
+            actor holds a live claim on it. Set when the token is minted; rotation
+            keeps it.
+          type: boolean
         revoked_at:
           description: 'RevokedAt is when the token was revoked, RFC 3339. A revoked
             token never authenticates again. A time still to come is a rotated token''s
@@ -14489,6 +14494,12 @@ components:
         project_id:
           description: ProjectID confines the token to one project, by key or identifier.
           type: string
+        require_claim:
+          description: 'RequireClaim mints a token that changes a task only while
+            its actor holds a live claim on it: moves, edits, project moves and deletes
+            are refused otherwise. Claiming, creating, commenting and reading are
+            not.'
+          type: boolean
         scopes:
           description: Scopes are the permissions the token carries, each one the
             creator must hold. At least one is required.
@@ -15770,6 +15781,11 @@ components:
           description: ProjectID restricts the token to one project when set. Empty
             means every project the actor can reach.
           type: string
+        require_claim:
+          description: RequireClaim refuses a change to a task unless the token's
+            actor holds a live claim on it. Set when the token is minted; rotation
+            keeps it.
+          type: boolean
         revoked_at:
           description: 'RevokedAt is when the token was revoked, RFC 3339. A revoked
             token never authenticates again. A time still to come is a rotated token''s

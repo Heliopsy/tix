@@ -65,14 +65,15 @@ func MintAPIToken(clk clock.Clock, tenantID string, in core.CreateTokenInput) (*
 	return &MintedToken{
 		Issued: &core.IssuedToken{
 			APIToken: core.APIToken{
-				ID:        id.NewAt(now),
-				TenantID:  tenantID,
-				ActorID:   in.ActorID,
-				Name:      in.Name,
-				Scopes:    slices.Clone(in.Scopes),
-				ProjectID: in.ProjectID,
-				CreatedAt: now,
-				ExpiresAt: in.ExpiresAt,
+				ID:           id.NewAt(now),
+				TenantID:     tenantID,
+				ActorID:      in.ActorID,
+				Name:         in.Name,
+				Scopes:       slices.Clone(in.Scopes),
+				ProjectID:    in.ProjectID,
+				RequireClaim: in.RequireClaim,
+				CreatedAt:    now,
+				ExpiresAt:    in.ExpiresAt,
 			},
 			Token: value,
 		},

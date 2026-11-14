@@ -32,6 +32,9 @@ func (l *Local) moveTask(ctx context.Context, ref core.TaskRef, in core.MoveTask
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, source); err != nil {
 			return err
 		}
+		if err := m.requireClaim(ctx, source); err != nil {
+			return err
+		}
 		from, err := m.tx.GetProject(ctx, source.ProjectID)
 		if err != nil {
 			return err
