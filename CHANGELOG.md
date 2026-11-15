@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.62.0](https://github.com/Heliopsy/tix/compare/v0.61.0...v0.62.0) (2026-11-14)
+
+
+### Features
+
+* a token can require a claim before it changes a task ([1dd77ee](https://github.com/Heliopsy/tix/commit/1dd77eeedbddd481840637c9541fee6861832ebb))
+
+
+### Bug Fixes
+
+* **i18n:** mark the token claim strings as interface text for gosec ([fe4d69e](https://github.com/Heliopsy/tix/commit/fe4d69ec4cb4ec86357086354c65e09ddc1eceb3))
+
 ## [0.61.0](https://github.com/Heliopsy/tix/compare/v0.60.0...v0.61.0) (2026-11-14)
 
 
