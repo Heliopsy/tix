@@ -400,7 +400,8 @@ times, each with a fresh profile, with `--disable-dev-shm-usage` and `--no-sandb
 stand-in browser that fails twice before starting.
 
 The screenshots and contact sheet are uploaded as the `ui-regression-screenshots` artifact when the job
-fails, and kept for five days when a pull request touches `internal/web` or `scripts/screenshots`.
+fails (kept for seven days), and when a pull request touches `internal/web` or `scripts/screenshots` (kept
+for one day).
 
 `scripts/screenshots/known.json` lists findings already reported and owned by somebody, each with why, so
 the gate can run while they are fixed. A listed finding is printed under `known:` and does not fail the

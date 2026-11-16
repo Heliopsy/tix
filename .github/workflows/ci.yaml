@@ -143,7 +143,7 @@ jobs:
           path: |
             out/coverage/${{ matrix.shard }}.out
             out/coverage/${{ matrix.shard }}.env.log
-          retention-days: 5
+          retention-days: 2
           if-no-files-found: error
 
       - name: Save the Go cache
@@ -369,7 +369,7 @@ jobs:
           path: |
             out/ui-regression/
             out/screenshots/
-          retention-days: ${{ job.status == 'success' && 5 || 14 }}
+          retention-days: ${{ job.status == 'success' && 1 || 7 }}
           if-no-files-found: ignore
 
       - name: Save the Go cache
@@ -682,7 +682,7 @@ jobs:
         with:
           name: libtix-${{ runner.os }}
           path: out/lib/
-          retention-days: 7
+          retention-days: 1
 
       - name: Save the Go cache
         if: >-
