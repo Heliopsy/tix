@@ -408,3 +408,76 @@ func roleOf(t *testing.T, f ssoFixture, actorID string) core.Role {
 	}
 	return role
 }
+
+func TestSSOProviderAdministrationRefusals(t *testing.T) {
+	f := newSSOFixture(t, nil)
+	ctx := authContext(f.admin)
+	if _, err := f.l.CreateSSOProvider(ctx, core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
+		Issuer: f.idp.Issuer(), ClientID: "x"}); !core.IsKind(err, core.KindConflict) {
+		t.Errorf("a second kc = %v, want a conflict", err)
+	}
+	if _, err := f.l.CreateSSOProvider(ctx, core.CreateSSOProviderInput{Key: "gh", Kind: core.SSOKindGitHub,
+		ClientID: "x"}); core.FieldOf(err) != "client_secret" {
+		t.Errorf("GitHub without a secret = %v", err)
+	}
+	gh, err := f.l.CreateSSOProvider(ctx, core.CreateSSOProviderInput{Key: "gh", Kind: core.SSOKindGitHub,
+		ClientID: "x", ClientSecret: "short"})
+	if err != nil || !gh.SecretSet || gh.SecretHint != "" {
+		t.Fatalf("GitHub provider = %+v, %v; want a set secret too short for a hint", gh, err)
+	}
+	empty := ""
+	if _, err := f.l.UpdateSSOProvider(ctx, "gh", core.UpdateSSOProviderInput{ClientSecret: &empty}); core.FieldOf(err) != "client_secret" {
+		t.Errorf("clearing GitHub's secret = %v", err)
+	}
+	cleared, err := f.l.UpdateSSOProvider(ctx, "kc", core.UpdateSSOProviderInput{ClientSecret: &empty})
+	if err != nil || cleared.SecretSet {
+		t.Errorf("clearing an OIDC secret = %+v, %v", cleared, err)
+	}
+	fresh := "a-new-secret-of-some-length"
+	if p, err := f.l.UpdateSSOProvider(ctx, "kc", core.UpdateSSOProviderInput{ClientSecret: &fresh}); err != nil || p.SecretHint != "ngth" {
+		t.Errorf("replacing the secret = %+v, %v", p, err)
+	}
+	bad := "not a url"
+	if _, err := f.l.UpdateSSOProvider(ctx, "kc", core.UpdateSSOProviderInput{Issuer: &bad}); core.FieldOf(err) != "issuer" {
+		t.Errorf("a bad issuer = %v", err)
+	}
+	if _, err := f.l.GetSSOProvider(ctx, " "); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("an empty ref = %v", err)
+	}
+	if err := f.l.DeleteSSOProvider(ctx, "nope"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("deleting nothing = %v", err)
+	}
+	member := seedUser(t, f.l, f.admin, "m@example.com")
+	off := core.PasswordLoginDisabled
+	if _, err := f.l.UpdateTenant(authContext(userActor(t, f.l, member, core.RoleMember)), "",
+		core.UpdateTenantInput{PasswordLogin: &off}); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("a member turning passwords off = %v", err)
+	}
+	if _, err := f.l.BeginSSOLogin(loginContext(f.scope), core.BeginSSOInput{Provider: "nope", RedirectURI: ssoCallback}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("an unknown provider = %v", err)
+	}
+	if _, err := f.l.BeginSSOLogin(loginContext(f.scope), core.BeginSSOInput{Provider: "kc",
+		RedirectURI: "http://127.0.0.1:9/callback", Surface: core.SurfaceWeb}); core.FieldOf(err) != "surface" {
+		t.Errorf("a loopback redirect for the browser = %v", err)
+	}
+	f.idp.SetClaims(person("s", "x@example.com", true))
+	begin, err := f.l.BeginSSOLogin(loginContext(f.scope), core.BeginSSOInput{Provider: "kc", RedirectURI: ssoCallback})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Flow: begin.Flow, State: begin.State,
+		Error: "access_denied"}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("a provider error = %v", err)
+	}
+	if _, err := f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Flow: begin.Flow, State: begin.State}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("no code = %v", err)
+	}
+}
+
+func TestSSONeedsTheSealingKey(t *testing.T) {
+	l, _, _, admin := newLocalWith(t)
+	if _, err := l.CreateSSOProvider(authContext(admin), core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
+		Issuer: "https://id.example.com", ClientID: "x"}); !core.IsKind(err, core.KindPrecondition) {
+		t.Errorf("a provider without a sealing key = %v", err)
+	}
+}

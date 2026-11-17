@@ -309,10 +309,11 @@ func (p *SSOProvider) Normalize() {
 		}
 		return out
 	}
-	p.AllowedDomains = clean(p.AllowedDomains, true)
-	for i, d := range p.AllowedDomains {
-		p.AllowedDomains[i] = strings.TrimPrefix(d, "@")
+	domains := make([]string, 0, len(p.AllowedDomains))
+	for _, d := range p.AllowedDomains {
+		domains = append(domains, strings.TrimPrefix(strings.TrimSpace(d), "@"))
 	}
+	p.AllowedDomains = clean(domains, true)
 	p.Scopes = clean(p.Scopes, false)
 	p.MFAValues = clean(p.MFAValues, false)
 	p.AllowedOrgs = clean(p.AllowedOrgs, true)

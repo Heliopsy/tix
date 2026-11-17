@@ -93,3 +93,38 @@ func TestPasswordFormGoesWhenPasswordsAreOff(t *testing.T) {
 		t.Error("the break-glass address draws no password field")
 	}
 }
+
+func TestSSOScreenEditsAndDeletesAProvider(t *testing.T) {
+	f := newFixture(t)
+	idp := addProvider(t, f)
+	admin := f.as("alice")
+	page := admin.page("/admin/sso")
+	form := between(t, page, `action="/admin/sso/update">`, `</form>`)
+	id := between(t, form, `name="id" value="`, `"`)
+	if id == "" {
+		t.Fatalf("the screen carries no provider id:\n%s", page)
+	}
+	refused := admin.post("/admin/sso/update", url.Values{"id": {id}, "kind": {"oidc"}, "role_mapping": {"nonsense"}})
+	if refused.StatusCode != http.StatusBadRequest {
+		t.Errorf("a malformed mapping = %d, want 400", refused.StatusCode)
+	}
+	_ = refused.Body.Close()
+	saved := admin.post("/admin/sso/update", url.Values{"id": {id}, "kind": {"oidc"}, "display_name": {"Corporate"},
+		"issuer": {idp.Issuer()}, "client_id": {idp.ClientID}, "default_role": {"viewer"}, "enabled": {"1"},
+		"role_mapping": {"admins=admin\r\nreaders=viewer"}, "client_secret": {"replacement-secret-value"}})
+	wantStatus(t, saved, http.StatusSeeOther)
+	page = admin.page("/admin/sso")
+	if !strings.Contains(page, "Corporate") || strings.Contains(page, "replacement-secret-value") ||
+		!strings.Contains(page, "admins=admin") {
+		t.Errorf("the edit did not land, or shows the secret:\n%s", page)
+	}
+	bad := admin.post("/admin/sso", url.Values{"key": {"Bad Key"}, "kind": {"oidc"}, "client_id": {"x"}})
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Errorf("a bad key = %d, want 400", bad.StatusCode)
+	}
+	_ = bad.Body.Close()
+	wantStatus(t, admin.post("/admin/sso/delete", url.Values{"id": {id}}), http.StatusSeeOther)
+	if strings.Contains(admin.page("/admin/sso"), "Corporate") {
+		t.Error("the provider is still listed after its delete")
+	}
+}

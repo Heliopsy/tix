@@ -73,7 +73,11 @@ func lookupSSOProvider(ctx context.Context, tx store.Tx, ref string) (*core.SSOP
 	if ref == "" {
 		return nil, core.Invalid("a provider key or identifier is required")
 	}
-	return tx.GetSSOProvider(ctx, strings.ToLower(ref))
+	p, err := tx.GetSSOProvider(ctx, ref)
+	if core.IsKind(err, core.KindNotFound) && strings.ToLower(ref) != ref {
+		return tx.GetSSOProvider(ctx, strings.ToLower(ref))
+	}
+	return p, err
 }
 
 // ssoRedirectURL is the callback address to register, when known.
