@@ -6,6 +6,7 @@ import (
 	"context"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -312,7 +313,7 @@ func ssoHandle(ctx context.Context, tx store.Tx, ident sso.Identity) (string, er
 	for n := 1; n <= 100; n++ {
 		handle := base
 		if n > 1 {
-			handle = base + "-" + itoa(n)
+			handle = base + "-" + strconv.Itoa(n)
 		}
 		switch _, err := tx.GetActorByHandle(ctx, handle); {
 		case core.IsKind(err, core.KindNotFound):
@@ -322,13 +323,6 @@ func ssoHandle(ctx context.Context, tx store.Tx, ident sso.Identity) (string, er
 		}
 	}
 	return "", core.Conflict("no free handle near %q in this tenant", base)
-}
-
-func itoa(n int) string {
-	if n < 10 {
-		return string(rune('0' + n))
-	}
-	return itoa(n/10) + string(rune('0'+n%10))
 }
 
 // createSSOAccount creates the account, actor and membership a just-in-time

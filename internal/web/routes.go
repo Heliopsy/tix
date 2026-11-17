@@ -250,7 +250,7 @@ const (
 	RouteSSOUpdate = "/admin/sso/update"
 	RouteSSODelete = "/admin/sso/delete"
 	// RouteSSOPassword saves whether the tenant takes passwords at all.
-	RouteSSOPassword = "/admin/sso/password"
+	RouteSSOPassword = "/admin/sso/password" // #nosec G101 -- a url path, not a credential
 	// RouteSSOStart sends a browser to a provider, and RouteSSOCallback is
 	// where every provider sends it back.
 	RouteSSOStart     = "/login/sso/{key}"

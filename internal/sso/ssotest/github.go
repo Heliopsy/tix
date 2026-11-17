@@ -91,6 +91,7 @@ func (g *GitHub) authorize(w http.ResponseWriter, r *http.Request) {
 	bq.Set("code", code)
 	bq.Set("state", q.Get("state"))
 	back.RawQuery = bq.Encode()
+	// #nosec G710 -- a test fake answering the redirect its own caller named.
 	http.Redirect(w, r, back.String(), http.StatusFound)
 }
 
