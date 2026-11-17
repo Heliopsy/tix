@@ -114,6 +114,10 @@ row-level security policies, applied to the connection when tix opens the databa
 Bring people in with a single-use invite link instead of a password you have to pass on (`tix user
 invite`, or the Users screen), or set one and require it to be changed at the first sign-in.
 
+Provision people and groups from Entra ID, Okta, Authentik or JumpCloud over SCIM 2.0 (`tix tenant scim enable`).
+Deactivating someone in the provider ends their sessions and stops their tokens and keys, and the provider's
+groups map to roles. See [docs/scim.md](docs/scim.md).
+
 ## Access paths
 
 One binary, one service layer, six ways in. The web UI is required to cover 100% of the CLI, enforced

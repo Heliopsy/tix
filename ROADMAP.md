@@ -442,6 +442,15 @@ A tenant can require a time-based code in the browser, for `tix login` and over 
 Recovery codes cover a lost phone, an administrator can clear an enrolment, and API tokens are exempt.
 See [docs/second-factor.md](docs/second-factor.md).
 
+#### SCIM provisioning
+
+An identity provider creates, updates, deactivates and removes a tenant's people and groups over SCIM 2.0, at
+`/scim/v2` on `tix serve`. A tenant admin turns it on with `tix tenant scim enable`, which mints a token that
+carries only `scim:provision` and works nowhere else. Deactivation disables the person in the tenant and ends
+their sessions; their tokens and keys stop working until they are reactivated. A provider's group names map to
+roles. It is provisioning only: sign-in stays with OIDC below, and SAML is later. See
+[docs/scim.md](docs/scim.md).
+
 ### Running it
 
 #### Shell completion that installs itself
@@ -568,6 +577,10 @@ receivers for Jira and OpenProject, and per-field sync direction.
 `internal/auth` defines an `Authenticator` interface with a local implementation, and the
 middleware holds a chain. Adding a provider is a new implementation plus a config block,
 with no schema migration and no signature change.
+
+Provisioning has shipped separately, as SCIM 2.0 (see [docs/scim.md](docs/scim.md)). It keeps its own
+`scim_*` tables and does not touch the `sso_*` columns, so sign-in can land without changing it. A person
+the provider creates has no password until SSO is there, and signs in after an invite or a reset.
 
 ### ACME / automatic certificates
 
