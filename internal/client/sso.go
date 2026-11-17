@@ -4,6 +4,8 @@ package client
 
 import (
 	"context"
+	"encoding/xml"
+	"io"
 	"net/http"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -49,4 +51,45 @@ func (c *Client) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*cor
 // CompleteSSOLogin finishes a sign-in through a provider.
 func (c *Client) CompleteSSOLogin(ctx context.Context, in core.CompleteSSOInput) (*core.LoginResult, error) {
 	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteSSOComplete, nil, in)
+}
+
+// samlMetadataLimit bounds the metadata document read back.
+const samlMetadataLimit = 1 << 20
+
+// SAMLMetadata reads a SAML provider's service provider metadata. The
+// server builds it on the address the client reached it at, so BaseURL is
+// not sent.
+func (c *Client) SAMLMetadata(ctx context.Context, in core.SAMLMetadataInput) (*core.SAMLMetadata, error) {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	req, err := c.newRequest(ctx, http.MethodGet, routePath(wire.RouteSAMLMetadata, "id", in.Provider), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(wire.HeaderAccept, wire.ContentSAMLMetadata+", "+wire.ContentJSON)
+	resp, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, samlMetadataLimit))
+	if err != nil {
+		return nil, core.Internal("reading the metadata of provider %q", in.Provider).Wrap(err)
+	}
+	var doc struct {
+		EntityID string `xml:"entityID,attr"`
+		SP       struct {
+			ACS []struct {
+				Location string `xml:"Location,attr"`
+			} `xml:"AssertionConsumerService"`
+		} `xml:"SPSSODescriptor"`
+	}
+	out := &core.SAMLMetadata{XML: string(data)}
+	if xml.Unmarshal(data, &doc) == nil {
+		out.EntityID = doc.EntityID
+		if len(doc.SP.ACS) > 0 {
+			out.ACSURL = doc.SP.ACS[0].Location
+		}
+	}
+	return out, nil
 }

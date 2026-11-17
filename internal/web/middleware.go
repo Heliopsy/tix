@@ -24,7 +24,12 @@ func (h *handler) wrap(rt route) http.Handler {
 			redirectToLogin(w, r)
 			return
 		}
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodPost && rt.CrossSite {
+			if err := ensureForm(r, maxUploadBytes, formRefusal); err != nil {
+				h.fail(w, r, err)
+				return
+			}
+		} else if r.Method == http.MethodPost {
 			if err := h.checkCSRF(r, rt.Binding); err != nil {
 				h.fail(w, r, err)
 				return

@@ -1094,7 +1094,7 @@ paths:
   /api/v1/auth/sso/begin:
     post:
       description: |-
-        BeginSSOLogin starts a sign-in through one of the tenant's providers: it answers the address to open and the sealed flow to complete it with. The redirect URI is the browser callback or a loopback address.
+        BeginSSOLogin starts a sign-in through one of the tenant's providers: it answers the address to open and the sealed flow to complete it with. The redirect URI is the browser callback or a loopback address; a SAML provider signs in through the browser only.
 
         Command line: `tix login`.
       operationId: sso.begin
@@ -1142,7 +1142,7 @@ paths:
   /api/v1/auth/sso/complete:
     post:
       description: |-
-        CompleteSSOLogin finishes a sign-in with the code the provider returned. It answers as Login does: a session, or the second factor still to pass.
+        CompleteSSOLogin finishes a sign-in with the code the provider returned, or the response a SAML IdP posted. It answers as Login does: a session, or the second factor still to pass.
 
         Command line: `tix login`.
       operationId: sso.complete
@@ -1183,7 +1183,8 @@ paths:
         "504":
           $ref: '#/components/responses/Error504'
       security: []
-      summary: CompleteSSOLogin finishes a sign-in with the code the provider returned
+      summary: CompleteSSOLogin finishes a sign-in with the code the provider returned,
+        or the response a SAML IdP posted
       tags:
         - sso
   /api/v1/auth/sso/options:
@@ -1221,6 +1222,51 @@ paths:
       security: []
       summary: SignInOptions reports, without a credential, whether this tenant takes
         passwords and which providers its sign-in screen offers
+      tags:
+        - sso
+  /api/v1/auth/sso/providers/{id}/saml-metadata:
+    get:
+      description: |-
+        SAMLMetadata answers, without a credential, a SAML provider's service provider metadata: the entity id and assertion consumer service address to register with the IdP, as the IdP imports them.
+
+        Command line: `tix tenant sso metadata`.
+      operationId: sso.saml.metadata
+      parameters:
+        - description: Single sign-on provider key, such as kc, or its ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/samlmetadata+xml:
+              schema:
+                type: string
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: 'SAMLMetadata answers, without a credential, a SAML provider''s service
+        provider metadata: the entity id and assertion consumer service address to
+        register with the IdP, as the IdP imports them'
       tags:
         - sso
   /api/v1/auth/switch:
@@ -14979,6 +15025,19 @@ components:
         flow:
           description: Flow is the sealed state the sign-in began with.
           type: string
+        provider:
+          description: Provider is the SAML provider's key, from the address the response
+            was posted to. It names the provider of an IdP-initiated sign-in, which
+            has no flow.
+          type: string
+        redirect_uri:
+          description: RedirectURI is the assertion consumer service address the response
+            was posted to, which an IdP-initiated sign-in checks it against.
+          type: string
+        saml_response:
+          description: SAMLResponse is the base64 SAMLResponse a SAML IdP posted,
+            in place of a code; State is then the RelayState.
+          type: string
         state:
           description: State is the state the provider returned.
           type: string
@@ -15197,6 +15256,9 @@ components:
     CreateSSOProviderInput:
       description: CreateSSOProviderInput configures a new provider.
       properties:
+        allow_idp_initiated:
+          description: AllowIdPInitiated accepts SAML responses that answer no request.
+          type: boolean
         allowed_domains:
           description: AllowedDomains restricts sign-in to emails at these domains.
           items:
@@ -15214,7 +15276,8 @@ components:
           description: AutoCreate creates an account for a verified email nobody holds.
           type: boolean
         client_id:
-          description: ClientID is the client registered with the provider.
+          description: ClientID is the client registered with an oidc or oauth_github
+            provider.
           type: string
         client_secret:
           description: ClientSecret is the client's secret. It is sealed and never
@@ -15236,6 +15299,25 @@ components:
         groups_claim:
           description: GroupsClaim names the claim read as the groups.
           type: string
+        idp_certificates:
+          description: IdPCertificates are the IdP's PEM signing certificates.
+          items:
+            type: string
+          type: array
+        idp_entity_id:
+          description: IdPEntityID is the SAML IdP's entity id; it wins over the metadata's.
+          type: string
+        idp_metadata_url:
+          description: IdPMetadataURL is the SAML IdP's metadata address, read on
+            save.
+          type: string
+        idp_metadata_xml:
+          description: IdPMetadataXML is the SAML IdP's metadata document, read and
+            not kept.
+          type: string
+        idp_sso_url:
+          description: IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+          type: string
         issuer:
           description: Issuer is the OIDC issuer.
           type: string
@@ -15254,6 +15336,9 @@ components:
         name_claim:
           description: NameClaim names the claim read as the display name.
           type: string
+        name_id_format:
+          description: NameIDFormat is the SAML NameID format to request.
+          type: string
         role_mapping:
           additionalProperties:
             $ref: '#/components/schemas/Role'
@@ -15264,6 +15349,9 @@ components:
           items:
             type: string
           type: array
+        sp_entity_id:
+          description: SPEntityID overrides tix's SAML entity id.
+          type: string
         trust_mfa:
           description: TrustMFA skips the tenant's second factor when the provider
             asserts one.
@@ -17526,8 +17614,12 @@ components:
         flow:
           description: Flow is the sealed sign-in state, handed back to complete it.
           type: string
+        kind:
+          description: SSOKind is the protocol a sign-in provider speaks.
+          type: string
         state:
-          description: State is the value the provider returns with the code.
+          description: State is the value the provider returns with the code, or the
+            RelayState of a SAML request.
           type: string
       type: object
     SSOProvider:
@@ -17535,6 +17627,9 @@ components:
         is never part of it once stored: SecretSet and SecretHint say what a screen
         may show.'
       properties:
+        allow_idp_initiated:
+          description: AllowIdPInitiated accepts a SAML response that answers no request.
+          type: boolean
         allowed_domains:
           description: AllowedDomains restricts sign-in to emails at these domains;
             empty is any.
@@ -17577,6 +17672,22 @@ components:
         id:
           description: ID is the provider's identifier.
           type: string
+        idp_certificates:
+          description: IdPCertificates are the PEM certificates the IdP signs with.
+          items:
+            type: string
+          type: array
+        idp_entity_id:
+          description: IdPEntityID is the SAML IdP's entity id, the issuer of its
+            responses.
+          type: string
+        idp_metadata_url:
+          description: IdPMetadataURL is where a SAML provider's IdP metadata was
+            read.
+          type: string
+        idp_sso_url:
+          description: IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+          type: string
         issuer:
           description: Issuer is the OIDC issuer, whose discovery document is read.
           type: string
@@ -17587,6 +17698,9 @@ components:
         kind:
           description: SSOKind is the protocol a sign-in provider speaks.
           type: string
+        metadata_url:
+          description: MetadataURL is a SAML provider's metadata address, when known.
+          type: string
         mfa_values:
           description: MFAValues are the amr or acr values trust_mfa accepts as a
             second factor.
@@ -17595,9 +17709,14 @@ components:
           type: array
         name_claim:
           type: string
+        name_id_format:
+          description: NameIDFormat is the NameID format requested; empty lets the
+            IdP choose.
+          type: string
         redirect_url:
           description: RedirectURL is the address to register with the provider, when
-            the server knows its public address.
+            the server knows its public address. For a SAML provider it is the assertion
+            consumer service.
           type: string
         role_mapping:
           additionalProperties:
@@ -17617,6 +17736,10 @@ components:
         secret_set:
           description: SecretSet reports that a client secret is stored.
           type: boolean
+        sp_entity_id:
+          description: SPEntityID overrides tix's entity id; empty is the metadata
+            address.
+          type: string
         trust_mfa:
           description: TrustMFA skips the tenant's second factor when the provider
             asserts one.
@@ -19738,6 +19861,11 @@ components:
       description: UpdateSSOProviderInput changes a provider; an omitted field is
         unchanged.
       properties:
+        allow_idp_initiated:
+          description: AllowIdPInitiated accepts SAML responses that answer no request.
+          type:
+            - "null"
+            - boolean
         allowed_domains:
           description: AllowedDomains replaces the allowed email domains; empty clears
             them.
@@ -19796,6 +19924,35 @@ components:
           type:
             - "null"
             - string
+        idp_certificates:
+          description: IdPCertificates replaces the IdP's signing certificates.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
+        idp_entity_id:
+          description: IdPEntityID is the SAML IdP's entity id.
+          type:
+            - "null"
+            - string
+        idp_metadata_url:
+          description: IdPMetadataURL is the SAML IdP's metadata address; giving it,
+            even unchanged, reads the metadata again. Empty clears it.
+          type:
+            - "null"
+            - string
+        idp_metadata_xml:
+          description: IdPMetadataXML is a SAML metadata document to read the IdP
+            from.
+          type:
+            - "null"
+            - string
+        idp_sso_url:
+          description: IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+          type:
+            - "null"
+            - string
         issuer:
           description: Issuer is the OIDC issuer.
           type:
@@ -19813,6 +19970,11 @@ components:
           type:
             - "null"
             - string
+        name_id_format:
+          description: NameIDFormat is the SAML NameID format to request.
+          type:
+            - "null"
+            - string
         role_mapping:
           additionalProperties:
             $ref: '#/components/schemas/Role'
@@ -19827,6 +19989,11 @@ components:
           type:
             - "null"
             - array
+        sp_entity_id:
+          description: SPEntityID overrides tix's SAML entity id; empty is the default.
+          type:
+            - "null"
+            - string
         trust_mfa:
           description: TrustMFA skips the tenant's second factor when the provider
             asserts one.

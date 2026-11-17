@@ -3,12 +3,14 @@
 package web
 
 import (
+	"io"
 	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/wire"
 )
 
 // ssoRoutes are signing in through a provider and the screen that manages
@@ -17,6 +19,8 @@ func (h *handler) ssoRoutes() []route {
 	return []route{
 		public(get(RouteSSOStart, "", h.startSSO, "BeginSSOLogin")),
 		public(get(RouteSSOCallback, totpTemplate, h.finishSSO, "CompleteSSOLogin")),
+		crossSite(public(post(RouteSAMLACS, h.finishSAML, "CompleteSSOLogin"))),
+		public(getFile(RouteSAMLMetadata, h.samlMetadata, "SAMLMetadata")),
 		get(RouteSSO, ssoTemplate, h.showSSO, "ListSSOProviders", "SignInOptions"),
 		post(RouteSSO, h.createSSO, "CreateSSOProvider"),
 		post(RouteSSOUpdate, h.updateSSO, "UpdateSSOProvider"),
@@ -49,7 +53,8 @@ func (h *handler) startSSO(w http.ResponseWriter, r *http.Request) error {
 	}
 	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- HttpOnly and SameSite always; Secure tracks TLS, as the session cookie does
 		Name: auth.SSOFlowCookieName, Value: begin.Flow, Path: ssoFlowPath, HttpOnly: true,
-		Secure: h.secureCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: int(auth.SSOFlowTTL.Seconds()),
+		Secure: h.secureCookie(r), SameSite: flowSameSite(begin.Kind, h.secureCookie(r)),
+		MaxAge: int(auth.SSOFlowTTL.Seconds()),
 	})
 	// #nosec G710 -- the provider's own authorization address, built by the
 	// service from the provider's configuration, not from this request.
@@ -75,6 +80,65 @@ func (h *handler) finishSSO(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	return h.signedInThroughSSO(w, r, result)
+}
+
+// flowSameSite is the flow cookie's SameSite. A SAML response comes back as
+// a cross-site POST, which a Lax cookie does not survive, so over TLS a SAML
+// flow is None; over plain HTTP, where None is refused without Secure, it
+// stays Lax and works only with an IdP on the same site.
+func flowSameSite(kind core.SSOKind, secure bool) http.SameSite {
+	if kind == core.SSOKindSAML && secure {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
+// crossSite marks a route that takes another site's POST without the CSRF
+// token.
+func crossSite(rt route) route {
+	rt.CrossSite = true
+	return rt
+}
+
+// finishSAML is a SAML provider's assertion consumer service. The flow
+// cookie, when this browser started the sign-in, travels with the IdP's
+// form; without one the response is IdP-initiated, which the provider has
+// to allow.
+func (h *handler) finishSAML(w http.ResponseWriter, r *http.Request) error {
+	flow := ""
+	if c, err := r.Cookie(auth.SSOFlowCookieName); err == nil {
+		flow = c.Value
+		// #nosec G124 -- clears the flow cookie; HttpOnly as it was set.
+		http.SetCookie(w, &http.Cookie{Name: auth.SSOFlowCookieName, Value: "", Path: ssoFlowPath, HttpOnly: true,
+			Secure: h.secureCookie(r), SameSite: flowSameSite(core.SSOKindSAML, h.secureCookie(r)), MaxAge: -1})
+	}
+	key := r.PathValue("key")
+	result, err := h.svc.CompleteSSOLogin(r.Context(), core.CompleteSSOInput{
+		Flow: flow, State: r.PostFormValue("RelayState"), SAMLResponse: r.PostFormValue("SAMLResponse"),
+		Provider: key, RedirectURI: baseURL(r) + core.SAMLACSPath(key),
+	})
+	if err != nil {
+		return err
+	}
+	return h.signedInThroughSSO(w, r, result)
+}
+
+// samlMetadata answers a SAML provider's service provider metadata.
+func (h *handler) samlMetadata(w http.ResponseWriter, r *http.Request) error {
+	md, err := h.svc.SAMLMetadata(r.Context(), core.SAMLMetadataInput{Provider: r.PathValue("key"), BaseURL: baseURL(r)})
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", wire.ContentSAMLMetadata)
+	_, err = io.WriteString(w, md.XML)
+	return err
+}
+
+// signedInThroughSSO answers a completed provider sign-in: the second factor
+// still to pass, the recovery codes of a first enrolment, or the screen to
+// return to.
+func (h *handler) signedInThroughSSO(w http.ResponseWriter, r *http.Request, result *core.LoginResult) error {
 	next := safeNext(result.Next)
 	if challenge := result.Challenge; challenge != nil {
 		uri := ""
@@ -111,6 +175,11 @@ type ssoView struct {
 type ssoRow struct {
 	core.SSOProvider
 	Mapping string
+	// ACSURL, MetadataURL and EntityID are a SAML provider's addresses on
+	// this screen's origin, to give the IdP.
+	ACSURL, MetadataURL, EntityID string
+	// Certificates is the IdP's certificates, one PEM block after another.
+	Certificates string
 }
 
 // mappingText renders a role mapping one group=role per line, sorted.
@@ -135,7 +204,13 @@ func (h *handler) showSSO(w http.ResponseWriter, r *http.Request) error {
 		v.PasswordLogin = options.PasswordLogin
 	}
 	for _, p := range providers {
-		v.Providers = append(v.Providers, ssoRow{SSOProvider: p, Mapping: mappingText(p.RoleMapping)})
+		row := ssoRow{SSOProvider: p, Mapping: mappingText(p.RoleMapping)}
+		if p.Kind == core.SSOKindSAML {
+			row.ACSURL, row.MetadataURL = baseURL(r)+core.SAMLACSPath(p.Key), baseURL(r)+core.SAMLMetadataPath(p.Key)
+			row.EntityID = orElse(p.SPEntityID, row.MetadataURL)
+			row.Certificates = strings.Join(p.IdPCertificates, "\n")
+		}
+		v.Providers = append(v.Providers, row)
 	}
 	return h.render(w, r, ssoTemplate, "Single sign-on", v)
 }
@@ -173,6 +248,11 @@ func (h *handler) createSSO(w http.ResponseWriter, r *http.Request) error {
 		UsernameClaim: field(r, "username_claim"), GroupsClaim: field(r, "groups_claim"),
 		MFAValues: fieldList(r, "mfa_values"), AllowedOrgs: fieldList(r, "allowed_orgs"),
 		WebURL: field(r, "web_url"), APIURL: field(r, "api_url"),
+		IdPMetadataURL: field(r, "idp_metadata_url"), IdPMetadataXML: r.PostFormValue("idp_metadata_xml"),
+		IdPEntityID: field(r, "idp_entity_id"), IdPSSOURL: field(r, "idp_sso_url"),
+		IdPCertificates: core.SplitCertificates(r.PostFormValue("idp_certificates")),
+		SPEntityID:      field(r, "sp_entity_id"), NameIDFormat: field(r, "name_id_format"),
+		AllowIdPInitiated: checked(r, "allow_idp_initiated"),
 	}
 	if _, err := h.svc.CreateSSOProvider(r.Context(), in); err != nil {
 		return h.refuseIn(w, r, "sso-new", RouteSSO, err, h.showSSO)
@@ -200,10 +280,15 @@ func (h *handler) updateSSO(w http.ResponseWriter, r *http.Request) error {
 		RoleMapping: &mapping, ClientID: str("client_id"), Scopes: list("scopes"),
 		MFAValues: list("mfa_values"), AllowedOrgs: list("allowed_orgs"),
 	}
-	if field(r, "kind") == string(core.SSOKindOIDC) {
+	switch core.SSOKind(field(r, "kind")) {
+	case core.SSOKindOIDC:
 		in.Issuer, in.EmailClaim, in.NameClaim = str("issuer"), str("email_claim"), str("name_claim")
 		in.UsernameClaim, in.GroupsClaim = str("username_claim"), str("groups_claim")
-	} else {
+	case core.SSOKindSAML:
+		in.EmailClaim, in.NameClaim = str("email_claim"), str("name_claim")
+		in.UsernameClaim, in.GroupsClaim = str("username_claim"), str("groups_claim")
+		samlEdit(r, &in)
+	default:
 		in.WebURL, in.APIURL = str("web_url"), str("api_url")
 	}
 	if secret := r.PostFormValue("client_secret"); secret != "" {
@@ -214,6 +299,27 @@ func (h *handler) updateSSO(w http.ResponseWriter, r *http.Request) error {
 	}
 	redirect(w, r, RouteSSO, "provider saved")
 	return nil
+}
+
+// samlEdit sets a SAML provider's settings from its edit dialog. The IdP
+// metadata is read again when its address changed, a document was pasted or
+// the box asking for it is ticked; the entity id, sign-in address and
+// certificates drawn in the dialog are then left for the metadata to fill.
+func samlEdit(r *http.Request, in *core.UpdateSSOProviderInput) {
+	str := func(name string) *string { v := field(r, name); return &v }
+	in.SPEntityID, in.NameIDFormat = str("sp_entity_id"), str("name_id_format")
+	idpInitiated := checked(r, "allow_idp_initiated")
+	in.AllowIdPInitiated = &idpInitiated
+	pasted := strings.TrimSpace(r.PostFormValue("idp_metadata_xml"))
+	if checked(r, "refresh_metadata") || pasted != "" || field(r, "idp_metadata_url") != field(r, "idp_metadata_url_was") {
+		in.IdPMetadataURL = str("idp_metadata_url")
+		if pasted != "" {
+			in.IdPMetadataXML = &pasted
+		}
+		return
+	}
+	certs := core.SplitCertificates(r.PostFormValue("idp_certificates"))
+	in.IdPEntityID, in.IdPSSOURL, in.IdPCertificates = str("idp_entity_id"), str("idp_sso_url"), &certs
 }
 
 // deleteSSO removes a provider from its confirm dialog.
@@ -238,11 +344,12 @@ func (h *handler) setPasswordLogin(w http.ResponseWriter, r *http.Request) error
 
 // ssoFormView is what the settings the new and edit dialogs share draw from.
 type ssoFormView struct {
-	Dialog   dialogState
-	ID       string
-	Roles    []core.Role
-	Provider core.SSOProvider
-	Mapping  string
+	Dialog       dialogState
+	ID           string
+	Roles        []core.Role
+	Provider     core.SSOProvider
+	Mapping      string
+	Certificates string
 }
 
 // newSSOForm builds the shared settings of one dialog: a listed provider's,
@@ -251,7 +358,7 @@ func newSSOForm(d dialogState, id string, roles []core.Role, row any) ssoFormVie
 	out := ssoFormView{Dialog: d, ID: id, Roles: roles,
 		Provider: core.SSOProvider{Enabled: true, DefaultRole: core.RoleMember}}
 	if r, ok := row.(ssoRow); ok {
-		out.Provider, out.Mapping = r.SSOProvider, r.Mapping
+		out.Provider, out.Mapping, out.Certificates = r.SSOProvider, r.Mapping, r.Certificates
 	}
 	return out
 }

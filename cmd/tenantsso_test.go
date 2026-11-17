@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -139,5 +141,50 @@ func TestLoginSSOPicksTheOnlyProviderOrSaysWhichToName(t *testing.T) {
 	got := c.run("--server", url, "login", "--sso")
 	if got.code != core.ExitUsage || !strings.Contains(got.err, "one, two") {
 		t.Errorf("--sso with two providers exited %d: %s", got.code, got.err)
+	}
+}
+
+func TestTenantSSOSAMLCommands(t *testing.T) {
+	c := newCLI(t)
+	env := []string{totpKey, "TIX_SERVER_PUBLIC_URL=https://tix.example"}
+	idp := ssotest.NewSAML(t, time.Now)
+	dir := t.TempDir()
+	metadata, cert := filepath.Join(dir, "idp.xml"), filepath.Join(dir, "other.pem")
+	if err := os.WriteFile(metadata, []byte(idp.Metadata()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cert, []byte(idp.CertPEM()+idp.OtherCertPEM()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	added := c.mustRunEnv(env, "tenant", "sso", "add", "okta", "--kind", "saml", "--name", "Okta",
+		"--idp-metadata-file", metadata, "--name-id-format", core.NameIDPersistent, "-o", "json")
+	var p core.SSOProvider
+	if err := json.Unmarshal([]byte(added.out), &p); err != nil || p.IdPEntityID != idp.EntityID ||
+		p.IdPSSOURL != idp.SSOURL || len(p.IdPCertificates) != 1 || p.RedirectURL != "https://tix.example/login/sso/saml/okta/acs" {
+		t.Fatalf("added = %+v, %v\n%s", p, err, added.out)
+	}
+	edited := c.mustRunEnv(env, "tenant", "sso", "edit", "okta", "--idp-cert", cert, "--allow-idp-initiated",
+		"--sp-entity-id", "urn:tix:acme", "-o", "json")
+	if err := json.Unmarshal([]byte(edited.out), &p); err != nil || len(p.IdPCertificates) != 2 || !p.AllowIdPInitiated ||
+		p.SPEntityID != "urn:tix:acme" {
+		t.Errorf("edited = %+v, %v", p, err)
+	}
+	xml := c.mustRunEnv(env, "tenant", "sso", "metadata", "okta")
+	if !strings.HasPrefix(xml.out, "<?xml") || !strings.Contains(xml.out, `entityID="urn:tix:acme"`) ||
+		!strings.Contains(xml.out, "https://tix.example/login/sso/saml/okta/acs") {
+		t.Errorf("metadata printed:\n%s", xml.out)
+	}
+	asJSON := c.mustRunEnv(env, "tenant", "sso", "metadata", "okta", "-o", "json")
+	if !strings.Contains(asJSON.out, `"entity_id"`) {
+		t.Errorf("metadata -o json:\n%s", asJSON.out)
+	}
+	if got := runEnv(c, env, "tenant", "sso", "add", "x", "--kind", "saml", "--idp-metadata-file", filepath.Join(dir, "none")); got.code != core.ExitUsage {
+		t.Errorf("a missing metadata file exited %d, want usage", got.code)
+	}
+	if got := runEnv(c, env, "tenant", "sso", "metadata", "nobody"); got.code != core.ExitNotFound {
+		t.Errorf("metadata of no provider exited %d, want not found", got.code)
+	}
+	if got := runEnv(c, env, "login", "--sso"); got.code == core.ExitOK || !strings.Contains(got.err, "browser only") {
+		t.Errorf("login --sso with only a saml provider = %d %s, want refused pointing at the browser", got.code, got.err)
 	}
 }

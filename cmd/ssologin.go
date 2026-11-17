@@ -52,15 +52,23 @@ func pickProvider(ctx context.Context, svc core.Service) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	switch len(options.Providers) {
-	case 0:
-		return "", core.Precondition("this tenant has no single sign-on provider; sign in with --email and --password")
-	case 1:
-		return options.Providers[0].Key, nil
-	}
-	keys := make([]string, 0, len(options.Providers))
+	var keys []string
+	saml := 0
 	for _, p := range options.Providers {
+		if p.Kind == core.SSOKindSAML {
+			saml++
+			continue
+		}
 		keys = append(keys, p.Key)
+	}
+	switch {
+	case len(keys) == 0 && saml > 0:
+		return "", core.Precondition("this tenant signs in through SAML, which works in the browser only; sign in " +
+			"there, then create a token on the Connect screen for this machine")
+	case len(keys) == 0:
+		return "", core.Precondition("this tenant has no single sign-on provider; sign in with --email and --password")
+	case len(keys) == 1:
+		return keys[0], nil
 	}
 	return "", core.Invalid("this tenant has several providers; name one with --sso KEY: %s", strings.Join(keys, ", "))
 }

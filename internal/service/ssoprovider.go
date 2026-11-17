@@ -46,7 +46,7 @@ func (l *Local) ListSSOProviders(ctx context.Context) ([]core.SSOProvider, error
 		return nil, err
 	}
 	for i := range out {
-		out[i].RedirectURL = l.ssoRedirectURL(ctx)
+		l.withAddresses(ctx, &out[i])
 	}
 	return out, nil
 }
@@ -64,7 +64,7 @@ func (l *Local) GetSSOProvider(ctx context.Context, ref string) (*core.SSOProvid
 	}); err != nil {
 		return nil, err
 	}
-	out.RedirectURL = l.ssoRedirectURL(ctx)
+	l.withAddresses(ctx, out)
 	return out, nil
 }
 
@@ -80,15 +80,6 @@ func lookupSSOProvider(ctx context.Context, tx store.Tx, ref string) (*core.SSOP
 	return p, err
 }
 
-// ssoRedirectURL is the callback address to register, when known.
-func (l *Local) ssoRedirectURL(ctx context.Context) string {
-	base := l.webBase(ctx)
-	if base == "" {
-		return ""
-	}
-	return base + core.SSOCallbackPath
-}
-
 // CreateSSOProvider adds a sign-in provider.
 func (l *Local) CreateSSOProvider(ctx context.Context, in core.CreateSSOProviderInput) (*core.SSOProvider, error) {
 	actor, err := l.authorize(ctx, authz.ActionSSOAdmin, authz.Resource{})
@@ -96,6 +87,19 @@ func (l *Local) CreateSSOProvider(ctx context.Context, in core.CreateSSOProvider
 		return nil, err
 	}
 	p := in.Provider()
+	if p.Kind == core.SSOKindSAML {
+		md, err := l.readIdPMetadata(ctx, samlMetadataSource{addr: p.IdPMetadataURL,
+			xml: strings.TrimSpace(in.IdPMetadataXML)}, p.IdPEntityID)
+		if err != nil {
+			return nil, err
+		}
+		applyIdPMetadata(&p, md, p.IdPEntityID != "", p.IdPSSOURL != "", len(p.IdPCertificates) > 0)
+		if strings.TrimSpace(in.ClientSecret) != "" {
+			return nil, core.OnField(core.Invalid("a saml provider takes no client secret"), "client_secret")
+		}
+	} else if in.IdPMetadataXML != "" {
+		return nil, core.OnField(core.Invalid("idp metadata applies to saml providers only"), "idp_metadata_xml")
+	}
 	p.Normalize()
 	if err := p.Validate(); err != nil {
 		return nil, err
@@ -127,7 +131,7 @@ func (l *Local) CreateSSOProvider(ctx context.Context, in core.CreateSSOProvider
 	if err != nil {
 		return nil, err
 	}
-	p.RedirectURL = l.ssoRedirectURL(ctx)
+	l.withAddresses(ctx, &p)
 	return &p, nil
 }
 
@@ -138,6 +142,21 @@ func (l *Local) UpdateSSOProvider(ctx context.Context, ref string, in core.Updat
 	if err != nil {
 		return nil, err
 	}
+	src := samlMetadataSource{}
+	if in.IdPMetadataURL != nil {
+		src.addr = strings.TrimSpace(*in.IdPMetadataURL)
+	}
+	if in.IdPMetadataXML != nil {
+		src.xml = strings.TrimSpace(*in.IdPMetadataXML)
+	}
+	entity := ""
+	if in.IdPEntityID != nil {
+		entity = strings.TrimSpace(*in.IdPEntityID)
+	}
+	md, err := l.readIdPMetadata(ctx, src, entity)
+	if err != nil {
+		return nil, err
+	}
 	var out core.SSOProvider
 	err = l.write(ctx, actor, func(m *mutation) error {
 		existing, err := lookupSSOProvider(ctx, m.tx, ref)
@@ -145,12 +164,19 @@ func (l *Local) UpdateSSOProvider(ctx context.Context, ref string, in core.Updat
 			return err
 		}
 		next := in.Apply(*existing)
+		if md != nil && next.Kind != core.SSOKindSAML {
+			return core.OnField(core.Invalid("idp metadata applies to saml providers only"), "idp_metadata_url")
+		}
+		applyIdPMetadata(&next, md, in.IdPEntityID != nil, in.IdPSSOURL != nil, in.IdPCertificates != nil)
 		next.Normalize()
 		if err := next.Validate(); err != nil {
 			return err
 		}
 		if in.ClientSecret != nil {
 			secret := strings.TrimSpace(*in.ClientSecret)
+			if secret != "" && next.Kind == core.SSOKindSAML {
+				return core.OnField(core.Invalid("a saml provider takes no client secret"), "client_secret")
+			}
 			if secret == "" && next.Kind == core.SSOKindGitHub {
 				return core.OnField(core.Invalid("a GitHub provider needs its client secret"), "client_secret")
 			}
@@ -176,7 +202,7 @@ func (l *Local) UpdateSSOProvider(ctx context.Context, ref string, in core.Updat
 		return nil, err
 	}
 	l.forgetSSOIssuer(out.Issuer)
-	out.RedirectURL = l.ssoRedirectURL(ctx)
+	l.withAddresses(ctx, &out)
 	return &out, nil
 }
 

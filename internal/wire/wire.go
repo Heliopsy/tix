@@ -47,6 +47,9 @@ const (
 	RouteSignInOptions = APIPrefix + "/auth/sso/options"
 	RouteSSOBegin      = APIPrefix + "/auth/sso/begin"
 	RouteSSOComplete   = APIPrefix + "/auth/sso/complete"
+	// RouteSAMLMetadata answers a SAML provider's service provider metadata,
+	// without a credential, as an IdP fetches it.
+	RouteSAMLMetadata = APIPrefix + "/auth/sso/providers/{id}/saml-metadata"
 
 	// RouteSSOProviders and RouteSSOProvider manage the tenant's sign-in
 	// providers, by key or identifier.
@@ -265,6 +268,8 @@ func CalendarFeedPath(token string) string { return CalendarFeedPrefix + token +
 const (
 	ContentJSON   = "application/json"
 	ContentNDJSON = "application/x-ndjson"
+	// ContentSAMLMetadata is SAML metadata, as an IdP imports it.
+	ContentSAMLMetadata = "application/samlmetadata+xml"
 	// ContentSCIM is the media type of every SCIM request and response.
 	ContentSCIM = "application/scim+json"
 )

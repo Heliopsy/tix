@@ -829,6 +829,10 @@ type SSOTx interface {
 	CreateUserIdentity(ctx context.Context, i *core.UserIdentity) error
 	// TouchUserIdentity records a sign-in and the email it reported.
 	TouchUserIdentity(ctx context.Context, id, email string, at time.Time) error
+	// ConsumeSSOAssertion records a SAML assertion id as used until
+	// expiresAt, after deleting the tenant's rows that expired before now. An
+	// id already recorded for the provider is a conflict.
+	ConsumeSSOAssertion(ctx context.Context, providerID, assertionID string, expiresAt, now time.Time) error
 }
 
 // SCIMConfig is a tenant's SCIM provisioning switch as the store holds it.
