@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -471,5 +472,149 @@ func TestSCIMChangesAreAuditedOnTheSCIMChannel(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("no %s entry among %d scim entries", auditSCIMUserCreate, len(entries))
+	}
+}
+
+func TestSCIMGroupLookupsAndRefusals(t *testing.T) {
+	f := newSCIMFixture(t)
+	u := f.create(t, core.SCIMUser{UserName: "max@example.com", DisplayName: "Max", Active: true})
+	g, err := f.l.SCIMCreateGroup(f.provider, core.SCIMGroup{DisplayName: "Ops", ExternalID: "ext-ops",
+		Members: []core.SCIMRef{{ID: u.ID}, {ID: u.ID}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(g.Members) != 1 || g.Members[0].Display != "Max" {
+		t.Errorf("members %+v, want max once by name", g.Members)
+	}
+	other, err := f.l.SCIMCreateGroup(f.provider, core.SCIMGroup{DisplayName: "Dev"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, conds := range map[string][]core.SCIMCondition{
+		"id":          {{Attr: core.SCIMAttrID, Value: g.ID}},
+		"name":        {{Attr: core.SCIMAttrDisplayName, Value: "OPS"}},
+		"external id": {{Attr: core.SCIMAttrExternalID, Value: "ext-ops"}},
+		"id and name": {{Attr: core.SCIMAttrID, Value: g.ID}, {Attr: core.SCIMAttrDisplayName, Value: "ops"}},
+		"member":      {{Attr: core.SCIMAttrMember, Value: u.ID}, {Attr: core.SCIMAttrExternalID, Value: "ext-ops"}},
+	} {
+		got, total, err := f.l.SCIMListGroups(f.provider, core.SCIMQuery{Conditions: conds, StartIndex: 1, Count: 10,
+			WithoutMembers: true})
+		if err != nil || total != 1 || got[0].ID != g.ID || got[0].Members != nil {
+			t.Errorf("%s: %+v, %d, %v", name, got, total, err)
+		}
+	}
+	for name, conds := range map[string][]core.SCIMCondition{
+		"missing id":     {{Attr: core.SCIMAttrID, Value: "nope"}},
+		"name mismatch":  {{Attr: core.SCIMAttrID, Value: g.ID}, {Attr: core.SCIMAttrDisplayName, Value: "dev"}},
+		"external miss":  {{Attr: core.SCIMAttrID, Value: g.ID}, {Attr: core.SCIMAttrExternalID, Value: "x"}},
+		"id mismatch":    {{Attr: core.SCIMAttrDisplayName, Value: "ops"}, {Attr: core.SCIMAttrID, Value: other.ID}},
+		"member missing": {{Attr: core.SCIMAttrID, Value: other.ID}, {Attr: core.SCIMAttrMember, Value: u.ID}},
+	} {
+		if got, total, err := f.l.SCIMListGroups(f.provider, core.SCIMQuery{Conditions: conds, StartIndex: 1, Count: 10}); err != nil || total != 0 {
+			t.Errorf("%s: %+v, %d, %v", name, got, total, err)
+		}
+	}
+	if _, _, err := f.l.SCIMListGroups(f.provider, core.SCIMQuery{Conditions: []core.SCIMCondition{
+		{Attr: core.SCIMAttrUserName, Value: "x"}}}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("a user attribute on groups = %v", err)
+	}
+	if _, _, err := f.l.SCIMListUsers(f.provider, core.SCIMQuery{Conditions: []core.SCIMCondition{
+		{Attr: core.SCIMAttrDisplayName, Value: "x"}}}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("a group attribute on users = %v", err)
+	}
+	got, err := f.l.SCIMGetGroup(f.provider, g.ID, false)
+	if err != nil || got.Members != nil || got.ExternalID != "ext-ops" {
+		t.Errorf("get without members %+v, %v", got, err)
+	}
+	if _, err := f.l.SCIMGetGroup(f.provider, "nope", true); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("a missing group = %v", err)
+	}
+	if _, err := f.l.SCIMUpdateGroup(f.provider, other.ID, func(x *core.SCIMGroup) error {
+		x.DisplayName = "ops"
+		return nil
+	}); !core.IsKind(err, core.KindConflict) {
+		t.Errorf("renaming onto another group = %v", err)
+	}
+	if _, err := f.l.SCIMUpdateGroup(f.provider, other.ID, func(x *core.SCIMGroup) error {
+		x.DisplayName = strings.Repeat("x", core.MaxSCIMName+1)
+		return nil
+	}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("a too long name = %v", err)
+	}
+	if err := f.l.SCIMDeleteGroup(f.provider, "nope"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("deleting a missing group = %v", err)
+	}
+	if err := f.l.SCIMDeleteUser(f.provider, "nope"); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("deleting a missing user = %v", err)
+	}
+	if _, err := f.l.SCIMUpdateUser(f.provider, u.ID, func(s *core.SCIMUser) error {
+		s.UserName = " "
+		return nil
+	}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("an empty userName = %v", err)
+	}
+	if err := f.l.SCIMDeleteUser(f.provider, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.l.SCIMGetGroup(f.provider, g.ID, true); len(got.Members) != 0 {
+		t.Errorf("a deleted user stays a member: %+v", got.Members)
+	}
+	if _, err := f.l.MapSCIMGroup(f.admin, core.SCIMGroupRoleInput{Group: "ops", Role: core.RoleAdmin}); err != nil {
+		t.Fatal(err)
+	}
+	m, err := f.l.MapSCIMGroup(f.admin, core.SCIMGroupRoleInput{Group: "Ops", Role: core.RoleMember})
+	if err != nil || m.Role != core.RoleMember {
+		t.Errorf("remapping %+v, %v", m, err)
+	}
+	if _, err := f.l.MapSCIMGroup(f.admin, core.SCIMGroupRoleInput{Group: " "}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("an empty group = %v", err)
+	}
+	if err := f.l.UnmapSCIMGroup(f.admin, ""); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("unmapping no name = %v", err)
+	}
+}
+
+func TestSCIMAgentHandleTakenByAPersonRefusesEnable(t *testing.T) {
+	l, _, _, admin := newLocal(t)
+	ctx := authContext(admin)
+	if _, err := l.CreateUser(ctx, core.CreateUserInput{Email: "scim@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.EnableSCIM(ctx); !core.IsKind(err, core.KindConflict) {
+		t.Fatalf("enable with a person called scim = %v, want conflict", err)
+	}
+	if _, err := l.RotateSCIMToken(ctx); !core.IsKind(err, core.KindConflict) {
+		t.Fatalf("rotate with a person called scim = %v, want conflict", err)
+	}
+}
+
+func TestSCIMGivesEachPersonAFreeHandleAndLinksAnInactiveMember(t *testing.T) {
+	f := newSCIMFixture(t)
+	a := f.create(t, core.SCIMUser{UserName: "pat@one.example", Active: true})
+	b := f.create(t, core.SCIMUser{UserName: "pat@two.example", Active: true})
+	ctx := context.Background()
+	var ha, hb string
+	if err := f.l.store.View(ctx, f.scope, func(tx store.Tx) error {
+		x, err := tx.GetActor(ctx, a.ID)
+		if err != nil {
+			return err
+		}
+		y, err := tx.GetActor(ctx, b.ID)
+		ha, hb = x.Handle, y.Handle
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if ha != "pat" || hb != "pat2" {
+		t.Errorf("handles %q and %q, want pat and pat2", ha, hb)
+	}
+
+	keep, err := f.l.CreateUser(f.admin, core.CreateUserInput{Email: "sam@example.com", Role: core.RoleMember})
+	if err != nil {
+		t.Fatal(err)
+	}
+	linked := f.create(t, core.SCIMUser{UserName: "sam@example.com", DisplayName: "Sam S", Active: false})
+	if linked.ID != keep.ID || linked.Active || linked.DisplayName != "Sam S" {
+		t.Errorf("linked %+v", linked)
 	}
 }
