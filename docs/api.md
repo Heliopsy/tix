@@ -160,6 +160,7 @@ the routes the server registers. The areas are the first segment of each operati
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
 | project | `GET /me/starred-projects`, `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon`, `PUT /projects/{ref}/star`, `DELETE /projects/{ref}/star` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
+| scim | `GET /scim`, `POST /scim/disable`, `POST /scim/enable`, `PUT /scim/groups`, `DELETE /scim/groups/{group}`, `POST /scim/token` |
 | server | `GET /release` |
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
@@ -191,6 +192,14 @@ live connections in [deployment.md](deployment.md#live-connections), [Calendar f
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
 `tix stats`, `tix status` and `tix connection` among the less obvious ones. [commands.md](commands.md)
 lists them.
+
+### SCIM provisioning
+
+`tix serve` also answers SCIM 2.0 under `/scim/v2`, beside `/api/v1`, for an identity provider holding a
+token with the `scim:provision` scope. Those endpoints are not in the routes table above, the OpenAPI document
+or `tix mcp`: SCIM describes itself through its own `ServiceProviderConfig`, `ResourceTypes` and `Schemas`. The
+`/api/v1/scim` routes in the table are the tenant admin's switch, token and group mappings. See
+[scim.md](scim.md).
 
 ### Calendar feed
 
@@ -1312,3 +1321,4 @@ not through these endpoints, which are tenant configuration filtered by event ty
 - [agents.md](agents.md) for claiming and leases
 - [deployment.md](deployment.md) for TLS, proxies and the bind guard
 - [scripting.md](scripting.md) for the CLI equivalents
+- [scim.md](scim.md) for SCIM 2.0 provisioning under `/scim/v2`

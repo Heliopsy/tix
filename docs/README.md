@@ -21,6 +21,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
 | [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, what a custom field filter costs |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
+| [scim.md](scim.md) | SCIM 2.0 provisioning from Entra ID, Okta, Authentik or JumpCloud: the token, group roles, deactivation |
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
 | [mcp.md](mcp.md) | `tix mcp`: the API as MCP tools for Claude Code and other clients, the overlay, scopes and destructive tools |
@@ -52,7 +53,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
   [mcp.md](mcp.md) for an MCP client.
 - Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
 - Setting up a team: [configuration.md](configuration.md), [workflows.md](workflows.md),
-  [deployment.md](deployment.md).
+  [deployment.md](deployment.md), and [scim.md](scim.md) to provision people from an identity provider.
 - Running the published image, in a container or on Kubernetes: [deployment.md](deployment.md#containers).
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
