@@ -70,6 +70,7 @@ type Tx interface {
 	HousekeepingTx
 	TimePrefsTx
 	IdempotencyTx
+	SSOTx
 
 	Commit() error
 	Rollback() error
@@ -810,4 +811,21 @@ type StatsRows struct {
 type SessionRecord struct {
 	core.SessionInfo
 	TokenHash string
+}
+
+// SSOTx covers the tenant's single sign-on providers and the identities linked
+// through them.
+type SSOTx interface {
+	ListSSOProviders(ctx context.Context) ([]core.SSOProvider, error)
+	// GetSSOProvider finds a provider by identifier or key.
+	GetSSOProvider(ctx context.Context, ref string) (*core.SSOProvider, error)
+	CreateSSOProvider(ctx context.Context, p *core.SSOProvider) error
+	UpdateSSOProvider(ctx context.Context, p *core.SSOProvider) error
+	DeleteSSOProvider(ctx context.Context, id string) error
+	GetUserIdentity(ctx context.Context, providerID, subject string) (*core.UserIdentity, error)
+	// GetUserIdentityByUser finds the identity a provider links to a user.
+	GetUserIdentityByUser(ctx context.Context, providerID, userID string) (*core.UserIdentity, error)
+	CreateUserIdentity(ctx context.Context, i *core.UserIdentity) error
+	// TouchUserIdentity records a sign-in and the email it reported.
+	TouchUserIdentity(ctx context.Context, id, email string, at time.Time) error
 }

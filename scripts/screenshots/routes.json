@@ -17,6 +17,8 @@
   "routes": [
     { "pattern": "/", "skip": "redirects to /projects, which is captured" },
     { "pattern": "/login", "public": true },
+    { "pattern": "/login/sso/{key}", "skip": "redirects to the identity provider; nothing is drawn" },
+    { "pattern": "/login/sso/callback", "skip": "answers an identity provider's redirect, which needs a live sign-in; the web tests draw it" },
     { "pattern": "/invite/{token}", "skip": "opens only with a live invite token, which no page links to; the invite tests draw it" },
     { "pattern": "/settings" },
     { "pattern": "/account" },
@@ -114,6 +116,7 @@
     { "pattern": "/actors" },
     { "pattern": "/actors/{id}", "params": { "id": "actor" } },
     { "pattern": "/admin/tenant" },
+    { "pattern": "/admin/sso" },
     { "pattern": "/admin/domains" },
     { "pattern": "/admin/users" },
     { "pattern": "/admin/global" },

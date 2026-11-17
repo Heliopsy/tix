@@ -466,6 +466,7 @@ func ScopedTables() []string {
 		"group_prefs", "saved_filters", "calendar_feeds", "inbox_items", "inbox_mutes",
 		"inbox_channels", "inbox_deliveries",
 		"task_templates", "housekeeping_policies", "user_invites", "idempotency_keys",
+		"sso_providers", "user_identities",
 	}
 	return all
 }

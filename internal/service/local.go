@@ -18,6 +18,7 @@ import (
 	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/sso"
 	"github.com/heliopsy/tix/internal/store"
 	extsync "github.com/heliopsy/tix/internal/sync"
 )
@@ -115,6 +116,11 @@ type Local struct {
 	nonceOnce     sync.Once
 	nonceKeyBytes []byte
 	nonceKeyErr   error
+
+	// sso builds single sign-on adapters over the egress policy, caching
+	// each issuer's discovery and keys; made on first use.
+	ssoOnce   sync.Once
+	ssoClient *sso.Client
 
 	// gates throttles how often a second factor policy refusal is audited.
 	gates gateLog

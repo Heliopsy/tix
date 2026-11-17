@@ -43,6 +43,9 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"tui.motion", cfg.TUI.Motion, TUIMotions, nil},
 		{"server.cookie_security", cfg.Server.CookieSecurity, CookieSecurities, nil},
 	}
+	if hint, ok := RedirectedAuthModes[cfg.Auth.Mode]; ok {
+		return redirectedKey("auth.mode", cfg.Auth.Mode, hint, sources)
+	}
 	for _, check := range checks {
 		if allowed(check.value, check.set) {
 			continue
@@ -288,6 +291,17 @@ func unimplementedKey(key, value string, sources map[string]Layer) *core.Error {
 	return err.WithDetail("key", key).WithDetail("value", value).WithDetail("layer", string(layer))
 }
 
+// redirectedKey refuses a value that names a setting made somewhere else.
+func redirectedKey(key, value, hint string, sources map[string]Layer) *core.Error {
+	layer := sources[key]
+	if layer == "" {
+		layer = LayerDefault
+	}
+	err := core.Invalid("%s %q is refused: %s; supported: %s (set from the %s layer, %s)",
+		key, value, hint, strings.Join(supportedFor(key), ", "), layer, EnvName(key))
+	return err.WithDetail("key", key).WithDetail("value", value).WithDetail("layer", string(layer))
+}
+
 // supportedFor returns the implemented value set of an enumerated key.
 func supportedFor(key string) []string {
 	switch key {
@@ -327,6 +341,10 @@ func (c Context) validate(name string) error {
 	} {
 		if field.value == "" || allowed(field.value, field.set) {
 			continue
+		}
+		if hint, ok := RedirectedAuthModes[field.value]; ok && field.name == "auth_mode" {
+			return core.Invalid("context %q sets %s %q: %s; supported: %s", name, field.name, field.value, hint,
+				strings.Join(field.set, ", ")).WithDetail("context", name).WithDetail("supported", field.set)
 		}
 		if allowed(field.value, field.unimplemented) {
 			return core.Invalid("context %q sets %s %q, which is not implemented by this build; supported: %s",

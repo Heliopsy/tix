@@ -232,9 +232,6 @@ func ShownUserLines(u core.User, role core.Role, style output.TimeStyle) []Tenan
 	row("state", strings.TrimSpace(userState(u)))
 	row("second factor", yesNo(u.TOTPEnrolled, "enrolled", "none"))
 	row("new password", yesNo(u.RequirePasswordChange, "required at next sign-in", "not required"))
-	if u.SSOProvider != "" {
-		row("sso", u.SSOProvider+" "+u.SSOSubject)
-	}
 	if u.GlobalAdmin {
 		row("global admin", "yes")
 	}

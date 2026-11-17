@@ -56,6 +56,15 @@ func (d dialogState) Refused() bool { return d.Values != nil }
 // Value is what a refused submission sent in one field.
 func (d dialogState) Value(name string) string { return d.Values.Get(name) }
 
+// Or is what a refused submission sent in one field, or def when the dialog
+// is drawn fresh.
+func (d dialogState) Or(name, def string) string {
+	if !d.Refused() {
+		return def
+	}
+	return d.Values.Get(name)
+}
+
 // Chose reports whether a refused submission chose this value of a field.
 func (d dialogState) Chose(name, value string) bool {
 	return slices.Contains(d.Values[name], value)

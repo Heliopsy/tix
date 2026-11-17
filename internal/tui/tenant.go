@@ -146,9 +146,9 @@ func (m Model) adminState() TenantAdminState {
 	state.Loaded = true
 	state.Tenant, state.Tenants = m.admin.tenant, m.admin.tenants
 	state.Domains, state.Members, state.Handles = m.admin.domains, m.admin.members, m.admin.handles
-	state.Memberships = m.admin.memberships
+	state.Memberships, state.Providers = m.admin.memberships, m.admin.providers
 	state.TenantErr, state.TenantsErr = m.admin.tenantErr, m.admin.tenantsErr
-	state.DomainErr, state.MemberErr = m.admin.domainErr, m.admin.memberErr
+	state.DomainErr, state.MemberErr, state.SSOErr = m.admin.domainErr, m.admin.memberErr, m.admin.ssoErr
 	return state
 }
 

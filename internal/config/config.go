@@ -620,7 +620,14 @@ var (
 	// UnimplementedAuthModes are documented modes with no implementation
 	// behind them. They are refused rather than accepted and ignored,
 	// because a mode that reads as a security setting must never be silent.
-	UnimplementedAuthModes = []string{"none", "oidc"}
+	UnimplementedAuthModes = []string{"none"}
+	// RedirectedAuthModes are values that name something configured
+	// elsewhere, each refused with where that is. oidc is single sign-on,
+	// which is per tenant: accepting it here would let an operator think the
+	// server was set up for it.
+	RedirectedAuthModes = map[string]string{
+		"oidc": "single sign-on is configured per tenant with tix tenant sso add, not as a server mode",
+	}
 	// HookModes lists the git hook modes this build implements.
 	HookModes = []string{"off"}
 	// UnimplementedHookModes are documented modes with no implementation.

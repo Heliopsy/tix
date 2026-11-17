@@ -51,6 +51,9 @@ type Tenant struct {
 	// MFARequiredAt is when the policy last turned required, RFC 3339. Absent
 	// while it is off.
 	MFARequiredAt *time.Time `json:"mfa_required_at,omitempty" yaml:"mfa_required_at,omitempty"`
+	// PasswordLogin is "allowed", or "disabled" when people sign in through
+	// the tenant's providers only. Global admins keep password sign-in.
+	PasswordLogin PasswordLogin `json:"password_login" yaml:"password_login"`
 	// LeaseDefault is how long a claim on this tenant's tasks holds when the
 	// claim, task, project and workflow name none, as a duration such as "4h".
 	// Zero or absent defers to the deployment configuration, then the built-in
@@ -216,11 +219,6 @@ type User struct {
 	// DisabledAt is when the user was disabled, RFC 3339. A disabled user cannot
 	// sign in; absent on an active user.
 	DisabledAt *time.Time `json:"disabled_at,omitempty" yaml:"disabled_at,omitempty"`
-	// SSOProvider names the single sign-on provider that vouches for the user.
-	// Empty for a password user.
-	SSOProvider string `json:"sso_provider,omitempty" yaml:"sso_provider,omitempty"`
-	// SSOSubject is the user's subject identifier at SSOProvider.
-	SSOSubject string `json:"sso_subject,omitempty" yaml:"sso_subject,omitempty"`
 	// TOTPEnrolled reports whether this user holds a confirmed second factor.
 	// It is state, not a credential: nothing here can produce a code, and it
 	// is what lets an administrative listing say who holds one rather than

@@ -295,11 +295,13 @@ type tenantInfoMsg struct {
 	handles map[string]string
 	// memberships are the reader's own tenants, as whoami lists them.
 	memberships []core.AccountMembership
+	providers   []core.SSOProvider
 
 	tenantErr  string
 	tenantsErr string
 	domainErr  string
 	memberErr  string
+	ssoErr     string
 }
 
 // eventMsg carries one event from the subscription. gen names the connection

@@ -41,6 +41,18 @@ const (
 	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
 	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"
 
+	// RouteSignInOptions, RouteSSOBegin and RouteSSOComplete serve a sign-in
+	// through one of the tenant's single sign-on providers. None needs a
+	// credential: they are how a person gets one.
+	RouteSignInOptions = APIPrefix + "/auth/sso/options"
+	RouteSSOBegin      = APIPrefix + "/auth/sso/begin"
+	RouteSSOComplete   = APIPrefix + "/auth/sso/complete"
+
+	// RouteSSOProviders and RouteSSOProvider manage the tenant's sign-in
+	// providers, by key or identifier.
+	RouteSSOProviders = APIPrefix + "/sso/providers"
+	RouteSSOProvider  = APIPrefix + "/sso/providers/{id}"
+
 	RouteActors = APIPrefix + "/actors"
 	RouteActor  = APIPrefix + "/actors/{id}"
 

@@ -219,6 +219,12 @@ type LoginResult struct {
 	// refusing them, RFC 3339. A time already past means the session can do
 	// nothing but enrol.
 	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
+	// Next is the screen a browser sign-in through a provider returns to, as
+	// the sign-in began with it.
+	Next string `json:"next,omitempty" yaml:"next,omitempty"`
+	// Remember carries a provider sign-in's keep me signed in choice to the
+	// second factor step that completes it.
+	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no

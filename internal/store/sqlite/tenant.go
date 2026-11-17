@@ -17,7 +17,7 @@ var tenantColumns = []string{
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
-	"mfa_policy", "mfa_grace", "mfa_required_at",
+	"mfa_policy", "mfa_grace", "mfa_required_at", "password_login",
 	"artifact_max_bytes", "artifact_types",
 	"session_ttl", "session_idle_timeout", "session_remember_ttl",
 	"created_at", "updated_at", "deleted_at",
@@ -46,7 +46,7 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		&totpWeb, &totpCLI, &totpSSH,
 		&leaseDef, &leaseMax, &trashOff,
 		&t.TimeFormat, &t.Timezone,
-		&t.MFAPolicy, &mfaGrace, &mfaAt,
+		&t.MFAPolicy, &mfaGrace, &mfaAt, &t.PasswordLogin,
 		&t.ArtifactMaxBytes, &artTypes,
 		&sessTTL, &sessIdle, &sessKeep,
 		&created, &updated, &deletedAt); err != nil {
@@ -169,6 +169,7 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
 		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("password_login", string(passwordLoginOf(in))).
 		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
 		Set("artifact_max_bytes", in.ArtifactMaxBytes).
@@ -203,6 +204,7 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
 		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("password_login", string(passwordLoginOf(in))).
 		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
 		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
 		Set("artifact_max_bytes", in.ArtifactMaxBytes).
@@ -454,4 +456,13 @@ func scanSessionSettings(t *core.Tenant, ttl, idle, remember string) error {
 		return core.Internal("parsing stored tenant keep me signed in %q", remember).Wrap(err)
 	}
 	return nil
+}
+
+// passwordLoginOf is the password policy a tenant row stores; a tenant built
+// without one allows passwords.
+func passwordLoginOf(t *core.Tenant) core.PasswordLogin {
+	if t.PasswordLogin == "" {
+		return core.PasswordLoginAllowed
+	}
+	return t.PasswordLogin
 }

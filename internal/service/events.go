@@ -74,6 +74,11 @@ var subjectScope = map[string]core.Scope{
 	"webhook":          core.ScopeWebhookAdmin,
 	"webhook_delivery": core.ScopeWebhookAdmin,
 	"sync_source":      core.ScopeSyncAdmin,
+
+	// A provider event carries its settings, and an identity event names a
+	// person, their email and which tenant's provider vouched for them.
+	"sso_provider": core.ScopeSSOAdmin,
+	"sso_identity": core.ScopeSSOAdmin,
 }
 
 // EventSubjectScopes returns a copy of the extra scope each administrative event subject requires.

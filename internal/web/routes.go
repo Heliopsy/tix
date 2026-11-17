@@ -46,6 +46,7 @@ func Exemptions() []Exemption {
 	return []Exemption{
 		{"ResolveDomain", "hostname resolution runs in the request path before any screen is chosen and is not an operator action"},
 		{"GetUser", "the user administration list already shows every field a single user screen would show"},
+		{"GetSSOProvider", "the single sign-on screen already shows every field of every provider, and its edit dialog each setting"},
 		{"ClaimTask", "claiming is the agent work queue; the lease token it returns belongs to the worker and is never displayed in a browser"},
 		{"ClaimNext", "claiming is the agent work queue; a browser operator picks a task by name instead"},
 		{"RenewLease", "a lease is renewed by the worker holding its token, which a browser session does not hold"},
@@ -66,6 +67,7 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.ssoRoutes()...)
 	out = append(out, h.switchRoutes()...)
 	out = append(out, h.totpRoutes()...)
 	out = append(out, h.calendarRoutes()...)
@@ -241,7 +243,18 @@ const (
 	RouteChannelTest      = "/settings/notifications/{id}/test"
 	RouteChannelRedeliver = "/settings/notifications/{id}/redeliver"
 
-	RouteTenant       = "/admin/tenant"
+	RouteTenant = "/admin/tenant"
+	// RouteSSO is the tenant's single sign-on screen, and its create form;
+	// RouteSSOUpdate and RouteSSODelete change and remove a provider.
+	RouteSSO       = "/admin/sso"
+	RouteSSOUpdate = "/admin/sso/update"
+	RouteSSODelete = "/admin/sso/delete"
+	// RouteSSOPassword saves whether the tenant takes passwords at all.
+	RouteSSOPassword = "/admin/sso/password"
+	// RouteSSOStart sends a browser to a provider, and RouteSSOCallback is
+	// where every provider sends it back.
+	RouteSSOStart     = "/login/sso/{key}"
+	RouteSSOCallback  = "/login/sso/callback"
 	RouteMembers      = "/admin/tenant/members"
 	RouteMemberRemove = "/admin/tenant/members/remove"
 	RouteRetention    = "/admin/tenant/retention"

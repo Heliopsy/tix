@@ -561,6 +561,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err != nil {
 		return nil, err
 	}
+	if err := l.passwordPolicyAllowed(ctx, actor, ref, global, in); err != nil {
+		return nil, err
+	}
 	var out *core.Tenant
 	err = l.write(ctx, actor, func(m *mutation) error {
 		t, err := reachTenant(ctx, m.tx, actor, ref, global)
@@ -610,6 +613,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 			}
 		}
 		applyMFAPolicy(t, in, m.now)
+		if in.PasswordLogin != nil {
+			t.PasswordLogin = *in.PasswordLogin
+		}
 		if in.TrashOff != nil {
 			t.TrashOff = *in.TrashOff
 		}
@@ -641,6 +647,9 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if before.MFARequired() != t.MFARequired() {
 			meta["mfa_policy"] = string(t.MFAPolicy)
+		}
+		if passwordLoginOf(before) != passwordLoginOf(*t) {
+			meta["password_login"] = string(passwordLoginOf(*t))
 		}
 		if before.MFAGrace != t.MFAGrace {
 			meta["mfa_grace"] = t.MFAGrace.String()

@@ -2,6 +2,22 @@
 <a class="authbrand" href="/"><img class="logo" src="/assets/tix.svg" alt="" width="40" height="40"><span>{{.Brand.Title}}</span></a>
 <div class="card authcard">
 <div class="headtip"><h1>{{t "Sign in"}}</h1>{{template "help" $}}</div>
+{{/* One button per enabled provider of this tenant. Each is a GET to
+     /login/sso/KEY, which seals the flow into a cookie and sends the browser
+     to the provider; Keep me signed in and the screen to return to ride
+     along and come back sealed. */}}
+{{with .Data.Options.Providers}}
+<form method="get" class="sso-signin" aria-label="{{t "Single sign-on"}}">
+  <input type="hidden" name="next" value="{{$.Data.Next}}">
+  {{range .}}<button type="submit" class="secondary sso-button" formaction="/login/sso/{{.Key}}">{{t "Sign in with %s" .DisplayName}}</button>
+  {{end}}
+  {{with $.Data.RememberFor}}<div class="remember"><label for="sso-remember"><input id="sso-remember" type="checkbox" name="remember" value="on"> {{t "Keep me signed in"}}</label></div>{{end}}
+</form>
+{{end}}
+{{if and .Data.Options.PasswordLogin.Disabled (not .Data.BreakGlass)}}
+<p class="note">{{t "This tenant signs in through its single sign-on providers only."}} <a href="/login?password=1">{{t "Global admin password sign-in"}}</a></p>
+{{else}}
+{{if .Data.Options.Providers}}<p class="sso-or muted">{{t "or sign in with your password"}}</p>{{end}}
 <form method="post" action="/login">
   {{template "csrf" .CSRF}}
   {{/* Where the visitor was going before they were bounced here. It rides
@@ -17,6 +33,7 @@
   {{with .Data.RememberFor}}<div class="remember"><label for="remember"><input id="remember" type="checkbox" name="remember" value="on"> {{t "Keep me signed in"}}</label>{{template "tip" (tip "Keep me signed in" "Stay signed in on this browser after it closes. Each visit keeps it going, up to a limit this server sets. Leave it unticked on a shared computer. If this tenant ends sessions left unused, that still applies.")}}<p class="note">{{tt "For %s after your last visit, on this browser." .Human}}</p></div>{{end}}
   <div class="actions"><button type="submit">{{t "Sign in"}}</button></div>
 </form>
+{{end}}
 </div>
 
 {{/* Static guidance, the same for every visitor: it never reacts to what was

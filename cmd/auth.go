@@ -445,17 +445,23 @@ func tokenRotateCmd(g *globals) *cobra.Command {
 
 // newLoginCmd builds the login command.
 func newLoginCmd(g *globals) *cobra.Command {
-	var email, password, sshKey, contextName string
-	var remember bool
+	var email, password, sshKey, contextName, ssoKey string
+	var remember, noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Exchange a password or an SSH key for a session",
+		Short: "Exchange a password, an SSH key or a single sign-on for a session",
 		Long: "Log in and print the session token.\n\n" +
 			"--ssh-key signs a challenge from the server with an SSH key enrolled for you (tix user key add) " +
 			"instead of sending a password. Alone it tries every key in ssh-agent, then ~/.ssh/id_ed25519, " +
 			"id_ecdsa and id_rsa; --ssh-key=PATH uses only that private key and asks for its passphrase " +
 			"without echo. The signature is made under the namespace tix-login@HOST, so it can only be " +
 			"used to sign in to this server.\n\n" +
+			"--sso signs in through one of the tenant's single sign-on providers (tix tenant sso): alone, " +
+			"the tenant's only provider; --sso=KEY, that one. It listens on 127.0.0.1, opens the provider " +
+			"in the browser and prints the address too, for a machine with no browser to open; the provider " +
+			"sends the browser back to the listener, and the session printed is the same as a password " +
+			"sign-in's. --no-browser only prints the address. The tenant's second factor still applies " +
+			"unless the provider is trusted for it.\n\n" +
 			"Where a second factor is required, the code is asked for on the terminal after the password. " +
 			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
 			"shell history and in the process table. An unattended caller uses an API token instead, which " +
@@ -485,10 +491,18 @@ func newLoginCmd(g *globals) *cobra.Command {
 		Example: "  tix login --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --tenant test --context test --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --ssh-key\n" +
+			"  tix --server https://tix.example login --sso\n" +
+			"  tix --server https://tix.example login --sso=github --no-browser\n" +
 			"  tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519",
 		GroupID: "setup",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("sso") {
+				if email != "" || password != "" || cmd.Flags().Changed("ssh-key") {
+					return usagef(cmd, "--sso replaces --email, --password and --ssh-key; pass one way to sign in")
+				}
+				return g.loginWithSSO(cmd, strings.ToLower(strings.TrimSpace(ssoKey)), contextName, remember, noBrowser)
+			}
 			if cmd.Flags().Changed("ssh-key") {
 				if email != "" || password != "" {
 					return usagef(cmd, "--ssh-key replaces --email and --password; pass one or the other")
@@ -537,6 +551,10 @@ func newLoginCmd(g *globals) *cobra.Command {
 	cmd.Flags().StringVar(&sshKey, "ssh-key", "",
 		"sign in with an enrolled SSH key: alone, ssh-agent then the default keys; =PATH, that private key")
 	cmd.Flags().Lookup("ssh-key").NoOptDefVal = sshKeyDiscover
+	cmd.Flags().StringVar(&ssoKey, "sso", "",
+		"sign in through a single sign-on provider: alone, the tenant's only one; =KEY, that one")
+	cmd.Flags().Lookup("sso").NoOptDefVal = ssoAuto
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "with --sso, print the sign-in address without opening a browser")
 	cmd.Flags().StringVar(&contextName, "context", "",
 		"with --tenant, the context to store the token on; defaults to the current one, else the tenant key")
 	return cmd

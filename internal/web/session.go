@@ -19,7 +19,7 @@ import (
 func (h *handler) sessionRoutes() []route {
 	return []route{
 		get(RouteRoot, "", h.showRoot, "WhoAmI"),
-		public(get(RouteLogin, "login.html", h.showLogin, "SessionPolicy")),
+		public(get(RouteLogin, "login.html", h.showLogin, "SessionPolicy", "SignInOptions")),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		public(get(RouteInviteAccept, inviteTemplate, h.showInvite, "PreviewInvite")),
 		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
@@ -73,6 +73,11 @@ type loginView struct {
 	// RememberFor is how long "keep me signed in" keeps a browser signed in,
 	// zero when the tenant does not offer it and the box is not drawn.
 	RememberFor core.Duration
+	// Options are the tenant's providers and whether it takes passwords.
+	Options core.SignInOptions
+	// BreakGlass draws the password form on a tenant that turned passwords
+	// off, for the global admin who is the one exception.
+	BreakGlass bool
 }
 
 // showLogin renders the sign-in screen.
@@ -84,6 +89,11 @@ func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 	v := loginView{TargetHint: h.targetHint, Next: safeNext(orElse(r.URL.Query().Get("next"), RouteRoot))}
 	if policy, err := h.svc.SessionPolicy(r.Context()); err == nil && policy.RememberOffered() {
 		v.RememberFor = policy.RememberTTL
+	}
+	v.BreakGlass = r.URL.Query().Get("password") == "1"
+	v.Options = core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed}
+	if options, err := h.svc.SignInOptions(r.Context()); err == nil {
+		v.Options = *options
 	}
 	return h.render(w, r, "login.html", "Sign in", v)
 }

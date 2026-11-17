@@ -39,6 +39,7 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeWebhookAdmin:   "Manage outgoing webhooks.",
 	core.ScopeTenantAdmin:    "Manage the tenant, its members and domains.",
 	core.ScopeSyncAdmin:      "Manage and run imports from other trackers.",
+	core.ScopeSSOAdmin:       "Manage single sign-on providers and whether passwords are accepted.",
 	core.ScopeAuditRead:      "Read the audit log.",
 	core.ScopeExport:         "Export a snapshot of the whole tenant.",
 	core.ScopeImport:         "Import a snapshot into the tenant.",
@@ -55,7 +56,7 @@ var ScopeGroups = []ScopeGroup{
 	{"comments", "Comments and artifacts", []core.Scope{core.ScopeCommentWrite, core.ScopeArtifactWrite}},
 	{"events", "Events", []core.Scope{core.ScopeEventSubscribe}},
 	{"admin", "Administration", []core.Scope{core.ScopeUserAdmin, core.ScopeTOTPAdmin, core.ScopeTokenAdmin,
-		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeAuditRead,
+		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeSSOAdmin, core.ScopeAuditRead,
 		core.ScopeExport, core.ScopeImport, core.ScopeGlobalAdmin}},
 	{"account", "Your account", []core.Scope{core.ScopeAccountRead}},
 }

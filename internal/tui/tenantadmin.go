@@ -62,11 +62,15 @@ type TenantAdminState struct {
 	// Handles maps an actor identifier to the handle a reader recognises, for
 	// every member the listing names.
 	Handles map[string]string
+	// Providers are the tenant's single sign-on providers, for a reader
+	// holding sso:admin; tix tenant sso configures them.
+	Providers []core.SSOProvider
 
 	TenantErr  string
 	TenantsErr string
 	DomainErr  string
 	MemberErr  string
+	SSOErr     string
 
 	// Selected indexes TenantRows, not any one listing.
 	Selected int
@@ -160,6 +164,8 @@ func TenantAdminView(state TenantAdminState) []TenantLine {
 	out = append(out, TenantLine{})
 	out = append(out, memberLines(state, rows)...)
 	out = append(out, TenantLine{})
+	out = append(out, providerLines(state)...)
+	out = append(out, TenantLine{})
 	if lines := membershipLines(state, rows); len(lines) > 0 {
 		out = append(out, lines...)
 		out = append(out, TenantLine{})
@@ -180,6 +186,7 @@ func tenantAttributes(state TenantAdminState) []TenantLine {
 		tenantRow("name", orNone(t.Name)),
 		tenantRow(attrTheme, orNone(t.Theme)),
 		tenantRow(attrMFA, mfaLine(t)),
+		tenantRow("password sign-in", passwordLoginLine(t.PasswordLogin)),
 		tenantRow(attrArtifactMax, orInherit(artifactMaxLine(t))),
 		tenantRow(attrArtifactTypes, orInherit(strings.Join(t.ArtifactTypes, ", "))),
 		tenantRow(attrSessionTTL, orInherit(durationLine(t.SessionTTL))),
@@ -235,6 +242,35 @@ func memberLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 			Text:     SelectionMarker(selected) + pad(label, tenantRowWidth) + string(m.Role),
 			Selected: selected,
 		})
+	}
+	return out
+}
+
+// passwordLoginLine states the tenant's password policy.
+func passwordLoginLine(p core.PasswordLogin) string {
+	if p.Disabled() {
+		return "disabled, single sign-on only (global admins excepted)"
+	}
+	return "allowed"
+}
+
+// providerLines list the tenant's single sign-on providers. They are read
+// here and configured with tix tenant sso, which the heading names.
+func providerLines(state TenantAdminState) []TenantLine {
+	out := []TenantLine{{Text: "sign-in providers (" + strconv.Itoa(len(state.Providers)) + "), tix tenant sso:",
+		Heading: true}}
+	if len(state.Providers) == 0 {
+		return append(out, tenantAbsent(state.SSOErr, state.Loaded)...)
+	}
+	for _, p := range state.Providers {
+		note := string(p.Kind) + " " + p.DisplayName
+		if !p.Enabled {
+			note += " (off)"
+		}
+		if p.AutoCreate {
+			note += ", creates accounts"
+		}
+		out = append(out, TenantLine{Text: "  " + pad(p.Key, tenantRowWidth) + note})
 	}
 	return out
 }

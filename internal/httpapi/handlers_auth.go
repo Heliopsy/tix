@@ -75,6 +75,7 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteSessionPolicy, rt.handleSessionPolicy)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHChallenge, rt.handleSSHChallenge)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHVerify, rt.handleSSHLogin)
+	rt.registerSSORoutes()
 
 	rt.mux.HandleFunc("GET "+wire.RouteTOTP, rt.handleTOTPStatus)
 	rt.mux.HandleFunc("POST "+wire.RouteTOTP, rt.handleBeginTOTP)

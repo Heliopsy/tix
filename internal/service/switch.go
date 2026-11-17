@@ -58,6 +58,13 @@ func (l *Local) SwitchTenant(ctx context.Context, in core.SwitchTenantInput) (*c
 	if err != nil {
 		return nil, err
 	}
+	if core.IsSSOMethod(origin.Method) {
+		return nil, core.Forbidden("a session signed in through single sign-on stays in its tenant; sign in to %q "+
+			"on its own sign-in screen", key).WithDetail("reason", ReasonSSOSessionConfined)
+	}
+	if err := l.passwordSignInAllowed(ctx, scope, target.user, origin.Method); err != nil {
+		return nil, err
+	}
 	ctx = withSignedIn(withRemember(ctx, origin.Remembered), origin.SignedInAt)
 	var attempt *core.UserTOTP
 	if required && !origin.SecondFactor {

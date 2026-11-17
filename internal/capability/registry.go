@@ -57,6 +57,14 @@ var transferLimits = []Limitation{{SurfaceTUI,
 		"`ssh HOST ...` command that does each transfer through standard input and output instead of " +
 		"reading or writing a path"}}
 
+// ssoOverSSH is why signing in through a provider is not offered over the
+// SSH listener: the session there is already signed in by its key.
+const ssoOverSSH = "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"
+
+// ssoInTUI is why a provider is configured outside the terminal interface,
+// which lists the tenant's providers on its tenant screen.
+const ssoInTUI = "a provider is a dozen protocol settings and a client secret pasted from the identity provider's console; the tenant screen lists providers and tix tenant sso, on the same terminal, configures them"
+
 // Templates the browser screens render, named once so a binding cannot invent
 // a file the embedded assets do not hold.
 const (
@@ -90,6 +98,8 @@ const (
 	tplGlobalUsr = "globalusers.html"
 	tplAcctLog   = "accountlog.html"
 	tplLogin     = "login.html"
+	tplSSO       = "sso.html"
+	tplTOTP      = "totp.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -1414,6 +1424,84 @@ var registry = []Operation{
 			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
 			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
 			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
+		},
+	},
+	{
+		Name: "sso.options", Method: "SignInOptions", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiGet(wire.RouteSignInOptions),
+		Web:  webGet(web.RouteLogin, tplLogin),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.begin", Method: "BeginSSOLogin", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSOBegin),
+		Web:  webGet(web.RouteSSOStart, ""),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.complete", Method: "CompleteSSOLogin", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSOComplete),
+		Web:  webGet(web.RouteSSOCallback, tplTOTP),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.provider.list", Method: "ListSSOProviders",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso ls",
+		HTTP:  apiGet(wire.RouteSSOProviders),
+		Web:   webGet(web.RouteSSO, tplSSO),
+		TUI:   "tenant",
+	},
+	{
+		Name: "sso.provider.show", Method: "GetSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso show",
+		HTTP:  apiGet(wire.RouteSSOProvider),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "the single sign-on screen already shows every field of every provider, and its edit dialog each setting"),
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.create", Method: "CreateSSOProvider", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso add",
+		HTTP:  apiPost(wire.RouteSSOProviders),
+		Web:   webPost(web.RouteSSO),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.update", Method: "UpdateSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso edit",
+		HTTP:  apiPatch(wire.RouteSSOProvider),
+		Web:   webPost(web.RouteSSOUpdate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.delete", Method: "DeleteSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso rm",
+		HTTP:  apiDelete(wire.RouteSSOProvider),
+		Web:   webPost(web.RouteSSODelete),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
 		},
 	},
 	{

@@ -231,6 +231,9 @@ type UpdateTenantInput struct {
 	// factor may still work, a duration such as "7d"; zero gates at once and
 	// omitted leaves it.
 	MFAGrace *Duration `json:"mfa_grace,omitempty" yaml:"mfa_grace,omitempty"`
+	// PasswordLogin turns password sign-in "allowed" or "disabled"; omitted
+	// leaves it. Disabling needs an enabled single sign-on provider.
+	PasswordLogin *PasswordLogin `json:"password_login,omitempty" yaml:"password_login,omitempty"`
 	// LeaseDefault is the lease a claim on this tenant gets when nothing more
 	// specific names one, a duration such as "30m". Zero clears it back to the
 	// deployment configuration and omitted leaves it alone. A default longer
@@ -288,6 +291,10 @@ func (in UpdateTenantInput) Validate() error {
 	if in.MFAPolicy != nil && !in.MFAPolicy.Valid() {
 		return Invalid("second factor policy %q is not one of off, required", *in.MFAPolicy).
 			WithDetail(DetailField, "mfa_policy")
+	}
+	if in.PasswordLogin != nil && (*in.PasswordLogin == "" || !in.PasswordLogin.Valid()) {
+		return Invalid("password login %q is not one of allowed, disabled", *in.PasswordLogin).
+			WithDetail(DetailField, "password_login")
 	}
 	if in.MFAGrace != nil && *in.MFAGrace < 0 {
 		return Invalid("second factor grace must not be negative").WithDetail(DetailField, "mfa_grace")
