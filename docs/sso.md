@@ -195,6 +195,9 @@ In order:
 4. **Refusal.** Otherwise the sign-in is refused, saying why: no email, an unverified email, no account here
    (ask for an invitation), or an account that belongs only to other tenants.
 
+People a provider created over SCIM ([scim.md](scim.md)) are members with a verified address, so their first
+sign-in links them by rule 2, and a person SCIM deactivated is refused here as disabled.
+
 An account that exists only in other tenants is never adopted. A tenant reaches an existing account only by
 invitation; once the person accepts it, signing in through the provider links them by rule 2.
 

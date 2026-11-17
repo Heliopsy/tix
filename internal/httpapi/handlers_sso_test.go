@@ -62,3 +62,36 @@ func TestSSOProvidersOverHTTP(t *testing.T) {
 	mustStatus(t, resp, http.StatusNoContent)
 	_ = resp.Body.Close()
 }
+
+func TestSSORoutesAnswerRefusalsInTheEnvelope(t *testing.T) {
+	f := newFixtureOver(t, []service.Option{service.WithTOTPKey(apiTOTPKey)})
+	missing := strings.Replace(wire.RouteSSOProvider, "{id}", "nope", 1)
+	for _, tc := range []struct {
+		method, path string
+		body         any
+		token        bool
+		want         int
+	}{
+		{http.MethodGet, wire.RouteSSOProviders, nil, false, http.StatusUnauthorized},
+		{http.MethodPost, wire.RouteSSOProviders, map[string]any{"key": "Bad Key"}, true, http.StatusBadRequest},
+		{http.MethodPost, wire.RouteSSOProviders, "not an object", true, http.StatusBadRequest},
+		{http.MethodGet, missing, nil, true, http.StatusNotFound},
+		{http.MethodPatch, missing, map[string]any{}, true, http.StatusNotFound},
+		{http.MethodPatch, missing, "not an object", true, http.StatusBadRequest},
+		{http.MethodDelete, missing, nil, true, http.StatusNotFound},
+		{http.MethodPost, wire.RouteSSOBegin, map[string]any{"provider": "nope", "redirect_uri": "http://127.0.0.1:1/cb"}, false, http.StatusNotFound},
+		{http.MethodPost, wire.RouteSSOBegin, "not an object", false, http.StatusBadRequest},
+		{http.MethodPost, wire.RouteSSOComplete, map[string]any{"flow": "x", "state": "y"}, false, http.StatusUnauthorized},
+		{http.MethodPost, wire.RouteSSOComplete, "not an object", false, http.StatusBadRequest},
+	} {
+		token := ""
+		if tc.token {
+			token = f.tokenA
+		}
+		resp := f.do(tc.method, tc.path, f.hostA, token, tc.body)
+		if resp.StatusCode != tc.want {
+			t.Errorf("%s %s = %d, want %d", tc.method, tc.path, resp.StatusCode, tc.want)
+		}
+		_ = resp.Body.Close()
+	}
+}

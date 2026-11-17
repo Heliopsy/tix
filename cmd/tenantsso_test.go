@@ -117,3 +117,27 @@ func TestSSOLoopbackSignsIn(t *testing.T) {
 		t.Errorf("the sign-in did not ask for a loopback redirect: %s", opened)
 	}
 }
+
+func TestLoginSSOPicksTheOnlyProviderOrSaysWhichToName(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("user", "create", "ada@example.com", "--password", "correct horse battery", "--handle", "ada")
+	key := strings.TrimPrefix(totpKey, "TIX_AUTH_TOTP_KEY=")
+	url := c.loginServerWith(service.WithTOTPKey(key), service.WithEgress(egress.Permissive()))
+	if got := c.run("--server", url, "login", "--sso"); got.code == core.ExitOK || !strings.Contains(got.err, "no single sign-on provider") {
+		t.Errorf("--sso with no provider exited %d: %s", got.code, got.err)
+	}
+	if got := c.run("--server", url, "login", "--sso", "--email", "a@example.com"); got.code != core.ExitUsage {
+		t.Errorf("--sso beside --email exited %d, want usage", got.code)
+	}
+	for _, k := range []string{"one", "two"} {
+		idp := ssotest.NewOIDC(t, time.Now)
+		got := runStdinEnv(c, "", []string{totpKey}, "tenant", "sso", "add", k, "--issuer", idp.Issuer(), "--client-id", "x")
+		if got.code != core.ExitOK {
+			t.Fatalf("adding %s: %s", k, got.err)
+		}
+	}
+	got := c.run("--server", url, "login", "--sso")
+	if got.code != core.ExitUsage || !strings.Contains(got.err, "one, two") {
+		t.Errorf("--sso with two providers exited %d: %s", got.code, got.err)
+	}
+}
