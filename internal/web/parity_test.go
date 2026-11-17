@@ -132,7 +132,9 @@ func TestBindingsAreWellFormed(t *testing.T) {
 		if !strings.HasPrefix(binding.Pattern, "/") {
 			t.Errorf("binding %q has no absolute pattern", key)
 		}
-		if binding.Method == http.MethodGet && binding.Pattern != web.RouteRoot &&
+		// The root and the start of a single sign-on only redirect: one to
+		// the start screen, the other to the identity provider.
+		if binding.Method == http.MethodGet && binding.Pattern != web.RouteRoot && binding.Pattern != web.RouteSSOStart &&
 			binding.Template == "" && !binding.Asset {
 			t.Errorf("screen %q names no template", key)
 		}

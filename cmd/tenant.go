@@ -24,7 +24,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
 		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantIconCmd(g), tenantRmCmd(g),
-		tenantSessionPolicyCmd(g), newTenantSCIMCmd(g),
+		tenantSessionPolicyCmd(g), newTenantSSOCmd(g), newTenantSCIMCmd(g),
 	)
 	return cmd
 }
@@ -259,6 +259,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var trash string
 	var timeFormat, timezone string
 	var mfaPolicy, mfaGrace string
+	var passwordLogin string
 	var artifactMax, artifactTypes string
 	var sessionTTL, sessionIdle, sessionRemember string
 	var icon, iconName, iconFile string
@@ -315,6 +316,11 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"--time-format and --timezone set the date format and zone this tenant's people\n" +
 			"read dates in unless they chose their own (tix user time). Either as \"\" falls\n" +
 			"back to the deployment's output.time_format and output.timezone.\n\n" +
+			"--password-login disabled turns password sign-in off: people sign in through\n" +
+			"the tenant's single sign-on providers (tix tenant sso), and a global admin\n" +
+			"keeps password sign-in as the way back in. It is refused while the tenant has\n" +
+			"no enabled provider, and needs the sso:admin scope. API tokens and SSH keys\n" +
+			"keep working. --password-login allowed turns it back on.\n\n" +
 			"Exit codes: 2 --trash is not on or off, an unknown --mfa-policy, an unknown format or timezone, or an\n" +
 			"invalid icon;\n" +
 			"3 unknown tenant or unknown theme; 6 no second factor key, or you hold no second factor and asked for\n" +
@@ -393,6 +399,10 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				off := !on
 				in.TrashOff = &off
 			}
+			if cmd.Flags().Changed("password-login") {
+				policy := core.PasswordLogin(strings.ToLower(strings.TrimSpace(passwordLogin)))
+				in.PasswordLogin = &policy
+			}
 			if cmd.Flags().Changed("mfa-policy") {
 				policy := core.MFAPolicy(strings.ToLower(strings.TrimSpace(mfaPolicy)))
 				in.MFAPolicy = &policy
@@ -440,6 +450,7 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			return g.render(cmd, tenant)
 		},
 	}
+	cmd.Flags().StringVar(&passwordLogin, "password-login", "", "password sign-in: allowed, or disabled for single sign-on only")
 	cmd.Flags().StringVar(&mfaPolicy, "mfa-policy", "", "second factor policy: off, or required on every surface")
 	cmd.Flags().StringVar(&mfaGrace, "mfa-grace", "", "how long people without a second factor may still work after the policy is turned on, such as 7d; 0 gates at once")
 	cmd.Flags().StringVar(&name, "name", "", "new name")

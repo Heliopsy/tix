@@ -477,7 +477,8 @@ func TestContextValidate(t *testing.T) {
 		{"bad auth mode", Context{Server: "https://a", AuthMode: "magic"}, false},
 		{"bad hook mode", Context{Server: "https://a", HookMode: "always"}, false},
 		{"good modes", Context{Server: "https://a", AuthMode: "token", HookMode: "off"}, true},
-		{"unimplemented auth mode", Context{Server: "https://a", AuthMode: "oidc"}, false},
+		{"unimplemented auth mode", Context{Server: "https://a", AuthMode: "none"}, false},
+		{"per-tenant auth mode", Context{Server: "https://a", AuthMode: "oidc"}, false},
 		{"unimplemented hook mode", Context{Server: "https://a", HookMode: "warn"}, false},
 	}
 	for _, tc := range cases {
@@ -1043,7 +1044,6 @@ func TestUnimplementedEnumValuesAreRefused(t *testing.T) {
 		key       string
 		supported []string
 	}{
-		{"auth mode oidc", map[string]string{"TIX_AUTH_MODE": "oidc"}, "auth.mode", AuthModes},
 		{"auth mode none", map[string]string{"TIX_AUTH_MODE": "none"}, "auth.mode", AuthModes},
 		{"hook mode warn", map[string]string{"TIX_HOOKS_MODE": "warn"}, "hooks.mode", HookModes},
 		{"hook mode enforce", map[string]string{"TIX_HOOKS_MODE": "enforce"}, "hooks.mode", HookModes},
@@ -1083,7 +1083,7 @@ current_context: work
 contexts:
   work:
     database: sqlite://work.db
-    auth_mode: oidc
+    auth_mode: none
 `
 	home := t.TempDir()
 	env := map[string]string{"HOME": home, EnvConfigFile: write(t, filepath.Join(home, "config.yaml"), body)}
@@ -1347,6 +1347,20 @@ func TestDefaultedReadsNothing(t *testing.T) {
 	for _, e := range r.SourcesRaw() {
 		if e.Source != LayerDefault {
 			t.Errorf("%s reports layer %q", e.Key, e.Source)
+		}
+	}
+}
+
+func TestAuthModeOIDCPointsToTenantProviders(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, "TIX_AUTH_MODE": "oidc"}
+	_, err := Load(Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("err = %v, want an invalid-kind error", err)
+	}
+	for _, want := range []string{"auth.mode", "tix tenant sso add", "token"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v, want it to name %q", err, want)
 		}
 	}
 }

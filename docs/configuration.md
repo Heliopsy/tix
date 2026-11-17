@@ -441,9 +441,11 @@ Webhooks and inbox channels are held to this on every surface, as they were befo
 operator's own process and reaches what the operator's network allows. See
 [deployment.md](deployment.md#outbound-requests-to-tenant-urls) for the reasoning.
 
-`auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
+`auth.mode` and `hooks.mode` each accept one value in this build. `none` for `auth.mode`, and `warn`
 and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and
-ignored, because a setting that reads as a security control must never be silent.
+ignored, because a setting that reads as a security control must never be silent. `auth.mode: oidc` is refused
+too, naming `tix tenant sso add`: single sign-on is configured per tenant, not for the server. See
+[sso.md](sso.md).
 
 `hooks.mode` and `webhooks.drain_mode` are unrelated, despite the similar names. `hooks.mode` is the git hook
 setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the

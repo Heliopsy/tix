@@ -291,12 +291,13 @@ setting is upgraded on its owner's next sign-in, and a stronger one is kept. See
 
 ## Outbound requests to tenant urls
 
-Three things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
-channels, and external sync sources (Jira and OpenProject). A tenant administrator is a lower-privilege party
+Four things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
+channels, external sync sources (Jira and OpenProject), and single sign-on providers (discovery, the key set, the
+token endpoint and the GitHub API; see [sso.md](sso.md)). A tenant administrator is a lower-privilege party
 than whoever runs the server, and the request leaves from inside your network, so the url is untrusted input
 rather than configuration. A sync run in particular imports what it reads into tasks the tenant can see.
 
-All three go through one egress guard (`internal/egress`). By default it refuses a destination that resolves to:
+All of them go through one egress guard (`internal/egress`). By default it refuses a destination that resolves to:
 
 - loopback, including `localhost`, `127.0.0.0/8` and `::1`
 - link-local, which is where the cloud metadata endpoint lives at `169.254.169.254` and `fe80::/10`, and the
@@ -346,6 +347,22 @@ A command run against the database directly, such as `tix sync run` without a se
 process: its sync reaches whatever the operator's network allows, whatever these keys say. Webhook and channel
 deliveries it drains stay held to them, because those urls are a tenant's whichever process sends to them. See
 [configuration.md](configuration.md#keys).
+
+## Single sign-on
+
+Providers are per tenant and configured by tenant admins (`tix tenant sso add`), so there is nothing to turn on
+in `tix serve` beyond three things:
+
+- `auth.totp_key` must be set: it seals each provider's client secret and the sign-in between its two steps.
+  Every replica needs the same value, and losing it means storing every client secret again.
+- `server.public_url` should be set, so the redirect URL to register, `PUBLIC_URL/login/sso/callback`, is known
+  and printed. Behind a proxy, the forwarded scheme decides whether the callback is `https`; see
+  [Behind a reverse proxy](#behind-a-reverse-proxy).
+- An identity provider on an internal address needs its host in `server.egress_allow`, as an internal webhook
+  target does.
+
+`auth.mode` stays `token`; `oidc` there is refused. Keep at least one global admin with a password, which is the
+way back in to a tenant that turned passwords off. See [sso.md](sso.md).
 
 ## systemd
 

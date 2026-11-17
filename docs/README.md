@@ -23,6 +23,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
 | [scim.md](scim.md) | SCIM 2.0 provisioning from Entra ID, Okta, Authentik or JumpCloud: the token, group roles, deactivation |
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
+| [sso.md](sso.md) | Single sign-on per tenant: OIDC and GitHub providers, linking, password policy, break-glass |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
 | [mcp.md](mcp.md) | `tix mcp`: the API as MCP tools for Claude Code and other clients, the overlay, scopes and destructive tools |
 | [audit-log.md](audit-log.md) | The audit log: what an entry records, the access channel of every change, what is never stored |

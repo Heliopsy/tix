@@ -81,6 +81,10 @@ const (
 	ScopeWebhookAdmin Scope = "webhook:admin"
 	ScopeTenantAdmin  Scope = "tenant:admin"
 	ScopeSyncAdmin    Scope = "sync:admin"
+	// ScopeSSOAdmin manages the tenant's single sign-on providers. It is
+	// separate from tenant:admin because a provider decides who can sign in
+	// as whom, which is more than any other tenant setting reaches.
+	ScopeSSOAdmin Scope = "sso:admin"
 
 	// ScopeGlobalAdmin lets a token act for a global admin across tenants. "*"
 	// does not imply it: it is carried only when named, and only by a token
@@ -120,6 +124,7 @@ var AllScopes = []Scope{
 	ScopeCommentWrite, ScopeArtifactWrite,
 	ScopeEventSubscribe,
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
+	ScopeSSOAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
 	ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision,
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
@@ -293,6 +294,8 @@ func newFixtureHooks(t *testing.T, hooks service.HookMode, opts ...web.Option) *
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
 	local := service.New(st, service.WithClock(clk), service.WithHooks(hooks),
 		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey),
+		// Identity providers in tests are httptest servers on loopback.
+		service.WithEgress(egress.Permissive()),
 		// A shared host, as tix serve is, with a sync directory and tenant
 		// acme bound to the server's sync environment.
 		service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir(), EnvSources: []string{"acme/*"}}))

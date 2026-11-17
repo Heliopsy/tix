@@ -15,6 +15,8 @@ import (
 type fakeService struct {
 	mu sync.Mutex
 
+	ssoProviders []core.SSOProvider
+
 	projects  []core.Project
 	deletions []core.DeleteProjectInput
 	plans     []core.DeleteProjectInput
@@ -948,6 +950,38 @@ func (f *fakeService) ExportBundle(context.Context, core.BundleExportInput, io.W
 
 func (f *fakeService) ImportBundle(context.Context, io.Reader, core.BundleImportInput) (*core.BundleResult, error) {
 	return nil, nil
+}
+
+func (f *fakeService) ListSSOProviders(context.Context) ([]core.SSOProvider, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]core.SSOProvider(nil), f.ssoProviders...), nil
+}
+
+func (f *fakeService) GetSSOProvider(context.Context, string) (*core.SSOProvider, error) {
+	return nil, core.NotFound("sso provider")
+}
+
+func (f *fakeService) CreateSSOProvider(context.Context, core.CreateSSOProviderInput) (*core.SSOProvider, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) UpdateSSOProvider(context.Context, string, core.UpdateSSOProviderInput) (*core.SSOProvider, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) DeleteSSOProvider(context.Context, string) error { return nil }
+
+func (f *fakeService) SignInOptions(context.Context) (*core.SignInOptions, error) {
+	return &core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed}, nil
+}
+
+func (f *fakeService) BeginSSOLogin(context.Context, core.BeginSSOInput) (*core.SSOBegin, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (*core.LoginResult, error) {
+	return nil, core.Invalid("not supported by the fake")
 }
 
 var _ core.Service = (*fakeService)(nil)

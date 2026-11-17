@@ -248,6 +248,9 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		return nil, errInvalidCredentials()
 	}
 
+	if err := l.passwordSignInAllowed(ctx, scope, cand.user, core.LoginMethodPassword); err != nil {
+		return nil, err
+	}
 	changed, err := l.replacementPassword(ctx, cand.user, in)
 	if err != nil {
 		return nil, err

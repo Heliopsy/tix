@@ -5,10 +5,10 @@ creates, updates, deactivates and removes the people of an application. `tix ser
 time, so somebody who joins the company gets a tix account from the provider and somebody who leaves loses
 access to the tenant without an admin remembering to do it.
 
-SCIM is provisioning only. It does not sign anybody in. Sign-in with an identity provider over OIDC is a
-separate feature with its own settings, and SAML is planned for later. A person the provider created has no
-password, so until single sign-on is set up they get in through an invite (`tix user invite`) or a password an
-admin sets or resets.
+SCIM is provisioning only. It does not sign anybody in. Sign-in with an identity provider over OIDC or
+GitHub is a separate feature with its own settings ([sso.md](sso.md)), and SAML is planned for later. A person
+the provider created has no password, so until single sign-on is set up they get in through an invite
+(`tix user invite`) or a password an admin sets or resets.
 
 ## The endpoint
 

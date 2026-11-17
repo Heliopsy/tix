@@ -43,6 +43,7 @@ type Service interface {
 	InboxChannelService
 	TemplateService
 	TimeService
+	SSOService
 	SCIMService
 
 	// Close releases the service's resources, such as the underlying store.
@@ -955,4 +956,36 @@ type PruneResult struct {
 	RetainedForSubscribers int64 `json:"retained_for_subscribers" yaml:"retained_for_subscribers"`
 	// DryRun is true when nothing was removed.
 	DryRun bool `json:"dry_run" yaml:"dry_run"`
+}
+
+// SSOService covers a tenant's single sign-on providers and signing in
+// through them.
+type SSOService interface {
+	// ListSSOProviders lists the tenant's sign-in providers. No client
+	// secret is ever returned, only whether one is set.
+	ListSSOProviders(ctx context.Context) ([]SSOProvider, error)
+	// GetSSOProvider returns one of the tenant's providers by key or
+	// identifier.
+	GetSSOProvider(ctx context.Context, ref string) (*SSOProvider, error)
+	// CreateSSOProvider adds a sign-in provider to the tenant. The client
+	// secret is sealed with the server's key and never shown again.
+	CreateSSOProvider(ctx context.Context, in CreateSSOProviderInput) (*SSOProvider, error)
+	// UpdateSSOProvider changes a provider by key or identifier. Disabling
+	// the last enabled provider is refused while password sign-in is off.
+	UpdateSSOProvider(ctx context.Context, ref string, in UpdateSSOProviderInput) (*SSOProvider, error)
+	// DeleteSSOProvider removes a provider and every identity linked through
+	// it. Removing the last enabled provider is refused while password
+	// sign-in is off.
+	DeleteSSOProvider(ctx context.Context, ref string) error
+	// SignInOptions reports, without a credential, whether this tenant takes
+	// passwords and which providers its sign-in screen offers.
+	SignInOptions(ctx context.Context) (*SignInOptions, error)
+	// BeginSSOLogin starts a sign-in through one of the tenant's providers:
+	// it answers the address to open and the sealed flow to complete it with.
+	// The redirect URI is the browser callback or a loopback address.
+	BeginSSOLogin(ctx context.Context, in BeginSSOInput) (*SSOBegin, error)
+	// CompleteSSOLogin finishes a sign-in with the code the provider
+	// returned. It answers as Login does: a session, or the second factor
+	// still to pass.
+	CompleteSSOLogin(ctx context.Context, in CompleteSSOInput) (*LoginResult, error)
 }

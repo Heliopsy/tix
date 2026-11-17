@@ -218,6 +218,7 @@ var paletteScreens = []paletteScreen{
 	{RouteTenant, "Tenant", "Manage", true, false},
 	{RouteDomains, "Domains", "Manage", true, false},
 	{RouteUsers, "Users", "Manage", true, false},
+	{RouteSSO, "Single sign-on", "Manage", true, false},
 	{RouteTokens, "Tokens", "Manage", true, false},
 	{RouteSSHKeys, "SSH keys", "Manage", true, false},
 	{RouteStatus, "Status", "Manage", true, false},

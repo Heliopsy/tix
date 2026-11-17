@@ -38,6 +38,7 @@ tags:
   - name: session
   - name: snapshot
   - name: sshkey
+  - name: sso
   - name: stats
   - name: status
   - name: sync
@@ -1090,6 +1091,138 @@ paths:
         - session
       x-tix-openspec:
         - http-api
+  /api/v1/auth/sso/begin:
+    post:
+      description: |-
+        BeginSSOLogin starts a sign-in through one of the tenant's providers: it answers the address to open and the sealed flow to complete it with. The redirect URI is the browser callback or a loopback address.
+
+        Command line: `tix login`.
+      operationId: sso.begin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeginSSOInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSOBegin'
+          description: 'SSOBegin is a started sign-in: the address to open and the
+            sealed flow.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: 'BeginSSOLogin starts a sign-in through one of the tenant''s providers:
+        it answers the address to open and the sealed flow to complete it with'
+      tags:
+        - sso
+  /api/v1/auth/sso/complete:
+    post:
+      description: |-
+        CompleteSSOLogin finishes a sign-in with the code the provider returned. It answers as Login does: a session, or the second factor still to pass.
+
+        Command line: `tix login`.
+      operationId: sso.complete
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSSOInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: LoginResult is either a session or the challenge standing between
+            the caller and one. Exactly one of the two is set.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: CompleteSSOLogin finishes a sign-in with the code the provider returned
+      tags:
+        - sso
+  /api/v1/auth/sso/options:
+    get:
+      description: |-
+        SignInOptions reports, without a credential, whether this tenant takes passwords and which providers its sign-in screen offers.
+
+        Command line: `tix login`.
+      operationId: sso.options
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInOptions'
+          description: SignInOptions is what a sign-in screen offers on this tenant.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: SignInOptions reports, without a credential, whether this tenant takes
+        passwords and which providers its sign-in screen offers
+      tags:
+        - sso
   /api/v1/auth/switch:
     post:
       description: |-
@@ -7196,6 +7329,304 @@ paths:
       summary: RevokeSSHKey stops a key authenticating
       tags:
         - sshkey
+  /api/v1/sso/providers:
+    get:
+      description: |-
+        ListSSOProviders lists the tenant's sign-in providers. No client secret is ever returned, only whether one is set.
+
+        Command line: `tix tenant sso ls`.
+      operationId: sso.provider.list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/SSOProvider'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                  page:
+                    type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
+                  total:
+                    type:
+                      - "null"
+                      - integer
+                  total_capped:
+                    type: boolean
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/SSOProvider'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: ListSSOProviders lists the tenant's sign-in providers
+      tags:
+        - sso
+    post:
+      description: |-
+        CreateSSOProvider adds a sign-in provider to the tenant. The client secret is sealed with the server's key and never shown again.
+
+        Command line: `tix tenant sso add`.
+      operationId: sso.provider.create
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSSOProviderInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSOProvider'
+          description: 'SSOProvider is a tenant''s sign-in provider. The client secret
+            is never part of it once stored: SecretSet and SecretHint say what a screen
+            may show.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: CreateSSOProvider adds a sign-in provider to the tenant
+      tags:
+        - sso
+  /api/v1/sso/providers/{id}:
+    delete:
+      description: |-
+        DeleteSSOProvider removes a provider and every identity linked through it. Removing the last enabled provider is refused while password sign-in is off.
+
+        Command line: `tix tenant sso rm`.
+      operationId: sso.provider.delete
+      parameters:
+        - description: Single sign-on provider key, such as kc, or its ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: DeleteSSOProvider removes a provider and every identity linked through
+        it
+      tags:
+        - sso
+    get:
+      description: |-
+        GetSSOProvider returns one of the tenant's providers by key or identifier.
+
+        Command line: `tix tenant sso show`.
+      operationId: sso.provider.show
+      parameters:
+        - description: Single sign-on provider key, such as kc, or its ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSOProvider'
+          description: 'SSOProvider is a tenant''s sign-in provider. The client secret
+            is never part of it once stored: SecretSet and SecretHint say what a screen
+            may show.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: GetSSOProvider returns one of the tenant's providers by key or identifier
+      tags:
+        - sso
+    patch:
+      description: |-
+        UpdateSSOProvider changes a provider by key or identifier. Disabling the last enabled provider is refused while password sign-in is off.
+
+        Command line: `tix tenant sso edit`.
+      operationId: sso.provider.update
+      parameters:
+        - description: Single sign-on provider key, such as kc, or its ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSSOProviderInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSOProvider'
+          description: 'SSOProvider is a tenant''s sign-in provider. The client secret
+            is never part of it once stored: SecretSet and SecretHint say what a screen
+            may show.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: UpdateSSOProvider changes a provider by key or identifier
+      tags:
+        - sso
   /api/v1/stats:
     get:
       description: |-
@@ -14103,6 +14534,26 @@ components:
             identified the caller on it. Kind is unknown on an entry recorded before
             channels were.
       type: object
+    BeginSSOInput:
+      description: BeginSSOInput starts a sign-in through a provider.
+      properties:
+        next:
+          description: Next is the screen to return to, for a browser sign-in.
+          type: string
+        provider:
+          description: Provider is the provider's key.
+          type: string
+        redirect_uri:
+          description: 'RedirectURI is where the provider returns the code: the browser
+            callback, or a loopback address the command line listens on.'
+          type: string
+        remember:
+          description: Remember asks for a keep me signed in session.
+          type: boolean
+        surface:
+          $ref: '#/components/schemas/Surface'
+          description: Surface is the sign-in path the session is for.
+      type: object
     BulkAction:
       description: BulkAction names what a bulk task request does to each task it
         names.
@@ -14516,6 +14967,22 @@ components:
           description: Body is the comment text, Markdown.
           type: string
       type: object
+    CompleteSSOInput:
+      description: CompleteSSOInput finishes a sign-in with what the provider returned.
+      properties:
+        code:
+          description: Code is the authorization code the provider returned.
+          type: string
+        error:
+          description: Error is the error the provider returned instead of a code.
+          type: string
+        flow:
+          description: Flow is the sealed state the sign-in began with.
+          type: string
+        state:
+          description: State is the state the provider returned.
+          type: string
+      type: object
     ComponentAction:
       description: ComponentAction names what an import did, or would do, to one component.
       enum:
@@ -14725,6 +15192,87 @@ components:
             its own key, reused when the tenant already holds it, and gets the template''s
             custom fields. At most one of WorkflowKey and WorkflowTemplate may be
             set.'
+          type: string
+      type: object
+    CreateSSOProviderInput:
+      description: CreateSSOProviderInput configures a new provider.
+      properties:
+        allowed_domains:
+          description: AllowedDomains restricts sign-in to emails at these domains.
+          items:
+            type: string
+          type: array
+        allowed_orgs:
+          description: AllowedOrgs restricts a GitHub provider to these organisations.
+          items:
+            type: string
+          type: array
+        api_url:
+          description: APIURL is a GitHub Enterprise Server API address.
+          type: string
+        auto_create:
+          description: AutoCreate creates an account for a verified email nobody holds.
+          type: boolean
+        client_id:
+          description: ClientID is the client registered with the provider.
+          type: string
+        client_secret:
+          description: ClientSecret is the client's secret. It is sealed and never
+            returned.
+          type: string
+        default_role:
+          $ref: '#/components/schemas/Role'
+          description: DefaultRole is the role a created person gets; empty is member.
+        disabled:
+          description: Disabled creates the provider switched off.
+          type: boolean
+        display_name:
+          description: DisplayName is the name on the sign-in button; empty is the
+            key.
+          type: string
+        email_claim:
+          description: EmailClaim names the claim read as the email.
+          type: string
+        groups_claim:
+          description: GroupsClaim names the claim read as the groups.
+          type: string
+        issuer:
+          description: Issuer is the OIDC issuer.
+          type: string
+        key:
+          description: 'Key is the provider''s short name: lowercase letters, digits
+            and dashes.'
+          type: string
+        kind:
+          description: SSOKind is the protocol a sign-in provider speaks.
+          type: string
+        mfa_values:
+          description: MFAValues are the amr or acr values trust_mfa accepts.
+          items:
+            type: string
+          type: array
+        name_claim:
+          description: NameClaim names the claim read as the display name.
+          type: string
+        role_mapping:
+          additionalProperties:
+            $ref: '#/components/schemas/Role'
+          description: RoleMapping maps a group to a tenant role.
+          type: object
+        scopes:
+          description: Scopes are the OAuth scopes requested.
+          items:
+            type: string
+          type: array
+        trust_mfa:
+          description: TrustMFA skips the tenant's second factor when the provider
+            asserts one.
+          type: boolean
+        username_claim:
+          description: UsernameClaim names the claim read as the handle.
+          type: string
+        web_url:
+          description: WebURL is a GitHub Enterprise Server address.
           type: string
       type: object
     CreateTaskRequest:
@@ -14978,6 +15526,9 @@ components:
             - string
         name:
           description: Name is the tenant's display name.
+          type: string
+        password_login:
+          description: PasswordLogin is a tenant's password sign-in policy.
           type: string
         require_totp_cli:
           description: RequireTOTPCLI requires a second factor when signing in from
@@ -16273,12 +16824,20 @@ components:
           $ref: '#/components/schemas/TOTPChallenge'
           description: Challenge is set when a second factor or a new password is
             still needed.
+        next:
+          description: Next is the screen a browser sign-in through a provider returns
+            to, as the sign-in began with it.
+          type: string
         recovery_codes:
           description: RecoveryCodes is set once, when a sign-in completed by enrolling.
             The caller must show them and cannot ask for them again.
           items:
             type: string
           type: array
+        remember:
+          description: Remember carries a provider sign-in's keep me signed in choice
+            to the second factor step that completes it.
+          type: boolean
         second_factor_due:
           description: 'SecondFactorDue is set on a session minted for a person who
             holds no factor under the tenant''s second factor policy: when the policy
@@ -16953,6 +17512,139 @@ components:
             that resolved another one refuses rather than signing in somewhere else.
           type: string
       type: object
+    SSOBegin:
+      description: 'SSOBegin is a started sign-in: the address to open and the sealed
+        flow.'
+      properties:
+        auth_url:
+          description: AuthURL is the provider's authorization address to open.
+          type: string
+        expires_at:
+          description: ExpiresAt is when the flow can no longer be completed.
+          format: date-time
+          type: string
+        flow:
+          description: Flow is the sealed sign-in state, handed back to complete it.
+          type: string
+        state:
+          description: State is the value the provider returns with the code.
+          type: string
+      type: object
+    SSOProvider:
+      description: 'SSOProvider is a tenant''s sign-in provider. The client secret
+        is never part of it once stored: SecretSet and SecretHint say what a screen
+        may show.'
+      properties:
+        allowed_domains:
+          description: AllowedDomains restricts sign-in to emails at these domains;
+            empty is any.
+          items:
+            type: string
+          type: array
+        allowed_orgs:
+          description: AllowedOrgs restricts a GitHub provider to members of these
+            organisations.
+          items:
+            type: string
+          type: array
+        api_url:
+          type: string
+        auto_create:
+          description: AutoCreate creates an account for a verified email nobody holds.
+          type: boolean
+        client_id:
+          description: ClientID is the client registered with the provider.
+          type: string
+        created_at:
+          format: date-time
+          type: string
+        default_role:
+          $ref: '#/components/schemas/Role'
+          description: DefaultRole is the role a created person gets when no group
+            maps.
+        display_name:
+          description: DisplayName is the name on the "Sign in with" button.
+          type: string
+        email_claim:
+          description: EmailClaim, NameClaim, UsernameClaim and GroupsClaim name the
+            ID token claims read; empty is email, name, preferred_username and groups.
+          type: string
+        enabled:
+          description: Enabled reports whether the provider is offered at sign-in.
+          type: boolean
+        groups_claim:
+          type: string
+        id:
+          description: ID is the provider's identifier.
+          type: string
+        issuer:
+          description: Issuer is the OIDC issuer, whose discovery document is read.
+          type: string
+        key:
+          description: Key is the provider's short name in the tenant, used in addresses,
+            on the command line and in a session's sign-in method.
+          type: string
+        kind:
+          description: SSOKind is the protocol a sign-in provider speaks.
+          type: string
+        mfa_values:
+          description: MFAValues are the amr or acr values trust_mfa accepts as a
+            second factor.
+          items:
+            type: string
+          type: array
+        name_claim:
+          type: string
+        redirect_url:
+          description: RedirectURL is the address to register with the provider, when
+            the server knows its public address.
+          type: string
+        role_mapping:
+          additionalProperties:
+            $ref: '#/components/schemas/Role'
+          description: RoleMapping maps a group, or a GitHub organisation, to a tenant
+            role.
+          type: object
+        scopes:
+          description: Scopes are the OAuth scopes requested.
+          items:
+            type: string
+          type: array
+        secret_hint:
+          description: SecretHint is the stored secret's last four characters, for
+            a long one.
+          type: string
+        secret_set:
+          description: SecretSet reports that a client secret is stored.
+          type: boolean
+        trust_mfa:
+          description: TrustMFA skips the tenant's second factor when the provider
+            asserts one.
+          type: boolean
+        updated_at:
+          format: date-time
+          type: string
+        username_claim:
+          type: string
+        web_url:
+          description: WebURL and APIURL point a GitHub provider at GitHub Enterprise
+            Server; empty is github.com.
+          type: string
+      type: object
+    SSOProviderOption:
+      description: SSOProviderOption is a provider as the sign-in screen offers it.
+      properties:
+        display_name:
+          description: DisplayName is the name on the button.
+          type: string
+        key:
+          description: Key is the provider's short name, which starts a sign-in through
+            it.
+          type: string
+        kind:
+          description: SSOKind is the protocol a sign-in provider speaks.
+          type: string
+      type: object
     SaveTemplateInput:
       description: SaveTemplateInput names a task to keep as a template.
       properties:
@@ -17117,6 +17809,7 @@ components:
         - webhook:admin
         - tenant:admin
         - sync:admin
+        - sso:admin
         - global:admin
         - audit:read
         - account:read
@@ -17276,6 +17969,20 @@ components:
           description: TTL is how long a sign-in lasts from the moment it is made,
             and again from each use while MaxLifetime allows.
           type: string
+      type: object
+    SignInOptions:
+      description: SignInOptions is what a sign-in screen offers on this tenant.
+      properties:
+        password_login:
+          description: PasswordLogin is a tenant's password sign-in policy.
+          type: string
+        providers:
+          description: Providers are the tenant's enabled providers.
+          items:
+            $ref: '#/components/schemas/SSOProviderOption'
+          type:
+            - array
+            - "null"
       type: object
     SnoozeInput:
       description: SnoozeInput says until when a task sleeps.
@@ -18664,6 +19371,9 @@ components:
         name:
           description: Name is the tenant's display name.
           type: string
+        password_login:
+          description: PasswordLogin is a tenant's password sign-in policy.
+          type: string
         require_totp_cli:
           description: RequireTOTPCLI requires a second factor when signing in from
             the command line. Defaults to false.
@@ -18774,13 +19484,6 @@ components:
           $ref: '#/components/schemas/Role'
           description: Role is the user's role in that tenant; empty when they hold
             no membership there.
-        sso_provider:
-          description: SSOProvider names the single sign-on provider that vouches
-            for the user. Empty for a password user.
-          type: string
-        sso_subject:
-          description: SSOSubject is the user's subject identifier at SSOProvider.
-          type: string
         totp_enrolled:
           description: 'TOTPEnrolled reports whether this user holds a confirmed second
             factor. It is state, not a credential: nothing here can produce a code,
@@ -19031,6 +19734,116 @@ components:
             - "null"
             - string
       type: object
+    UpdateSSOProviderInput:
+      description: UpdateSSOProviderInput changes a provider; an omitted field is
+        unchanged.
+      properties:
+        allowed_domains:
+          description: AllowedDomains replaces the allowed email domains; empty clears
+            them.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
+        allowed_orgs:
+          description: AllowedOrgs replaces the allowed GitHub organisations.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
+        api_url:
+          description: APIURL is a GitHub Enterprise Server API address.
+          type:
+            - "null"
+            - string
+        auto_create:
+          description: AutoCreate creates an account for a verified email nobody holds.
+          type:
+            - "null"
+            - boolean
+        client_id:
+          description: ClientID is the client registered with the provider.
+          type:
+            - "null"
+            - string
+        client_secret:
+          description: ClientSecret replaces the stored secret; empty clears it.
+          type:
+            - "null"
+            - string
+        default_role:
+          $ref: '#/components/schemas/Role'
+          description: DefaultRole is the role a created person gets.
+        display_name:
+          description: DisplayName is the name on the sign-in button.
+          type:
+            - "null"
+            - string
+        email_claim:
+          description: EmailClaim names the claim read as the email.
+          type:
+            - "null"
+            - string
+        enabled:
+          description: Enabled switches the provider on or off.
+          type:
+            - "null"
+            - boolean
+        groups_claim:
+          description: GroupsClaim names the claim read as the groups.
+          type:
+            - "null"
+            - string
+        issuer:
+          description: Issuer is the OIDC issuer.
+          type:
+            - "null"
+            - string
+        mfa_values:
+          description: MFAValues replaces the amr or acr values trust_mfa accepts.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
+        name_claim:
+          description: NameClaim names the claim read as the display name.
+          type:
+            - "null"
+            - string
+        role_mapping:
+          additionalProperties:
+            $ref: '#/components/schemas/Role'
+          description: RoleMapping replaces the group mapping; empty clears it.
+          type:
+            - "null"
+            - object
+        scopes:
+          description: Scopes replaces the requested scopes; empty is the default.
+          items:
+            type: string
+          type:
+            - "null"
+            - array
+        trust_mfa:
+          description: TrustMFA skips the tenant's second factor when the provider
+            asserts one.
+          type:
+            - "null"
+            - boolean
+        username_claim:
+          description: UsernameClaim names the claim read as the handle.
+          type:
+            - "null"
+            - string
+        web_url:
+          description: WebURL is a GitHub Enterprise Server address.
+          type:
+            - "null"
+            - string
+      type: object
     UpdateTaskInput:
       description: UpdateTaskInput changes a task.
       properties:
@@ -19224,6 +20037,11 @@ components:
           type:
             - "null"
             - string
+        password_login:
+          description: PasswordLogin is a tenant's password sign-in policy.
+          type:
+            - "null"
+            - string
         require_totp_cli:
           description: RequireTOTPCLI turns the second-factor requirement for command
             line sign-in on or off; omitted leaves it alone.
@@ -19384,13 +20202,6 @@ components:
           description: RequirePasswordChange reports whether the next password sign-in
             must choose a new password before a session is minted.
           type: boolean
-        sso_provider:
-          description: SSOProvider names the single sign-on provider that vouches
-            for the user. Empty for a password user.
-          type: string
-        sso_subject:
-          description: SSOSubject is the user's subject identifier at SSOProvider.
-          type: string
         totp_enrolled:
           description: 'TOTPEnrolled reports whether this user holds a confirmed second
             factor. It is state, not a credential: nothing here can produce a code,
@@ -19711,8 +20522,8 @@ components:
         `task:delete`, `task:reclaim`, `task:approve`, `project:read`, `project:write`,
         `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
         `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
-        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`,
-        `scim:provision`.'
+        `sync:admin`, `sso:admin`, `audit:read`, `export`, `import`, `global:admin`,
+        `account:read`, `scim:provision`.'
       scheme: bearer
       type: http
     session:
@@ -19722,8 +20533,8 @@ components:
         `task:claim`, `task:delete`, `task:reclaim`, `task:approve`, `project:read`,
         `project:write`, `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`,
         `event:subscribe`, `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`,
-        `tenant:admin`, `sync:admin`, `audit:read`, `export`, `import`, `global:admin`,
-        `account:read`, `scim:provision`.
+        `tenant:admin`, `sync:admin`, `sso:admin`, `audit:read`, `export`, `import`,
+        `global:admin`, `account:read`, `scim:provision`.
       in: cookie
       name: tix_session
       type: apiKey

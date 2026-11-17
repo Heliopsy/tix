@@ -165,6 +165,7 @@ the routes the server registers. The areas are the first segment of each operati
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
+| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}` |
 | stats | `GET /stats` |
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
@@ -412,6 +413,25 @@ once per key. Refusals are `401` and say which check failed: an expired or forei
 that does not verify or was made under another namespace, a key that is not enrolled
 (`details.reason` `ssh_key_not_enrolled`) or was revoked (`ssh_key_revoked`), or a challenge already used.
 [deployment.md](deployment.md#signing-in-from-the-command-line-with-a-key) has the reasoning.
+
+### Single sign-on
+
+`GET /auth/sso/options` needs no credential and answers what the tenant's sign-in screen offers: its
+`password_login` policy and its enabled `providers`, each with `key`, `display_name` and `kind`.
+
+A sign-in through a provider is two calls, neither needing a credential. `POST /auth/sso/begin` takes
+`provider` (the key), `redirect_uri` and `surface`, optionally `remember`, and answers `auth_url` to open,
+`state`, and `flow`, a sealed value to keep. The redirect URI is the browser callback
+`PUBLIC_URL/login/sso/callback` or a loopback address such as `http://127.0.0.1:PORT/callback`; anything else is
+refused. After the provider redirects back, `POST /auth/sso/complete` takes `flow`, `code` and `state` (or
+`error`) and answers as `POST /auth/login` does: a session, also set as a cookie, or a second factor challenge
+finished on `POST /auth/login`. A refusal after the provider vouched for someone is `403` with a
+`reason` such as `sso_not_member` or `sso_email_unverified`.
+
+`/sso/providers` lists and creates providers and `/sso/providers/{id}` (a key or an ID) reads, changes
+(`PATCH`, omitted fields unchanged) and deletes one; all need `sso:admin`. `client_secret` is accepted on create
+and change and never returned: `secret_set` and `secret_hint` say what is stored. `PATCH /tenants/{ref}`
+takes `password_login` (`allowed` or `disabled`). See [sso.md](sso.md).
 
 ### Second factor
 

@@ -165,7 +165,9 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		if op.HTTP.Template != "" {
 			t.Errorf("%s: an http route renders no template", op.Name)
 		}
-		if op.Web.Method == http.MethodGet && op.Web.Template == "" && !op.Web.Asset {
+		// The start of a single sign-on only redirects to the identity
+		// provider, as the root redirects to the start screen.
+		if op.Web.Method == http.MethodGet && op.Web.Template == "" && !op.Web.Asset && op.Web.Pattern != web.RouteSSOStart {
 			t.Errorf("%s: a browser screen names no template", op.Name)
 		}
 		if op.Web.Query != "" {
@@ -357,6 +359,22 @@ func (stubService) PreviewInvite(context.Context, string) (*core.InvitePreview, 
 // asks the service something before anybody signed in.
 func (stubService) SessionPolicy(context.Context) (*core.SessionPolicy, error) {
 	return nil, core.Invalid("no policy")
+}
+
+// SignInOptions answers for the same screen, which offers the tenant's
+// providers beside the password form.
+func (stubService) SignInOptions(context.Context) (*core.SignInOptions, error) {
+	return nil, core.Invalid("no options")
+}
+
+// BeginSSOLogin and CompleteSSOLogin answer for the two public routes a
+// single sign-on passes through.
+func (stubService) BeginSSOLogin(context.Context, core.BeginSSOInput) (*core.SSOBegin, error) {
+	return nil, core.Invalid("no provider")
+}
+
+func (stubService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (*core.LoginResult, error) {
+	return nil, core.Unauthenticated("no flow")
 }
 
 func (stubService) AcceptInvite(context.Context, string, core.AcceptInviteInput) (*core.LoginResult, error) {

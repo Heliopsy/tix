@@ -75,6 +75,10 @@ var subjectScope = map[string]core.Scope{
 	"webhook_delivery": core.ScopeWebhookAdmin,
 	"sync_source":      core.ScopeSyncAdmin,
 
+	// A provider event carries its settings, and an identity event names a
+	// person, their email and which tenant's provider vouched for them.
+	"sso_provider": core.ScopeSSOAdmin,
+	"sso_identity": core.ScopeSSOAdmin,
 	// SCIM settings name the provisioning agent, and a SCIM group lists people.
 	subjectSCIM:      core.ScopeTenantAdmin,
 	subjectSCIMGroup: core.ScopeUserAdmin,

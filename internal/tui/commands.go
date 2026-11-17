@@ -1072,6 +1072,11 @@ func (m Model) loadTenantInfo() tea.Cmd {
 		} else {
 			out.domains = domains
 		}
+		if providers, err := svc.ListSSOProviders(ctx); err != nil {
+			out.ssoErr = err.Error()
+		} else {
+			out.providers = providers
+		}
 		if members, err := svc.ListMembers(ctx); err != nil {
 			out.memberErr = err.Error()
 		} else {

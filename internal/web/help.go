@@ -65,6 +65,7 @@ var helpDocs = map[string]helpDoc{
 	RouteSwitch:                          {"tenancy.md", "switching-tenant"},
 	"/admin/connections":                 {"web-ui.md", "server-administration"},
 	"/admin/webhooks":                    {"api.md", "webhooks"},
+	"/admin/sso":                         {"sso.md", "the-single-sign-on-screen"},
 	"/transfer":                          {"migrating.md", "moving-a-whole-tenant"},
 	"/sync":                              {"migrating.md", "importing-from-an-external-tracker"},
 	"/sync/runs":                         {"migrating.md", "importing-from-an-external-tracker"},

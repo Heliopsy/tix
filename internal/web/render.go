@@ -297,6 +297,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"stamp":            style.FormatPtr,
 		"absolute":         style.Absolute,
 		"join":             joinValues,
+		"ssoForm":          newSSOForm,
 		"bytesize":         core.ByteSize,
 		"scopes":           joinScopes,
 		"counts":           formatCounts,
@@ -747,7 +748,7 @@ func tenantAdmin(r *http.Request) bool {
 // invariant above read backwards.
 var advancedScopes = []core.Scope{
 	core.ScopeTenantAdmin, core.ScopeUserAdmin, core.ScopeTokenAdmin,
-	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin,
+	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin, core.ScopeSSOAdmin,
 	core.ScopeWorkflowRead, core.ScopeWorkflowWrite, core.ScopeAuditRead,
 	core.ScopeExport, core.ScopeImport,
 }

@@ -59,6 +59,7 @@ var (
 	_ core.InboxService        = service
 	_ core.InboxChannelService = service
 	_ core.TemplateService     = service
+	_ core.SSOService          = service
 )
 
 // serviceParts names every sub-interface Service is assembled from.
@@ -85,6 +86,7 @@ var serviceParts = map[string]reflect.Type{
 	"InboxChannelService": reflect.TypeOf((*core.InboxChannelService)(nil)).Elem(),
 	"TemplateService":     reflect.TypeOf((*core.TemplateService)(nil)).Elem(),
 	"TimeService":         reflect.TypeOf((*core.TimeService)(nil)).Elem(),
+	"SSOService":          reflect.TypeOf((*core.SSOService)(nil)).Elem(),
 	"SCIMService":         reflect.TypeOf((*core.SCIMService)(nil)).Elem(),
 }
 
