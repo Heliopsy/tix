@@ -481,3 +481,22 @@ func TestSSONeedsTheSealingKey(t *testing.T) {
 		t.Errorf("a provider without a sealing key = %v", err)
 	}
 }
+
+func TestSSOProvidersAreListedWithTheirRedirect(t *testing.T) {
+	l, _, _, admin := newLocalWith(t, WithTOTPKey(totpTestKey), WithPublicURL("https://tix.example/"))
+	if _, err := l.CreateSSOProvider(authContext(admin), core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
+		Issuer: "https://id.example.com", ClientID: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := l.ListSSOProviders(authContext(admin))
+	if err != nil || len(listed) != 1 || listed[0].RedirectURL != "https://tix.example/login/sso/callback" {
+		t.Fatalf("listed = %+v, %v", listed, err)
+	}
+	shown, err := l.GetSSOProvider(authContext(admin), "KC")
+	if err != nil || shown.Key != "kc" || shown.RedirectURL == "" {
+		t.Errorf("shown = %+v, %v", shown, err)
+	}
+	if err := l.DeleteSSOProvider(authContext(admin), "kc"); err != nil {
+		t.Errorf("delete = %v", err)
+	}
+}

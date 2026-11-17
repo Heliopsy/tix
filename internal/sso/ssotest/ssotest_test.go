@@ -89,3 +89,89 @@ func TestTheFakeGitHubRefusesWhatGitHubWould(t *testing.T) {
 		_ = r.Body.Close()
 	}
 }
+
+// TestTheFakeProviderIssuesWhatItIsTold walks a whole sign-in against the
+// fake and checks each tweak lands in the token it issues.
+func TestTheFakeProviderIssuesWhatItIsTold(t *testing.T) {
+	p := NewOIDC(t, time.Now)
+	p.SetClaims(map[string]any{"sub": "s1", "email": "a@example.com"})
+	p.SetUserinfo(map[string]any{"sub": "s1", "email": "b@example.com"})
+	p.SetTweak(Tweak{Audience: "aud", Issuer: "iss", ExpiresIn: -time.Minute, Nonce: "other", ForeignKey: true})
+	for _, path := range []string{"/.well-known/openid-configuration", "/keys"} {
+		r, err := http.Get(p.Issuer() + path)
+		if err != nil || r.StatusCode != http.StatusOK {
+			t.Fatalf("%s = %v, %v", path, r, err)
+		}
+		_ = r.Body.Close()
+	}
+	verifier := strings.Repeat("v", 43)
+	code := p.Grant("https://x/authorize?" + url.Values{"code_challenge": {challenge(verifier)}, "nonce": {"n"},
+		"redirect_uri": {"http://127.0.0.1:9/cb"}}.Encode())
+	r, err := http.PostForm(p.Issuer()+"/token", url.Values{"client_id": {p.ClientID}, "client_secret": {p.ClientSecret},
+		"code": {code}, "redirect_uri": {"http://127.0.0.1:9/cb"}, "code_verifier": {verifier}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tok map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&tok)
+	_ = r.Body.Close()
+	if tok["id_token"] == nil || tok["access_token"] == nil {
+		t.Fatalf("token = %v", tok)
+	}
+	req, _ := http.NewRequest(http.MethodGet, p.Issuer()+"/userinfo", nil)
+	req.Header.Set("Authorization", "Bearer "+tok["access_token"].(string))
+	info, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var claims map[string]any
+	_ = json.NewDecoder(info.Body).Decode(&claims)
+	_ = info.Body.Close()
+	if claims["email"] != "b@example.com" {
+		t.Errorf("userinfo = %v, want the override", claims)
+	}
+	if p.Discoveries != 1 || p.KeyFetches != 1 {
+		t.Errorf("counted %d discoveries and %d key fetches", p.Discoveries, p.KeyFetches)
+	}
+}
+
+func TestTheFakeGitHubAnswersItsAccount(t *testing.T) {
+	g := NewGitHub(t)
+	g.SetUser(GitHubUser{ID: 9, Login: "ada", Orgs: []string{"acme"}})
+	verifier := strings.Repeat("v", 43)
+	code := g.Grant("https://x/?" + url.Values{"code_challenge": {challenge(verifier)}}.Encode())
+	r, err := http.PostForm(g.WebURL()+"/login/oauth/access_token", url.Values{"client_id": {g.ClientID},
+		"client_secret": {g.ClientSecret}, "code": {code}, "code_verifier": {verifier}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tok map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&tok)
+	_ = r.Body.Close()
+	access, _ := tok["access_token"].(string)
+	if access == "" {
+		t.Fatalf("token = %v", tok)
+	}
+	for path, want := range map[string]int{"/user": 200, "/user/emails": 200, "/user/memberships/orgs/ACME": 200,
+		"/user/memberships/orgs/other": 404} {
+		req, _ := http.NewRequest(http.MethodGet, g.APIURL()+path, nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != want {
+			t.Errorf("%s = %d, want %d", path, resp.StatusCode, want)
+		}
+	}
+	bad, err := http.PostForm(g.WebURL()+"/login/oauth/access_token", url.Values{"client_id": {g.ClientID},
+		"client_secret": {g.ClientSecret}, "code": {"reused"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = bad.Body.Close()
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Errorf("an unknown code = %d", bad.StatusCode)
+	}
+}
