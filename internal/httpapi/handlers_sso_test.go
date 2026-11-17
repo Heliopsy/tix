@@ -95,3 +95,25 @@ func TestSSORoutesAnswerRefusalsInTheEnvelope(t *testing.T) {
 		_ = resp.Body.Close()
 	}
 }
+
+func TestSAMLProviderAndItsMetadataOverHTTP(t *testing.T) {
+	f := newFixtureOver(t, []service.Option{service.WithTOTPKey(apiTOTPKey), service.WithEgress(egress.Permissive())})
+	idp := ssotest.NewSAML(t, f.clock.Now)
+	resp := f.call(http.MethodPost, wire.RouteSSOProviders, core.CreateSSOProviderInput{Key: "okta",
+		Kind: core.SSOKindSAML, IdPMetadataXML: idp.Metadata()})
+	mustStatus(t, resp, http.StatusCreated)
+	var created core.SSOProvider
+	decodeBody(t, resp, &created)
+	if created.IdPEntityID != idp.EntityID || len(created.IdPCertificates) != 1 {
+		t.Errorf("created = %+v, want the IdP read from its metadata", created)
+	}
+	md := f.do(http.MethodGet, strings.Replace(wire.RouteSAMLMetadata, "{id}", "okta", 1), f.hostA, "", nil)
+	mustStatus(t, md, http.StatusOK)
+	body := readBody(t, md)
+	if md.Header.Get("Content-Type") != wire.ContentSAMLMetadata || !strings.Contains(body, "/login/sso/saml/okta/acs") {
+		t.Errorf("metadata = %s %s", md.Header.Get("Content-Type"), body)
+	}
+	missing := f.do(http.MethodGet, strings.Replace(wire.RouteSAMLMetadata, "{id}", "nobody", 1), f.hostA, "", nil)
+	mustStatus(t, missing, http.StatusNotFound)
+	_ = missing.Body.Close()
+}

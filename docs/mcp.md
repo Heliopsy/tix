@@ -238,6 +238,7 @@ Operations that do not speak JSON are left out, whatever the overlay says. Use t
 | `project_icon` | answers an image |
 | `snapshot_export` | answers NDJSON (`tix export`) |
 | `snapshot_import` | reads NDJSON (`tix import`) |
+| `sso_saml_metadata` | answers SAML metadata XML (`tix tenant sso metadata`) |
 | `tenant_icon` | answers an image |
 
 `tix mcp --list` prints every operation, its tool name, the scope it needs and what became of it, without

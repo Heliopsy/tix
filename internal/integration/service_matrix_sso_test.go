@@ -53,4 +53,35 @@ func init() {
 			}, nil
 		},
 	})
+	serviceScenarios = append(serviceScenarios, svcScenario{
+		name:   "a saml provider, its metadata and a response posted with the wrong relay state",
+		covers: []string{"SAMLMetadata"},
+		run: func(t *testing.T, tg target, _ *matrixHarness) (sig, error) {
+			idp := ssotest.NewSAML(t, time.Now)
+			created, err := tg.svc.CreateSSOProvider(tg.ctx, core.CreateSSOProviderInput{Key: "okta",
+				Kind: core.SSOKindSAML, DisplayName: "Okta", IdPMetadataXML: idp.Metadata()})
+			if err != nil {
+				return nil, err
+			}
+			md, err := tg.svc.SAMLMetadata(tg.ctx, core.SAMLMetadataInput{Provider: "okta", BaseURL: "https://tix.example"})
+			mustf(t, tg, err, "reading the metadata")
+			begin, err := tg.svc.BeginSSOLogin(tg.ctx, core.BeginSSOInput{Provider: "okta",
+				RedirectURI: "https://tix.example" + core.SSOCallbackPath})
+			mustf(t, tg, err, "beginning a saml sign-in")
+			_, completeErr := tg.svc.CompleteSSOLogin(tg.ctx, core.CompleteSSOInput{Flow: begin.Flow, State: "forged",
+				SAMLResponse: "PHJlc3BvbnNlLz4=", Provider: "okta"})
+			if err := tg.svc.DeleteSSOProvider(tg.ctx, "okta"); err != nil {
+				return nil, err
+			}
+			return sig{
+				"idp":      created.IdPEntityID == idp.EntityID,
+				"certs":    len(created.IdPCertificates),
+				"metadata": strings.HasSuffix(md.EntityID, core.SAMLMetadataPath("okta")),
+				"acs":      strings.Contains(md.XML, core.SAMLACSPath("okta")),
+				"kind":     string(begin.Kind),
+				"request":  strings.Contains(begin.AuthURL, "SAMLRequest="),
+				"complete": string(core.KindOf(completeErr)),
+			}, nil
+		},
+	})
 }

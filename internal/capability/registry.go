@@ -1458,6 +1458,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "sso.saml.metadata", Method: "SAMLMetadata",
+		Contract: Contract{Body: None{}, Resp: None{}, Status: http.StatusOK, Content: wire.ContentSAMLMetadata, Public: true},
+		CLI:      "tix tenant sso metadata",
+		HTTP:     apiGet(wire.RouteSAMLMetadata),
+		Web:      webAsset(web.RouteSAMLMetadata),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "metadata is an XML document an identity provider imports by its address; the single sign-on screen and tix tenant sso metadata hand it out"),
+		},
+	},
+	{
 		Name: "sso.provider.list", Method: "ListSSOProviders",
 		Scope: core.ScopeSSOAdmin,
 		CLI:   "tix tenant sso ls",

@@ -982,10 +982,15 @@ type SSOService interface {
 	SignInOptions(ctx context.Context) (*SignInOptions, error)
 	// BeginSSOLogin starts a sign-in through one of the tenant's providers:
 	// it answers the address to open and the sealed flow to complete it with.
-	// The redirect URI is the browser callback or a loopback address.
+	// The redirect URI is the browser callback or a loopback address; a SAML
+	// provider signs in through the browser only.
 	BeginSSOLogin(ctx context.Context, in BeginSSOInput) (*SSOBegin, error)
 	// CompleteSSOLogin finishes a sign-in with the code the provider
-	// returned. It answers as Login does: a session, or the second factor
-	// still to pass.
+	// returned, or the response a SAML IdP posted. It answers as Login does:
+	// a session, or the second factor still to pass.
 	CompleteSSOLogin(ctx context.Context, in CompleteSSOInput) (*LoginResult, error)
+	// SAMLMetadata answers, without a credential, a SAML provider's service
+	// provider metadata: the entity id and assertion consumer service address
+	// to register with the IdP, as the IdP imports them.
+	SAMLMetadata(ctx context.Context, in SAMLMetadataInput) (*SAMLMetadata, error)
 }

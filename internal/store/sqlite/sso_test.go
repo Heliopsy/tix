@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
@@ -85,5 +86,52 @@ func TestSSOProvidersAndIdentitiesRoundTripOnSQLite(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatalf("reading: %v", err)
+	}
+}
+
+// TestSAMLSettingsAndUsedAssertionsOnSQLite pins a SAML provider's settings
+// and that an assertion id is taken once, until it expires.
+func TestSAMLSettingsAndUsedAssertionsOnSQLite(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	p := core.SSOProvider{Key: "okta", Kind: core.SSOKindSAML, DisplayName: "Okta", Enabled: true,
+		DefaultRole: core.RoleMember, IdPMetadataURL: "https://idp.example/md", IdPEntityID: "https://idp.example",
+		IdPSSOURL: "https://idp.example/sso", IdPCertificates: []string{"PEM"}, SPEntityID: "urn:tix",
+		NameIDFormat: core.NameIDPersistent, AllowIdPInitiated: true}
+	now := clk.Now()
+	consume := func(id string, expires time.Time, at time.Time) error {
+		return s.Update(ctx, f.scope, func(tx store.Tx) error {
+			return tx.ConsumeSSOAssertion(ctx, p.ID, id, expires, at)
+		})
+	}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error { return tx.CreateSSOProvider(ctx, &p) }); err != nil {
+		t.Fatalf("creating: %v", err)
+	}
+	if err := s.View(ctx, f.scope, func(tx store.Tx) error {
+		got, err := tx.GetSSOProvider(ctx, "okta")
+		if err != nil {
+			return err
+		}
+		if got.IdPMetadataURL != p.IdPMetadataURL || got.IdPEntityID != p.IdPEntityID || got.IdPSSOURL != p.IdPSSOURL ||
+			len(got.IdPCertificates) != 1 || got.SPEntityID != "urn:tix" || got.NameIDFormat != core.NameIDPersistent ||
+			!got.AllowIdPInitiated {
+			t.Errorf("read back %+v", got)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading: %v", err)
+	}
+	if err := consume("_a1", now.Add(5*time.Minute), now); err != nil {
+		t.Fatalf("first use: %v", err)
+	}
+	if err := consume("_a1", now.Add(5*time.Minute), now.Add(time.Minute)); !core.IsKind(err, core.KindConflict) {
+		t.Errorf("second use = %v, want a conflict", err)
+	}
+	if err := consume("_a1", now.Add(20*time.Minute), now.Add(10*time.Minute)); err != nil {
+		t.Errorf("use after the first expired = %v, want it pruned and taken", err)
+	}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error { return tx.DeleteSSOProvider(ctx, p.ID) }); err != nil {
+		t.Errorf("deleting a provider with used assertions: %v", err)
 	}
 }

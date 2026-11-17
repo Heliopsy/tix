@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -16,6 +17,7 @@ func (rt *Router) registerSSORoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteSignInOptions, rt.handleSignInOptions)
 	rt.mux.HandleFunc("POST "+wire.RouteSSOBegin, rt.handleBeginSSO)
 	rt.mux.HandleFunc("POST "+wire.RouteSSOComplete, rt.handleCompleteSSO)
+	rt.mux.HandleFunc("GET "+wire.RouteSAMLMetadata, rt.handleSAMLMetadata)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSSOProviders, rt.handleListSSOProviders)
 	rt.mux.HandleFunc("POST "+wire.RouteSSOProviders, rt.handleCreateSSOProvider)
@@ -121,4 +123,32 @@ func (rt *Router) handleDeleteSSOProvider(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeNoContent(w)
+}
+
+// samlMetadataPrefix and samlMetadataSuffix bracket the provider in the SAML
+// metadata route.
+var samlMetadataPrefix, samlMetadataSuffix, _ = strings.Cut(wire.RouteSAMLMetadata, "{id}")
+
+// isSAMLMetadataPath reports whether path is a provider's SAML metadata.
+func isSAMLMetadataPath(path string) bool {
+	rest, ok := strings.CutPrefix(path, samlMetadataPrefix)
+	if !ok {
+		return false
+	}
+	id, ok := strings.CutSuffix(rest, samlMetadataSuffix)
+	return ok && id != "" && !strings.Contains(id, "/")
+}
+
+// handleSAMLMetadata answers a SAML provider's service provider metadata,
+// built on the address this request reached.
+func (rt *Router) handleSAMLMetadata(w http.ResponseWriter, r *http.Request) {
+	out, err := rt.cfg.Service.SAMLMetadata(r.Context(), core.SAMLMetadataInput{Provider: r.PathValue("id"),
+		BaseURL: Origin(r)})
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	w.Header().Set(wire.HeaderContentType, wire.ContentSAMLMetadata)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(out.XML))
 }

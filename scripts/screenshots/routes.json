@@ -19,6 +19,7 @@
     { "pattern": "/login", "public": true },
     { "pattern": "/login/sso/{key}", "skip": "redirects to the identity provider; nothing is drawn" },
     { "pattern": "/login/sso/callback", "skip": "answers an identity provider's redirect, which needs a live sign-in; the web tests draw it" },
+    { "pattern": "/login/sso/saml/{key}/metadata", "skip": "answers SAML metadata XML for an identity provider, not a screen" },
     { "pattern": "/invite/{token}", "skip": "opens only with a live invite token, which no page links to; the invite tests draw it" },
     { "pattern": "/settings" },
     { "pattern": "/account" },

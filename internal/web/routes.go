@@ -27,7 +27,11 @@ type Exemption struct {
 type route struct {
 	Binding
 	Public bool
-	fn     func(http.ResponseWriter, *http.Request) error
+	// CrossSite marks a POST another site makes by design, the SAML
+	// assertion consumer service, which cannot carry the CSRF token; the
+	// flow cookie, the RelayState and the signed response are its proof.
+	CrossSite bool
+	fn        func(http.ResponseWriter, *http.Request) error
 }
 
 // Bindings returns every route the browser interface serves.
@@ -254,8 +258,12 @@ const (
 	RouteSSOPassword = "/admin/sso/password" // #nosec G101 -- a url path, not a credential
 	// RouteSSOStart sends a browser to a provider, and RouteSSOCallback is
 	// where every provider sends it back.
-	RouteSSOStart     = "/login/sso/{key}"
-	RouteSSOCallback  = "/login/sso/callback"
+	RouteSSOStart    = "/login/sso/{key}"
+	RouteSSOCallback = "/login/sso/callback"
+	// RouteSAMLACS is where a SAML IdP posts its response, and
+	// RouteSAMLMetadata a SAML provider's service provider metadata.
+	RouteSAMLACS      = "/login/sso/saml/{key}/acs"
+	RouteSAMLMetadata = "/login/sso/saml/{key}/metadata"
 	RouteMembers      = "/admin/tenant/members"
 	RouteMemberRemove = "/admin/tenant/members/remove"
 	RouteRetention    = "/admin/tenant/retention"

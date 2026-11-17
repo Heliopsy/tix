@@ -120,16 +120,19 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 	if err != nil {
 		return nil, err
 	}
+	provider, err := l.liveProvider(ctx, scope, strings.ToLower(strings.TrimSpace(in.Provider)), "key")
+	if err != nil {
+		return nil, err
+	}
+	if provider.Kind == core.SSOKindSAML {
+		return l.beginSAML(ctx, scope, *provider, in)
+	}
 	surface, err := checkRedirectURI(in.RedirectURI, in.Surface)
 	if err != nil {
 		return nil, err
 	}
 	if !surface.Valid() {
 		return nil, core.Invalid("%q is not a sign-in surface", surface)
-	}
-	provider, err := l.liveProvider(ctx, scope, strings.ToLower(strings.TrimSpace(in.Provider)), "key")
-	if err != nil {
-		return nil, err
 	}
 	adapter, err := l.adapterFor(ctx, scope, *provider)
 	if err != nil {
@@ -148,7 +151,7 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 		return nil, err
 	}
 	return &core.SSOBegin{AuthURL: adapter.AuthURL(flow.State, flow.Nonce, flow.Verifier, flow.RedirectURI),
-		Flow: sealed, State: flow.State, ExpiresAt: flow.ExpiresAt}, nil
+		Flow: sealed, State: flow.State, ExpiresAt: flow.ExpiresAt, Kind: provider.Kind}, nil
 }
 
 // liveProvider reads an enabled provider by key or identifier, refusing one
@@ -188,6 +191,9 @@ func (l *Local) CompleteSSOLogin(ctx context.Context, in core.CompleteSSOInput) 
 	}
 	if err := l.requireSSOKey(); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(in.SAMLResponse) != "" {
+		return l.completeSAML(ctx, scope, in)
 	}
 	flow, err := auth.OpenSSOFlow(l.totpKey, in.Flow, l.clock.Now())
 	if err != nil {

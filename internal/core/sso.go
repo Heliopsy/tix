@@ -3,6 +3,9 @@
 package core
 
 import (
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"net/url"
 	"regexp"
 	"slices"
@@ -13,8 +16,7 @@ import (
 // SSOKind is the protocol a sign-in provider speaks.
 type SSOKind string
 
-// Provider kinds. SAML is reserved: it is a known kind that this build
-// refuses, so that the next one adds an implementation rather than a value.
+// Provider kinds.
 const (
 	SSOKindOIDC   SSOKind = "oidc"
 	SSOKindGitHub SSOKind = "oauth_github"
@@ -22,7 +24,7 @@ const (
 )
 
 // SSOKinds lists every kind this build implements.
-var SSOKinds = []SSOKind{SSOKindOIDC, SSOKindGitHub}
+var SSOKinds = []SSOKind{SSOKindOIDC, SSOKindGitHub, SSOKindSAML}
 
 // Implemented reports whether this build signs people in through kind k.
 func (k SSOKind) Implemented() bool { return slices.Contains(SSOKinds, k) }
@@ -30,6 +32,24 @@ func (k SSOKind) Implemented() bool { return slices.Contains(SSOKinds, k) }
 // SSOCallbackPath is the browser address every provider returns to. The
 // redirect URL registered with a provider is the public address plus this.
 const SSOCallbackPath = "/login/sso/callback"
+
+// SAMLPathPrefix opens the addresses of a SAML provider's assertion consumer
+// service and metadata; the provider's key follows it.
+const SAMLPathPrefix = "/login/sso/saml/"
+
+// SAMLACSPath is where the IdP posts a SAML provider's responses.
+func SAMLACSPath(key string) string { return SAMLPathPrefix + key + "/acs" }
+
+// SAMLMetadataPath is where a SAML provider's service provider metadata is
+// served. Its full address is the default SP entity id.
+func SAMLMetadataPath(key string) string { return SAMLPathPrefix + key + "/metadata" }
+
+// SAML NameID formats tix names.
+const (
+	NameIDTransient  = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
+	NameIDPersistent = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+	NameIDEmail      = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+)
 
 // LoginMethodSSOPrefix opens the sign-in method of a session minted through a
 // provider; the provider's key follows it.
@@ -111,6 +131,21 @@ type SSOProvider struct {
 	WebURL string `json:"web_url,omitempty" yaml:"web_url,omitempty"`
 	APIURL string `json:"api_url,omitempty" yaml:"api_url,omitempty"`
 
+	// IdPMetadataURL is where a SAML provider's IdP metadata was read.
+	IdPMetadataURL string `json:"idp_metadata_url,omitempty" yaml:"idp_metadata_url,omitempty"`
+	// IdPEntityID is the SAML IdP's entity id, the issuer of its responses.
+	IdPEntityID string `json:"idp_entity_id,omitempty" yaml:"idp_entity_id,omitempty"`
+	// IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+	IdPSSOURL string `json:"idp_sso_url,omitempty" yaml:"idp_sso_url,omitempty"`
+	// IdPCertificates are the PEM certificates the IdP signs with.
+	IdPCertificates []string `json:"idp_certificates,omitempty" yaml:"idp_certificates,omitempty"`
+	// SPEntityID overrides tix's entity id; empty is the metadata address.
+	SPEntityID string `json:"sp_entity_id,omitempty" yaml:"sp_entity_id,omitempty"`
+	// NameIDFormat is the NameID format requested; empty lets the IdP choose.
+	NameIDFormat string `json:"name_id_format,omitempty" yaml:"name_id_format,omitempty"`
+	// AllowIdPInitiated accepts a SAML response that answers no request.
+	AllowIdPInitiated bool `json:"allow_idp_initiated,omitempty" yaml:"allow_idp_initiated,omitempty"`
+
 	// SecretSet reports that a client secret is stored.
 	SecretSet bool `json:"secret_set" yaml:"secret_set"`
 	// SecretHint is the stored secret's last four characters, for a long one.
@@ -121,7 +156,10 @@ type SSOProvider struct {
 
 	// RedirectURL is the address to register with the provider, when the
 	// server knows its public address.
-	RedirectURL string    `json:"redirect_url,omitempty" yaml:"redirect_url,omitempty"`
+	// For a SAML provider it is the assertion consumer service.
+	RedirectURL string `json:"redirect_url,omitempty" yaml:"redirect_url,omitempty"`
+	// MetadataURL is a SAML provider's metadata address, when known.
+	MetadataURL string    `json:"metadata_url,omitempty" yaml:"metadata_url,omitempty"`
 	CreatedAt   time.Time `json:"created_at" yaml:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" yaml:"updated_at"`
 }
@@ -129,7 +167,7 @@ type SSOProvider struct {
 // Redacted is the provider with nothing of its secret but whether one is set,
 // as an audit entry or event records it.
 func (p SSOProvider) Redacted() SSOProvider {
-	p.SealedSecret, p.SecretNonce, p.SecretHint, p.RedirectURL = "", "", "", ""
+	p.SealedSecret, p.SecretNonce, p.SecretHint, p.RedirectURL, p.MetadataURL = "", "", "", "", ""
 	return p
 }
 
@@ -137,7 +175,7 @@ func (p SSOProvider) Redacted() SSOProvider {
 type CreateSSOProviderInput struct {
 	// Key is the provider's short name: lowercase letters, digits and dashes.
 	Key string `json:"key"`
-	// Kind is oidc or oauth_github.
+	// Kind is oidc, oauth_github or saml.
 	Kind SSOKind `json:"kind"`
 	// DisplayName is the name on the sign-in button; empty is the key.
 	DisplayName string `json:"display_name,omitempty"`
@@ -155,8 +193,8 @@ type CreateSSOProviderInput struct {
 	RoleMapping map[string]Role `json:"role_mapping,omitempty"`
 	// Issuer is the OIDC issuer.
 	Issuer string `json:"issuer,omitempty"`
-	// ClientID is the client registered with the provider.
-	ClientID string `json:"client_id"`
+	// ClientID is the client registered with an oidc or oauth_github provider.
+	ClientID string `json:"client_id,omitempty"`
 	// ClientSecret is the client's secret. It is sealed and never returned.
 	ClientSecret string `json:"client_secret,omitempty"`
 	// Scopes are the OAuth scopes requested.
@@ -177,6 +215,22 @@ type CreateSSOProviderInput struct {
 	WebURL string `json:"web_url,omitempty"`
 	// APIURL is a GitHub Enterprise Server API address.
 	APIURL string `json:"api_url,omitempty"`
+	// IdPMetadataURL is the SAML IdP's metadata address, read on save.
+	IdPMetadataURL string `json:"idp_metadata_url,omitempty"`
+	// IdPMetadataXML is the SAML IdP's metadata document, read and not kept.
+	IdPMetadataXML string `json:"idp_metadata_xml,omitempty"`
+	// IdPEntityID is the SAML IdP's entity id; it wins over the metadata's.
+	IdPEntityID string `json:"idp_entity_id,omitempty"`
+	// IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+	IdPSSOURL string `json:"idp_sso_url,omitempty"`
+	// IdPCertificates are the IdP's PEM signing certificates.
+	IdPCertificates []string `json:"idp_certificates,omitempty"`
+	// SPEntityID overrides tix's SAML entity id.
+	SPEntityID string `json:"sp_entity_id,omitempty"`
+	// NameIDFormat is the SAML NameID format to request.
+	NameIDFormat string `json:"name_id_format,omitempty"`
+	// AllowIdPInitiated accepts SAML responses that answer no request.
+	AllowIdPInitiated bool `json:"allow_idp_initiated,omitempty"`
 }
 
 // UpdateSSOProviderInput changes a provider; an omitted field is unchanged.
@@ -219,6 +273,23 @@ type UpdateSSOProviderInput struct {
 	WebURL *string `json:"web_url,omitempty"`
 	// APIURL is a GitHub Enterprise Server API address.
 	APIURL *string `json:"api_url,omitempty"`
+	// IdPMetadataURL is the SAML IdP's metadata address; giving it, even
+	// unchanged, reads the metadata again. Empty clears it.
+	IdPMetadataURL *string `json:"idp_metadata_url,omitempty"`
+	// IdPMetadataXML is a SAML metadata document to read the IdP from.
+	IdPMetadataXML *string `json:"idp_metadata_xml,omitempty"`
+	// IdPEntityID is the SAML IdP's entity id.
+	IdPEntityID *string `json:"idp_entity_id,omitempty"`
+	// IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
+	IdPSSOURL *string `json:"idp_sso_url,omitempty"`
+	// IdPCertificates replaces the IdP's signing certificates.
+	IdPCertificates *[]string `json:"idp_certificates,omitempty"`
+	// SPEntityID overrides tix's SAML entity id; empty is the default.
+	SPEntityID *string `json:"sp_entity_id,omitempty"`
+	// NameIDFormat is the SAML NameID format to request.
+	NameIDFormat *string `json:"name_id_format,omitempty"`
+	// AllowIdPInitiated accepts SAML responses that answer no request.
+	AllowIdPInitiated *bool `json:"allow_idp_initiated,omitempty"`
 }
 
 // Apply returns p with the input's fields set, the secret excepted.
@@ -263,6 +334,13 @@ func (in UpdateSSOProviderInput) Apply(p SSOProvider) SSOProvider {
 	setL(&p.AllowedOrgs, in.AllowedOrgs)
 	setS(&p.WebURL, in.WebURL)
 	setS(&p.APIURL, in.APIURL)
+	setS(&p.IdPMetadataURL, in.IdPMetadataURL)
+	setS(&p.IdPEntityID, in.IdPEntityID)
+	setS(&p.IdPSSOURL, in.IdPSSOURL)
+	setL(&p.IdPCertificates, in.IdPCertificates)
+	setS(&p.SPEntityID, in.SPEntityID)
+	setS(&p.NameIDFormat, in.NameIDFormat)
+	setB(&p.AllowIdPInitiated, in.AllowIdPInitiated)
 	return p
 }
 
@@ -279,6 +357,10 @@ func (in CreateSSOProviderInput) Provider() SSOProvider {
 		UsernameClaim: strings.TrimSpace(in.UsernameClaim), GroupsClaim: strings.TrimSpace(in.GroupsClaim),
 		MFAValues: slices.Clone(in.MFAValues), AllowedOrgs: slices.Clone(in.AllowedOrgs),
 		WebURL: strings.TrimSpace(in.WebURL), APIURL: strings.TrimSpace(in.APIURL),
+		IdPMetadataURL: strings.TrimSpace(in.IdPMetadataURL), IdPEntityID: strings.TrimSpace(in.IdPEntityID),
+		IdPSSOURL: strings.TrimSpace(in.IdPSSOURL), IdPCertificates: slices.Clone(in.IdPCertificates),
+		SPEntityID: strings.TrimSpace(in.SPEntityID), NameIDFormat: strings.TrimSpace(in.NameIDFormat),
+		AllowIdPInitiated: in.AllowIdPInitiated,
 	}
 	if len(in.RoleMapping) > 0 {
 		p.RoleMapping = map[string]Role{}
@@ -325,6 +407,72 @@ func (p *SSOProvider) Normalize() {
 	}
 	p.WebURL = strings.TrimRight(p.WebURL, "/")
 	p.APIURL = strings.TrimRight(p.APIURL, "/")
+	certs := make([]string, 0, len(p.IdPCertificates))
+	for _, c := range p.IdPCertificates {
+		if c = NormalizeCertificate(c); c != "" && !slices.Contains(certs, c) {
+			certs = append(certs, c)
+		}
+	}
+	p.IdPCertificates = nil
+	if len(certs) > 0 {
+		p.IdPCertificates = certs
+	}
+}
+
+// NormalizeCertificate turns a PEM certificate, or the bare base64 DER that
+// SAML metadata carries, into one PEM block. Text that is neither is kept
+// trimmed, for Validate to refuse.
+func NormalizeCertificate(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	der := []byte(nil)
+	if block, _ := pem.Decode([]byte(raw)); block != nil && block.Type == "CERTIFICATE" {
+		der = block.Bytes
+	} else if b, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(raw), "")); err == nil {
+		der = b
+	}
+	if der == nil {
+		return raw
+	}
+	return strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})))
+}
+
+// SplitCertificates splits text holding several PEM certificates into one
+// entry each. Text with no PEM block is one entry, for bare base64.
+func SplitCertificates(raw string) []string {
+	const end = "-----END CERTIFICATE-----"
+	if !strings.Contains(raw, end) {
+		if strings.TrimSpace(raw) == "" {
+			return nil
+		}
+		return []string{strings.TrimSpace(raw)}
+	}
+	var out []string
+	for _, part := range strings.SplitAfter(raw, end) {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// ParseCertificates parses PEM certificates as Normalize leaves them.
+func ParseCertificates(certs []string) ([]*x509.Certificate, error) {
+	out := make([]*x509.Certificate, 0, len(certs))
+	for i, c := range certs {
+		block, _ := pem.Decode([]byte(c))
+		if block == nil {
+			return nil, Invalid("certificate %d is not PEM or base64 DER", i+1)
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, Invalid("certificate %d does not parse: %v", i+1, err)
+		}
+		out = append(out, cert)
+	}
+	return out, nil
 }
 
 // Validate refuses a provider that cannot sign anybody in, naming the field.
@@ -332,13 +480,11 @@ func (p SSOProvider) Validate() error {
 	switch {
 	case !ssoKeyPattern.MatchString(p.Key):
 		return OnField(Invalid("a provider key is 1 to 32 lowercase letters, digits and dashes, not %q", p.Key), "key")
-	case p.Kind == SSOKindSAML:
-		return OnField(Invalid("saml providers are not implemented by this build; use oidc or oauth_github"), "kind")
 	case !p.Kind.Implemented():
-		return OnField(Invalid("provider kind %q is not one of oidc, oauth_github", p.Kind), "kind")
+		return OnField(Invalid("provider kind %q is not one of oidc, oauth_github, saml", p.Kind), "kind")
 	case strings.TrimSpace(p.DisplayName) == "" || len(p.DisplayName) > 64:
 		return OnField(Invalid("a display name is 1 to 64 characters"), "display_name")
-	case p.ClientID == "":
+	case p.ClientID == "" && p.Kind != SSOKindSAML:
 		return OnField(Invalid("a client id is required"), "client_id")
 	case !p.DefaultRole.Valid():
 		return OnField(Invalid("default role %q is not one of viewer, member, admin", p.DefaultRole), "default_role")
@@ -354,10 +500,57 @@ func (p SSOProvider) Validate() error {
 			return OnField(Invalid("allowed domain %q is not a domain name", d), "allowed_domains")
 		}
 	}
-	if p.Kind == SSOKindOIDC {
+	if p.Kind != SSOKindSAML && p.hasSAMLSettings() {
+		return OnField(Invalid("idp and sp settings apply to saml providers only"), "idp_entity_id")
+	}
+	switch p.Kind {
+	case SSOKindOIDC:
 		return p.validateOIDC()
+	case SSOKindSAML:
+		return p.validateSAML()
 	}
 	return p.validateGitHub()
+}
+
+func (p SSOProvider) hasSAMLSettings() bool {
+	return p.IdPMetadataURL != "" || p.IdPEntityID != "" || p.IdPSSOURL != "" || len(p.IdPCertificates) > 0 ||
+		p.SPEntityID != "" || p.NameIDFormat != "" || p.AllowIdPInitiated
+}
+
+func (p SSOProvider) validateSAML() error {
+	switch {
+	case p.ClientID != "" || p.Issuer != "" || len(p.Scopes) > 0:
+		return OnField(Invalid("client id, issuer and scopes apply to oidc and oauth_github providers only"), "client_id")
+	case len(p.AllowedOrgs) > 0 || p.WebURL != "" || p.APIURL != "":
+		return OnField(Invalid("allowed organisations and GitHub addresses apply to oauth_github providers only"),
+			"allowed_orgs")
+	case p.SealedSecret != "":
+		return OnField(Invalid("a saml provider takes no client secret"), "client_secret")
+	case p.IdPEntityID == "":
+		return OnField(Invalid("the IdP's entity id is required; give --idp-metadata-url or --idp-entity-id"),
+			"idp_entity_id")
+	case len(p.IdPEntityID) > 1024:
+		return OnField(Invalid("the IdP's entity id is longer than 1024 characters"), "idp_entity_id")
+	case p.NameIDFormat == NameIDTransient:
+		return OnField(Invalid("a transient NameID changes at every sign-in and links nobody; use persistent or "+
+			"emailAddress"), "name_id_format")
+	case p.TrustMFA && len(p.MFAValues) == 0:
+		return OnField(Invalid("trust_mfa on a saml provider needs the AuthnContextClassRef values that mean a "+
+			"second factor, as mfa_values"), "mfa_values")
+	case len(p.IdPCertificates) == 0:
+		return OnField(Invalid("at least one IdP signing certificate is required; give --idp-metadata-url or "+
+			"--idp-cert"), "idp_certificates")
+	}
+	if err := checkSAMLURL(p.IdPSSOURL, "idp_sso_url", true); err != nil {
+		return err
+	}
+	if err := checkSAMLURL(p.IdPMetadataURL, "idp_metadata_url", false); err != nil {
+		return err
+	}
+	if _, err := ParseCertificates(p.IdPCertificates); err != nil {
+		return OnField(err, "idp_certificates")
+	}
+	return nil
 }
 
 func (p SSOProvider) validateOIDC() error {
@@ -413,6 +606,23 @@ func checkProviderURL(raw, field string, required bool) error {
 	return OnField(Invalid("%s must be an https url", field), field)
 }
 
+// CheckMetadataURL refuses an IdP metadata address that is not https.
+func (p SSOProvider) CheckMetadataURL() error {
+	return checkSAMLURL(p.IdPMetadataURL, "idp_metadata_url", true)
+}
+
+// checkSAMLURL is checkProviderURL for an IdP address, which may carry a
+// query: Google Workspace's sign-in URL names its IdP in one, and Entra's
+// metadata URL its application.
+func checkSAMLURL(raw, field string, required bool) error {
+	u, err := url.Parse(raw)
+	if raw != "" && err == nil && u.RawQuery != "" {
+		u.RawQuery = ""
+		raw = u.String()
+	}
+	return checkProviderURL(raw, field, required)
+}
+
 // IsLoopbackHost reports whether host names this machine.
 func IsLoopbackHost(host string) bool {
 	return host == "127.0.0.1" || host == "::1" || host == "localhost"
@@ -457,8 +667,12 @@ type SSOBegin struct {
 	AuthURL string `json:"auth_url" yaml:"auth_url"`
 	// Flow is the sealed sign-in state, handed back to complete it.
 	Flow string `json:"flow" yaml:"flow"`
-	// State is the value the provider returns with the code.
+	// State is the value the provider returns with the code, or the
+	// RelayState of a SAML request.
 	State string `json:"state" yaml:"state"`
+	// Kind is the provider's protocol; a saml flow comes back as a
+	// cross-site POST, which the flow cookie has to survive.
+	Kind SSOKind `json:"kind" yaml:"kind"`
 	// ExpiresAt is when the flow can no longer be completed.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
 }
@@ -473,6 +687,35 @@ type CompleteSSOInput struct {
 	State string `json:"state"`
 	// Error is the error the provider returned instead of a code.
 	Error string `json:"error,omitempty"`
+	// SAMLResponse is the base64 SAMLResponse a SAML IdP posted, in place
+	// of a code; State is then the RelayState.
+	SAMLResponse string `json:"saml_response,omitempty"`
+	// Provider is the SAML provider's key, from the address the response was
+	// posted to. It names the provider of an IdP-initiated sign-in, which
+	// has no flow.
+	Provider string `json:"provider,omitempty"`
+	// RedirectURI is the assertion consumer service address the response
+	// was posted to, which an IdP-initiated sign-in checks it against.
+	RedirectURI string `json:"redirect_uri,omitempty"`
+}
+
+// SAMLMetadataInput asks for a SAML provider's service provider metadata.
+type SAMLMetadataInput struct {
+	// Provider is the provider's key or identifier.
+	Provider string `json:"provider"`
+	// BaseURL is the origin the addresses are built on, the server's public
+	// address as the caller reached it.
+	BaseURL string `json:"base_url"`
+}
+
+// SAMLMetadata is a SAML provider's service provider metadata.
+type SAMLMetadata struct {
+	// EntityID is tix's entity id for this provider.
+	EntityID string `json:"entity_id" yaml:"entity_id"`
+	// ACSURL is the assertion consumer service address.
+	ACSURL string `json:"acs_url" yaml:"acs_url"`
+	// XML is the metadata document.
+	XML string `json:"xml" yaml:"xml"`
 }
 
 // UserIdentity links a person to their identity at one of the tenant's

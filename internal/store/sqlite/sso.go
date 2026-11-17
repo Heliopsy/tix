@@ -31,18 +31,32 @@ type ssoConfig struct {
 	AllowedOrgs   []string `json:"allowed_orgs,omitempty"`
 	WebURL        string   `json:"web_url,omitempty"`
 	APIURL        string   `json:"api_url,omitempty"`
+
+	IdPMetadataURL    string   `json:"idp_metadata_url,omitempty"`
+	IdPEntityID       string   `json:"idp_entity_id,omitempty"`
+	IdPSSOURL         string   `json:"idp_sso_url,omitempty"`
+	IdPCertificates   []string `json:"idp_certificates,omitempty"`
+	SPEntityID        string   `json:"sp_entity_id,omitempty"`
+	NameIDFormat      string   `json:"name_id_format,omitempty"`
+	AllowIdPInitiated bool     `json:"allow_idp_initiated,omitempty"`
 }
 
 func ssoConfigOf(p *core.SSOProvider) ssoConfig {
 	return ssoConfig{Issuer: p.Issuer, ClientID: p.ClientID, Scopes: p.Scopes, EmailClaim: p.EmailClaim,
 		NameClaim: p.NameClaim, UsernameClaim: p.UsernameClaim, GroupsClaim: p.GroupsClaim, MFAValues: p.MFAValues,
-		AllowedOrgs: p.AllowedOrgs, WebURL: p.WebURL, APIURL: p.APIURL}
+		AllowedOrgs: p.AllowedOrgs, WebURL: p.WebURL, APIURL: p.APIURL,
+		IdPMetadataURL: p.IdPMetadataURL, IdPEntityID: p.IdPEntityID, IdPSSOURL: p.IdPSSOURL,
+		IdPCertificates: p.IdPCertificates, SPEntityID: p.SPEntityID, NameIDFormat: p.NameIDFormat,
+		AllowIdPInitiated: p.AllowIdPInitiated}
 }
 
 func (c ssoConfig) applyTo(p *core.SSOProvider) {
 	p.Issuer, p.ClientID, p.Scopes, p.EmailClaim = c.Issuer, c.ClientID, c.Scopes, c.EmailClaim
 	p.NameClaim, p.UsernameClaim, p.GroupsClaim, p.MFAValues = c.NameClaim, c.UsernameClaim, c.GroupsClaim, c.MFAValues
 	p.AllowedOrgs, p.WebURL, p.APIURL = c.AllowedOrgs, c.WebURL, c.APIURL
+	p.IdPMetadataURL, p.IdPEntityID, p.IdPSSOURL = c.IdPMetadataURL, c.IdPEntityID, c.IdPSSOURL
+	p.IdPCertificates, p.SPEntityID, p.NameIDFormat = c.IdPCertificates, c.SPEntityID, c.NameIDFormat
+	p.AllowIdPInitiated = c.AllowIdPInitiated
 }
 
 func scanSSOProvider(s scanner) (core.SSOProvider, error) {
@@ -204,6 +218,10 @@ func (t *tx) UpdateSSOProvider(ctx context.Context, p *core.SSOProvider) error {
 
 // DeleteSSOProvider removes a provider and, by cascade, its identities.
 func (t *tx) DeleteSSOProvider(ctx context.Context, providerID string) error {
+	if _, err := t.execDelete(ctx, t.builder("sso_assertions").Where("provider_id = ?", providerID),
+		"deleting used assertions of sso provider %q", providerID); err != nil {
+		return err
+	}
 	if _, err := t.execDelete(ctx, t.builder("user_identities").Where("provider_id = ?", providerID),
 		"deleting identities of sso provider %q", providerID); err != nil {
 		return err
@@ -294,4 +312,20 @@ func (t *tx) TouchUserIdentity(ctx context.Context, identityID, email string, at
 		return core.NotFound("user identity %q", identityID)
 	}
 	return nil
+}
+
+// ConsumeSSOAssertion records a SAML assertion as used, after pruning the
+// tenant's expired ones; an id already recorded is a conflict.
+func (t *tx) ConsumeSSOAssertion(ctx context.Context, providerID, assertionID string, expiresAt, now time.Time) error {
+	if _, err := t.execDelete(ctx, t.builder("sso_assertions").Where("expires_at < ?", sqlb.TimeText(now)),
+		"pruning used sso assertions"); err != nil {
+		return err
+	}
+	ins := t.insert("sso_assertions").
+		Set("id", id.New()).
+		Set("provider_id", providerID).
+		Set("assertion_id", assertionID).
+		Set("expires_at", sqlb.TimeText(expiresAt))
+	_, err := t.execInsert(ctx, ins, "recording sso assertion %q", assertionID)
+	return err
 }

@@ -165,7 +165,7 @@ the routes the server registers. The areas are the first segment of each operati
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
-| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}` |
+| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}` |
 | stats | `GET /stats` |
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |

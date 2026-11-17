@@ -61,3 +61,31 @@ func TestSSOCallsIssueTheExpectedRequests(t *testing.T) {
 		t.Errorf("delete = %v, %s", err, got.method)
 	}
 }
+
+func TestSAMLMetadataReadsTheDocument(t *testing.T) {
+	doc := `<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="https://tix.example/m">` +
+		`<md:SPSSODescriptor><md:AssertionConsumerService Location="https://tix.example/acs"/></md:SPSSODescriptor>` +
+		`</md:EntityDescriptor>`
+	c, got := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(wire.HeaderContentType, wire.ContentSAMLMetadata)
+		_, _ = io.WriteString(w, doc)
+	})
+	md, err := c.SAMLMetadata(context.Background(), core.SAMLMetadataInput{Provider: "okta"})
+	if err != nil {
+		t.Fatalf("SAMLMetadata: %v", err)
+	}
+	if got.method != http.MethodGet || got.path != wire.APIPrefix+"/auth/sso/providers/okta/saml-metadata" {
+		t.Errorf("request = %s %s", got.method, got.path)
+	}
+	if md.XML != doc || md.EntityID != "https://tix.example/m" || md.ACSURL != "https://tix.example/acs" {
+		t.Errorf("metadata = %+v", md)
+	}
+	c, _ = newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(wire.HeaderContentType, wire.ContentJSON)
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, `{"error":{"code":"not_found","message":"no saml provider"}}`)
+	})
+	if _, err := c.SAMLMetadata(context.Background(), core.SAMLMetadataInput{Provider: "x"}); !core.IsKind(err, core.KindNotFound) {
+		t.Errorf("missing provider = %v, want not found", err)
+	}
+}
