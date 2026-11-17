@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/Heliopsy/tix/compare/v0.62.0...v0.63.0) (2026-11-17)
+
+
+### Features
+
+* provision users and groups from an identity provider over SCIM 2.0 ([8d134c3](https://github.com/Heliopsy/tix/commit/8d134c3fa3dbc51b6a9d3b20e8e71f7112c98bf9))
+
 ## [0.62.0](https://github.com/Heliopsy/tix/compare/v0.61.0...v0.62.0) (2026-11-14)
 
 
