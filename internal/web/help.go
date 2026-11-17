@@ -55,6 +55,7 @@ var helpDocs = map[string]helpDoc{
 	"/admin/tenant":                      {"tenancy.md", "tenants"},
 	"/admin/domains":                     {"tenancy.md", "domains"},
 	"/admin/users":                       {"tenancy.md", "members-and-roles"},
+	"/admin/scim":                        {"scim.md", "turning-it-on"},
 	"/admin/tokens":                      {"agents.md", "tokens-and-scopes"},
 	"/admin/ssh-keys":                    {"deployment.md", "enrolling-a-key"},
 	"/admin/global":                      {"tenancy.md", "global-admins"},

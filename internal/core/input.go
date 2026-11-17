@@ -1062,6 +1062,11 @@ func (in CreateTokenInput) Validate() error {
 	if len(in.Scopes) == 0 {
 		return Invalid("a token requires at least one scope").WithDetail(DetailField, "scopes")
 	}
+	if slices.Contains(in.Scopes, ScopeSCIMProvision) &&
+		(len(in.Scopes) > 1 || in.ProjectID != "" || in.RequireClaim) {
+		return Invalid("a %s token carries that scope alone, with no project and no claim requirement",
+			ScopeSCIMProvision).WithDetail(DetailField, "scopes")
+	}
 	return nil
 }
 

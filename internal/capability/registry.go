@@ -78,6 +78,7 @@ const (
 	tplStats     = "stats.html"
 	tplWebhooks  = "webhooks.html"
 	tplSync      = "sync.html"
+	tplSCIM      = "scim.html"
 	tplConns     = "connections.html"
 	tplStatus    = "status.html"
 	tplSettings  = "settings.html"
@@ -1774,4 +1775,58 @@ var registry = []Operation{
 		Web:   webPost(web.RouteConnectionEnd),
 		TUI:   "server",
 	},
+
+	{
+		Name: "scim.get", Method: "GetSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim show",
+		HTTP:   apiGet(wire.RouteSCIM),
+		Web:    webGet(web.RouteSCIM, tplSCIM),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.enable", Method: "EnableSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim enable",
+		HTTP:   apiPost(wire.RouteSCIMEnable),
+		Web:    webPost(web.RouteSCIMEnable),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.disable", Method: "DisableSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim disable",
+		HTTP:   apiPost(wire.RouteSCIMDisable),
+		Web:    webPost(web.RouteSCIMDisable),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.token", Method: "RotateSCIMToken",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim token",
+		HTTP:   apiPost(wire.RouteSCIMToken),
+		Web:    webPost(web.RouteSCIMToken),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.group.map", Method: "MapSCIMGroup",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim map-group",
+		HTTP:   apiPut(wire.RouteSCIMGroups),
+		Web:    webPost(web.RouteSCIMGroups),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.group.unmap", Method: "UnmapSCIMGroup",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim unmap-group",
+		HTTP:   apiDelete(wire.RouteSCIMGroup),
+		Web:    webPost(web.RouteSCIMUnmap),
+		Exempt: scimTUI,
+	},
+}
+
+// scimTUI records why SCIM administration has no terminal binding.
+var scimTUI = []Exemption{
+	off(SurfaceTUI, "SCIM provisioning is tenant administration set up once with an identity provider, from the SCIM screen, the command line or the API; the terminal shows the people it provisions"),
 }

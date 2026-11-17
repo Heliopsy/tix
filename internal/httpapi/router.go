@@ -95,6 +95,11 @@ type Config struct {
 	// EventHandler serves the WebSocket event route when it is supplied.
 	EventHandler http.Handler
 
+	// SCIM serves SCIM 2.0 provisioning under core.SCIMPath when it is
+	// supplied. It is its own protocol, described by its own discovery
+	// endpoints rather than by the OpenAPI document.
+	SCIM http.Handler
+
 	// Releases answers what the release check knows. The browser interface
 	// shares the same one, so the route and the release screen agree. Left
 	// nil, the route reports the running version alone.
@@ -251,9 +256,13 @@ func (rt *Router) register() {
 	rt.registerInboxRoutes()
 	rt.registerTimeRoutes()
 	rt.registerTemplateRoutes()
+	rt.registerSCIMRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)
+	}
+	if rt.cfg.SCIM != nil {
+		rt.mux.Handle(core.SCIMPath+"/", rt.cfg.SCIM)
 	}
 	if rt.cfg.WebHandler != nil {
 		rt.mux.Handle("/", rt.cfg.WebHandler)

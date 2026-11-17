@@ -751,6 +751,20 @@ func (f *fakeService) PutRetention(context.Context, core.RetentionPolicy) (*core
 	return nil, nil
 }
 
+func (f *fakeService) GetSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) EnableSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) DisableSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) RotateSCIMToken(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) MapSCIMGroup(context.Context, core.SCIMGroupRoleInput) (*core.SCIMGroupRole, error) {
+	return nil, nil
+}
+
+func (f *fakeService) UnmapSCIMGroup(context.Context, string) error { return nil }
+
 func (f *fakeService) GetHousekeeping(context.Context, string) (*core.HousekeepingView, error) {
 	return nil, nil
 }

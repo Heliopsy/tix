@@ -53,7 +53,7 @@ A tenant SHALL be able to turn SCIM provisioning on and off, off by default. Whi
 
 ### Requirement: Creating a user links an existing account or creates one without a password
 
-`POST /scim/v2/Users` SHALL link an existing account whose address matches the user's email, granting a membership when it has none, and otherwise SHALL create an account with no password. A user already provisioned in the tenant SHALL be refused with 409 `uniqueness`.
+`POST /scim/v2/Users` SHALL link an account whose address matches the user's email and that has an actor in this tenant, granting a membership when it has none, and otherwise SHALL create an account with no password. A user already provisioned, or an address of an account in other tenants only, SHALL be refused with 409.
 
 #### Scenario: Create a new person
 
@@ -64,6 +64,11 @@ A tenant SHALL be able to turn SCIM provisioning on and off, off by default. Whi
 
 - **WHEN** a provider posts a user whose email is an existing member's address
 - **THEN** the answer is 201 with that member's user id and their role is unchanged
+
+#### Scenario: An account of another tenant is not pulled in
+
+- **WHEN** a provider posts a user whose address belongs to an account that is only in another tenant
+- **THEN** the answer is 409 and the account gains no membership
 
 ### Requirement: Users are replaced, patched and deleted
 

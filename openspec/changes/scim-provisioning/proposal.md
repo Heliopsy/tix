@@ -29,6 +29,9 @@ provisioning only and keeps its own data in `scim_*` tables.
 - Admin operations on every surface: `tix tenant scim show|enable|disable|token|map-group|unmap-group`,
   the matching `/api/v1/scim` routes, a SCIM screen under Manage in the browser. Enabling creates
   the tenant's `scim` agent and mints its token once.
+- Creating a user links an account with that address that already has an actor in the tenant,
+  refuses one that belongs only to other tenants (they are invited instead, as today), and otherwise
+  creates an account with no password.
 - `active=false` disables the person in this tenant and ends their sessions; their tokens and SSH
   keys stop working while they are inactive and work again when they are reactivated. Tasks and
   history are kept. DELETE removes the membership and revokes those credentials, never the history.

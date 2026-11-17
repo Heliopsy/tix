@@ -65,9 +65,12 @@ tenant (their actor). Provisioning metadata lives in `scim_users`, keyed by tena
 | `groups` | read only, from `scim_group_members` |
 
 Creating a user needs an email: the primary email, or the `userName` when it is an address. If an
-account with that address exists it is linked: its actor here is reused or created, a membership is
-granted if it has none, and the `scim_users` row is written. A person already provisioned is a 409
-`uniqueness`. Otherwise an account is created with no password. A provisioned person signs in with
+account with that address already has an actor in this tenant (a member, or a former member) it is
+linked: a membership is granted if it has none, and the `scim_users` row is written. A person already
+provisioned is a 409 `uniqueness`. An address held by an account that belongs only to other tenants
+is refused with 409 too, naming `tix user invite`: invites already hold that an administrator of one
+tenant never grants an account a membership its owner did not accept, and a provider configured by a
+tenant admin is that administrator. Otherwise an account is created with no password. A provisioned person signs in with
 SSO, or the admin issues an invite or sets a password. An account's address is not changed by a
 later update; it is global across tenants and a provider of one tenant does not own it.
 

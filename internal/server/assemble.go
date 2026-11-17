@@ -18,6 +18,7 @@ import (
 	"github.com/heliopsy/tix/internal/presence"
 	"github.com/heliopsy/tix/internal/release"
 	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/scim"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
 	"github.com/heliopsy/tix/internal/version"
@@ -137,7 +138,12 @@ func Assemble(opts Options) (*Server, error) {
 	pump := newPumps(context.Background(), hub, log, opts.EventPollInterval, opts.Logger)
 	hub.SetTenantHooks(pump.start, pump.stop)
 
+	var provisioning http.Handler
+	if p, ok := opts.Service.(core.Provisioner); ok {
+		provisioning = scim.New(p, httpapi.Origin)
+	}
 	router, err := httpapi.New(httpapi.Config{
+		SCIM:             provisioning,
 		Service:          opts.Service,
 		EventHandler:     httpapi.NewEventStream(hub, log),
 		WebHandler:       opts.WebHandler,

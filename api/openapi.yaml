@@ -33,6 +33,7 @@ tags:
   - name: member
   - name: project
   - name: retention
+  - name: scim
   - name: server
   - name: session
   - name: snapshot
@@ -6599,6 +6600,343 @@ paths:
         - retention
       x-tix-openspec:
         - http-api
+  /api/v1/scim:
+    get:
+      description: |-
+        GetSCIM reports whether SCIM provisioning is on for this tenant, its endpoint, the provisioning agent's live tokens, how many users and groups a provider has pushed, when it last changed anything, and the group to role mappings.
+
+        Command line: `tix tenant scim show`.
+      operationId: scim.get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SCIMSettings'
+          description: SCIMSettings is a tenant's SCIM provisioning as an administrator
+            sees it.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: GetSCIM reports whether SCIM provisioning is on for this tenant, its
+        endpoint, the provisioning agent's live tokens, how many users and groups
+        a provider has pushed, when it last changed anything, and the group to role
+        mappings
+      tags:
+        - scim
+  /api/v1/scim/disable:
+    post:
+      description: |-
+        DisableSCIM turns SCIM provisioning off: every SCIM endpoint answers 404 until it is enabled again. The provisioning token is kept.
+
+        Command line: `tix tenant scim disable`.
+      operationId: scim.disable
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SCIMSettings'
+          description: SCIMSettings is a tenant's SCIM provisioning as an administrator
+            sees it.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: 'DisableSCIM turns SCIM provisioning off: every SCIM endpoint answers
+        404 until it is enabled again'
+      tags:
+        - scim
+  /api/v1/scim/enable:
+    post:
+      description: |-
+        EnableSCIM turns SCIM provisioning on. The first time, it creates the tenant's provisioning agent, handle scim; whenever that agent holds no live token it mints one named scim, carrying scim:provision, whose value the answer carries once.
+
+        Command line: `tix tenant scim enable`.
+      operationId: scim.enable
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SCIMSettings'
+          description: SCIMSettings is a tenant's SCIM provisioning as an administrator
+            sees it.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: EnableSCIM turns SCIM provisioning on
+      tags:
+        - scim
+  /api/v1/scim/groups:
+    put:
+      description: |-
+        MapSCIMGroup gives the members of the SCIM group with this display name, ignoring case, a tenant role. A person provisioned over SCIM holds the highest role mapped to their groups. Mapping a name again changes its role.
+
+        Command line: `tix tenant scim map-group`.
+      operationId: scim.group.map
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCIMGroupRoleInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SCIMGroupRole'
+          description: SCIMGroupRole maps a SCIM group, by display name, to a tenant
+            role.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: MapSCIMGroup gives the members of the SCIM group with this display
+        name, ignoring case, a tenant role
+      tags:
+        - scim
+  /api/v1/scim/groups/{group}:
+    delete:
+      description: |-
+        UnmapSCIMGroup removes a group's role mapping. Provisioned members left in no mapped group drop to viewer.
+
+        Command line: `tix tenant scim unmap-group`.
+      operationId: scim.group.unmap
+      parameters:
+        - description: 'Group of the view: a state key on board or a project''s board,
+            a project key on lanes, or a deadline bucket on mine (overdue, today,
+            week, later or none).'
+          in: path
+          name: group
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: UnmapSCIMGroup removes a group's role mapping
+      tags:
+        - scim
+  /api/v1/scim/token:
+    post:
+      description: |-
+        RotateSCIMToken revokes the provisioning agent's live tokens and mints a new one, whose value the answer carries once. Configure the identity provider with it; the old token stops at once.
+
+        Command line: `tix tenant scim token`.
+      operationId: scim.token
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SCIMSettings'
+          description: SCIMSettings is a tenant's SCIM provisioning as an administrator
+            sees it.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - tenant:admin
+        - session:
+            - tenant:admin
+      summary: RotateSCIMToken revokes the provisioning agent's live tokens and mints
+        a new one, whose value the answer carries once
+      tags:
+        - scim
   /api/v1/snoozes/wake:
     post:
       description: |-
@@ -16453,6 +16791,80 @@ components:
             Required.
           type: string
       type: object
+    SCIMGroupRole:
+      description: SCIMGroupRole maps a SCIM group, by display name, to a tenant role.
+      properties:
+        created_at:
+          description: CreatedAt is when the mapping was made, RFC 3339.
+          format: date-time
+          type: string
+        group:
+          description: Group is the group's display name; it matches ignoring case.
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is the role the group's provisioned members are given.
+      type: object
+    SCIMGroupRoleInput:
+      description: SCIMGroupRoleInput maps a SCIM group to a role.
+      properties:
+        group:
+          description: Group is the SCIM group's display name. Required.
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Role is viewer, member or admin. Required.
+      type: object
+    SCIMSettings:
+      description: SCIMSettings is a tenant's SCIM provisioning as an administrator
+        sees it.
+      properties:
+        agent_id:
+          description: AgentID is the provisioning agent's actor, once SCIM has been
+            enabled.
+          type: string
+        enabled:
+          description: Enabled reports whether the SCIM endpoints answer for this
+            tenant.
+          type: boolean
+        group_roles:
+          description: GroupRoles are the group to role mappings, by group name.
+          items:
+            $ref: '#/components/schemas/SCIMGroupRole'
+          type:
+            - array
+            - "null"
+        groups:
+          type: integer
+        last_activity_at:
+          description: LastActivityAt is when a provider last changed anything, RFC
+            3339.
+          format: date-time
+          type:
+            - "null"
+            - string
+        path:
+          description: Path is where the endpoints are served, /scim/v2.
+          type: string
+        token:
+          description: Token is a newly minted token's value, present once, on the
+            answer to the call that minted it.
+          type: string
+        tokens:
+          description: Tokens are the provisioning agent's live tokens, as metadata.
+          items:
+            $ref: '#/components/schemas/APIToken'
+          type:
+            - array
+            - "null"
+        url:
+          description: URL is the absolute endpoint to give an identity provider,
+            when the surface answering knows the address it was reached at.
+          type: string
+        users:
+          description: Users and Groups count what a provider has pushed.
+          type: integer
+      type: object
     SSHChallenge:
       description: SSHChallenge is what a client signs to prove it holds a key. Nonce
         is opaque and signed by the server; Namespace is what the server expects the
@@ -16710,6 +17122,7 @@ components:
         - account:read
         - export
         - import
+        - scim:provision
       type: string
     ServerStatus:
       description: 'ServerStatus is one server as a reader receives it: the stored
@@ -19298,7 +19711,8 @@ components:
         `task:delete`, `task:reclaim`, `task:approve`, `project:read`, `project:write`,
         `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
         `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
-        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`.'
+        `sync:admin`, `audit:read`, `export`, `import`, `global:admin`, `account:read`,
+        `scim:provision`.'
       scheme: bearer
       type: http
     session:
@@ -19309,7 +19723,7 @@ components:
         `project:write`, `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`,
         `event:subscribe`, `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`,
         `tenant:admin`, `sync:admin`, `audit:read`, `export`, `import`, `global:admin`,
-        `account:read`.
+        `account:read`, `scim:provision`.
       in: cookie
       name: tix_session
       type: apiKey

@@ -85,6 +85,7 @@ var serviceParts = map[string]reflect.Type{
 	"InboxChannelService": reflect.TypeOf((*core.InboxChannelService)(nil)).Elem(),
 	"TemplateService":     reflect.TypeOf((*core.TemplateService)(nil)).Elem(),
 	"TimeService":         reflect.TypeOf((*core.TimeService)(nil)).Elem(),
+	"SCIMService":         reflect.TypeOf((*core.SCIMService)(nil)).Elem(),
 }
 
 // serviceOwnMethods are the only two methods Service may declare itself.
