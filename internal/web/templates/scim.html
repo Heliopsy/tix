@@ -1,0 +1,113 @@
+{{define "content"}}
+{{$s := .Data.Settings}}
+<div class="pagehead">
+  <div class="pagehead-title"><div class="headtip"><h1>{{t "SCIM provisioning"}}</h1>{{template "tip" (tip "SCIM provisioning" "An identity provider such as Entra ID, Okta, Authentik or JumpCloud creates, updates, deactivates and removes this tenant's people and groups over SCIM 2.0. It signs in with a token of its own that reaches the SCIM endpoints and nothing else." "docs/scim.md")}}</div></div>
+  {{template "help" $}}
+</div>
+{{with .Data.Secret}}{{template "secret" .}}{{end}}
+
+<section id="scim-status" aria-labelledby="scim-status-h">
+  <h2 id="scim-status-h">{{t "Status"}}</h2>
+  <dl class="fields">
+    <dt>{{t "Provisioning"}}</dt><dd>{{if $s.Enabled}}{{t "on"}}{{else}}{{t "off"}}{{end}}</dd>
+    <dt>{{t "Endpoint"}}</dt><dd><div class="copyline"><code id="scim-endpoint">{{$s.URL}}</code><button type="button" class="secondary" data-copy-target="scim-endpoint">{{t "Copy"}}</button></div></dd>
+    <dt>{{t "Provisioned users"}}</dt><dd>{{$s.Users}}</dd>
+    <dt>{{t "Groups"}}</dt><dd>{{$s.Groups}}</dd>
+    <dt>{{t "Last change by the provider"}}</dt><dd>{{with $s.LastActivityAt}}{{when .}}{{else}}{{t "never"}}{{end}}</dd>
+  </dl>
+  {{if $s.Enabled}}
+  <form method="post" action="/admin/scim/disable">
+    {{template "csrf" .CSRF}}
+    <p class="meta">{{t "Turning it off answers the provider with not found until it is turned on again. The token is kept."}}</p>
+    <button class="secondary" type="submit">{{t "Turn SCIM off"}}</button>
+  </form>
+  {{else}}
+  <form method="post" action="/admin/scim/enable">
+    {{template "csrf" .CSRF}}
+    <p class="meta">{{t "Turning it on the first time creates the scim agent and shows its token once."}}</p>
+    <button type="submit">{{t "Turn SCIM on"}}</button>
+  </form>
+  {{end}}
+</section>
+
+<section id="scim-token" aria-labelledby="scim-token-h">
+  <div class="sechead"><h2 id="scim-token-h">{{t "Provisioning token"}}</h2>{{template "dlg-open" (opener "scim-rotate" (t "Issue a new token") "" "danger" .Here)}}</div>
+  <table class="rows">
+    <thead><tr><th>{{t "Name"}}</th><th>{{t "Created"}}</th><th>{{t "Last used"}}</th></tr></thead>
+    <tbody>
+    {{range $s.Tokens}}
+      <tr><td>{{.Name}}</td><td>{{when .CreatedAt}}</td><td>{{with .LastUsedAt}}{{when .}}{{else}}{{t "never"}}{{end}}</td></tr>
+    {{else}}
+      <tr><td colspan="3">{{t "No provisioning token. Turn SCIM on, or issue one."}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+
+{{$sh := shell "scim-rotate" (t "Issue a new provisioning token?") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/scim/token">
+  {{template "csrf" .CSRF}}
+  <p>{{t "The current provisioning token stops working at once, and the new one is shown once. Give it to the identity provider straight away."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Issue a new token"}}</button></div>
+</form>
+{{template "dlg-end"}}
+
+<section id="scim-groups" aria-labelledby="scim-groups-h">
+  <div class="sechead"><h2 id="scim-groups-h">{{t "Group mappings"}}</h2>{{template "dlg-open" (opener "scim-map" (t "Map a group") "plus" "" .Here)}}</div>
+  <p class="meta">{{t "A person the provider pushed holds the highest role mapped to their groups. Leaving the last mapped group drops them to viewer."}}</p>
+  <table class="rows">
+    <thead><tr><th>{{t "Group"}}</th><th>{{t "Role"}}</th><th></th></tr></thead>
+    <tbody>
+    {{range $s.GroupRoles}}
+      <tr>
+        <td>{{.Group}}</td><td>{{.Role}}</td>
+        <td>
+          <form method="post" action="/admin/scim/groups/remove">
+            {{template "csrf" $.CSRF}}
+            <input type="hidden" name="group" value="{{.Group}}">
+            <button class="secondary" type="submit">{{t "Remove"}}</button>
+          </form>
+        </td>
+      </tr>
+    {{else}}
+      <tr><td colspan="3"><div class="empty-action"><span>{{t "No groups mapped."}}</span>{{template "dlg-open" (opener "scim-map" (t "Map a group") "plus" "" $.Here)}}</div></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+
+{{$d := .Dialog.For "scim-map"}}
+{{$mh := shell "scim-map" (t "Map a group") "" .Dialog .Here}}
+{{template "dlg-start" $mh}}
+<form method="post" action="/admin/scim/groups">
+  {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <div class="row">
+    <div><label for="scim-group">{{t "Group display name"}}</label><input id="scim-group" name="group" value="{{$d.Value "group"}}" required{{$d.Errors.Attrs "group"}}>{{with $d.Errors.On "group"}}{{template "field-error" .}}{{end}}</div>
+    <div><label for="scim-role">{{t "Role"}}</label>
+      <select id="scim-role" name="role"{{$d.Errors.Attrs "role"}}>
+        {{range .Data.Roles}}<option value="{{.}}"{{if $d.Chose "role" (print .)}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      {{with $d.Errors.On "role"}}{{template "field-error" .}}{{end}}
+    </div>
+  </div>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $mh.Back}}<button type="submit">{{t "Map a group"}}</button></div>
+</form>
+{{template "dlg-end"}}
+
+<section id="scim-activity" aria-labelledby="scim-activity-h">
+  <h2 id="scim-activity-h">{{t "Recent provider changes"}}</h2>
+  <table class="rows">
+    <thead><tr><th>{{t "When"}}</th><th>{{t "Change"}}</th><th>{{t "Record"}}</th></tr></thead>
+    <tbody>
+    {{range .Data.Activity}}
+      <tr><td>{{when .OccurredAt}}</td><td><code>{{.Action}}</code></td><td>{{.SubjectType}} <code>{{.SubjectID}}</code></td></tr>
+    {{else}}
+      <tr><td colspan="3">{{t "The provider has changed nothing yet."}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  <p class="meta"><a href="/activity?via=scim">{{t "All provider changes in the activity feed"}}</a></p>
+</section>
+{{end}}

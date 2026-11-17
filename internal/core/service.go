@@ -43,6 +43,7 @@ type Service interface {
 	InboxChannelService
 	TemplateService
 	TimeService
+	SCIMService
 
 	// Close releases the service's resources, such as the underlying store.
 	Close() error

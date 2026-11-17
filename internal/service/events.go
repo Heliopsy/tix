@@ -74,6 +74,10 @@ var subjectScope = map[string]core.Scope{
 	"webhook":          core.ScopeWebhookAdmin,
 	"webhook_delivery": core.ScopeWebhookAdmin,
 	"sync_source":      core.ScopeSyncAdmin,
+
+	// SCIM settings name the provisioning agent, and a SCIM group lists people.
+	subjectSCIM:      core.ScopeTenantAdmin,
+	subjectSCIMGroup: core.ScopeUserAdmin,
 }
 
 // EventSubjectScopes returns a copy of the extra scope each administrative event subject requires.

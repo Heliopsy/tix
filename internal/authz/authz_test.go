@@ -436,7 +436,27 @@ func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
 // CanGlobal and Can refuses it outright, which TestCanNeverGrantGlobalAdmin
 // pins.
 func scopedActions() []Action {
-	return slices.DeleteFunc(Actions(), func(a Action) bool { return a == ActionGlobalAdmin || a == ActionAccountRead })
+	return slices.DeleteFunc(Actions(), func(a Action) bool {
+		return a == ActionGlobalAdmin || a == ActionAccountRead || a == ActionSCIMProvision
+	})
+}
+
+// TestSCIMProvisionIsHeldOnlyWhenNamed: neither the wildcard, the system
+// actor nor the admin role provisions over SCIM; only a token naming the scope.
+func TestSCIMProvisionIsHeldOnlyWhenNamed(t *testing.T) {
+	p := New()
+	for name, actor := range map[string]*core.Actor{
+		"system":     core.SystemActor(tenantA),
+		"admin role": roleActor(core.RoleAdmin),
+		"wildcard":   scopeActor(core.ScopeAll),
+	} {
+		if err := p.Can(actor, ActionSCIMProvision, resource()); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("Can(%s, scim provision) = %v, want forbidden", name, err)
+		}
+	}
+	if err := p.Can(scopeActor(core.ScopeSCIMProvision), ActionSCIMProvision, resource()); err != nil {
+		t.Errorf("a scim:provision token is refused: %v", err)
+	}
 }
 
 func TestCanNeverGrantGlobalAdmin(t *testing.T) {

@@ -81,6 +81,7 @@
        looking like you are somewhere else. */}}
   <a href="/transfer" data-rail-name="{{t "Import and export"}}" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>{{t "Import and export"}}</span></a>
   <a href="/sync" data-rail-name="{{t "Sync"}}" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>{{t "Sync"}}</span></a>
+  <a href="/admin/scim" data-rail-name="{{t "SCIM provisioning"}}" {{if eq .Path "/admin/scim"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "SCIM provisioning"}}</span></a>
   {{end}}
   </div>
   </div>

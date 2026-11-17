@@ -147,6 +147,10 @@ func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, 
 	if !tok.Active(now) {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
+	if slices.Contains(tok.Scopes, core.ScopeSCIMProvision) && !core.SCIMRequestFrom(ctx) {
+		return nil, core.Forbidden("a %s token works only on the SCIM endpoints, %s",
+			core.ScopeSCIMProvision, core.SCIMPath)
+	}
 	if toucher, ok := v.lookup.(TokenToucher); ok {
 		if err := toucher.TouchToken(ctx, tok.ID, now); err != nil {
 			return nil, core.Internal("recording token use").Wrap(err)

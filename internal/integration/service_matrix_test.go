@@ -1776,6 +1776,46 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "scim is enabled, its token rotated, a group mapped and it is turned off",
+		covers: []string{"GetSCIM", "EnableSCIM", "RotateSCIMToken", "MapSCIMGroup", "UnmapSCIMGroup",
+			"DisableSCIM"},
+		run: func(t *testing.T, tg target, _ *matrixHarness) (sig, error) {
+			before, err := tg.svc.GetSCIM(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			on, err := tg.svc.EnableSCIM(tg.ctx)
+			mustf(t, tg, err, "enabling scim")
+			again, err := tg.svc.EnableSCIM(tg.ctx)
+			mustf(t, tg, err, "enabling scim again")
+			rotated, err := tg.svc.RotateSCIMToken(tg.ctx)
+			mustf(t, tg, err, "rotating the scim token")
+			mapped, err := tg.svc.MapSCIMGroup(tg.ctx, core.SCIMGroupRoleInput{Group: "Engineering", Role: core.RoleMember})
+			mustf(t, tg, err, "mapping a group")
+			_, badRole := tg.svc.MapSCIMGroup(tg.ctx, core.SCIMGroupRoleInput{Group: "x", Role: "owner"})
+			listed, err := tg.svc.GetSCIM(tg.ctx)
+			mustf(t, tg, err, "reading scim")
+			mustf(t, tg, tg.svc.UnmapSCIMGroup(tg.ctx, "engineering"), "unmapping a group")
+			missing := tg.svc.UnmapSCIMGroup(tg.ctx, "engineering")
+			off, err := tg.svc.DisableSCIM(tg.ctx)
+			mustf(t, tg, err, "disabling scim")
+			return sig{
+				"before_enabled": before.Enabled,
+				"path":           before.Path,
+				"minted":         on.Token != "",
+				"reminted":       again.Token != "",
+				"rotated":        rotated.Token != "" && rotated.Token != on.Token,
+				"live_tokens":    len(rotated.Tokens),
+				"mapped":         mapped.Group + "=" + string(mapped.Role),
+				"bad_role":       core.KindOf(badRole),
+				"mappings":       len(listed.GroupRoles),
+				"unmap_missing":  core.KindOf(missing),
+				"off":            off.Enabled,
+				"kept_tokens":    len(off.Tokens),
+			}, nil
+		},
+	},
+	{
 		name:   "housekeeping is set per tenant and per project and previewed",
 		covers: []string{"GetHousekeeping", "PutHousekeeping", "RunHousekeeping"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

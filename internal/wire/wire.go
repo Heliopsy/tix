@@ -177,6 +177,15 @@ const (
 	RouteHousekeeping    = APIPrefix + "/housekeeping"
 	RouteHousekeepingRun = APIPrefix + "/housekeeping/run"
 
+	// RouteSCIM reads the tenant's SCIM provisioning settings; the routes
+	// under it turn provisioning on and off, mint its token and map groups.
+	RouteSCIM        = APIPrefix + "/scim"
+	RouteSCIMEnable  = APIPrefix + "/scim/enable"
+	RouteSCIMDisable = APIPrefix + "/scim/disable"
+	RouteSCIMToken   = APIPrefix + "/scim/token" // #nosec G101 -- a url path, not a credential
+	RouteSCIMGroups  = APIPrefix + "/scim/groups"
+	RouteSCIMGroup   = APIPrefix + "/scim/groups/{group}"
+
 	RouteExport = APIPrefix + "/export"
 	RouteImport = APIPrefix + "/import"
 
@@ -244,6 +253,8 @@ func CalendarFeedPath(token string) string { return CalendarFeedPrefix + token +
 const (
 	ContentJSON   = "application/json"
 	ContentNDJSON = "application/x-ndjson"
+	// ContentSCIM is the media type of every SCIM request and response.
+	ContentSCIM = "application/scim+json"
 )
 
 // IconPolicy is the content security policy a project or tenant icon image is served

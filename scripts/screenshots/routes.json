@@ -120,6 +120,7 @@
     { "pattern": "/admin/global/tenants/{key}", "params": { "key": "tenant" } },
     { "pattern": "/admin/global/accounts/{email}", "params": { "email": "account" } },
     { "pattern": "/admin/tokens" },
+    { "pattern": "/admin/scim" },
     {
       "pattern": "/connect",
       "states": [
