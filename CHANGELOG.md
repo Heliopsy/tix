@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/Heliopsy/tix/compare/v0.63.0...v0.64.0) (2026-11-17)
+
+
+### Features
+
+* single sign-on per tenant with OIDC and GitHub ([#356](https://github.com/Heliopsy/tix/issues/356)) ([d451da2](https://github.com/Heliopsy/tix/commit/d451da2aab71623f0655ba94f37bb7f2081458ab))
+
 ## [0.63.0](https://github.com/Heliopsy/tix/compare/v0.62.0...v0.63.0) (2026-11-17)
 
 
