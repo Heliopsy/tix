@@ -238,6 +238,29 @@ tix user ls --without-2fa
 tix tenant edit acme --mfa-policy required --mfa-grace 7d
 ```
 
+### Single sign-on
+
+A tenant admin (scope `sso:admin`) adds sign-in providers per tenant: OIDC
+(`--kind oidc --issuer URL`) or GitHub (`--kind oauth_github`). The secret is
+read from standard input and never printed again. `--auto-create` makes an
+account for a verified email nobody holds, and `--trust-mfa` skips the
+tenant's second factor when the ID token says one was passed; both are off
+by default. Register
+`PUBLIC_URL/login/sso/callback` with the provider. `tix login --sso` (or
+`--sso=KEY` when there are several) signs in through one on a terminal and
+prints the same session as a password sign-in; `--no-browser` only prints
+the address. `tix tenant edit KEY
+--password-login disabled` turns passwords off once a provider is enabled;
+global admins keep password sign-in, and tokens and SSH keys keep working. A
+refused provider sign-in is exit `5` with reason `sso_...`; the details are in
+the audit log as `sso.denied`. See docs/sso.md.
+
+```sh
+tix tenant sso add kc --kind oidc --name Keycloak --issuer https://id.example.com/realms/acme --client-id tix-web --client-secret -
+tix tenant sso ls
+tix login --sso
+```
+
 ### How long a sign-in lasts
 
 A sign-in lasts the server's `session.ttl` (12h) past its last use, for up to

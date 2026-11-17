@@ -442,6 +442,14 @@ A tenant can require a time-based code in the browser, for `tix login` and over 
 Recovery codes cover a lost phone, an administrator can clear an enrolment, and API tokens are exempt.
 See [docs/second-factor.md](docs/second-factor.md).
 
+#### Single sign-on with OIDC and GitHub
+
+A tenant's own admins add sign-in providers: any OpenID Connect identity provider (Keycloak, Authentik,
+Entra ID, Google, Okta) or a GitHub OAuth app. People sign in with a button in the browser or `tix login
+--sso`, are linked by subject or a verified email, and can be created on first sign-in with a role their
+groups map to. A tenant can turn passwords off, with global admins kept as the way back in. External identities
+live in `user_identities` per tenant and provider, which SAML will reuse. See [docs/sso.md](docs/sso.md).
+
 ### Running it
 
 #### Shell completion that installs itself
@@ -562,12 +570,13 @@ a `Syncer` adding `Push` extends it.
 tracking so a pushed change does not echo back as an inbound change, inbound webhook
 receivers for Jira and OpenProject, and per-field sync direction.
 
-### SSO / OIDC
+### SAML
 
-**Seam in v1:** `users.sso_subject` and `users.sso_provider` exist and are never read.
-`internal/auth` defines an `Authenticator` interface with a local implementation, and the
-middleware holds a chain. Adding a provider is a new implementation plus a config block,
-with no schema migration and no signature change.
+Single sign-on with OIDC and GitHub has shipped (see above). SAML is next and builds on it: `saml` is a reserved
+provider kind, and its assertion becomes the same external identity, linked by the same rules into the same
+`user_identities` table, with the same session, second factor and password policy. What it adds is the SAML
+request and response handling, IdP metadata and signing certificates in the provider's settings, and an
+assertion consumer service beside the OIDC callback. SCIM provisioning is separate work.
 
 ### ACME / automatic certificates
 

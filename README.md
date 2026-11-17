@@ -114,6 +114,11 @@ row-level security policies, applied to the connection when tix opens the databa
 Bring people in with a single-use invite link instead of a password you have to pass on (`tix user
 invite`, or the Users screen), or set one and require it to be changed at the first sign-in.
 
+Single sign-on per tenant through any OpenID Connect provider (Keycloak, Authentik, Entra ID, Google, Okta)
+or GitHub, configured by the tenant's own admins (`tix tenant sso add`, or the Single sign-on screen), in the
+browser and with `tix login --sso`. A tenant can turn passwords off, with global admins kept as the way back in.
+See [docs/sso.md](docs/sso.md).
+
 ## Access paths
 
 One binary, one service layer, six ways in. The web UI is required to cover 100% of the CLI, enforced
@@ -222,6 +227,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
 | [docs/mcp.md](docs/mcp.md) | `tix mcp`: the API as MCP tools, the overlay, scopes and destructive tools |
 | [docs/deployment.md](docs/deployment.md) | `tix serve`, the container image, Kubernetes, TLS, proxies |
+| [docs/sso.md](docs/sso.md) | Single sign-on per tenant: OIDC and GitHub, linking, turning passwords off |
 | [docs/features.md](docs/features.md) | Statistics, theming, completion, self-update and the rest |
 | [docs/specifications.md](docs/specifications.md) | The normative OpenSpec contract, capability by capability |
 
