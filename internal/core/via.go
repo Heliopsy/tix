@@ -23,14 +23,16 @@ const (
 	ViaMCP       ViaKind = "mcp"
 	ViaSync      ViaKind = "sync"
 	ViaImport    ViaKind = "import"
-	ViaSystem    ViaKind = "system"
-	ViaUnknown   ViaKind = "unknown"
+	// ViaSCIM is an identity provider provisioning over /scim/v2.
+	ViaSCIM    ViaKind = "scim"
+	ViaSystem  ViaKind = "system"
+	ViaUnknown ViaKind = "unknown"
 )
 
 // ViaKinds lists every access channel, in the order a filter offers them.
 var ViaKinds = []ViaKind{
 	ViaWeb, ViaAPI, ViaCLILocal, ViaCLIRemote, ViaSSH, ViaMCP,
-	ViaSync, ViaImport, ViaSystem, ViaUnknown,
+	ViaSync, ViaImport, ViaSCIM, ViaSystem, ViaUnknown,
 }
 
 // Valid reports whether k is a known access channel.

@@ -451,6 +451,13 @@ too, naming `tix tenant sso add`: single sign-on is configured per tenant, not f
 setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the
 command that produced them, `server` leaves them for `tix serve`, and `off` queues them and delivers nothing.
 
+### SCIM provisioning
+
+SCIM has no keys in the configuration file and no `TIX_*` variable. It is set per tenant: a tenant admin turns
+it on with `tix tenant scim enable`, which mints the provider's token, and `tix serve` answers it under
+`/scim/v2`. The endpoint `tix tenant scim show` prints is built from `server.public_url` when that is set, and
+from the host the request arrived at otherwise. See [scim.md](scim.md#turning-it-on).
+
 ### Sign-in sessions
 
 `session.ttl` is how long a password, SSH key or tenant switch sign-in lasts from the moment it is made, `12h`

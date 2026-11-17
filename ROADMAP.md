@@ -450,6 +450,15 @@ Entra ID, Google, Okta) or a GitHub OAuth app. People sign in with a button in t
 groups map to. A tenant can turn passwords off, with global admins kept as the way back in. External identities
 live in `user_identities` per tenant and provider, which SAML will reuse. See [docs/sso.md](docs/sso.md).
 
+#### SCIM provisioning
+
+An identity provider creates, updates, deactivates and removes a tenant's people and groups over SCIM 2.0, at
+`/scim/v2` on `tix serve`. A tenant admin turns it on with `tix tenant scim enable`, which mints a token that
+carries only `scim:provision` and works nowhere else. Deactivation disables the person in the tenant and ends
+their sessions; their tokens and keys stop working until they are reactivated. A provider's group names map to
+roles. It is provisioning only: sign-in is OIDC and GitHub above, and SAML is later. See
+[docs/scim.md](docs/scim.md).
+
 ### Running it
 
 #### Shell completion that installs itself
@@ -577,6 +586,10 @@ provider kind, and its assertion becomes the same external identity, linked by t
 `user_identities` table, with the same session, second factor and password policy. What it adds is the SAML
 request and response handling, IdP metadata and signing certificates in the provider's settings, and an
 assertion consumer service beside the OIDC callback. SCIM provisioning is separate work.
+
+Provisioning has shipped separately, as SCIM 2.0 (see [docs/scim.md](docs/scim.md)). It keeps its own
+`scim_*` tables and does not touch the `sso_*` columns, so sign-in can land without changing it. A person
+the provider creates has no password until SSO is there, and signs in after an invite or a reset.
 
 ### ACME / automatic certificates
 

@@ -23,6 +23,7 @@ request body says can set it.
 | `ssh` | the terminal interface or `watch` over SSH | SSH key fingerprint, client address |
 | `sync` | a sync run's changes | `origin`: the channel that started the run, and its details |
 | `import` | a snapshot or bundle import's changes | `origin`: the channel that ran the import, and its details |
+| `scim` | an identity provider over `/scim/v2` ([scim.md](scim.md)) | token ID and name, client address, user agent |
 | `system` | background work in `tix serve` | `job`: `lease-sweep`, `snooze-wake`, `prune`, `housekeeping` or `sandbox-seed` |
 | `unknown` | an entry written before tix recorded channels | nothing |
 

@@ -227,6 +227,7 @@ var paletteScreens = []paletteScreen{
 	{RouteLiveEvents, "Live events", "Manage", true, false},
 	{RouteTransfer, "Import and export", "Manage", true, false},
 	{RouteSync, "Sync", "Manage", true, false},
+	{RouteSCIM, "SCIM provisioning", "Manage", true, false},
 	{RouteSettings, "Settings", "", false, false},
 	{RouteSettings + "#appearance", "Appearance", "Settings", false, false},
 	{RouteSettings + "#listings", "Listings", "Settings", false, false},

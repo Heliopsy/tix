@@ -467,6 +467,7 @@ func ScopedTables() []string {
 		"inbox_channels", "inbox_deliveries",
 		"task_templates", "housekeeping_policies", "user_invites", "idempotency_keys",
 		"sso_providers", "user_identities",
+		"scim_config", "scim_users", "scim_groups", "scim_group_members", "scim_group_roles",
 	}
 	return all
 }

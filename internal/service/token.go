@@ -177,7 +177,12 @@ func (l *Local) checkMintScopes(ctx context.Context, actor *core.Actor, scopes [
 		return core.Forbidden("a token without %s cannot mint one with it", core.ScopeAccountRead).
 			WithDetail("scope", string(core.ScopeAccountRead))
 	}
-	return checkScopeGrant(actor, withoutScope(withoutScope(scopes, core.ScopeGlobalAdmin), core.ScopeAccountRead))
+	if slices.Contains(scopes, core.ScopeSCIMProvision) && !actor.HasScope(core.ScopeTenantAdmin) {
+		return core.Forbidden("a %s token is minted only by a tenant admin", core.ScopeSCIMProvision).
+			WithDetail("scope", string(core.ScopeSCIMProvision))
+	}
+	return checkScopeGrant(actor, withoutScope(withoutScope(withoutScope(scopes, core.ScopeGlobalAdmin),
+		core.ScopeAccountRead), core.ScopeSCIMProvision))
 }
 
 // checkMintTarget is the half of the ceiling that depends on whom the token

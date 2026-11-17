@@ -45,6 +45,7 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeImport:         "Import a snapshot into the tenant.",
 	core.ScopeGlobalAdmin:    "Administer every tenant on this server. Only a global admin's token can carry it.",
 	core.ScopeAccountRead:    "Read your own account's history, which names every tenant you belong to. Only a token for your own account can carry it.",
+	core.ScopeSCIMProvision:  "Provision users and groups from an identity provider over SCIM. It carries no other scope and works only on /scim/v2.",
 }
 
 // ScopeGroups orders the scopes the way a person looks for them.
@@ -59,6 +60,7 @@ var ScopeGroups = []ScopeGroup{
 		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeSSOAdmin, core.ScopeAuditRead,
 		core.ScopeExport, core.ScopeImport, core.ScopeGlobalAdmin}},
 	{"account", "Your account", []core.Scope{core.ScopeAccountRead}},
+	{"provisioning", "Provisioning", []core.Scope{core.ScopeSCIMProvision}},
 }
 
 // TokenExpiry is one expiry a token form offers. Days is how long the token

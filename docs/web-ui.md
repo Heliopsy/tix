@@ -74,9 +74,10 @@ project is a lookup on every page, and a longer list is what that screen is for.
 one you can no longer read, is left out.
 
 **Manage** holds Trash and the screens Configure and Data used to: Workflows, Tenant, Domains, Users, Tokens,
-SSH keys, Status, Connections, Webhooks, Live events, Import and export, and Sync. It was called Admin; the
-screens kept their `/admin/...` addresses and the group kept its id, `admin`, so a fold saved in the cookie still applies.
-The configuration screens need Advanced screens on, and Trash leaves when the tenant deletes for good, so a
+SSH keys, Status, Connections, Webhooks, Live events, Import and export, Sync and SCIM provisioning. It was
+called Admin; the screens kept their `/admin/...` addresses and the group kept its id, `admin`, so a fold saved
+in the cookie still applies. The configuration screens need Advanced screens on, and Trash leaves when the
+tenant deletes for good, so a
 reader with neither gets no Manage heading at all. A global admin also gets Global admin there, whatever the
 preference says: every tenant with Create a tenant, Rename and Delete, each opening a dialog; the global
 admins with Grant and Revoke; and a Users button per tenant that opens that tenant's accounts with the same

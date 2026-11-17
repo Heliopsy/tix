@@ -24,7 +24,7 @@ func newTenantCmd(g *globals) *cobra.Command {
 	cmd.AddCommand(
 		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
 		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantIconCmd(g), tenantRmCmd(g),
-		tenantSessionPolicyCmd(g), newTenantSSOCmd(g),
+		tenantSessionPolicyCmd(g), newTenantSSOCmd(g), newTenantSCIMCmd(g),
 	)
 	return cmd
 }

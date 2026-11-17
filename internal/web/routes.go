@@ -96,6 +96,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.taskIORoutes()...)
 	out = append(out, h.importRoutes()...)
 	out = append(out, h.syncRoutes()...)
+	out = append(out, h.scimRoutes()...)
 	out = append(out, h.bundleRoutes()...)
 	out = append(out, h.paletteRoutes()...)
 	out = append(out, h.connectRoutes()...)
@@ -321,6 +322,15 @@ const (
 	RouteSyncDelete        = "/sync/sources/delete"
 	RouteSyncRun           = "/sync/run"
 	RouteSyncRuns          = "/sync/runs"
+
+	// RouteSCIM is the SCIM provisioning screen; the routes under it turn
+	// provisioning on and off, mint its token and map groups to roles.
+	RouteSCIM        = "/admin/scim"
+	RouteSCIMEnable  = "/admin/scim/enable"
+	RouteSCIMDisable = "/admin/scim/disable"
+	RouteSCIMToken   = "/admin/scim/token" // #nosec G101 -- a url path, not a credential
+	RouteSCIMGroups  = "/admin/scim/groups"
+	RouteSCIMUnmap   = "/admin/scim/groups/remove"
 )
 
 // Route patterns for component sharing.

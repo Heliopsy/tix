@@ -71,6 +71,7 @@ type Tx interface {
 	TimePrefsTx
 	IdempotencyTx
 	SSOTx
+	SCIMTx
 
 	Commit() error
 	Rollback() error
@@ -828,4 +829,81 @@ type SSOTx interface {
 	CreateUserIdentity(ctx context.Context, i *core.UserIdentity) error
 	// TouchUserIdentity records a sign-in and the email it reported.
 	TouchUserIdentity(ctx context.Context, id, email string, at time.Time) error
+}
+
+// SCIMConfig is a tenant's SCIM provisioning switch as the store holds it.
+type SCIMConfig struct {
+	Enabled        bool
+	AgentID        string
+	LastActivityAt *time.Time
+	UpdatedAt      time.Time
+}
+
+// SCIMUserRow is what a provider pushed about one member, keyed by actor.
+type SCIMUserRow struct {
+	ActorID    string
+	UserName   string
+	ExternalID string
+	Email      string
+	GivenName  string
+	FamilyName string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// SCIMGroupRow is one group a provider pushed, without its members.
+type SCIMGroupRow struct {
+	ID          string
+	DisplayName string
+	ExternalID  string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// SCIMTx holds what SCIM provisioning stores: the switch, the provider's view
+// of each member, its groups and the group to role mappings.
+type SCIMTx interface {
+	// GetSCIMConfig returns the tenant's switch, zero when it was never set.
+	GetSCIMConfig(ctx context.Context) (SCIMConfig, error)
+	PutSCIMConfig(ctx context.Context, c SCIMConfig) error
+	// TouchSCIM records a provider's change at the given time.
+	TouchSCIM(ctx context.Context, at time.Time) error
+
+	GetSCIMUser(ctx context.Context, actorID string) (*SCIMUserRow, error)
+	// SCIMUsersByName, SCIMUsersByExternalID and SCIMUsersByEmail find rows
+	// by the userName ignoring case, the externalId exactly and the address
+	// ignoring case.
+	SCIMUsersByName(ctx context.Context, userName string) ([]SCIMUserRow, error)
+	SCIMUsersByExternalID(ctx context.Context, externalID string) ([]SCIMUserRow, error)
+	SCIMUsersByEmail(ctx context.Context, email string) ([]SCIMUserRow, error)
+	// PutSCIMUser writes a member's row, creating it when absent.
+	PutSCIMUser(ctx context.Context, r SCIMUserRow) error
+	DeleteSCIMUser(ctx context.Context, actorID string) error
+	CountSCIMUsers(ctx context.Context) (int, error)
+
+	// ListSCIMGroups returns every group, ordered by identifier.
+	ListSCIMGroups(ctx context.Context) ([]SCIMGroupRow, error)
+	GetSCIMGroup(ctx context.Context, id string) (*SCIMGroupRow, error)
+	// SCIMGroupsByName and SCIMGroupsByExternalID find groups by display name
+	// ignoring case and by externalId exactly.
+	SCIMGroupsByName(ctx context.Context, name string) ([]SCIMGroupRow, error)
+	SCIMGroupsByExternalID(ctx context.Context, externalID string) ([]SCIMGroupRow, error)
+	CreateSCIMGroup(ctx context.Context, g SCIMGroupRow) error
+	UpdateSCIMGroup(ctx context.Context, g SCIMGroupRow) error
+	DeleteSCIMGroup(ctx context.Context, id string) error
+	// SCIMGroupMembers lists a group's members by actor, ordered.
+	SCIMGroupMembers(ctx context.Context, groupID string) ([]string, error)
+	// SetSCIMGroupMembers replaces a group's members.
+	SetSCIMGroupMembers(ctx context.Context, groupID string, actorIDs []string) error
+	// SCIMGroupsOf lists the groups an actor belongs to.
+	SCIMGroupsOf(ctx context.Context, actorID string) ([]SCIMGroupRow, error)
+	// DropSCIMMember removes an actor from every group.
+	DropSCIMMember(ctx context.Context, actorID string) error
+
+	// SCIMGroupRoles lists the group to role mappings by group name.
+	SCIMGroupRoles(ctx context.Context) ([]core.SCIMGroupRole, error)
+	// PutSCIMGroupRole maps a group name, ignoring case, to a role.
+	PutSCIMGroupRole(ctx context.Context, r core.SCIMGroupRole) error
+	// DeleteSCIMGroupRole removes a mapping, reporting whether there was one.
+	DeleteSCIMGroupRole(ctx context.Context, group string) (bool, error)
 }

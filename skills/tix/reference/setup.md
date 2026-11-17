@@ -291,6 +291,15 @@ tix user invite ada@example.com --role member --expires 48h
 tix user edit 01J000000000000000000A --require-password-change
 ```
 
+A tenant whose people come from an identity provider (Entra ID, Okta,
+Authentik, JumpCloud) uses SCIM instead: `tix tenant scim enable` turns it on
+and prints a token carrying `scim:provision` once, `tix tenant scim show`
+prints the `/scim/v2` endpoint to give the provider, and `tix tenant scim
+map-group NAME --role member` maps a provider group to a role. That scope is
+never carried by `*`, comes alone, and works nowhere but `/scim/v2`, so never
+ask for it for an agent. `tix audit ls --via scim` lists what the provider
+changed; the project's `docs/scim.md` owns the details.
+
 ## Workflows and custom fields
 
 A workflow is the state machine a project's tasks move through. Read one
@@ -357,7 +366,7 @@ tix audit ls --via mcp --token ci-agent
 ```
 
 Each entry's `via` says how the change arrived: `web`, `api`, `cli-local`,
-`cli-remote`, `ssh`, `mcp`, `sync`, `import` or `system`, with the token's
+`cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim` or `system`, with the token's
 name, never its secret. Filter on it with `--via` and `--token`, or `via:` and
 `token:` in `--filter`.
 

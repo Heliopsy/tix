@@ -91,6 +91,16 @@ func (rec *recorder) Write(b []byte) (int, error) {
 	return rec.ResponseWriter.Write(b)
 }
 
+// isSCIMContentType reports whether a response is a SCIM document, whose
+// errors carry the SCIM error schema rather than the API envelope.
+func isSCIMContentType(ct string) bool {
+	media, _, _ := strings.Cut(ct, ";")
+	return strings.EqualFold(strings.TrimSpace(media), wire.ContentSCIM)
+}
+
+// IsSCIMPath reports whether a request is for the SCIM endpoints.
+func IsSCIMPath(path string) bool { return strings.HasPrefix(path, core.SCIMPath+"/") }
+
 // isHTMLContentType reports whether a response is a page a handler rendered.
 func isHTMLContentType(ct string) bool {
 	media, _, _ := strings.Cut(ct, ";")
@@ -193,7 +203,8 @@ func (m *muxErrorWriter) WriteHeader(status int) {
 	}
 	m.written = true
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
-		if ct := m.Header().Get(wire.HeaderContentType); !isJSONContentType(ct) && !isHTMLContentType(ct) {
+		if ct := m.Header().Get(wire.HeaderContentType); !isJSONContentType(ct) && !isHTMLContentType(ct) &&
+			!isSCIMContentType(ct) {
 			m.swallow = true
 			m.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 			m.ResponseWriter.WriteHeader(status)
@@ -512,6 +523,9 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if IsSCIMPath(r.URL.Path) {
+			r = r.WithContext(core.WithSCIMRequest(r.Context()))
+		}
 		actor, err := rt.cfg.Authenticator.Authenticate(r.Context(), r)
 		if err != nil {
 			// The browser surface manages its own session: it redirects an
@@ -677,8 +691,11 @@ func (rt *Router) revalidator(r *http.Request) Revalidate {
 // trusted proxy policy has already resolved, and a truncated user agent.
 func baseVia(r *http.Request) core.Via {
 	v := core.Via{Kind: core.ViaWeb, UserAgent: core.TruncateUserAgent(r.UserAgent())}
-	if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, wire.APIPrefix):
 		v.Kind = core.ViaAPI
+	case IsSCIMPath(r.URL.Path):
+		v.Kind = core.ViaSCIM
 	}
 	if ip := ClientIPFrom(r.Context()); ip.IsValid() {
 		v.ClientAddr = ip.String()
@@ -694,6 +711,9 @@ func baseVia(r *http.Request) core.Via {
 func credentialVia(r *http.Request, actor *core.Actor) core.Via {
 	v := baseVia(r)
 	switch {
+	case actor.TokenID != "" && IsSCIMPath(r.URL.Path):
+		v.Kind = core.ViaSCIM
+		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
 	case actor.TokenID != "":
 		v.Kind = core.ViaAPI
 		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName

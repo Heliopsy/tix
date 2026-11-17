@@ -342,7 +342,7 @@ leading `-` for negation), so only the vocabulary changes.
 | `kind:TYPE` | what kind of record it happened to: `task`, `comment`, `project`, `workflow`, `user`, … |
 | `action:NAME`, `type:NAME` | the recorded action, such as `task.created` |
 | `source:NAME` | the surface it arrived through: `cli`, `web`, `api`, `tui`, `system` |
-| `via:CHANNEL` | the access channel: `web`, `api`, `cli-local`, `cli-remote`, `ssh`, `mcp`, `sync`, `import`, `system`, `unknown` |
+| `via:CHANNEL` | the access channel: `web`, `api`, `cli-local`, `cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim`, `system`, `unknown` |
 | `token:NAME` | the API token the change was made with, by name |
 | `text:VALUE`, `q:VALUE`, bare word | free text over the action, the kind, the source and the before and after snapshots |
 

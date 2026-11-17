@@ -66,6 +66,15 @@ func TestMethodsIssueExpectedRequest(t *testing.T) {
 		path   string
 	}{
 		{"whoami", func(c *Client) error { _, err := c.WhoAmI(ctx); return err }, http.MethodGet, wire.RouteWhoAmI},
+		{"get scim", func(c *Client) error { _, err := c.GetSCIM(ctx); return err }, http.MethodGet, wire.RouteSCIM},
+		{"enable scim", func(c *Client) error { _, err := c.EnableSCIM(ctx); return err }, http.MethodPost, wire.RouteSCIMEnable},
+		{"disable scim", func(c *Client) error { _, err := c.DisableSCIM(ctx); return err }, http.MethodPost, wire.RouteSCIMDisable},
+		{"rotate scim token", func(c *Client) error { _, err := c.RotateSCIMToken(ctx); return err }, http.MethodPost, wire.RouteSCIMToken},
+		{"map scim group", func(c *Client) error {
+			_, err := c.MapSCIMGroup(ctx, core.SCIMGroupRoleInput{Group: "Eng", Role: core.RoleAdmin})
+			return err
+		}, http.MethodPut, wire.RouteSCIMGroups},
+		{"unmap scim group", func(c *Client) error { return c.UnmapSCIMGroup(ctx, "Eng") }, http.MethodDelete, "/api/v1/scim/groups/Eng"},
 		{"create tenant", func(c *Client) error {
 			_, err := c.CreateTenant(ctx, core.CreateTenantInput{Key: "acme"})
 			return err

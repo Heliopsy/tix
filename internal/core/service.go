@@ -44,6 +44,7 @@ type Service interface {
 	TemplateService
 	TimeService
 	SSOService
+	SCIMService
 
 	// Close releases the service's resources, such as the underlying store.
 	Close() error

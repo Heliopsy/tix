@@ -101,7 +101,19 @@ const (
 	ScopeAccountRead Scope = "account:read"
 	ScopeExport      Scope = "export"
 	ScopeImport      Scope = "import"
+
+	// ScopeSCIMProvision lets an identity provider create, update, deactivate
+	// and remove the tenant's users and groups over SCIM. "*" and roles do not
+	// imply it, a token carrying it carries nothing else, and such a token is
+	// refused everywhere but the SCIM endpoints.
+	ScopeSCIMProvision Scope = "scim:provision"
 )
+
+// NamedOnly reports whether a scope is held only when named, never through
+// "*" or a role.
+func (s Scope) NamedOnly() bool {
+	return s == ScopeGlobalAdmin || s == ScopeAccountRead || s == ScopeSCIMProvision
+}
 
 // AllScopes is the complete vocabulary, excluding ScopeAll.
 var AllScopes = []Scope{
@@ -114,7 +126,7 @@ var AllScopes = []Scope{
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
 	ScopeSSOAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
-	ScopeGlobalAdmin, ScopeAccountRead,
+	ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision,
 }
 
 // Role is a named bundle of scopes granted to a human within one tenant.
@@ -240,7 +252,7 @@ func (a *Actor) HasScope(s Scope) bool {
 	if a == nil {
 		return false
 	}
-	if s == ScopeGlobalAdmin || s == ScopeAccountRead {
+	if s.NamedOnly() {
 		return slices.Contains(a.Scopes, s)
 	}
 	if slices.Contains(a.Scopes, ScopeAll) {

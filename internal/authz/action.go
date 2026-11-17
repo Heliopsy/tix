@@ -78,6 +78,9 @@ const (
 	// tenant the person belongs to. It is decided by Policy.CanReadAccount,
 	// never by Can, because a browser session carries no scope for it.
 	ActionAccountRead Action = "account.read"
+	// ActionSCIMProvision creates, changes and removes the tenant's users and
+	// groups on behalf of an identity provider.
+	ActionSCIMProvision Action = "scim.provision"
 
 	// ActionServerRead reads the installation: which servers are registered,
 	// what the store is, and how big the tenant's work is. It is not confinable
@@ -137,6 +140,8 @@ var actionScopes = map[Action]core.Scope{
 	ActionSSOAdmin:     core.ScopeSSOAdmin,
 	ActionGlobalAdmin:  core.ScopeGlobalAdmin,
 	ActionAccountRead:  core.ScopeAccountRead,
+
+	ActionSCIMProvision: core.ScopeSCIMProvision,
 
 	ActionExport:         core.ScopeExport,
 	ActionTaskExport:     core.ScopeExport,
@@ -212,7 +217,7 @@ var allActions = []Action{
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
 	ActionSSOAdmin,
-	ActionGlobalAdmin, ActionAccountRead,
+	ActionGlobalAdmin, ActionAccountRead, ActionSCIMProvision,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead, ActionTaskExport, ActionTaskImport,
 }

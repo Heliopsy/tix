@@ -176,19 +176,6 @@ func (l *Local) vetted(r ssoResolution) (ssoResolution, error) {
 	return r, nil
 }
 
-func (l *Local) accountByEmail(ctx context.Context, email string) (*core.User, error) {
-	var out *core.User
-	err := l.store.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
-		found, _, err := u.GetUserByEmail(ctx, email)
-		if core.IsKind(err, core.KindNotFound) {
-			return nil
-		}
-		out = found
-		return err
-	})
-	return out, err
-}
-
 // memberCandidate reads an account and its standing in this tenant.
 func (l *Local) memberCandidate(ctx context.Context, scope core.TenantScope, userID string) (candidate, error) {
 	out := candidate{tenant: scope.TenantID}
