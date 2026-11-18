@@ -16,6 +16,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 )
 
 // Identity is what a provider vouched for, as every kind reports it. SAML
@@ -55,8 +56,9 @@ const discoveryTTL = time.Hour
 // Client builds adapters over one HTTP client, caching each issuer's
 // discovery document and key set.
 type Client struct {
-	http *http.Client
-	now  func() time.Time
+	http   *http.Client
+	now    func() time.Time
+	policy egress.Policy
 
 	mu        sync.Mutex
 	providers map[string]cachedProvider
@@ -70,7 +72,14 @@ type cachedProvider struct {
 // NewClient returns a client that makes every request through hc and reads
 // time from now.
 func NewClient(hc *http.Client, now func() time.Time) *Client {
-	return &Client{http: hc, now: now, providers: map[string]cachedProvider{}}
+	return &Client{http: hc, now: now, policy: egress.Permissive(), providers: map[string]cachedProvider{}}
+}
+
+// WithEgress makes the client vet an address a tenant gave, the IdP metadata
+// URL, against p before requesting it. hc should dial under the same policy.
+func (c *Client) WithEgress(p egress.Policy) *Client {
+	c.policy = p
+	return c
 }
 
 // Adapter returns the adapter for a provider, given its opened client secret.

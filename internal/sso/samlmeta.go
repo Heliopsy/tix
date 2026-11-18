@@ -110,7 +110,13 @@ func metadataInvalid(format string, args ...any) error {
 // FetchIdPMetadata reads an IdP's metadata from its address, through the
 // client's egress policy, and parses it.
 func (c *Client) FetchIdPMetadata(ctx context.Context, addr, entityID string) (IdPMetadata, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, addr, nil)
+	target, err := c.policy.VetURL(ctx, addr)
+	if err != nil {
+		return IdPMetadata{}, metadataInvalid("the IdP metadata URL %q is not one this server may read: it must be "+
+			"https, carry no user name, and not resolve to a private or local address unless server.egress_allow "+
+			"names it", addr)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
 		return IdPMetadata{}, metadataInvalid("the IdP metadata URL %q is not an address", addr)
 	}
