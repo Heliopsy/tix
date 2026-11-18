@@ -64,7 +64,9 @@ where it came from.
   server does store one: it signs in to that tenant, mints a token for the
   person's actor there and writes it to the context. That is for a person; an
   agent is handed a token. On a tenant that signs in through single sign-on,
-  add `--sso` in place of `--email` and `--password`; it opens the browser.
+  add `--sso` in place of `--email` and `--password`; it opens the browser. A
+  SAML provider signs in only in the browser, so there the person creates a
+  token on the Connect screen instead.
 - **One person, several tenants:** each context holds one tenant's token.
   `tix tenant ls` lists the person's tenants with the role held in each and the
   context holding a token for it; `tix tenant use KEY` makes that context

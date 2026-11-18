@@ -448,7 +448,23 @@ A tenant's own admins add sign-in providers: any OpenID Connect identity provide
 Entra ID, Google, Okta) or a GitHub OAuth app. People sign in with a button in the browser or `tix login
 --sso`, are linked by subject or a verified email, and can be created on first sign-in with a role their
 groups map to. A tenant can turn passwords off, with global admins kept as the way back in. External identities
-live in `user_identities` per tenant and provider, which SAML will reuse. See [docs/sso.md](docs/sso.md).
+live in `user_identities` per tenant and provider, which SAML reuses. See [docs/sso.md](docs/sso.md).
+
+#### Single sign-on with SAML 2.0
+
+A tenant's admins add a SAML identity provider (Entra ID, Okta, Keycloak, Authentik, Google Workspace, ADFS)
+from its metadata, by URL or file, with `tix tenant sso add --kind saml` or the Single sign-on screen. Sign-in
+starts at tix with an AuthnRequest over HTTP-Redirect and the response comes back to a per-provider assertion
+consumer service; tix serves its SP metadata beside it. The response has to be signed by one of the provider's
+certificates, addressed to tix, inside its validity window and an answer to the request this browser made, and
+each assertion is taken once. The NameID is the subject and the attributes are mapped per provider, then the
+linking, roles, second factor and password policy are the OIDC ones. IdP-initiated sign-in is there behind a
+setting, off by default.
+
+**What differs from the plan:** AuthnRequests are not signed and encrypted assertions are not read, since both
+need an SP key pair; the provider's sealed secret slot is where one would go. SAML does not sign in on the
+command line, which would need a loopback ACS registered at the IdP. Single logout is not implemented. See
+[docs/sso.md](docs/sso.md#saml-providers).
 
 #### SCIM provisioning
 
@@ -456,7 +472,7 @@ An identity provider creates, updates, deactivates and removes a tenant's people
 `/scim/v2` on `tix serve`. A tenant admin turns it on with `tix tenant scim enable`, which mints a token that
 carries only `scim:provision` and works nowhere else. Deactivation disables the person in the tenant and ends
 their sessions; their tokens and keys stop working until they are reactivated. A provider's group names map to
-roles. It is provisioning only: sign-in is OIDC and GitHub above, and SAML is later. See
+roles. It is provisioning only: sign-in is OIDC, GitHub and SAML above. See
 [docs/scim.md](docs/scim.md).
 
 ### Running it
@@ -579,17 +595,11 @@ a `Syncer` adding `Push` extends it.
 tracking so a pushed change does not echo back as an inbound change, inbound webhook
 receivers for Jira and OpenProject, and per-field sync direction.
 
-### SAML
+### SAML follow-ups
 
-Single sign-on with OIDC and GitHub has shipped (see above). SAML is next and builds on it: `saml` is a reserved
-provider kind, and its assertion becomes the same external identity, linked by the same rules into the same
-`user_identities` table, with the same session, second factor and password policy. What it adds is the SAML
-request and response handling, IdP metadata and signing certificates in the provider's settings, and an
-assertion consumer service beside the OIDC callback. SCIM provisioning is separate work.
-
-Provisioning has shipped separately, as SCIM 2.0 (see [docs/scim.md](docs/scim.md)). It keeps its own
-`scim_*` tables and does not touch the `sso_*` columns, so sign-in can land without changing it. A person
-the provider creates has no password until SSO is there, and signs in after an invite or a reset.
+SAML sign-in has shipped (see above). Left for later: signed AuthnRequests and encrypted assertions, which need
+an SP key pair kept sealed in the provider's secret slot; single logout; and rereading IdP metadata on a
+schedule rather than when the provider is saved.
 
 ### ACME / automatic certificates
 
