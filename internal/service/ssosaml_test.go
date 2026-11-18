@@ -300,3 +300,31 @@ func TestSAMLMetadataIsPublicAndNamesTheAddresses(t *testing.T) {
 		t.Errorf("listed = %+v, %v; want the ACS as the address to register", list, err)
 	}
 }
+
+func TestSAMLRefusesAResponsePostedToAnotherProvidersAddress(t *testing.T) {
+	f := newSAMLFixture(t, nil)
+	begin, req := f.begin(t)
+	response := f.idp.Response(t, req, samlPerson("00u1", "ada@example.com"), ssotest.SignAssertion)
+	_, err := f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Flow: begin.Flow, State: req.RelayState,
+		SAMLResponse: response, Provider: "other"})
+	if !core.IsKind(err, core.KindUnauthenticated) || !strings.Contains(err.Error(), "another provider") {
+		t.Errorf("posted to another provider = %v, want refused", err)
+	}
+	oidc := ssotest.NewOIDC(t, f.clk.Now)
+	if _, err := f.l.CreateSSOProvider(authContext(f.admin), core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
+		Issuer: oidc.Issuer(), ClientID: oidc.ClientID}); err != nil {
+		t.Fatalf("CreateSSOProvider: %v", err)
+	}
+	oidcBegin, err := f.l.BeginSSOLogin(loginContext(f.scope), core.BeginSSOInput{Provider: "kc", RedirectURI: ssoCallback})
+	if err != nil {
+		t.Fatalf("BeginSSOLogin: %v", err)
+	}
+	if _, err := f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Flow: oidcBegin.Flow,
+		State: oidcBegin.State, SAMLResponse: response}); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("a saml response for an oidc flow = %v, want refused", err)
+	}
+	if _, err := f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Provider: "kc",
+		SAMLResponse: response}); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("an unsolicited saml response to an oidc provider = %v, want invalid", err)
+	}
+}

@@ -222,3 +222,16 @@ func TestCertificatesNormalizeFromPEMOrBase64(t *testing.T) {
 		t.Errorf("provider %+v changed to %+v", in, changed)
 	}
 }
+
+func TestSAMLPathsAndMetadataURL(t *testing.T) {
+	if SAMLACSPath("okta") != "/login/sso/saml/okta/acs" || SAMLMetadataPath("okta") != "/login/sso/saml/okta/metadata" {
+		t.Error("SAML paths")
+	}
+	for raw, ok := range map[string]bool{
+		"https://login.example/md.xml?appid=1": true, "": false, "ftp://x.example/md": false, "https://x.example/#f": false,
+	} {
+		if err := (SSOProvider{IdPMetadataURL: raw}).CheckMetadataURL(); (err == nil) != ok {
+			t.Errorf("CheckMetadataURL(%q) = %v, want ok %v", raw, err, ok)
+		}
+	}
+}

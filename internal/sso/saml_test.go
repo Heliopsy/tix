@@ -3,6 +3,11 @@
 package sso_test
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -321,5 +326,75 @@ func TestNewSAMLRefusesAProviderWithoutUsableCertificates(t *testing.T) {
 	p.IdPCertificates = nil
 	if _, err := sso.NewSAML(p, samlACS, samlNow); !core.IsKind(err, core.KindPrecondition) {
 		t.Errorf("NewSAML with none = %v, want a precondition", err)
+	}
+}
+
+func TestSAMLNamesWhatAMalformedResponseLacks(t *testing.T) {
+	cases := []struct {
+		name string
+		edit func(doc *etree.Document)
+		raw  string
+		want string
+	}{
+		{"refused at the IdP", func(doc *etree.Document) {
+			doc.Root().FindElement("./Status/StatusCode").CreateAttr("Value", "urn:oasis:names:tc:SAML:2.0:status:Requester")
+		}, "", "refused the sign-in"},
+		{"no issuer", func(doc *etree.Document) {
+			doc.Root().RemoveChild(doc.Root().FindElement("./Issuer"))
+		}, "", "has no Issuer"},
+		{"not base64", nil, "%%%", "does not parse"},
+		{"empty", nil, " ", "posted no SAML response"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			idp := ssotest.NewSAML(t, func() time.Time { return samlNow })
+			sp, req := samlStart(t, idp, samlProvider(idp))
+			encoded := tc.raw
+			if tc.edit != nil {
+				doc := idp.ResponseXML(t, req, ada(), ssotest.SignAssertion)
+				tc.edit(doc)
+				encoded = ssotest.Encode(t, doc)
+			}
+			_, err := sp.Verify(encoded, req.ID)
+			if !core.IsKind(err, core.KindUnauthenticated) || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Verify = %v; want unauthenticated naming %q", err, tc.want)
+			}
+		})
+	}
+	if sso.Origin("not a url") != "" || sso.Origin("https://tix.example/a?b") != "https://tix.example" {
+		t.Error("Origin")
+	}
+}
+
+func TestFetchIdPMetadataReadsItThroughTheClient(t *testing.T) {
+	idp := ssotest.NewSAML(t, func() time.Time { return samlNow })
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/md":
+			_, _ = io.WriteString(w, idp.Metadata())
+		case "/huge":
+			_, _ = w.Write(bytes.Repeat([]byte(" "), 2<<20+10))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := sso.NewClient(srv.Client(), func() time.Time { return samlNow })
+	ctx := context.Background()
+	md, err := c.FetchIdPMetadata(ctx, srv.URL+"/md", "")
+	if err != nil || md.EntityID != idp.EntityID {
+		t.Fatalf("FetchIdPMetadata = %+v, %v", md, err)
+	}
+	if _, err := c.FetchIdPMetadata(ctx, srv.URL+"/gone", ""); !core.IsKind(err, core.KindUpstream) {
+		t.Errorf("missing metadata = %v, want upstream", err)
+	}
+	if _, err := c.FetchIdPMetadata(ctx, srv.URL+"/huge", ""); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("huge metadata = %v, want invalid", err)
+	}
+	if _, err := c.FetchIdPMetadata(ctx, "http://[::1", ""); !core.IsKind(err, core.KindInvalid) {
+		t.Errorf("bad address = %v, want invalid", err)
+	}
+	if _, err := c.FetchIdPMetadata(ctx, "http://127.0.0.1:1/md", ""); !core.IsKind(err, core.KindUpstream) {
+		t.Errorf("unreachable = %v, want upstream", err)
 	}
 }
