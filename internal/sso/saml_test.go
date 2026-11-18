@@ -15,6 +15,7 @@ import (
 	"github.com/beevik/etree"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/sso"
 	"github.com/heliopsy/tix/internal/sso/ssotest"
 )
@@ -396,5 +397,30 @@ func TestFetchIdPMetadataReadsItThroughTheClient(t *testing.T) {
 	}
 	if _, err := c.FetchIdPMetadata(ctx, "http://127.0.0.1:1/md", ""); !core.IsKind(err, core.KindUpstream) {
 		t.Errorf("unreachable = %v, want upstream", err)
+	}
+	hits := 0
+	counted := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = io.WriteString(w, idp.Metadata())
+	}))
+	t.Cleanup(counted.Close)
+	strict := sso.NewClient(counted.Client(), func() time.Time { return samlNow }).WithEgress(egress.Policy{})
+	for _, addr := range []string{counted.URL + "/md", "https://10.0.0.5/md", "https://169.254.169.254/latest/meta-data",
+		"https://user:pw@idp.example/md", "ftp://idp.example/md", "http://idp.example/md"} {
+		_, err := strict.FetchIdPMetadata(ctx, addr, "")
+		if !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != "idp_metadata_url" {
+			t.Errorf("strict policy and %s = %v, want refused naming idp_metadata_url", addr, err)
+		}
+	}
+	if hits != 0 {
+		t.Errorf("the strict client made %d requests, want none", hits)
+	}
+	allowed, err := egress.New(false, []string{"127.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if md, err := sso.NewClient(counted.Client(), time.Now).WithEgress(allowed).FetchIdPMetadata(ctx, counted.URL+"/md", ""); err != nil ||
+		md.EntityID != idp.EntityID || hits != 1 {
+		t.Errorf("loopback on the allow list = %+v, %v (%d requests); want it read", md, err, hits)
 	}
 }

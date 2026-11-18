@@ -36,7 +36,9 @@ const ssoHTTPTimeout = 15 * time.Second
 // ssoClients returns the adapter builder, made on first use over the egress
 // policy, so an identity provider is reached on the same terms as a webhook.
 func (l *Local) ssoClients() *sso.Client {
-	l.ssoOnce.Do(func() { l.ssoClient = sso.NewClient(l.egress.Client(ssoHTTPTimeout, nil), l.clock.Now) })
+	l.ssoOnce.Do(func() {
+		l.ssoClient = sso.NewClient(l.egress.Client(ssoHTTPTimeout, nil), l.clock.Now).WithEgress(l.egress)
+	})
 	return l.ssoClient
 }
 
