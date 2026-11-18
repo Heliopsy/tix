@@ -1,11 +1,12 @@
 # Single sign-on
 
 A tenant can let its people sign in with an account they already have: an OpenID Connect (OIDC) identity
-provider such as Keycloak, Authentik, Microsoft Entra ID, Google or Okta, or GitHub. Providers are configured
-per tenant, by the tenant's own administrators. Each enabled provider is a **Sign in with NAME** button on the
-web sign-in screen and a choice for `tix login --sso`.
-
-SAML is not implemented yet. Its kind, `saml`, is reserved and refused.
+provider such as Keycloak, Authentik, Microsoft Entra ID, Google or Okta, GitHub, or a SAML 2.0 identity
+provider such as Entra ID, Okta, Keycloak, Authentik or Google Workspace. Providers are configured per tenant,
+by the tenant's own administrators. Each enabled provider is a **Sign in with NAME** button on the web sign-in
+screen. OIDC and GitHub providers are also a choice for `tix login --sso`; SAML is a browser protocol and signs
+in on the web only. SAML has its own set-up, in [SAML providers](#saml-providers) below; everything from
+[Linking rules](#linking-rules) on applies to every kind.
 
 ## Before you start
 
@@ -22,6 +23,9 @@ SAML is not implemented yet. Its kind, `saml`, is reserved and refused.
   company network for instance, needs that host in `server.egress_allow`. See
   [deployment.md](deployment.md#outbound-requests-to-tenant-urls).
 - **Managing providers needs `sso:admin`.** The admin role holds it; a token needs it named.
+- **SAML needs HTTPS.** The IdP posts the assertion to tix from its own site, and the cookie that ties the
+  response to the browser that asked for it survives that cross-site POST only when it is `Secure`. Over plain
+  HTTP a SAML sign-in works only with an IdP on the same site, such as a Keycloak on `localhost` beside tix.
 
 ## Adding a provider
 
@@ -40,7 +44,7 @@ The first argument is the provider's key: lowercase letters, digits and dashes. 
 The client secret is read from standard input with `--client-secret -`, sealed, and never shown again: every
 listing says only whether one is set and, for a secret of 16 characters or more, its last four. To replace it,
 `tix tenant sso edit KEY --client-secret -`. An OIDC provider registered as a public client may have no secret;
-PKCE is used either way. A GitHub provider always needs one.
+PKCE is used either way. A GitHub provider always needs one. A SAML provider has no client id or secret.
 
 | Setting | Flag | Default |
 | --- | --- | --- |
@@ -56,6 +60,11 @@ PKCE is used either way. A GitHub provider always needs one.
 | Trust the provider's second factor (OIDC) | `--trust-mfa`, with `--mfa-value` | off; `mfa` |
 | Allowed GitHub organisations | `--allowed-org`, repeatable | any |
 | GitHub Enterprise Server | `--web-url` and `--api-url` | github.com |
+| IdP metadata (SAML) | `--idp-metadata-url` or `--idp-metadata-file` | none; fills the three below |
+| IdP entity id, sign-in URL, certificates (SAML) | `--idp-entity-id`, `--idp-sso-url`, `--idp-cert FILE` | from the metadata |
+| SP entity id (SAML) | `--sp-entity-id` | `PUBLIC_URL/login/sso/saml/KEY/metadata` |
+| NameID format to request (SAML) | `--name-id-format` | the IdP's choice |
+| IdP-initiated sign-in (SAML) | `--allow-idp-initiated` | off |
 | Switched on | `--disabled` on add, `--enabled=false` on edit | on |
 
 The same operations are `/api/v1/sso/providers` in the [HTTP API](api.md) and the Single sign-on screen in the
@@ -64,7 +73,8 @@ browser.
 ### The single sign-on screen
 
 Under **Manage**, **Single sign-on** lists the tenant's providers with what each does, names the redirect URL to
-register, and holds the password sign-in setting. **Add a provider** opens the form; each provider has an
+register (for a SAML provider, its ACS URL, SP entity id and metadata address), and holds the password sign-in
+setting. **Add a provider** opens the form; each provider has an
 **Edit** dialog, where a blank secret keeps the stored one, and a red **Delete** that asks first.
 
 ## Setting up each provider
@@ -169,6 +179,140 @@ https://github.example.com/api/v3`.
 
 `--trust-mfa` is refused on GitHub: it does not tell an app whether the person used a second factor.
 
+## SAML providers
+
+A SAML provider needs three things from the IdP, which its metadata carries: its entity id, its sign-in URL for
+the HTTP-Redirect binding, and the certificate it signs with. The IdP needs two things from tix:
+
+| tix | The IdP calls it |
+| --- | --- |
+| `PUBLIC_URL/login/sso/saml/KEY/acs` | ACS URL, Reply URL, Single sign-on URL, Assertion Consumer Service |
+| `PUBLIC_URL/login/sso/saml/KEY/metadata` | Entity ID, Identifier, Audience URI, SP entity id |
+
+KEY is the provider's key, so pick it before you configure the IdP. The metadata address serves tix's SP
+metadata without a credential, so an IdP that imports metadata by URL can read both from it; `tix tenant sso
+metadata KEY` prints the same document for one that wants a file. Use `--sp-entity-id` only when the IdP needs
+another entity id, such as one already registered for an older SP.
+
+```sh
+tix tenant sso add okta --kind saml --name Okta \
+  --idp-metadata-url https://acme.okta.com/app/exk1abc/sso/saml/metadata --auto-create
+tix tenant sso add google --kind saml --name Google --idp-metadata-file GoogleIDPMetadata.xml
+tix tenant sso add adfs --kind saml --name ADFS --idp-entity-id http://adfs.example.com/adfs/services/trust \
+  --idp-sso-url https://adfs.example.com/adfs/ls/ --idp-cert adfs-signing.pem
+tix tenant sso metadata okta > tix-sp.xml
+```
+
+The metadata is read when the provider is saved and not followed afterwards. When the IdP rolls its signing
+key, run `tix tenant sso edit KEY --idp-metadata-url URL` again (giving the URL rereads it), tick **Read the IdP
+metadata again** in the edit dialog, or add the new certificate beside the old one with `--idp-cert` before the
+rollover: any of a provider's certificates is accepted. A flag given beside the metadata wins over it.
+
+**Which attributes are read.** The NameID is the subject. Ask the IdP for a persistent NameID, or an email
+address that does not change; a transient one is refused, because it differs at every sign-in. The email, name,
+username and groups are read from attributes, matched on their Name or FriendlyName. Name one with
+`--email-claim`, `--name-claim`, `--username-claim` or `--groups-claim`, or leave them empty and tix takes the
+first of the names IdPs commonly send:
+
+| Field | Names tried |
+| --- | --- |
+| email | `email`, `mail`, `emailaddress`, `Email`, `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress`, `urn:oid:0.9.2342.19200300.100.1.3`; then an emailAddress NameID |
+| name | `name`, `displayName`, `displayname`, `cn`, the Entra and ADFS display name and name claims, `urn:oid:2.16.840.1.113730.3.1.241`, `urn:oid:2.5.4.3`; then given name and surname |
+| username | `username`, `preferred_username`, `uid`, `login`, Authentik's `.../saml/username`, `urn:oid:0.9.2342.19200300.100.1.1` |
+| groups | `groups`, `memberOf`, `Role`, `role`, the Entra groups claim, `http://schemas.xmlsoap.org/claims/Group`, `urn:oid:1.3.6.1.4.1.5923.1.5.1.1` |
+
+**The second factor.** `--trust-mfa` on a SAML provider needs `--mfa-value`: the AuthnContextClassRef values,
+or Entra ID's `authnmethodsreferences` values, that mean a second factor was used. There is no default, because
+IdPs do not agree on one. For Entra ID that is `http://schemas.microsoft.com/claims/multipleauthn`.
+
+**Signed AuthnRequests are not sent.** tix has no SP key, so an IdP that insists on signed requests (Keycloak's
+**Client signature required**, ADFS with request signing on) has to have that turned off. Assertions must be
+signed, and encrypted assertions are not supported.
+
+**IdP-initiated sign-in** (a tile in the IdP's app portal) is off unless `--allow-idp-initiated` is set. A
+response nobody asked for is not tied to any browser's sign-in, so anyone who obtains one for their own account
+can sign a victim's browser into it. Leave it off unless people need the tile; the button on the sign-in screen
+does the same job.
+
+### Entra ID (SAML)
+
+1. **Enterprise applications**, **New application**, **Create your own application**, the non-gallery option.
+2. **Single sign-on**, **SAML**. Under **Basic SAML Configuration** set **Identifier (Entity ID)** to the
+   metadata address and **Reply URL** to the ACS URL.
+3. Under **Attributes & Claims**, the defaults send `emailaddress`, `name`, `givenname` and `surname`, which tix
+   reads. Set **Unique User Identifier** to `user.objectid` with format persistent, so the subject survives a
+   change of UPN. For roles, **Add a group claim**; groups arrive as object ids, which `--role-map` maps.
+4. Assign users or groups under **Users and groups**.
+5. Copy **App Federation Metadata Url** from **SAML Certificates**.
+
+```sh
+tix tenant sso add entra --kind saml --name Microsoft \
+  --idp-metadata-url "https://login.microsoftonline.com/TENANT_ID/federationmetadata/2007-06/federationmetadata.xml?appid=APP_ID" \
+  --allowed-domain example.com --role-map 1b2c3d4e-0000-0000-0000-000000000000=admin
+```
+
+### Okta (SAML)
+
+1. **Applications**, **Create App Integration**, **SAML 2.0**.
+2. **Single sign-on URL**: the ACS URL, with **Use this for Recipient URL and Destination URL** ticked.
+   **Audience URI (SP Entity ID)**: the metadata address. **Name ID format**: Persistent or EmailAddress.
+3. **Attribute Statements**: `email` from `user.email`, `name` from `user.displayName`. **Group Attribute
+   Statements**: `groups`, with a filter such as starts with `tix-`.
+4. On the **Sign On** tab, copy the **Metadata URL**.
+
+```sh
+tix tenant sso add okta --kind saml --name Okta \
+  --idp-metadata-url https://acme.okta.com/app/exk1abc/sso/saml/metadata --role-map tix-admins=admin
+```
+
+### Keycloak (SAML)
+
+1. In the realm, **Clients**, **Import client**, and give it the metadata address's document
+   (`tix tenant sso metadata KEY`), or **Create client** of type SAML with the metadata address as **Client ID**.
+2. Under **Settings**, **Name ID format** persistent or email, with **Force name ID format** on. Under
+   **Signature and Encryption**, keep **Sign documents** or **Sign assertions** on. Under **Keys**, turn
+   **Client signature required** off, and leave **Encrypt assertions** off.
+3. If the client was created by hand, set **Assertion Consumer Service POST Binding URL** under **Advanced** to
+   the ACS URL.
+4. Under **Client scopes**, the dedicated scope, add mappers: **User Property** `email` as SAML attribute
+   `email`, and **Group list** named `groups` with **Full group path** off.
+5. The IdP metadata is `https://id.example.com/realms/acme/protocol/saml/descriptor`.
+
+```sh
+tix tenant sso add kc-saml --kind saml --name Keycloak \
+  --idp-metadata-url https://id.example.com/realms/acme/protocol/saml/descriptor --role-map tix-admins=admin
+```
+
+### Authentik (SAML)
+
+1. **Applications**, **Providers**, **Create**, **SAML Provider**. **ACS URL**: the ACS URL. **Audience**: the
+   metadata address. **Service Provider Binding**: Post.
+2. Choose a **Signing Certificate**; without one Authentik sends unsigned assertions, which tix refuses.
+3. The default property mappings send email, name, username and groups under the names tix reads. Pick a
+   **NameID Property Mapping** that does not change for a person, such as the email or the user's UUID.
+4. Create an application using the provider, then copy the metadata URL from the provider's page (its
+   **Download** button links it), or download the file.
+
+```sh
+tix tenant sso add authentik-saml --kind saml --name Authentik \
+  --idp-metadata-url "https://auth.example.com/api/v3/providers/saml/3/metadata/?download"
+```
+
+### Google Workspace (SAML)
+
+1. Admin console, **Apps**, **Web and mobile apps**, **Add app**, **Add custom SAML app**.
+2. On the IdP details step, **Download Metadata**. Google publishes no metadata URL, so tix reads the file.
+3. **Service provider details**: **ACS URL** the ACS URL, **Entity ID** the metadata address, **Name ID format**
+   EMAIL with **Primary email**.
+4. **Attribute mapping**: **Primary email** to `email`, and under **Group membership** the groups to send as
+   `groups`.
+5. Turn the app on for the organisational units that should sign in.
+
+```sh
+tix tenant sso add google --kind saml --name Google --idp-metadata-file GoogleIDPMetadata.xml \
+  --allowed-domain example.com --auto-create
+```
+
 ## How a sign-in works
 
 The browser opens `/login/sso/KEY`. tix seals the sign-in's state, nonce, PKCE verifier, redirect URI,
@@ -181,13 +325,24 @@ issuer, the audience (the client id), the expiry and the nonce. A sign-in has te
 Nothing is stored until the sign-in completes, so an abandoned one leaves nothing behind, and any replica with
 the same `auth.totp_key` completes a sign-in another began.
 
+**SAML** starts at the same address. tix sends the browser to the IdP's sign-in URL with an AuthnRequest and a
+RelayState that is the flow's state, and keeps the request's ID in the sealed cookie. The IdP posts the
+response to the ACS. tix checks the RelayState against the cookie, then the response: the signature against
+the provider's certificates (on the assertion, or on the response around it), the issuer, the destination and
+recipient, the audience (the SP entity id), NotBefore (two minutes of clock skew allowed) and NotOnOrAfter,
+that the signed InResponseTo is the request in the cookie, and that there is exactly one assertion. The
+assertion's ID is recorded until it expires and a second post of it is refused, on every replica. The ACS takes
+the IdP's form without tix's CSRF token, since another site cannot carry it; the cookie, the RelayState and the
+signed InResponseTo are what tie the post to the browser.
+
 ## Linking rules
 
 In order:
 
 1. **Subject.** An identity already linked to this provider's subject signs in its account.
-2. **Verified email.** Otherwise, an address the provider vouches for (OIDC `email_verified`, or a GitHub
-   primary and verified address) links to the account with that address, if it is a member of this tenant.
+2. **Verified email.** Otherwise, an address the provider vouches for (OIDC `email_verified`, a GitHub
+   primary and verified address, or the email a SAML IdP asserts) links to the account with that address, if
+   it is a member of this tenant.
    The link is recorded in `user_identities`, so the next sign-in matches on the subject even if the address
    changes.
 3. **Just-in-time creation.** Otherwise, with `--auto-create`, a new account is created for an address no
@@ -224,6 +379,9 @@ person passed a second factor at the provider: its `amr` contains, or its `acr` 
 Keycloak level of assurance, and check them in the provider's token preview first.
 
 ## Command line sign-in
+
+SAML providers are not offered here: the IdP posts its answer to a browser. Sign in on the web, then create a
+token for the machine on the **Connect** screen. `--sso` alone skips SAML providers when it picks one.
 
 ```sh
 tix --server https://tix.example.com login --sso
@@ -270,12 +428,18 @@ A global admin cannot sign in through a provider at all: see below.
 - **Email is only trusted verified.** Linking and creation use an address only when the provider says it is
   verified. A provider that does not send `email_verified` links nobody by email; people can still be invited
   and then linked once the provider vouches for their address, or the provider can be configured to send it.
+  SAML has no such flag, so the email a SAML IdP asserts counts as verified: the IdP is the tenant's own
+  directory, set up by the tenant's admin. Keep `--allowed-domain` on a SAML provider whose directory holds
+  addresses it does not own.
+- **SAML responses are taken once.** A captured response cannot be posted again, here or at another replica, and
+  IdP-initiated sign-in, which nothing ties to a browser, is off unless a provider turns it on.
 - **Use `--allowed-domain` with `--auto-create`** on any provider whose accounts anyone can open, such as Google
   or GitHub, or the whole world can create an account.
 - **Secrets stay sealed.** The client secret is sealed with the server key and bound to the provider; it never
   reaches a response, an audit entry or an event. Losing `auth.totp_key` means storing every client secret again.
-- **The flow is bound to the browser.** State, nonce and PKCE verifier live in a sealed HttpOnly cookie; a
-  callback from another browser, or with another state, is refused before the code is exchanged.
+- **The flow is bound to the browser.** State, nonce and PKCE verifier (for SAML, the request id) live in a
+  sealed HttpOnly cookie; a callback from another browser, or with another state, is refused before the code is
+  exchanged or the response read.
 - **Audit.** `sso.login`, `sso.link`, `sso.user_created` and `sso.denied` (with the reason) are recorded in the
   tenant's audit log, as are `sso.provider.create`, `sso.provider.update` and `sso.provider.delete`. Their
   events are delivered only to subscribers holding `sso:admin`.
@@ -284,5 +448,6 @@ A global admin cannot sign in through a provider at all: see below.
 
 `sso_providers` holds each tenant's providers: the settings every kind shares as columns, the protocol's own
 settings as JSON, and the sealed secret. `user_identities` links (tenant, provider, subject) to an account, with
-the email last reported and the last sign-in. SAML will be another kind on the same two tables. The v1 columns
-`users.sso_provider` and `users.sso_subject`, which nothing used, are gone.
+the email last reported and the last sign-in. SAML is another kind on the same two tables, with its IdP
+settings in the provider's JSON. `sso_assertions` holds the ids of SAML assertions that signed somebody in,
+until they expire. The v1 columns `users.sso_provider` and `users.sso_subject`, which nothing used, are gone.

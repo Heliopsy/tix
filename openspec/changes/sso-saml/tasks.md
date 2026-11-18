@@ -27,5 +27,5 @@
 
 ## Docs
 
-- [ ] docs/sso.md with Entra ID, Okta, Keycloak, Authentik and Google Workspace; README, ROADMAP, skill,
+- [x] docs/sso.md with Entra ID, Okta, Keycloak, Authentik and Google Workspace; README, ROADMAP, skill,
       docs/commands.md

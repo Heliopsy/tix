@@ -241,12 +241,20 @@ tix tenant edit acme --mfa-policy required --mfa-grace 7d
 ### Single sign-on
 
 A tenant admin (scope `sso:admin`) adds sign-in providers per tenant: OIDC
-(`--kind oidc --issuer URL`) or GitHub (`--kind oauth_github`). The secret is
-read from standard input and never printed again. `--auto-create` makes an
+(`--kind oidc --issuer URL`), GitHub (`--kind oauth_github`) or SAML
+(`--kind saml --idp-metadata-url URL`, or `--idp-metadata-file FILE`). The
+secret is read from standard input and never printed again; SAML has none. `--auto-create` makes an
 account for a verified email nobody holds, and `--trust-mfa` skips the
 tenant's second factor when the ID token says one was passed; both are off
 by default. Register
-`PUBLIC_URL/login/sso/callback` with the provider. `tix login --sso` (or
+`PUBLIC_URL/login/sso/callback` with an OIDC or GitHub provider. A SAML IdP
+takes `PUBLIC_URL/login/sso/saml/KEY/acs` as its ACS URL and
+`PUBLIC_URL/login/sso/saml/KEY/metadata` as the SP entity id; `tix tenant sso
+metadata KEY` prints that metadata. Sign-ins started at the IdP's own portal
+are refused unless the provider is added with `--allow-idp-initiated`, off by
+default because nothing ties such a response to the browser that posts it.
+SAML signs in only in the browser, so an
+agent on a SAML tenant uses a token. `tix login --sso` (or
 `--sso=KEY` when there are several) signs in through one on a terminal and
 prints the same session as a password sign-in; `--no-browser` only prints
 the address. `tix tenant edit KEY
@@ -257,6 +265,8 @@ the audit log as `sso.denied`. See docs/sso.md.
 
 ```sh
 tix tenant sso add kc --kind oidc --name Keycloak --issuer https://id.example.com/realms/acme --client-id tix-web --client-secret -
+tix tenant sso add okta --kind saml --name Okta --idp-metadata-url https://acme.okta.com/app/exk1abc/sso/saml/metadata
+tix tenant sso metadata okta
 tix tenant sso ls
 tix login --sso
 ```

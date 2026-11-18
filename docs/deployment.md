@@ -293,7 +293,7 @@ setting is upgraded on its owner's next sign-in, and a stronger one is kept. See
 
 Four things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
 channels, external sync sources (Jira and OpenProject), and single sign-on providers (discovery, the key set, the
-token endpoint and the GitHub API; see [sso.md](sso.md)). A tenant administrator is a lower-privilege party
+token endpoint, the GitHub API and SAML IdP metadata; see [sso.md](sso.md)). A tenant administrator is a lower-privilege party
 than whoever runs the server, and the request leaves from inside your network, so the url is untrusted input
 rather than configuration. A sync run in particular imports what it reads into tasks the tenant can see.
 
@@ -355,8 +355,9 @@ in `tix serve` beyond three things:
 
 - `auth.totp_key` must be set: it seals each provider's client secret and the sign-in between its two steps.
   Every replica needs the same value, and losing it means storing every client secret again.
-- `server.public_url` should be set, so the redirect URL to register, `PUBLIC_URL/login/sso/callback`, is known
-  and printed. Behind a proxy, the forwarded scheme decides whether the callback is `https`; see
+- `server.public_url` should be set, so the redirect URL to register, `PUBLIC_URL/login/sso/callback`, and a SAML
+  provider's `PUBLIC_URL/login/sso/saml/KEY/acs` and `PUBLIC_URL/login/sso/saml/KEY/metadata`, are known and
+  printed. SAML needs HTTPS, because the IdP's post back to tix is cross-site. Behind a proxy, the forwarded scheme decides whether the callback is `https`; see
   [Behind a reverse proxy](#behind-a-reverse-proxy).
 - An identity provider on an internal address needs its host in `server.egress_allow`, as an internal webhook
   target does.
