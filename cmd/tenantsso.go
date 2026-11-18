@@ -150,7 +150,7 @@ func ssoAddCmd(g *globals) *cobra.Command {
 			"--idp-metadata-url or --idp-metadata-file, or --idp-entity-id, --idp-sso-url and\n" +
 			"--idp-cert. An explicit flag wins over the metadata. It takes no client id or secret.\n\n" +
 			"Exit codes: 2 an invalid setting, 4 KEY is taken, 5 permission denied, 6 no sealing key\n" +
-			"(auth.totp_key) on the server, 8 the IdP metadata could not be read.",
+			"(auth.totp_key) on the server, 7 the IdP metadata could not be read.",
 		Example: "  printf %s \"$SECRET\" | tix tenant sso add kc --kind oidc --name Keycloak \\\n" +
 			"      --issuer https://id.example.com/realms/acme --client-id tix --client-secret - \\\n" +
 			"      --allowed-domain example.com --role-map tix-admins=admin --auto-create\n" +
