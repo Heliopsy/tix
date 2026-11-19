@@ -7673,6 +7673,71 @@ paths:
       summary: UpdateSSOProvider changes a provider by key or identifier
       tags:
         - sso
+  /api/v1/sso/providers/{id}/refresh:
+    post:
+      description: |-
+        RefreshSAMLMetadata reads a SAML provider's IdP metadata again from its stored address, as the server does on a schedule. New signing certificates are added, one the metadata dropped is kept for an overlap window, and settings an admin set stay. A failed read is recorded on the provider and returned, and the current certificates keep working.
+
+        Command line: `tix tenant sso refresh`.
+      operationId: sso.provider.refresh
+      parameters:
+        - description: Single sign-on provider key, such as kc, or its ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSOProvider'
+          description: 'SSOProvider is a tenant''s sign-in provider. The client secret
+            is never part of it once stored: SecretSet and SecretHint say what a screen
+            may show.'
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - sso:admin
+        - session:
+            - sso:admin
+      summary: RefreshSAMLMetadata reads a SAML provider's IdP metadata again from
+        its stored address, as the server does on a schedule
+      tags:
+        - sso
   /api/v1/stats:
     get:
       description: |-
@@ -17327,6 +17392,22 @@ components:
             kept, as a duration. The default is 30 days.
           type: string
       type: object
+    RetiringCertificate:
+      description: RetiringCertificate is a signing certificate the IdP's metadata
+        stopped naming, kept until Until.
+      properties:
+        fingerprint:
+          description: Fingerprint is the SHA-256 of the certificate, in hex.
+          type: string
+        since:
+          description: Since is the first refresh that found it gone from the metadata.
+          format: date-time
+          type: string
+        until:
+          description: Until is when it stops being trusted.
+          format: date-time
+          type: string
+      type: object
     Role:
       description: Role is a named bundle of scopes granted to a human within one
         tenant.
@@ -17436,6 +17517,33 @@ components:
         source_id:
           description: SourceID is the identifier of the registered source to run.
             Required.
+          type: string
+      type: object
+    SAMLMetadataRefresh:
+      description: SAMLMetadataRefresh is the outcome of the last read of a SAML provider's
+        IdP metadata, on save or on schedule.
+      properties:
+        added:
+          description: Added and Removed count the signing certificates the read changed.
+          type: integer
+        at:
+          description: At is when the metadata was last read.
+          format: date-time
+          type: string
+        error:
+          description: Error is why the read failed; the stored settings stayed.
+          type: string
+        next:
+          description: Next is when the server reads it again; absent when refresh
+            is off.
+          format: date-time
+          type:
+            - "null"
+            - string
+        removed:
+          type: integer
+        result:
+          description: Result is updated, unchanged or failed.
           type: string
       type: object
     SCIMGroupRole:
@@ -17677,6 +17785,12 @@ components:
           items:
             type: string
           type: array
+        idp_certificates_retiring:
+          description: IdPRetiring are the certificates the IdP's metadata stopped
+            naming, still trusted until their overlap ends.
+          items:
+            $ref: '#/components/schemas/RetiringCertificate'
+          type: array
         idp_entity_id:
           description: IdPEntityID is the SAML IdP's entity id, the issuer of its
             responses.
@@ -17685,6 +17799,12 @@ components:
           description: IdPMetadataURL is where a SAML provider's IdP metadata was
             read.
           type: string
+        idp_pinned:
+          description: 'IdPPinned names the IdP settings an admin set, which a metadata
+            refresh leaves alone: idp_entity_id, idp_sso_url, idp_certificates.'
+          items:
+            type: string
+          type: array
         idp_sso_url:
           description: IdPSSOURL is the SAML IdP's HTTP-Redirect sign-in address.
           type: string
@@ -17698,6 +17818,9 @@ components:
         kind:
           description: SSOKind is the protocol a sign-in provider speaks.
           type: string
+        metadata_refresh:
+          $ref: '#/components/schemas/SAMLMetadataRefresh'
+          description: MetadataRefresh is how the last read of the IdP metadata went.
         metadata_url:
           description: MetadataURL is a SAML provider's metadata address, when known.
           type: string

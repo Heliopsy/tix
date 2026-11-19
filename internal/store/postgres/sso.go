@@ -39,6 +39,10 @@ type ssoConfig struct {
 	SPEntityID        string   `json:"sp_entity_id,omitempty"`
 	NameIDFormat      string   `json:"name_id_format,omitempty"`
 	AllowIdPInitiated bool     `json:"allow_idp_initiated,omitempty"`
+
+	IdPPinned       []string                   `json:"idp_pinned,omitempty"`
+	IdPRetiring     []core.RetiringCertificate `json:"idp_retiring,omitempty"`
+	MetadataRefresh *core.SAMLMetadataRefresh  `json:"metadata_refresh,omitempty"`
 }
 
 func ssoConfigOf(p *core.SSOProvider) ssoConfig {
@@ -47,7 +51,8 @@ func ssoConfigOf(p *core.SSOProvider) ssoConfig {
 		AllowedOrgs: p.AllowedOrgs, WebURL: p.WebURL, APIURL: p.APIURL,
 		IdPMetadataURL: p.IdPMetadataURL, IdPEntityID: p.IdPEntityID, IdPSSOURL: p.IdPSSOURL,
 		IdPCertificates: p.IdPCertificates, SPEntityID: p.SPEntityID, NameIDFormat: p.NameIDFormat,
-		AllowIdPInitiated: p.AllowIdPInitiated}
+		AllowIdPInitiated: p.AllowIdPInitiated, IdPPinned: p.IdPPinned, IdPRetiring: p.IdPRetiring,
+		MetadataRefresh: p.MetadataRefresh}
 }
 
 func (c ssoConfig) applyTo(p *core.SSOProvider) {
@@ -56,7 +61,8 @@ func (c ssoConfig) applyTo(p *core.SSOProvider) {
 	p.AllowedOrgs, p.WebURL, p.APIURL = c.AllowedOrgs, c.WebURL, c.APIURL
 	p.IdPMetadataURL, p.IdPEntityID, p.IdPSSOURL = c.IdPMetadataURL, c.IdPEntityID, c.IdPSSOURL
 	p.IdPCertificates, p.SPEntityID, p.NameIDFormat = c.IdPCertificates, c.SPEntityID, c.NameIDFormat
-	p.AllowIdPInitiated = c.AllowIdPInitiated
+	p.AllowIdPInitiated, p.IdPPinned, p.IdPRetiring = c.AllowIdPInitiated, c.IdPPinned, c.IdPRetiring
+	p.MetadataRefresh = c.MetadataRefresh
 }
 
 func scanSSOProvider(s scanner) (core.SSOProvider, error) {
@@ -201,6 +207,24 @@ func (t *tx) UpdateSSOProvider(ctx context.Context, p *core.SSOProvider) error {
 		Set("secret_hint", p.SecretHint).
 		Set("updated_at", timeArg(p.UpdatedAt))
 	n, err := t.execUpdate(ctx, upd, "updating sso provider %q", p.Key)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("sso provider %q", p.Key)
+	}
+	return nil
+}
+
+// RecordSSOProviderRefresh rewrites a provider's own settings after a read
+// of its IdP metadata, leaving updated_at to the changes an admin makes.
+func (t *tx) RecordSSOProviderRefresh(ctx context.Context, p *core.SSOProvider) error {
+	_, _, config, err := encodeSSOJSON(p)
+	if err != nil {
+		return err
+	}
+	upd := t.builder("sso_providers").Where("id = ?", p.ID).Set("config", config)
+	n, err := t.execUpdate(ctx, upd, "recording the metadata refresh of sso provider %q", p.Key)
 	if err != nil {
 		return err
 	}

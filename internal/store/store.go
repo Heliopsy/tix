@@ -822,6 +822,9 @@ type SSOTx interface {
 	GetSSOProvider(ctx context.Context, ref string) (*core.SSOProvider, error)
 	CreateSSOProvider(ctx context.Context, p *core.SSOProvider) error
 	UpdateSSOProvider(ctx context.Context, p *core.SSOProvider) error
+	// RecordSSOProviderRefresh rewrites a provider's settings after a read of
+	// its IdP metadata without touching updated_at.
+	RecordSSOProviderRefresh(ctx context.Context, p *core.SSOProvider) error
 	DeleteSSOProvider(ctx context.Context, id string) error
 	GetUserIdentity(ctx context.Context, providerID, subject string) (*core.UserIdentity, error)
 	// GetUserIdentityByUser finds the identity a provider links to a user.

@@ -254,6 +254,8 @@ const (
 	RouteSSO       = "/admin/sso"
 	RouteSSOUpdate = "/admin/sso/update"
 	RouteSSODelete = "/admin/sso/delete"
+	// RouteSSORefresh reads a SAML provider's IdP metadata again.
+	RouteSSORefresh = "/admin/sso/refresh"
 	// RouteSSOPassword saves whether the tenant takes passwords at all.
 	RouteSSOPassword = "/admin/sso/password" // #nosec G101 -- a url path, not a credential
 	// RouteSSOStart sends a browser to a provider, and RouteSSOCallback is

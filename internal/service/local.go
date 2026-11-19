@@ -62,6 +62,10 @@ type Local struct {
 	// idempotencyWindow is how long a kept idempotency key answers repeats.
 	idempotencyWindow time.Duration
 
+	// samlRefresh is how often the server reads SAML IdP metadata again,
+	// zero when it does not; it dates the next refresh a provider shows.
+	samlRefresh time.Duration
+
 	// leaseDefaults are the configured lease bounds for this deployment, laid
 	// under whatever the tenant has chosen for itself. A tenant narrows them;
 	// see lease.Policy.Narrow for which way each bound moves.
@@ -173,6 +177,13 @@ func WithIdempotencyWindow(d time.Duration) Option {
 			l.idempotencyWindow = d
 		}
 	}
+}
+
+// WithSAMLMetadataRefresh sets how often the server reads a SAML provider's
+// IdP metadata again, so a provider can show when that happens next. Zero or
+// less is never.
+func WithSAMLMetadataRefresh(d time.Duration) Option {
+	return func(l *Local) { l.samlRefresh = max(d, 0) }
 }
 
 // WithLeaseDefaults sets the deployment-wide lease bounds that a tenant's own

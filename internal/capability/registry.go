@@ -1516,6 +1516,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "sso.provider.refresh", Method: "RefreshSAMLMetadata",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso refresh",
+		HTTP:  apiPost(wire.RouteSSOProviderRefresh),
+		Web:   webPost(web.RouteSSORefresh),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
 		Name: "session.logout", Method: "Logout",
 		CLI:  "tix logout",
 		HTTP: apiPost(wire.RouteLogout),

@@ -39,6 +39,8 @@ func TestSSOCallsIssueTheExpectedRequests(t *testing.T) {
 				_, err := c.UpdateSSOProvider(ctx, "kc", core.UpdateSSOProviderInput{})
 				return err
 			}},
+		{"refresh", http.MethodPost, wire.APIPrefix + "/sso/providers/kc/refresh", provider,
+			func(c *Client) error { _, err := c.RefreshSAMLMetadata(ctx, "kc"); return err }},
 		{"options", http.MethodGet, wire.RouteSignInOptions, `{"password_login":"allowed","providers":[]}`,
 			func(c *Client) error { _, err := c.SignInOptions(ctx); return err }},
 		{"begin", http.MethodPost, wire.RouteSSOBegin, `{"auth_url":"https://x","flow":"f","state":"s"}`,

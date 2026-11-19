@@ -49,8 +49,11 @@ type SAML struct {
 	cert  *x509.Certificate
 	other *rsa.PrivateKey
 	ocert *x509.Certificate
-	now   func() time.Time
-	seq   int
+	// previous are certificates the metadata still publishes after a
+	// rotation, which the IdP no longer signs with.
+	previous []*x509.Certificate
+	now      func() time.Time
+	seq      int
 }
 
 // NewSAML makes a fake IdP whose certificates are valid around now.
@@ -91,18 +94,35 @@ func (s *SAML) OtherCertPEM() string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.ocert.Raw}))
 }
 
+// Rotate makes a new key the one the IdP signs with, as a rollover does.
+// The metadata keeps publishing the old certificate until Retire.
+func (s *SAML) Rotate(t testing.TB) {
+	t.Helper()
+	s.previous = append(s.previous, s.cert)
+	s.key, s.cert = newSigner(t, s.now(), "fake idp rotated")
+}
+
+// Retire stops the metadata publishing the certificates Rotate replaced.
+func (s *SAML) Retire() { s.previous = nil }
+
 // Metadata is the IdP's metadata document.
 func (s *SAML) Metadata() string {
 	cert := base64.StdEncoding.EncodeToString(s.cert.Raw)
+	extra := ""
+	for _, c := range s.previous {
+		extra += `
+    <md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>` +
+			base64.StdEncoding.EncodeToString(c.Raw) + `</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>`
+	}
 	return fmt.Sprintf(`<?xml version="1.0"?>
 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" entityID="%s">
   <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-    <md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>%s</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
+    <md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>%s</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>%s
     <md:KeyDescriptor use="encryption"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>%s</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
     <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://idp.example/saml/post"/>
     <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="%s"/>
   </md:IDPSSODescriptor>
-</md:EntityDescriptor>`, s.EntityID, cert, base64.StdEncoding.EncodeToString(s.ocert.Raw), html.EscapeString(s.SSOURL))
+</md:EntityDescriptor>`, s.EntityID, cert, extra, base64.StdEncoding.EncodeToString(s.ocert.Raw), html.EscapeString(s.SSOURL))
 }
 
 // AuthnRequest is what a sign-in address carried to the IdP.

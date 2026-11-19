@@ -18,6 +18,7 @@ import (
 	"github.com/heliopsy/tix/internal/presence"
 	"github.com/heliopsy/tix/internal/release"
 	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/samlrefresh"
 	"github.com/heliopsy/tix/internal/scim"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
@@ -96,6 +97,11 @@ type Options struct {
 	DisableSweep     bool
 	DisablePrune     bool
 	DisableDispatch  bool
+
+	// SAMLRefreshInterval is auth.saml_metadata_refresh: how often every
+	// tenant's enabled SAML providers have their IdP metadata read again.
+	// Zero or less runs no refresher.
+	SAMLRefreshInterval time.Duration
 
 	// HeartbeatInterval is how often this process refreshes its registration.
 	// Zero uses the interval the staleness threshold is derived from, so the
@@ -309,7 +315,54 @@ func workersFor(opts Options) []Worker {
 		)
 		workers = append(workers, DispatcherWorker(dispatcher))
 	}
+
+	if opts.SAMLRefreshInterval > 0 {
+		refresher := samlrefresh.New(opts.Service, liveTenants(opts.Store),
+			func(ctx context.Context, tenantID string) context.Context {
+				return systemContext(ctx, tenantID, JobSAMLRefresh)
+			},
+			opts.Clock, opts.SAMLRefreshInterval,
+			samlrefresh.WithErrorHandler(func(tenantID, key string, err error) {
+				opts.Logger.Warn("saml metadata refresh failed, the provider keeps its certificates",
+					"tenant", tenantID, "provider", key, "error", err.Error())
+			}),
+			samlrefresh.WithChangeHandler(func(tenantID string, p *core.SSOProvider) {
+				opts.Logger.Info("saml metadata refresh changed a provider", "tenant", tenantID, "provider", p.Key,
+					"certificates_added", p.MetadataRefresh.Added, "certificates_removed", p.MetadataRefresh.Removed)
+			}),
+		)
+		workers = append(workers, FuncWorker{WorkerName: "saml-metadata-refresher", Fn: refresher.Run})
+	}
 	return workers
+}
+
+// liveTenants lists every tenant not deleted, for the background work that
+// visits each one.
+func liveTenants(st store.Store) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		var ids []string
+		err := st.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+			page := core.Page{Limit: core.MaxPageLimit, Sort: "key", Direction: core.Ascending}
+			for {
+				found, err := u.ListTenants(ctx, page)
+				if err != nil {
+					return err
+				}
+				for _, t := range found {
+					if t.DeletedAt == nil {
+						ids = append(ids, t.ID)
+					}
+				}
+				if len(found) < page.Limit {
+					return nil
+				}
+				last := found[len(found)-1]
+				page.Cursor = core.Cursor{SortValue: last.Key, ID: last.ID, Sort: page.Sort,
+					Direction: page.Direction}.Encode()
+			}
+		})
+		return ids, err
+	}
 }
 
 // Background jobs, as the access channel of what they change names them.
@@ -318,6 +371,7 @@ const (
 	JobSnoozeWake   = "snooze-wake"
 	JobPrune        = "prune"
 	JobHousekeeping = "housekeeping"
+	JobSAMLRefresh  = "saml-refresh"
 )
 
 // systemContext gives background work the identity it has no request to

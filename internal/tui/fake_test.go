@@ -972,6 +972,10 @@ func (f *fakeService) UpdateSSOProvider(context.Context, string, core.UpdateSSOP
 
 func (f *fakeService) DeleteSSOProvider(context.Context, string) error { return nil }
 
+func (f *fakeService) RefreshSAMLMetadata(context.Context, string) (*core.SSOProvider, error) {
+	return &core.SSOProvider{}, nil
+}
+
 func (f *fakeService) SignInOptions(context.Context) (*core.SignInOptions, error) {
 	return &core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed}, nil
 }

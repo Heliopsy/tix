@@ -435,6 +435,10 @@ func validatePasswordHashing(a Auth, sources map[string]Layer) error {
 				WithDetail("reason", "must be between 0 and "+strconv.FormatInt(n.max, 10))
 		}
 	}
+	if a.SAMLMetadataRefresh < 0 {
+		return invalidKey("auth.saml_metadata_refresh", sources).WithDetail("value", a.SAMLMetadataRefresh.String()).
+			WithDetail("reason", "must not be negative; 0 turns the scheduled read off")
+	}
 	if a.Argon2MemoryKiB == 0 && a.Argon2Time == 0 && a.Argon2Threads == 0 {
 		return nil
 	}

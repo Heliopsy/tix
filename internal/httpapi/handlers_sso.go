@@ -24,6 +24,7 @@ func (rt *Router) registerSSORoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteSSOProvider, rt.handleGetSSOProvider)
 	rt.mux.HandleFunc("PATCH "+wire.RouteSSOProvider, rt.handleUpdateSSOProvider)
 	rt.mux.HandleFunc("DELETE "+wire.RouteSSOProvider, rt.handleDeleteSSOProvider)
+	rt.mux.HandleFunc("POST "+wire.RouteSSOProviderRefresh, rt.handleRefreshSAMLMetadata)
 }
 
 // handleSignInOptions answers what the tenant's sign-in screen offers.
@@ -151,4 +152,14 @@ func (rt *Router) handleSAMLMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(wire.HeaderContentType, wire.ContentSAMLMetadata)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(out.XML))
+}
+
+// handleRefreshSAMLMetadata reads a SAML provider's IdP metadata again.
+func (rt *Router) handleRefreshSAMLMetadata(w http.ResponseWriter, r *http.Request) {
+	out, err := rt.cfg.Service.RefreshSAMLMetadata(r.Context(), r.PathValue("id"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, out)
 }

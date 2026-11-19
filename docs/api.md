@@ -165,7 +165,7 @@ the routes the server registers. The areas are the first segment of each operati
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
-| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}` |
+| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}`, `POST /sso/providers/{id}/refresh` |
 | stats | `GET /stats` |
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
@@ -432,6 +432,15 @@ finished on `POST /auth/login`. A refusal after the provider vouched for someone
 (`PATCH`, omitted fields unchanged) and deletes one; all need `sso:admin`. `client_secret` is accepted on create
 and change and never returned: `secret_set` and `secret_hint` say what is stored. `PATCH /tenants/{ref}`
 takes `password_login` (`allowed` or `disabled`). See [sso.md](sso.md).
+
+`POST /sso/providers/{id}/refresh` reads a SAML provider's IdP metadata again from its stored
+`idp_metadata_url` and answers the provider, as `tix serve` does every `auth.saml_metadata_refresh`. A
+provider carries how the last read went in `metadata_refresh` (`at`, `result` of `updated`, `unchanged` or
+`failed`, `error`, the `added` and `removed` certificate counts, and `next` when the server reads it on a
+schedule), the certificates the metadata stopped naming in `idp_certificates_retiring` with the `until` they
+are trusted, and the settings an admin set in `idp_pinned`. A failed read is recorded and answered `502` for an
+unreachable IdP, `400` for metadata that is not valid; the provider keeps its certificates. A provider with no
+metadata URL is `422`. See [sso.md](sso.md#certificate-rollover).
 
 ### Second factor
 

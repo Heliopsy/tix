@@ -94,6 +94,10 @@ func (l *Local) CreateSSOProvider(ctx context.Context, in core.CreateSSOProvider
 			return nil, err
 		}
 		applyIdPMetadata(&p, md, p.IdPEntityID != "", p.IdPSSOURL != "", len(p.IdPCertificates) > 0)
+		p.IdPPinned = createPins(in)
+		if md != nil && p.IdPMetadataURL != "" {
+			p.MetadataRefresh = &core.SAMLMetadataRefresh{At: l.clock.Now().UTC(), Result: core.SAMLRefreshUpdated}
+		}
 		if strings.TrimSpace(in.ClientSecret) != "" {
 			return nil, core.OnField(core.Invalid("a saml provider takes no client secret"), "client_secret")
 		}
@@ -167,10 +171,15 @@ func (l *Local) UpdateSSOProvider(ctx context.Context, ref string, in core.Updat
 		if md != nil && next.Kind != core.SSOKindSAML {
 			return core.OnField(core.Invalid("idp metadata applies to saml providers only"), "idp_metadata_url")
 		}
-		applyIdPMetadata(&next, md, in.IdPEntityID != nil, in.IdPSSOURL != nil, in.IdPCertificates != nil)
+		entity, ssoURL, certs, pins := samlPins(*existing, in, md != nil)
+		applyIdPMetadata(&next, md, entity, ssoURL, certs)
 		next.Normalize()
 		if err := next.Validate(); err != nil {
 			return err
+		}
+		if next.Kind == core.SSOKindSAML {
+			next.IdPPinned = pins
+			editedMetadata(existing, &next, md != nil, m.now)
 		}
 		if in.ClientSecret != nil {
 			secret := strings.TrimSpace(*in.ClientSecret)

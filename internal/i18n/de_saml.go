@@ -22,9 +22,9 @@ func init() {
 		"Register this address as the redirect URL with every OIDC and GitHub provider:": "Diese Adresse bei jedem OIDC- und GitHub-Anbieter als Weiterleitungs-URL eintragen:",
 		"SP entity ID":                 "Entity-ID des SP",
 		"SP entity ID override (SAML)": "Eigene Entity-ID des SP (SAML)",
-		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated":                                                                               "amr-, acr- oder SAML-AuthnContextClassRef-Werte für den zweiten Faktor, durch Kommas getrennt",
-		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":                                                                                "Den zweiten Faktor des Mandanten überspringen, wenn der Anbieter einen meldet (OIDC, SAML)",
-		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates; anything you fill in below wins over it.": "Die SAML-Metadatenadresse des Identitätsanbieters. Beim Speichern werden Entity-ID, Anmelde-URL und Signaturzertifikate daraus gelesen; was Sie unten eintragen, hat Vorrang.",
+		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated": "amr-, acr- oder SAML-AuthnContextClassRef-Werte für den zweiten Faktor, durch Kommas getrennt",
+		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":  "Den zweiten Faktor des Mandanten überspringen, wenn der Anbieter einen meldet (OIDC, SAML)",
+		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates, and the server reads it again on a schedule to pick up a new certificate; anything you fill in below wins over it.": "Die SAML-Metadatenadresse des Identitätsanbieters. Beim Speichern werden Entity-ID, Anmelde-URL und Signaturzertifikate daraus gelesen, und der Server liest sie regelmäßig neu, um ein neues Zertifikat zu übernehmen; was Sie unten eintragen, hat Vorrang.",
 		"accepts IdP-initiated sign-in": "nimmt beim IdP begonnene Anmeldungen an",
 		"the metadata address":          "die Metadatenadresse",
 	})

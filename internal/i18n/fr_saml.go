@@ -22,9 +22,9 @@ func init() {
 		"Register this address as the redirect URL with every OIDC and GitHub provider:": "Enregistrez cette adresse comme URL de redirection auprès de chaque fournisseur OIDC et GitHub :",
 		"SP entity ID":                 "Entity ID du SP",
 		"SP entity ID override (SAML)": "Entity ID du SP personnalisé (SAML)",
-		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated":                                                                               "Valeurs amr, acr ou AuthnContextClassRef SAML du second facteur, séparées par des virgules",
-		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":                                                                                "Ignorer le second facteur du locataire quand le fournisseur en signale un (OIDC, SAML)",
-		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates; anything you fill in below wins over it.": "L'adresse des métadonnées SAML du fournisseur d'identité. L'enregistrement en lit l'entity ID, l'URL de connexion et les certificats de signature ; ce que vous saisissez ci-dessous l'emporte.",
+		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated": "Valeurs amr, acr ou AuthnContextClassRef SAML du second facteur, séparées par des virgules",
+		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":  "Ignorer le second facteur du locataire quand le fournisseur en signale un (OIDC, SAML)",
+		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates, and the server reads it again on a schedule to pick up a new certificate; anything you fill in below wins over it.": "L'adresse des métadonnées SAML du fournisseur d'identité. L'enregistrement en lit l'entity ID, l'URL de connexion et les certificats de signature, et le serveur les relit régulièrement pour prendre un nouveau certificat ; ce que vous saisissez ci-dessous l'emporte.",
 		"accepts IdP-initiated sign-in": "accepte les connexions lancées par l'IdP",
 		"the metadata address":          "l'adresse des métadonnées",
 	})

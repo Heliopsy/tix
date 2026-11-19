@@ -38,6 +38,11 @@ func (c *Client) DeleteSSOProvider(ctx context.Context, ref string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteSSOProvider, "id", ref), nil, nil)
 }
 
+// RefreshSAMLMetadata reads a SAML provider's IdP metadata again.
+func (c *Client) RefreshSAMLMetadata(ctx context.Context, ref string) (*core.SSOProvider, error) {
+	return call[core.SSOProvider](ctx, c, http.MethodPost, routePath(wire.RouteSSOProviderRefresh, "id", ref), nil, nil)
+}
+
 // SignInOptions reports what the tenant's sign-in screen offers.
 func (c *Client) SignInOptions(ctx context.Context) (*core.SignInOptions, error) {
 	return call[core.SignInOptions](ctx, c, http.MethodGet, wire.RouteSignInOptions, nil, nil)

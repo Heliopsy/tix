@@ -5,8 +5,10 @@ package web_test
 import (
 	"html"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/heliopsy/tix/internal/sso/ssotest"
@@ -107,4 +109,44 @@ func TestSSOScreenEditsASAMLProvider(t *testing.T) {
 		t.Errorf("a bad certificate = %d, want 400", refused.StatusCode)
 	}
 	_ = refused.Body.Close()
+}
+
+func TestSSOScreenRefreshesASAMLProvidersMetadata(t *testing.T) {
+	f := newFixture(t)
+	idp := ssotest.NewSAML(t, f.clock.Now)
+	var down atomic.Bool
+	md := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if down.Load() {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte(idp.Metadata()))
+	}))
+	t.Cleanup(md.Close)
+	admin := f.as("alice")
+	wantStatus(t, admin.post("/admin/sso", url.Values{"key": {"okta"}, "kind": {"saml"}, "display_name": {"Okta"},
+		"idp_metadata_url": {md.URL + "/md"}, "default_role": {"member"}, "enabled": {"1"}}), http.StatusSeeOther)
+	page := admin.page("/admin/sso")
+	row := between(t, page, `<span class="recrow-title">Okta`, `</li>`)
+	refresh := between(t, row, `action="/admin/sso/refresh"`, `</form>`)
+	id := between(t, refresh, `name="id" value="`, `"`)
+	if !strings.Contains(row, "IdP metadata read, certificates updated") {
+		t.Fatalf("the row does not say the metadata was read on save:\n%s", row)
+	}
+
+	idp.Rotate(t)
+	wantStatus(t, admin.post("/admin/sso/refresh", url.Values{"id": {id}}), http.StatusSeeOther)
+	row = between(t, admin.page("/admin/sso"), `<span class="recrow-title">Okta`, `</li>`)
+	if !strings.Contains(row, "2 signing certificates") || !strings.Contains(row, "IdP metadata read, certificates updated") {
+		t.Errorf("after a refresh over a rotation the row reads:\n%s", row)
+	}
+
+	down.Store(true)
+	wantStatus(t, admin.post("/admin/sso/refresh", url.Values{"id": {id}}), http.StatusSeeOther)
+	row = between(t, admin.page("/admin/sso"), `<span class="recrow-title">Okta`, `</li>`)
+	failed := between(t, row, `class="sso-refresh-failed">`, `</span></span>`)
+	if !strings.Contains(failed, "IdP metadata read failed") || !strings.Contains(failed, "502") ||
+		!strings.Contains(row, "2 signing certificates") {
+		t.Errorf("after a failed refresh the row reads:\n%s", row)
+	}
 }

@@ -135,3 +135,42 @@ func TestSAMLSettingsAndUsedAssertionsOnSQLite(t *testing.T) {
 		t.Errorf("deleting a provider with used assertions: %v", err)
 	}
 }
+
+// TestSAMLRefreshStateOnSQLite pins the refresh state a SAML provider keeps in
+// its settings, and that recording a refresh leaves updated_at alone.
+func TestSAMLRefreshStateOnSQLite(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	at := clk.Now().Truncate(time.Second)
+	p := core.SSOProvider{Key: "okta", Kind: core.SSOKindSAML, DisplayName: "Okta", Enabled: true,
+		DefaultRole: core.RoleMember, IdPMetadataURL: "https://idp.example/md", IdPEntityID: "https://idp.example",
+		IdPSSOURL: "https://idp.example/sso", IdPCertificates: []string{"cert"}, IdPPinned: []string{core.PinIdPSSOURL}}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error { return tx.CreateSSOProvider(ctx, &p) }); err != nil {
+		t.Fatalf("creating: %v", err)
+	}
+	clk.Advance(time.Hour)
+	p.MetadataRefresh = &core.SAMLMetadataRefresh{At: at, Result: core.SAMLRefreshFailed, Error: "idp down"}
+	p.IdPRetiring = []core.RetiringCertificate{{Fingerprint: "ab", Since: at, Until: at.Add(time.Hour)}}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error { return tx.RecordSSOProviderRefresh(ctx, &p) }); err != nil {
+		t.Fatalf("recording: %v", err)
+	}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		got, err := tx.GetSSOProvider(ctx, "okta")
+		if err != nil {
+			return err
+		}
+		if got.MetadataRefresh == nil || !got.MetadataRefresh.At.Equal(at) || got.MetadataRefresh.Error != "idp down" ||
+			len(got.IdPRetiring) != 1 || got.IdPRetiring[0].Fingerprint != "ab" || !got.Pinned(core.PinIdPSSOURL) ||
+			got.UpdatedAt.After(got.CreatedAt.Add(time.Second)) {
+			t.Errorf("read back %+v, refresh %+v", got, got.MetadataRefresh)
+		}
+		gone := core.SSOProvider{ID: "nobody", Key: "nobody"}
+		if err := tx.RecordSSOProviderRefresh(ctx, &gone); !core.IsKind(err, core.KindNotFound) {
+			t.Errorf("recording a missing provider = %v, want not found", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("reading: %v", err)
+	}
+}

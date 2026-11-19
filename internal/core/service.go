@@ -977,6 +977,12 @@ type SSOService interface {
 	// it. Removing the last enabled provider is refused while password
 	// sign-in is off.
 	DeleteSSOProvider(ctx context.Context, ref string) error
+	// RefreshSAMLMetadata reads a SAML provider's IdP metadata again from its
+	// stored address, as the server does on a schedule. New signing
+	// certificates are added, one the metadata dropped is kept for an overlap
+	// window, and settings an admin set stay. A failed read is recorded on
+	// the provider and returned, and the current certificates keep working.
+	RefreshSAMLMetadata(ctx context.Context, ref string) (*SSOProvider, error)
 	// SignInOptions reports, without a credential, whether this tenant takes
 	// passwords and which providers its sign-in screen offers.
 	SignInOptions(ctx context.Context) (*SignInOptions, error)

@@ -236,6 +236,9 @@ type Auth struct {
 	Argon2MemoryKiB int `yaml:"argon2_memory_kib"`
 	Argon2Time      int `yaml:"argon2_time"`
 	Argon2Threads   int `yaml:"argon2_threads"`
+	// SAMLMetadataRefresh is how often tix serve reads each enabled SAML
+	// provider's IdP metadata again; 0 turns the scheduled read off.
+	SAMLMetadataRefresh core.Duration `yaml:"saml_metadata_refresh"`
 }
 
 // PasswordParams is the argon2id policy these settings ask for: the built-in
@@ -676,7 +679,7 @@ func Defaults() Config {
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity, MaxImportBytes: DefaultMaxImportBytes},
-		Auth:     Auth{Mode: DefaultAuthMode},
+		Auth:     Auth{Mode: DefaultAuthMode, SAMLMetadataRefresh: core.DefaultSAMLMetadataRefresh},
 		Artifacts: Artifacts{
 			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
 		Session: Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,

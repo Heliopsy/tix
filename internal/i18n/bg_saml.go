@@ -22,9 +22,9 @@ func init() {
 		"Register this address as the redirect URL with every OIDC and GitHub provider:": "Регистрирайте този адрес като URL за пренасочване при всеки OIDC и GitHub доставчик:",
 		"SP entity ID":                 "Entity ID на SP",
 		"SP entity ID override (SAML)": "Собствен Entity ID на SP (SAML)",
-		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated":                                                                               "Стойности amr, acr или SAML AuthnContextClassRef за втори фактор, разделени със запетая",
-		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":                                                                                "Пропусни втория фактор на наемателя, когато доставчикът съобщи за такъв (OIDC, SAML)",
-		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates; anything you fill in below wins over it.": "Адресът на SAML метаданните на доставчика на идентичност. При запазване се четат неговият entity ID, URL за вход и сертификати за подпис; попълненото по-долу има предимство.",
+		"Second factor amr, acr or SAML AuthnContextClassRef values, comma separated": "Стойности amr, acr или SAML AuthnContextClassRef за втори фактор, разделени със запетая",
+		"Skip the tenant's second factor when the provider reports one (OIDC, SAML)":  "Пропусни втория фактор на наемателя, когато доставчикът съобщи за такъв (OIDC, SAML)",
+		"The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates, and the server reads it again on a schedule to pick up a new certificate; anything you fill in below wins over it.": "Адресът на SAML метаданните на доставчика на идентичност. При запазване се четат неговият entity ID, URL за вход и сертификати за подпис, а сървърът го чете отново по график, за да вземе нов сертификат; попълненото по-долу има предимство.",
 		"accepts IdP-initiated sign-in": "приема влизания, започнати от IdP",
 		"the metadata address":          "адресът на метаданните",
 	})
