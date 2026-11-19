@@ -54,8 +54,8 @@ func init() {
 		},
 	})
 	serviceScenarios = append(serviceScenarios, svcScenario{
-		name:   "a saml provider, its metadata and a response posted with the wrong relay state",
-		covers: []string{"SAMLMetadata"},
+		name:   "a saml provider, its metadata, a response posted with the wrong relay state and a refresh with no metadata url",
+		covers: []string{"SAMLMetadata", "RefreshSAMLMetadata"},
 		run: func(t *testing.T, tg target, _ *matrixHarness) (sig, error) {
 			idp := ssotest.NewSAML(t, time.Now)
 			created, err := tg.svc.CreateSSOProvider(tg.ctx, core.CreateSSOProviderInput{Key: "okta",
@@ -70,6 +70,7 @@ func init() {
 			mustf(t, tg, err, "beginning a saml sign-in")
 			_, completeErr := tg.svc.CompleteSSOLogin(tg.ctx, core.CompleteSSOInput{Flow: begin.Flow, State: "forged",
 				SAMLResponse: "PHJlc3BvbnNlLz4=", Provider: "okta"})
+			_, refreshErr := tg.svc.RefreshSAMLMetadata(tg.ctx, "okta")
 			if err := tg.svc.DeleteSSOProvider(tg.ctx, "okta"); err != nil {
 				return nil, err
 			}
@@ -81,6 +82,7 @@ func init() {
 				"kind":     string(begin.Kind),
 				"request":  strings.Contains(begin.AuthURL, "SAMLRequest="),
 				"complete": string(core.KindOf(completeErr)),
+				"refresh":  string(core.KindOf(refreshErr)),
 			}, nil
 		},
 	})
