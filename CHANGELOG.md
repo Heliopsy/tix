@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.65.0](https://github.com/Heliopsy/tix/compare/v0.64.0...v0.65.0) (2026-11-19)
+
+
+### Features
+
+* single sign-on through SAML 2.0 identity providers ([9e855b8](https://github.com/Heliopsy/tix/commit/9e855b80990ded98f4230c166a18babbc8d7f442))
+* **sso:** reread SAML IdP metadata on a schedule ([496479a](https://github.com/Heliopsy/tix/commit/496479ae4e50aa3d2c43c2701a457cb8f4f054ed))
+
+
+### Bug Fixes
+
+* **sso:** drop the summed capacity hint when merging IdP certificates ([ed590f6](https://github.com/Heliopsy/tix/commit/ed590f64fdf04cecc06b65bde648db49b1a5b0e6))
+* **sso:** vet the IdP metadata URL before reading it ([e335916](https://github.com/Heliopsy/tix/commit/e3359165a4174c8edf8055d8f255bb250212acff))
+
 ## [0.64.0](https://github.com/Heliopsy/tix/compare/v0.63.0...v0.64.0) (2026-11-17)
 
 
