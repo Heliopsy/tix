@@ -62,12 +62,101 @@ The `--log-*` flags are global rather than serve's own, so they are not in the t
 shows. Nothing needs configuring for that.
 
 Every HTTP request gets one `request` record at `info` with `request_id`, `method`, `path`, `status`,
-`duration_ms` and `tenant`, the identifier of the tenant the request was served in. `tenant` is empty only for a
+`duration_ms`, `tenant`, the identifier of the tenant the request was served in, `client_ip` and
+`user_agent`. `client_ip` is the peer's address, or the address an `X-Forwarded-For` header names when the
+peer is one of `server.trusted_proxies`, exactly as rate limits and the activity log resolve it. `user_agent`
+is cut at 160 bytes, and empty when the client sent none. A request whose credential was refused also carries
+`auth_reason`; see [Refused authentication](#refused-authentication). `tenant` is empty only for a
 request answered before a tenant was resolved, such as one refused for naming a tenant its host does not serve,
 or on a path that belongs to no tenant, such as `/healthz`. A request the client abandoned before it was
 answered, such as a long poll from a phone that dropped off the network, is recorded with status `499` and
 `note="client closed request"`, as nginx does. The client never sees that status, and it is not a server error:
 alert on `5xx`, not on `499`. A request that ran past `--request-timeout` is still a `504`.
+
+### Refused authentication
+
+A refused credential reads `invalid credentials` to the client whatever the cause, so that a stranger learns
+nothing from it. The cause goes to the log instead, as one `auth refused` record at `warn` beside the request
+line (one line in the log, wrapped here):
+
+```text
+level=WARN msg="auth refused" request_id=01JD4M3K8Q2V7 method=GET path=/api/v1/projects status=401
+  reason=token_expired tenant=01HZX0TENANT client_ip=192.168.1.40 user_agent="" via=api
+  token_id=01J9Y2TOKEN token_name=nas-backup
+```
+
+| Field | Carries |
+| --- | --- |
+| `request_id` | The `X-Request-Id` the client received, to find the request line |
+| `method`, `path`, `status`, `tenant` | As on the request line |
+| `reason` | Why, one of the codes below |
+| `client_ip`, `user_agent` | As on the request line |
+| `via` | `api`, `cli`, `mcp`, `web` or `scim`, from the path and the `X-Tix-Client` header |
+| `token_id`, `token_name` | The stored token, once one was found |
+| `token_ref` | `t-` and 16 hex for a well formed token that matched nothing |
+| `session` | The `s-` session reference the activity log names a browser session by |
+| `fingerprint` | The SSH key's fingerprint, for an SSH sign-in |
+| `suppressed` | How many records for this client, reason and token were held back since the last one |
+
+No field carries the token, the cookie, the password or a stored hash. `token_ref` is a digest of the stored
+hash under a label of its own, so it groups attempts with one token without being something a lookup accepts.
+A value that is not a token's shape gets no reference at all, since it may be a password pasted into the wrong
+place; `client_ip` groups those.
+
+The record is written at most once a minute for one `client_ip`, `reason` and `token_id`; the next one carries
+`suppressed`. A count is reported only when the client comes back, and nothing is written to the database for a
+failed attempt.
+
+| Reason | Status | Meaning |
+| --- | --- | --- |
+| `no_credentials` | 401 | A request under `/api/v1` or `/scim/v2` presented nothing |
+| `unsupported_scheme` | 401 | The `Authorization` header is not `Bearer` |
+| `malformed_token` | 401 | The bearer value is empty or not the shape of a `tix_pat_` token |
+| `unknown_token` | 401 | A well formed token no token in this tenant matches, including another tenant's |
+| `token_expired` | 401 | The token is past its expiry |
+| `token_revoked` | 401 | The token was revoked, or rotated and its grace window is over |
+| `actor_disabled` | 401 | The token's or session's actor or account is disabled |
+| `scim_only` | 403 | A `scim:provision` token used outside `/scim/v2` |
+| `wrong_tenant` | 401 | A credential of another tenant than the one this shared host resolved |
+| `unknown_session` | any | A session cookie no session matches; a signed out session is deleted, so it reads the same |
+| `session_expired` | any | The session is past its expiry |
+| `session_idle` | any | The session went unused for longer than its idle timeout |
+| `session_invalid` | any | The session's stored role is not one tix knows |
+| `bad_password` | 401 | The account exists and is usable here, the password did not match |
+| `unknown_account` | 401 | No usable account: none, disabled, not a member, or without a password |
+| `signin_expired` | 401 | The second-factor step came with an expired or unreadable sign-in ticket |
+| `totp_invalid` | 401 | The second-factor code did not verify |
+| `totp_locked` | 401 | A code arrived while verification is locked after repeated failures |
+| `scope_denied` | 403 | The caller's scopes or role do not cover the action |
+| `project_denied` | 403 | A project-pinned token reached outside its project |
+| `require_claim` | 403 | A `require_claim` token changed a task it holds no claim on |
+| `second_factor_required` | 403 | The tenant requires a second factor and the caller has none |
+| `ssh_unknown_key` | ssh | The key is enrolled nowhere |
+| `ssh_wrong_tenant` | ssh | The username names no tenant, or one this key is not enrolled in |
+| `ssh_ambiguous_key` | ssh | The key is enrolled in several tenants and the username chose none |
+| `ssh_no_actor` | ssh | The key's actor is gone or holds an unknown role |
+| `ssh_key_revoked` | 401 | An SSH sign-in to the API with a revoked key |
+| `ssh_agent_key` | 401 | An SSH sign-in to the API with a key enrolled for an agent |
+| `ssh_second_factor` | ssh | The SSH session did not prove its second factor |
+| `ssh_rate_limited` | ssh | The source is over the SSH connection rate limit |
+| `ssh_capacity` | ssh | The listener or the key is at its concurrency cap |
+
+A session refusal on a browser page is logged whatever the page answers, since the browser is sent to sign in
+rather than given a `401`. A refusal by the policy, the `403` reasons, is logged only when the request was
+answered `403`: a page that asks for something optional and goes on without it is not a refusal.
+
+The SSH listener writes its own `refusing an ssh session` records, with `reason`, `fingerprint` and `source`,
+which honours the PROXY protocol. Its per-source rate limit already bounds them, so they are not held back.
+
+To trace a client that keeps being refused:
+
+1. Find its records: `journalctl -u tix | grep 'msg="auth refused"' | grep client_ip=192.168.1.40`, or with
+   `--log-format json`, `jq 'select(.msg=="auth refused" and .client_ip=="192.168.1.40")'`.
+2. `reason` says what to fix. `token_expired` and `token_revoked` come with `token_id` and `token_name`, which
+   `tix token list` shows, so you know which credential the client holds. `unknown_token` with one `token_ref`
+   is one stale value retried; many refs from one address is a client guessing.
+3. An empty `user_agent` with `via=api` is a script or a client that sets no agent, rather than the CLI or MCP.
+4. Behind a proxy, `client_ip` is the proxy's address until the proxy is listed in `server.trusted_proxies`.
 
 Point `log.output` at a path instead and tix owns that file, so tix bounds it:
 
