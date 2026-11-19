@@ -203,10 +203,9 @@ tix tenant sso add adfs --kind saml --name ADFS --idp-entity-id http://adfs.exam
 tix tenant sso metadata okta > tix-sp.xml
 ```
 
-The metadata is read when the provider is saved and not followed afterwards. When the IdP rolls its signing
-key, run `tix tenant sso edit KEY --idp-metadata-url URL` again (giving the URL rereads it), tick **Read the IdP
-metadata again** in the edit dialog, or add the new certificate beside the old one with `--idp-cert` before the
-rollover: any of a provider's certificates is accepted. A flag given beside the metadata wins over it.
+The metadata is read when the provider is saved, and again on a schedule while the provider is enabled and
+has a metadata URL (see [Certificate rollover](#certificate-rollover)). A provider set up from a file or by hand
+is never reread. A flag given beside the metadata wins over it.
 
 **Which attributes are read.** The NameID is the subject. Ask the IdP for a persistent NameID, or an email
 address that does not change; a transient one is refused, because it differs at every sign-in. The email, name,
@@ -233,6 +232,41 @@ signed, and encrypted assertions are not supported.
 response nobody asked for is not tied to any browser's sign-in, so anyone who obtains one for their own account
 can sign a victim's browser into it. Leave it off unless people need the tile; the button on the sign-in screen
 does the same job.
+
+### Certificate rollover
+
+Entra ID, Okta and Google Workspace rotate the certificate they sign with. They publish the next one in their
+metadata first, switch to it, and later stop publishing the old one. `tix serve` reads the metadata of every
+enabled SAML provider with a metadata URL every `auth.saml_metadata_refresh` (12 hours by default, `0` for
+never) from the URL stored on the provider, and merges what it finds:
+
+- A signing certificate the metadata names that the provider lacks is added, so a response signed with it is
+  accepted as soon as the IdP switches.
+- A certificate the metadata stopped naming keeps verifying for seven days, so a response signed just before
+  the switch, or a slow IdP, still signs in. After that it is dropped.
+- The sign-in URL follows the metadata too. The entity id picks the IdP out of the metadata, so changing it is
+  an edit.
+- A value set with `--idp-entity-id`, `--idp-sso-url` or `--idp-cert`, or typed into the edit dialog, is
+  pinned and a refresh leaves it alone. Give the flag as `""`, or clear the box, to hand it back to the
+  metadata.
+- A read that fails, or metadata that is not valid or names no signing certificate, changes nothing: sign-in
+  carries on with the certificates the provider has, the failure is logged and recorded on the provider, and
+  the read is tried again after an hour.
+
+A refresh that changes the certificates or the sign-in URL writes an `sso.provider.refresh` audit entry and an
+`sso.provider.updated` event. Every read records its time, outcome and any error on the provider, which `tix
+tenant sso show KEY`, `GET /api/v1/sso/providers/KEY` (`metadata_refresh`, `idp_certificates_retiring`,
+`idp_pinned`) and the Single sign-on screen show. To read it now, run `tix tenant sso refresh KEY`, press
+**Refresh metadata** on the provider's row, or `POST /api/v1/sso/providers/KEY/refresh`; each needs `sso:admin`.
+
+```sh
+tix tenant sso refresh okta
+tix tenant sso show okta -o json | jq .metadata_refresh
+```
+
+With several replicas, the time of the last read is kept on the provider, so a provider one process read is not
+due on another and no lock is taken. Setting `auth.saml_metadata_refresh: 0` on all but the process that runs the
+other background workers keeps it to one reader.
 
 ### Entra ID (SAML)
 
@@ -449,5 +483,6 @@ A global admin cannot sign in through a provider at all: see below.
 `sso_providers` holds each tenant's providers: the settings every kind shares as columns, the protocol's own
 settings as JSON, and the sealed secret. `user_identities` links (tenant, provider, subject) to an account, with
 the email last reported and the last sign-in. SAML is another kind on the same two tables, with its IdP
-settings in the provider's JSON. `sso_assertions` holds the ids of SAML assertions that signed somebody in,
+settings in the provider's JSON, alongside the pinned settings, the certificates retiring after a rollover and
+the outcome of the last metadata read. `sso_assertions` holds the ids of SAML assertions that signed somebody in,
 until they expire. The v1 columns `users.sso_provider` and `users.sso_subject`, which nothing used, are gone.

@@ -548,6 +548,8 @@ one process may have them enabled against a given database, so this is a single 
 `strategy: Recreate` rather than a Deployment you scale. A second replica would sweep the same leases twice and,
 on SQLite, would be a second writer on a volume that only one node can mount. To run more than one, move to
 PostgreSQL and disable the workers on all but one process with `--no-lease-sweeper` and `--no-retention-pruner`.
+The SAML metadata refresher is safe on several, since a provider one process read is not due on another, but
+`auth.saml_metadata_refresh: 0` on the others keeps it to one reader.
 
 ```yaml
 apiVersion: v1

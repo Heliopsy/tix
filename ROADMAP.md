@@ -597,9 +597,12 @@ receivers for Jira and OpenProject, and per-field sync direction.
 
 ### SAML follow-ups
 
-SAML sign-in has shipped (see above). Left for later: signed AuthnRequests and encrypted assertions, which need
-an SP key pair kept sealed in the provider's secret slot; single logout; and rereading IdP metadata on a
-schedule rather than when the provider is saved.
+SAML sign-in has shipped (see above), and so has rereading IdP metadata on a schedule: `tix serve` reads each
+enabled provider's metadata URL every `auth.saml_metadata_refresh` (12h), adds new signing certificates, keeps
+one the metadata dropped for seven days, and leaves settings an admin pinned; `tix tenant sso refresh KEY` reads
+it on demand. Left for later: signed AuthnRequests and encrypted assertions, which need an SP key pair kept
+sealed in the provider's secret slot; single logout; and following a change of the IdP's entity id, which still
+takes an edit.
 
 ### ACME / automatic certificates
 
