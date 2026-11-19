@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.66.0](https://github.com/Heliopsy/tix/compare/v0.65.0...v0.66.0) (2026-11-19)
+
+
+### Features
+
+* **web:** one three dots task menu on every view ([aceb42b](https://github.com/Heliopsy/tix/commit/aceb42bd1607a11f87131d9f7862c28c4fff3b94))
+
+
+### Bug Fixes
+
+* **web:** say why the lane card's htmx attributes are safe to gosec ([bf6eb17](https://github.com/Heliopsy/tix/commit/bf6eb1711daac0ed3ae496b9997cee155557f188))
+
 ## [0.65.0](https://github.com/Heliopsy/tix/compare/v0.64.0...v0.65.0) (2026-11-19)
 
 
