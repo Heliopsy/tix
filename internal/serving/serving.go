@@ -128,6 +128,7 @@ func Build(conn *connect.Conn, cfg *config.Resolved, p Params) (*server.Server, 
 		DisableDispatch:            p.DisableDispatch,
 		DisablePrune:               p.DisablePrune,
 		DisableRegistry:            p.DisableRegistry,
+		SAMLRefreshInterval:        c.Auth.SAMLMetadataRefresh.D(),
 		HeartbeatInterval:          p.Heartbeat,
 		SSH:                        p.SSH,
 	})

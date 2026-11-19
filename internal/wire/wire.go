@@ -55,6 +55,8 @@ const (
 	// providers, by key or identifier.
 	RouteSSOProviders = APIPrefix + "/sso/providers"
 	RouteSSOProvider  = APIPrefix + "/sso/providers/{id}"
+	// RouteSSOProviderRefresh reads a SAML provider's IdP metadata again.
+	RouteSSOProviderRefresh = APIPrefix + "/sso/providers/{id}/refresh"
 
 	RouteActors = APIPrefix + "/actors"
 	RouteActor  = APIPrefix + "/actors/{id}"

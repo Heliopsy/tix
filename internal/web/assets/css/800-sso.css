@@ -35,3 +35,8 @@
 .sso-redirect {
   overflow-wrap: anywhere;
 }
+
+/* A failed scheduled read of a SAML provider's IdP metadata, on its row. */
+.sso-refresh-failed {
+  color: var(--danger);
+}

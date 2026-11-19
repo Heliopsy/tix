@@ -59,6 +59,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `auth.argon2_memory_kib` | `TIX_AUTH_ARGON2_MEMORY_KIB` | `0` (`65536`, 64 MiB) |
 | `auth.argon2_time` | `TIX_AUTH_ARGON2_TIME` | `0` (`3`) |
 | `auth.argon2_threads` | `TIX_AUTH_ARGON2_THREADS` | `0` (`4`) |
+| `auth.saml_metadata_refresh` | `TIX_AUTH_SAML_METADATA_REFRESH` | `12h` (`0` turns the scheduled read off) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
@@ -457,6 +458,15 @@ SCIM has no keys in the configuration file and no `TIX_*` variable. It is set pe
 it on with `tix tenant scim enable`, which mints the provider's token, and `tix serve` answers it under
 `/scim/v2`. The endpoint `tix tenant scim show` prints is built from `server.public_url` when that is set, and
 from the host the request arrived at otherwise. See [scim.md](scim.md#turning-it-on).
+
+### SAML metadata refresh
+
+`auth.saml_metadata_refresh` is how often `tix serve` reads the IdP metadata of every enabled SAML provider
+that has a metadata URL, so a signing certificate the identity provider rotates reaches tix before the old one
+stops working. The default is `12h`; a failed read is tried again after an hour. `0` turns the scheduled read
+off, and `tix tenant sso refresh KEY` still reads it on demand. Every process with the setting on reads on its
+schedule, and a provider read by one replica is not due on another, so only the process that runs the other
+background workers needs it on. See [sso.md](sso.md#certificate-rollover).
 
 ### Sign-in sessions
 

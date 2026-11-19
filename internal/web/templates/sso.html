@@ -36,8 +36,27 @@
         <span class="muted">{{t "Metadata"}} <a class="sso-metadata" href="{{.MetadataURL}}"><code>{{.MetadataURL}}</code></a></span>
       </span>
       {{end}}
+      {{if .IdPMetadataURL}}
+      <span class="recrow-meta sso-refresh">
+        {{with .MetadataRefresh}}
+        {{if eq .Result "failed"}}<span class="sso-refresh-failed">{{t "IdP metadata read failed"}} {{when .At}}: <span class="mono">{{.Error}}</span></span><span class="muted">{{t "the stored certificates keep working"}}</span>
+        {{else if eq .Result "updated"}}<span class="muted">{{t "IdP metadata read, certificates updated"}} {{when .At}}</span>
+        {{else}}<span class="muted">{{t "IdP metadata read, nothing changed"}} {{when .At}}</span>{{end}}
+        {{with .Next}}<span class="muted">{{t "next read"}} {{when .}}</span>{{else}}<span class="muted">{{t "not read on a schedule"}}</span>{{end}}
+        {{else}}<span class="muted">{{t "IdP metadata not read yet"}}</span>
+        {{end}}
+        {{with .IdPRetiring}}<span class="muted">{{t "%d retiring certificates" (len .)}}</span>{{end}}
+      </span>
+      {{end}}
     </span>
     <span class="pill status {{if .Enabled}}done{{else}}cancelled{{end}}">{{if .Enabled}}{{t "enabled"}}{{else}}{{t "off"}}{{end}}</span>
+    {{if .IdPMetadataURL}}
+    <form method="post" action="/admin/sso/refresh" class="recrow-act">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="secondary small" type="submit" title="{{t "Read the IdP metadata again now and merge its signing certificates"}}">{{t "Refresh metadata"}}</button>
+    </form>
+    {{end}}
     <span class="recrow-act">{{template "dlg-open" ((opener (print "sso-edit-" .ID) (t "Edit") "" "secondary small" $.Here).Named (t "Edit %s" .DisplayName))}}</span>
     <span class="recrow-act">{{template "dlg-open" ((opener (print "sso-delete-" .ID) (t "Delete") "" "danger small" $.Here).Named (t "Delete %s" .DisplayName))}}</span>
   </li>
@@ -150,7 +169,7 @@
   {{with $d.Errors.On "web_url"}}{{template "field-error" .}}{{end}}
   <div class="field-label">
     <label for="{{$id}}-idp_metadata_url">{{t "IdP metadata URL (SAML)"}}</label>
-    {{template "field-info" "The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates; anything you fill in below wins over it."}}
+    {{template "field-info" "The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates, and the server reads it again on a schedule to pick up a new certificate; anything you fill in below wins over it."}}
   </div>
   <input id="{{$id}}-idp_metadata_url" name="idp_metadata_url" type="url" value="{{$d.Or "idp_metadata_url" $p.IdPMetadataURL}}"{{$d.Errors.Attrs "idp_metadata_url"}}>
   <input type="hidden" name="idp_metadata_url_was" value="{{$p.IdPMetadataURL}}">

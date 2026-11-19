@@ -26,6 +26,7 @@ const (
 // server knows its public address: the OIDC callback, or a SAML provider's
 // assertion consumer service and metadata.
 func (l *Local) withAddresses(ctx context.Context, p *core.SSOProvider) {
+	l.withRefreshSchedule(p)
 	base := l.webBase(ctx)
 	if base == "" {
 		return

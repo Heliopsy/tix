@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -186,5 +188,50 @@ func TestTenantSSOSAMLCommands(t *testing.T) {
 	}
 	if got := runEnv(c, env, "login", "--sso"); got.code == core.ExitOK || !strings.Contains(got.err, "browser only") {
 		t.Errorf("login --sso with only a saml provider = %d %s, want refused pointing at the browser", got.code, got.err)
+	}
+}
+
+func TestTenantSSORefreshReadsTheStoredMetadataURL(t *testing.T) {
+	c := newCLI(t)
+	env := []string{totpKey, "TIX_SERVER_EGRESS_ALLOW_PRIVATE=true"}
+	idp := ssotest.NewSAML(t, time.Now)
+	var down atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if down.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(idp.Metadata()))
+	}))
+	t.Cleanup(srv.Close)
+	c.mustRunEnv(env, "tenant", "sso", "add", "okta", "--kind", "saml", "--idp-metadata-url", srv.URL+"/md")
+	idp.Rotate(t)
+	got := c.mustRunEnv(env, "tenant", "sso", "refresh", "okta", "-o", "json")
+	var p core.SSOProvider
+	if err := json.Unmarshal([]byte(got.out), &p); err != nil || len(p.IdPCertificates) != 2 ||
+		p.MetadataRefresh == nil || p.MetadataRefresh.Result != core.SAMLRefreshUpdated || p.MetadataRefresh.Added != 1 {
+		t.Fatalf("refresh = %+v, %v\n%s", p, err, got.out)
+	}
+	down.Store(true)
+	if got := runEnv(c, env, "tenant", "sso", "refresh", "okta"); got.code != core.ExitUpstream {
+		t.Errorf("refresh of an unreachable IdP exited %d (%s), want %d", got.code, got.err, core.ExitUpstream)
+	}
+	shown := c.mustRunEnv(env, "tenant", "sso", "show", "okta", "-o", "json")
+	if err := json.Unmarshal([]byte(shown.out), &p); err != nil || len(p.IdPCertificates) != 2 ||
+		p.MetadataRefresh.Result != core.SAMLRefreshFailed || p.MetadataRefresh.Error == "" {
+		t.Errorf("after a failed refresh = %+v, %v; want the certificates kept and the failure recorded", p.MetadataRefresh, err)
+	}
+	table := c.mustRunEnv(env, "tenant", "sso", "show", "okta")
+	if !strings.Contains(table.out, "failed") {
+		t.Errorf("tix tenant sso show does not say the refresh failed:\n%s", table.out)
+	}
+	dir := t.TempDir()
+	file := filepath.Join(dir, "idp.xml")
+	if err := os.WriteFile(file, []byte(idp.Metadata()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c.mustRunEnv(env, "tenant", "sso", "add", "pasted", "--kind", "saml", "--idp-metadata-file", file)
+	if got := runEnv(c, env, "tenant", "sso", "refresh", "pasted"); got.code != core.ExitPrecondtion {
+		t.Errorf("refresh of a provider with no metadata URL exited %d, want %d", got.code, core.ExitPrecondtion)
 	}
 }

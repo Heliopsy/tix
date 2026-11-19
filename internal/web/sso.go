@@ -25,6 +25,7 @@ func (h *handler) ssoRoutes() []route {
 		post(RouteSSO, h.createSSO, "CreateSSOProvider"),
 		post(RouteSSOUpdate, h.updateSSO, "UpdateSSOProvider"),
 		post(RouteSSODelete, h.deleteSSO, "DeleteSSOProvider"),
+		post(RouteSSORefresh, h.refreshSSO, "RefreshSAMLMetadata"),
 		post(RouteSSOPassword, h.setPasswordLogin, "UpdateTenant"),
 	}
 }
@@ -329,6 +330,23 @@ func (h *handler) deleteSSO(w http.ResponseWriter, r *http.Request) error {
 		return h.refuseIn(w, r, "sso-delete-"+id, RouteSSO, err, h.showSSO)
 	}
 	redirect(w, r, RouteSSO, "provider deleted")
+	return nil
+}
+
+// refreshSSO reads a SAML provider's IdP metadata again. A read that failed
+// is recorded on the provider, whose row then says why.
+func (h *handler) refreshSSO(w http.ResponseWriter, r *http.Request) error {
+	p, err := h.svc.RefreshSAMLMetadata(r.Context(), field(r, "id"))
+	switch {
+	case core.IsKind(err, core.KindUpstream) || core.IsKind(err, core.KindInvalid):
+		redirect(w, r, RouteSSO, "metadata refresh failed")
+	case err != nil:
+		return err
+	case p.MetadataRefresh != nil && p.MetadataRefresh.Result == core.SAMLRefreshUpdated:
+		redirect(w, r, RouteSSO, "metadata refreshed, certificates updated")
+	default:
+		redirect(w, r, RouteSSO, "metadata refreshed, nothing changed")
+	}
 	return nil
 }
 

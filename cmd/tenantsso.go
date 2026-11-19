@@ -31,7 +31,7 @@ func newTenantSSOCmd(g *globals) *cobra.Command {
 		Args: noArgs,
 		RunE: helpRunner,
 	}
-	cmd.AddCommand(ssoAddCmd(g), ssoLsCmd(g), ssoShowCmd(g), ssoEditCmd(g), ssoRmCmd(g), ssoMetadataCmd(g))
+	cmd.AddCommand(ssoAddCmd(g), ssoLsCmd(g), ssoShowCmd(g), ssoEditCmd(g), ssoRmCmd(g), ssoMetadataCmd(g), ssoRefreshCmd(g))
 	return cmd
 }
 
@@ -421,6 +421,35 @@ func ssoMetadataCmd(g *globals) *cobra.Command {
 			}
 			_, err = cmd.OutOrStdout().Write([]byte(md.XML))
 			return err
+		},
+	}
+}
+
+func ssoRefreshCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "refresh KEY",
+		Short: "Read a SAML provider's IdP metadata again now",
+		Long: "Read the IdP metadata again from the provider's stored --idp-metadata-url, as tix serve\n" +
+			"does on its own every auth.saml_metadata_refresh (12h by default). New signing\n" +
+			"certificates are added; one the metadata no longer names keeps verifying for seven\n" +
+			"days, so a rollover in flight still signs in, and is dropped after. A setting given\n" +
+			"with --idp-entity-id, --idp-sso-url or --idp-cert stays as given. A failed read is\n" +
+			"recorded on the provider and the certificates it has keep working.\n\n" +
+			"Exit codes: 2 the metadata is not valid, 3 unknown provider, 5 permission denied,\n" +
+			"6 the provider has no IdP metadata URL, 7 the metadata could not be read.",
+		Example: "  tix tenant sso refresh okta\n" +
+			"  tix tenant sso refresh okta -o json",
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			p, err := conn.Service.RefreshSAMLMetadata(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, p)
 		},
 	}
 }

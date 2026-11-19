@@ -145,6 +145,14 @@ type SSOProvider struct {
 	NameIDFormat string `json:"name_id_format,omitempty" yaml:"name_id_format,omitempty"`
 	// AllowIdPInitiated accepts a SAML response that answers no request.
 	AllowIdPInitiated bool `json:"allow_idp_initiated,omitempty" yaml:"allow_idp_initiated,omitempty"`
+	// IdPPinned names the IdP settings an admin set, which a metadata
+	// refresh leaves alone: idp_entity_id, idp_sso_url, idp_certificates.
+	IdPPinned []string `json:"idp_pinned,omitempty" yaml:"idp_pinned,omitempty"`
+	// IdPRetiring are the certificates the IdP's metadata stopped naming,
+	// still trusted until their overlap ends.
+	IdPRetiring []RetiringCertificate `json:"idp_certificates_retiring,omitempty" yaml:"idp_certificates_retiring,omitempty"`
+	// MetadataRefresh is how the last read of the IdP metadata went.
+	MetadataRefresh *SAMLMetadataRefresh `json:"metadata_refresh,omitempty" yaml:"metadata_refresh,omitempty"`
 
 	// SecretSet reports that a client secret is stored.
 	SecretSet bool `json:"secret_set" yaml:"secret_set"`
