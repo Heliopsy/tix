@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.67.0](https://github.com/Heliopsy/tix/compare/v0.66.0...v0.67.0) (2026-11-19)
+
+
+### Features
+
+* **auth:** log why a credential was refused, and which client sent it ([107df94](https://github.com/Heliopsy/tix/commit/107df94b3e3d0362f17e0a889aaa092c7f78a760))
+
 ## [0.66.0](https://github.com/Heliopsy/tix/compare/v0.65.0...v0.66.0) (2026-11-19)
 
 
