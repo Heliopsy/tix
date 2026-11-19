@@ -229,12 +229,12 @@ Rotation is not limited to `tix serve`. The destination is a property of the pro
 honours it wherever it runs. The file is opened only by a command that actually builds a logger, which today is
 `tix serve` and `tix ssh`, so an ordinary `tix task add` never creates one.
 
-The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys,
-request paths, client addresses and user agents. A refused credential is logged as `auth refused` at `warn`,
-with a reason code and the token's id and name but never its value, at most once a minute per client, reason
-and token; the fields and codes are in [deployment.md](deployment.md#refused-authentication). Setting
-`log.level: warn` keeps those records and drops the request lines. A path tix cannot open is refused at startup rather than at the first record, because a server
-that started and then logged nothing is the failure that is hardest to notice.
+The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys, request
+paths, client addresses and user agents. A refused credential is logged as `auth refused` at `warn`, with a reason
+code and the token's id and name but never its value, at most once a minute per client, reason and token; the fields
+and codes are in [deployment.md](deployment.md#refused-authentication). Setting `log.level: warn` keeps those records
+and drops the request lines. A path tix cannot open is refused at startup rather than at the first record, because a
+server that started and then logged nothing is the failure that is hardest to notice.
 
 ### Leases
 
