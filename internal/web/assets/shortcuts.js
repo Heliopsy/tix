@@ -126,6 +126,23 @@
     return null;
   }
 
+  // openMenuAround shows the closed popover a target sits in, the task
+  // menu's Snooze on the task screen, since a field nobody can see takes no
+  // focus.
+  function openMenuAround(el) {
+    var pop = typeof el.closest === "function" ? el.closest("[popover]") : null;
+    if (!pop || typeof pop.showPopover !== "function") {
+      return;
+    }
+    try {
+      if (!pop.matches(":popover-open")) {
+        pop.showPopover();
+      }
+    } catch (e) {
+      return;
+    }
+  }
+
   // pressTarget focuses a field or presses a button the page marked for an
   // action. It answers false when there is none, so the key keeps whatever
   // the browser does with it. A field the rich text editor stands in for is
@@ -139,6 +156,7 @@
     if (fold && !fold.open) {
       fold.open = true;
     }
+    openMenuAround(el);
     if (tix.targetPress(el) !== "focus") {
       el.click();
       return true;

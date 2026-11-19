@@ -515,7 +515,7 @@ func TestTaskScreenMarksTheControlsTheTaskKeysPress(t *testing.T) {
 		"assign":          `name="assignee"`,
 		"due":             `name="due_at"`,
 		"tag":             `name="tag"`,
-		"snooze":          `class="flowgo snoozebtn"`,
+		"snooze":          `name="at"`,
 		"editDescription": `name="body"`,
 		"copyRef":         `data-shortcut-ref="` + strings.ToUpper(ref) + `"`,
 	}

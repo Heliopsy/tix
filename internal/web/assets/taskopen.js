@@ -687,13 +687,28 @@
       return;
     }
     var inside = !!(dlg && dlg.contains(link));
-    if (link.hasAttribute("data-rename") && !inside) {
-      var card = link.closest(".lane-card");
-      var title = card && card.querySelector(".lane-title");
-      if (title) {
+    if (link.hasAttribute("data-rename")) {
+      // A task menu's Rename: the listed title becomes a field where the
+      // task is a card or a row, and the task screen's own title field
+      // opens where it is the screen (or the dialog) itself.
+      var card = inside ? null : link.closest("[data-shortcut-row]");
+      var title = card && (card.querySelector(".lane-title") || card.querySelector(".task-title") ||
+        card.querySelector(".card-title a"));
+      var fold = card ? null : ((inside ? dlg : document).querySelector("details.titleedit"));
+      if (title || fold) {
         event.preventDefault();
         event.stopPropagation();
-        startEdit(title, link);
+        var menu = link.closest("[popover]");
+        if (menu && typeof menu.hidePopover === "function") {
+          try { menu.hidePopover(); } catch (e) { /* already shut */ }
+        }
+        if (title) {
+          startEdit(title, link);
+        } else {
+          fold.open = true;
+          var field = fold.querySelector("input[name=title]");
+          if (field) field.focus();
+        }
         return;
       }
     }

@@ -762,9 +762,9 @@
     }
   }
 
-  // The set of states the dragged card may legally move to, read from its
-  // own Move disclosure's <select> -- the same list the server already
-  // computed for that card (projects.go flowRoutes) -- so a column outside
+  // The set of states the dragged card may legally move to, read from the
+  // Move section of its own three dots menu -- the same list the server
+  // already computed for that card (tasklanes.go statusMoves) -- so a column outside
   // it never lights up as a drop target and a drop on one is refused before
   // any request is made, not just after the server says no.
   var dragged = null;
@@ -776,15 +776,15 @@
       return;
     }
     var card = event.target.closest(".card");
-    var select = card && card.querySelector("form select[name=route]");
-    if (!card || !select) {
+    var moves = card && card.querySelector("form[data-move-form]");
+    if (!card || !moves) {
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = "none";
       }
       return;
     }
     dragged = card;
-    legal = tix.legalStates(select.options);
+    legal = tix.legalStates(moves.querySelectorAll("button[name=route]"));
     card.classList.add("is-dragging");
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
@@ -838,21 +838,21 @@
 
     // The Move form, not the card's first form: the star button is a form
     // too and comes first, so taking the first one posted the move to /star.
-    var select = card.querySelector("form select[name=route]");
-    var form = select && select.closest("form");
-    if (!form || !select) {
+    var form = card.querySelector("form[data-move-form]");
+    if (!form) {
       return;
     }
     var wanted = column.getAttribute("data-state");
     var ref = (card.getAttribute("data-task") || "").toUpperCase() || "the card";
     var destination = columnLabel(column);
-    select.value = wanted;
+    var fields = new FormData(form);
+    fields.set("route", wanted);
 
     fetch(form.getAttribute("action"), {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(new FormData(form)).toString()
+      body: new URLSearchParams(fields).toString()
     }).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (html) {

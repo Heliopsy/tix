@@ -147,6 +147,13 @@ type taskView struct {
 	HistoryNext   string
 	Names         actorNames
 	Routes        []flowRoute
+	// Workflow is the task's project's workflow, which decides what its
+	// three dots menu offers; HaveWorkflow is false when it could not be read.
+	Workflow     core.WorkflowDefinition
+	HaveWorkflow bool
+	// Renaming draws the title field open, where a menu's Rename leads
+	// without scripting.
+	Renaming      bool
 	Priorities    []priorityChoice
 	ArtifactKinds []core.ArtifactKind
 	// ArtifactLimits are what a file attached here is held to, stated beside
@@ -380,6 +387,7 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		CanReclaim:    actor.HasScope(core.ScopeTaskReclaim),
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
 		Back:          backTo(r),
+		Renaming:      r.URL.Query().Get(RenameParam) != "",
 	}
 	data.BackLabel = backLabel(data.Back)
 	data.Handoff = newHandoff(r, *task)
@@ -481,6 +489,7 @@ func (h *handler) attachProject(r *http.Request, ref core.TaskRef, data *taskVie
 		return err
 	}
 	data.Routes = flowRoutes(workflow.Definition, data.Task.Status)
+	data.Workflow, data.HaveWorkflow = workflow.Definition, true
 
 	defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
 	if err != nil {

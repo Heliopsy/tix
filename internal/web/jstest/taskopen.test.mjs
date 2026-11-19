@@ -188,7 +188,7 @@ let doc;
 
 // page loads the assets over a listing: one row with a title link, and the
 // dialog when Dialog mode put it there.
-function page({ dialog = true, edit = false, fetchAnswer, lane = false, pane = false, width = 1440 } = {}) {
+function page({ dialog = true, edit = false, fetchAnswer, lane = false, listMenu = false, pane = false, width = 1440 } = {}) {
   const listeners = {};
   const winListeners = {};
   const title = node("a", {
@@ -197,13 +197,15 @@ function page({ dialog = true, edit = false, fetchAnswer, lane = false, pane = f
     ...(edit ? { "data-edit-title": "infra-1", "data-version": "3" } : {}),
   });
   if (lane) title.setAttribute("class", "lane-title");
+  if (listMenu) title.setAttribute("class", "task-title");
   const rename = node("a", {
     href: "/tasks/infra-1?next=%2Ftasks", class: "flowgo", "data-rename": "infra-1", "data-version": "4", textContent: "Rename",
   });
   const row = lane
     ? node("article", { class: "card lane-card", "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" },
       [title, node("div", { popover: "" }, [rename])])
-    : node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" }, [title]);
+    : node("li", { "data-shortcut-row": "", "data-shortcut-href": "/tasks/infra-1", tabindex: "-1" },
+      listMenu ? [title, node("div", { popover: "" }, [rename])] : [title]);
   const csrf = node("input", { name: "csrf_token", value: "tok" });
   const body = node("div", { id: "taskdlg-body" });
   const divider = node("div", { "data-pane-resize": "", role: "separator", tabindex: "0" });
@@ -621,6 +623,15 @@ test("Rename in a lane card's menu edits the card's title even when clicks open 
     assert.equal(p.title.textContent, "Fix the CI");
     assert.equal(p.rename.getAttribute("data-version"), "5", "a second rename would be refused as stale");
   }
+});
+
+test("Rename in a list row's menu edits the row's title, as the lane card's does", () => {
+  const p = page({ listMenu: true, dialog: true });
+  const ev = p.click(p.rename);
+  assert.equal(ev.prevented, 1, "Rename followed its link to the task");
+  assert.equal(p.ajax.length, 0, "Rename opened the task in the dialog");
+  assert.ok(p.row.querySelector("input"), "no field took the row title's place");
+  assert.equal(p.title.hidden, true);
 });
 
 // -- the panel ---------------------------------------------------------------

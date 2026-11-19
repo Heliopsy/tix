@@ -91,7 +91,6 @@ func init() {
 		"Delete permanently":                    "Supprimer définitivement",
 		"Also delete subtasks":                  "Supprimer aussi les sous-tâches",
 		"Delete task":                           "Supprimer la tâche",
-		"Restore task":                          "Restaurer la tâche",
 		"Edit comment":                          "Modifier le commentaire",
 		"Rewrite":                               "Réécrire",
 		"Delete comment":                        "Supprimer le commentaire",

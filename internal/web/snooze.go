@@ -38,6 +38,9 @@ type snoozeForm struct {
 	CSRF string
 	ID   string
 	Card string
+	// Target is the keyboard shortcut the date field answers, on the task
+	// screen, where z opens the menu at it.
+	Target string
 }
 
 // Presets are the named wake times the form offers.

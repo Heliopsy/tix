@@ -4,7 +4,6 @@ package web_test
 
 import (
 	"context"
-	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -110,27 +109,16 @@ func cardBlock(t *testing.T, page, ref string) string {
 	return page[open : start+end]
 }
 
-// moveOptions are the route values one card's Move control offers.
-var optionPattern = regexp.MustCompile(`<option value="([^"]*)"`)
-
+// moveOptions are the route values one card's menu offers in its Move
+// section.
 func moveOptions(t *testing.T, page, ref string) []string {
 	t.Helper()
-	card := cardBlock(t, page, ref)
-	from := strings.Index(card, `<select id="to-`+ref+`"`)
-	if from < 0 {
+	menu := popover(t, page, "bmore-"+ref)
+	form := menuForm(t, menu, "/tasks/"+ref+"/transition\" data-move-form=\"1")
+	if form == "" {
 		return nil
 	}
-	block := card[from:]
-	if end := strings.Index(block, "</select>"); end >= 0 {
-		block = block[:end]
-	}
-	out := []string{}
-	for _, m := range optionPattern.FindAllStringSubmatch(block, -1) {
-		// The route separator is escaped in the attribute, so what the option
-		// actually submits is the unescaped value.
-		out = append(out, html.UnescapeString(m[1]))
-	}
-	return out
+	return routeButtons(form)
 }
 
 // The switch is a preference, so it survives the request it was made on.

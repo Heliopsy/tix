@@ -170,39 +170,3 @@
 }
 @media (max-width: 899px) { .card-meta > .tagref { line-height: 26px; } }
 
-/* The move form is the one action every card offers, but it does not need to
-   be on screen for every card at once: a disclosure keeps the board scannable
-   while leaving the form itself a plain, scriptless post. */
-details.card-move {
-  margin: var(--space-1) 0 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-details.card-move > summary {
-  cursor: pointer;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 0;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--accent);
-}
-
-details.card-move > summary::-webkit-details-marker { display: none; }
-details.card-move > summary::before { --mark: var(--mark-chevron-right); }
-details.card-move[open] > summary::before { --mark: var(--mark-chevron-down); }
-
-details.card-move > .body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-details.card-move select { width: auto; flex: 1 1 120px; padding: 6px 8px; font-size: var(--text-sm); }
-details.card-move button { padding: 6px 10px; font-size: var(--text-sm); flex: 0 0 auto; }
