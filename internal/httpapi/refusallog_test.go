@@ -239,14 +239,36 @@ func TestRefusedCredentialsAreLoggedWithTheirReason(t *testing.T) {
 }
 
 func TestARequestThatAuthenticatesLogsNoRefusal(t *testing.T) {
-	f, sink, _ := refusalFixture(t)
-	cases := map[string]struct{ path, token string }{
-		"valid token":         {wire.RouteProjects, f.tokenA},
-		"anonymous web visit": {"/board", ""},
+	f, sink, sessions := refusalFixture(t)
+	live, err := auth.MintSession(f.clock, auth.SessionInput{ActorID: f.actorA.ID, TenantID: f.tenantA.ID,
+		Role: core.RoleMember, TTL: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions.byHash[live.Stored.TokenHash] = &live.Stored
+	cases := map[string]struct{ path, header, cookie string }{
+		"valid token":         {wire.RouteProjects, "Bearer " + f.tokenA, ""},
+		"anonymous web visit": {"/board", "", ""},
+		"anonymous web visit with another scheme": {"/board", "Basic dXNlcjpwYXNz", ""},
+		"session after a refused header":          {wire.RouteProjects, "Basic dXNlcjpwYXNz", live.Session.Token},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			resp := f.do(http.MethodGet, tc.path, f.hostA, tc.token, nil)
+			req, err := http.NewRequest(http.MethodGet, f.server.URL+tc.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Host = f.hostA
+			if tc.header != "" {
+				req.Header.Set(wire.HeaderAuth, tc.header)
+			}
+			if tc.cookie != "" {
+				req.AddCookie(&http.Cookie{Name: wire.SessionCookieName, Value: tc.cookie})
+			}
+			resp, err := f.server.Client().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
 			_ = resp.Body.Close()
 			request, refusal := sink.lines(t, f, tc.path)
 			if refusal != nil {
