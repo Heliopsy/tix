@@ -48,6 +48,7 @@ func (l *Local) globalStanding(ctx context.Context) (*core.Actor, error) {
 		}
 	}
 	if err := l.policy.CanGlobal(actor, standing); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	return actor, nil

@@ -647,6 +647,7 @@ func (l *Local) claimTarget(ctx context.Context, tx store.Tx, ref core.TaskRef) 
 		ProjectID: task.ProjectID,
 		OwnerID:   task.CreatorActorID,
 	}); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	return task, nil
@@ -677,6 +678,7 @@ func (l *Local) claimScope(ctx context.Context, tx store.Tx, actor *core.Actor, 
 			TenantID:  actor.TenantID,
 			ProjectID: project.ID,
 		}); err != nil {
+			noteDenied(ctx, actor, err)
 			return nil, err
 		}
 		ids = append(ids, project.ID)

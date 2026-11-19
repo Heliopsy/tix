@@ -139,15 +139,17 @@ func (rt *Router) withRequestID(next http.Handler) http.Handler {
 	})
 }
 
-// logRequest emits one structured record per request. No credential material
-// is read here, so none can be logged. A request the client abandoned is
-// recorded as StatusClientClosed rather than as the server error its handler
-// made of the cancelled context.
+// logRequest emits one structured record per request, and a refusal record
+// when a credential or a sign-in was refused. No credential material is read
+// here, so none can be logged. A request the client abandoned is recorded as
+// StatusClientClosed rather than as the server error its handler made of the
+// cancelled context.
 func (rt *Router) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		tenant := &loggedTenant{}
-		r = r.WithContext(context.WithValue(r.Context(), loggedTenantKey{}, tenant))
+		ctx, note := auth.WithRefusalNote(context.WithValue(r.Context(), loggedTenantKey{}, tenant))
+		r = r.WithContext(ctx)
 		rec := &recorder{ResponseWriter: w, ctx: r.Context(), status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		if !rec.written && clientClosed(r.Context()) {
@@ -161,11 +163,20 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 			"status", rec.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 			"tenant", tenant.id,
+			"client_ip", clientAddr(r),
+			"user_agent", core.TruncateUserAgent(r.UserAgent()),
+		}
+		refusal, refused := note.Get()
+		if refused {
+			attrs = append(attrs, "auth_reason", refusal.Reason)
 		}
 		if rec.status == StatusClientClosed {
 			attrs = append(attrs, "note", "client closed request")
 		}
 		rt.cfg.Logger.Info("request", attrs...)
+		if refused {
+			rt.logRefusal(r, rec.status, tenant.id, refusal)
+		}
 	})
 }
 
@@ -532,15 +543,26 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			// anonymous visitor to its login page rather than answering with a
 			// JSON envelope. Carrying on without an actor is what lets it do
 			// that. Anything under the API prefix must present a credential.
-			if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
+			api := strings.HasPrefix(r.URL.Path, wire.APIPrefix)
+			switch {
+			case !errors.Is(err, auth.ErrNoCredential):
+			case api || IsSCIMPath(r.URL.Path):
+				auth.NoteRefusalUnlessNoted(r.Context(), auth.Refusal{Reason: auth.RefusedNoCredentials})
+			default:
+				auth.ClearRefusal(r.Context())
+			}
+			if api {
 				WriteError(w, err)
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
+		auth.ClearRefusal(r.Context())
 		scope, ok := core.TenantFrom(r.Context())
 		if ok && actor.TenantID != "" && actor.TenantID != scope.TenantID {
+			auth.NoteRefusal(r.Context(), auth.Refusal{Reason: auth.RefusedWrongTenant,
+				TokenID: actor.TokenID, TokenName: actor.TokenName, Session: actor.SessionID})
 			WriteError(w, core.Unauthenticated("credential is not valid for this host"))
 			return
 		}

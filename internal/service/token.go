@@ -304,6 +304,7 @@ func (l *Local) RotateToken(ctx context.Context, ref string, in core.RotateToken
 		return nil, err
 	}
 	if err := l.policy.CanRotateToken(actor, old.ActorID, old.ProjectID); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	if err := l.checkMintScopes(ctx, actor, old.Scopes); err != nil {

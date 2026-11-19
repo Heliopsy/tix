@@ -23,6 +23,7 @@ func (l *Local) sessionOwner(ctx context.Context) (*core.Actor, error) {
 		return nil, err
 	}
 	if err := l.policy.CanManageSessions(actor); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	return actor, nil

@@ -117,6 +117,7 @@ func (l *Local) reclaimTarget(ctx context.Context, tx store.Tx, ref core.TaskRef
 		ProjectID: task.ProjectID,
 		OwnerID:   task.CreatorActorID,
 	}); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	return task, nil

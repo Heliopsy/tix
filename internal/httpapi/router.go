@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -44,6 +46,9 @@ type Config struct {
 	Authenticator auth.Authenticator
 	Resolver      TenantResolver
 	Logger        *slog.Logger
+	// Clock paces the refusal log's once a minute per client. Nil is the
+	// real clock.
+	Clock clock.Clock
 
 	// DefaultTenantID pins requests whose Host maps to no tenant. When it is
 	// empty an unknown host is answered with not found.
@@ -122,6 +127,8 @@ type Router struct {
 	imports *http.ServeMux
 	// artifacts matches the routes that carry an artifact blob.
 	artifacts *http.ServeMux
+	// refusals holds back repeats of one refusal record.
+	refusals *logging.Dedupe
 }
 
 // routeMux is a ServeMux that remembers every pattern registered on it, so
@@ -160,6 +167,9 @@ func New(cfg Config) (*Router, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = clock.New()
+	}
 	if cfg.MaxBodyBytes <= 0 {
 		cfg.MaxBodyBytes = DefaultMaxBodyBytes
 	}
@@ -189,7 +199,8 @@ func New(cfg Config) (*Router, error) {
 	}
 
 	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux(),
-		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/")}
+		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/"),
+		refusals:  logging.NewDedupe(cfg.Clock, refusalWindow, refusalMaxKeys)}
 	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
 		rt.imports.Handle(pattern, http.NotFoundHandler())
 	}

@@ -245,6 +245,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		if auth.IsHashBusy(err) {
 			return nil, err
 		}
+		noteLoginRefused(ctx, cand.usable())
 		return nil, errInvalidCredentials()
 	}
 
@@ -411,12 +412,14 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 ) (*core.LoginResult, error) {
 	ticket, err := auth.ParseTicket(l.totpKey, in.Ticket, l.clock.Now())
 	if err != nil {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
 		return nil, err
 	}
 	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
 		scope = core.TenantScope{TenantID: ticket.TenantID}
 	}
 	if ticket.TenantID != scope.TenantID || ticket.Surface != surface {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
 		return nil, core.Unauthenticated("this sign-in has expired; start again")
 	}
 
@@ -444,11 +447,13 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		return err
 	}); err != nil {
 		if core.IsKind(err, core.KindNotFound) {
+			auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedUnknownAccount})
 			return nil, errInvalidCredentials()
 		}
 		return nil, err
 	}
 	if user.DisabledAt != nil || !cand.member() {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedUnknownAccount})
 		return nil, errInvalidCredentials()
 	}
 	sessionActor := cand.sessionActor(scope)
@@ -464,6 +469,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 			// A pending enrolment has no recovery codes to fall back on, and
 			// a locked enrolment accepts nothing at all, so neither gets the
 			// extra round trip a recovery attempt costs.
+			noteCodeRefused(ctx, verifyErr)
 			return nil, verifyErr
 		}
 		return l.loginWithRecoveryCode(ctx, scope, sessionActor, user, method, in.Code, verifyErr)
@@ -551,6 +557,7 @@ func (l *Local) loginWithRecoveryCode(ctx context.Context, scope core.TenantScop
 		return nil, err
 	}
 	if result == nil {
+		noteCodeRefused(ctx, codeErr)
 		return nil, codeErr
 	}
 	return result, nil

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/store"
 )
@@ -200,6 +201,7 @@ func (l *Local) requireFactor(ctx context.Context, actor *core.Actor) error {
 		return nil
 	}
 	l.recordGate(ctx, actor, now)
+	noteRefused(ctx, actor, auth.RefusedSecondFactorRequired)
 	return errEnrollmentRequired()
 }
 
