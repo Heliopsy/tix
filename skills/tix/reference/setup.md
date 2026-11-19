@@ -250,7 +250,10 @@ by default. Register
 `PUBLIC_URL/login/sso/callback` with an OIDC or GitHub provider. A SAML IdP
 takes `PUBLIC_URL/login/sso/saml/KEY/acs` as its ACS URL and
 `PUBLIC_URL/login/sso/saml/KEY/metadata` as the SP entity id; `tix tenant sso
-metadata KEY` prints that metadata. Sign-ins started at the IdP's own portal
+metadata KEY` prints that metadata. `tix serve` rereads a SAML provider's
+metadata URL every 12h (`auth.saml_metadata_refresh`) so a certificate
+rollover needs nothing; `tix tenant sso refresh KEY` rereads it now, exit `7`
+when the IdP cannot be reached, and the old certificates keep working. Sign-ins started at the IdP's own portal
 are refused unless the provider is added with `--allow-idp-initiated`, off by
 default because nothing ties such a response to the browser that posts it.
 SAML signs in only in the browser, so an
@@ -267,6 +270,7 @@ the audit log as `sso.denied`. See docs/sso.md.
 tix tenant sso add kc --kind oidc --name Keycloak --issuer https://id.example.com/realms/acme --client-id tix-web --client-secret -
 tix tenant sso add okta --kind saml --name Okta --idp-metadata-url https://acme.okta.com/app/exk1abc/sso/saml/metadata
 tix tenant sso metadata okta
+tix tenant sso refresh okta
 tix tenant sso ls
 tix login --sso
 ```
