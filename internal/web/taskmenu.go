@@ -75,6 +75,8 @@ func (m taskMenu) HX(path string) template.HTMLAttr {
 		return ""
 	}
 	c := html.EscapeString(m.Card)
+	// #nosec G203 -- the attribute names are fixed here, and both values,
+	// a task's route and its card's id, are HTML escaped above.
 	return template.HTMLAttr(` hx-post="` + html.EscapeString(path) + `" hx-target="` + c + `" hx-select="` + c +
 		`" hx-select-oob="#toast" hx-swap="outerHTML" hx-indicator="` + c +
 		`" hx-sync="closest .lane-card:drop" data-lane-control="more"`)
