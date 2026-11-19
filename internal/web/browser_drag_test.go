@@ -110,7 +110,7 @@ func TestBoardCardsDragBetweenColumnsInABrowser(t *testing.T) {
 	})
 }
 
-// dragAndCheck drags one card to the first column its Move form offers in a
+// dragAndCheck drags one card to the first column its menu's Move section offers in a
 // single step, then checks the card arrived, the screen stayed, and the star
 // was not touched on the way.
 func (p *cdpPage) dragAndCheck(t *testing.T, ref, handle, path string) {
@@ -119,7 +119,7 @@ func (p *cdpPage) dragAndCheck(t *testing.T, ref, handle, path string) {
 	var target string
 	p.eval(t, `(() => {
 		const card = `+card+`;
-		const options = [...card.querySelectorAll('form select[name=route] option')].map(o => o.value);
+		const options = [...card.querySelectorAll('form[data-move-form] button[name=route]')].map(o => o.value);
 		const here = card.closest('.column').dataset.state;
 		const columns = [...document.querySelectorAll('.board .column')].map(c => c.dataset.state);
 		return options.find(o => !o.includes('>') && o !== here && columns.includes(o)) || '';

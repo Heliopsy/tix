@@ -79,7 +79,7 @@ func TestTheActionsMenuCopiesTheReference(t *testing.T) {
 	ref := b.createTask("infra", "copy my reference")
 	page := b.page("/tasks/" + ref)
 	menu := actionsMenu(t, page, ref)
-	if want := `data-copy-text="` + strings.ToUpper(ref) + `">Copy reference</button>`; !strings.Contains(menu, want) {
+	if want := `data-copy-text="` + strings.ToUpper(ref) + `" data-menu-item="copy-ref">Copy reference</button>`; !strings.Contains(menu, want) {
 		t.Errorf("the actions menu does not copy the reference, want %s:\n%s", want, menu)
 	}
 	id := between(t, page, `id="task-id-`+ref+`" title="`, `"`)

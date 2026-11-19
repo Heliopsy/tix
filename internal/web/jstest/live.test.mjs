@@ -13,12 +13,10 @@ import { newContext, run, fakeDocument, domNode } from "./harness.mjs";
 
 // board builds the part of a project board the drag handlers actually read:
 // a board with a data-drag gate, columns naming their state, and one card
-// whose Move disclosure names the states that card may move to.
+// whose menu's Move section names the states that card may move to.
 function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
-  const select = domNode(["form select[name=route]", "select[name=route]"], {
-    options: targets.map((t) => ({ value: t })),
-  });
-  const form = domNode(["form"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, [select]);
+  const buttons = targets.map((t) => domNode(["button[name=route]"], { value: t }));
+  const form = domNode(["form", "form[data-move-form]"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, buttons);
   // Every card draws its star button first, and that is a form too.
   const star = domNode(["form"], { action: "/tasks/infra-1/star", fields: {} });
   const card = domNode([".card"], { "data-task": "infra-1" }, [star, form]);
@@ -31,7 +29,7 @@ function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
     columns.push(domNode([".column"], { "data-state": state }, [heading]));
   }
   const root = domNode([".board"], { "data-drag": drag }, columns);
-  return { root, card, columns, select, form };
+  return { root, card, columns, form };
 }
 
 // context loads decide.js and live.js against a document that has no board on
@@ -45,7 +43,11 @@ function context({ pathname = "/projects/infra", search = "" } = {}) {
     location: { protocol: "http:", host: "localhost", pathname, search },
     WebSocket: function () { throw new Error("no feed on this page"); },
     DOMParser: function () { return { parseFromString: () => ({ querySelector: () => null }) }; },
-    FormData: function (form) { return form.fields; },
+    FormData: function (form) {
+      const fields = { ...form.fields };
+      Object.defineProperty(fields, "set", { value(k, v) { this[k] = v; } });
+      return fields;
+    },
     URLSearchParams: function (fields) {
       this.toString = () =>
         Object.keys(fields).map((k) => k + "=" + fields[k]).join("&");
@@ -94,7 +96,7 @@ test("a board that appears after the script ran still moves a card", async () =>
   assert.equal(fetches.length, 1, "no move was posted");
   assert.equal(fetches[0].url, "/projects/infra/move");
   assert.match(fetches[0].body, /ref=infra-1/);
-  assert.equal(b.select.value, "doing", "the move form was not pointed at the drop column");
+  assert.match(fetches[0].body, /route=doing/, "the move was not pointed at the drop column");
 });
 
 // The task screen draws a board of a filtered, sorted, paged listing, so the
@@ -294,7 +296,11 @@ function liveContext({ subject = "", regions = ["task-pills"], fresh = {}, notes
         }),
       };
     },
-    FormData: function (form) { return form.fields; },
+    FormData: function (form) {
+      const fields = { ...form.fields };
+      Object.defineProperty(fields, "set", { value(k, v) { this[k] = v; } });
+      return fields;
+    },
     URLSearchParams: function (fields) { this.toString = () => JSON.stringify(fields); },
     fetch: (url) => {
       fetches.push(url);

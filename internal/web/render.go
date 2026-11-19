@@ -328,6 +328,7 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"groupMenu":        newGroupMenu,
 		"groupHeadNone":    noGroupHead,
 		"taskRow":          newTaskRow,
+		"taskMenu":         newTaskMenu,
 		"due":              dueState,
 		"snoozed":          snoozedNow,
 		"snoozeForm":       newSnoozeForm,

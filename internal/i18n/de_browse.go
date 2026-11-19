@@ -99,7 +99,6 @@ func init() {
 		"Archive project": "Projekt archivieren",
 		"Delete project":  "Projekt löschen",
 		"Move %s":         "%s verschieben",
-		"Move %s to":      "%s verschieben nach",
 		"No tasks.":       "Keine Aufgaben.",
 		"Board":           "Board",
 		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.": "Ein Projekt verwendet genau einen Workflow. Er legt die Zustände einer Aufgabe, die Spalten des Boards und die erlaubten Wechsel dazwischen fest. Mehrere Projekte können sich einen Workflow teilen.",

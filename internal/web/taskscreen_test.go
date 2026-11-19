@@ -104,8 +104,9 @@ func TestTheTaskScreenKeepsEveryPropertyInTheSidebar(t *testing.T) {
 	propRow(t, viewer, "assignee")
 }
 
-// One menu holds every action on the task as a whole, and none of them is
-// drawn anywhere else on the screen. The Share menu beside it holds Copy link.
+// One menu holds every action on the task as a whole: the task menu every
+// view draws, so Copy link is in it as it is on a card or a row, and the
+// Share menu beside it keeps its own.
 func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -118,23 +119,24 @@ func TestTheTaskScreenHasOneActionsMenu(t *testing.T) {
 		t.Errorf("the header does not open exactly the actions menu and the Share menu:\n%s", head)
 	}
 	menu := actionsMenu(t, page, ref)
-	if strings.Contains(menu, "data-copy-link") || strings.Contains(menu, `data-share="link"`) {
-		t.Errorf("Copy link is still in the actions menu, as well as in Share:\n%s", menu)
+	if !strings.Contains(menu, `data-copy-link="/tasks/`+ref+`"`) {
+		t.Errorf("the actions menu has no Copy link, which every other view's menu has:\n%s", menu)
 	}
 	if n := strings.Count(page, `data-share="link"`); n != 1 {
-		t.Errorf("Copy link is drawn %d times, want once, in the Share menu", n)
+		t.Errorf("the Share menu's Copy link is drawn %d times, want once", n)
 	}
+	del := `action="/tasks/` + ref + `/delete?next=%2Ftasks"`
 	for _, want := range []string{
 		`href="/tasks/` + ref + `/copy"`,
 		`href="/tasks/` + ref + `/template"`,
-		`popovertarget="snooze-` + ref + `"`,
-		`action="/tasks/` + ref + `/delete"`,
+		`data-menu-item="snooze"`,
+		del,
 	} {
 		if !strings.Contains(menu, want) {
 			t.Errorf("the actions menu lacks %s:\n%s", want, menu)
 		}
 	}
-	for _, once := range []string{`href="/tasks/` + ref + `/copy"`, `href="/tasks/` + ref + `/template"`, `action="/tasks/` + ref + `/delete"`} {
+	for _, once := range []string{`href="/tasks/` + ref + `/copy"`, `href="/tasks/` + ref + `/template"`, del} {
 		if n := strings.Count(page, once); n != 1 {
 			t.Errorf("%s is drawn %d times, want once, in the menu", once, n)
 		}

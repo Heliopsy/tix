@@ -98,23 +98,16 @@ func boardColumn(t *testing.T, page, state string) string {
 	return col
 }
 
-// moveTargets are the states one card's move control offers, in the order it
-// offers them.
+// moveTargets are the routes a board card's menu offers in its Move section,
+// in order and as they are posted, read from that card's menu alone.
 func moveTargets(t *testing.T, page, ref string) []string {
 	t.Helper()
-	control := between(t, page, `<select id="to-`+ref+`"`, "</select>")
-	if control == "" {
+	menu := popover(t, page, "bmore-"+ref)
+	form := menuForm(t, menu, "/tasks/"+ref+"/transition\" data-move-form=\"1")
+	if form == "" {
 		t.Fatalf("the card for %s offers no move control:\n%s", ref, page)
 	}
-	var out []string
-	for _, part := range strings.Split(control, `<option value="`)[1:] {
-		value, _, ok := strings.Cut(part, `"`)
-		if !ok {
-			t.Fatalf("an option of %s's move control is not closed: %q", ref, part)
-		}
-		out = append(out, value)
-	}
-	return out
+	return routeButtons(form)
 }
 
 // A card belongs in the column of the state it is in, and nowhere else. The
@@ -158,7 +151,7 @@ func TestACardOffersOnlyTheMovesItsOwnStateAllows(t *testing.T) {
 
 	page := b.page("/projects/infra")
 	got := moveTargets(t, page, ref)
-	want := []string{"doing", "blocked", "cancelled", "doing&gt;done"}
+	want := []string{"doing", "blocked", "cancelled", "doing>done"}
 	if len(got) != len(want) {
 		t.Fatalf("a todo card offers %v, want %v", got, want)
 	}

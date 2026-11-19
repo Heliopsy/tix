@@ -99,8 +99,9 @@ func TestQuickAddAndTheToolbarShareARow(t *testing.T) {
 }
 
 // A board card is the star and title on one line and a small line of marks
-// led by the reference. Move is a corner button that a mouse sees on hover or
-// focus and a touch screen always, and still a plain form inside a fold.
+// led by the reference. Its three dots are a corner button that a mouse sees
+// on hover or focus and a touch screen always, opening the task menu every
+// view draws, with Move in it as plain forms.
 func TestABoardCardIsTwoLinesWithMoveInItsCorner(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -116,24 +117,25 @@ func TestABoardCardIsTwoLinesWithMoveInItsCorner(t *testing.T) {
 	if meta := between(t, card, `<div class="card-meta">`, "</div>"); !strings.Contains(meta, `<span class="ref">`) {
 		t.Errorf("the reference does not lead the card's small line:\n%s", meta)
 	}
-	move := between(t, card, `<details class="card-move">`, "</details>")
-	for _, want := range []string{`aria-label="Move `, `action="/tasks/` + ref + `/transition"`, `name="route"`} {
-		if !strings.Contains(move, want) {
-			t.Errorf("the card's Move menu lost %q:\n%s", want, move)
-		}
+	corner := between(t, card, `<div class="cardmore">`, `<div id="bmore-`+ref+`"`)
+	if !strings.Contains(corner, `popovertarget="bmore-`+ref+`"`) || !strings.Contains(corner, `aria-label="More actions for `) {
+		t.Errorf("the card's corner button does not open its menu:\n%s", corner)
+	}
+	if moves := moveOptions(t, card, ref); len(moves) == 0 {
+		t.Errorf("the card's menu offers no move:\n%s", card)
 	}
 
 	sheet := body(t, b.get("/assets/app.css"))
-	if corner := ruleIn(t, sheet, "", "details.card-move > summary"); !strings.Contains(corner, "position: absolute") {
-		t.Errorf("Move is not a button in the card's corner: %s", corner)
+	if at := ruleIn(t, sheet, "", ".column .card .cardmore .rowmore-btn"); !strings.Contains(at, "position: absolute") {
+		t.Errorf("the dots are not a button in the card's corner: %s", at)
 	}
 	hidden := ruleIn(t, sheet, "@media (hover: hover) and (pointer: fine)",
-		".column .card:not(:hover, :focus-within) details.card-move:not([open]) > summary")
+		".column .card:not(:hover, :focus-within) .cardmore .rowmore-btn")
 	if !strings.Contains(hidden, "opacity: 0") || strings.Contains(hidden, "display: none") || strings.Contains(hidden, "visibility") {
-		t.Errorf("Move is hidden from the keyboard, or not hidden at rest with a mouse: %s", hidden)
+		t.Errorf("the dots are hidden from the keyboard, or not hidden at rest with a mouse: %s", hidden)
 	}
-	if touch := ruleIn(t, sheet, "@media (max-width: 899px), (pointer: coarse)", "details.card-move > summary"); !strings.Contains(touch, "min-height: 44px") {
-		t.Errorf("Move is not a 44px target on a touch screen: %s", touch)
+	if touch := ruleIn(t, sheet, "@media (max-width: 899px), (pointer: coarse)", ".column .card .cardmore .rowmore-btn"); !strings.Contains(touch, "min-height: 44px") {
+		t.Errorf("the dots are not a 44px target on a touch screen: %s", touch)
 	}
 }
 

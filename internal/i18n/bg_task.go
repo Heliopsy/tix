@@ -91,7 +91,6 @@ func init() {
 		"Delete permanently":                    "Изтрий завинаги",
 		"Also delete subtasks":                  "Изтрий и подзадачите",
 		"Delete task":                           "Изтрий задачата",
-		"Restore task":                          "Възстанови задачата",
 		"Edit comment":                          "Редактирай коментара",
 		"Rewrite":                               "Нов текст",
 		"Delete comment":                        "Изтрий коментара",

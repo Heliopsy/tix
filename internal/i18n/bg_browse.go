@@ -99,7 +99,6 @@ func init() {
 		"Archive project": "Архивирай проекта",
 		"Delete project":  "Изтрий проекта",
 		"Move %s":         "Премести %s",
-		"Move %s to":      "Премести %s в",
 		"No tasks.":       "Няма задачи.",
 		"Board":           "Табло",
 		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.": "Всеки проект използва точно един работен процес. Той задава състоянията на задачите, колоните на таблото и позволените преходи между тях. Няколко проекта могат да споделят един процес.",

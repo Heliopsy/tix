@@ -23,7 +23,7 @@ func TestATrashRowDeletesPermanentlyOnlyFromItsDialog(t *testing.T) {
 	page := b.page(trashPath)
 	id := "task-purge-" + first
 	row := rowOf(t, page, first)
-	if !strings.Contains(row, `data-dlg-open="`+id+`"`) || !strings.Contains(row, `class="btn danger small purgeopen"`) {
+	if !strings.Contains(row, `data-dlg-open="`+id+`"`) || !strings.Contains(row, `class="btn flowgo is-danger purgeopen"`) {
 		t.Fatalf("the trash row offers no red Delete permanently opener: %s", row)
 	}
 	if strings.Contains(row, "/tasks/"+first+"/purge") {

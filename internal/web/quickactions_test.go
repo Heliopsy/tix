@@ -167,8 +167,9 @@ func TestAQuickActionThatChangesNothingOffersNoUndo(t *testing.T) {
 }
 
 // TestAListRowHasTheLaneCardsActionsMenu pins the row's More actions menu:
-// every quick action a lane card offers, each a form a browser without
-// scripting can post, and Select into select mode.
+// every quick action a lane card offers, completing it along the same
+// routes, each a form a browser without scripting can post, and Select into
+// select mode.
 func TestAListRowHasTheLaneCardsActionsMenu(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -182,18 +183,18 @@ func TestAListRowHasTheLaneCardsActionsMenu(t *testing.T) {
 		t.Fatalf("the row has no More actions button:\n%s", row)
 	}
 	menu := popoverBlock(t, page, "rmore-"+ref)
-	if !strings.Contains(menu, `<a class="flowgo" href="/tasks/`+ref+`?next=%2Ftasks">`) {
+	if !strings.Contains(menu, `<a class="flowgo" href="/tasks/`+ref+`?next=%2Ftasks" data-menu-item="open">`) {
 		t.Errorf("the menu does not open the task:\n%s", menu)
 	}
 	forms := map[string][]string{
-		"/tasks/" + ref + "/complete":    {`Complete`},
-		"/tasks/" + ref + "/star":        {`Star`},
-		"/tasks/" + ref + "/transition":  {`name="route" value="doing"`},
-		"/tasks/" + ref + "/snooze":      {`name="until" value="tomorrow"`},
-		"/tasks/" + ref + "/assign":      {`name="assignee"`, `list="row-handles"`},
-		"/tasks/" + ref + "/due":         {`name="due" value=""`},
-		"/tasks/" + ref + "/tags":        {`name="tag" required`},
-		"/tasks/" + ref + "/tags/remove": {`name="tag" value="ops"`},
+		"/tasks/" + ref + "/transition":                      {`name="route" value="doing&gt;done"`},
+		"/tasks/" + ref + "/star":                            {`Star`},
+		"/tasks/" + ref + "/transition\" data-move-form=\"1": {`name="route" value="doing"`},
+		"/tasks/" + ref + "/snooze":                          {`name="until" value="tomorrow"`},
+		"/tasks/" + ref + "/assign":                          {`name="assignee"`, `list="row-handles"`},
+		"/tasks/" + ref + "/due":                             {`name="due" value=""`},
+		"/tasks/" + ref + "/tags":                            {`name="tag" required`},
+		"/tasks/" + ref + "/tags/remove":                     {`name="tag" value="ops"`},
 	}
 	for action, wants := range forms {
 		form := menuForm(t, menu, action)

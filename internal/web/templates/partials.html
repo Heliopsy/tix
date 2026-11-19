@@ -302,7 +302,7 @@
   {{end}}
   <label class="flowhead snooze-pick" for="{{.ID}}">{{t "Pick a date"}}</label>
   <span class="snooze-row">
-    <input type="datetime-local" id="{{.ID}}" name="at">
+    <input type="datetime-local" id="{{.ID}}" name="at"{{with .Target}} data-shortcut-target="{{.}}"{{end}}>
     <button type="submit" class="secondary">{{t "Snooze"}}</button>
   </span>
 </form>{{end}}
@@ -327,7 +327,7 @@
   hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
   {{template "csrf" .CSRF}}
   {{with .Next}}<input type="hidden" name="next" value="{{.}}">{{end}}
-  <label class="flowhead lanemore-sect" for="{{.ID}}">{{t "Due date"}}</label>
+  <label class="flowhead lanemore-sect" for="{{.ID}}" data-menu-item="due">{{t "Due date"}}</label>
   <span class="lanemore-row">
     <input id="{{.ID}}" name="due" value="{{dateValue .Due}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
     <button type="submit" class="secondary">{{t "Save"}}</button>
@@ -1308,4 +1308,168 @@
   <button type="button" class="secondary" data-live-close>{{t "Close"}}</button>
 </div>
 </dialog>
+{{end}}
+
+{{/* The task menu: the three dots a task carries wherever it is drawn, on a
+     lane card, a board card, a list row and the task screen, built by
+     taskMenu (taskmenu.go). Every place draws these same items in this same
+     order, each offered only within the reader's scopes, so the menu reads
+     the same everywhere (docs/web-ui.md#the-task-menu). Two items belong to
+     one place: Open the task, which the task screen does not need, and
+     Select, which only the list has; the task screen adds Reclaim the lease
+     beside a live lease and Also delete subtasks under a task that has some.
+
+     task-menu-button is the button and task-menu-start and task-menu-end the
+     popover's frame, which the trash row shares with its own two items.
+     Every entry is a form or a link to a route that already exists, so it
+     works without scripting. On a lane card each form swaps only the card
+     and the toast (taskMenu.HX, assets/lanes.js); in a list row, on a board
+     card and on the task screen the region's data-inplace does the same
+     (assets/feel.js). */}}
+{{define "task-menu-button"}}<button type="button" class="{{if eq .Place "lane"}}lanemore-btn{{else if eq .Place "page"}}taskmenu-open{{else}}rowmore-btn{{end}}" popovertarget="{{.ID}}" data-focus="more"
+        aria-label="{{t "More actions for %s" (ref .Task.Ref)}}" title="{{t "More actions"}}">
+  <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+</button>{{end}}
+
+{{define "task-menu-start"}}<div id="{{.ID}}" class="flowmenu lanepop lanemore-menu task-menu" popover data-lane-menu data-task-menu="{{.Place}}"{{with .Inplace}} data-inplace="{{.}}"{{end}}>
+  <p class="flowhead"><span class="mono">{{ref .Task.Ref}}</span></p>{{end}}
+
+{{define "task-menu-end"}}  <button type="button" class="flowclose" popovertarget="{{.ID}}" popovertargetaction="hide">{{t "Close"}}</button>
+</div>{{end}}
+
+{{define "task-menu"}}{{$m := .}}{{$ref := .Task.Ref}}
+{{template "task-menu-start" $m}}
+  {{with .Open}}<a class="flowgo" href="{{.}}" data-menu-item="open">{{t "Open the task"}}</a>{{end}}
+  <button type="button" class="flowgo" data-copy-link="/tasks/{{$ref}}" data-menu-item="copy-link">{{t "Copy link"}}</button>
+  <button type="button" class="flowgo" data-copy-text="{{ref $ref}}" data-menu-item="copy-ref">{{t "Copy reference"}}</button>
+  {{template "share-card" .Task}}
+
+  {{if .Completes}}
+  <p class="flowhead lanemore-sect" data-menu-item="complete">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}}</p>
+  {{if .Tick}}
+  <form method="post" action="/tasks/{{$ref}}/transition"{{$m.HX (print "/tasks/" $ref "/transition")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Tick}}
+    <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+      <span class="flowto">{{.To.Label}}</span>
+      {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+    </button>
+    {{end}}
+  </form>
+  {{else}}
+  {{$why := t .Locked.Key}}{{if .Locked.Arg}}{{$why = t .Locked.Key .Locked.Arg}}{{end}}
+  <p class="flowwhy">{{t "Not from this menu: %s." $why}}</p>
+  {{end}}
+  {{end}}
+
+  {{if or .Moves .Commented}}
+  <p class="flowhead lanemore-sect" data-menu-item="move">{{t "Move"}} <span class="pill status {{categoryClass .Category}} flowfrom">{{.Label}}</span></p>
+  {{if .Moves}}
+  <form method="post" action="/tasks/{{$ref}}/transition" data-move-form="1"{{$m.HX (print "/tasks/" $ref "/transition")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Moves}}
+    <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+      <span class="flowto">{{.To.Label}}</span>
+      {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+      <span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
+    </button>
+    {{end}}
+  </form>
+  {{end}}
+  {{range .Commented}}
+  <a class="flowgo" href="{{$m.Comment}}" data-commented>
+    <span class="flowto">{{.To.Label}}</span>
+    <span class="flowhops">{{t "needs a comment"}}</span>
+  </a>
+  {{end}}
+  {{end}}
+
+  {{if .Prioritise}}
+  {{$p := prio .Task.Priority}}
+  <p class="flowhead lanemore-sect" data-menu-item="priority">{{t "Priority"}}</p>
+  <form method="post" action="/tasks/{{$ref}}/priority" class="lanemore-prio"{{$m.HX (print "/tasks/" $ref "/priority")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Priorities}}
+    <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}"{{if eq .Label $p}} aria-current="true"{{end}}>
+      <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
+    </button>
+    {{end}}
+  </form>
+  {{end}}
+
+  {{if .Write}}
+  <form method="post" action="/tasks/{{$ref}}/assign" class="lanemore-field"{{$m.HX (print "/tasks/" $ref "/assign")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label class="flowhead lanemore-sect" for="{{.Field}}who-{{$ref}}" data-menu-item="assignee">{{t "Assignee"}}</label>
+    <span class="lanemore-row">
+      <input id="{{.Field}}who-{{$ref}}" name="assignee" list="{{.Handles}}" autocomplete="off" value="{{.Assignee}}" placeholder="{{t "unassigned"}}">
+      <button type="submit" class="secondary">{{t "Save"}}</button>
+    </span>
+  </form>
+  {{template "assign-me" .AssignMe}}
+  {{template "due-field" .Due}}
+  <p class="flowhead lanemore-sect" data-menu-item="tags">{{t "Tags"}}</p>
+  {{if .Task.Tags}}
+  <ul class="tagchips lanemore-tags">
+    {{range .Task.Tags}}
+    <li>
+      <form method="post" action="/tasks/{{$ref}}/tags/remove"{{$m.HX (print "/tasks/" $ref "/tags/remove")}}>
+        {{template "csrf" $m.CSRF}}
+        <input type="hidden" name="next" value="{{$m.Next}}">
+        <input type="hidden" name="tag" value="{{.}}">
+        <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove the tag %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}} {{template "icon" "x"}}</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  <form method="post" action="/tasks/{{$ref}}/tags" class="lanemore-field"{{$m.HX (print "/tasks/" $ref "/tags")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <span class="lanemore-row">
+      <input id="{{.Field}}tag-{{$ref}}" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
+      <button type="submit" class="secondary">{{t "Add"}}</button>
+    </span>
+  </form>
+
+  <a class="flowgo lanemore-sect" href="{{.Rename}}" data-rename="{{$ref}}" data-version="{{.Task.Version}}" data-no-press data-menu-item="rename">{{t "Rename"}}</a>
+  {{if snoozed .Task}}
+  <form method="post" action="/tasks/{{$ref}}/snooze/remove"{{$m.HX (print "/tasks/" $ref "/snooze/remove")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <button type="submit" class="flowgo snoozebtn" data-focus="snooze" data-menu-item="snooze"{{if eq .Place "page"}} data-shortcut-target="snooze"{{end}}>{{t "Unsnooze"}}</button>
+  </form>
+  {{else}}
+  <p class="flowhead lanemore-sect" data-menu-item="snooze">{{t "Snooze"}}</p>
+  {{template "snooze-choices" .Snooze}}
+  {{end}}
+  {{end}}
+
+  {{if .Star}}
+  <form method="post" action="/tasks/{{$ref}}/star{{if .Task.Starred}}/remove{{end}}"{{if .Task.Starred}}{{$m.HX (print "/tasks/" $ref "/star/remove")}}{{else}}{{$m.HX (print "/tasks/" $ref "/star")}}{{end}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <button type="submit" class="flowgo lanemore-sect" data-menu-item="star">{{if .Task.Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}</button>
+  </form>
+  {{end}}
+  {{if .Write}}
+  <a class="flowgo copyto" href="/tasks/{{$ref}}/copy{{if .Open}}?next={{.Next | urlquery}}{{end}}" data-dialog-load data-copy-to data-menu-item="copy-to">{{t "Copy to…"}}</a>
+  <a class="flowgo moveto" href="/tasks/{{$ref}}/move" data-dialog-load data-menu-item="move-to">{{t "Move to…"}}</a>
+  <a class="flowgo savetpl" href="/tasks/{{$ref}}/template" data-dialog-load data-menu-item="save-template">{{t "Save as template"}}</a>
+  {{end}}
+  {{with .Reclaim}}<button type="button" class="flowgo is-danger" popovertarget="{{.}}" data-menu-item="reclaim">{{t "Reclaim the lease…"}}</button>{{end}}
+  {{with .Select}}<a class="flowgo" href="{{.}}" data-select-row="{{$ref}}" data-no-press data-menu-item="select">{{t "Select"}}</a>{{end}}
+
+  {{if .Delete}}
+  <form method="post" action="/tasks/{{$ref}}/delete?next={{.Leave | urlquery}}" class="lanemore-delete"{{$m.HX (print "/tasks/" $ref "/delete?next=" (.Leave | urlquery))}}>
+    {{template "csrf" .CSRF}}
+    {{if .Subtasks}}<label class="task-menu-cascade" for="{{.Field}}cascade-{{$ref}}"><input id="{{.Field}}cascade-{{$ref}}" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>{{end}}
+    <button type="submit" class="flowgo is-danger" data-focus="delete" data-menu-item="delete">{{t "Delete task"}}</button>
+  </form>
+  {{end}}
+{{template "task-menu-end" $m}}
 {{end}}

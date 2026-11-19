@@ -541,8 +541,8 @@
     return !!(query && query.matches);
   };
 
-  // legalStates reads the states a card may move to out of its own Move
-  // disclosure's options, which is the list the server already computed for
+  // legalStates reads the states a card may move to out of the route
+  // buttons of its menu's Move section, which is the list the server already computed for
   // that card. A prototype-free object so a state named like an Object member
   // cannot pass canDrop by accident.
   //

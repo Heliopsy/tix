@@ -867,6 +867,14 @@
     if (typeof tix.revealTab === "function") {
       tix.revealTab(target);
     }
+    var menu = target.closest ? target.closest("[popover]") : null;
+    if (menu && typeof menu.showPopover === "function") {
+      try {
+        if (!menu.matches(":popover-open")) menu.showPopover();
+      } catch (err) {
+        return;
+      }
+    }
   }
 
   // runTask drives the control a task action names on the task on screen.

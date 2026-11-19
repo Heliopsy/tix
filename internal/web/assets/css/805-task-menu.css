@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The task menu (templates/partials.html "task-menu"): the one three dots
+   menu a lane card, a board card, a list row and the task screen share. Its
+   items are styled once, as .lanemore-menu in 420-lanes.css; this part is
+   the board card's button, which sits in the card's corner where the Move
+   fold used to be, and the line that sets Delete apart. */
+.column .card .cardmore { margin: 0; }
+.column .card .cardmore .rowmore-btn {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.column .card .cardmore .rowmore-btn:hover,
+.column .card .cardmore .rowmore-btn:focus-visible { color: var(--accent); background: var(--accent-soft); }
+/* With a mouse the corner button shows on the card under the pointer or
+   holding focus, so a column of cards is not a column of buttons. Tabbing
+   to it shows it; a touch screen always draws it. */
+@media (hover: hover) and (pointer: fine) {
+  .column .card:not(:hover, :focus-within) .cardmore .rowmore-btn { opacity: 0; }
+}
+@media (max-width: 899px), (pointer: coarse) {
+  .column .card .cardmore .rowmore-btn { top: 0; right: 0; width: 44px; height: 44px; min-height: 44px; }
+  .column .card .card-top { padding-inline-end: 36px; }
+}
+
+.task-menu .lanemore-delete { margin-top: var(--space-2); padding-top: var(--space-1); border-top: 1px solid var(--line); }
+.task-menu .lanemore-delete .btn.flowgo { display: flex; width: 100%; }

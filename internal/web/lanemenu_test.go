@@ -68,7 +68,7 @@ func TestALaneCardsMoreActionsSurviveEveryHiddenField(t *testing.T) {
 	menu := moreMenu(t, card, ref)
 
 	for _, want := range []string{
-		`<a class="flowgo" href="/tasks/` + ref + `?next=%2Ftasks">`,
+		`<a class="flowgo" href="/tasks/` + ref + `?next=%2Ftasks" data-menu-item="open">`,
 		`data-copy-link="/tasks/` + ref + `"`,
 		`data-copy-text="` + strings.ToUpper(ref) + `"`,
 		`data-rename="` + ref + `" data-version="`,

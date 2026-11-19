@@ -24,14 +24,9 @@ func snoozedUntil(t *testing.T, f *fixture, ref string) *time.Time {
 	return task.SnoozedUntil
 }
 
-// snoozeMenu is the task screen's snooze popover and nothing else of the page.
-func snoozeMenu(t *testing.T, page, ref string) string {
-	t.Helper()
-	return popover(t, page, "snooze-"+ref)
-}
-
-// The task screen's actions menu opens a menu of the three presets and a date
-// picker, every one a plain form post that returns to the screen.
+// The task screen's actions menu carries the three presets and a date
+// picker, as every task menu does, every one a plain form post that returns
+// to the screen.
 func TestTheTaskScreenOffersASnoozeMenu(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -39,12 +34,9 @@ func TestTheTaskScreenOffersASnoozeMenu(t *testing.T) {
 	ref := b.createTask("infra", "not this week")
 	page := b.page("/tasks/" + ref)
 
-	if !strings.Contains(actionsMenu(t, page, ref), `popovertarget="snooze-`+ref+`"`) {
-		t.Fatalf("the actions menu has no Snooze button opening the menu:\n%s", page)
-	}
-	menu := snoozeMenu(t, page, ref)
-	if menu == "" {
-		t.Fatalf("the task screen has no snooze menu")
+	menu := actionsMenu(t, page, ref)
+	if !strings.Contains(menu, `data-menu-item="snooze"`) {
+		t.Fatalf("the actions menu has no Snooze section:\n%s", page)
 	}
 	form := formAt(t, menu, "/tasks/"+ref+"/snooze")
 	for _, want := range []string{
@@ -152,8 +144,8 @@ func TestASnoozedTaskShowsItsWakeTimeAndUnsnoozes(t *testing.T) {
 	if !strings.Contains(pills, `title="Snoozed by alice"`) {
 		t.Errorf("the badge does not say who snoozed it:\n%s", pills)
 	}
-	if strings.Contains(page, `id="snooze-`+ref+`"`) {
-		t.Error("a snoozed task still offers the snooze menu")
+	if strings.Contains(page, `name="until"`) {
+		t.Error("a snoozed task still offers the snooze presets")
 	}
 	form := formAt(t, page, "/tasks/"+ref+"/snooze/remove")
 	if !strings.Contains(form, ">Unsnooze</button>") {

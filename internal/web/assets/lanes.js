@@ -215,6 +215,7 @@
   doc.addEventListener("toggle", function (event) {
     var menu = event.target;
     if (!menu || event.newState !== "open" || !menu.hasAttribute || !menu.hasAttribute("data-lane-menu")) return;
+    if (typeof menu.contains === "function" && menu.contains(doc.activeElement)) return;
     var items = menuItems(menu);
     if (items.length) items[0].focus({ preventScroll: true });
   }, true);

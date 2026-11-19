@@ -91,7 +91,6 @@ func init() {
 		"Delete permanently":                    "Endgültig löschen",
 		"Also delete subtasks":                  "Auch Unteraufgaben löschen",
 		"Delete task":                           "Aufgabe löschen",
-		"Restore task":                          "Aufgabe wiederherstellen",
 		"Edit comment":                          "Kommentar bearbeiten",
 		"Rewrite":                               "Umschreiben",
 		"Delete comment":                        "Kommentar löschen",

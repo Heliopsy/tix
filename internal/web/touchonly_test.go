@@ -61,7 +61,7 @@ func TestTouchDevicesAreNotOfferedDragToMove(t *testing.T) {
 
 	b.createTask("infra", "movable")
 	board := b.page("/projects/infra")
-	if !strings.Contains(board, `draggable="true"`) || !strings.Contains(board, `<details class="card-move">`) {
+	if !strings.Contains(board, `draggable="true"`) || !strings.Contains(board, `<div class="cardmore">`) {
 		t.Error("the board lost its cards' Move control or its drag on a desktop")
 	}
 }

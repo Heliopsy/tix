@@ -79,14 +79,7 @@ details[open] > .editswitch .when-shut { display: none; }
 details[open] > .editswitch .when-open { display: inline; }
 
 /* The actions menu. */
-.taskmenu { min-width: 15rem; }
-.taskmenu .flowgo { justify-content: flex-start; text-decoration: none; }
-.taskmenu > form { display: flex; flex-direction: column; gap: 1px; margin: 0; }
-.taskmenu .flowgo.is-danger { color: var(--danger); }
-.taskmenu .flowgo.is-danger:hover { background: var(--danger-soft); }
-.taskmenu-delete { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--line); }
-.taskmenu-delete .flowhead { margin: var(--space-1) 0 2px; }
-.taskmenu-delete label { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-3); font-size: var(--text-sm); font-weight: 400; color: var(--ink); }
+.task-menu-cascade { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-3); font-size: var(--text-sm); font-weight: 400; color: var(--ink); }
 .reclaimpop { min-width: 18rem; padding: var(--space-3); }
 .reclaimpop input { width: 100%; }
 
@@ -278,5 +271,5 @@ details[open] > .editswitch .when-open { display: inline; }
   .taskmenu-open { width: 44px; height: 44px; }
   .propsave { display: inline-flex; align-items: center; }
   .propform:not(:focus-within) .propsave { display: none; }
-  .taskmenu .flowgo { min-height: 44px; }
+  .task-menu .flowgo { min-height: 44px; }
 }
