@@ -124,7 +124,7 @@ func refreshedProvider(p core.SSOProvider, md *sso.IdPMetadata, readErr error, n
 // until its overlap ends.
 func mergeIdPCertificates(current []string, retiring []core.RetiringCertificate, published []string, now time.Time,
 ) ([]string, []core.RetiringCertificate) {
-	certs := make([]string, 0, len(published)+len(current))
+	var certs []string
 	seen := map[string]bool{}
 	for _, c := range published {
 		fp := core.CertificateFingerprint(c)
