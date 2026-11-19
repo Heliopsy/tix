@@ -557,6 +557,59 @@ fixed-height scroller, and either arrangement grows past that height and runs ov
 draws beneath the board. Cards carry their project's key, icon and accent only on a merged board,
 where a column holds more than one project's work.
 
+## The task menu
+
+Every task carries the same three dots, wherever it is drawn: a card in the lanes, a card on a board
+(the task list's and a project's), a row of the list, My work and a saved filter, and the task screen
+and the task dialog. They open one menu, drawn by one template, with the same items in the same order
+and the same labels everywhere:
+
+1. **Open the task** (in the dialog when Task opens in is set to Dialog)
+2. **Copy link**, **Copy reference**, and with scripting **Copy as Markdown**, **Copy key and title**
+   and **Share…** where the browser has a share sheet
+3. **Complete** or **Reopen**, along the routes the lane tick offers, or the reason there is none
+4. **Move**: every state the task's own workflow reaches from here, and a link to the task for a move
+   that needs a comment
+5. **Priority**
+6. **Assignee**, with **Assign to me** until the task is yours
+7. **Due date**, with **Clear the due date** while it has one
+8. **Tags**: the task's tags to remove, and a field to add one
+9. **Rename**, which edits the title in place on a card or a row, and opens the title field on the
+   task screen
+10. **Snooze** (Later today, Tomorrow morning, Next week, Pick a date) or **Unsnooze**
+11. **Star** or **Unstar**
+12. **Copy to…**, **Move to…** and **Save as template**
+13. **Delete task**, last, in red, set apart by a line
+
+A reader is offered only what their scopes allow, the same way in every view: Complete, Reopen and
+Move need `task:transition`; Priority, Assignee, Due date, Tags, Rename, Snooze, Copy to, Move to and
+Save as template need `task:write`; Delete needs `task:delete`. A reader who may only read gets Open,
+the copy items and their star.
+
+Three items belong to one place, and sit where the list says:
+
+- The task screen leaves out **Open the task**, since it is the task, adds **Reclaim the lease…**
+  after Save as template when a lease is live and you hold `task:reclaim`, and adds an **Also delete
+  subtasks** box above Delete when the task has subtasks.
+- A list row adds **Select** just before Delete, which turns on select mode with that row ticked.
+- A trash row has the same three dots with the two things a deleted task can have done to it:
+  **Restore**, and **Delete permanently** in red, which opens its confirmation.
+
+Every item is a form on an existing route or a link, so the menu works without JavaScript and returns
+to where it was opened: the listing at the card or row, or the task screen. With htmx a form swaps only
+its own card or row and the toast: a lane card's forms say so themselves, and a board card, a row and
+the task screen are `data-inplace` regions ([Acting in place](#acting-in-place)). Focus goes back to
+the control that was pressed, and a refusal is said on the card (lanes) or in a toast (elsewhere)
+without the card or row disappearing.
+
+Delete is the one delete every view shares. With the trash on, the task goes to the trash and the toast
+offers Undo. With the trash off, the same press opens the confirmation that says the delete is
+permanent, and nothing is deleted until it is confirmed.
+
+On a board card the dots sit in the card's top right corner. With a mouse they show on the card under
+the pointer or holding focus; on a touch screen they are always drawn. Dragging a card to a column
+offers the same moves as the menu's Move section, read from it.
+
 ## Lanes
 
 The third position of the same switch draws the page in lanes, by default one per project, the way
@@ -643,20 +696,8 @@ moved the task meanwhile, leaves the card where it is and says why underneath th
 swapping the error page in, which used to make the card disappear.
 
 **More actions.** Every lane card has three dots in its corner, drawn whatever the More menu hides.
-They open a menu with the whole task in it: open the task (in the dialog when Task opens in is set
-to Dialog), copy its link or its reference, complete or reopen it along the tick's routes (or the
-tick's reason when it offers none), move it to any state the status menu offers, follow a link to the
-task for a move that needs a comment, change the priority, star or unstar it, snooze or unsnooze it,
-rename the title in place, set the assignee (the field suggests the tenant's handles) or take it with
-**Assign to me**, set or clear the due date, add and remove tags, and delete it.
-A reader sees only what their scopes allow: moves need `task:transition`; priority, snooze, rename,
-assignee, due date and tags need `task:write`; delete needs `task:delete`. A reader who may only read
-gets open, copy and their star.
-
-A list row has the same menu behind three dots at its end: open the task, complete or reopen it, star
-or unstar it, move it, snooze or unsnooze it, set the assignee or Assign to me, set or clear the due
-date, add and remove tags, and **Select**, which turns on select mode with that row ticked (without
-scripting it is the link to select mode). Its forms swap the row and the toast and nothing else.
+They open [the task menu](#the-task-menu), the same one a board card, a list row and the task screen
+carry. A list row has it behind three dots at its end, with **Select** added.
 
 Every quick action answers with a toast that offers **Undo**: a star or unstar, a snooze or unsnooze
 (back to the wake time it had), an assignee change, a due date set or cleared, a tag added or removed,
@@ -871,25 +912,24 @@ Snooze hides a task from every listing, for everybody, until a time you pick, an
 by itself. Nothing has to run for that: every listing compares the wake time with the clock. Agents
 cannot claim a snoozed task until it wakes.
 
-Snooze is in two places. On the task screen it is in the actions menu (the three dots in the header); on
-a lane card it is a section of the three dots menu. Both offer **Later today** (three hours on, rounded
+Snooze is a section of [the task menu](#the-task-menu), the three dots on every card, row and task
+screen. It offers **Later today** (three hours on, rounded
 up to the hour), **Tomorrow morning** (09:00), **Next week** (09:00 next Monday) and **Pick a date**, a
 date and time field with its own Snooze button. Every choice is read in the time zone chosen under
 Settings, or the server's when none is, so tomorrow morning is your morning. A time that has passed is
-refused and nothing changes: on the task screen the refusal is a toast, in the lane it is said inside
-the card. List rows have no snooze control of their own; open the task, use the lanes, or on a touch
-screen [swipe the row](#swiping-a-row) towards the start of the line, which snoozes it until tomorrow
-morning.
+refused and nothing changes: in the lane it is said inside the card, elsewhere it is a toast. On a touch
+screen you can also [swipe a row](#swiping-a-row) towards the start of the line, which snoozes it until
+tomorrow morning. On the task screen `z` opens the menu at the Snooze field.
 
 Each choice is a plain form posting to `/tasks/REF/snooze` with `until` set to `later`, `tomorrow` or
-`next-week`, or with the picked time in `at`, so it works with no script. With htmx a lane card's
-snooze swaps the card, and because a snoozed task is not in the listing the card leaves the lane and
+`next-week`, or with the picked time in `at`, so it works with no script. With htmx a card's or a row's
+snooze swaps it, and because a snoozed task is not in the listing the card leaves the lane and
 the toast names the task and when it wakes.
 
 A snoozed task is drawn only where it was asked for, under `is:snoozed` or `snoozed:any` in the filter,
 and there it carries a dashed badge saying until when: "until 3 Nov 09:00" on a row or a card, "Snoozed
-until ..." in the Snoozed row of its own screen, where hovering names who snoozed it. Its task screen's
-actions menu offers **Unsnooze** in place of Snooze, as does its lane card's menu; it posts to
+until ..." in the Snoozed row of its own screen, where hovering names who snoozed it. Its task menu offers
+**Unsnooze** in place of Snooze; it posts to
 `/tasks/REF/snooze/remove` and the task is back at once. Snoozing and unsnoozing need `task:write`, and
 a reader without it is offered neither. See [filtering.md](filtering.md#snoozed-tasks).
 
@@ -1016,11 +1056,12 @@ attached, so the link still goes to the same place after a tag, a comment or an 
 task returns there too.
 
 The screen reads like an issue. The header holds the reference, the title in large type with **Rename** beside
-it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and one actions menu
-behind the three dots: **Copy reference** (the reference as shown, such as INFRA-5; the Id row under the
-properties has its own Copy button for the ULID), **Copy to…**, **Move to…**, **Save as template**,
-**Snooze…** or **Unsnooze**, **Reclaim the lease…** when you may take a live lease, and **Delete task** with
-its two options. Nothing in that menu is drawn anywhere else.
+it, your star, **Hand to an agent**, **Share** ([Sharing a task](#sharing-a-task)), and behind the three dots
+[the task menu](#the-task-menu) every card and row carries, without Open the task, with **Reclaim the
+lease…** when you may take a live lease and **Also delete subtasks** when the task has subtasks. Copy
+reference copies the reference as shown, such as INFRA-5; the Id row under the properties has its own
+Copy button for the ULID. Deleting goes to the trash with an Undo, or asks first when the trash is off;
+a task in the trash is deleted for good from there.
 
 On a wide screen the main column holds the description, subtasks and dependencies, then a tab strip for the
 task's activity, and the column on the right holds the properties: status and priority, which open the same
@@ -1107,7 +1148,7 @@ notify nobody.
 
 ## Copying a task
 
-**Copy to…** in the task screen's actions menu, offered to a reader who may write tasks, opens a
+**Copy to…** in [the task menu](#the-task-menu), offered to a reader who may write tasks, opens a
 small form: the project the copy goes to, the reader's own project selected, the title ready to edit, and
 what else to bring. The copy is a new task with its own reference, in that project or the same one. Its
 description, priority, tags, assignee, due date and repeat rule come with it, and so do the custom fields
@@ -1125,13 +1166,13 @@ exists, comes back with every choice kept and the reason under the field it is a
 
 When tasks open in a dialog the form opens in the same dialog. Copying returns to the original with a
 toast linking the copy, or opens the copy when the "Open a new task" setting is on, exactly as adding a
-task does. A lane card's three dots menu offers **Copy to…** too, opening the same form over the lanes
-when tasks open in a dialog; copying from there returns to the lanes, filter and all, with the toast. The
+task does. Every task menu offers **Copy to…**, so a card or a row opens the same form over the listing
+when tasks open in a dialog; copying from there returns to the listing, filter and all, with the toast. The
 command line has the same operation as `tix task copy`, and the API as `POST /api/v1/tasks/{ref}/copy`.
 
 ## Moving a task
 
-**Move to…** sits under **Copy to…** in the task screen's actions menu, for a reader who may write tasks. It
+**Move to…** sits under **Copy to…** in the task menu, for a reader who may write tasks. It
 opens a small form with one choice, the project to move to, listing every project but the task's own. The
 task itself moves: it keeps its comments, artifacts, history, dependencies, tags, assignee and stars, and
 takes the next number in the target project. Its old reference keeps working, so a link, a mention or a
@@ -1187,8 +1228,9 @@ Each copy says what it did in a toast that a screen reader announces ("Link copi
 focus goes back to the Share button. The menu is a popover like the actions menu: Escape closes it, and
 the arrow keys, Home and End move along it. Its foot shows the address itself as a plain link that
 selects whole, with a (?) that opens this section. With scripting off the menu still opens, the copy
-buttons are not drawn, and the link is there to select. A lane card's three dots menu offers Copy as
-Markdown, Copy key and title and Share… beside its Copy link and Copy reference.
+buttons are not drawn, and the link is there to select. [The task menu](#the-task-menu) on every card,
+row and task screen offers Copy as Markdown, Copy key and title and Share… beside its Copy link and Copy
+reference.
 
 The address is the task's screen, `/tasks/REF`, on the scheme and host the browser is on, so behind a
 proxy it is the address the reader typed. When the server is configured with `server.public_url`
@@ -1293,7 +1335,7 @@ there. Nothing is written until **Import**, and then every row or none. See
 A template is a named shape of a task that is not itself work: it never shows in a listing, a claim or the
 statistics.
 
-**Save as template**, in the task screen's actions menu and in a lane card's three dots menu,
+**Save as template**, in [the task menu](#the-task-menu) of every card, row and task screen,
 opens a small form drawn like the copy form: the template's name (the task's title to start with), whether
 it is for **This project** or **All projects**, whether the subtasks come along (ticked when the task has
 any), and an optional **Due in** such as 3d or 12h. The template keeps the title, description with its
@@ -2012,8 +2054,8 @@ member do on their screens. A refused form comes back with the dialog open.
 On a phone or tablet, where the main input is a finger (`(hover: none) and (pointer: coarse)`), the
 Hover effects row, the Drag to move row and the Keyboard section are not drawn, nor are the account
 menu's Keyboard shortcuts entry, the palette's key hints, its Keyboard and Keyboard shortcuts entries
-and the create forms' Ctrl+Enter line. A board card is not lifted by a long press there; its Move menu
-is how a finger moves it. A touch laptop keeps all of them.
+and the create forms' Ctrl+Enter line. A board card is not lifted by a long press there; the Move section of
+its three dots menu is how a finger moves it. A touch laptop keeps all of them.
 
 Every form on the screen returns to `/settings?flash=...#section`, so after the full-page reload the
 reader is back at the section they changed with a toast naming what was saved. The shared Listings

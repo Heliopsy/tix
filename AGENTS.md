@@ -134,7 +134,7 @@ A list the code already holds is asserted rather than maintained: see
 - Every screen state, including results, previews and errors, has a visible
   way back that leads to a screen (`TestEveryScreenStateHasAWayBack`).
 - `TestNoPageActionOrSectionSitsInAnExpander` lists the few toggles allowed to
-  stay `<details>` (a row's Move menu, the (i) tips, a task's Rename), each with
+  stay `<details>` (the (i) tips, a task's Rename), each with
   its reason. Adding to it needs the same kind of reason.
 - The stylesheet is split into parts under `internal/web/assets/css/`, named
   `NNN-feature.css`, and served joined in name order as `/assets/app.css`
