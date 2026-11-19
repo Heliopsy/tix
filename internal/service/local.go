@@ -357,6 +357,7 @@ func (l *Local) authorize(ctx context.Context, action authz.Action, res authz.Re
 		res.TenantID = actor.TenantID
 	}
 	if err := l.policy.Can(actor, action, res); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	if err := l.requireFactor(ctx, actor); err != nil {

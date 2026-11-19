@@ -27,7 +27,8 @@ func NewStoreCredentials(st store.Store, sessions core.SessionPolicy) *StoreCred
 	return &StoreCredentials{store: st, sessions: sessions}
 }
 
-// TokenByHash returns the token behind a hash, or nil when there is none.
+// TokenByHash returns the token behind a hash, or nil when there is none. A
+// token whose actor is disabled is refused with auth.Withdrawn.
 func (c *StoreCredentials) TokenByHash(ctx context.Context, hash string) (*core.APIToken, error) {
 	scope, ok := core.TenantFrom(ctx)
 	if !ok {
@@ -43,8 +44,11 @@ func (c *StoreCredentials) TokenByHash(ctx context.Context, hash string) (*core.
 			return err
 		}
 		withdrawn, err := service.StandingWithdrawn(ctx, tx, token.ActorID)
-		if err != nil || withdrawn {
+		if err != nil {
 			return err
+		}
+		if withdrawn {
+			return auth.Withdrawn(token.ID, token.Name)
 		}
 		out = token
 		return nil
@@ -67,6 +71,7 @@ func (c *StoreCredentials) TouchToken(ctx context.Context, id string, at time.Ti
 }
 
 // SessionByHash returns the session behind a hash, or nil when there is none.
+// A session whose actor is disabled is refused with auth.Withdrawn.
 func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*auth.StoredSession, error) {
 	scope, ok := core.TenantFrom(ctx)
 	if !ok {
@@ -81,8 +86,12 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 		if err != nil {
 			return err
 		}
-		if withdrawn, err := service.StandingWithdrawn(ctx, tx, actorID); err != nil || withdrawn {
+		withdrawn, err := service.StandingWithdrawn(ctx, tx, actorID)
+		if err != nil {
 			return err
+		}
+		if withdrawn {
+			return auth.Withdrawn("", "")
 		}
 		session := auth.StoredSession{
 			TokenHash: hash,

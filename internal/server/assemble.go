@@ -155,6 +155,7 @@ func Assemble(opts Options) (*Server, error) {
 		WebHandler:       opts.WebHandler,
 		Authenticator:    NewAuthenticator(opts.Store, opts.Clock, opts.Sessions),
 		Logger:           opts.Logger,
+		Clock:            opts.Clock,
 		DefaultTenantID:  opts.TenantID,
 		MaxBodyBytes:     opts.MaxBodyBytes,
 		MaxImportBytes:   opts.MaxImportBytes,

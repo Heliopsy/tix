@@ -54,6 +54,19 @@ func (s StoredSession) Active(now time.Time) bool {
 	return s.RevokedAt == nil && s.ExpiresAt.After(now)
 }
 
+// inactiveReason names why Active refused the session at now, in the order
+// Active tests: a session gone idle, one ended, then one past its expiry.
+func (s StoredSession) inactiveReason(now time.Time) string {
+	switch {
+	case s.IdleTimeout > 0 && !s.LastSeenAt.IsZero() && now.Sub(s.LastSeenAt) > s.IdleTimeout:
+		return RefusedSessionIdle
+	case s.RevokedAt != nil:
+		return RefusedUnknownSession
+	default:
+		return RefusedSessionExpired
+	}
+}
+
 // stale reports whether the session's last-seen time is old enough to record
 // again, so a busy session costs one write a minute rather than one a request.
 func (s StoredSession) stale(now time.Time) bool {
@@ -174,18 +187,27 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 	if token == "" {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
+	unknown := Refusal{Reason: RefusedUnknownSession}
+	if wellFormedSecret(token) {
+		unknown.Session = SessionRef(HashToken(token))
+	}
 	stored, err := v.lookup.SessionByHash(ctx, HashToken(token))
+	if IsWithdrawn(err) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedActorDisabled, Session: unknown.Session})
+		return nil, core.Unauthenticated("invalid credentials")
+	}
 	if err != nil {
 		return nil, core.Internal("looking up session").Wrap(err)
 	}
-	if stored == nil {
+	if stored == nil || !EqualHash(stored.TokenHash, HashToken(token)) {
+		NoteRefusal(ctx, unknown)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
-	if !EqualHash(stored.TokenHash, HashToken(token)) {
-		return nil, core.Unauthenticated("invalid credentials")
-	}
+	known := Refusal{Session: SessionRef(stored.TokenHash)}
 	now := v.clk.Now()
 	if !stored.Active(now) {
+		known.Reason = stored.inactiveReason(now)
+		NoteRefusal(ctx, known)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	term := core.SessionTerm{ExpiresAt: stored.ExpiresAt, Remembered: stored.Remembered, CheckedAt: now}
@@ -193,6 +215,8 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 		renewed := stored.Renewed(now)
 		if err := toucher.TouchSession(ctx, stored.TokenHash, now, renewed); err != nil {
 			if core.IsKind(err, core.KindNotFound) {
+				known.Reason = RefusedUnknownSession
+				NoteRefusal(ctx, known)
 				return nil, core.Unauthenticated("invalid credentials")
 			}
 			return nil, core.Internal("recording session use").Wrap(err)
@@ -206,6 +230,8 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 	// its identity and holds no scope. A role that is set but unknown is not
 	// that case, it is a row nobody can reason about, and it ends the session.
 	if stored.Role != "" && !stored.Role.Valid() {
+		known.Reason = RefusedSessionInvalid
+		NoteRefusal(ctx, known)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	return &core.Actor{

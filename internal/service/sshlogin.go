@@ -188,6 +188,9 @@ func (l *Local) enrolledPerson(ctx context.Context, scope core.TenantScope, fing
 	if err != nil {
 		return nil, cand, err
 	}
+	if reason := sshSignInRefusal(key, cand); reason != "" {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: reason, Fingerprint: fingerprint})
+	}
 	switch {
 	case key == nil:
 		return nil, cand, core.Unauthenticated(

@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 )
 
@@ -32,6 +33,7 @@ func (m *mutation) requireClaim(ctx context.Context, task *core.Task) error {
 	case !tok.RequireClaim:
 		return nil
 	}
+	noteRefused(ctx, m.actor, auth.RefusedRequireClaim)
 	return core.Forbidden("this token requires a claim on %s before changing it; run: tix claim task %s --start",
 		task.Ref, task.Ref).WithDetail("claim_required", task.Ref)
 }
