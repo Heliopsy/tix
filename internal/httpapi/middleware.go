@@ -595,6 +595,7 @@ func IsPublicPath(path string) bool {
 	return isUnscopedPath(path) || path == wire.RouteLogin || path == wire.RouteSessionPolicy ||
 		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path) ||
 		path == wire.RouteSignInOptions || path == wire.RouteSSOBegin || path == wire.RouteSSOComplete ||
+		path == wire.RouteSSOExchange ||
 		isInviteTokenPath(path) || isSAMLMetadataPath(path)
 }
 

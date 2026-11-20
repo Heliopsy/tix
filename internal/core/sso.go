@@ -652,6 +652,10 @@ type SignInOptions struct {
 	PasswordLogin PasswordLogin `json:"password_login" yaml:"password_login"`
 	// Providers are the tenant's enabled providers.
 	Providers []SSOProviderOption `json:"providers" yaml:"providers"`
+	// AppSignIn reports that a native app may sign in through these
+	// providers in the system browser: the server lists at least one app
+	// redirect in auth.sso_app_redirects.
+	AppSignIn bool `json:"app_sign_in" yaml:"app_sign_in"`
 }
 
 // BeginSSOInput starts a sign-in through a provider.
@@ -667,6 +671,57 @@ type BeginSSOInput struct {
 	Remember bool `json:"remember,omitempty"`
 	// Next is the screen to return to, for a browser sign-in.
 	Next string `json:"next,omitempty"`
+	// AppRedirect, CodeChallenge, CodeChallengeMethod and AppState start a
+	// native app's sign-in from the browser, as /login/sso/KEY reads them.
+	// The browser hands the app a one-time code at AppRedirect at the end.
+	// They are not part of the API's begin request.
+	AppRedirect         string `json:"-"`
+	CodeChallenge       string `json:"-"`
+	CodeChallengeMethod string `json:"-"`
+	AppState            string `json:"-"`
+}
+
+// App reports whether the sign-in is a native app's.
+func (in BeginSSOInput) App() bool {
+	return in.AppRedirect != "" || in.CodeChallenge != "" || in.CodeChallengeMethod != "" || in.AppState != ""
+}
+
+// DefaultSSOAppRedirects is auth.sso_app_redirects when the configuration
+// names none: the tix mobile app's redirect.
+var DefaultSSOAppRedirects = []string{"red.tix.mobile:/sso"}
+
+// MaxAppStateLength bounds the opaque state an app passes through a sign-in.
+const MaxAppStateLength = 256
+
+// SSOCodeChallengeS256 is the one PKCE challenge method an app sign-in takes.
+const SSOCodeChallengeS256 = "S256"
+
+// Reasons an app sign-in ends without a code, sent to the app as the error
+// parameter of its redirect.
+const (
+	AppSignInAccessDenied  = "access_denied"
+	AppSignInNotLinked     = "not_linked"
+	AppSignInExpired       = "expired"
+	AppSignInProviderError = "provider_error"
+	AppSignInServerError   = "server_error"
+)
+
+// AppSignInReasons lists every reason an app sign-in can end with.
+var AppSignInReasons = []string{AppSignInAccessDenied, AppSignInNotLinked, AppSignInExpired,
+	AppSignInProviderError, AppSignInServerError}
+
+// DetailAppRedirect is the error detail naming where the browser sends a
+// refused app sign-in: the app's redirect carrying the reason.
+const DetailAppRedirect = "app_redirect"
+
+// SSOExchangeInput trades the one-time code an app sign-in handed the app
+// for a session.
+type SSOExchangeInput struct {
+	// Code is the one-time code the browser handed the app's redirect.
+	Code string `json:"code"`
+	// CodeVerifier is the PKCE verifier whose S256 challenge started the
+	// sign-in.
+	CodeVerifier string `json:"code_verifier"`
 }
 
 // SSOBegin is a started sign-in: the address to open and the sealed flow.

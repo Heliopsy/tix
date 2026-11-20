@@ -225,6 +225,10 @@ type LoginResult struct {
 	// Remember carries a provider sign-in's keep me signed in choice to the
 	// second factor step that completes it.
 	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
+	// AppRedirect is where the browser goes when a native app's sign-in
+	// finished in it: the app's redirect carrying a one-time code. It never
+	// travels on the wire.
+	AppRedirect string `json:"-" yaml:"-"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no

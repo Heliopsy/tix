@@ -988,6 +988,10 @@ func (f *fakeService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (
 	return nil, core.Invalid("not supported by the fake")
 }
 
+func (f *fakeService) ExchangeSSOCode(context.Context, core.SSOExchangeInput) (*core.LoginResult, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
 func (f *fakeService) SAMLMetadata(context.Context, core.SAMLMetadataInput) (*core.SAMLMetadata, error) {
 	return nil, core.Invalid("not supported by the fake")
 }

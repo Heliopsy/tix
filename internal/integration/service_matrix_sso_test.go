@@ -17,7 +17,7 @@ func init() {
 	serviceScenarios = append(serviceScenarios, svcScenario{
 		name: "single sign-on providers and a sign-in that comes back with the wrong state",
 		covers: []string{"CreateSSOProvider", "GetSSOProvider", "UpdateSSOProvider", "ListSSOProviders",
-			"SignInOptions", "BeginSSOLogin", "CompleteSSOLogin", "DeleteSSOProvider"},
+			"SignInOptions", "BeginSSOLogin", "CompleteSSOLogin", "ExchangeSSOCode", "DeleteSSOProvider"},
 		run: func(t *testing.T, tg target, _ *matrixHarness) (sig, error) {
 			idp := ssotest.NewOIDC(t, time.Now)
 			created, err := tg.svc.CreateSSOProvider(tg.ctx, core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
@@ -39,17 +39,23 @@ func init() {
 			mustf(t, tg, err, "beginning a sign-in")
 			_, completeErr := tg.svc.CompleteSSOLogin(tg.ctx, core.CompleteSSOInput{Flow: begin.Flow,
 				Code: idp.Grant(begin.AuthURL), State: "forged"})
+			_, exchangeErr := tg.svc.ExchangeSSOCode(tg.ctx, core.SSOExchangeInput{Code: "never-handed",
+				CodeVerifier: "some-verifier-0123456789-0123456789-0123456789"})
+			_, malformedErr := tg.svc.ExchangeSSOCode(tg.ctx, core.SSOExchangeInput{Code: "never-handed"})
 			if err := tg.svc.DeleteSSOProvider(tg.ctx, "kc"); err != nil {
 				return nil, err
 			}
 			return sig{
-				"key":        created.Key,
-				"secret_set": shown.SecretSet,
-				"renamed":    updated.DisplayName,
-				"listed":     len(listed),
-				"offered":    len(options.Providers),
-				"pkce":       strings.Contains(begin.AuthURL, "code_challenge_method=S256"),
-				"complete":   string(core.KindOf(completeErr)),
+				"key":         created.Key,
+				"secret_set":  shown.SecretSet,
+				"renamed":     updated.DisplayName,
+				"listed":      len(listed),
+				"offered":     len(options.Providers),
+				"pkce":        strings.Contains(begin.AuthURL, "code_challenge_method=S256"),
+				"complete":    string(core.KindOf(completeErr)),
+				"exchange":    string(core.KindOf(exchangeErr)),
+				"malformed":   string(core.KindOf(malformedErr)),
+				"app_sign_in": options.AppSignIn,
 			}, nil
 		},
 	})

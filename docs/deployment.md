@@ -127,6 +127,7 @@ failed attempt.
 | `signin_expired` | 401 | The second-factor step came with an expired or unreadable sign-in ticket |
 | `totp_invalid` | 401 | The second-factor code did not verify |
 | `totp_locked` | 401 | A code arrived while verification is locked after repeated failures |
+| `sso_code_invalid` | 401 | An app's single sign-on code is unknown, used or expired, or its verifier did not match |
 | `scope_denied` | 403 | The caller's scopes or role do not cover the action |
 | `project_denied` | 403 | A project-pinned token reached outside its project |
 | `require_claim` | 403 | A `require_claim` token changed a task it holds no claim on |

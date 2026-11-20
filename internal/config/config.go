@@ -239,6 +239,10 @@ type Auth struct {
 	// SAMLMetadataRefresh is how often tix serve reads each enabled SAML
 	// provider's IdP metadata again; 0 turns the scheduled read off.
 	SAMLMetadataRefresh core.Duration `yaml:"saml_metadata_refresh"`
+	// SSOAppRedirects are the native app addresses a sign-in through a
+	// provider may hand its result to, matched exactly; empty turns signing
+	// in from an app off.
+	SSOAppRedirects []string `yaml:"sso_app_redirects"`
 }
 
 // PasswordParams is the argon2id policy these settings ask for: the built-in
@@ -679,7 +683,8 @@ func Defaults() Config {
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity, MaxImportBytes: DefaultMaxImportBytes},
-		Auth:     Auth{Mode: DefaultAuthMode, SAMLMetadataRefresh: core.DefaultSAMLMetadataRefresh},
+		Auth: Auth{Mode: DefaultAuthMode, SAMLMetadataRefresh: core.DefaultSAMLMetadataRefresh,
+			SSOAppRedirects: slices.Clone(core.DefaultSSOAppRedirects)},
 		Artifacts: Artifacts{
 			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
 		Session: Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,

@@ -38,7 +38,9 @@ type SSOFlow struct {
 	Surface     core.Surface `json:"f"`
 	Remember    bool         `json:"m,omitempty"`
 	Next        string       `json:"x,omitempty"`
-	ExpiresAt   time.Time    `json:"e"`
+	// App is a native app's part of the sign-in, when an app started it.
+	App       *AppSignIn `json:"a,omitempty"`
+	ExpiresAt time.Time  `json:"e"`
 }
 
 // NewSSOSecret returns a random URL-safe value for a state, nonce or PKCE
@@ -87,6 +89,20 @@ func SealSSOFlow(encoded string, f SSOFlow) (string, error) {
 // OpenSSOFlow decrypts a flow and checks its expiry. Every failure is one
 // answer, as a bad ticket's is.
 func OpenSSOFlow(encoded, sealed string, now time.Time) (SSOFlow, error) {
+	f, err := PeekSSOFlow(encoded, sealed)
+	if err != nil {
+		return SSOFlow{}, err
+	}
+	if !f.ExpiresAt.After(now) {
+		return SSOFlow{}, errSSOFlow()
+	}
+	return f, nil
+}
+
+// PeekSSOFlow decrypts a flow without checking its expiry. A flow that
+// opens was sealed here, so an expired one still says truthfully which app
+// to tell that it expired.
+func PeekSSOFlow(encoded, sealed string) (SSOFlow, error) {
 	aead, err := ssoFlowAEAD(encoded)
 	if err != nil {
 		return SSOFlow{}, err
@@ -100,7 +116,7 @@ func OpenSSOFlow(encoded, sealed string, now time.Time) (SSOFlow, error) {
 		return SSOFlow{}, errSSOFlow()
 	}
 	var f SSOFlow
-	if err := json.Unmarshal(plain, &f); err != nil || !f.ExpiresAt.After(now) || !f.Surface.Valid() {
+	if err := json.Unmarshal(plain, &f); err != nil || !f.Surface.Valid() {
 		return SSOFlow{}, errSSOFlow()
 	}
 	return f, nil

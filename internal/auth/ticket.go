@@ -35,6 +35,9 @@ type Ticket struct {
 	// Method is how the first step was passed, carried so the session the
 	// second step mints is recorded as what it was. Empty reads as password.
 	Method string
+	// App is the native app a sign-in through a provider hands its result
+	// to, when an app started it.
+	App *AppSignIn
 }
 
 // ticketSeparator divides the payload fields. None of the fields may contain
@@ -60,9 +63,17 @@ func MintTicket(encoded string, t Ticket) (string, error) {
 	case !t.Surface.Valid():
 		return "", core.Invalid("a sign-in ticket requires a known surface")
 	}
-	payload := strings.Join([]string{
+	fields := []string{
 		t.UserID, t.TenantID, string(t.Surface), strconv.FormatInt(t.ExpiresAt.UTC().Unix(), 10), t.Method,
-	}, ticketSeparator)
+	}
+	if t.App != nil {
+		app, err := encodeApp(t.App)
+		if err != nil {
+			return "", err
+		}
+		fields = append(fields, app)
+	}
+	payload := strings.Join(fields, ticketSeparator)
 	body := base64.RawURLEncoding.EncodeToString([]byte(payload))
 	return body + "." + base64.RawURLEncoding.EncodeToString(ticketSignature(key, body)), nil
 }
@@ -89,7 +100,7 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		return Ticket{}, errTicket()
 	}
 	parts := strings.Split(string(raw), ticketSeparator)
-	if len(parts) != 4 && len(parts) != 5 {
+	if len(parts) < 4 || len(parts) > 6 {
 		return Ticket{}, errTicket()
 	}
 	unix, err := strconv.ParseInt(parts[3], 10, 64)
@@ -102,8 +113,15 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		Surface:   core.Surface(parts[2]),
 		ExpiresAt: time.Unix(unix, 0).UTC(),
 	}
-	if len(parts) == 5 {
+	if len(parts) >= 5 {
 		out.Method = parts[4]
+	}
+	if len(parts) == 6 {
+		app, ok := decodeApp(parts[5])
+		if !ok {
+			return Ticket{}, errTicket()
+		}
+		out.App = app
 	}
 	if !out.Surface.Valid() || !out.ExpiresAt.After(now) {
 		return Ticket{}, errTicket()

@@ -17,6 +17,7 @@ func (rt *Router) registerSSORoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteSignInOptions, rt.handleSignInOptions)
 	rt.mux.HandleFunc("POST "+wire.RouteSSOBegin, rt.handleBeginSSO)
 	rt.mux.HandleFunc("POST "+wire.RouteSSOComplete, rt.handleCompleteSSO)
+	rt.mux.HandleFunc("POST "+wire.RouteSSOExchange, rt.handleExchangeSSO)
 	rt.mux.HandleFunc("GET "+wire.RouteSAMLMetadata, rt.handleSAMLMetadata)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSSOProviders, rt.handleListSSOProviders)
@@ -59,6 +60,24 @@ func (rt *Router) handleCompleteSSO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := rt.cfg.Service.CompleteSSOLogin(r.Context(), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if result.Session != nil {
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
+	}
+	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleExchangeSSO trades an app sign-in's one-time code for a session. It
+// answers as handleLogin does for a completed sign-in.
+func (rt *Router) handleExchangeSSO(w http.ResponseWriter, r *http.Request) {
+	var in core.SSOExchangeInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	result, err := rt.cfg.Service.ExchangeSSOCode(r.Context(), in)
 	if err != nil {
 		WriteError(w, err)
 		return

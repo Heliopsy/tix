@@ -5,8 +5,9 @@ provider such as Keycloak, Authentik, Microsoft Entra ID, Google or Okta, GitHub
 provider such as Entra ID, Okta, Keycloak, Authentik or Google Workspace. Providers are configured per tenant,
 by the tenant's own administrators. Each enabled provider is a **Sign in with NAME** button on the web sign-in
 screen. OIDC and GitHub providers are also a choice for `tix login --sso`; SAML is a browser protocol and signs
-in on the web only. SAML has its own set-up, in [SAML providers](#saml-providers) below; everything from
-[Linking rules](#linking-rules) on applies to every kind.
+in on the web only. Every kind, SAML included, also signs in a native app such as tix mobile, through the system
+browser: see [Signing in from the app](#signing-in-from-the-app). SAML has its own set-up, in
+[SAML providers](#saml-providers) below; everything from [Linking rules](#linking-rules) on applies to every kind.
 
 ## Before you start
 
@@ -414,6 +415,10 @@ Keycloak level of assurance, and check them in the provider's token preview firs
 
 ## Command line sign-in
 
+This is the terminal's flow, with a loopback redirect on the same machine. A phone cannot listen on a loopback
+address, and SAML cannot use one at all, so an app signs in as described in
+[Signing in from the app](#signing-in-from-the-app) instead.
+
 SAML providers are not offered here: the IdP posts its answer to a browser. Sign in on the web, then create a
 token for the machine on the **Connect** screen. `--sso` alone skips SAML providers when it picks one.
 
@@ -427,6 +432,45 @@ tix --server https://tix.example.com login --sso=github --no-browser
 browser, open it elsewhere on the same machine, since the provider sends the browser back to the loopback
 address. The result is the same session `tix login` prints, and `--tenant` and `--context` work as for a
 password. Register the loopback redirect with the provider as described above.
+
+## Signing in from the app
+
+A native app, such as tix mobile, signs in through any enabled provider, OIDC, GitHub or SAML, without a change
+at the identity provider. The app opens the ordinary web sign-in in the system browser, the browser runs the
+web flow to its end, and the server hands the result to the app instead of setting a browser session. The
+redirect URI the provider knows stays `PUBLIC_URL/login/sso/callback`, or the SAML ACS, so nothing new is
+registered there.
+
+1. The app reads `GET /api/v1/auth/sso/options`. It offers provider buttons only when `app_sign_in` is true,
+   which it is while `auth.sso_app_redirects` lists at least one address
+   ([configuration.md](configuration.md#signing-in-from-an-app)).
+2. It makes a PKCE verifier and opens
+   `/login/sso/KEY?app_redirect=URI&code_challenge=CHALLENGE&code_challenge_method=S256&app_state=STATE` in the
+   system browser. `app_redirect` has to be exactly one of the listed addresses, `code_challenge` is required
+   and only `S256` is taken, and `app_state`, which the app gets back unchanged, is at most 256 characters.
+   Anything else is refused on the ordinary sign-in error screen. The app's values are sealed into the flow
+   cookie with the rest of the sign-in.
+3. The browser signs in as on the web: the provider, the [linking rules](#linking-rules) and the tenant's
+   second factor, asked in the browser. An app sign-in always counts as Keep me signed in. The second factor is
+   asked when the tenant requires it on the web or on the command line, since the app's session is the one its
+   password sign-in gets; an enrolment that completes here shows its recovery codes in the browser first.
+4. Where the web would set its session cookie, the browser goes to `URI?code=CODE&state=STATE` instead: a 302
+   after the provider's redirect back, and a small page that navigates on its own and links the address after
+   a POST (the SAML ACS, the second factor's form), because a browser may refuse to follow a redirect to an
+   app's scheme that no tap started. A refusal goes to `URI?error=REASON&state=STATE`, with one of
+   `access_denied` (the provider or the person ended it, or the account may not sign in here), `not_linked`
+   (no account matches, see the linking rules), `expired` (the sign-in took too long, was started in another
+   browser, or was already used), `provider_error` (the provider's answer did not verify) and `server_error`.
+   A refusal of the second factor's code stays in the browser, so the person can try again.
+5. The app posts the code and its verifier to `POST /api/v1/auth/sso/exchange` within two minutes, and gets
+   back exactly what `POST /api/v1/auth/login` answers for a completed sign-in. The session's sign-in method is
+   `sso:KEY`, and it is audited as a `user.login` like any other. See [api.md](api.md#signing-in-from-an-app).
+
+The code is 32 random bytes. Only its SHA-256 is stored, in `sso_handoffs`, bound to the PKCE challenge, the
+account, the tenant and the provider. The exchange deletes the row, so a code is taken once across every
+replica, and a wrong verifier spends it too. An unknown, used or expired code, or a wrong verifier, is `401
+invalid credentials`, logged as `sso_code_invalid` ([deployment.md](deployment.md)). An account disabled, or a
+provider switched off, between the browser and the exchange is refused the same way.
 
 ## Turning passwords off
 
@@ -474,6 +518,12 @@ A global admin cannot sign in through a provider at all: see below.
 - **The flow is bound to the browser.** State, nonce and PKCE verifier (for SAML, the request id) live in a
   sealed HttpOnly cookie; a callback from another browser, or with another state, is refused before the code is
   exchanged or the response read.
+- **App sign-in hands back a code, never a session.** The address the browser goes to has to match an entry of
+  `auth.sso_app_redirects` exactly, with no prefix or pattern matching, so a sign-in cannot be sent to another
+  app or site, and an `http` or `https` address is refused unless it is listed in full. The code it carries is
+  worthless without the verifier only the app that started the sign-in holds (PKCE S256, compared in constant
+  time), expires in two minutes and is taken once, even by two exchanges racing on different replicas. No log
+  line, audit entry or event carries the code, its hash or the verifier.
 - **Audit.** `sso.login`, `sso.link`, `sso.user_created` and `sso.denied` (with the reason) are recorded in the
   tenant's audit log, as are `sso.provider.create`, `sso.provider.update` and `sso.provider.delete`. Their
   events are delivered only to subscribers holding `sso:admin`.
@@ -485,4 +535,5 @@ settings as JSON, and the sealed secret. `user_identities` links (tenant, provid
 the email last reported and the last sign-in. SAML is another kind on the same two tables, with its IdP
 settings in the provider's JSON, alongside the pinned settings, the certificates retiring after a rollover and
 the outcome of the last metadata read. `sso_assertions` holds the ids of SAML assertions that signed somebody in,
-until they expire. The v1 columns `users.sso_provider` and `users.sso_subject`, which nothing used, are gone.
+until they expire, and `sso_handoffs` the hashed codes an app sign-in handed out, until they are exchanged or
+expire. The v1 columns `users.sso_provider` and `users.sso_subject`, which nothing used, are gone.

@@ -47,6 +47,9 @@ const (
 	RouteSignInOptions = APIPrefix + "/auth/sso/options"
 	RouteSSOBegin      = APIPrefix + "/auth/sso/begin"
 	RouteSSOComplete   = APIPrefix + "/auth/sso/complete"
+	// RouteSSOExchange trades the one-time code a native app's sign-in
+	// handed the app for a session, without a credential.
+	RouteSSOExchange = APIPrefix + "/auth/sso/exchange"
 	// RouteSAMLMetadata answers a SAML provider's service provider metadata,
 	// without a credential, as an IdP fetches it.
 	RouteSAMLMetadata = APIPrefix + "/auth/sso/providers/{id}/saml-metadata"

@@ -54,7 +54,8 @@ func (l *Local) SignInOptions(ctx context.Context) (*core.SignInOptions, error) 
 	if err != nil {
 		return nil, err
 	}
-	out := &core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed, Providers: []core.SSOProviderOption{}}
+	out := &core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed, Providers: []core.SSOProviderOption{},
+		AppSignIn: len(l.appRedirects) > 0}
 	err = l.read(ctx, core.SystemActor(scope.TenantID), func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
@@ -126,8 +127,15 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 	if err != nil {
 		return nil, err
 	}
+	app, err := l.appSignIn(in, provider.ID)
+	if err != nil {
+		return nil, err
+	}
+	if app != nil {
+		in.Surface, in.Remember, in.Next = core.SurfaceWeb, true, ""
+	}
 	if provider.Kind == core.SSOKindSAML {
-		return l.beginSAML(ctx, scope, *provider, in)
+		return l.beginSAML(ctx, scope, *provider, in, app)
 	}
 	surface, err := checkRedirectURI(in.RedirectURI, in.Surface)
 	if err != nil {
@@ -136,12 +144,16 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 	if !surface.Valid() {
 		return nil, core.Invalid("%q is not a sign-in surface", surface)
 	}
+	if app != nil && surface != core.SurfaceWeb {
+		return nil, core.OnField(core.Invalid("an app sign-in returns to this server's %s", core.SSOCallbackPath),
+			"redirect_uri")
+	}
 	adapter, err := l.adapterFor(ctx, scope, *provider)
 	if err != nil {
 		return nil, err
 	}
 	flow := auth.SSOFlow{TenantID: scope.TenantID, ProviderID: provider.ID, RedirectURI: strings.TrimSpace(in.RedirectURI),
-		Surface: surface, Remember: in.Remember, Next: safeReturn(in.Next),
+		Surface: surface, Remember: in.Remember, Next: safeReturn(in.Next), App: app,
 		ExpiresAt: l.clock.Now().Add(auth.SSOFlowTTL).UTC().Truncate(time.Second)}
 	for _, v := range []*string{&flow.State, &flow.Nonce, &flow.Verifier} {
 		if *v, err = auth.NewSSOSecret(); err != nil {
@@ -197,22 +209,33 @@ func (l *Local) CompleteSSOLogin(ctx context.Context, in core.CompleteSSOInput) 
 	if strings.TrimSpace(in.SAMLResponse) != "" {
 		return l.completeSAML(ctx, scope, in)
 	}
-	flow, err := auth.OpenSSOFlow(l.totpKey, in.Flow, l.clock.Now())
+	flow, err := l.openFlow(in.Flow)
 	if err != nil {
 		return nil, err
 	}
+	out, err := l.completeFlow(withAppSignIn(ctx, flow.App), scope, flow, in)
+	if err != nil {
+		return nil, l.appRefusal(err, flow.App)
+	}
+	return out, nil
+}
+
+// completeFlow is an OIDC or GitHub sign-in from its opened flow on.
+func (l *Local) completeFlow(ctx context.Context, scope core.TenantScope, flow auth.SSOFlow, in core.CompleteSSOInput,
+) (*core.LoginResult, error) {
 	if flow.TenantID != scope.TenantID && l.servedHere(ctx, flow.TenantID) {
 		scope = core.TenantScope{TenantID: flow.TenantID}
 	}
 	if flow.TenantID != scope.TenantID {
-		return nil, core.Unauthenticated("this single sign-on was started for another tenant; start again")
+		return nil, staleFlow(core.Unauthenticated("this single sign-on was started for another tenant; start again"))
 	}
 	if subtle.ConstantTimeCompare([]byte(flow.State), []byte(in.State)) != 1 {
-		return nil, core.Unauthenticated("this single sign-on answer does not belong to the sign-in this " +
-			"browser started (state mismatch); start again")
+		return nil, staleFlow(core.Unauthenticated("this single sign-on answer does not belong to the sign-in this " +
+			"browser started (state mismatch); start again"))
 	}
 	if e := strings.TrimSpace(in.Error); e != "" {
-		return nil, core.Unauthenticated("the identity provider ended the sign-in: %s", truncateText(e, 80))
+		return nil, core.Unauthenticated("the identity provider ended the sign-in: %s", truncateText(e, 80)).
+			WithDetail("reason", ssoReasonProviderEnded)
 	}
 	if strings.TrimSpace(in.Code) == "" {
 		return nil, core.Invalid("the identity provider returned no code")

@@ -86,6 +86,7 @@ var unshadowedKeys = map[string]string{
 	"auth.argon2_time":               "connect.dialLocal, via Auth.PasswordParams into service.WithPasswordParams; there is no flag",
 	"auth.argon2_threads":            "connect.dialLocal, via Auth.PasswordParams into service.WithPasswordParams; there is no flag",
 	"auth.saml_metadata_refresh":     "connect.dialLocal and serving.Build, into service.WithSAMLMetadataRefresh and server.Options.SAMLRefreshInterval; there is no flag",
+	"auth.sso_app_redirects":         "connect.dialLocal, into service.WithSSOAppRedirects; there is no flag",
 	"hooks.mode":                     "config.Validate only; this build implements one mode",
 	"webhooks.drain_mode":            "connect.drainMode",
 	"webhooks.allow_private_targets": "connect.Dial and runServe",

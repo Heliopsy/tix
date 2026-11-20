@@ -187,6 +187,9 @@ func (h *handler) finishSignIn(w http.ResponseWriter, r *http.Request, result *c
 		return h.renderTOTP(w, r, http.StatusOK, v)
 	}
 
+	if result.AppRedirect != "" {
+		return h.backToApp(w, r, result)
+	}
 	session := result.Session
 	http.SetCookie(w, auth.SessionCookie(*session, h.secureCookie(r)))
 	if len(result.RecoveryCodes) > 0 {

@@ -264,7 +264,9 @@ the address. `tix tenant edit KEY
 --password-login disabled` turns passwords off once a provider is enabled;
 global admins keep password sign-in, and tokens and SSH keys keep working. A
 refused provider sign-in is exit `5` with reason `sso_...`; the details are in
-the audit log as `sso.denied`. See docs/sso.md.
+the audit log as `sso.denied`. The tix mobile app signs in through any kind,
+SAML included, in the system browser, for the addresses
+`auth.sso_app_redirects` lists; nothing changes at the IdP. See docs/sso.md.
 
 ```sh
 tix tenant sso add kc --kind oidc --name Keycloak --issuer https://id.example.com/realms/acme --client-id tix-web --client-secret -

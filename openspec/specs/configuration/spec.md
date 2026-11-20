@@ -596,3 +596,12 @@ address. Both SHALL default to strict, and an entry that does not parse SHALL be
 
 - **WHEN** `server.egress_allow` is `[10.0.0.0/8]` and a tenant on `tix serve` saves a source at `http://10.1.2.3`
 - **THEN** the source is saved
+
+### Requirement: App redirects for single sign-on
+
+`auth.sso_app_redirects` (`TIX_AUTH_SSO_APP_REDIRECTS`) SHALL list the addresses an app sign-in may hand its result to, defaulting to `red.tix.mobile:/sso`. An empty list SHALL turn app sign-in off. An entry without a scheme, or with a fragment, SHALL be refused.
+
+#### Scenario: Turned off
+
+- **WHEN** the variable is set to nothing
+- **THEN** sign-in options answer `app_sign_in: false`

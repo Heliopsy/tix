@@ -1,0 +1,31 @@
+{{/*
+  The page that hands a sign-in through a provider back to the native app
+  that started it in the system browser. It is drawn in answer to a POST,
+  where a browser may not follow a redirect to the app's scheme, so it
+  navigates on its own and links the address for a reader whose browser
+  asks first. The recovery codes of an enrolment are shown here, once,
+  before the reader goes on.
+*/}}
+{{define "content"}}
+{{$v := .Data}}
+{{if not $v.Codes}}<meta http-equiv="refresh" content="0;url={{$v.Target}}">{{end}}
+<div class="headtip"><h1>{{t "Back to the app"}}</h1></div>
+{{if $v.Failed}}
+<p class="lede">{{t "The sign-in did not complete. The app says why and lets you try again."}}</p>
+{{else if $v.Codes}}
+<p class="lede">{{t "You are signed in. Keep these codes somewhere safe: each one signs you in once if you lose the authenticator, and they are not shown again."}}</p>
+{{else}}
+<p class="lede">{{t "You are signed in. Your browser is taking you back to the app."}}</p>
+{{end}}
+{{if $v.Codes}}
+<section class="secret" aria-labelledby="recovery-codes-heading">
+  <h2 id="recovery-codes-heading">{{t "Ten codes, each good once"}}</h2>
+  <div class="copyline">
+    <pre id="recovery-codes"><code>{{$v.Joined}}</code></pre>
+    <button type="button" class="secondary" data-copy-target="recovery-codes">{{t "Copy"}}</button>
+  </div>
+</section>
+{{end}}
+<p><a class="button" href="{{$v.Target}}">{{t "Open the app"}}</a></p>
+<p><a href="/login">{{t "Back to sign in"}}</a></p>
+{{end}}

@@ -65,6 +65,9 @@ type Local struct {
 	// samlRefresh is how often the server reads SAML IdP metadata again,
 	// zero when it does not; it dates the next refresh a provider shows.
 	samlRefresh time.Duration
+	// appRedirects are the native app redirects a sign-in through a
+	// provider may hand its result to, auth.sso_app_redirects.
+	appRedirects []string
 
 	// leaseDefaults are the configured lease bounds for this deployment, laid
 	// under whatever the tenant has chosen for itself. A tenant narrows them;
@@ -186,6 +189,13 @@ func WithSAMLMetadataRefresh(d time.Duration) Option {
 	return func(l *Local) { l.samlRefresh = max(d, 0) }
 }
 
+// WithSSOAppRedirects sets the native app redirects a sign-in through a
+// provider may hand its result to, matched exactly. An empty list turns
+// signing in from an app off.
+func WithSSOAppRedirects(redirects []string) Option {
+	return func(l *Local) { l.appRedirects = slices.Clone(redirects) }
+}
+
 // WithLeaseDefaults sets the deployment-wide lease bounds that a tenant's own
 // settings are layered over.
 func WithLeaseDefaults(p lease.Policy) Option {
@@ -303,6 +313,7 @@ func New(st store.Store, opts ...Option) *Local {
 		artifactMaxBytes:  core.DefaultArtifactMaxBytes,
 		artifactTypes:     core.DefaultArtifactTypes,
 		sessionDefaults:   defaultSessionPolicy(),
+		appRedirects:      slices.Clone(core.DefaultSSOAppRedirects),
 	}
 	for _, opt := range opts {
 		opt(l)

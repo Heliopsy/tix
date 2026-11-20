@@ -377,6 +377,10 @@ func (stubService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (*co
 	return nil, core.Unauthenticated("no flow")
 }
 
+func (stubService) ExchangeSSOCode(context.Context, core.SSOExchangeInput) (*core.LoginResult, error) {
+	return nil, core.Unauthenticated("invalid credentials")
+}
+
 // SAMLMetadata answers for the public metadata address a SAML IdP imports.
 func (stubService) SAMLMetadata(context.Context, core.SAMLMetadataInput) (*core.SAMLMetadata, error) {
 	return nil, core.Invalid("no saml provider")

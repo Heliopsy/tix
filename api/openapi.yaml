@@ -852,7 +852,7 @@ paths:
 
         Command line: `tix login`.
 
-        Specified in [`http-api`](openspec/specs/http-api/spec.md).
+        Specified in [`auth`](openspec/specs/auth/spec.md), [`http-api`](openspec/specs/http-api/spec.md).
       operationId: session.login
       requestBody:
         content:
@@ -895,6 +895,7 @@ paths:
       tags:
         - session
       x-tix-openspec:
+        - auth
         - http-api
   /api/v1/auth/logout:
     post:
@@ -1187,12 +1188,64 @@ paths:
         or the response a SAML IdP posted
       tags:
         - sso
+  /api/v1/auth/sso/exchange:
+    post:
+      description: |-
+        ExchangeSSOCode trades the one-time code a native app's sign-in handed the app, with the PKCE verifier of the challenge it started with, for a session. It answers as Login does for a completed sign-in. An unknown, used or expired code, or a wrong verifier, is invalid credentials.
+
+        Specified in [`auth`](openspec/specs/auth/spec.md).
+      operationId: sso.exchange
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SSOExchangeInput'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+          description: LoginResult is either a session or the challenge standing between
+            the caller and one. Exactly one of the two is set.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security: []
+      summary: ExchangeSSOCode trades the one-time code a native app's sign-in handed
+        the app, with the PKCE verifier of the challenge it started with, for a session
+      tags:
+        - sso
+      x-tix-openspec:
+        - auth
   /api/v1/auth/sso/options:
     get:
       description: |-
         SignInOptions reports, without a credential, whether this tenant takes passwords and which providers its sign-in screen offers.
 
         Command line: `tix login`.
+
+        Specified in [`http-api`](openspec/specs/http-api/spec.md).
       operationId: sso.options
       responses:
         "200":
@@ -1224,6 +1277,8 @@ paths:
         passwords and which providers its sign-in screen offers
       tags:
         - sso
+      x-tix-openspec:
+        - http-api
   /api/v1/auth/sso/providers/{id}/saml-metadata:
     get:
       description: |-
@@ -17730,6 +17785,18 @@ components:
             RelayState of a SAML request.
           type: string
       type: object
+    SSOExchangeInput:
+      description: SSOExchangeInput trades the one-time code an app sign-in handed
+        the app for a session.
+      properties:
+        code:
+          description: Code is the one-time code the browser handed the app's redirect.
+          type: string
+        code_verifier:
+          description: CodeVerifier is the PKCE verifier whose S256 challenge started
+            the sign-in.
+          type: string
+      type: object
     SSOProvider:
       description: 'SSOProvider is a tenant''s sign-in provider. The client secret
         is never part of it once stored: SecretSet and SecretHint say what a screen
@@ -18219,6 +18286,11 @@ components:
     SignInOptions:
       description: SignInOptions is what a sign-in screen offers on this tenant.
       properties:
+        app_sign_in:
+          description: 'AppSignIn reports that a native app may sign in through these
+            providers in the system browser: the server lists at least one app redirect
+            in auth.sso_app_redirects.'
+          type: boolean
         password_login:
           description: PasswordLogin is a tenant's password sign-in policy.
           type: string

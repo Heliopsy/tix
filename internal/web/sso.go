@@ -3,6 +3,8 @@
 package web
 
 import (
+	"errors"
+	"html/template"
 	"io"
 	"net/http"
 	"sort"
@@ -48,6 +50,11 @@ func (h *handler) startSSO(w http.ResponseWriter, r *http.Request) error {
 		Surface:     core.SurfaceWeb,
 		Remember:    checkedValue(q.Get("remember")),
 		Next:        safeNext(orElse(q.Get("next"), RouteRoot)),
+
+		AppRedirect:         q.Get("app_redirect"),
+		CodeChallenge:       q.Get("code_challenge"),
+		CodeChallengeMethod: q.Get("code_challenge_method"),
+		AppState:            q.Get("app_state"),
 	})
 	if err != nil {
 		return err
@@ -79,7 +86,7 @@ func (h *handler) finishSSO(w http.ResponseWriter, r *http.Request) error {
 		Error: strings.TrimSpace(q.Get("error") + " " + q.Get("error_description")),
 	})
 	if err != nil {
-		return err
+		return h.refusedForApp(w, r, err)
 	}
 	return h.signedInThroughSSO(w, r, result)
 }
@@ -120,7 +127,7 @@ func (h *handler) finishSAML(w http.ResponseWriter, r *http.Request) error {
 		Provider: key, RedirectURI: baseURL(r) + core.SAMLACSPath(key),
 	})
 	if err != nil {
-		return err
+		return h.refusedForApp(w, r, err)
 	}
 	return h.signedInThroughSSO(w, r, result)
 }
@@ -141,6 +148,9 @@ func (h *handler) samlMetadata(w http.ResponseWriter, r *http.Request) error {
 // return to.
 func (h *handler) signedInThroughSSO(w http.ResponseWriter, r *http.Request, result *core.LoginResult) error {
 	next := safeNext(result.Next)
+	if result.Challenge == nil && result.AppRedirect != "" {
+		return h.backToApp(w, r, result)
+	}
 	if challenge := result.Challenge; challenge != nil {
 		uri := ""
 		if challenge.Enrolment != nil {
@@ -159,6 +169,66 @@ func (h *handler) signedInThroughSSO(w http.ResponseWriter, r *http.Request, res
 	// #nosec G710 -- safeNext keeps only a relative path on this origin.
 	http.Redirect(w, r, next, http.StatusSeeOther)
 	return nil
+}
+
+// ssoAppTemplate is the page that sends the browser back to a native app.
+const ssoAppTemplate = "ssoapp.html"
+
+// ssoAppView is the page that hands a sign-in back to the app: the address
+// with its code or refusal, and the recovery codes an enrolment issued.
+type ssoAppView struct {
+	// Target is the app's own redirect, an address from
+	// auth.sso_app_redirects with the code or the refusal and the app's
+	// state in its query.
+	Target template.URL
+	Codes  []string
+	Failed bool
+}
+
+// Joined is the recovery codes one to a line.
+func (v ssoAppView) Joined() string { return strings.Join(v.Codes, "\n") }
+
+// refusedForApp answers a refused provider sign-in: the app's redirect
+// carrying the reason when an app started it, the error screen otherwise.
+func (h *handler) refusedForApp(w http.ResponseWriter, r *http.Request, err error) error {
+	var e *core.Error
+	if !errors.As(err, &e) {
+		return err
+	}
+	target, _ := e.Details[core.DetailAppRedirect].(string)
+	if target == "" {
+		return err
+	}
+	return h.toApp(w, r, ssoAppView{Target: appURL(target), Failed: true})
+}
+
+// backToApp hands a completed sign-in to the app that started it. No
+// session cookie is set: the app exchanges the code for its own session.
+func (h *handler) backToApp(w http.ResponseWriter, r *http.Request, result *core.LoginResult) error {
+	return h.toApp(w, r, ssoAppView{Target: appURL(result.AppRedirect), Codes: result.RecoveryCodes})
+}
+
+// appURL marks an app redirect safe to draw as a link. The service built it
+// from an address the configuration lists exactly, with a query it encoded.
+func appURL(target string) template.URL {
+	return template.URL(target) // #nosec G203 -- an allowlisted app redirect with an encoded query
+}
+
+// toApp sends the browser to the app. A GET, the provider's redirect back,
+// is answered with a 302. A POST, the SAML ACS or the second factor's form,
+// is answered with a page that navigates on its own and links the address,
+// because a browser may refuse to follow a redirect to an app's scheme that
+// no gesture started; the same page shows the recovery codes of an
+// enrolment before the reader goes on.
+func (h *handler) toApp(w http.ResponseWriter, r *http.Request, v ssoAppView) error {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if r.Method == http.MethodGet && len(v.Codes) == 0 {
+		// #nosec G710 -- an address auth.sso_app_redirects lists exactly; see appURL.
+		http.Redirect(w, r, string(v.Target), http.StatusFound)
+		return nil
+	}
+	return h.render(w, r, ssoAppTemplate, "Back to the app", v)
 }
 
 // ssoView is what the Single sign-on screen renders.

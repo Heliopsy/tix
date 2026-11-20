@@ -89,6 +89,7 @@ func applyIdPMetadata(p *core.SSOProvider, md *sso.IdPMetadata, entity, ssoURL, 
 // beginSAML starts a SAML sign-in: an AuthnRequest over HTTP-Redirect whose
 // ID the flow keeps, with the flow's state as the RelayState.
 func (l *Local) beginSAML(ctx context.Context, scope core.TenantScope, p core.SSOProvider, in core.BeginSSOInput,
+	app *auth.AppSignIn,
 ) (*core.SSOBegin, error) {
 	surface := in.Surface
 	if surface == "" {
@@ -121,7 +122,7 @@ func (l *Local) beginSAML(ctx context.Context, scope core.TenantScope, p core.SS
 		return nil, err
 	}
 	flow := auth.SSOFlow{TenantID: scope.TenantID, ProviderID: p.ID, State: state, Nonce: requestID,
-		RedirectURI: acs, Surface: surface, Remember: in.Remember, Next: safeReturn(in.Next),
+		RedirectURI: acs, Surface: surface, Remember: in.Remember, Next: safeReturn(in.Next), App: app,
 		ExpiresAt: l.clock.Now().Add(auth.SSOFlowTTL).UTC().Truncate(time.Second)}
 	sealed, err := auth.SealSSOFlow(l.totpKey, flow)
 	if err != nil {
@@ -156,6 +157,7 @@ type samlFlow struct {
 	surface   core.Surface
 	remember  bool
 	next      string
+	app       *auth.AppSignIn
 }
 
 // completeSAML finishes a SAML sign-in from the posted response.
@@ -173,6 +175,16 @@ func (l *Local) completeSAML(ctx context.Context, scope core.TenantScope, in cor
 	if err != nil {
 		return nil, err
 	}
+	out, err := l.verifySAML(withAppSignIn(ctx, f.app), f, in)
+	if err != nil {
+		return nil, l.appRefusal(err, f.app)
+	}
+	return out, nil
+}
+
+// verifySAML checks a posted response against its flow and signs in the
+// person it names.
+func (l *Local) verifySAML(ctx context.Context, f samlFlow, in core.CompleteSSOInput) (*core.LoginResult, error) {
 	sp, err := sso.NewSAML(*f.provider, f.acs, l.clock.Now())
 	if err != nil {
 		return nil, err
@@ -190,7 +202,7 @@ func (l *Local) completeSAML(ctx context.Context, scope core.TenantScope, in cor
 	if core.IsKind(err, core.KindConflict) {
 		msg := "this SAML response has already been used to sign in; start again"
 		l.recordDenied(ctx, f.scope, *f.provider, assertion.Identity, ssoDeniedReplay, msg)
-		return nil, core.Unauthenticated("%s", msg)
+		return nil, staleFlow(core.Unauthenticated("%s", msg))
 	}
 	if err != nil {
 		return nil, err
@@ -206,19 +218,30 @@ func (l *Local) completeSAML(ctx context.Context, scope core.TenantScope, in cor
 // solicitedSAML opens the flow a SAML response answers, checking it was
 // started in this browser for the provider the response was posted to.
 func (l *Local) solicitedSAML(ctx context.Context, scope core.TenantScope, in core.CompleteSSOInput) (samlFlow, error) {
-	flow, err := auth.OpenSSOFlow(l.totpKey, in.Flow, l.clock.Now())
+	flow, err := l.openFlow(in.Flow)
 	if err != nil {
 		return samlFlow{}, err
 	}
+	f, err := l.solicitedFlow(ctx, scope, in, flow)
+	if err != nil {
+		return samlFlow{}, l.appRefusal(err, flow.App)
+	}
+	return f, nil
+}
+
+// solicitedFlow checks an opened flow is the one a SAML response answers.
+func (l *Local) solicitedFlow(ctx context.Context, scope core.TenantScope, in core.CompleteSSOInput, flow auth.SSOFlow,
+) (samlFlow, error) {
 	if flow.TenantID != scope.TenantID && l.servedHere(ctx, flow.TenantID) {
 		scope = core.TenantScope{TenantID: flow.TenantID}
 	}
 	if flow.TenantID != scope.TenantID {
-		return samlFlow{}, core.Unauthenticated("this single sign-on was started for another tenant; start again")
+		return samlFlow{}, staleFlow(core.Unauthenticated("this single sign-on was started for another tenant; " +
+			"start again"))
 	}
 	if subtle.ConstantTimeCompare([]byte(flow.State), []byte(in.State)) != 1 {
-		return samlFlow{}, core.Unauthenticated("this SAML response does not belong to the sign-in this browser " +
-			"started (RelayState mismatch); start again")
+		return samlFlow{}, staleFlow(core.Unauthenticated("this SAML response does not belong to the sign-in this " +
+			"browser started (RelayState mismatch); start again"))
 	}
 	provider, err := l.liveProvider(ctx, scope, flow.ProviderID, "flow")
 	if err != nil {
@@ -230,7 +253,7 @@ func (l *Local) solicitedSAML(ctx context.Context, scope core.TenantScope, in co
 			"provider; start again")
 	}
 	return samlFlow{scope: scope, provider: provider, acs: flow.RedirectURI, requestID: flow.Nonce,
-		surface: flow.Surface, remember: flow.Remember, next: flow.Next}, nil
+		surface: flow.Surface, remember: flow.Remember, next: flow.Next, app: flow.App}, nil
 }
 
 // unsolicitedSAML admits an IdP-initiated response, which answers no flow,

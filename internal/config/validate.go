@@ -439,6 +439,9 @@ func validatePasswordHashing(a Auth, sources map[string]Layer) error {
 		return invalidKey("auth.saml_metadata_refresh", sources).WithDetail("value", a.SAMLMetadataRefresh.String()).
 			WithDetail("reason", "must not be negative; 0 turns the scheduled read off")
 	}
+	if err := validateAppRedirects(a.SSOAppRedirects, sources); err != nil {
+		return err
+	}
 	if a.Argon2MemoryKiB == 0 && a.Argon2Time == 0 && a.Argon2Threads == 0 {
 		return nil
 	}
@@ -448,6 +451,22 @@ func validatePasswordHashing(a Auth, sources map[string]Layer) error {
 			key = "auth.argon2_time"
 		}
 		return invalidKey(key, sources).WithDetail("reason", err.Error())
+	}
+	return nil
+}
+
+// validateAppRedirects refuses an app redirect that is not an absolute
+// address with a scheme, or that carries a fragment the code would be lost in.
+func validateAppRedirects(redirects []string, sources map[string]Layer) error {
+	for _, raw := range redirects {
+		u, err := url.Parse(raw)
+		if err == nil && u.Scheme != "" && u.Fragment == "" && !strings.HasSuffix(raw, "#") && u.User == nil &&
+			(u.Opaque != "" || u.Path != "" || u.Host != "") {
+			continue
+		}
+		return invalidKey("auth.sso_app_redirects", sources).WithDetail("value", raw).
+			WithDetail("reason", "each entry must be an absolute address with a scheme, such as "+
+				"red.tix.mobile:/sso, without a fragment")
 	}
 	return nil
 }
