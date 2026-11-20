@@ -84,6 +84,9 @@ const (
 	RefusedSSHRateLimited = "ssh_rate_limited"
 	// RefusedSSHCapacity is an SSH connection over the concurrency cap.
 	RefusedSSHCapacity = "ssh_capacity"
+	// RefusedSSOCode is an app's exchange of a single sign-on code that is
+	// unknown, used or expired, or whose verifier does not match.
+	RefusedSSOCode = "sso_code_invalid"
 )
 
 // Refusal is why a credential was refused, in terms safe to log. It never

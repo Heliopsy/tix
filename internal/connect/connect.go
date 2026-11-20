@@ -434,6 +434,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithArtifactLimits(cfg.Config.Artifacts.MaxBytes, artifactTypes(cfg.Config.Artifacts.AllowedTypes)),
 		service.WithSessionPolicy(cfg.Config.Session.Policy()),
 		service.WithSAMLMetadataRefresh(cfg.Config.Auth.SAMLMetadataRefresh.D()),
+		service.WithSSOAppRedirects(cfg.Config.Auth.SSOAppRedirects),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),
 		service.WithEgress(egressPolicy),
 		service.WithPublicURL(cfg.Config.Server.PublicURL),

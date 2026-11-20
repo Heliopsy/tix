@@ -117,8 +117,9 @@ invite`, or the Users screen), or set one and require it to be changed at the fi
 Single sign-on per tenant through any OpenID Connect provider (Keycloak, Authentik, Entra ID, Google, Okta),
 GitHub, or a SAML 2.0 identity provider read from its metadata and reread on a schedule so certificate
 rollovers just work, configured by the tenant's own admins
-(`tix tenant sso add`, or the Single sign-on screen), in the browser and, for OIDC and GitHub, with
-`tix login --sso`. A tenant can turn passwords off, with global admins kept as the way back in.
+(`tix tenant sso add`, or the Single sign-on screen), in the browser, from the mobile app through the system
+browser and, for OIDC and GitHub, with `tix login --sso`. A tenant can turn passwords off, with global admins
+kept as the way back in.
 See [docs/sso.md](docs/sso.md).
 
 Provision people and groups from Entra ID, Okta, Authentik or JumpCloud over SCIM 2.0 (`tix tenant scim enable`).

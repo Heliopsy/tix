@@ -123,6 +123,7 @@ var boolColumns = map[string]bool{
 	"sso_providers.enabled":          true,
 	"sso_providers.auto_create":      true,
 	"sso_providers.trust_mfa":        true,
+	"sso_handoffs.second_factor":     true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

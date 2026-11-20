@@ -3,10 +3,14 @@
 package httpapi_test
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/service"
@@ -116,4 +120,80 @@ func TestSAMLProviderAndItsMetadataOverHTTP(t *testing.T) {
 	missing := f.do(http.MethodGet, strings.Replace(wire.RouteSAMLMetadata, "{id}", "nobody", 1), f.hostA, "", nil)
 	mustStatus(t, missing, http.StatusNotFound)
 	_ = missing.Body.Close()
+}
+
+func TestAnAppExchangesItsSignInCodeOverHTTP(t *testing.T) {
+	f := newFixtureOver(t, []service.Option{service.WithTOTPKey(apiTOTPKey), service.WithEgress(egress.Permissive())})
+	idp := ssotest.NewOIDC(t, f.clock.Now)
+	resp := f.call(http.MethodPost, wire.RouteSSOProviders, core.CreateSSOProviderInput{Key: "kc", Kind: core.SSOKindOIDC,
+		Issuer: idp.Issuer(), ClientID: idp.ClientID, ClientSecret: idp.ClientSecret, AutoCreate: true})
+	mustStatus(t, resp, http.StatusCreated)
+	_ = resp.Body.Close()
+
+	options := f.do(http.MethodGet, wire.RouteSignInOptions, f.hostA, "", nil)
+	mustStatus(t, options, http.StatusOK)
+	var raw map[string]any
+	decodeBody(t, options, &raw)
+	if raw["app_sign_in"] != true || raw["password_login"] != "allowed" || raw["providers"] == nil {
+		t.Errorf("options = %v, want app_sign_in true beside password_login and providers", raw)
+	}
+
+	// The browser half, as /login/sso/kc runs it for the app.
+	verifier := "app-verifier-0123456789-0123456789-0123456789"
+	ctx := core.WithTenant(context.Background(), core.TenantScope{TenantID: f.tenantA.ID})
+	begin, err := f.local.BeginSSOLogin(ctx, core.BeginSSOInput{Provider: "kc",
+		RedirectURI: "https://acme.test" + core.SSOCallbackPath, AppRedirect: "red.tix.mobile:/sso",
+		CodeChallenge: auth.PKCEChallenge(verifier), CodeChallengeMethod: "S256", AppState: "s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idp.SetClaims(map[string]any{"sub": "n", "email": "ada@example.com", "email_verified": true})
+	handed, err := f.local.CompleteSSOLogin(ctx, core.CompleteSSOInput{Flow: begin.Flow,
+		Code: idp.Grant(begin.AuthURL), State: begin.State})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, _ := url.Parse(handed.AppRedirect)
+	code := target.Query().Get("code")
+
+	for _, tc := range []struct {
+		name string
+		body any
+		want int
+	}{
+		{"not an object", "nope", http.StatusBadRequest},
+		{"no verifier", map[string]any{"code": code}, http.StatusBadRequest},
+		{"unknown code", core.SSOExchangeInput{Code: "nothing-handed", CodeVerifier: verifier}, http.StatusUnauthorized},
+	} {
+		refused := f.do(http.MethodPost, wire.RouteSSOExchange, f.hostA, "", tc.body)
+		mustStatus(t, refused, tc.want)
+		_ = refused.Body.Close()
+	}
+
+	done := f.do(http.MethodPost, wire.RouteSSOExchange, f.hostA, "", core.SSOExchangeInput{Code: code,
+		CodeVerifier: verifier})
+	mustStatus(t, done, http.StatusOK)
+	cookie := ""
+	for _, c := range done.Cookies() {
+		if c.Name == auth.SessionCookieName {
+			cookie = c.Value
+		}
+	}
+	var result core.LoginResult
+	decodeBody(t, done, &result)
+	if result.Session == nil || result.Session.Token == "" || cookie != result.Session.Token {
+		t.Fatalf("exchange = %+v with cookie %q, want a session and its cookie, as a password sign-in", result, cookie)
+	}
+	if result.Session.TenantID != f.tenantA.ID || !result.Session.Remembered {
+		t.Errorf("session = %+v, want a remembered session in the tenant the code was minted in", result.Session)
+	}
+
+	again := f.do(http.MethodPost, wire.RouteSSOExchange, f.hostA, "", core.SSOExchangeInput{Code: code,
+		CodeVerifier: verifier})
+	mustStatus(t, again, http.StatusUnauthorized)
+	var refusal map[string]any
+	decodeBody(t, again, &refusal)
+	if !strings.Contains(fmt.Sprint(refusal), "invalid credentials") {
+		t.Errorf("a reused code answered %v, want invalid credentials", refusal)
+	}
 }

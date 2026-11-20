@@ -165,7 +165,7 @@ the routes the server registers. The areas are the first segment of each operati
 | session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
-| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}`, `POST /sso/providers/{id}/refresh` |
+| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `POST /auth/sso/exchange`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}`, `POST /sso/providers/{id}/refresh` |
 | stats | `GET /stats` |
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
@@ -417,7 +417,9 @@ that does not verify or was made under another namespace, a key that is not enro
 ### Single sign-on
 
 `GET /auth/sso/options` needs no credential and answers what the tenant's sign-in screen offers: its
-`password_login` policy and its enabled `providers`, each with `key`, `display_name` and `kind`.
+`password_login` policy, its enabled `providers`, each with `key`, `display_name` and `kind`, and `app_sign_in`,
+true when a native app may sign in through those providers (the server lists an address in
+`auth.sso_app_redirects`).
 
 A sign-in through a provider is two calls, neither needing a credential. `POST /auth/sso/begin` takes
 `provider` (the key), `redirect_uri` and `surface`, optionally `remember`, and answers `auth_url` to open,
@@ -427,6 +429,27 @@ refused. After the provider redirects back, `POST /auth/sso/complete` takes `flo
 `error`) and answers as `POST /auth/login` does: a session, also set as a cookie, or a second factor challenge
 finished on `POST /auth/login`. A refusal after the provider vouched for someone is `403` with a
 `reason` such as `sso_not_member` or `sso_email_unverified`.
+
+#### Signing in from an app
+
+A native app signs in through a provider in the system browser, by opening `/login/sso/KEY` with
+`app_redirect`, `code_challenge`, `code_challenge_method=S256` and `app_state`; the browser comes back to the
+app's redirect with `code` and `state`, or with `error` and `state` (see
+[sso.md](sso.md#signing-in-from-the-app)). The app then trades the code, without a credential:
+
+```http
+POST /api/v1/auth/sso/exchange
+Content-Type: application/json
+
+{"code": "CODE", "code_verifier": "VERIFIER"}
+```
+
+The answer is exactly what `POST /auth/login` gives for a completed sign-in: `200` with `session` (`token`,
+`actor_id`, `tenant_id`, `expires_at`, `remembered`, which is always true here), `second_factor_due` when the
+tenant's policy applies, and the same session cookie. Send `session.token` as the cookie, as after a password
+sign-in. A body that is not JSON, or lacks `code` or `code_verifier`, is `400`. An unknown, used or expired
+code, or a verifier whose S256 is not the challenge, is `401` `invalid credentials`; the code is spent either
+way. A code lives two minutes and is taken once.
 
 `/sso/providers` lists and creates providers and `/sso/providers/{id}` (a key or an ID) reads, changes
 (`PATCH`, omitted fields unchanged) and deletes one; all need `sso:admin`. `client_secret` is accepted on create

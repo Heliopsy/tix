@@ -58,6 +58,11 @@ func (c *Client) CompleteSSOLogin(ctx context.Context, in core.CompleteSSOInput)
 	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteSSOComplete, nil, in)
 }
 
+// ExchangeSSOCode trades an app sign-in's one-time code for a session.
+func (c *Client) ExchangeSSOCode(ctx context.Context, in core.SSOExchangeInput) (*core.LoginResult, error) {
+	return call[core.LoginResult](ctx, c, http.MethodPost, wire.RouteSSOExchange, nil, in)
+}
+
 // samlMetadataLimit bounds the metadata document read back.
 const samlMetadataLimit = 1 << 20
 

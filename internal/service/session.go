@@ -349,14 +349,19 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		enrolled bool
 		enrolNow bool
 		signIn   bool
+		app      = appSignInFrom(ctx)
 	)
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
 			return err
 		}
-		required = tenant.RequiresTOTP(surface) || tenant.MFARequired()
-		enrolNow = tenant.RequiresTOTP(surface) || tenant.MFAEnforced(l.clock.Now())
+		// An app's sign-in runs on the web but mints the session the app's
+		// password sign-in gets on the cli surface, so either requirement
+		// asks for the factor.
+		onSurface := tenant.RequiresTOTP(surface) || (app != nil && tenant.RequiresTOTP(core.SurfaceCLI))
+		required = onSurface || tenant.MFARequired()
+		enrolNow = onSurface || tenant.MFAEnforced(l.clock.Now())
 		// Under the policy the browser signs an unenrolled person in to a
 		// session the gate confines to enrolment, rather than enrolling them
 		// inside the sign-in: one path then serves a new sign-in, a session
@@ -388,6 +393,7 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		Surface:   surface,
 		ExpiresAt: l.clock.Now().Add(auth.TicketTTL),
 		Method:    method,
+		App:       app,
 	})
 	if err != nil {
 		return nil, err
@@ -422,6 +428,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
 		return nil, core.Unauthenticated("this sign-in has expired; start again")
 	}
+	ctx = withAppSignIn(ctx, ticket.App)
 
 	var (
 		user      *core.User
@@ -614,6 +621,9 @@ func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *
 func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, origin core.SessionOrigin,
 	also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
+	if app := appSignInFrom(ctx); app != nil {
+		return l.handOff(ctx, scope, actor, origin, app, also)
+	}
 	policy, err := l.sessionPolicyFor(ctx, scope.TenantID)
 	if err != nil {
 		return nil, err

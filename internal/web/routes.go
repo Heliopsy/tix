@@ -50,6 +50,7 @@ func Exemptions() []Exemption {
 	return []Exemption{
 		{"ResolveDomain", "hostname resolution runs in the request path before any screen is chosen and is not an operator action"},
 		{"GetUser", "the user administration list already shows every field a single user screen would show"},
+		{"ExchangeSSOCode", "the browser's own provider sign-in sets its session at the callback; the exchange is for the app the browser hands a code to"},
 		{"GetSSOProvider", "the single sign-on screen already shows every field of every provider, and its edit dialog each setting"},
 		{"ClaimTask", "claiming is the agent work queue; the lease token it returns belongs to the worker and is never displayed in a browser"},
 		{"ClaimNext", "claiming is the agent work queue; a browser operator picks a task by name instead"},

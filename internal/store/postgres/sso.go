@@ -9,6 +9,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
@@ -240,6 +241,10 @@ func (t *tx) DeleteSSOProvider(ctx context.Context, providerID string) error {
 		"deleting used assertions of sso provider %q", providerID); err != nil {
 		return err
 	}
+	if _, err := t.execDelete(ctx, t.builder("sso_handoffs").Where("provider_id = ?", providerID),
+		"deleting pending handoffs of sso provider %q", providerID); err != nil {
+		return err
+	}
 	if _, err := t.execDelete(ctx, t.builder("user_identities").Where("provider_id = ?", providerID),
 		"deleting identities of sso provider %q", providerID); err != nil {
 		return err
@@ -340,4 +345,66 @@ func (t *tx) ConsumeSSOAssertion(ctx context.Context, providerID, assertionID st
 		Set("expires_at", timeArg(expiresAt))
 	_, err := t.execInsert(ctx, ins, "recording sso assertion %q", assertionID)
 	return err
+}
+
+var ssoHandoffColumns = []string{
+	"id", "provider_id", "code_hash", "code_challenge", "user_id", "method", "second_factor", "expires_at",
+}
+
+// CreateSSOHandoff records an app sign-in's code, after pruning the tenant's
+// expired ones.
+func (t *tx) CreateSSOHandoff(ctx context.Context, h *store.SSOHandoff, now time.Time) error {
+	if _, err := t.execDelete(ctx, t.builder("sso_handoffs").Where("expires_at < ?", timeArg(now)),
+		"pruning expired sso handoffs"); err != nil {
+		return err
+	}
+	if h.ID == "" {
+		h.ID = id.New()
+	}
+	ins := t.insert("sso_handoffs").
+		Set("id", h.ID).
+		Set("provider_id", h.ProviderID).
+		Set("code_hash", h.CodeHash).
+		Set("code_challenge", h.CodeChallenge).
+		Set("user_id", h.UserID).
+		Set("method", h.Method).
+		Set("second_factor", h.SecondFactor).
+		Set("expires_at", timeArg(h.ExpiresAt))
+	_, err := t.execInsert(ctx, ins, "recording an sso handoff")
+	return err
+}
+
+// TakeSSOHandoff deletes and returns an unexpired code by its hash. The
+// delete decides: a take that deletes no row lost to another.
+func (t *tx) TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time) (*store.SSOHandoff, error) {
+	q, args := t.builder("sso_handoffs").Select(ssoHandoffColumns...).Where("code_hash = ?", codeHash).Limit(1).
+		SelectQuery()
+	h, err := scanSSOHandoff(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("sso handoff")
+		}
+		return nil, err
+	}
+	n, err := t.execDelete(ctx, t.builder("sso_handoffs").Where("id = ?", h.ID), "taking an sso handoff")
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 || !h.ExpiresAt.After(now) {
+		return nil, core.NotFound("sso handoff")
+	}
+	return h, nil
+}
+
+func scanSSOHandoff(row scanner) (*store.SSOHandoff, error) {
+	var (
+		h       store.SSOHandoff
+		expires sql.NullTime
+	)
+	if err := row.Scan(&h.ID, &h.ProviderID, &h.CodeHash, &h.CodeChallenge, &h.UserID, &h.Method, &h.SecondFactor,
+		&expires); err != nil {
+		return nil, mapErr(err, "reading sso handoff")
+	}
+	h.ExpiresAt = scanTime(expires)
+	return &h, nil
 }

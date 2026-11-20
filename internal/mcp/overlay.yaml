@@ -42,6 +42,9 @@ operations:
   totp.remove:
     hide: true
     reason: a person removes their own second factor, never an agent on their behalf
+  sso.exchange:
+    hide: true
+    reason: the second half of a native app's browser sign-in, which only that app holds the verifier for
   invite.preview:
     hide: true
     reason: an invite link is opened by the person it was sent to, in a browser, before they hold any credential

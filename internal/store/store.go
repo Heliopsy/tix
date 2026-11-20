@@ -836,6 +836,30 @@ type SSOTx interface {
 	// expiresAt, after deleting the tenant's rows that expired before now. An
 	// id already recorded for the provider is a conflict.
 	ConsumeSSOAssertion(ctx context.Context, providerID, assertionID string, expiresAt, now time.Time) error
+	// CreateSSOHandoff records the code an app sign-in hands the app, after
+	// deleting the tenant's rows that expired before now.
+	CreateSSOHandoff(ctx context.Context, h *SSOHandoff, now time.Time) error
+	// TakeSSOHandoff deletes and returns the code whose hash is codeHash. A
+	// code that is unknown, already taken or expired at now is not found;
+	// of two takes of one code, only one finds it.
+	TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time) (*SSOHandoff, error)
+}
+
+// SSOHandoff is the one-time code an app sign-in through a provider handed
+// the app, as the store holds it: hashed, bound to the PKCE challenge, the
+// account and the provider.
+type SSOHandoff struct {
+	ID            string
+	ProviderID    string
+	CodeHash      string
+	CodeChallenge string
+	UserID        string
+	// Method is the session's sign-in method, sso:KEY.
+	Method string
+	// SecondFactor reports that a second factor was passed in the browser,
+	// or vouched for by the provider.
+	SecondFactor bool
+	ExpiresAt    time.Time
 }
 
 // SCIMConfig is a tenant's SCIM provisioning switch as the store holds it.

@@ -60,6 +60,7 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `auth.argon2_time` | `TIX_AUTH_ARGON2_TIME` | `0` (`3`) |
 | `auth.argon2_threads` | `TIX_AUTH_ARGON2_THREADS` | `0` (`4`) |
 | `auth.saml_metadata_refresh` | `TIX_AUTH_SAML_METADATA_REFRESH` | `12h` (`0` turns the scheduled read off) |
+| `auth.sso_app_redirects` | `TIX_AUTH_SSO_APP_REDIRECTS` | `red.tix.mobile:/sso` (empty turns app sign-in off) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
@@ -470,6 +471,24 @@ stops working. The default is `12h`; a failed read is tried again after an hour.
 off, and `tix tenant sso refresh KEY` still reads it on demand. Every process with the setting on reads on its
 schedule, and a provider read by one replica is not due on another, so only the process that runs the other
 background workers needs it on. See [sso.md](sso.md#certificate-rollover).
+
+### Signing in from an app
+
+`auth.sso_app_redirects` lists the addresses a native app's single sign-on may hand its result to. The app
+opens `/login/sso/KEY` in the system browser with one of them as `app_redirect`, and once the sign-in finishes
+there the browser goes to that address with a one-time code. An address is accepted only when it matches an
+entry exactly, with no prefix or pattern matching, so an `http` or `https` address works only when it is listed
+in full. The default is the tix mobile app's `red.tix.mobile:/sso`. An empty list turns app sign-in off, and
+`GET /api/v1/auth/sso/options` then answers `app_sign_in: false`. In a file:
+
+```yaml
+auth:
+  sso_app_redirects: []                     # off
+  # sso_app_redirects: [red.tix.mobile:/sso, com.example.fork:/sso]
+```
+
+As an environment variable the list is comma separated, and `TIX_AUTH_SSO_APP_REDIRECTS=` with nothing after it
+turns it off. Each entry needs a scheme and no fragment. See [sso.md](sso.md#signing-in-from-the-app).
 
 ### Sign-in sessions
 

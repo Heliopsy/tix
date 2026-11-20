@@ -995,6 +995,11 @@ type SSOService interface {
 	// returned, or the response a SAML IdP posted. It answers as Login does:
 	// a session, or the second factor still to pass.
 	CompleteSSOLogin(ctx context.Context, in CompleteSSOInput) (*LoginResult, error)
+	// ExchangeSSOCode trades the one-time code a native app's sign-in handed
+	// the app, with the PKCE verifier of the challenge it started with, for a
+	// session. It answers as Login does for a completed sign-in. An unknown,
+	// used or expired code, or a wrong verifier, is invalid credentials.
+	ExchangeSSOCode(ctx context.Context, in SSOExchangeInput) (*LoginResult, error)
 	// SAMLMetadata answers, without a credential, a SAML provider's service
 	// provider metadata: the entity id and assertion consumer service address
 	// to register with the IdP, as the IdP imports them.

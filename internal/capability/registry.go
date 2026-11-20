@@ -1458,6 +1458,15 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "sso.exchange", Method: "ExchangeSSOCode", Contract: Contract{Public: true},
+		HTTP: apiPost(wire.RouteSSOExchange),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "tix login --sso completes its sign-in in one step through a loopback redirect; the exchange is a native app's half of a browser sign-in"),
+			off(SurfaceWeb, "the browser's own provider sign-in sets its session at the callback; the exchange is for the app the browser hands a code to"),
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+		},
+	},
+	{
 		Name: "sso.saml.metadata", Method: "SAMLMetadata",
 		Contract: Contract{Body: None{}, Resp: None{}, Status: http.StatusOK, Content: wire.ContentSAMLMetadata, Public: true},
 		CLI:      "tix tenant sso metadata",
