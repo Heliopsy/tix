@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.0](https://github.com/Heliopsy/tix/compare/v0.67.0...v0.68.0) (2026-11-20)
+
+
+### Features
+
+* **sso:** sign in from a native app through the system browser ([e8f8e8a](https://github.com/Heliopsy/tix/commit/e8f8e8a63c57aa8b5ed4cc01576888d806d50085))
+
 ## [0.67.0](https://github.com/Heliopsy/tix/compare/v0.66.0...v0.67.0) (2026-11-19)
 
 
