@@ -12,7 +12,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -32,9 +31,10 @@ func TestMain(m *testing.M) {
 
 // The stand-in runs with GODEBUG=gctrace=1 like the real server, so its own
 // collections would print real gctrace lines over the scripted one and leave
-// the heap the test reads to the runtime's timing. Collection stays off.
+// the heap the test reads to the runtime's timing. The test starts it with
+// GOGC=off, because package init allocates enough for a first collection
+// before any code here could turn collection off.
 func fakeTix(args []string) int {
-	debug.SetGCPercent(-1)
 	switch {
 	case slices.Contains(args, "serve"):
 		i := slices.Index(args, "--listen")
@@ -70,6 +70,7 @@ func TestLocalRunWithAStandInTix(t *testing.T) {
 		t.Skip("the stand-in server is stopped with SIGTERM and measured through /proc")
 	}
 	t.Setenv(fakeTixEnv, "1")
+	t.Setenv("GOGC", "off")
 	dir := t.TempDir()
 	report := filepath.Join(dir, "out", "report.json")
 	var stdout, stderr strings.Builder
