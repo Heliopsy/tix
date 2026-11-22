@@ -249,9 +249,10 @@ func TestEveryAPIInputFieldIsReachableFromTheCommandLine(t *testing.T) {
 }
 
 // hasFlag reports whether a help text lists a flag in its own right, so that
-// --repeat is not found inside --no-repeat.
+// --repeat is not found inside --no-repeat. pflag 1.1 prints a bool flag as
+// --repeat[=true|false], so a bracket may follow the name.
 func hasFlag(usage, flag string) bool {
-	return regexp.MustCompile(`(?m)^\s+(-\w, )?` + regexp.QuoteMeta(flag) + `(\s|$)`).MatchString(usage)
+	return regexp.MustCompile(`(?m)^\s+(-\w, )?` + regexp.QuoteMeta(flag) + `(\s|\[|$)`).MatchString(usage)
 }
 
 // TestTheReachCheckSeesAMissingFlag pins hasFlag to a real absence, so the
