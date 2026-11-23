@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.68.1](https://github.com/Heliopsy/tix/compare/v0.68.0...v0.68.1) (2026-11-23)
+
+
+### Dependencies
+
+* **deps:** bump playwright ([d8880e2](https://github.com/Heliopsy/tix/commit/d8880e2489efd8f94b903a7ea90ceda116a89d84))
+* **deps:** bump the go-modules group across 1 directory with 13 updates ([92cfc1f](https://github.com/Heliopsy/tix/commit/92cfc1f9c9fc9da02f3489e0d3d82613a1b81b17))
+
 ## [0.68.0](https://github.com/Heliopsy/tix/compare/v0.67.0...v0.68.0) (2026-11-20)
 
 
