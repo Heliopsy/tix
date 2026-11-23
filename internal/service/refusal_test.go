@@ -82,6 +82,28 @@ func TestARefusedSecondFactorNotesWhy(t *testing.T) {
 	}
 }
 
+func TestASecondFactorThatCouldNotBeCheckedNotesNoRefusal(t *testing.T) {
+	l, clk, scope, admin := newTOTPLocal(t)
+	user := seedUser(t, l, admin, "ada@example.com")
+	enrol(t, l, clk, userActor(t, l, user, core.RoleMember))
+	requireTOTP(t, l, scope, core.SurfaceCLI)
+	first, err := l.Login(loginContext(scope), core.LoginInput{Email: user.Email, Password: testPassword, Surface: core.SurfaceCLI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.totpSealer = nil
+	var loginErr error
+	got := noted(loginContext(scope), func(ctx context.Context) {
+		_, loginErr = l.Login(ctx, core.LoginInput{Surface: core.SurfaceCLI, Ticket: first.Challenge.Ticket, Code: "000000"})
+	})
+	if loginErr == nil || core.IsKind(loginErr, core.KindUnauthenticated) {
+		t.Fatalf("login with no sealer = %v, want an error that is not a refused code", loginErr)
+	}
+	if got.Reason != "" {
+		t.Errorf("a code that could not be checked noted %q, want no refusal", got.Reason)
+	}
+}
+
 func TestAPolicyRefusalNotesScopeOrProject(t *testing.T) {
 	policy := authz.New()
 	reader := &core.Actor{ID: "a", TenantID: "t", TokenID: "tok-1", TokenName: "reader",

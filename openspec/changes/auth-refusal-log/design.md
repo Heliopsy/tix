@@ -49,11 +49,16 @@ Only states the code tells apart are named:
 ## Repeats
 
 `internal/logging.Dedupe` lets one record per key through per window and counts the rest, reported as
-`suppressed` on the next record for that key. The key is client address, reason and token id. An unmatched
-token's reference and a session reference are left out of the key on purpose: a client sending random values
-would otherwise get a fresh key, and a line, per request. The map holds 4096 keys; when it is full, expired
-keys go first, then the one whose window ends soonest. There is no background flush: a count is reported
-only if the client comes back, which keeps the type free of goroutines and timers.
+`suppressed` on the next record for that key. The key is client address, reason and token id, with an IPv6
+address cut to its /64, since one host is usually handed a whole /64 and would otherwise get a key, and a line,
+per address. An unmatched token's reference and a session reference are left out of the key on purpose: a
+client sending random values would otherwise get a fresh key, and a line, per request.
+
+A count nothing later carried is handed to a callback, which the router writes as an `auth refusals held back`
+record through the same logger. `Allow` sweeps expired keys at most once a window, so an insert does not scan
+the map, and `Run`, a server worker, sweeps once a window when no refusal arrives and reports every count left
+at shutdown. The map holds 4096 keys. Once it is full, a new key shares one overflow bucket rather than evicting
+a live one: evicting would reset a real noisy poller's count every time an attacker cycled addresses.
 
 The repo's existing rate-limited record, the second-factor gate's audit entry, writes once an hour per actor.
 That one is an audit row because the gate refuses a known person. A failed credential has no actor to audit,

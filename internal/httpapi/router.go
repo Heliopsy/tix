@@ -200,7 +200,8 @@ func New(cfg Config) (*Router, error) {
 
 	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux(),
 		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/"),
-		refusals:  logging.NewDedupe(cfg.Clock, refusalWindow, refusalMaxKeys)}
+	}
+	rt.refusals = logging.NewDedupe(cfg.Clock, refusalWindow, refusalMaxKeys, rt.logHeldBack)
 	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
 		rt.imports.Handle(pattern, http.NotFoundHandler())
 	}

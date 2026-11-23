@@ -103,9 +103,15 @@ hash under a label of its own, so it groups attempts with one token without bein
 A value that is not a token's shape gets no reference at all, since it may be a password pasted into the wrong
 place; `client_ip` groups those.
 
-The record is written at most once a minute for one `client_ip`, `reason` and `token_id`; the next one carries
-`suppressed`. A count is reported only when the client comes back, and nothing is written to the database for a
-failed attempt.
+The record is written at most once a minute for one `client_ip`, `reason` and `token_id`, counting an IPv6
+address by its `/64`; the next one carries `suppressed`. A client that stops instead gets one `auth refusals held
+back` record at `warn` within the next minute or at shutdown, with `client_ip` (the `/64` for IPv6), `reason`,
+`token_id` and `suppressed`, so no count is lost. Once 4096 clients are being counted, any further one shares a
+single record a minute, reported with `overflow=true`, rather than pushing out a client already counted. Nothing
+is written to the database for a failed attempt.
+
+Without `server.trusted_proxies` behind a proxy, `client_ip` is the proxy's address, so every client behind it
+shares one key and one record a minute.
 
 | Reason | Status | Meaning |
 | --- | --- | --- |
