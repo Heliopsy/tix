@@ -167,6 +167,7 @@ func (rt *Router) logRequest(next http.Handler) http.Handler {
 			"user_agent", core.TruncateUserAgent(r.UserAgent()),
 		}
 		refusal, refused := note.Get()
+		refused = refused && refusalLogged(rec.status, refusal.Reason)
 		if refused {
 			attrs = append(attrs, "auth_reason", refusal.Reason)
 		}

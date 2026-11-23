@@ -45,13 +45,15 @@ func noteLoginRefused(ctx context.Context, usable bool) {
 }
 
 // noteCodeRefused tells the request log a second-factor code was refused,
-// and whether it was because verification is locked.
+// and whether it was because verification is locked. An error that is
+// neither, such as a sealer that cannot open the secret, refused nothing.
 func noteCodeRefused(ctx context.Context, err error) {
-	reason := auth.RefusedTOTPInvalid
-	if core.IsTOTPLocked(err) {
-		reason = auth.RefusedTOTPLocked
+	switch {
+	case core.IsTOTPLocked(err):
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedTOTPLocked})
+	case core.IsKind(err, core.KindUnauthenticated):
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedTOTPInvalid})
 	}
-	auth.NoteRefusal(ctx, auth.Refusal{Reason: reason})
 }
 
 // sshSignInRefusal names why enrolledPerson refuses a key, in the order it

@@ -56,21 +56,58 @@ A refusal record SHALL name a stored token by its id and name, a well formed tok
 
 ### Requirement: Repeated refusals are held back
 
-The server SHALL write at most one refusal record per minute for one client address, reason and token, and the next record it writes for them SHALL carry how many were held back. Refusals SHALL NOT be written to the database.
+The server SHALL write at most one refusal record per minute for one client address, reason and token, counting an IPv6 address by its /64, and the next record it writes for them SHALL carry how many were held back. Refusals SHALL NOT be written to the database.
 
 #### Scenario: A client retrying a bad token
 
 - **WHEN** one client is refused four times in a minute for the same reason
 - **THEN** one refusal record is written, and the first refusal after the minute carries suppressed=3
 
+#### Scenario: A client cycling through its /64
+
+- **WHEN** one client is refused from several addresses in one IPv6 /64 within a minute
+- **THEN** one refusal record is written for them
+
+### Requirement: A held-back count is never lost
+
+When a minute passes, or the server shuts down, with refusals held back that no later refusal record carried, the server SHALL write one held-back record at warn with the client address, reason, token and the count.
+
+#### Scenario: A client that stops
+
+- **WHEN** a client is refused fifty times in a minute and sends nothing more
+- **THEN** one refusal record is written, then one held-back record carrying suppressed=49
+
+### Requirement: The refusal log is bounded without evicting clients
+
+The server SHALL count at most 4096 clients at once. A refusal from a client beyond that SHALL share one overflow bucket, written at most once a minute, and SHALL NOT end the count of a client already counted.
+
+#### Scenario: Many addresses at once
+
+- **WHEN** more clients than the bound are refused within one minute
+- **THEN** the clients already counted keep their counts, and the rest produce one refusal record and one held-back record marked overflow
+
 ### Requirement: Authorization refusals are logged on a 403
 
-When the policy refuses an authenticated caller and the request is answered 403, the server SHALL write a refusal record with reason scope_denied, project_denied, require_claim or second_factor_required and the caller's token or session. A refusal the request recovered from SHALL NOT be logged.
+When the policy refuses an authenticated caller and the request is answered 403, the server SHALL write a refusal record with reason scope_denied, project_denied, require_claim or second_factor_required and the caller's token or session. A refusal the request recovered from SHALL NOT be logged, as a refusal record or as auth_reason on the request line.
 
 #### Scenario: Token without the scope
 
 - **WHEN** a token holding only task:read lists projects
 - **THEN** the client receives 403 and the refusal record carries reason scope_denied with the token's id and name
+
+#### Scenario: A page that went on without an optional part
+
+- **WHEN** a page asks for something its caller's scopes do not cover, goes without it and is answered 200
+- **THEN** neither a refusal record nor auth_reason on the request line is written
+
+### Requirement: A server error is not a refusal
+
+A request answered with a status of 500 or above SHALL NOT produce a refusal record or auth_reason, and a second-factor check that failed for any reason but a wrong code or a lock SHALL NOT be noted as a refusal.
+
+#### Scenario: The TOTP key is missing
+
+- **WHEN** a second-factor code arrives and the server cannot open the enrolment's secret
+- **THEN** no refusal is noted for it
 
 ### Requirement: SSH refusals carry a reason
 

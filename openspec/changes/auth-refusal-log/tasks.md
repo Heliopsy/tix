@@ -10,3 +10,7 @@
 - [x] Tests: every reason with its fields, no credential in the captured log, trusted proxy resolution,
   dedupe on the fake clock
 - [x] Document the fields, the codes and tracing a client in `docs/deployment.md` and `docs/configuration.md`
+- [x] Report a held-back count nobody carried, from a sweep and at shutdown; key IPv6 by /64; one overflow bucket
+  once full instead of evicting; sweep once a window instead of per insert
+- [x] No refusal or `auth_reason` for a 5xx or a recovered policy refusal; a code that could not be checked is
+  not `totp_invalid`

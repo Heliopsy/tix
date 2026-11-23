@@ -201,7 +201,8 @@ func Assemble(opts Options) (*Server, error) {
 		AllowInsecure:   opts.AllowInsecure,
 		ShutdownTimeout: opts.ShutdownTimeout,
 		SSH:             opts.SSH,
-		Workers:         append(workers, EventPumpWorker(pump)),
+		Workers: append(workers, EventPumpWorker(pump),
+			FuncWorker{WorkerName: "refusal-log", Fn: router.ReportHeldBackRefusals}),
 	})
 	return srv, err
 }
