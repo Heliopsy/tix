@@ -742,7 +742,7 @@
   {{else if not $d.Info.Enabled}}
     <div class="setrow" id="dav-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them.")}}</div>
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
         <span class="sethelp" id="dav-reason">{{t $d.Info.Reason}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "Off"}}</span></div>
@@ -750,7 +750,7 @@
   {{else}}
     <div class="setrow stacked" id="dav-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them.")}}</div>
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
         <span class="sethelp">{{t "Give your app this address, your username and an app password. Your account password does not work here."}}</span>
       </div>
       <div class="setrow-ctl dav-account">

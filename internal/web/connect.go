@@ -335,7 +335,7 @@ func (h *handler) createConnectToken(w http.ResponseWriter, r *http.Request) err
 // docPages are the files under docs/ the redirect reaches. A test holds the
 // list to the directory, so a page cannot be linked that does not exist.
 var docPages = []string{
-	"README.md", "agents.md", "api.md", "audit-log.md", "calendar.md", "commands.md",
+	"README.md", "agents.md", "api.md", "audit-log.md", "caldav.md", "calendar.md", "commands.md",
 	"configuration.md", "deployment.md", "development.md", "embedding.md", "features.md", "filtering.md",
 	"import-export.md", "mcp.md", "migrating.md",
 	"scaling.md", "scim.md", "scripting.md", "second-factor.md", "shell-completion.md", "specifications.md", "sso.md",

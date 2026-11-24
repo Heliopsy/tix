@@ -48,6 +48,12 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeSCIMProvision:  "Provision users and groups from an identity provider over SCIM. It carries no other scope and works only on /scim/v2.",
 }
 
+// UnpickedScopes are the scopes no token form offers, each with where it is
+// minted instead.
+var UnpickedScopes = map[core.Scope]string{
+	core.ScopeCaldav: "an app password, created with tix dav password create or in Settings, never as a token",
+}
+
 // ScopeGroups orders the scopes the way a person looks for them.
 var ScopeGroups = []ScopeGroup{
 	{"tasks", "Tasks", []core.Scope{core.ScopeTaskRead, core.ScopeTaskWrite, core.ScopeTaskTransition,
