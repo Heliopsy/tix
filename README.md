@@ -99,7 +99,7 @@ star, copy or delete them in one go, and export any filtered list as CSV for a s
 project as CSV, JSON, NDJSON or Markdown with the columns you pick (`tix export tasks`). Your due dates
 show up in Google Calendar, Apple Calendar or Outlook through a private feed address you subscribe to once
 (`tix calendar`, or Settings in the browser), and your tasks as to-do lists in Apple Reminders, tasks.org,
-Thunderbird or Evolution over CalDAV, read-only for now (`tix dav`). A task you cannot move until later
+Thunderbird or Evolution over CalDAV, ticked off and edited from there (`tix dav`). A task you cannot move until later
 snoozes out of every listing until then and comes back by itself. A fresh install needs no configuration:
 one default workflow, no required fields, and `tix task add "buy milk"` works on a machine that has never
 seen tix. A task can be typed in one line, `Fix login !high #auth @raj due:fri`, in the browser, the

@@ -212,6 +212,8 @@ email or handle, the password an app password, which is an API token carrying th
 `*` and roles never imply `caldav`, a token holding it holds nothing else, and it is refused with `403`
 (`caldav_only`) on every route outside `/dav/`, `/api/v1` included. Under `/dav/` a session cookie, a bearer
 header, an account password and any other token are refused with `401` (`dav_password_required`).
+`PUT` and `DELETE` there change tasks through the ordinary task operations, as the password's owner within
+their current role, and are recorded on the `caldav` access channel.
 
 The `/api/v1/dav` routes in the table manage the caller's own app passwords and need `task:read` and a
 person caller; an agent is `403`. They work from a session and from a personal API token, without
@@ -219,7 +221,7 @@ person caller; an agent is `403`. They work from a session and from a personal A
 
 | Route | Does |
 | --- | --- |
-| `GET /dav` | `enabled`, the absolute `url` of `/dav/`, the exact Basic `username`, `write` (false while CalDAV is read-only), the `collections` choices, and a `reason` when it is off |
+| `GET /dav` | `enabled`, the absolute `url` of `/dav/`, the exact Basic `username`, `write` (whether the caller's role holds task write and task transition), the `collections` choices, and a `reason` when it is off |
 | `GET /dav/passwords` | the caller's app passwords, revoked ones included: `id`, `name`, `scopes`, `collections`, `read_only`, `created_at`, `expires_at`, `last_used_at`, `revoked_at`; never the secret |
 | `POST /dav/passwords` | from `name` and optional `collections` (`assigned`, the default, `projects` or `all`), `read_only` and `expires_at` (default never), answers `201` with the `password` once, `username` and `url`. A live name already in use is `409` |
 | `DELETE /dav/passwords/ID` | revokes one of the caller's own, `204`; a client using it is refused from its next request |
