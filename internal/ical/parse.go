@@ -8,8 +8,12 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// MaxObjectBytes bounds an iCalendar object Parse reads.
-const MaxObjectBytes = 256 << 10
+// MaxObjectBytes bounds an iCalendar object Parse reads, and maxDepth how
+// deeply its components nest: a VALARM in a VTODO in a VCALENDAR is three.
+const (
+	MaxObjectBytes = 256 << 10
+	maxDepth       = 8
+)
 
 // Property is one content line: its name, its parameters and its raw value,
 // still escaped.
@@ -17,6 +21,9 @@ type Property struct {
 	Name   string
 	Params map[string][]string
 	Value  string
+	// Line is the content line as it was sent, unfolded, which is what a
+	// property kept for a client is written back as.
+	Line string
 }
 
 // Param returns the first value of a parameter, by name in any case.
@@ -88,6 +95,9 @@ func Parse(data []byte) (*Component, error) {
 		switch strings.ToUpper(p.Name) {
 		case "BEGIN":
 			c := &Component{Name: strings.ToUpper(p.Value)}
+			if len(stack) == maxDepth {
+				return nil, core.Invalid("an iCalendar object nests at most %d components deep", maxDepth)
+			}
 			if len(stack) == 0 {
 				if root != nil {
 					return nil, core.Invalid("an iCalendar object holds one top-level component")
@@ -178,6 +188,7 @@ func parseLine(line string) (Property, error) {
 		return p, core.Invalid("a content line of %s has no value", p.Name)
 	}
 	p.Value = rest[1:]
+	p.Line = line
 	return p, nil
 }
 

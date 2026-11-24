@@ -27,6 +27,19 @@ type Todo struct {
 	URL string
 	// Now decides whether a snooze is still in the future.
 	Now time.Time
+	// UID replaces the task's own UID, for a task a client created.
+	UID string
+	// Kept are content lines a client sent that tix has no field for, kept
+	// for the one person whose object this is, written back verbatim.
+	Kept []string
+}
+
+// TodoUID is the UID a task's object carries: the client's, or the task's own.
+func TodoUID(taskID, clientUID string) string {
+	if clientUID != "" {
+		return clientUID
+	}
+	return UID(taskID)
 }
 
 // Formats of iCalendar dates and UTC date-times.
@@ -44,7 +57,7 @@ func RenderTodo(in Todo) []byte {
 	w.prop("VERSION", "2.0")
 	w.prop("PRODID", "-//tix//caldav//EN")
 	w.prop("BEGIN", "VTODO")
-	w.prop("UID", Text(UID(t.ID)))
+	w.prop("UID", Text(TodoUID(t.ID, in.UID)))
 	w.prop("DTSTAMP", t.UpdatedAt.UTC().Format(dateTimeLayout))
 	w.prop("CREATED", t.CreatedAt.UTC().Format(dateTimeLayout))
 	w.prop("LAST-MODIFIED", t.UpdatedAt.UTC().Format(dateTimeLayout))
@@ -92,6 +105,12 @@ func RenderTodo(in Todo) []byte {
 	}
 	w.prop("X-TIX-REF", Text(output.ShowRef(t.Ref)))
 	w.prop("X-TIX-STATE", Text(t.Status))
+	for _, line := range in.Kept {
+		if in.Category == core.CategoryDone && strings.HasPrefix(strings.ToUpper(line), "PERCENT-COMPLETE") {
+			continue
+		}
+		w.buf.WriteString(Fold(stripControls(line)))
+	}
 	w.prop("END", "VTODO")
 	w.prop("END", "VCALENDAR")
 	return w.buf.Bytes()
@@ -192,6 +211,20 @@ type ETagInput struct {
 	// Start is the DTSTART shown, zero for none: a snooze that passes changes
 	// the object without changing the task.
 	Start time.Time
+	// UID is a client's UID for a task it created, empty for the task's own.
+	UID string
+	// Kept is what is kept for the reader, as KeptDigest names it; empty for
+	// nothing.
+	Kept string
+}
+
+// KeptDigest names a set of kept lines for an entity tag, empty for none.
+func KeptDigest(lines []string) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	h := sha256.Sum256([]byte(strings.Join(lines, "\r\n")))
+	return hex.EncodeToString(h[:16])
 }
 
 // ETag is a strong entity tag over an object's rendering inputs.
@@ -219,6 +252,12 @@ func ETag(in ETagInput) string {
 	field(in.ParentUID)
 	if !in.Start.IsZero() {
 		field(in.Start.UTC().Format(time.RFC3339Nano))
+	}
+	if in.UID != "" {
+		field("uid:" + in.UID)
+	}
+	if in.Kept != "" {
+		field("kept:" + in.Kept)
 	}
 	return `"` + hex.EncodeToString(h.Sum(nil)[:16]) + `"`
 }
