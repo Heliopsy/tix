@@ -276,6 +276,13 @@ func newFixtureWith(t *testing.T, opts ...web.Option) *fixture {
 // deliveries the way the mode says, for a screen that needs them queued.
 func newFixtureHooks(t *testing.T, hooks service.HookMode, opts ...web.Option) *fixture {
 	t.Helper()
+	return newFixtureService(t, []service.Option{service.WithHooks(hooks)}, opts...)
+}
+
+// newFixtureService is newFixture with further options on the service, for a
+// screen that depends on how the server was configured.
+func newFixtureService(t *testing.T, svcOpts []service.Option, opts ...web.Option) *fixture {
+	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
 
@@ -292,13 +299,13 @@ func newFixtureHooks(t *testing.T, hooks service.HookMode, opts ...web.Option) *
 	f.tenantA = seedTenant(t, st, "acme", "Acme Works")
 	f.tenantB = seedTenant(t, st, "other", "Other Ltd")
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
-	local := service.New(st, service.WithClock(clk), service.WithHooks(hooks),
+	local := service.New(st, append([]service.Option{service.WithClock(clk),
 		service.WithConnections(f.live), service.WithTOTPKey(testTOTPKey),
 		// Identity providers in tests are httptest servers on loopback.
 		service.WithEgress(egress.Permissive()),
 		// A shared host, as tix serve is, with a sync directory and tenant
 		// acme bound to the server's sync environment.
-		service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir(), EnvSources: []string{"acme/*"}}))
+		service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir(), EnvSources: []string{"acme/*"}})}, svcOpts...)...)
 	f.svc = newWebService(local, clk)
 	f.actorA = seedPerson(t, st, f.tenantA.ID, "alice", "alice@acme.test", core.RoleAdmin)
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob", core.RoleAdmin)

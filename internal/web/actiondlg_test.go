@@ -160,6 +160,7 @@ func TestARefusedCreateComesBackWithItsDialogOpen(t *testing.T) {
 		{"sync source", "/sync/sources", "source-new", `value="upstream"`, url.Values{"name": {"upstream"}, "system": {"nonsense"}}},
 		{"sync settings", "/sync/sources", "source-new", `value="ops.yaml"`, url.Values{"name": {"ops"},
 			"system": {"generic"}, "mapping_path": {"ops.yaml"}, "url": {"https://jira.example"}}},
+		{"app password", "/settings/dav/passwords", "dav-new", "", url.Values{"name": {""}}},
 		{"sync page size", "/sync/sources", "source-new", `value="https://jira.example"`, url.Values{"name": {"ops"},
 			"system": {"jira"}, "url": {"https://jira.example"}, "page_size": {"0"}}},
 	} {

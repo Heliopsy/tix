@@ -25,8 +25,8 @@ func (h *handler) sessionRoutes() []route {
 		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		get(RouteAccount, accountLogTemplate, h.showAccountLog, "GetAccountLog"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions"),
-		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions", "GetDAVInfo", "ListDAVPasswords"),
+		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions", "GetDAVInfo", "ListDAVPasswords"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -267,6 +267,8 @@ type settingsView struct {
 
 	// Calendar is the reader's own feed of due dates.
 	Calendar calendarView
+	// DAV is the CalDAV address and the reader's own app passwords.
+	DAV davView
 	// InboxKinds are the switches that mute a kind of inbox item.
 	InboxKinds []inboxKindChoice
 
@@ -312,6 +314,10 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 	if err != nil {
 		return err
 	}
+	dav, err := h.davFor(r)
+	if err != nil {
+		return err
+	}
 	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
 		Profile:        profile,
 		TargetDescribe: h.targetDescribe,
@@ -323,6 +329,7 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		TOTP:           totp,
 		Sessions:       sessions,
 		Calendar:       calendar,
+		DAV:            dav,
 		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
 		Notifications:  notes,
 		StartChoices:   startChoices(r),

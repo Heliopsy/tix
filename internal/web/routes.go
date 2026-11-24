@@ -77,6 +77,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.totpRoutes()...)
 	out = append(out, h.calendarRoutes()...)
 	out = append(out, h.sessionRevokeRoutes()...)
+	out = append(out, h.davRoutes()...)
 	out = append(out, h.activityRoutes()...)
 	out = append(out, h.liveEventsRoutes()...)
 	out = append(out, h.statsRoutes()...)
