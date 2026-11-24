@@ -1,0 +1,93 @@
+# Evolution writing back: an edit, a completion, a create without
+# If-None-Match and a delete. Written from published client behaviour,
+# not captured traffic: Evolution's CalDAV backend sends If-Match with the ETag
+# it holds, may save a new task with no If-None-Match at all, writes the
+# whole object with its own X-EVOLUTION properties, and fetches the object
+# again after a PUT answered without an ETag.
+
+### the ETags at depth 1
+PROPFIND {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:"><D:prop><D:getetag/></D:prop></D:propfind>
+EXPECT 207
+SAVE etag1 {infra}{open1}.ics {DAV:}getetag
+
+### editing the summary and the description
+PUT {infra}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag1}
+
+BEGIN:VCALENDAR
+PRODID:-//Ximian//NONSGML Evolution Calendar//EN
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+DTSTAMP:20260101T090000Z
+SUMMARY:Rotate the keys
+DESCRIPTION:Both regions\, then the backups.
+STATUS:NEEDS-ACTION
+PRIORITY:0
+CLASS:PUBLIC
+X-EVOLUTION-CALDAV-HREF:{infra}{open1}.ics
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 title Rotate the keys
+
+### fetched again
+GET {infra}{open1}.ics
+
+EXPECT 200
+HAS DESCRIPTION:Both regions\, then the backups.
+HAS CLASS:PUBLIC
+SAVEHEADER etag2 ETag
+
+### marking it complete
+PUT {infra}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag2}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:Rotate the keys
+DESCRIPTION:Both regions\, then the backups.
+STATUS:COMPLETED
+COMPLETED:20260101T100000Z
+PERCENT-COMPLETE:100
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 status done
+
+### a new task saved without If-None-Match
+PUT {infra}20260101T110000Z-4242-1000-1-0@laptop.ics
+Content-Type: text/calendar; charset=utf-8
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:20260101T110000Z-4242-1000-1-0@laptop
+DTSTAMP:20260101T110000Z
+SUMMARY:Book the venue
+DUE;VALUE=DATE:20260201
+END:VTODO
+END:VCALENDAR
+EXPECT 201
+TASK Book_the_venue due 2026-02-01T00:00Z
+
+### the new task by its own name
+GET {infra}20260101T110000Z-4242-1000-1-0@laptop.ics
+
+EXPECT 200
+HAS UID:20260101T110000Z-4242-1000-1-0@laptop
+
+### deleting the other task
+DELETE {infra}{open2}.ics
+
+EXPECT 204
+TASK open2 status cancelled
+TASK open2 trashed false

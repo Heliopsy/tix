@@ -1,0 +1,153 @@
+# tasks.org and jtx Board through DAVx5 writing back: a completion, an
+# un-completion, an edit, a create and a delete. Written from published
+# client behaviour, not captured traffic: DAVx5 uploads each changed task
+# with If-Match, or If-None-Match: * for a new one, as ical4j writes it:
+# STATUS, COMPLETED and PERCENT-COMPLETE together on a tick, the task's own
+# time zone on DUE and DTSTART, and RELATED-TO for a subtask. It downloads
+# the object again after a PUT answered without an ETag.
+
+### the tags tix shows are set in the browser
+DO tag open1
+
+### the ETags at depth 1
+PROPFIND {assigned}
+Depth: 1
+
+<propfind xmlns="DAV:"><prop><getetag/></prop></propfind>
+EXPECT 207
+SAVE etag1 {assigned}{open1}.ics {DAV:}getetag
+
+### tasks.org ticks the task
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag1}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:+//IDN bitfire.at//ical4android (org.tasks)
+BEGIN:VTODO
+DTSTAMP:20260101T090000Z
+UID:task-{open1}@tix
+SEQUENCE:3
+CREATED:20260101T000000Z
+LAST-MODIFIED:20260101T090000Z
+SUMMARY:Rotate keys
+PRIORITY:0
+STATUS:COMPLETED
+COMPLETED:20260101T090000Z
+PERCENT-COMPLETE:100
+CATEGORIES:ops,security
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 status done
+
+### downloaded again
+GET {assigned}{open1}.ics
+
+EXPECT 200
+HAS STATUS:COMPLETED
+SAVEHEADER etag2 ETag
+
+### tasks.org unticks it
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag2}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:+//IDN bitfire.at//ical4android (org.tasks)
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:Rotate keys
+PRIORITY:0
+STATUS:NEEDS-ACTION
+CATEGORIES:ops,security
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 status todo
+
+### downloaded again
+GET {assigned}{open1}.ics
+
+EXPECT 200
+SAVEHEADER etag3 ETag
+
+### a due time in the phone's zone, a hide-until start and a new tag
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag3}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:+//IDN bitfire.at//ical4android (org.tasks)
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:Rotate keys
+PRIORITY:9
+STATUS:NEEDS-ACTION
+DTSTART;TZID=Europe/Sofia:20260110T090000
+DUE;TZID=Europe/Sofia:20260112T180000
+CATEGORIES:ops,security,phone
+X-APPLE-SORT-ORDER:0
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 due 2026-01-12T16:00Z
+TASK open1 snoozed 2026-01-10T07:00Z
+TASK open1 tags ops,phone,security
+
+### a subtask created in tasks.org, assigned to its owner
+PUT {assigned}5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d.ics
+Content-Type: text/calendar; charset=utf-8
+If-None-Match: *
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:+//IDN bitfire.at//ical4android (org.tasks)
+BEGIN:VTODO
+DTSTAMP:20260101T100000Z
+UID:5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d
+CREATED:20260101T100000Z
+SUMMARY:Order a token
+PRIORITY:5
+RELATED-TO;RELTYPE=PARENT:task-{open1}@tix
+END:VTODO
+END:VCALENDAR
+EXPECT 403
+HAS project's list
+
+### the same subtask in the Infra list
+PUT {infra}5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d.ics
+Content-Type: text/calendar; charset=utf-8
+If-None-Match: *
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:+//IDN bitfire.at//ical4android (org.tasks)
+BEGIN:VTODO
+DTSTAMP:20260101T100000Z
+UID:5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d
+CREATED:20260101T100000Z
+SUMMARY:Order a token
+PRIORITY:5
+RELATED-TO;RELTYPE=PARENT:task-{open1}@tix
+END:VTODO
+END:VCALENDAR
+EXPECT 201
+TASK Order_a_token status todo
+
+### the subtask downloaded keeps its UID and drops RELATED-TO
+GET {infra}5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d.ics
+
+EXPECT 200
+HAS UID:5b1e1d0c-3f2a-4a7b-8c9d-0e1f2a3b4c5d
+LACKS RELATED-TO
+
+### deleting a task in tasks.org
+DELETE {assigned}{open2}.ics
+
+EXPECT 204
+TASK open2 status cancelled
+TASK open2 trashed false
