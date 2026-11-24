@@ -178,6 +178,14 @@ func (rp *replay) run(s step) {
 			if v := strings.Join(fields[1:], " "); !strings.Contains(r.body, v) {
 				t.Errorf("%s: the body lacks %q", where, v)
 			}
+		case "LACKS":
+			if v := strings.Join(fields[1:], " "); strings.Contains(r.body, v) {
+				t.Errorf("%s: the body holds %q", where, v)
+			}
+		case "SAVEHEADER":
+			rp.vars[fields[1]] = r.header.Get(fields[2])
+		case "TASK":
+			rp.checkTask(where, fields[1], fields[2], strings.Join(fields[3:], " "))
 		default:
 			t.Fatalf("%s: unknown assertion %q", where, a)
 		}
@@ -204,8 +212,67 @@ func (rp *replay) do(where, action string) {
 		}
 	case "cancel":
 		rp.f.move(rp.f.acme, tk, "cancelled")
+	case "tag":
+		tags := []string{"ops", "security"}
+		if _, err := rp.f.svc.UpdateTask(adminCtx(rp.f.acme), core.TaskRef{ID: tk.ID}, core.UpdateTaskInput{Tags: &tags}); err != nil {
+			rp.t.Fatalf("%s: %v", where, err)
+		}
 	default:
 		rp.t.Fatalf("%s: unknown action %q", where, verb)
+	}
+}
+
+// checkTask asserts one field of a task as tix holds it: a task of the
+// sequence by its key, or a task the client created by its title.
+func (rp *replay) checkTask(where, key, field, want string) {
+	t := rp.t
+	t.Helper()
+	var got *core.Task
+	if tk, ok := rp.tasks[key]; ok {
+		var err error
+		if got, err = rp.f.svc.GetTask(adminCtx(rp.f.acme), core.TaskRef{ID: tk.ID}); err != nil {
+			t.Fatalf("%s: %v", where, err)
+		}
+	} else {
+		page, err := rp.f.svc.ListTasks(adminCtx(rp.f.acme), core.TaskFilter{IncludeSnoozed: true,
+			Page: core.Page{Limit: core.MaxPageLimit}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range page.Tasks {
+			if page.Tasks[i].Title == strings.ReplaceAll(key, "_", " ") {
+				got = &page.Tasks[i]
+			}
+		}
+		if got == nil {
+			t.Fatalf("%s: no task titled %q", where, key)
+		}
+	}
+	var have string
+	switch field {
+	case "title":
+		have = got.Title
+	case "status":
+		have = got.Status
+	case "tags":
+		have = strings.Join(got.Tags, ",")
+	case "due":
+		if got.DueAt != nil {
+			have = got.DueAt.UTC().Format("2006-01-02T15:04Z")
+		}
+	case "snoozed":
+		if got.SnoozedUntil != nil {
+			have = got.SnoozedUntil.UTC().Format("2006-01-02T15:04Z")
+		}
+	case "assignee":
+		have = got.AssigneeActorID
+	case "trashed":
+		have = strconv.FormatBool(got.DeletedAt != nil)
+	default:
+		t.Fatalf("%s: unknown task field %q", where, field)
+	}
+	if have != want {
+		t.Errorf("%s: %s of %s is %q, want %q", where, field, key, have, want)
 	}
 }
 
@@ -226,7 +293,10 @@ func TestClientSequencesReplay(t *testing.T) {
 				t.Errorf("%s does not say it was written from published behaviour", path)
 			}
 			f := newFixture(t)
-			p := f.password(f.acme.bob, core.DAVCollectionsAll)
+			p := f.readOnly(f.acme.bob, core.DAVCollectionsAll)
+			if strings.HasPrefix(filepath.Base(path), "write-") {
+				p = f.password(f.acme.bob, core.DAVCollectionsAll)
+			}
 			tasks := map[string]*core.Task{
 				"open1": f.task(f.acme, "Rotate keys", f.acme.bob.ID),
 				"open2": f.task(f.acme, "Renew certificate", f.acme.bob.ID),
@@ -240,6 +310,7 @@ func TestClientSequencesReplay(t *testing.T) {
 				"assigned":  homePath + "assigned/",
 				"infra":     homePath + "p-" + strings.ToLower(f.acme.project.ID) + "/",
 				"web":       homePath + "p-" + strings.ToLower(f.acme.web.ID) + "/",
+				"bob":       f.acme.bob.ID,
 			}
 			for k, tk := range tasks {
 				vars[k] = name(tk)

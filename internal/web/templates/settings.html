@@ -742,7 +742,7 @@
   {{else if not $d.Info.Enabled}}
     <div class="setrow" id="dav-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read and change tasks on a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. An app can tick off, edit, add and cancel your tasks unless its password is read-only." "docs/caldav.md")}}</div>
         <span class="sethelp" id="dav-reason">{{t $d.Info.Reason}}</span>
       </div>
       <div class="setrow-ctl"><span class="setvalue">{{t "Off"}}</span></div>
@@ -750,7 +750,7 @@
   {{else}}
     <div class="setrow stacked" id="dav-state">
       <div class="setrow-text">
-        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read and change tasks on a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. An app can tick off, edit, add and cancel your tasks unless its password is read-only." "docs/caldav.md")}}</div>
         <span class="sethelp">{{t "Give your app this address, your username and an app password. Your account password does not work here."}}</span>
       </div>
       <div class="setrow-ctl dav-account">
@@ -794,7 +794,7 @@
     {{end}}
     {{with $dd.Errors.On "collections"}}{{template "field-error" .}}{{end}}
   </fieldset>
-  <label class="check"><input type="checkbox" name="read_only" value="on"{{if $dd.Checked "read_only" false}} checked{{end}}> {{t "Read-only, even once apps can change tasks"}}</label>
+  <label class="check"><input type="checkbox" name="read_only" value="on"{{if $dd.Checked "read_only" false}} checked{{end}}> {{t "Read-only: the app can list tasks but not change them"}}</label>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create password"}}</button></div>
 </form>
 {{template "dlg-end"}}

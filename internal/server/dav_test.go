@@ -21,6 +21,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/sqlite"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -47,6 +48,7 @@ func (b *lockedBuffer) String() string {
 // an app password, an account password, a session and a personal token.
 type davServer struct {
 	conn     *connect.Conn
+	st       store.Store
 	base     string
 	logs     *lockedBuffer
 	scope    core.TenantScope
@@ -95,7 +97,7 @@ func serveDAV(t *testing.T, enabled bool) *davServer {
 		<-done
 	})
 
-	d := &davServer{conn: conn, base: "http://" + srv.Addr(), logs: logs,
+	d := &davServer{conn: conn, st: st, base: "http://" + srv.Addr(), logs: logs,
 		scope: core.TenantScope{TenantID: conn.Info.TenantID}}
 	admin := conn.Context(ctx)
 	user, err := conn.Service.CreateUser(admin, core.CreateUserInput{Email: "ana@example.com",
@@ -299,7 +301,7 @@ func TestAppPasswordsOverHTTP(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &info); err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("dav.info: %d %s", resp.StatusCode, body)
 	}
-	if !info.Enabled || info.Write || info.Username != "ana@example.com" ||
+	if !info.Enabled || !info.Write || info.Username != "ana@example.com" ||
 		!strings.HasPrefix(info.URL, "https://") || !strings.HasSuffix(info.URL, "/dav/") {
 		t.Errorf("dav.info %+v", info)
 	}
@@ -336,5 +338,65 @@ func TestAppPasswordsOverHTTP(t *testing.T) {
 	resp, _ = d.send(t, http.MethodDelete, strings.Replace(wire.RouteDAVPassword, "{id}", issued["id"].(string), 1), "", cookie)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("revoke: %d", resp.StatusCode)
+	}
+}
+
+// A write from a phone goes through the router's Basic sign-in and lands as
+// an ordinary change: its audit entry and its event name the caldav channel
+// and the app password's token, and the task's version moves by one.
+func TestADAVWriteIsRecordedOnTheCalDAVChannel(t *testing.T) {
+	d := serveDAV(t, true)
+	ctx := context.Background()
+	admin := d.conn.Context(ctx)
+	task, err := d.conn.Service.CreateTask(admin, core.CreateTaskInput{Title: "Rotate keys", AssigneeActorID: d.ana.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var key string
+	if err := d.st.View(ctx, d.scope, func(tx store.Tx) error {
+		tenant, err := tx.GetTenant(ctx)
+		key = tenant.Key
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	obj := "/dav/" + key + "/calendars/" + strings.ToLower(d.ana.ID) + "/assigned/" + strings.ToLower(task.ID) + ".ics"
+	resp, body := d.send(t, http.MethodGet, obj, "", basic("ana@example.com", d.password))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET answered %d: %s", resp.StatusCode, body)
+	}
+	todo := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:task-" + strings.ToLower(task.ID) +
+		"@tix\r\nSUMMARY:Rotate keys today\r\nEND:VTODO\r\nEND:VCALENDAR\r\n"
+	resp, body = d.send(t, http.MethodPut, obj, todo, func(r *http.Request) {
+		r.SetBasicAuth("ana@example.com", d.password)
+		r.Header.Set(wire.HeaderContentType, "text/calendar; charset=utf-8")
+		r.Header.Set("If-Match", resp.Header.Get("ETag"))
+	})
+	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("ETag") != "" {
+		t.Fatalf("PUT answered %d with ETag %q: %s", resp.StatusCode, resp.Header.Get("ETag"), body)
+	}
+	got, err := d.conn.Service.GetTask(admin, core.TaskRef{ID: task.ID})
+	if err != nil || got.Title != "Rotate keys today" || got.Version != task.Version+1 {
+		t.Fatalf("the task after the PUT: %+v %v", got, err)
+	}
+	entries, _, err := d.conn.Service.ListAudit(admin, core.AuditFilter{Vias: []core.ViaKind{core.ViaCalDAV}})
+	if err != nil || len(entries) != 1 || entries[0].Action != "task.update" ||
+		entries[0].Via.TokenName != d.app.TokenName || entries[0].ActorID != d.ana.ID {
+		t.Fatalf("audit on the caldav channel: %+v %v", entries, err)
+	}
+	if err := d.st.View(ctx, d.scope, func(tx store.Tx) error {
+		events, err := tx.ReadEvents(ctx, 0, 1000)
+		var found bool
+		for _, e := range events {
+			if e.Type == core.EventTaskUpdated && e.SubjectID == task.ID {
+				found = e.Via != nil && e.Via.Kind == core.ViaCalDAV && e.Via.TokenID == d.app.ID
+			}
+		}
+		if !found {
+			t.Errorf("no task.updated event on the caldav channel in %+v", events)
+		}
+		return err
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

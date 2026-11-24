@@ -147,9 +147,24 @@ func adminCtx(tf tenantFixture) context.Context {
 // password issues an app password for a person.
 func (f *fixture) password(person *core.Actor, collections core.DAVCollections) *core.IssuedDAVPassword {
 	f.t.Helper()
+	return f.passwordWith(person, collections, false)
+}
+
+// readOnly issues a read-only app password for a person.
+func (f *fixture) readOnly(person *core.Actor, collections core.DAVCollections) *core.IssuedDAVPassword {
+	f.t.Helper()
+	return f.passwordWith(person, collections, true)
+}
+
+func (f *fixture) passwordWith(person *core.Actor, collections core.DAVCollections, readOnly bool) *core.IssuedDAVPassword {
+	f.t.Helper()
 	ctx := core.WithSource(core.WithActor(context.Background(), person), core.SourceCLI)
-	p, err := f.svc.CreateDAVPassword(ctx, core.CreateDAVPasswordInput{Name: "phone " + string(collections),
-		Collections: collections})
+	name := "phone " + string(collections)
+	if readOnly {
+		name += " read-only"
+	}
+	p, err := f.svc.CreateDAVPassword(ctx, core.CreateDAVPasswordInput{Name: name,
+		Collections: collections, ReadOnly: readOnly})
 	if err != nil {
 		f.t.Fatalf("creating app password: %v", err)
 	}

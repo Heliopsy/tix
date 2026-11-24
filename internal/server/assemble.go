@@ -154,7 +154,7 @@ func Assemble(opts Options) (*Server, error) {
 	}
 	var calDAV http.Handler
 	if collections, ok := opts.Service.(core.TaskCollections); ok && opts.CalDAV {
-		calDAV = caldav.New(collections, httpapi.Origin)
+		calDAV = caldav.New(collections, httpapi.Origin).WithLogger(opts.Logger)
 	}
 	router, err := httpapi.New(httpapi.Config{
 		SCIM:             provisioning,

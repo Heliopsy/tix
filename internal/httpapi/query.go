@@ -155,8 +155,8 @@ type AuditQuery struct {
 	// system; repeat it for several.
 	Source []string `query:"source"`
 	// Via keeps entries that arrived through an access channel: web, api,
-	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
-	// it for several.
+	// cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav, system or
+	// unknown; repeat it for several.
 	Via []string `query:"via"`
 	// Token keeps entries made with an API token, named by the token's name;
 	// repeat it for several.
@@ -183,8 +183,8 @@ type TaskAuditQuery struct {
 	// system; repeat it for several.
 	Source []string `query:"source"`
 	// Via keeps entries that arrived through an access channel: web, api,
-	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
-	// it for several.
+	// cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav, system or
+	// unknown; repeat it for several.
 	Via []string `query:"via"`
 	// Token keeps entries made with an API token, named by the token's name;
 	// repeat it for several.

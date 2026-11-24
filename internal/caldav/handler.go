@@ -3,14 +3,15 @@
 // Package caldav serves CalDAV (RFC 4791) for tasks under /dav/. It translates
 // WebDAV, CalDAV and sync-collection (RFC 6578) to core.TaskCollections and
 // holds no rule of its own: who reads what, which tasks a collection holds and
-// what a sync token stands for are decided by the service. Phase 1 is
-// read-only; every write method is refused.
+// what a sync token stands for are decided by the service. PUT and DELETE
+// change tasks through it; every other write method is refused.
 package caldav
 
 import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,16 @@ type Handler struct {
 	svc     core.TaskCollections
 	origin  func(*http.Request) string
 	methods map[string]method
+	log     *slog.Logger
+}
+
+// WithLogger sets where the handler reports what it accepted but could not
+// keep. The default is slog.Default.
+func (h *Handler) WithLogger(log *slog.Logger) *Handler {
+	if log != nil {
+		h.log = log
+	}
+	return h
 }
 
 // method answers one request whose principal and path are resolved.
@@ -42,14 +53,15 @@ func (q *request) ctx() context.Context { return q.r.Context() }
 // davHeader is the DAV compliance classes OPTIONS announces.
 const davHeader = "1, 3, access-control, calendar-access"
 
-// readMethods are the methods phase 1 serves.
+// readMethods are the methods every principal may use; PUT and DELETE join
+// them for one that writes.
 var readMethods = []string{http.MethodOptions, http.MethodGet, http.MethodHead, "PROPFIND", "PROPPATCH", "REPORT"}
 
 // New returns a handler over the task collections. origin gives the scheme and
 // host a request reached the server at, which every object's URL is built
 // under.
 func New(svc core.TaskCollections, origin func(*http.Request) string) *Handler {
-	h := &Handler{svc: svc, origin: origin}
+	h := &Handler{svc: svc, origin: origin, log: slog.Default()}
 	h.methods = map[string]method{
 		http.MethodOptions: (*Handler).options,
 		http.MethodGet:     (*Handler).get,
@@ -57,8 +69,8 @@ func New(svc core.TaskCollections, origin func(*http.Request) string) *Handler {
 		"PROPFIND":         (*Handler).propfind,
 		"PROPPATCH":        (*Handler).proppatch,
 		"REPORT":           (*Handler).report,
-		http.MethodPut:     refuse(davName("write-content")),
-		http.MethodDelete:  refuse(davName("unbind")),
+		http.MethodPut:     (*Handler).put,
+		http.MethodDelete:  (*Handler).delete,
 		"MKCOL":            refuseCreate,
 		"MKCALENDAR":       refuseCreate,
 		"MOVE":             refuse(davName("unbind")),
@@ -258,8 +270,7 @@ func (h *Handler) collection(req *request) (core.DAVCollection, error) {
 }
 
 // refuse answers a write method with 403, naming the privilege it needs when
-// one applies, once the collection it reaches into is known to exist. Phase 2
-// replaces PUT and DELETE here.
+// one applies, once the collection it reaches into is known to exist.
 func refuse(privilege xml.Name) method {
 	return func(h *Handler, w http.ResponseWriter, req *request) error {
 		if req.t.kind == kindCollection || req.t.kind == kindObject {
@@ -310,6 +321,8 @@ func fail(w http.ResponseWriter, err error) {
 		writeXML(w, de.status, de.body)
 	case errors.Is(err, errBadBody):
 		plain(w, http.StatusBadRequest)
+	case core.DAVReason(err) != "":
+		writeRefusal(w, err)
 	case core.IsKind(err, core.KindUnauthenticated):
 		challenge(w)
 	case core.IsKind(err, core.KindNotFound):

@@ -273,22 +273,28 @@ func TestTokenCreateRefusesTheCaldavScope(t *testing.T) {
 	}
 }
 
-func TestDAVInfoNamesTheUsernameAndIsReadOnly(t *testing.T) {
+func TestDAVInfoNamesTheUsernameAndWhetherWritesAreAccepted(t *testing.T) {
 	f := newDAVFixture(t)
 	info, err := f.l.GetDAVInfo(f.member)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !info.Enabled || info.Write || info.Username != "bob@example.com" || info.Path != "/dav/" ||
+	if !info.Enabled || !info.Write || info.Username != "bob@example.com" || info.Path != "/dav/" ||
 		!slices.Equal(info.Collections, core.AllDAVCollections) || info.Reason != "" {
 		t.Errorf("info %+v", info)
+	}
+	if _, err := f.l.UpdateUser(f.admin, f.actor.ID, core.UpdateUserInput{Role: ptrRole(core.RoleViewer)}); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := f.l.GetDAVInfo(f.member); err != nil || info.Write {
+		t.Errorf("a viewer's info says write: %+v %v", info, err)
 	}
 	off := newDAVFixture(t, WithCalDAV(false, 0, 0))
 	info, err = off.l.GetDAVInfo(off.member)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Enabled || info.Reason == "" {
+	if info.Enabled || info.Write || info.Reason == "" {
 		t.Errorf("disabled info %+v", info)
 	}
 }

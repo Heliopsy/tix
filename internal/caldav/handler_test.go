@@ -57,7 +57,14 @@ func TestDisabledCalDAVIsNotThere(t *testing.T) {
 
 func TestOptionsAnnouncesCalendarAccess(t *testing.T) {
 	f := newFixture(t)
-	ctx := davCtx(f.acme.scope.TenantID, f.password(f.acme.bob, ""))
+	writer := f.serve(davCtx(f.acme.scope.TenantID, f.password(f.acme.bob, "")), http.MethodOptions,
+		home(f.acme, f.acme.bob), nil, "")
+	for _, m := range []string{"PUT", "DELETE"} {
+		if !strings.Contains(writer.header.Get("Allow"), m) {
+			t.Errorf("a principal that writes is not allowed %s: %q", m, writer.header.Get("Allow"))
+		}
+	}
+	ctx := davCtx(f.acme.scope.TenantID, f.readOnly(f.acme.bob, ""))
 	r := f.serve(ctx, http.MethodOptions, home(f.acme, f.acme.bob), nil, "")
 	if r.status != http.StatusOK || r.header.Get("DAV") != "1, 3, access-control, calendar-access" {
 		t.Fatalf("answered %d with DAV %q", r.status, r.header.Get("DAV"))
@@ -112,7 +119,7 @@ func TestGetAnObjectHonoursIfNoneMatch(t *testing.T) {
 func TestEveryWriteIsRefusedWhileReadOnly(t *testing.T) {
 	f := newFixture(t)
 	task := f.task(f.acme, "Rotate keys", f.acme.bob.ID)
-	ctx := davCtx(f.acme.scope.TenantID, f.password(f.acme.bob, ""))
+	ctx := davCtx(f.acme.scope.TenantID, f.readOnly(f.acme.bob, ""))
 	coll := home(f.acme, f.acme.bob) + "assigned/"
 	obj := coll + name(task) + ".ics"
 	put := vtodo("UID:task-"+name(task)+"@tix", "SUMMARY:Changed on the phone", "STATUS:COMPLETED")

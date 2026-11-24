@@ -21,9 +21,26 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 )
 
-// davReadScopes are the most an app password reads with in phase 1, whatever
-// its owner's role grants beyond them. Task delete is never among them.
-var davReadScopes = calendarReadScopes
+// davReadScopes are the most a read-only app password acts with, whatever its
+// owner's role grants beyond them, and davWriteScopes the most any other
+// does. Task delete is never among them: DELETE cancels, it never trashes.
+var (
+	davReadScopes  = calendarReadScopes
+	davWriteScopes = append(slices.Clone(calendarReadScopes), core.ScopeTaskWrite, core.ScopeTaskTransition)
+)
+
+// davCeiling is the most a password acts with.
+func davCeiling(p core.DAVPassword) []core.Scope {
+	if p.ReadOnly {
+		return davReadScopes
+	}
+	return davWriteScopes
+}
+
+// davMayWrite reports whether a reader built from the ceiling may change tasks.
+func davMayWrite(reader *core.Actor) bool {
+	return reader.HasScope(core.ScopeTaskWrite) && reader.HasScope(core.ScopeTaskTransition)
+}
 
 // davTaskPagePrefix starts a task page's path, which URL in every object links to.
 const davTaskPagePrefix = "/tasks/"
@@ -63,7 +80,7 @@ func (l *Local) davSessionOf(ctx context.Context) (*davSession, error) {
 			return err
 		}
 		out.password = *p
-		out.reader, err = ownerReader(ctx, tx, actor.TenantID, p.ActorID, davReadScopes)
+		out.reader, err = ownerReader(ctx, tx, actor.TenantID, p.ActorID, davCeiling(*p))
 		if errors.Is(err, errOwnerGone) {
 			return errDAVSignedOut()
 		}
@@ -99,7 +116,7 @@ func (l *Local) DAVPrincipal(ctx context.Context) (*core.DAVPrincipal, error) {
 		name = s.reader.Handle
 	}
 	return &core.DAVPrincipal{TenantKey: s.tenantKey, ActorID: strings.ToLower(s.reader.ID),
-		Handle: s.reader.Handle, DisplayName: name, Email: s.email}, nil
+		Handle: s.reader.Handle, DisplayName: name, Email: s.email, Write: davMayWrite(s.reader)}, nil
 }
 
 // ListDAVCollections lists the collections the app password exposes.
@@ -197,8 +214,26 @@ type davEntry struct {
 	category core.StateCategory
 	member   core.DAVMember
 	project  string
+	def      core.WorkflowDefinition
 	defs     map[string]core.StateCategory
 	start    time.Time
+	// uid is the client's UID for a task it created, empty otherwise.
+	uid string
+	// kept are the lines kept for the reader.
+	kept []string
+	// name is the client's resource name, beside uid.
+	name string
+	// parentUID is the RELATED-TO shown, the parent's client UID when it has one.
+	parentUID string
+}
+
+// named reports whether a resource name a client sent names the entry: its
+// client name exactly, or its identifier in any case.
+func (e davEntry) named(name string) bool {
+	if e.uid != "" {
+		return name == e.member.Name
+	}
+	return strings.ToLower(name) == e.member.Name
 }
 
 // davMembers computes a collection: its tasks that are not in the trash, not
@@ -252,11 +287,8 @@ func (l *Local) davMembers(ctx context.Context, s *davSession, c core.DAVCollect
 		if category == core.CategoryDone && (l.dav.window == 0 || completedAt(t).Before(cutoff)) {
 			continue
 		}
-		e := davEntry{task: t, category: category, project: w.key, defs: w.categories}
+		e := davEntry{task: t, category: category, project: w.key, def: w.def, defs: w.categories}
 		e.start, _ = ical.TodoStart(t, now)
-		e.member = core.DAVMember{Name: strings.ToLower(t.ID), ETag: ical.ETag(ical.ETagInput{
-			TaskID: t.ID, Version: t.Version, UpdatedAt: t.UpdatedAt, ProjectKey: w.key,
-			Categories: w.categories, Origin: origin, ParentUID: davParentUID(t), Start: e.start})}
 		out = append(out, e)
 	}
 	slices.SortFunc(out, davOrder)
@@ -264,6 +296,19 @@ func (l *Local) davMembers(ctx context.Context, s *davSession, c core.DAVCollect
 	if len(out) > l.dav.maxObjects {
 		left = len(out) - l.dav.maxObjects
 		out = out[:l.dav.maxObjects]
+	}
+	if err := l.davObjectsOf(ctx, s, out); err != nil {
+		return nil, 0, err
+	}
+	for i := range out {
+		e := &out[i]
+		e.member = core.DAVMember{Name: strings.ToLower(e.task.ID), ETag: ical.ETag(ical.ETagInput{
+			TaskID: e.task.ID, Version: e.task.Version, UpdatedAt: e.task.UpdatedAt, ProjectKey: e.project,
+			Categories: e.defs, Origin: origin, ParentUID: e.parentUID, Start: e.start, UID: e.uid,
+			Kept: ical.KeptDigest(e.kept)})}
+		if e.uid != "" {
+			e.member.Name = e.name
+		}
 	}
 	slices.SortFunc(out, func(a, b davEntry) int { return strings.Compare(a.member.Name, b.member.Name) })
 	return out, left, nil
@@ -300,15 +345,6 @@ func completedAt(t core.Task) time.Time {
 		return *t.CompletedAt
 	}
 	return t.UpdatedAt
-}
-
-// davParentUID is the RELATED-TO of a task. Every project is readable by any
-// reader of tasks, so a parent the reader could be shown is any parent.
-func davParentUID(t core.Task) string {
-	if t.ParentID == "" {
-		return ""
-	}
-	return ical.UID(t.ParentID)
 }
 
 // davList pages through a task listing as the reader, most recently updated
@@ -634,25 +670,85 @@ func (l *Local) GetDAVObjects(ctx context.Context, in core.DAVObjectsInput) ([]c
 	if err != nil {
 		return nil, err
 	}
-	want := map[string]bool{}
-	for _, n := range in.Names {
-		want[strings.ToLower(n)] = true
-	}
 	now := l.clock.Now()
 	origin := strings.TrimRight(in.Origin, "/")
 	out := []core.DAVObject{}
 	for _, e := range entries {
-		if len(in.Names) > 0 && !want[e.member.Name] {
+		if len(in.Names) > 0 && !slices.ContainsFunc(in.Names, e.named) {
 			continue
 		}
-		pageURL := ""
-		if origin != "" {
-			pageURL = origin + davTaskPagePrefix + url.PathEscape(e.task.Ref)
-		}
-		out = append(out, core.DAVObject{Name: e.member.Name, ETag: e.member.ETag, Data: ical.RenderTodo(ical.Todo{
-			Task: e.task, Category: e.category, ParentUID: davParentUID(e.task), URL: pageURL, Now: now})})
+		out = append(out, core.DAVObject{Name: e.member.Name, ETag: e.member.ETag, Data: davRender(e, origin, now)})
 	}
 	return out, nil
+}
+
+// davRender writes an entry's object.
+func davRender(e davEntry, origin string, now time.Time) []byte {
+	pageURL := ""
+	if origin != "" {
+		pageURL = origin + davTaskPagePrefix + url.PathEscape(e.task.Ref)
+	}
+	return ical.RenderTodo(ical.Todo{Task: e.task, Category: e.category, ParentUID: e.parentUID, URL: pageURL,
+		Now: now, UID: e.uid, Kept: e.kept})
+}
+
+// davObjectsOf fills in the client UIDs and names of the entries' tasks and
+// their parents, and what is kept for the reader.
+func (l *Local) davObjectsOf(ctx context.Context, s *davSession, entries []davEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, 2*len(entries))
+	for _, e := range entries {
+		ids = append(ids, e.task.ID)
+		if e.task.ParentID != "" {
+			ids = append(ids, e.task.ParentID)
+		}
+	}
+	var (
+		objects []store.DAVObjectName
+		kept    map[string]string
+	)
+	err := l.store.View(ctx, core.TenantScope{TenantID: s.reader.TenantID}, func(tx store.Tx) error {
+		var err error
+		if objects, err = tx.ListDAVObjects(ctx, ids); err != nil {
+			return err
+		}
+		own := make([]string, len(entries))
+		for i, e := range entries {
+			own[i] = e.task.ID
+		}
+		kept, err = tx.GetDAVProps(ctx, s.reader.ID, own)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	byTask := make(map[string]store.DAVObjectName, len(objects))
+	for _, o := range objects {
+		byTask[o.TaskID] = o
+	}
+	for i := range entries {
+		e := &entries[i]
+		if o, ok := byTask[e.task.ID]; ok {
+			e.uid, e.name = o.UID, o.Name
+		}
+		if e.task.ParentID != "" {
+			e.parentUID = ical.TodoUID(e.task.ParentID, byTask[e.task.ParentID].UID)
+		}
+		e.kept = splitKept(kept[e.task.ID])
+	}
+	return nil
+}
+
+// davKeptSep joins kept lines in storage.
+const davKeptSep = "\r\n"
+
+func splitKept(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, davKeptSep)
 }
 
 var _ core.TaskCollections = (*Local)(nil)
