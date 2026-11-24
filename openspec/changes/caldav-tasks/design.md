@@ -451,6 +451,43 @@ following. Each item is confirmed, adjusted or rejected.
   `tix dav`.
 - The username is the sign-in email; the handle is accepted too.
 
+## Phase 1 as built
+
+Where the implementation of phase 1 differs from the plan above, or settles something it left open:
+
+- **Two actions, not one.** `dav.password` (task read, not confinable) guards the management operations as
+  planned. The protocol side is guarded by a second action, `dav.sync`, which only a token naming `caldav` holds,
+  so `*`, a role or the system actor never reads over CalDAV; what a password then reads is still the owner's
+  current role cut to the ceiling.
+- **`dav_passwords` keeps no revocation of its own.** Revocation, expiry and last use are read from the
+  `api_tokens` row, because an administrator's `tix token revoke` does not touch `dav_passwords`. The live-name
+  rule is checked by the service against the tokens' state, in the same transaction as the insert, and the
+  unique live token name (`dav-HANDLE-NAME`) backs it against a race.
+- **The short cut also counts events.** A snapshot stores the latest event sequence and the count of events in
+  the 1024 sequence numbers below it. On PostgreSQL a write can take its sequence number before another and
+  commit after it, which leaves the latest sequence unchanged; the count moves, so the collection is listed
+  again. The store-level test of that is PostgreSQL only and runs in CI.
+- **`valid_until` instead of the UTC day.** In place of "the UTC day has not moved", a snapshot stores the first
+  instant its set could change with no event: the earliest moment a finished member leaves the completed window
+  or a snooze shown as `DTSTART` passes. A task therefore leaves at the end of its window rather than at the next
+  midnight.
+- **The entity tag also covers `RELATED-TO` and `DTSTART`.** A snooze passing changes the object without changing
+  the task, so the start shown is one of the inputs; so is the parent's UID.
+- **A parent is always shown.** Every project is readable by anybody who reads tasks, so "only when the parent is
+  readable" holds for every parent and the reader is not asked again per task.
+- **The tenant of a DAV request comes from the password.** On a shared host the tenant is resolved from the
+  Basic password's hash on every path under `/dav/`, and the tenant key in the path is then compared with the
+  password's tenant, `404` when they differ. The answer is the one the spec asks for; the path key never selects
+  a tenant by itself.
+- **Assigned to me reaches archived projects.** A task assigned to the person stays in Assigned to me while its
+  project is archived; an archived project has no collection of its own.
+- **Access channel.** Phase 1 writes nothing over CalDAV, so a DAV request is recorded on the `api` channel with
+  its token; a channel of its own is left to phase 2, where writes carry it.
+- **Revoking twice is a no-op**, `204` both times, and `dav.info` is refused to an agent as the password
+  operations are.
+- **No screenshot of Settings** was taken for 6.5: the change was verified by the web package's tests, and the UI
+  regression job in CI covers the screen.
+
 ## Open questions
 
 - Whether a tenant admin should be able to turn CalDAV off for one tenant. This change has the deployment key
