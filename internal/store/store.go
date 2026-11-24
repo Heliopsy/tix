@@ -359,6 +359,33 @@ type DAVTx interface {
 	// PruneDAVSyncStates removes an app password's snapshots of a collection
 	// seen before the given instant, except the keep most recently seen.
 	PruneDAVSyncStates(ctx context.Context, tokenID, collection string, keep int, before time.Time) (int64, error)
+	// InvalidateDAVSyncStates spends the "nothing changed" short cut of every
+	// snapshot an actor's app passwords hold, so the next sync lists again.
+	InvalidateDAVSyncStates(ctx context.Context, actorID string) error
+
+	// CreateDAVObject records the UID and resource name a client gave a task
+	// it created. A UID or a name already in the tenant is a conflict.
+	CreateDAVObject(ctx context.Context, o *DAVObjectName) error
+	// GetDAVObjectByName and GetDAVObjectByUID find a client-created task.
+	GetDAVObjectByName(ctx context.Context, name string) (*DAVObjectName, error)
+	GetDAVObjectByUID(ctx context.Context, uid string) (*DAVObjectName, error)
+	// ListDAVObjects returns the client names of those of the tasks that have one.
+	ListDAVObjects(ctx context.Context, taskIDs []string) ([]DAVObjectName, error)
+	// GetDAVProps returns what is kept for an actor, by task, for those of
+	// the tasks that have any.
+	GetDAVProps(ctx context.Context, actorID string, taskIDs []string) (map[string]string, error)
+	// PutDAVProps replaces what is kept for an actor and a task; empty props
+	// removes it.
+	PutDAVProps(ctx context.Context, actorID, taskID, props string, at time.Time) error
+}
+
+// DAVObjectName is a client's UID and resource name for a task it created
+// over CalDAV.
+type DAVObjectName struct {
+	TaskID    string
+	UID       string
+	Name      string
+	CreatedAt time.Time
 }
 
 // DAVSyncState is one snapshot a CalDAV sync token stands for. It is a cache
