@@ -499,9 +499,57 @@ Where the implementation of phase 1 differs from the plan above, or settles some
 - **No screenshot of Settings** was taken for 6.5: the change was verified by the web package's tests, and the UI
   regression job in CI covers the screen.
 
+## Phase 2 as built
+
+Where the implementation of write-back differs from the plan above, or settles something it left open:
+
+- **Started before phase 1 was tried against real clients.** The task list says phase 2 waits for that. It was
+  built on request against the written fixtures; the write sequences in `internal/caldav/testdata/write-*.txt`
+  are written from the clients' published behaviour too, and each says so. Captured traffic replaces them.
+- **An access channel of its own.** Every request under `/dav/` signed in with an app password is recorded on
+  a new channel, `caldav`, with the token's identifier and name, reads included, where phase 1 recorded `api`.
+  `tix audit ls --via caldav` and the activity filter select it, and a task's history says "via CalDAV".
+- **Two tables in the `dav_objects` migration.** `dav_objects` holds a client-created task's UID and resource
+  name, each unique in the tenant; `dav_object_props` holds what is kept per person and task. A UID and a name
+  belong to the task, the kept lines to one person, so one row could not carry both.
+- **Kept lines are the client's copy.** Writing them records no audit entry and no event, like a sync state.
+  Since no event moves, a write that changes only them spends the owner's sync short cut
+  (`InvalidateDAVSyncStates`), so the changed entity tag reaches their next sync. Over 8 KiB nothing is kept
+  and the handler logs a warning; the service has no logger.
+- **One PUT is up to three ordinary writes.** A dry run of the move comes first, so a refused move changes
+  nothing, title included. Then `UpdateTask` with the version the ETag was computed from, `SnoozeTask` for a
+  future `DTSTART`, and `TransitionRoute` with the version the update left, each with its own audit entry and
+  event. A change landing between them is a `412` after part of the PUT applied; the next fetch shows what
+  stands. A snooze is skipped when the same PUT finishes or cancels the task.
+- **Which state a category means.** The target is the one state of that category with the shortest route
+  from where the task is. Two routes of the same length, to one state or to two, are refused as ambiguous,
+  the same reasoning as `FindRoute`.
+- **Absent status.** No `STATUS` with `COMPLETED` or `PERCENT-COMPLETE:100` finishes a task; no `STATUS` and no
+  `COMPLETED` on a done task reopens it, which is how clients untick; any other absence leaves the state
+  alone, so a client that never writes `IN-PROCESS` does not pull a task back to todo.
+- **Creating.** The client's UID and name are recorded after `CreateTask`, in a transaction of their own,
+  because `CreateTask` takes no extra rows. A UID or a name that another task holds (a client's, or tix's own
+  `task-ID@tix` and identifier) is `no-uid-conflict` before anything is written; a race lost between the
+  check and the insert leaves the task created and answers `no-uid-conflict`. A status or snooze in the new
+  object is applied after the create and does not fail it. A new task needs a `SUMMARY`. Assigned to me
+  creates in the only project or the one keyed `default`, and otherwise answers `403` naming a project's list.
+- **Conditional headers.** `If-Match` on a name the list does not hold is `412`, as RFC 9110 has it, for a
+  task outside the list and nonsense alike, so the answer still says nothing about other tasks. `If-None-Match:
+  *` on an object that exists is `412`. A `DELETE` takes an optional `If-Match`. A `PUT` whose `UID` differs
+  from the object's is `no-uid-conflict`.
+- **Dates.** A `TZID` the zone database does not know falls back to the object's `VTIMEZONE`, evaluating the
+  yearly `BYMONTH`/`BYDAY` rule every client writes, and then to the person's effective zone (their own, the
+  tenant's, the deployment's, UTC), the same zone a floating time is read in.
+- **Dropped besides recurrence.** `URL`, which tix writes itself, and `DURATION`, which cannot sit beside the
+  `DUE` tix writes. A `PERCENT-COMPLETE` other than 100 is kept and left out of a done task's object. An empty
+  `SUMMARY` on an update is ignored, and tags compare without regard to case or order.
+- **Privileges.** Objects advertise the write privileges as collections do, as phase 1's code already did.
+
 ## Open questions
 
 - Whether a tenant admin should be able to turn CalDAV off for one tenant. This change has the deployment key
   only.
 - WebDAV-Push and Apple's push, so phones stop polling. Both need a sender per platform, like notifications.
 - Mapping `RRULE` to tix's repeat rules, and `RELATED-TO` writes to reparenting.
+- Moving a reminder between lists, which Apple sends as a create with the same UID and a delete, and which
+  is refused today as a UID conflict; it could become `MoveTask`.

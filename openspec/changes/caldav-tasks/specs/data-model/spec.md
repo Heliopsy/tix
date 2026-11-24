@@ -20,7 +20,7 @@ The store SHALL keep, in `dav_sync_states`, per tenant, app password and collect
 
 ### Requirement: Client objects are stored per tenant
 
-With write-back, the store SHALL keep, in `dav_objects`, a client's UID and resource name for a task it created, each unique in the tenant, and per person and task the properties kept for them. Removing the task, the person or the tenant SHALL remove the rows.
+With write-back, the store SHALL keep, in `dav_objects`, a client's UID and resource name for a task it created, each unique in the tenant, and in `dav_object_props`, per person and task, the properties kept for them. Removing the task, the person or the tenant SHALL remove the rows.
 
 #### Scenario: A UID is unique in its tenant
 

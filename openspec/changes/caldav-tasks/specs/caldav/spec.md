@@ -235,13 +235,19 @@ A `PROPFIND` or `REPORT` body SHALL be at most 64 KiB, nest at most 32 elements 
 - **WHEN** a client sends `PROPFIND` with `Depth: infinity`
 - **THEN** the answer is `403` with `DAV:propfind-finite-depth`
 
-### Requirement: Phase 1 is read-only
+### Requirement: Only PUT and DELETE change anything
 
-Until write-back ships, `current-user-privilege-set` SHALL be `DAV:read` alone on every resource, and `PUT`, `DELETE`, `MKCOL`, `MKCALENDAR`, `MOVE`, `COPY`, `LOCK` and `POST` SHALL answer `403`. `PROPPATCH` SHALL answer `207` with `403` for each property.
+`MKCOL`, `MKCALENDAR`, `MOVE`, `COPY`, `ACL`, `LOCK`, `UNLOCK` and `POST` SHALL answer `403`, and `PROPPATCH` SHALL answer `207` with `403` for each property. While the app password is read-only or its owner may not write, `current-user-privilege-set` SHALL be `DAV:read` alone and `PUT` and `DELETE` SHALL answer `403` with `DAV:need-privileges` and change nothing.
 
-#### Scenario: A write is refused while read-only
+#### Scenario: A read-only password cannot write
 
+- **GIVEN** an app password created read-only
 - **WHEN** a client sends `PUT` to an existing object
+- **THEN** the answer is `403` with `DAV:need-privileges` and the task is unchanged
+
+#### Scenario: Moving an object is refused
+
+- **WHEN** a client sends `MOVE` for an object
 - **THEN** the answer is `403` and the task is unchanged
 
 ### Requirement: Write-back reads its privileges from the owner's role
@@ -292,8 +298,24 @@ A `PUT` changing `STATUS` or `COMPLETED` SHALL move the task by the multi-hop ro
 #### Scenario: A guarded move is refused
 
 - **GIVEN** a workflow whose only route to done requires a comment
-- **WHEN** a client sends `PUT` with `STATUS:COMPLETED`
-- **THEN** the answer is `403` and the task is unchanged
+- **WHEN** a client sends `PUT` with `STATUS:COMPLETED` and a new `SUMMARY`
+- **THEN** the answer is `403` and the task is unchanged, its title included
+
+### Requirement: A client unticks a task by leaving the status out
+
+A `PUT` for a done task carrying no `STATUS` and no `COMPLETED` SHALL move it to its workflow's todo state, as `STATUS:NEEDS-ACTION` does. A `PUT` with no `STATUS` carrying `COMPLETED` or `PERCENT-COMPLETE:100` SHALL move an open task to done. For any other task an absent `STATUS` SHALL leave the state alone.
+
+#### Scenario: Unticking in a client reopens the task
+
+- **GIVEN** a task in its done state
+- **WHEN** a client sends `PUT` without `STATUS` or `COMPLETED`
+- **THEN** the task is in its todo state
+
+#### Scenario: An in-progress task stays in progress
+
+- **GIVEN** a task in progress
+- **WHEN** a client that does not write `STATUS` sends `PUT` with a new `SUMMARY`
+- **THEN** the title changes and the task is still in progress
 
 ### Requirement: A client can create a task
 
@@ -303,6 +325,12 @@ A `PUT` to a name the collection does not hold SHALL create a task: in the colle
 
 - **WHEN** a client sends `PUT /dav/acme/calendars/ACTOR/assigned/ABC.ics` with `If-None-Match: *` and a VTODO with `UID:ABC` and `SUMMARY:Call the bank`
 - **THEN** the answer is `201`, a task titled `Call the bank` exists in the default project assigned to the owner, and `GET` of the same name returns `UID:ABC`
+
+#### Scenario: No default project to create in
+
+- **GIVEN** a tenant with several projects and none keyed `default`
+- **WHEN** a client creates a task in Assigned to me
+- **THEN** the answer is `403` naming a project's list as the place to add it, and no task is created
 
 ### Requirement: DELETE cancels and never removes
 
@@ -340,3 +368,12 @@ A `PUT` body SHALL be at most 256 KiB of `text/calendar` holding one `VCALENDAR`
 
 - **WHEN** a client sends `PUT` with a `VEVENT`
 - **THEN** the answer is `403` with `CALDAV:valid-calendar-object-resource`
+
+### Requirement: A DAV write is recorded on the caldav channel
+
+Every audit entry and event a `PUT` or `DELETE` under `/dav/` writes SHALL carry the access channel `caldav` with the app password's token identifier and name, and the app password's owner as the actor.
+
+#### Scenario: The audit log lists a phone's changes
+
+- **WHEN** a client ticks a task off over CalDAV and an administrator lists the audit log with `--via caldav`
+- **THEN** the task's transition entries are listed, each naming the owner and the app password's token

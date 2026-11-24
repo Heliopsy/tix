@@ -93,28 +93,28 @@ Phase 1 ships alone. Phase 2 starts only once phase 1 is released and has been t
 
 ### 8. Reading iCalendar
 
-- [ ] 8.1 `internal/ical/read.go`: unfold, unescape, parameters, one `VCALENDAR` with one `VTODO`, 256 KiB bound;
+- [x] 8.1 `internal/ical/read.go`: unfold, unescape, parameters, one `VCALENDAR` with one `VTODO`, 256 KiB bound;
       fuzz test; round-trip test against `RenderTodo`
-- [ ] 8.2 `internal/ical`: date reading (date, UTC, `TZID` with tzdata, `VTIMEZONE` fallback, floating in the
+- [x] 8.2 `internal/ical`: date reading (date, UTC, `TZID` with tzdata, `VTIMEZONE` fallback, floating in the
       person's zone); table test per client's date forms
 
 ### 9. Writes
 
-- [ ] 9.1 `internal/service`: the phase 2 ceiling and `write` in `GetDAVInfo`; privileges in `PROPFIND`
-- [ ] 9.2 `internal/service/davwrite.go`: `PutDAVObject` as a diff against the rendered task, through `UpdateTask`
+- [x] 9.1 `internal/service`: the phase 2 ceiling and `write` in `GetDAVInfo`; privileges in `PROPFIND`
+- [x] 9.2 `internal/service/davwrite.go`: `PutDAVObject` as a diff against the rendered task, through `UpdateTask`
       with the ETag's version; absent-means-unchanged and absent `DUE` clears; tests per property
-- [ ] 9.3 Status through the multi-hop move; tests for a two-hop done, a guarded edge, an ambiguous route,
+- [x] 9.3 Status through the multi-hop move; tests for a two-hop done, a guarded edge, an ambiguous route,
       `NEEDS-ACTION` from done
-- [ ] 9.4 `internal/caldav`: `PUT` with `If-Match` (`428`, `412`), no `ETag` on success; test a browser edit racing a
+- [x] 9.4 `internal/caldav`: `PUT` with `If-Match` (`428`, `412`), no `ETag` on success; test a browser edit racing a
       phone edit
-- [ ] 9.5 `just migration dav_objects`; create through `CreateTask` in a project or the default project, client UID
+- [x] 9.5 `just migration dav_objects`; create through `CreateTask` in a project or the default project, client UID
       and name kept, `no-uid-conflict`; Evolution's create without `If-None-Match`
-- [ ] 9.6 `DELETE` as cancel on open tasks, `204` no-op on done, `403` with no cancelled state; never trashed
-- [ ] 9.7 Kept properties per person, 8 KiB bound, recurrence dropped, included in the ETag; test another person
+- [x] 9.6 `DELETE` as cancel on open tasks, `204` no-op on done, `403` with no cancelled state; never trashed
+- [x] 9.7 Kept properties per person, 8 KiB bound, recurrence dropped, included in the ETag; test another person
       never sees them
-- [ ] 9.8 Replay the client fixtures with an edit, a completion, a create and a delete from each client
+- [x] 9.8 Replay the client fixtures with an edit, a completion, a create and a delete from each client
 
 ### 10. Documentation
 
-- [ ] 10.1 `docs/caldav.md`: writing, what `DELETE` does, the completed-reminders caveat, what is kept and dropped
-- [ ] 10.2 `docs/api.md`, `skills/tix`, ROADMAP
+- [x] 10.1 `docs/caldav.md`: writing, what `DELETE` does, the completed-reminders caveat, what is kept and dropped
+- [x] 10.2 `docs/api.md`, `skills/tix`, ROADMAP
