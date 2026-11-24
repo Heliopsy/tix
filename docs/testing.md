@@ -108,6 +108,11 @@ merges the six profiles and applies the 85% floor to the total, and fails rather
 shard failed. The Gate job runs tidy, gofmt, vet, the build, `just shards-check` and `just smoke` in a
 couple of minutes, so a slip shows before the suite finishes.
 
+`just smoke` also runs the four API clients under `examples/` (curl, Python, TypeScript and Go) against a
+scratch server and reads back the task each one left. A language whose runtime is missing is skipped and
+announced like any other capability; CI sets `TIX_EXAMPLES_REQUIRED=1`, which turns that skip into a failure.
+`just docs-check` holds the snippets in [examples.md](examples.md) to the regions of those files.
+
 macOS runs the whole suite on main, nightly, and on a pull request that `just os-scope` says touches
 something an operating system can tell apart: build constraints, syscall or terminal imports, SSH,
 paths, filesystems. Other pull requests run the `rest` and `store` shards there, which hold every
