@@ -2010,12 +2010,12 @@ fallback stays regardless: a value that does not resolve must not take a page do
 
 ### The settings screen
 
-Settings is eleven sections (Profile, Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
-Second factor, Sessions, Calendar feed, Database) with a navigation of plain anchors to each. Database, which
-names the server's database path or a redacted DSN, is drawn for a tenant administrator only, and the
-command palette offers it to nobody else either. Where the settings block has room the navigation is a
-column that stays in view beside the sections; where it does not, it is a wrapped row of links above
-them. The choice is a container query on the block rather than a viewport breakpoint, because the
+Settings is twelve sections (Profile, Appearance, Listings, Keyboard, Dates and times, Inbox, Notifications,
+Second factor, Sessions, Calendar feed, Tasks in other apps, Database) with a navigation of plain anchors to
+each. Database, which names the server's database path or a redacted DSN, is drawn for a tenant
+administrator only, and the command palette offers it to nobody else either. Where the settings block has
+room the navigation is a column that stays in view beside the sections; where it does not, it is a wrapped
+row of links above them. The choice is a container query on the block rather than a viewport breakpoint, because the
 sidebar is resizable and collapsible and the room beside it is what decides.
 
 The navigation follows the reader: as the page scrolls, the link for the section in view carries
@@ -2064,7 +2064,7 @@ keep returning to their own screen elsewhere.
 
 Each setting carries a label saying where it is kept: On this device for the cookies and browser
 storage, Synced to your account for what the server keeps with your account (dates, inbox kinds,
-channels, second factor, sessions, calendar feed), and Whole tenant on the Tenant screen, whose settings
+channels, second factor, sessions, calendar feed, app passwords), and Whole tenant on the Tenant screen, whose settings
 apply to everybody. A search box above the sections (drawn with scripting only) narrows the screen to the
 rows whose name, help or (i) text holds every word typed, and to the sections left with a row; a section
 whose heading matches keeps all its rows. Escape clears it, and the navigation hides the sections the
@@ -2381,6 +2381,17 @@ select, beside a Copy button and a link that asks the device's calendar to subsc
 rather than redirected to, so the secret never travels in a URL the browser keeps, and it is sent
 `Cache-Control: no-store`. A filter the service refuses draws Settings again with the text kept in the field
 and the reason beside it. [calendar.md](calendar.md) covers the feed itself.
+
+## Tasks in other apps
+
+Settings carries a Tasks in other apps section for CalDAV, with an (i) tip saying what it is for. Its first
+rows show the CalDAV address and the username a client signs in with. Below them are your app passwords:
+the name, the collections each exposes (Assigned to me, Projects or All), when it was created and last used,
+and a red Revoke button that opens a confirm dialog; confirming returns to the section with a notice and the
+password marked revoked. A primary create button beside the heading opens a dialog taking a name, the
+collections and Read-only. The next screen shows the password once with a Copy button, beside the address
+and the username; only its hash is kept. Returning to Settings lists the new password without it.
+[caldav.md](caldav.md) covers setting up each client.
 
 ## Project icons
 

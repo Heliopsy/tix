@@ -32,6 +32,12 @@ assigned that has a due date and is not finished becomes an all-day event, or wh
 expression selects. The address reads as you and nothing more, and stops the moment it is rotated or
 revoked or you leave the tenant. [docs/calendar.md](calendar.md).
 
+**Your tasks in a reminders app.** `tix serve` answers CalDAV under `/dav/`, so Apple Reminders, tasks.org,
+jtx Board or OpenTasks through DAVx5, Thunderbird and Evolution show your tasks as to-do lists: Assigned to
+me, one list per project, or both, chosen per app password. A client signs in with an app password from
+`tix dav password create` or Settings, a token that works only there and reads as you. For now the lists are
+read-only. [docs/caldav.md](caldav.md).
+
 **Project keys that can change.** A project's key starts every task reference, and it can be changed with
 `tix project edit --key`, `PATCH /projects/{ref}`, the project's settings in the browser or the terminal's
 project screen. Every reference changes with it, and the old key stays an alias, so old references, filters

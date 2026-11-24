@@ -14,8 +14,9 @@ need once in a while:
 - [reference/queries.md](reference/queries.md): the filter language, deadlines,
   sorting and paging, the actor directory, `tix stats`, `tix watch`.
 - [reference/setup.md](reference/setup.md): targets and contexts, API tokens
-  and scopes, `tix serve`, `tix mcp`, workflows and custom fields, the audit log,
-  import/export, sync, webhooks, bundles, retention.
+  and scopes, app passwords for CalDAV (`tix dav`), `tix serve`, `tix mcp`,
+  workflows and custom fields, the audit log, import/export, sync, webhooks,
+  bundles, retention.
 - [reference/ssh.md](reference/ssh.md): serving the terminal interface over
   SSH, running tix commands over SSH with only a key, enrolling keys, and
   `tix login --ssh-key`.

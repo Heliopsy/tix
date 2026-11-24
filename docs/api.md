@@ -202,6 +202,29 @@ or `tix mcp`: SCIM describes itself through its own `ServiceProviderConfig`, `Re
 `/api/v1/scim` routes in the table are the tenant admin's switch, token and group mappings. See
 [scim.md](scim.md).
 
+### CalDAV
+
+`tix serve` also answers CalDAV under `/dav/`, with `/.well-known/caldav` redirecting there, for calendar and
+reminders apps. Like SCIM, it describes itself through its own discovery and is not in the routes table, the
+OpenAPI document or `tix mcp`. A client signs in there with HTTP Basic: the username is the person's sign-in
+email or handle, the password an app password, which is an API token carrying the named-only `caldav` scope.
+`*` and roles never imply `caldav`, a token holding it holds nothing else, and it is refused with `403`
+(`caldav_only`) on every route outside `/dav/`, `/api/v1` included. Under `/dav/` a session cookie, a bearer
+header, an account password and any other token are refused with `401` (`dav_password_required`).
+
+The `/api/v1/dav` routes in the table manage the caller's own app passwords and need `task:read` and a
+person caller; an agent is `403`. They work from a session and from a personal API token, without
+`token:admin`. `POST /api/v1/tokens` refuses the `caldav` scope.
+
+| Route | Does |
+| --- | --- |
+| `GET /dav` | `enabled`, the absolute `url` of `/dav/`, the exact Basic `username`, `write` (false while CalDAV is read-only), the `collections` choices, and a `reason` when it is off |
+| `GET /dav/passwords` | the caller's app passwords, revoked ones included: `id`, `name`, `scopes`, `collections`, `read_only`, `created_at`, `expires_at`, `last_used_at`, `revoked_at`; never the secret |
+| `POST /dav/passwords` | from `name` and optional `collections` (`assigned`, the default, `projects` or `all`), `read_only` and `expires_at` (default never), answers `201` with the `password` once, `username` and `url`. A live name already in use is `409` |
+| `DELETE /dav/passwords/ID` | revokes one of the caller's own, `204`; a client using it is refused from its next request |
+
+[caldav.md](caldav.md) covers the collections, the field mapping and setting up each client.
+
 ### Calendar feed
 
 Each person may hold one calendar feed: an iCalendar address a calendar app subscribes to. The
@@ -1374,3 +1397,4 @@ not through these endpoints, which are tenant configuration filtered by event ty
 - [deployment.md](deployment.md) for TLS, proxies and the bind guard
 - [scripting.md](scripting.md) for the CLI equivalents
 - [scim.md](scim.md) for SCIM 2.0 provisioning under `/scim/v2`
+- [caldav.md](caldav.md) for tasks over CalDAV under `/dav/`

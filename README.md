@@ -98,10 +98,12 @@ template and created from it in one step (`tix template`). Tick rows on the task
 star, copy or delete them in one go, and export any filtered list as CSV for a spreadsheet, or a whole
 project as CSV, JSON, NDJSON or Markdown with the columns you pick (`tix export tasks`). Your due dates
 show up in Google Calendar, Apple Calendar or Outlook through a private feed address you subscribe to once
-(`tix calendar`, or Settings in the browser). A task you cannot move until later snoozes out of every listing
-until then and comes back by itself. A fresh install needs no configuration: one default workflow, no required
-fields, and `tix task add "buy milk"` works on a machine that has never seen tix. A task can be typed in one
-line, `Fix login !high #auth @raj due:fri`, in the browser, the terminal or `tix task add --parse`.
+(`tix calendar`, or Settings in the browser), and your tasks as to-do lists in Apple Reminders, tasks.org,
+Thunderbird or Evolution over CalDAV, read-only for now (`tix dav`). A task you cannot move until later
+snoozes out of every listing until then and comes back by itself. A fresh install needs no configuration:
+one default workflow, no required fields, and `tix task add "buy milk"` works on a machine that has never
+seen tix. A task can be typed in one line, `Fix login !high #auth @raj due:fri`, in the browser, the
+terminal or `tix task add --parse`.
 
 ### For teams
 
@@ -145,8 +147,8 @@ by a test that fails the build when an operation lacks a binding.
 An inbox of mentions, assignments, comments and status changes, statistics, tenant theming, a ctrl+k
 command palette and a live event stream in the browser, an actor directory, multi-step status moves, bulk
 actions, CSV export, tasks that repeat when they are done, quick-add syntax, Markdown descriptions with
-checklists you tick in place, per-browser dates, lease badges, shell completion, self-update and seedable
-demonstration data.
+checklists you tick in place, tasks as to-do lists over CalDAV, per-browser dates, lease badges, shell
+completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots
