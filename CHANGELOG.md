@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.3](https://github.com/Heliopsy/tix/compare/v0.68.2...v0.68.3) (2026-11-24)
+
+
+### Documentation
+
+* list the API examples in the README ([0e1d8d8](https://github.com/Heliopsy/tix/commit/0e1d8d8a6e519697490af96e58c8eb11737f3a56))
+
 ## [0.68.2](https://github.com/Heliopsy/tix/compare/v0.68.1...v0.68.2) (2026-11-24)
 
 
