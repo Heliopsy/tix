@@ -292,10 +292,6 @@ func (rt *Router) register() {
 		rt.mux.Handle(core.DAVRoot, rt.cfg.CalDAV)
 		rt.mux.Handle(core.DAVPath, rt.cfg.CalDAV)
 		rt.mux.HandleFunc(core.DAVWellKnownPath, handleDAVWellKnown)
-	} else {
-		rt.mux.Handle(core.DAVRoot, http.NotFoundHandler())
-		rt.mux.Handle(core.DAVPath, http.NotFoundHandler())
-		rt.mux.Handle(core.DAVWellKnownPath, http.NotFoundHandler())
 	}
 	if rt.cfg.WebHandler != nil {
 		rt.mux.Handle("/", rt.cfg.WebHandler)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/heliopsy/tix/internal/caldav"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
@@ -152,6 +153,9 @@ func Assemble(opts Options) (*Server, error) {
 		provisioning = scim.New(p, httpapi.Origin)
 	}
 	var calDAV http.Handler
+	if collections, ok := opts.Service.(core.TaskCollections); ok && opts.CalDAV {
+		calDAV = caldav.New(collections, httpapi.Origin)
+	}
 	router, err := httpapi.New(httpapi.Config{
 		SCIM:             provisioning,
 		CalDAV:           calDAV,

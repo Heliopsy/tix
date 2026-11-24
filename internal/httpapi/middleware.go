@@ -545,6 +545,10 @@ func hostOf(r *http.Request) string {
 // tenant than the one the Host resolved to.
 func (rt *Router) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rt.cfg.CalDAV == nil && (core.IsDAVPath(r.URL.Path) || r.URL.Path == core.DAVWellKnownPath) {
+			WriteError(w, core.NotFound("no such route"))
+			return
+		}
 		if IsPublicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
@@ -608,10 +612,10 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 // with the Basic authenticator alone. Every refusal is a 401 carrying the
 // Basic challenge, which is what makes a client ask for credentials at all,
 // and names no tenant, person or project. With CalDAV off there is nothing
-// to sign in to, so the path is left to answer not found.
+// to sign in to, and authenticate has already answered not found.
 func (rt *Router) authenticateDAV(next http.Handler, w http.ResponseWriter, r *http.Request) {
-	if rt.cfg.CalDAV == nil || rt.cfg.DAVAuthenticator == nil {
-		next.ServeHTTP(w, r)
+	if rt.cfg.DAVAuthenticator == nil {
+		WriteDAVChallenge(w)
 		return
 	}
 	ctx := core.WithDAVRequest(r.Context())
