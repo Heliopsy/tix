@@ -837,6 +837,19 @@ it. The SSH listener's token bucket in `internal/sshd` is the shape to reuse. `t
 refuses a non-loopback bind without TLS or an explicit override, so the deployment shape these
 protect is already the documented one.
 
+### Tasks over CalDAV
+
+Specified in the `caldav-tasks` OpenSpec change and not built. Apple Reminders, Thunderbird, tasks.org through
+DAVx5 and Evolution read to-dos only over CalDAV, which is why the calendar feed draws tasks as events. `tix
+serve` would answer CalDAV under `/dav/`, one to-do list per project and one for the tasks assigned to you, signed
+in with an app password: a token with a `caldav` scope that works nowhere else, which any person can create,
+including people who sign in only through SSO. The first phase is read-only; the second lets a client tick a task
+off, edit it, add one, or cancel one by deleting it.
+
+**Seam in v1:** the calendar feed already renders tasks as iCalendar and builds a reader from its owner's current
+role; API tokens already carry named-only scopes confined to one surface, as `scim:provision` is to `/scim/v2`;
+and the SCIM handler is the shape of a second protocol mounted beside the API.
+
 ### Plugins as commands
 
 Specified in the `plugin-system` OpenSpec change and not built. A plugin is an executable that tix
