@@ -275,6 +275,11 @@ in the browser, a Templates screen in the main navigation, `B` and `E` in the te
 ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
 [docs/web-ui.md](web-ui.md#task-templates), [docs/api.md](api.md#task-templates).
 
+**API examples.** One client written in curl, Python, TypeScript and Go, using nothing beyond each
+language's own runtime: it signs in with a token, creates a project and a task, edits it, recovers from a
+version conflict, moves it, comments, lists with a filter and reads back the events it caused. The smoke suite
+runs all four against a scratch server. [docs/examples.md](examples.md).
+
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the
 states your workflows define, not only flag names.
