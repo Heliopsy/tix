@@ -221,7 +221,8 @@ the token `tix login --tenant` stores has it. Session tokens are never printed.
 the `caldav` scope, that a person types into Apple Reminders, DAVx5 (tasks.org),
 Thunderbird or Evolution with their sign-in email as the username. It prints
 once. `--collections` picks `assigned` (the default), `projects` or `all`, and
-`--expires` defaults to `never`. `tix dav show` prints the address and
+`--expires` defaults to `never`; `--read-only` keeps that client from changing
+tasks once CalDAV accepts changes. `tix dav show` prints the address and
 username, `tix dav password list` and `tix dav password revoke ID` manage them.
 Any person who reads tasks may create one; an agent is refused, exit `5`.
 `tix token create --scope caldav` is refused too. The password works only under
