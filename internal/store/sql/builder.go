@@ -464,7 +464,7 @@ func ScopedTables() []string {
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
 		"ssh_keys", "tenant_domains", "task_stars", "project_icons", "project_key_aliases", "task_key_aliases",
 		"group_prefs", "saved_filters", "calendar_feeds", "inbox_items", "inbox_mutes",
-		"inbox_channels", "inbox_deliveries",
+		"inbox_channels", "inbox_deliveries", "dav_passwords", "dav_sync_states",
 		"task_templates", "housekeeping_policies", "user_invites", "idempotency_keys",
 		"sso_providers", "user_identities", "sso_assertions", "sso_handoffs",
 		"scim_config", "scim_users", "scim_groups", "scim_group_members", "scim_group_roles",

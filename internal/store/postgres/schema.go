@@ -108,6 +108,7 @@ var boolColumns = map[string]bool{
 	"field_defs.indexed":             true,
 	"webhook_endpoints.active":       true,
 	"tenants.require_totp_web":       true,
+	"dav_passwords.read_only":        true,
 	"tenants.require_totp_cli":       true,
 	"tenants.require_totp_ssh":       true,
 	"tenants.trash_off":              true,

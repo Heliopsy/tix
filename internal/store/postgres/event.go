@@ -345,3 +345,9 @@ func (t *tx) PruneDeliveries(ctx context.Context, before time.Time, limit int) (
 	b := t.builder("webhook_deliveries").Where("id IN ("+sub+")", subArgs...)
 	return t.execDelete(ctx, b, "pruning webhook deliveries")
 }
+
+// CountEventsAfter counts this tenant's events with a sequence number above afterSeq.
+func (t *tx) CountEventsAfter(ctx context.Context, afterSeq int64) (int64, error) {
+	n, err := t.count(ctx, t.builder("events").Where("seq > ?", afterSeq), "counting events")
+	return int64(n), err
+}

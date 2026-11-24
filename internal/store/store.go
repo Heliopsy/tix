@@ -63,6 +63,7 @@ type Tx interface {
 	ViewTx
 	SavedFilterTx
 	CalendarTx
+	DAVTx
 	InviteTx
 	InboxTx
 	InboxChannelTx
@@ -340,6 +341,48 @@ type SavedFilterTx interface {
 // MaxListedFilters bounds one SavedFilters read: a reader's own, at most
 // core.MaxSavedFilters, and the tenant's shared ones.
 const MaxListedFilters = 2000
+
+// DAVTx covers app passwords and the CalDAV sync tokens answered for them.
+type DAVTx interface {
+	// CreateDAVPassword stores what an app password exposes, beside the
+	// api_tokens row whose identifier is p.ID.
+	CreateDAVPassword(ctx context.Context, p *core.DAVPassword) error
+	// GetDAVPassword returns the settings of the app password behind a token.
+	GetDAVPassword(ctx context.Context, tokenID string) (*core.DAVPassword, error)
+	// ListDAVPasswords returns an actor's app password settings, oldest first.
+	// Revocation, expiry and last use are the tokens', read separately.
+	ListDAVPasswords(ctx context.Context, actorID string) ([]core.DAVPassword, error)
+	// GetDAVSyncState returns the snapshot a sync token names.
+	GetDAVSyncState(ctx context.Context, tokenID, collection, setHash string) (*DAVSyncState, error)
+	// PutDAVSyncState stores a snapshot, replacing the one of the same set.
+	PutDAVSyncState(ctx context.Context, s *DAVSyncState) error
+	// PruneDAVSyncStates removes an app password's snapshots of a collection
+	// seen before the given instant, except the keep most recently seen.
+	PruneDAVSyncStates(ctx context.Context, tokenID, collection string, keep int, before time.Time) (int64, error)
+}
+
+// DAVSyncState is one snapshot a CalDAV sync token stands for. It is a cache
+// of what was answered, not domain state, so writing it is never audited.
+type DAVSyncState struct {
+	TokenID    string
+	ActorID    string
+	Collection string
+	// SetHash names the set of members, and is the sync token.
+	SetHash string
+	// Members are the names and entity tags the collection held.
+	Members []core.DAVMember
+	// EventSeq is the tenant's latest event sequence when it was taken, and
+	// EventMark the count of events in the span below it that the short cut
+	// compares, so a write committing out of sequence order is not missed.
+	EventSeq  int64
+	EventMark int64
+	// Config names what else the rendering depended on.
+	Config string
+	// ValidUntil is the first moment the set could change with no event: a
+	// finished task ageing out of the window, or a snooze passing.
+	ValidUntil time.Time
+	SeenAt     time.Time
+}
 
 // CalendarTx covers each actor's calendar feed.
 type CalendarTx interface {
@@ -665,6 +708,9 @@ type EventTx interface {
 	AppendEvent(ctx context.Context, e *core.Event) error
 	ReadEvents(ctx context.Context, sinceSeq int64, limit int) ([]core.Event, error)
 	LatestEventSeq(ctx context.Context) (int64, error)
+	// CountEventsAfter counts this tenant's events with a sequence number
+	// above afterSeq.
+	CountEventsAfter(ctx context.Context, afterSeq int64) (int64, error)
 
 	AppendAudit(ctx context.Context, e *core.AuditEntry) error
 	ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEntry, error)
