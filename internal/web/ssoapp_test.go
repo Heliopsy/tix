@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -143,8 +144,10 @@ func TestAnAppSignsInThroughTheBrowserWithSAML(t *testing.T) {
 	f.exchange(t, code)
 }
 
-func TestAnAppSignInAsksTheSecondFactorInTheBrowser(t *testing.T) {
-	f := newFixture(t)
+// appEnrolment runs an app's sign-in under a second factor requirement to
+// the code step and answers the browser and the enrolment form's fields.
+func appEnrolment(t *testing.T, f *fixture) (*browser, url.Values) {
+	t.Helper()
 	f.requireTOTPWeb()
 	idp := addProvider(t, f)
 	idp.SetClaims(map[string]any{"sub": "n-1", "email": "newbie@acme.test", "email_verified": true})
@@ -161,7 +164,13 @@ func TestAnAppSignInAsksTheSecondFactorInTheBrowser(t *testing.T) {
 	if err != nil || ticket == "" {
 		t.Fatalf("the second factor step carries no ticket or enrolment: %v\n%s", err, form)
 	}
-	done := visitor.post("/login", url.Values{"ticket": {ticket}, "code": {code}, "uri": {uri}})
+	return visitor, url.Values{"ticket": {ticket}, "code": {code}, "uri": {uri}}
+}
+
+func TestAnAppSignInAsksTheSecondFactorInTheBrowser(t *testing.T) {
+	f := newFixture(t)
+	visitor, fields := appEnrolment(t, f)
+	done := visitor.post("/login", fields)
 	body := readAll(t, done)
 	wantStatus(t, done, http.StatusOK)
 	if visitor.cookie("tix_session") != "" {
@@ -173,9 +182,55 @@ func TestAnAppSignInAsksTheSecondFactorInTheBrowser(t *testing.T) {
 	if strings.Contains(body, `http-equiv="refresh"`) {
 		t.Error("the page navigates away before the reader has kept the recovery codes")
 	}
-	link := html.UnescapeString(between(t, body, `<a class="button" href="`, `"`))
-	out := f.exchange(t, appCode(t, link))
-	if out.Session == nil {
+	if strings.Contains(body, "red.tix.mobile:") {
+		t.Error("the recovery codes page already carries the app's address, so its code expires while the codes are read")
+	}
+	open := formAt(t, body, "/login/sso/app")
+	handoff := html.UnescapeString(between(t, open, `name="handoff" value="`, `"`))
+	if !strings.Contains(open, `name="csrf_token"`) || !strings.Contains(open, "Open the app") {
+		t.Fatalf("Open the app is not a CSRF protected form:\n%s", open)
+	}
+	// Keeping the codes takes longer than a handed code lives.
+	f.clock.Advance(auth.SSOHandoffTTL + time.Minute)
+	if refused := visitor.postRaw("/login/sso/app", url.Values{"handoff": {handoff}}); refused.StatusCode != http.StatusForbidden {
+		t.Errorf("Open the app without the CSRF value = %d, want 403", refused.StatusCode)
+	}
+	opened := visitor.post("/login/sso/app", url.Values{"handoff": {handoff}})
+	_ = opened.Body.Close()
+	wantStatus(t, opened, http.StatusFound)
+	if opened.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("Open the app answered Cache-Control %q, want no-store", opened.Header.Get("Cache-Control"))
+	}
+	if out := f.exchange(t, appCode(t, opened.Header.Get("Location"))); out.Session == nil {
 		t.Fatal("no session")
+	}
+	if visitor.cookie("tix_session") != "" {
+		t.Error("Open the app set a browser session cookie")
+	}
+}
+
+func TestAnExpiredAppSecondFactorStepGoesBackToTheApp(t *testing.T) {
+	f := newFixture(t)
+	visitor, fields := appEnrolment(t, f)
+	f.clock.Advance(auth.TicketTTL + time.Second)
+	done := visitor.post("/login", fields)
+	body := readAll(t, done)
+	wantStatus(t, done, http.StatusOK)
+	target, err := url.Parse(html.UnescapeString(between(t, body, `<meta http-equiv="refresh" content="0;url=`, `"`)))
+	if err != nil || target.Scheme != "red.tix.mobile" || target.Query().Get("error") != "expired" ||
+		target.Query().Get("state") != "st-9" {
+		t.Errorf("an expired second factor step navigates to %v, want the app with error=expired", target)
+	}
+}
+
+func TestAWrongCodeInAnAppSignInStaysOnTheForm(t *testing.T) {
+	f := newFixture(t)
+	visitor, fields := appEnrolment(t, f)
+	fields.Set("code", "000000")
+	done := visitor.post("/login", fields)
+	body := readAll(t, done)
+	if done.StatusCode != http.StatusUnauthorized || strings.Contains(body, "red.tix.mobile:") ||
+		!strings.Contains(body, `name="ticket"`) {
+		t.Errorf("a wrong code = %d, want the code form again without the app's address\n%s", done.StatusCode, body)
 	}
 }

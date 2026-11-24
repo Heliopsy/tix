@@ -354,8 +354,7 @@ var ssoHandoffColumns = []string{
 // CreateSSOHandoff records an app sign-in's code, after pruning the tenant's
 // expired ones.
 func (t *tx) CreateSSOHandoff(ctx context.Context, h *store.SSOHandoff, now time.Time) error {
-	if _, err := t.execDelete(ctx, t.builder("sso_handoffs").Where("expires_at < ?", timeArg(now)),
-		"pruning expired sso handoffs"); err != nil {
+	if err := t.pruneSSOHandoffs(ctx, now); err != nil {
 		return err
 	}
 	if h.ID == "" {
@@ -374,9 +373,13 @@ func (t *tx) CreateSSOHandoff(ctx context.Context, h *store.SSOHandoff, now time
 	return err
 }
 
-// TakeSSOHandoff deletes and returns an unexpired code by its hash. The
-// delete decides: a take that deletes no row lost to another.
+// TakeSSOHandoff deletes and returns an unexpired code by its hash, after
+// pruning the tenant's expired ones. The delete decides: a take that deletes
+// no row lost to another.
 func (t *tx) TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time) (*store.SSOHandoff, error) {
+	if err := t.pruneSSOHandoffs(ctx, now); err != nil {
+		return nil, err
+	}
 	q, args := t.builder("sso_handoffs").Select(ssoHandoffColumns...).Where("code_hash = ?", codeHash).Limit(1).
 		SelectQuery()
 	h, err := scanSSOHandoff(t.ex.QueryRowContext(ctx, q, args...))
@@ -394,6 +397,13 @@ func (t *tx) TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time)
 		return nil, core.NotFound("sso handoff")
 	}
 	return h, nil
+}
+
+// pruneSSOHandoffs deletes the tenant's codes that expired before now.
+func (t *tx) pruneSSOHandoffs(ctx context.Context, now time.Time) error {
+	_, err := t.execDelete(ctx, t.builder("sso_handoffs").Where("expires_at < ?", timeArg(now)),
+		"pruning expired sso handoffs")
+	return err
 }
 
 func scanSSOHandoff(row scanner) (*store.SSOHandoff, error) {

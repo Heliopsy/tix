@@ -4,7 +4,8 @@
   where a browser may not follow a redirect to the app's scheme, so it
   navigates on its own and links the address for a reader whose browser
   asks first. The recovery codes of an enrolment are shown here, once,
-  before the reader goes on.
+  with Open the app as a form that mints the app's code only when pressed,
+  so a reader who takes a while to keep them is not handed a stale code.
 */}}
 {{define "content"}}
 {{$v := .Data}}
@@ -26,6 +27,14 @@
   </div>
 </section>
 {{end}}
+{{if $v.Handoff}}
+<form method="post" hx-boost="false" action="{{$v.Action}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="handoff" value="{{$v.Handoff}}">
+  <p><button type="submit">{{t "Open the app"}}</button></p>
+</form>
+{{else}}
 <p><a class="button" href="{{$v.Target}}">{{t "Open the app"}}</a></p>
+{{end}}
 <p><a href="/login">{{t "Back to sign in"}}</a></p>
 {{end}}

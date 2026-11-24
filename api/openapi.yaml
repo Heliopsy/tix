@@ -1146,6 +1146,8 @@ paths:
         CompleteSSOLogin finishes a sign-in with the code the provider returned, or the response a SAML IdP posted. It answers as Login does: a session, or the second factor still to pass.
 
         Command line: `tix login`.
+
+        Specified in [`auth`](openspec/specs/auth/spec.md).
       operationId: sso.complete
       requestBody:
         content:
@@ -1188,6 +1190,8 @@ paths:
         or the response a SAML IdP posted
       tags:
         - sso
+      x-tix-openspec:
+        - auth
   /api/v1/auth/sso/exchange:
     post:
       description: |-

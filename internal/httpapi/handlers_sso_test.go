@@ -140,7 +140,8 @@ func TestAnAppExchangesItsSignInCodeOverHTTP(t *testing.T) {
 
 	// The browser half, as /login/sso/kc runs it for the app.
 	verifier := "app-verifier-0123456789-0123456789-0123456789"
-	ctx := core.WithTenant(context.Background(), core.TenantScope{TenantID: f.tenantA.ID})
+	ctx := core.WithSource(core.WithTenant(context.Background(), core.TenantScope{TenantID: f.tenantA.ID}),
+		core.SourceWeb)
 	begin, err := f.local.BeginSSOLogin(ctx, core.BeginSSOInput{Provider: "kc",
 		RedirectURI: "https://acme.test" + core.SSOCallbackPath, AppRedirect: "red.tix.mobile:/sso",
 		CodeChallenge: auth.PKCEChallenge(verifier), CodeChallengeMethod: "S256", AppState: "s1"})
@@ -148,8 +149,19 @@ func TestAnAppExchangesItsSignInCodeOverHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	idp.SetClaims(map[string]any{"sub": "n", "email": "ada@example.com", "email_verified": true})
+	grant := idp.Grant(begin.AuthURL)
+	// The app's flow is the browser's to finish: over the API nothing would
+	// take the code to the app.
+	overAPI := f.do(http.MethodPost, wire.RouteSSOComplete, f.hostA, "", core.CompleteSSOInput{Flow: begin.Flow,
+		Code: grant, State: begin.State})
+	mustStatus(t, overAPI, http.StatusBadRequest)
+	var apiRefusal map[string]any
+	decodeBody(t, overAPI, &apiRefusal)
+	if !strings.Contains(fmt.Sprint(apiRefusal), "flow") {
+		t.Errorf("an app flow completed over the API = %v, want refused naming flow", apiRefusal)
+	}
 	handed, err := f.local.CompleteSSOLogin(ctx, core.CompleteSSOInput{Flow: begin.Flow,
-		Code: idp.Grant(begin.AuthURL), State: begin.State})
+		Code: grant, State: begin.State})
 	if err != nil {
 		t.Fatal(err)
 	}

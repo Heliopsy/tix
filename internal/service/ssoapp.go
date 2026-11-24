@@ -29,7 +29,31 @@ const (
 	ssoReasonFlowStale     = "sso_flow_stale"
 )
 
-type appSignInKey struct{}
+type (
+	appSignInKey struct{}
+	enrollingKey struct{}
+)
+
+// enrolling marks ctx as the sign-in step that completes an enrolment, so an
+// app's code waits for the reader to keep the recovery codes and open the
+// app, rather than being minted now and expiring on the codes page.
+func enrolling(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enrollingKey{}, true)
+}
+
+// fromBrowser reports whether ctx arrived through the browser interface,
+// the one place an app's sign-in may run and finish.
+func fromBrowser(ctx context.Context) bool { return core.SourceFrom(ctx) == core.SourceWeb }
+
+// appOnlyInBrowser refuses an app's ticket or flow presented anywhere but
+// the browser interface, where nothing would take the browser to the app.
+func appOnlyInBrowser(ctx context.Context, app *auth.AppSignIn, field string) error {
+	if app == nil || fromBrowser(ctx) {
+		return nil
+	}
+	return core.OnField(core.Invalid("this sign-in was started by an app in the system browser and finishes "+
+		"there; the app trades its code at %s", "/api/v1/auth/sso/exchange"), field)
+}
 
 // withAppSignIn marks ctx as completing a native app's sign-in, so the
 // session it would mint becomes a code handed to the app instead.
@@ -50,7 +74,7 @@ func appSignInFrom(ctx context.Context) *auth.AppSignIn {
 // redirects. There is no prefix or pattern match: an address is listed or
 // refused.
 func (l *Local) appAllowed(redirect string) bool {
-	return redirect != "" && slices.Contains(l.appRedirects, redirect)
+	return redirect != "" && !core.AppSchemeRefused(redirect) && slices.Contains(l.appRedirects, redirect)
 }
 
 // appSignIn checks the app half of a begin and answers what the flow keeps,
@@ -128,6 +152,37 @@ func appReason(err error) string {
 	return core.AppSignInServerError
 }
 
+// ticketRefusal is a refused second factor step, sent back to the app when
+// an app started the sign-in in this browser. A wrong or rate limited code
+// stays on the form, where the person can try again.
+func (l *Local) ticketRefusal(ctx context.Context, err error, raw string) error {
+	if !fromBrowser(ctx) || codeRefused(err) {
+		return err
+	}
+	peek, perr := auth.PeekTicket(l.totpKey, raw)
+	if perr != nil || peek.App == nil {
+		return err
+	}
+	var e *core.Error
+	if sameError(err, auth.ErrSignInExpired()) && errors.As(err, &e) {
+		err = staleFlow(e)
+	}
+	return l.appRefusal(err, peek.App)
+}
+
+// codeRefused reports whether err refused the code itself: wrong, spent or
+// rate limited.
+func codeRefused(err error) bool {
+	return core.IsTOTPLocked(err) || sameError(err, auth.ErrTOTPInvalid())
+}
+
+// sameError reports whether err is the domain error want: the same kind and
+// message.
+func sameError(err, want error) bool {
+	var got, w *core.Error
+	return errors.As(err, &got) && errors.As(want, &w) && got.Kind == w.Kind && got.Message == w.Message
+}
+
 // staleFlow marks a flow refused as expired, from another browser or tenant,
 // or already used.
 func staleFlow(err *core.Error) error { return err.WithDetail("reason", ssoReasonFlowStale) }
@@ -152,13 +207,18 @@ func (l *Local) openFlow(sealed string) (auth.SSOFlow, error) {
 // handOff stores the code an app sign-in hands the app where the browser
 // flow would mint its session, with whatever else the sign-in records, and
 // answers the app's redirect carrying it. The session is minted when the app
-// exchanges the code.
+// exchanges the code. A step that completes an enrolment records it and
+// answers a handoff ticket instead, which mints the code once the reader
+// has kept the recovery codes.
 func (l *Local) handOff(ctx context.Context, scope core.TenantScope, actor *core.Actor, origin core.SessionOrigin,
 	app *auth.AppSignIn, also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
 	if !l.appAllowed(app.Redirect) {
 		return nil, core.OnField(core.Invalid("app_redirect is no longer one this server hands a sign-in to"),
 			"app_redirect")
+	}
+	if done, _ := ctx.Value(enrollingKey{}).(bool); done {
+		return l.deferHandOff(ctx, scope, actor, origin, app, also)
 	}
 	code, err := auth.NewHandoffCode()
 	if err != nil {
@@ -185,12 +245,94 @@ func (l *Local) handOff(ctx context.Context, scope core.TenantScope, actor *core
 	return &core.LoginResult{AppRedirect: app.Answer(url.Values{"code": {code}})}, nil
 }
 
+// deferHandOff records what an enrolling step records and answers the
+// signed handoff the recovery codes page sends back to mint the code.
+func (l *Local) deferHandOff(ctx context.Context, scope core.TenantScope, actor *core.Actor,
+	origin core.SessionOrigin, app *auth.AppSignIn, also func(*mutation) (bool, error),
+) (*core.LoginResult, error) {
+	var (
+		ok     bool
+		userID string
+	)
+	if err := l.write(ctx, actor, func(m *mutation) error {
+		var err error
+		if ok, err = also(m); err != nil || !ok {
+			return err
+		}
+		member, err := m.tx.GetActor(ctx, actor.ID)
+		if err != nil {
+			return err
+		}
+		userID = member.UserID
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	ticket, err := auth.MintHandoffTicket(l.totpKey, auth.Ticket{UserID: userID, TenantID: scope.TenantID,
+		Surface: core.SurfaceWeb, ExpiresAt: l.clock.Now().Add(auth.SSOHandoffTicketTTL), Method: origin.Method,
+		App: app})
+	if err != nil {
+		return nil, err
+	}
+	return &core.LoginResult{AppHandoff: ticket}, nil
+}
+
+// resumeHandoff mints the app's code once the reader of an enrolment's
+// recovery codes opens the app, and answers the app's redirect carrying it.
+func (l *Local) resumeHandoff(ctx context.Context, scope core.TenantScope, raw string) (*core.LoginResult, error) {
+	ticket, err := auth.ParseHandoffTicket(l.totpKey, raw, l.clock.Now())
+	if err != nil {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
+		var e *core.Error
+		if ticket.App == nil || !errors.As(err, &e) {
+			return nil, err
+		}
+		return nil, l.appRefusal(staleFlow(e), ticket.App)
+	}
+	if err := appOnlyInBrowser(ctx, ticket.App, "app_handoff"); err != nil {
+		return nil, err
+	}
+	out, err := l.mintHandoff(withAppSignIn(ctx, ticket.App), scope, ticket)
+	if err != nil {
+		return nil, l.appRefusal(err, ticket.App)
+	}
+	return out, nil
+}
+
+// mintHandoff stores the code a handoff ticket stands for, for the person it
+// names while they still hold a membership here. The exchange checks the
+// rest, as it does for a code handed over at once.
+func (l *Local) mintHandoff(ctx context.Context, scope core.TenantScope, ticket auth.Ticket) (*core.LoginResult, error) {
+	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
+		scope = core.TenantScope{TenantID: ticket.TenantID}
+	}
+	if ticket.TenantID != scope.TenantID {
+		return nil, staleFlow(core.Unauthenticated("this sign-in was for another tenant; start again"))
+	}
+	cand, err := l.memberCandidate(ctx, scope, ticket.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if cand.user == nil || cand.user.DisabledAt != nil || !cand.member() {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedUnknownAccount})
+		return nil, core.Forbidden("this account can no longer sign in here")
+	}
+	return l.handOff(ctx, scope, cand.sessionActor(scope), factorOrigin(ticket.Method), ticket.App,
+		func(*mutation) (bool, error) { return true, nil })
+}
+
 // maxHandoffInput bounds the code and verifier an exchange reads: a code is
 // 43 characters and a verifier at most 128.
 const maxHandoffInput = 256
 
 // ExchangeSSOCode trades an app sign-in's one-time code and the PKCE
 // verifier of its challenge for a session.
+//
+// A code that is not found still commits the take, so the expired codes it
+// pruned stay gone.
 func (l *Local) ExchangeSSOCode(ctx context.Context, in core.SSOExchangeInput) (*core.LoginResult, error) {
 	scope, err := core.RequireTenant(ctx)
 	if err != nil {
@@ -209,13 +351,16 @@ func (l *Local) ExchangeSSOCode(ctx context.Context, in core.SSOExchangeInput) (
 	err = l.write(ctx, core.SystemActor(scope.TenantID), func(m *mutation) error {
 		var err error
 		h, err = m.tx.TakeSSOHandoff(ctx, auth.HashToken(code), m.now)
+		if core.IsKind(err, core.KindNotFound) {
+			h, err = nil, nil
+		}
 		return err
 	})
-	if core.IsKind(err, core.KindNotFound) {
-		return nil, refuseSSOCode(ctx)
-	}
 	if err != nil {
 		return nil, err
+	}
+	if h == nil {
+		return nil, refuseSSOCode(ctx)
 	}
 	if !auth.VerifyPKCE(h.CodeChallenge, verifier) {
 		return nil, refuseSSOCode(ctx)

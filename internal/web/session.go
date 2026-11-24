@@ -138,6 +138,9 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 		if ticket == "" {
 			return err
 		}
+		if appTarget(err) != "" {
+			return h.refusedForApp(w, r, err)
+		}
 		// A refused code redraws the step it was typed on, refusal and all.
 		// The error screen would lose the ticket and send the reader back to
 		// the password, and an expired ticket says so on this screen beside
@@ -187,7 +190,7 @@ func (h *handler) finishSignIn(w http.ResponseWriter, r *http.Request, result *c
 		return h.renderTOTP(w, r, http.StatusOK, v)
 	}
 
-	if result.AppRedirect != "" {
+	if result.AppRedirect != "" || result.AppHandoff != "" {
 		return h.backToApp(w, r, result)
 	}
 	session := result.Session

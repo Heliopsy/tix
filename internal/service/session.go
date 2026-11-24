@@ -213,8 +213,15 @@ func (l *Local) Login(ctx context.Context, in core.LoginInput) (*core.LoginResul
 		return nil, core.Invalid("%q is not a sign-in surface", in.Surface)
 	}
 	ctx = withRemember(ctx, in.Remember)
+	if in.AppHandoff != "" {
+		return l.resumeHandoff(ctx, scope, in.AppHandoff)
+	}
 	if in.Ticket != "" {
-		return l.completeLogin(ctx, scope, surface, in)
+		out, err := l.completeLogin(ctx, scope, surface, in)
+		if err != nil {
+			return nil, l.ticketRefusal(ctx, err, in.Ticket)
+		}
+		return out, nil
 	}
 	return l.beginLogin(ctx, scope, surface, in)
 }
@@ -366,8 +373,9 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		// session the gate confines to enrolment, rather than enrolling them
 		// inside the sign-in: one path then serves a new sign-in, a session
 		// that was live when the policy went on and one whose factor was
-		// cleared since.
-		signIn = tenant.MFARequired() && surface == core.SurfaceWeb
+		// cleared since. An app's sign-in has no such screen to land on, so
+		// it enrols inside the sign-in as the command line does.
+		signIn = tenant.MFARequired() && surface == core.SurfaceWeb && app == nil
 		enrolment, err := tx.GetUserTOTP(ctx, user.ID)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
@@ -421,12 +429,15 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
 		return nil, err
 	}
+	if err := appOnlyInBrowser(ctx, ticket.App, "ticket"); err != nil {
+		return nil, err
+	}
 	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
 		scope = core.TenantScope{TenantID: ticket.TenantID}
 	}
 	if ticket.TenantID != scope.TenantID || ticket.Surface != surface {
 		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
-		return nil, core.Unauthenticated("this sign-in has expired; start again")
+		return nil, auth.ErrSignInExpired()
 	}
 	ctx = withAppSignIn(ctx, ticket.App)
 
@@ -499,7 +510,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	for _, h := range hashes {
 		rows = append(rows, core.RecoveryCode{UserID: user.ID, CodeHash: h})
 	}
-	out, err := l.mintSession(ctx, scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
+	out, err := l.mintSession(enrolling(ctx), scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt); err != nil {
 			return err
 		}

@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"strings"
@@ -21,6 +22,12 @@ const (
 	appVerifier = "verifier-0123456789-0123456789-0123456789-abcdef"
 )
 
+// browserContext is a sign-in request as the browser interface makes it,
+// the one place an app's sign-in runs.
+func browserContext(scope core.TenantScope) context.Context {
+	return core.WithSource(loginContext(scope), core.SourceWeb)
+}
+
 // appBegin is a begin as the app's browser asks for it.
 func appBegin(provider string) core.BeginSSOInput {
 	return core.BeginSSOInput{Provider: provider, RedirectURI: ssoCallback, Surface: core.SurfaceWeb,
@@ -33,7 +40,7 @@ func appBegin(provider string) core.BeginSSOInput {
 func (f ssoFixture) appSignInSSO(t *testing.T, claims map[string]any) (*core.LoginResult, error) {
 	t.Helper()
 	f.idp.SetClaims(claims)
-	ctx := loginContext(f.scope)
+	ctx := browserContext(f.scope)
 	begin, err := f.l.BeginSSOLogin(ctx, appBegin("kc"))
 	if err != nil {
 		t.Fatalf("BeginSSOLogin: %v", err)
@@ -201,7 +208,7 @@ func TestAppSignInBeginRefusesBadAppParameters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			in := appBegin("kc")
 			tc.edit(&in)
-			_, err := f.l.BeginSSOLogin(loginContext(f.scope), in)
+			_, err := f.l.BeginSSOLogin(browserContext(f.scope), in)
 			if !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != tc.field {
 				t.Errorf("begin = %v, want invalid on %s", err, tc.field)
 			}
@@ -209,7 +216,7 @@ func TestAppSignInBeginRefusesBadAppParameters(t *testing.T) {
 	}
 	in := appBegin("kc")
 	in.AppState = strings.Repeat("ж", 256)
-	if _, err := f.l.BeginSSOLogin(loginContext(f.scope), in); err != nil {
+	if _, err := f.l.BeginSSOLogin(browserContext(f.scope), in); err != nil {
 		t.Errorf("a 256 character state = %v, want accepted", err)
 	}
 }
@@ -224,16 +231,16 @@ func TestAppSignInListedHTTPSRedirect(t *testing.T) {
 	}
 	f := ssoFixture{l: l, clk: clk, scope: scope, admin: admin, idp: idp}
 	in := appBegin("kc")
-	if _, err := l.BeginSSOLogin(loginContext(scope), in); !core.IsKind(err, core.KindInvalid) {
+	if _, err := l.BeginSSOLogin(browserContext(scope), in); !core.IsKind(err, core.KindInvalid) {
 		t.Fatalf("the default redirect on a server that lists another = %v, want refused", err)
 	}
 	in.AppRedirect = "https://app.example/sso?x=1"
 	idp.SetClaims(person("sub-1", "ada@example.com", true))
-	begin, err := l.BeginSSOLogin(loginContext(scope), in)
+	begin, err := l.BeginSSOLogin(browserContext(scope), in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := l.CompleteSSOLogin(loginContext(scope), core.CompleteSSOInput{Flow: begin.Flow,
+	result, err := l.CompleteSSOLogin(browserContext(scope), core.CompleteSSOInput{Flow: begin.Flow,
 		Code: idp.Grant(begin.AuthURL), State: begin.State})
 	if err != nil || !strings.HasPrefix(result.AppRedirect, "https://app.example/sso?x=1&") {
 		t.Fatalf("result = %+v, %v; want the listed address with the code added to its query", result, err)
@@ -252,11 +259,11 @@ func TestAppSignInOff(t *testing.T) {
 		Issuer: idp.Issuer(), ClientID: idp.ClientID, ClientSecret: idp.ClientSecret}); err != nil {
 		t.Fatal(err)
 	}
-	opts, err := l.SignInOptions(loginContext(scope))
+	opts, err := l.SignInOptions(browserContext(scope))
 	if err != nil || opts.AppSignIn || len(opts.Providers) != 1 {
 		t.Errorf("options = %+v, %v; want the provider and app_sign_in false", opts, err)
 	}
-	_, err = l.BeginSSOLogin(loginContext(scope), appBegin("kc"))
+	_, err = l.BeginSSOLogin(browserContext(scope), appBegin("kc"))
 	if !core.IsKind(err, core.KindInvalid) || !strings.Contains(err.Error(), "turned off") {
 		t.Errorf("an app sign-in on a server with none = %v, want refused as turned off", err)
 	}
@@ -264,7 +271,7 @@ func TestAppSignInOff(t *testing.T) {
 
 func TestSignInOptionsOffersAppSignInByDefault(t *testing.T) {
 	f := newSSOFixture(t, nil)
-	opts, err := f.l.SignInOptions(loginContext(f.scope))
+	opts, err := f.l.SignInOptions(browserContext(f.scope))
 	if err != nil || !opts.AppSignIn || opts.PasswordLogin != core.PasswordLoginAllowed {
 		t.Errorf("options = %+v, %v; want app_sign_in true beside the password policy", opts, err)
 	}
@@ -295,7 +302,7 @@ func TestAppSignInRefusalsGoBackToTheApp(t *testing.T) {
 		t.Errorf("an unknown person = %v, want not_linked with the app's state", q)
 	}
 
-	ctx := loginContext(f.scope)
+	ctx := browserContext(f.scope)
 	begin, err := f.l.BeginSSOLogin(ctx, appBegin("kc"))
 	if err != nil {
 		t.Fatal(err)
@@ -322,6 +329,26 @@ func TestAppSignInRefusalsGoBackToTheApp(t *testing.T) {
 	}
 }
 
+// enrolInBrowser passes the enrolment challenge an app sign-in stopped at,
+// as the browser's second factor form does.
+func (f ssoFixture) enrolInBrowser(t *testing.T, result *core.LoginResult) *core.LoginResult {
+	t.Helper()
+	if result == nil || result.Challenge == nil || result.Challenge.Enrolment == nil || result.AppRedirect != "" {
+		t.Fatalf("result = %+v, want an enrolment challenge and no code yet", result)
+	}
+	done, err := f.l.Login(browserContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb,
+		Ticket: result.Challenge.Ticket, Code: codeFor(t, result.Challenge.Enrolment.Secret, f.clk)})
+	if err != nil {
+		t.Fatalf("second factor step: %v", err)
+	}
+	return done
+}
+
+// openTheApp is Open the app under the recovery codes.
+func (f ssoFixture) openTheApp(handoff string) (*core.LoginResult, error) {
+	return f.l.Login(browserContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, AppHandoff: handoff})
+}
+
 func TestAppSignInAsksForTheSecondFactorInTheBrowser(t *testing.T) {
 	f := newSSOFixture(t, func(in *core.CreateSSOProviderInput) { in.AutoCreate = true })
 	// Only the cli surface requires it: the app's session is the one the
@@ -331,20 +358,21 @@ func TestAppSignInAsksForTheSecondFactorInTheBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Challenge == nil || result.Challenge.Enrolment == nil || result.AppRedirect != "" {
-		t.Fatalf("result = %+v, want an enrolment challenge and no code yet", result)
-	}
-	ctx := loginContext(f.scope)
-	done, err := f.l.Login(ctx, core.LoginInput{Surface: core.SurfaceWeb, Ticket: result.Challenge.Ticket,
-		Code: codeFor(t, result.Challenge.Enrolment.Secret, f.clk)})
-	if err != nil {
-		t.Fatalf("second factor step: %v", err)
-	}
+	done := f.enrolInBrowser(t, result)
 	if len(done.RecoveryCodes) == 0 {
 		t.Error("the enrolment issued no recovery codes to show in the browser")
 	}
-	code := handedCode(t, done)
-	out, err := f.exchange(code, appVerifier)
+	if done.AppRedirect != "" || done.AppHandoff == "" || done.Session != nil {
+		t.Fatalf("enrolment = %+v, want a handoff for Open the app and no code yet", done)
+	}
+	// Saving the codes takes longer than a code lives; the code is minted
+	// when the reader opens the app, so it is still good.
+	f.clk.Advance(auth.SSOHandoffTTL + time.Minute)
+	opened, err := f.openTheApp(done.AppHandoff)
+	if err != nil {
+		t.Fatalf("Open the app: %v", err)
+	}
+	out, err := f.exchange(handedCode(t, opened), appVerifier)
 	if err != nil || out.Session == nil {
 		t.Fatalf("exchange = %+v, %v", out, err)
 	}
@@ -355,9 +383,123 @@ func TestAppSignInAsksForTheSecondFactorInTheBrowser(t *testing.T) {
 	}
 }
 
+func TestAppSignInHandoffIsOnlyOpenTheApp(t *testing.T) {
+	f := newSSOFixture(t, func(in *core.CreateSSOProviderInput) { in.AutoCreate = true })
+	requireTOTP(t, f.l, f.scope, core.SurfaceCLI)
+	result, err := f.appSignInSSO(t, person("sub-1", "ada@example.com", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := f.enrolInBrowser(t, result)
+	_, err = f.l.Login(loginContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, AppHandoff: done.AppHandoff})
+	if !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != "app_handoff" {
+		t.Errorf("the handoff sent to the API = %v, want invalid on app_handoff", err)
+	}
+	_, err = f.l.Login(browserContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, Ticket: done.AppHandoff,
+		Code: "123456"})
+	if !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("the handoff as a second factor ticket = %v, want refused", err)
+	}
+	if _, err := f.openTheApp(result.Challenge.Ticket); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("a second factor ticket as the handoff = %v, want refused", err)
+	}
+	f.clk.Advance(auth.SSOHandoffTicketTTL + time.Second)
+	_, err = f.openTheApp(done.AppHandoff)
+	if q := refusedTo(t, err); q.Get("error") != core.AppSignInExpired || q.Get("state") != "opaque-1" {
+		t.Errorf("Open the app after the handoff expired = %v, want expired with the app's state", q)
+	}
+}
+
+func TestAppSignInEnrolsUnderAnEnforcedPolicy(t *testing.T) {
+	f := newSSOFixture(t, func(in *core.CreateSSOProviderInput) { in.AutoCreate = true })
+	setMFAPolicy(t, f.l, f.admin, core.MFAPolicyRequired, 0)
+	result, err := f.appSignInSSO(t, person("sub-1", "ada@example.com", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := f.enrolInBrowser(t, result)
+	opened, err := f.openTheApp(done.AppHandoff)
+	if err != nil {
+		t.Fatalf("Open the app: %v", err)
+	}
+	out, err := f.exchange(handedCode(t, opened), appVerifier)
+	if err != nil || out.Session == nil {
+		t.Fatalf("exchange = %+v, %v", out, err)
+	}
+	if out.SecondFactorDue != nil {
+		t.Errorf("the app's session is due a factor at %v, want none: it enrolled", out.SecondFactorDue)
+	}
+	ada := &core.Actor{ID: out.Session.ActorID, TenantID: f.scope.TenantID, Kind: core.ActorUser,
+		Role: core.RoleMember}
+	if err := listProjects(f.l, ada); err != nil {
+		t.Errorf("the app's session under the policy = %v, want it to work", err)
+	}
+}
+
+func TestAppSignInSecondFactorRefusalsGoBackToTheApp(t *testing.T) {
+	f := newSSOFixture(t, func(in *core.CreateSSOProviderInput) { in.AutoCreate = true })
+	requireTOTP(t, f.l, f.scope, core.SurfaceCLI)
+	result, err := f.appSignInSSO(t, person("sub-1", "ada@example.com", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ticket := result.Challenge.Ticket
+	_, err = f.l.Login(browserContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, Ticket: ticket,
+		Code: "000000"})
+	var e *core.Error
+	if !errors.As(err, &e) || e.Details[core.DetailAppRedirect] != nil {
+		t.Errorf("a wrong code = %v, want it refused on the form, not sent to the app", err)
+	}
+	_, err = f.l.Login(loginContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, Ticket: ticket,
+		Code: codeFor(t, result.Challenge.Enrolment.Secret, f.clk)})
+	if !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != "ticket" {
+		t.Errorf("an app's ticket sent to the API = %v, want invalid on ticket", err)
+	}
+	f.clk.Advance(auth.TicketTTL + time.Second)
+	_, err = f.l.Login(browserContext(f.scope), core.LoginInput{Surface: core.SurfaceWeb, Ticket: ticket,
+		Code: codeFor(t, result.Challenge.Enrolment.Secret, f.clk)})
+	if q := refusedTo(t, err); q.Get("error") != core.AppSignInExpired {
+		t.Errorf("an expired second factor step = %v, want expired", q)
+	}
+}
+
+func TestAppSignInBeginRefusalsAfterTheAppCheckGoBackToTheApp(t *testing.T) {
+	f := newSSOFixture(t, nil)
+	in := appBegin("kc")
+	in.RedirectURI = "http://127.0.0.1:9123/callback"
+	_, err := f.l.BeginSSOLogin(browserContext(f.scope), in)
+	if q := refusedTo(t, err); q.Get("error") != core.AppSignInServerError || q.Get("state") != "opaque-1" {
+		t.Errorf("a begin refused past the app check = %v, want server_error with the app's state", q)
+	}
+	in.RedirectURI = "not a url"
+	_, err = f.l.BeginSSOLogin(browserContext(f.scope), in)
+	if q := refusedTo(t, err); q.Get("error") != core.AppSignInServerError {
+		t.Errorf("a begin with a bad redirect uri = %v, want server_error", q)
+	}
+}
+
+func TestAppFlowIsRefusedOutsideTheBrowser(t *testing.T) {
+	f := newSSOFixture(t, func(in *core.CreateSSOProviderInput) { in.AutoCreate = true })
+	f.idp.SetClaims(person("sub-1", "ada@example.com", true))
+	begin, err := f.l.BeginSSOLogin(browserContext(f.scope), appBegin("kc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := core.CompleteSSOInput{Flow: begin.Flow, Code: f.idp.Grant(begin.AuthURL), State: begin.State}
+	out, err := f.l.CompleteSSOLogin(loginContext(f.scope), in)
+	if !core.IsKind(err, core.KindInvalid) || core.FieldOf(err) != "flow" || out != nil {
+		t.Fatalf("an app flow completed through the API = %+v, %v; want invalid on flow", out, err)
+	}
+	done, err := f.l.CompleteSSOLogin(browserContext(f.scope), in)
+	if err != nil {
+		t.Fatalf("the same flow in the browser = %v, want it to complete", err)
+	}
+	handedCode(t, done)
+}
+
 func TestAppSignInThroughSAML(t *testing.T) {
 	f := newSAMLFixture(t, nil)
-	ctx := loginContext(f.scope)
+	ctx := browserContext(f.scope)
 	begin, err := f.l.BeginSSOLogin(ctx, appBegin("okta"))
 	if err != nil {
 		t.Fatalf("BeginSSOLogin: %v", err)

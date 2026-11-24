@@ -263,6 +263,9 @@ const (
 	// where every provider sends it back.
 	RouteSSOStart    = "/login/sso/{key}"
 	RouteSSOCallback = "/login/sso/callback"
+	// RouteSSOApp is Open the app under the recovery codes of an app's
+	// sign-in that completed by enrolling.
+	RouteSSOApp = "/login/sso/app"
 	// RouteSAMLACS is where a SAML IdP posts its response, and
 	// RouteSAMLMetadata a SAML provider's service provider metadata.
 	RouteSAMLACS      = "/login/sso/saml/{key}/acs"

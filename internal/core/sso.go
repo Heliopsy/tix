@@ -690,6 +690,25 @@ func (in BeginSSOInput) App() bool {
 // names none: the tix mobile app's redirect.
 var DefaultSSOAppRedirects = []string{"red.tix.mobile:/sso"}
 
+// RefusedAppSchemes are schemes an app redirect may never use: each would run
+// or read something in the browser that draws the link, not open an app.
+var RefusedAppSchemes = []string{"javascript", "data", "vbscript", "file"}
+
+// AppSchemeRefused reports, ignoring case, whether an app redirect's scheme
+// is one of RefusedAppSchemes.
+func AppSchemeRefused(redirect string) bool {
+	scheme, _, found := strings.Cut(redirect, ":")
+	if !found {
+		return false
+	}
+	for _, s := range RefusedAppSchemes {
+		if strings.EqualFold(strings.TrimSpace(scheme), s) {
+			return true
+		}
+	}
+	return false
+}
+
 // MaxAppStateLength bounds the opaque state an app passes through a sign-in.
 const MaxAppStateLength = 256
 

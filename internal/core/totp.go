@@ -202,6 +202,10 @@ type LoginInput struct {
 	// tenant's session remember_ttl rather than its ttl. Send it with the
 	// step that completes the sign-in; it is ignored where not offered.
 	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
+	// AppHandoff is the signed handoff a native app's sign-in that completed
+	// by enrolling left on its recovery codes page, sent back by Open the
+	// app to mint the app's code. Only the browser sends it.
+	AppHandoff string `json:"-" yaml:"-"`
 }
 
 // LoginResult is either a session or the challenge standing between the caller
@@ -229,6 +233,10 @@ type LoginResult struct {
 	// finished in it: the app's redirect carrying a one-time code. It never
 	// travels on the wire.
 	AppRedirect string `json:"-" yaml:"-"`
+	// AppHandoff is set instead of AppRedirect when the sign-in completed by
+	// enrolling: the browser shows the recovery codes and sends this back
+	// when the reader opens the app, which mints the code then.
+	AppHandoff string `json:"-" yaml:"-"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no

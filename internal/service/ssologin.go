@@ -134,8 +134,20 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 	if app != nil {
 		in.Surface, in.Remember, in.Next = core.SurfaceWeb, true, ""
 	}
+	out, err := l.beginFlow(ctx, scope, *provider, in, app)
+	if err != nil {
+		return nil, l.appRefusal(err, app)
+	}
+	return out, nil
+}
+
+// beginFlow is a begin from its checked app half on: the SAML request, or
+// the OIDC or GitHub authorization address and the sealed flow.
+func (l *Local) beginFlow(ctx context.Context, scope core.TenantScope, provider core.SSOProvider,
+	in core.BeginSSOInput, app *auth.AppSignIn,
+) (*core.SSOBegin, error) {
 	if provider.Kind == core.SSOKindSAML {
-		return l.beginSAML(ctx, scope, *provider, in, app)
+		return l.beginSAML(ctx, scope, provider, in, app)
 	}
 	surface, err := checkRedirectURI(in.RedirectURI, in.Surface)
 	if err != nil {
@@ -148,7 +160,7 @@ func (l *Local) BeginSSOLogin(ctx context.Context, in core.BeginSSOInput) (*core
 		return nil, core.OnField(core.Invalid("an app sign-in returns to this server's %s", core.SSOCallbackPath),
 			"redirect_uri")
 	}
-	adapter, err := l.adapterFor(ctx, scope, *provider)
+	adapter, err := l.adapterFor(ctx, scope, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +217,11 @@ func (l *Local) CompleteSSOLogin(ctx context.Context, in core.CompleteSSOInput) 
 	}
 	if err := l.requireSSOKey(); err != nil {
 		return nil, err
+	}
+	if peek, err := auth.PeekSSOFlow(l.totpKey, in.Flow); err == nil {
+		if err := appOnlyInBrowser(ctx, peek.App, "flow"); err != nil {
+			return nil, err
+		}
 	}
 	if strings.TrimSpace(in.SAMLResponse) != "" {
 		return l.completeSAML(ctx, scope, in)
