@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.68.2](https://github.com/Heliopsy/tix/compare/v0.68.1...v0.68.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **auth:** report held-back refusal counts and keep the refusal log bounded ([2eae245](https://github.com/Heliopsy/tix/commit/2eae2451ddbb5ec50647ea053e12fa639472e2ee))
+* **sso:** close the edges of native app sign-in ([d7f2db2](https://github.com/Heliopsy/tix/commit/d7f2db22522d76b23a816f088daa8d2529862e8a))
+
 ## [0.68.1](https://github.com/Heliopsy/tix/compare/v0.68.0...v0.68.1) (2026-11-23)
 
 
