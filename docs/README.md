@@ -29,6 +29,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
 | [audit-log.md](audit-log.md) | The audit log: what an entry records, the access channel of every change, what is never stored |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [calendar.md](calendar.md) | Subscribing to your due dates from Google Calendar, Apple Calendar or Outlook, and what the feed carries |
+| [caldav.md](caldav.md) | Your tasks as read-only to-do lists in Apple Reminders, tasks.org through DAVx5, Thunderbird or Evolution: app passwords, collections, what each field maps to |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
 | [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
 | [tui.md](tui.md) | The terminal interface: the eighteen views, five keybinding schemes, the settings screen, what it does not do |
@@ -58,6 +59,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
 - Running the published image, in a container or on Kubernetes: [deployment.md](deployment.md#containers).
 - Coming from another tracker: [migrating.md](migrating.md).
 - Building a client: [api.md](api.md).
+- Seeing your tasks in Apple Reminders, tasks.org, Thunderbird or Evolution: [caldav.md](caldav.md).
 - Working in a terminal, or putting a team on a board over SSH: [tui.md](tui.md).
 - Showing tix to somebody: `tix demo seed` and [web-ui.md](web-ui.md).
 - Changing the code: [AGENTS.md](../AGENTS.md), then [testing.md](testing.md).
