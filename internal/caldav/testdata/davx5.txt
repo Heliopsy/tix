@@ -1,0 +1,112 @@
+# DAVx5 (with tasks.org or jtx Board) adding an account by base URL: the
+# well-known redirect, discovery, a sync-collection with an empty token and a
+# multiget of what it lists, then an incremental sync-collection with a limit.
+# Written from published client behaviour (the DAVx5 manual's service
+# discovery and synchronization pages, RFC 6578), not captured traffic.
+
+### the well-known address
+PROPFIND /.well-known/caldav
+Depth: 0
+
+<propfind xmlns="DAV:"><prop><current-user-principal/></prop></propfind>
+EXPECT 301
+HEADER Location /dav/
+
+### the context root
+PROPFIND /dav/
+Depth: 0
+
+<propfind xmlns="DAV:"><prop><resourcetype/><displayname/><current-user-principal/><current-user-privilege-set/><calendar-home-set xmlns="urn:ietf:params:xml:ns:caldav"/></prop></propfind>
+EXPECT 207
+PROP /dav/ {DAV:}current-user-principal 200 {principal}
+PROP /dav/ {DAV:}displayname 404
+
+### the principal
+PROPFIND {principal}
+Depth: 0
+
+<propfind xmlns="DAV:" xmlns:CAL="urn:ietf:params:xml:ns:caldav"><prop><CAL:calendar-home-set/><displayname/><CAL:calendar-user-address-set/><resourcetype/></prop></propfind>
+EXPECT 207
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-home-set 200 {home}
+PROP {principal} {DAV:}resourcetype 200 principal
+
+### the home at depth 1
+PROPFIND {home}
+Depth: 1
+
+<propfind xmlns="DAV:" xmlns:CAL="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:ICAL="http://apple.com/ns/ical/"><prop><resourcetype/><displayname/><ICAL:calendar-color/><CAL:calendar-description/><CAL:calendar-timezone/><current-user-privilege-set/><CAL:supported-calendar-component-set/><CS:source/></prop></propfind>
+EXPECT 207
+RESPONSES 4
+PROP {assigned} {urn:ietf:params:xml:ns:caldav}supported-calendar-component-set 200 VTODO
+PROP {assigned} {urn:ietf:params:xml:ns:caldav}calendar-description 200 Tasks assigned to bob
+PROP {assigned} {http://calendarserver.org/ns/}source 404
+PROP {assigned} {DAV:}current-user-privilege-set 200 <d:read/>
+
+### the collection before a sync
+PROPFIND {assigned}
+Depth: 0
+
+<propfind xmlns="DAV:" xmlns:CS="http://calendarserver.org/ns/"><prop><CS:getctag/><sync-token/><supported-report-set/></prop></propfind>
+EXPECT 207
+PROP {assigned} {DAV:}supported-report-set 200 <d:sync-collection/>
+
+### the first sync, with an empty token
+REPORT {assigned}
+Depth: 0
+
+<sync-collection xmlns="DAV:"><sync-token/><sync-level>1</sync-level><prop><getetag/></prop></sync-collection>
+EXPECT 207
+RESPONSES 3
+PROP {assigned}{done}.ics {DAV:}getetag 200 "
+SAVE token1 sync-token
+
+### the objects it listed
+REPORT {assigned}
+Depth: 0
+
+<CAL:calendar-multiget xmlns="DAV:" xmlns:CAL="urn:ietf:params:xml:ns:caldav"><prop><getcontenttype/><getetag/><CAL:calendar-data/></prop><href>{assigned}{open1}.ics</href><href>{assigned}{open2}.ics</href><href>{assigned}{done}.ics</href></CAL:calendar-multiget>
+EXPECT 207
+RESPONSES 3
+PROP {assigned}{done}.ics {urn:ietf:params:xml:ns:caldav}calendar-data 200 PERCENT-COMPLETE:100
+
+### two tasks change in the browser
+DO retitle open1
+
+### and another is cancelled
+DO cancel open2
+
+### the incremental sync, a page of one
+REPORT {assigned}
+Depth: 0
+
+<sync-collection xmlns="DAV:"><sync-token>{token1}</sync-token><sync-level>1</sync-level><limit><nresults>1</nresults></limit><prop><getetag/></prop></sync-collection>
+EXPECT 207
+RESPONSES 2
+PROP {assigned}{open1}.ics {DAV:}getetag 200 "
+STATUS {assigned} 507
+SAVE token2 sync-token
+
+### the rest of the changes
+REPORT {assigned}
+Depth: 0
+
+<sync-collection xmlns="DAV:"><sync-token>{token2}</sync-token><sync-level>1</sync-level><prop><getetag/></prop></sync-collection>
+EXPECT 207
+RESPONSES 1
+STATUS {assigned}{open2}.ics 404
+
+### a write while read-only
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: "anything"
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:ticked on the phone
+STATUS:COMPLETED
+END:VTODO
+END:VCALENDAR
+EXPECT 403
+HAS need-privileges

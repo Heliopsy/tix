@@ -1,0 +1,104 @@
+# Thunderbird (102 and later) adding a CalDAV account by server address:
+# discovery from the server root, a getctag poll, an ETag listing at depth 1
+# and a multiget, then a sync-collection once the token is offered.
+# Written from published client behaviour (Thunderbird's calendar provider
+# documentation and RFC 4791/6578), not captured traffic. Thunderbird writes
+# DAV: as D:, CalDAV as C: and CS as CS:.
+
+### the server root
+PROPFIND /dav/
+Depth: 0
+Content-Type: application/xml; charset=utf-8
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:owner/><D:current-user-principal/><D:supported-report-set/></D:prop></D:propfind>
+EXPECT 207
+PROP /dav/ {DAV:}current-user-principal 200 {principal}
+PROP /dav/ {DAV:}owner 404
+
+### capabilities of the home
+OPTIONS {home}
+
+EXPECT 200
+HEADER DAV 1, 3, access-control, calendar-access
+
+### the principal
+PROPFIND {principal}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><D:prop><C:calendar-home-set/><C:calendar-user-address-set/></D:prop></D:propfind>
+EXPECT 207
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-home-set 200 {home}
+
+### the calendars in the home
+PROPFIND {home}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:A="http://apple.com/ns/ical/"><D:prop><D:resourcetype/><D:displayname/><D:current-user-privilege-set/><A:calendar-color/><C:supported-calendar-component-set/><CS:getctag/></D:prop></D:propfind>
+EXPECT 207
+RESPONSES 4
+PROP {web} {DAV:}displayname 200 Web
+PROP {web} {http://apple.com/ns/ical/}calendar-color 404
+PROP {assigned} {DAV:}current-user-privilege-set 200 <d:read/>
+
+### the collection's tag and sync support
+PROPFIND {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/"><D:prop><CS:getctag/><D:sync-token/><D:supported-report-set/></D:prop></D:propfind>
+EXPECT 207
+PROP {assigned} {DAV:}supported-report-set 200 <c:calendar-multiget/>
+SAVE ctag {assigned} {http://calendarserver.org/ns/}getctag
+
+### the ETags at depth 1
+PROPFIND {assigned}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:"><D:prop><D:getcontenttype/><D:resourcetype/><D:getetag/></D:prop></D:propfind>
+EXPECT 207
+RESPONSES 4
+PROP {assigned}{open1}.ics {DAV:}getetag 200 "
+PROP {assigned}{open1}.ics {DAV:}getcontenttype 200 text/calendar
+
+### the objects
+REPORT {assigned}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><D:prop><D:getetag/><C:calendar-data/></D:prop><D:href>{assigned}{open1}.ics</D:href><D:href>{assigned}{open2}.ics</D:href><D:href>{assigned}{done}.ics</D:href></C:calendar-multiget>
+EXPECT 207
+RESPONSES 3
+PROP {assigned}{open1}.ics {urn:ietf:params:xml:ns:caldav}calendar-data 200 BEGIN:VTODO
+
+### a sync from the advertised token, nothing changed
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:sync-collection xmlns:D="DAV:"><D:sync-token>{ctag}</D:sync-token><D:sync-level>1</D:sync-level><D:prop><D:getcontenttype/><D:getetag/></D:prop></D:sync-collection>
+EXPECT 207
+RESPONSES 0
+SAVE token sync-token
+SAME ctag token
+
+### the task is cancelled in the browser
+DO cancel open1
+
+### the incremental sync reports it gone
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:sync-collection xmlns:D="DAV:"><D:sync-token>{token}</D:sync-token><D:sync-level>1</D:sync-level><D:prop><D:getcontenttype/><D:getetag/></D:prop></D:sync-collection>
+EXPECT 207
+RESPONSES 1
+STATUS {assigned}{open1}.ics 404
+
+### a GET of the departed object
+GET {assigned}{open1}.ics
+
+EXPECT 404

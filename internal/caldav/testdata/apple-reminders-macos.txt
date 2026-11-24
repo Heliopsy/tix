@@ -1,0 +1,92 @@
+# Apple Reminders on macOS: account setup by server address, then a sync that
+# compares getctag and lists ETags with a calendar-query for VTODO, as the
+# macOS calendar agent does for a collection it already knows.
+# Written from published client behaviour (RFC 6764, RFC 4791 section 7.8 and
+# the calendarserver.org getctag extension), not captured traffic.
+
+### the context root, with no well-known step
+PROPFIND /dav
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:"><A:prop><A:current-user-principal/><A:principal-URL/><A:resourcetype/></A:prop></A:propfind>
+EXPECT 207
+PROP /dav/ {DAV:}current-user-principal 200 {principal}
+PROP /dav/ {DAV:}principal-URL 200 {principal}
+
+### the principal
+PROPFIND {principal}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><B:calendar-home-set/><B:calendar-user-address-set/><A:displayname/><A:principal-URL/></A:prop></A:propfind>
+EXPECT 207
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-home-set 200 {home}
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-user-address-set 200 {principal}
+
+### the calendar home
+PROPFIND {home}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav" xmlns:C="http://calendarserver.org/ns/" xmlns:D="http://apple.com/ns/ical/"><A:prop><A:displayname/><A:resourcetype/><C:getctag/><D:calendar-color/><D:calendar-order/><B:supported-calendar-component-set/><A:current-user-privilege-set/></A:prop></A:propfind>
+EXPECT 207
+RESPONSES 4
+PROP {home} {DAV:}resourcetype 200 <d:collection/>
+PROP {infra} {urn:ietf:params:xml:ns:caldav}supported-calendar-component-set 200 VTODO
+PROP {infra} {http://apple.com/ns/ical/}calendar-order 404
+SAVE ctag0 {infra} {http://calendarserver.org/ns/}getctag
+
+### the ETags of the incomplete reminders
+REPORT {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-query xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><A:getetag/></A:prop><B:filter><B:comp-filter name="VCALENDAR"><B:comp-filter name="VTODO"><B:prop-filter name="COMPLETED"><B:is-not-defined/></B:prop-filter></B:comp-filter></B:comp-filter></B:filter></B:calendar-query>
+EXPECT 207
+RESPONSES 2
+PROP {infra}{open1}.ics {DAV:}getetag 200 "
+PROP {infra}{open2}.ics {DAV:}getetag 200 "
+
+### the reminders completed in the last weeks
+REPORT {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-query xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><A:getetag/></A:prop><B:filter><B:comp-filter name="VCALENDAR"><B:comp-filter name="VTODO"><B:prop-filter name="COMPLETED"><B:time-range start="20250101T000000Z"/></B:prop-filter></B:comp-filter></B:comp-filter></B:filter></B:calendar-query>
+EXPECT 207
+RESPONSES 1
+PROP {infra}{done}.ics {DAV:}getetag 200 "
+
+### the objects
+REPORT {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-multiget xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><A:getetag/><B:calendar-data/></A:prop><A:href>{infra}{open1}.ics</A:href><A:href>{infra}{open2}.ics</A:href><A:href>{infra}{done}.ics</A:href></B:calendar-multiget>
+EXPECT 207
+RESPONSES 3
+PROP {infra}{open2}.ics {urn:ietf:params:xml:ns:caldav}calendar-data 200 X-TIX-REF:INFRA-2
+
+### a task is cancelled in the browser
+DO cancel open1
+
+### the next poll sees a new getctag
+PROPFIND {infra}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:" xmlns:C="http://calendarserver.org/ns/"><A:prop><C:getctag/></A:prop></A:propfind>
+EXPECT 207
+SAVE ctag1 {infra} {http://calendarserver.org/ns/}getctag
+DIFFERENT ctag0 ctag1
+
+### and lists ETags again, without the cancelled one
+REPORT {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-query xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><A:getetag/></A:prop><B:filter><B:comp-filter name="VCALENDAR"><B:comp-filter name="VTODO"/></B:comp-filter></B:filter></B:calendar-query>
+EXPECT 207
+RESPONSES 2
+PROP {infra}{open2}.ics {DAV:}getetag 200 "

@@ -1,0 +1,139 @@
+# Apple Reminders on iOS: account setup, a full sync and an incremental one.
+# Written from published client behaviour, not captured traffic: RFC 6764
+# discovery as iOS performs it, the calendarserver.org extensions Apple's
+# clients ask for, and the sync-collection flow iOS uses when
+# supported-report-set offers it. Apple writes DAV: as A:, CalDAV as B:, CS
+# as C: and its own namespace as D:.
+
+### the well-known address
+PROPFIND /.well-known/caldav
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:"><A:prop><A:current-user-principal/><A:principal-URL/><A:resourcetype/></A:prop></A:propfind>
+EXPECT 301
+HEADER Location /dav/
+
+### the context root
+PROPFIND /dav/
+Depth: 0
+Content-Type: text/xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:"><A:prop><A:current-user-principal/><A:principal-URL/><A:resourcetype/></A:prop></A:propfind>
+EXPECT 207
+PROP /dav/ {DAV:}current-user-principal 200 {principal}
+PROP /dav/ {DAV:}resourcetype 200 collection
+
+### capabilities
+OPTIONS {principal}
+
+EXPECT 200
+HEADER DAV calendar-access
+
+### the principal
+PROPFIND {principal}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav" xmlns:C="http://calendarserver.org/ns/">
+  <A:prop>
+    <B:calendar-home-set/><B:calendar-user-address-set/><A:current-user-principal/><A:displayname/>
+    <C:dropbox-home-URL/><C:email-address-set/><C:notification-URL/><A:principal-collection-set/>
+    <A:principal-URL/><A:resourcetype/><B:schedule-inbox-URL/><B:schedule-outbox-URL/><A:supported-report-set/>
+  </A:prop>
+</A:propfind>
+EXPECT 207
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-home-set 200 {home}
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-user-address-set 200 mailto:bob@example.com
+PROP {principal} {DAV:}displayname 200 Bob
+PROP {principal} {http://calendarserver.org/ns/}email-address-set 404
+PROP {principal} {urn:ietf:params:xml:ns:caldav}schedule-inbox-URL 404
+
+### the calendar home and its lists
+PROPFIND {home}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav" xmlns:C="http://calendarserver.org/ns/" xmlns:D="http://apple.com/ns/ical/">
+  <A:prop>
+    <A:add-member/><C:allowed-sharing-modes/><D:autoprovisioned/><B:calendar-alarm/><D:calendar-color/>
+    <B:calendar-description/><B:calendar-free-busy-set/><D:calendar-order/><B:calendar-timezone/>
+    <A:current-user-privilege-set/><B:default-alarm-vevent-date/><A:displayname/><C:getctag/>
+    <A:owner/><C:push-transports/><C:pushkey/><A:quota-available-bytes/><A:resource-id/>
+    <A:resourcetype/><B:schedule-calendar-transp/><B:supported-calendar-component-set/>
+    <A:supported-report-set/><A:sync-token/>
+  </A:prop>
+</A:propfind>
+EXPECT 207
+RESPONSES 4
+PROP {assigned} {DAV:}resourcetype 200 <c:calendar/>
+PROP {assigned} {urn:ietf:params:xml:ns:caldav}supported-calendar-component-set 200 VTODO
+PROP {assigned} {DAV:}current-user-privilege-set 200 <d:privilege><d:read/></d:privilege>
+PROP {assigned} {DAV:}supported-report-set 200 <d:sync-collection/>
+PROP {assigned} {http://calendarserver.org/ns/}push-transports 404
+PROP {infra} {http://apple.com/ns/ical/}calendar-color 200 #336699ff
+PROP {infra} {DAV:}displayname 200 Infra
+SAVE ctag {assigned} {http://calendarserver.org/ns/}getctag
+SAVE token0 {assigned} {DAV:}sync-token
+SAME ctag token0
+
+### the list colour and order Apple sets on a new account
+PROPPATCH {assigned}
+Content-Type: text/xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propertyupdate xmlns:A="DAV:" xmlns:D="http://apple.com/ns/ical/"><A:set><A:prop><D:calendar-order>1</D:calendar-order><D:calendar-color>#CC73E1FF</D:calendar-color></A:prop></A:set></A:propertyupdate>
+EXPECT 207
+PROP {assigned} {http://apple.com/ns/ical/}calendar-order 403
+PROP {assigned} {http://apple.com/ns/ical/}calendar-color 403
+
+### a full sync of Assigned to me
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:"><A:sync-token/><A:sync-level>1</A:sync-level><A:prop><A:getcontenttype/><A:getetag/></A:prop></A:sync-collection>
+EXPECT 207
+RESPONSES 3
+PROP {assigned}{open1}.ics {DAV:}getetag 200 "
+PROP {assigned}{done}.ics {DAV:}getcontenttype 200 component=VTODO
+SAVE token1 sync-token
+SAME token0 token1
+
+### the objects it found
+REPORT {assigned}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<B:calendar-multiget xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav"><A:prop><A:getetag/><B:calendar-data/></A:prop><A:href>{assigned}{open1}.ics</A:href><A:href>{assigned}{open2}.ics</A:href><A:href>{assigned}{done}.ics</A:href></B:calendar-multiget>
+EXPECT 207
+RESPONSES 3
+PROP {assigned}{open1}.ics {urn:ietf:params:xml:ns:caldav}calendar-data 200 SUMMARY:Rotate keys
+PROP {assigned}{done}.ics {urn:ietf:params:xml:ns:caldav}calendar-data 200 STATUS:COMPLETED
+
+### a poll with nothing changed
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:"><A:sync-token>{token1}</A:sync-token><A:sync-level>1</A:sync-level><A:prop><A:getcontenttype/><A:getetag/></A:prop></A:sync-collection>
+EXPECT 207
+RESPONSES 0
+SAVE token2 sync-token
+SAME token1 token2
+
+### someone edits a task in the browser
+DO retitle open2
+
+### the incremental sync
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:"><A:sync-token>{token2}</A:sync-token><A:sync-level>1</A:sync-level><A:prop><A:getcontenttype/><A:getetag/></A:prop></A:sync-collection>
+EXPECT 207
+RESPONSES 1
+PROP {assigned}{open2}.ics {DAV:}getetag 200 "
+SAVE token3 sync-token
+DIFFERENT token2 token3
