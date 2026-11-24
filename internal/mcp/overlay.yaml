@@ -51,6 +51,9 @@ operations:
   invite.accept:
     hide: true
     reason: accepting an invite chooses a person's password and signs them in, which is theirs to do
+  dav.password.create:
+    hide: true
+    reason: an app password is pasted by a person into their own phone or mail client, and is shown once
 
   # Plumbing rather than work.
   api.spec:
