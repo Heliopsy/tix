@@ -72,9 +72,18 @@ jobs:
           git fetch --no-tags --depth=1 origin '+refs/tags/v*:refs/tags/v*'
           just release-files-check "$HEAD_REF"
 
+      # Node for the TypeScript API example the smoke suite runs: the runner's
+      # own node may predate type stripping. Python, curl and jq come with it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
       # The runner carries an SSH client and pseudo-terminals, so the whole
       # suite runs here rather than announcing a skipped capability.
       - name: Smoke the built binary
+        env:
+          TIX_EXAMPLES_REQUIRED: "1"
         run: just smoke
 
       - name: Save the Go cache
@@ -261,10 +270,19 @@ jobs:
           just test-shard rest
           just test-shard store
 
+      # Node for the TypeScript API example the smoke suite runs: the runner's
+      # own node may predate type stripping. Python, curl and jq come with it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
       # The runner has an SSH client and pseudo-terminals, as the Linux one
       # does, so the terminal interface is exercised here too rather than
       # being the one surface nobody checks on a Mac.
       - name: Smoke the built binary
+        env:
+          TIX_EXAMPLES_REQUIRED: "1"
         run: just smoke
 
       - name: Save the Go cache
