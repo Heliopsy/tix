@@ -147,6 +147,7 @@ the routes the server registers. The areas are the first segment of each operati
 | claim | `POST /claims/next`, `POST /claims/sweep`, `POST /tasks/{ref}/claim`, `POST /tasks/{ref}/claim/reclaim`, `POST /tasks/{ref}/claim/release`, `POST /tasks/{ref}/claim/renew` |
 | comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `PUT /comments/{id}/reactions/{emoji}`, `DELETE /comments/{id}/reactions/{emoji}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
 | connection | `GET /connections`, `DELETE /connections/{id}` |
+| dav | `GET /dav`, `GET /dav/passwords`, `POST /dav/passwords`, `DELETE /dav/passwords/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
 | domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
 | event | `GET /events`, `GET /events/poll` |

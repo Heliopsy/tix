@@ -61,6 +61,9 @@ var transferLimits = []Limitation{{SurfaceTUI,
 // SSH listener: the session there is already signed in by its key.
 const ssoOverSSH = "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"
 
+// davInTUI is why app passwords are managed outside the terminal interface.
+const davInTUI = "an app password is pasted into a phone or mail client, which the terminal is neither; the cli and the settings screen manage it"
+
 // ssoInTUI is why a provider is configured outside the terminal interface,
 // which lists the tenant's providers on its tenant screen.
 const ssoInTUI = "a provider is a dozen protocol settings and a client secret pasted from the identity provider's console; the tenant screen lists providers and tix tenant sso, on the same terminal, configures them"
@@ -1663,6 +1666,47 @@ var registry = []Operation{
 			off(SurfaceCLI, "a feed is read by a calendar app at its address, with no credential; the cli prints that address"),
 			off(SurfaceWeb, "a feed is iCalendar for a calendar app, not a screen; the settings screen hands out its address"),
 			off(SurfaceTUI, "a feed is iCalendar for a calendar app, not a view"),
+		},
+	},
+
+	{
+		Name: "dav.info", Method: "GetDAVInfo",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav show",
+		HTTP:  apiGet(wire.RouteDAV),
+		Web:   webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.list", Method: "ListDAVPasswords",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password list",
+		HTTP:  apiGet(wire.RouteDAVPasswords),
+		Web:   webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.create", Method: "CreateDAVPassword", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password create",
+		HTTP:  apiPost(wire.RouteDAVPasswords),
+		Web:   webPost(web.RouteDAVPasswordCreate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.revoke", Method: "RevokeDAVPassword",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password revoke",
+		HTTP:  apiDelete(wire.RouteDAVPassword),
+		Web:   webPost(web.RouteDAVPasswordRevoke),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
 		},
 	},
 

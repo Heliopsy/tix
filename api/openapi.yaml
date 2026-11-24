@@ -20,6 +20,7 @@ tags:
   - name: claim
   - name: comment
   - name: connection
+  - name: dav
   - name: dependency
   - name: domain
   - name: event
@@ -3189,6 +3190,231 @@ paths:
         - connection
       x-tix-openspec:
         - http-api
+  /api/v1/dav:
+    get:
+      description: |-
+        GetDAVInfo reports whether this server answers CalDAV, the address and username a client is configured with, whether the caller's DAV requests may change tasks, and the collection choices a password takes.
+
+        Command line: `tix dav show`.
+      operationId: dav.info
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DAVInfo'
+          description: DAVInfo tells a client whether CalDAV is served and what to
+            configure.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:read
+        - session:
+            - task:read
+      summary: GetDAVInfo reports whether this server answers CalDAV, the address
+        and username a client is configured with, whether the caller's DAV requests
+        may change tasks, and the collection choices a password takes
+      tags:
+        - dav
+  /api/v1/dav/passwords:
+    get:
+      description: |-
+        ListDAVPasswords lists the caller's app passwords, revoked ones included, without their secrets.
+
+        Command line: `tix dav password list`.
+      operationId: dav.password.list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  items:
+                    items:
+                      $ref: '#/components/schemas/DAVPassword'
+                    type:
+                      - array
+                      - "null"
+                  next_cursor:
+                    type: string
+                  page:
+                    type: integer
+                  tally:
+                    $ref: '#/components/schemas/TaskTally'
+                  total:
+                    type:
+                      - "null"
+                      - integer
+                  total_capped:
+                    type: boolean
+                type: object
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/DAVPassword'
+              x-tix-stream: one item per line, no envelope and no cursor
+          description: OK
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:read
+        - session:
+            - task:read
+      summary: ListDAVPasswords lists the caller's app passwords, revoked ones included,
+        without their secrets
+      tags:
+        - dav
+    post:
+      description: |-
+        CreateDAVPassword issues the caller an app password: an API token carrying the caldav scope alone, for their own person actor, which signs a calendar or reminders app in over HTTP Basic. The secret is returned once. Any person who reads tasks may create one; an agent may not.
+
+        Command line: `tix dav password create`.
+      operationId: dav.password.create
+      parameters:
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDAVPasswordInput'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedDAVPassword'
+          description: IssuedDAVPassword carries an app password with its secret,
+            returned only by the call that minted it.
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "413":
+          $ref: '#/components/responses/Error413'
+        "415":
+          $ref: '#/components/responses/Error415'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:read
+        - session:
+            - task:read
+      summary: 'CreateDAVPassword issues the caller an app password: an API token
+        carrying the caldav scope alone, for their own person actor, which signs a
+        calendar or reminders app in over HTTP Basic'
+      tags:
+        - dav
+  /api/v1/dav/passwords/{id}:
+    delete:
+      description: |-
+        RevokeDAVPassword revokes one of the caller's app passwords. A client using it is refused from its next request.
+
+        Command line: `tix dav password revoke`.
+      operationId: dav.password.revoke
+      parameters:
+        - description: App password ID, as the app password listing gives it.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: 'Client-chosen key, such as a UUID, that makes retrying this
+            write safe: a repeat of the same request replays the first answer. See
+            Retrying safely in docs/api.md.'
+          in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            maxLength: 200
+            minLength: 1
+            pattern: ^[ -~]+$
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          $ref: '#/components/responses/Error400'
+        "401":
+          $ref: '#/components/responses/Error401'
+        "403":
+          $ref: '#/components/responses/Error403'
+        "404":
+          $ref: '#/components/responses/Error404'
+        "409":
+          $ref: '#/components/responses/Error409'
+        "422":
+          $ref: '#/components/responses/Error422'
+        "500":
+          $ref: '#/components/responses/Error500'
+        "502":
+          $ref: '#/components/responses/Error502'
+        "504":
+          $ref: '#/components/responses/Error504'
+      security:
+        - bearer:
+            - task:read
+        - session:
+            - task:read
+      summary: RevokeDAVPassword revokes one of the caller's app passwords
+      tags:
+        - dav
   /api/v1/domains:
     get:
       description: |-
@@ -15313,6 +15539,29 @@ components:
             of the copy.
           type: boolean
       type: object
+    CreateDAVPasswordInput:
+      description: CreateDAVPasswordInput names a new app password and what it exposes.
+      properties:
+        collections:
+          description: DAVCollections is which calendar collections an app password
+            exposes.
+          type: string
+        expires_at:
+          description: ExpiresAt is when it stops working, an RFC 3339 timestamp;
+            omitted means never.
+          format: date-time
+          type:
+            - "null"
+            - string
+        name:
+          description: Name labels the app password, at most 64 characters, unique
+            among the caller's live ones. Required.
+          type: string
+        read_only:
+          description: ReadOnly keeps the password from changing tasks once CalDAV
+            accepts writes.
+          type: boolean
+      type: object
     CreateInviteInput:
       description: CreateInviteInput invites an email address to this tenant.
       properties:
@@ -15790,6 +16039,97 @@ components:
         updated_at:
           description: UpdatedAt is when the tenant was last changed, RFC 3339.
           format: date-time
+          type: string
+      type: object
+    DAVInfo:
+      description: DAVInfo tells a client whether CalDAV is served and what to configure.
+      properties:
+        collections:
+          description: Collections are the choices an app password may be created
+            with.
+          items:
+            description: DAVCollections is which calendar collections an app password
+              exposes.
+            type: string
+          type:
+            - array
+            - "null"
+        enabled:
+          description: Enabled reports whether the server answers CalDAV at all.
+          type: boolean
+        path:
+          description: Path is the CalDAV context root, /dav/.
+          type: string
+        reason:
+          description: Reason says why CalDAV is off, when it is.
+          type: string
+        url:
+          description: URL is Path made absolute, empty when the surface does not
+            know its own address.
+          type: string
+        username:
+          description: 'Username is the exact Basic username: the caller''s sign-in
+            email, or their handle when their account has no email.'
+          type: string
+        write:
+          description: Write reports whether the caller's DAV requests may change
+            tasks. It is false while CalDAV is read-only.
+          type: boolean
+      type: object
+    DAVPassword:
+      description: DAVPassword is one of a person's app passwords, without its secret.
+      properties:
+        actor_id:
+          description: ActorID is its owner.
+          type: string
+        collections:
+          description: DAVCollections is which calendar collections an app password
+            exposes.
+          type: string
+        created_at:
+          description: CreatedAt is when it was issued.
+          format: date-time
+          type: string
+        expires_at:
+          description: ExpiresAt is when it stops working, absent when it does not
+            expire.
+          format: date-time
+          type:
+            - "null"
+            - string
+        id:
+          description: ID identifies the app password; it is the identifier of the
+            API token behind it.
+          type: string
+        last_used_at:
+          description: LastUsedAt is when a client last signed in with it.
+          format: date-time
+          type:
+            - "null"
+            - string
+        name:
+          description: Name is the name its owner gave it, unique among their live
+            app passwords.
+          type: string
+        read_only:
+          description: ReadOnly keeps it from changing tasks once CalDAV accepts writes.
+          type: boolean
+        revoked_at:
+          description: RevokedAt is when it was revoked, absent while it is live.
+          format: date-time
+          type:
+            - "null"
+            - string
+        scopes:
+          description: Scopes are the token's scopes, caldav alone.
+          items:
+            $ref: '#/components/schemas/Scope'
+          type:
+            - array
+            - "null"
+        token_name:
+          description: TokenName is the name of the API token behind it, as tix token
+            ls shows it.
           type: string
       type: object
     DeliveryStatus:
@@ -16733,6 +17073,76 @@ components:
         url:
           description: URL is Path made absolute, empty when the surface does not
             know its own address.
+          type: string
+      type: object
+    IssuedDAVPassword:
+      description: IssuedDAVPassword carries an app password with its secret, returned
+        only by the call that minted it.
+      properties:
+        actor_id:
+          description: ActorID is its owner.
+          type: string
+        collections:
+          description: DAVCollections is which calendar collections an app password
+            exposes.
+          type: string
+        created_at:
+          description: CreatedAt is when it was issued.
+          format: date-time
+          type: string
+        expires_at:
+          description: ExpiresAt is when it stops working, absent when it does not
+            expire.
+          format: date-time
+          type:
+            - "null"
+            - string
+        id:
+          description: ID identifies the app password; it is the identifier of the
+            API token behind it.
+          type: string
+        last_used_at:
+          description: LastUsedAt is when a client last signed in with it.
+          format: date-time
+          type:
+            - "null"
+            - string
+        name:
+          description: Name is the name its owner gave it, unique among their live
+            app passwords.
+          type: string
+        password:
+          description: Password is the secret a client signs in with, shown once.
+          type: string
+        path:
+          description: Path is the CalDAV context root, /dav/.
+          type: string
+        read_only:
+          description: ReadOnly keeps it from changing tasks once CalDAV accepts writes.
+          type: boolean
+        revoked_at:
+          description: RevokedAt is when it was revoked, absent while it is live.
+          format: date-time
+          type:
+            - "null"
+            - string
+        scopes:
+          description: Scopes are the token's scopes, caldav alone.
+          items:
+            $ref: '#/components/schemas/Scope'
+          type:
+            - array
+            - "null"
+        token_name:
+          description: TokenName is the name of the API token behind it, as tix token
+            ls shows it.
+          type: string
+        url:
+          description: URL is Path made absolute, empty when the surface does not
+            know its own address.
+          type: string
+        username:
+          description: Username is the Basic username to sign in with.
           type: string
       type: object
     IssuedInboxChannel:
@@ -18133,6 +18543,7 @@ components:
         - export
         - import
         - scim:provision
+        - caldav
       type: string
     ServerStatus:
       description: 'ServerStatus is one server as a reader receives it: the stored
@@ -20889,7 +21300,7 @@ components:
         `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`, `event:subscribe`,
         `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`, `tenant:admin`,
         `sync:admin`, `sso:admin`, `audit:read`, `export`, `import`, `global:admin`,
-        `account:read`, `scim:provision`.'
+        `account:read`, `scim:provision`, `caldav`.'
       scheme: bearer
       type: http
     session:
@@ -20900,7 +21311,7 @@ components:
         `project:write`, `workflow:read`, `workflow:write`, `comment:write`, `artifact:write`,
         `event:subscribe`, `user:admin`, `totp:admin`, `token:admin`, `webhook:admin`,
         `tenant:admin`, `sync:admin`, `sso:admin`, `audit:read`, `export`, `import`,
-        `global:admin`, `account:read`, `scim:provision`.
+        `global:admin`, `account:read`, `scim:provision`, `caldav`.
       in: cookie
       name: tix_session
       type: apiKey
