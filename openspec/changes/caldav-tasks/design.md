@@ -485,6 +485,17 @@ Where the implementation of phase 1 differs from the plan above, or settles some
   its token; a channel of its own is left to phase 2, where writes carry it.
 - **Revoking twice is a no-op**, `204` both times, and `dav.info` is refused to an agent as the password
   operations are.
+- **Protocol details settled in the handler.** A `PROPFIND` without a `Depth` header is read as infinity, as RFC
+  4918 says, and refused with `DAV:propfind-finite-depth`; every client named here sends one. `calendar-query`
+  and `calendar-multiget` also answer on an object's own address, a partial `calendar-data` request (`comp`,
+  `expand`) gets the whole object, and `sync-level` `infinite` is read as 1. Writes to a collection that does not
+  exist are `404` before they are `403`, so a refusal never tells a real collection from nonsense.
+- **The body bound is the effective multiget bound.** At about 100 bytes a full object path, the 64 KiB body cap
+  is reached near 600 hrefs, before the 1000-href limit. Clients batch their multigets well under either, so both
+  bounds stay as specified.
+- **Client fixtures are written, not captured.** The request sequences in `internal/caldav/testdata/` were written
+  from the clients' published behaviour, and each says so; captured traffic replaces them once phase 1 has been
+  tried against the real clients, before phase 2 starts.
 - **No screenshot of Settings** was taken for 6.5: the change was verified by the web package's tests, and the UI
   regression job in CI covers the screen.
 

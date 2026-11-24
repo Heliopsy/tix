@@ -216,8 +216,8 @@ client's next refresh rather than at once.
 - **One tenant per request.** The tenant and the person are settled before any task is read, and anything
   else answers `404`, as in [Addresses](#addresses).
 - **Request bodies.** A `PROPFIND` or `REPORT` body is at most 64 KiB, 32 elements deep and 2000 elements, with
-  no document type or entity declarations, or it is `400`. `Depth: infinity` is refused, and a multiget names
-  at most 1000 objects.
+  no document type or entity declarations, or it is `400`. `Depth: infinity`, or no `Depth` header at all, is
+  refused, and a multiget names at most 1000 objects.
 - **Logs.** The Authorization header is never logged, and no address carries a secret.
 
 ## Setting up a client
