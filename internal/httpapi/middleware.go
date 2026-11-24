@@ -251,8 +251,15 @@ func muxErrorBody(status int) []byte {
 
 // envelopeMuxErrors gives the mux's own not found and method not allowed
 // responses the same envelope every handler uses.
+//
+// CalDAV is left alone: its not found and method refusals are the protocol's
+// own answers, which a client reads by status and never as JSON.
 func (rt *Router) envelopeMuxErrors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rt.cfg.CalDAV != nil && core.IsDAVPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		next.ServeHTTP(&muxErrorWriter{ResponseWriter: w}, r)
 	})
 }
@@ -487,8 +494,15 @@ func (rt *Router) namedTenant(ctx context.Context, hosts SharedHosts, r *http.Re
 
 // credentialHash is the stored hash of the credential a request presents, a
 // bearer token before a session cookie as the authenticator chain tries them,
-// or "" when it presents neither.
+// or "" when it presents neither. Under /dav/ it is the Basic password and
+// nothing else, because that is the one credential read there.
 func credentialHash(r *http.Request) string {
+	if core.IsDAVPath(r.URL.Path) {
+		if _, password, ok := r.BasicAuth(); ok && password != "" {
+			return auth.HashToken(password)
+		}
+		return ""
+	}
 	if scheme, value, ok := strings.Cut(r.Header.Get(wire.HeaderAuth), " "); ok && strings.EqualFold(scheme, "bearer") {
 		if v := strings.TrimSpace(value); v != "" {
 			return auth.HashToken(v)
@@ -533,6 +547,10 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if IsPublicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
+			return
+		}
+		if core.IsDAVPath(r.URL.Path) {
+			rt.authenticateDAV(next, w, r)
 			return
 		}
 		if IsSCIMPath(r.URL.Path) {
@@ -586,6 +604,52 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 	})
 }
 
+// authenticateDAV resolves the app password a request under /dav/ presents,
+// with the Basic authenticator alone. Every refusal is a 401 carrying the
+// Basic challenge, which is what makes a client ask for credentials at all,
+// and names no tenant, person or project. With CalDAV off there is nothing
+// to sign in to, so the path is left to answer not found.
+func (rt *Router) authenticateDAV(next http.Handler, w http.ResponseWriter, r *http.Request) {
+	if rt.cfg.CalDAV == nil || rt.cfg.DAVAuthenticator == nil {
+		next.ServeHTTP(w, r)
+		return
+	}
+	ctx := core.WithDAVRequest(r.Context())
+	actor, err := rt.cfg.DAVAuthenticator.Authenticate(ctx, r.WithContext(ctx))
+	if err == nil {
+		scope, ok := core.TenantFrom(ctx)
+		if ok && actor.TenantID != "" && actor.TenantID != scope.TenantID {
+			auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedWrongTenant,
+				TokenID: actor.TokenID, TokenName: actor.TokenName})
+			err = core.Unauthenticated("credential is not valid for this host")
+		}
+	}
+	if err != nil {
+		if errors.Is(err, auth.ErrNoCredential) {
+			auth.NoteRefusalUnlessNoted(ctx, auth.Refusal{Reason: auth.RefusedNoCredentials})
+		}
+		if !core.IsKind(err, core.KindUnauthenticated) && !core.IsKind(err, core.KindForbidden) {
+			WriteError(w, err)
+			return
+		}
+		WriteDAVChallenge(w)
+		return
+	}
+	auth.ClearRefusal(ctx)
+	ctx = core.WithSource(core.WithActor(ctx, actor), core.SourceAPI)
+	ctx = core.WithVia(ctx, credentialVia(r, actor))
+	next.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// WriteDAVChallenge answers 401 with the Basic challenge and a body that
+// names nothing about the server's tenants or people.
+func WriteDAVChallenge(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", auth.DAVChallenge)
+	w.Header().Set(wire.HeaderContentType, "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = w.Write([]byte("sign in with your email and an app password\n"))
+}
+
 // isUnscopedPath reports whether a route runs before tenant resolution.
 func isUnscopedPath(path string) bool {
 	return path == wire.RouteHealth || path == wire.RouteReady || path == wire.RouteOpenAPI
@@ -596,7 +660,7 @@ func IsPublicPath(path string) bool {
 	return isUnscopedPath(path) || path == wire.RouteLogin || path == wire.RouteSessionPolicy ||
 		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path) ||
 		path == wire.RouteSignInOptions || path == wire.RouteSSOBegin || path == wire.RouteSSOComplete ||
-		path == wire.RouteSSOExchange ||
+		path == wire.RouteSSOExchange || path == core.DAVWellKnownPath ||
 		isInviteTokenPath(path) || isSAMLMetadataPath(path)
 }
 

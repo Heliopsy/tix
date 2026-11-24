@@ -154,3 +154,43 @@ func NewAuthenticator(st store.Store, clk clock.Clock, sessions core.SessionPoli
 		auth.NewCookieAuthenticator(auth.NewSessionVerifier(creds, clk)),
 	)
 }
+
+// DAVOwner returns the sign-in email and handle of an app password's owner,
+// which the Basic username is compared with.
+func (c *StoreCredentials) DAVOwner(ctx context.Context, actorID string) (*auth.DAVOwner, error) {
+	scope, ok := core.TenantFrom(ctx)
+	if !ok {
+		return nil, core.NotFound("actor not found")
+	}
+	var out auth.DAVOwner
+	err := c.store.View(ctx, scope, func(tx store.Tx) error {
+		actor, err := tx.GetActor(ctx, actorID)
+		if err != nil {
+			return err
+		}
+		out.Handle = actor.Handle
+		if actor.UserID == "" {
+			return nil
+		}
+		user, err := tx.GetUser(ctx, actor.UserID)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out.Email = user.Email
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// NewDAVAuthenticator returns the authenticator /dav/ uses alone: HTTP Basic
+// carrying an app password.
+func NewDAVAuthenticator(st store.Store, clk clock.Clock, sessions core.SessionPolicy) auth.Authenticator {
+	creds := NewStoreCredentials(st, sessions)
+	return auth.NewBasicDAVAuthenticator(auth.NewTokenVerifier(creds, clk), creds)
+}

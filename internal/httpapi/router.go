@@ -105,6 +105,17 @@ type Config struct {
 	// endpoints rather than by the OpenAPI document.
 	SCIM http.Handler
 
+	// CalDAV serves tasks over CalDAV under core.DAVPath, and /.well-known/caldav
+	// redirects there, when it is supplied. Like SCIM it is its own protocol,
+	// described by its own discovery rather than by the OpenAPI document.
+	// Left nil, both answer not found.
+	CalDAV http.Handler
+
+	// DAVAuthenticator is the only authenticator consulted under core.DAVPath:
+	// HTTP Basic carrying an app password. Cookies and bearer tokens are never
+	// read there.
+	DAVAuthenticator auth.Authenticator
+
 	// Releases answers what the release check knows. The browser interface
 	// shares the same one, so the route and the release screen agree. Left
 	// nil, the route reports the running version alone.
@@ -269,12 +280,22 @@ func (rt *Router) register() {
 	rt.registerTimeRoutes()
 	rt.registerTemplateRoutes()
 	rt.registerSCIMRoutes()
+	rt.registerDAVRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)
 	}
 	if rt.cfg.SCIM != nil {
 		rt.mux.Handle(core.SCIMPath+"/", rt.cfg.SCIM)
+	}
+	if rt.cfg.CalDAV != nil {
+		rt.mux.Handle(core.DAVRoot, rt.cfg.CalDAV)
+		rt.mux.Handle(core.DAVPath, rt.cfg.CalDAV)
+		rt.mux.HandleFunc(core.DAVWellKnownPath, handleDAVWellKnown)
+	} else {
+		rt.mux.Handle(core.DAVRoot, http.NotFoundHandler())
+		rt.mux.Handle(core.DAVPath, http.NotFoundHandler())
+		rt.mux.Handle(core.DAVWellKnownPath, http.NotFoundHandler())
 	}
 	if rt.cfg.WebHandler != nil {
 		rt.mux.Handle("/", rt.cfg.WebHandler)
