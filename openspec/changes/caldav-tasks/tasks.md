@@ -52,19 +52,19 @@ Phase 1 ships alone. Phase 2 starts only once phase 1 is released and has been t
 
 ### 5. Protocol
 
-- [ ] 5.1 `internal/caldav/xml.go`: the bounded decoder (64 KiB, depth 32, 2000 elements, no DOCTYPE or entities)
+- [x] 5.1 `internal/caldav/xml.go`: the bounded decoder (64 KiB, depth 32, 2000 elements, no DOCTYPE or entities)
       and the multistatus encoder; fuzz test for the decoder
-- [ ] 5.2 `internal/caldav/paths.go`: path parsing, tenant key and actor checks, every mismatch `404`; test with two
+- [x] 5.2 `internal/caldav/paths.go`: path parsing, tenant key and actor checks, every mismatch `404`; test with two
       tenants sharing project keys, handles and one account
-- [ ] 5.3 `internal/caldav/propfind.go`: root, principal, home, collection and object properties, depth 0 and 1,
+- [x] 5.3 `internal/caldav/propfind.go`: root, principal, home, collection and object properties, depth 0 and 1,
       `Depth: infinity` refused, unknown properties in a `404` propstat, `current-user-privilege-set` read-only
-- [ ] 5.4 `internal/caldav/report.go`: `calendar-query` filter evaluation, `calendar-multiget` with its 1000 bound,
+- [x] 5.4 `internal/caldav/report.go`: `calendar-query` filter evaluation, `calendar-multiget` with its 1000 bound,
       `sync-collection` with `valid-sync-token` and `507`; table tests per filter kind
-- [ ] 5.5 `internal/caldav/handler.go`: `OPTIONS`, `GET`/`HEAD` with `If-None-Match`, `403` for every write method,
+- [x] 5.5 `internal/caldav/handler.go`: `OPTIONS`, `GET`/`HEAD` with `If-None-Match`, `403` for every write method,
       `207` per-property `403` for `PROPPATCH`
 - [ ] 5.6 `internal/httpapi/router.go`: `Config.CalDAV` mounted under `/dav/`, `/.well-known/caldav` redirect,
       both off when `caldav.enabled` is false; `internal/server/assemble.go` wiring; route test
-- [ ] 5.7 Client fixtures in `internal/caldav/testdata/`: request sequences captured from Apple Reminders (iOS and
+- [x] 5.7 Client fixtures in `internal/caldav/testdata/`: request sequences captured from Apple Reminders (iOS and
       macOS), Thunderbird, DAVx5 and Evolution, replayed from discovery through a full and an incremental sync
 
 ### 6. Configuration and surfaces
