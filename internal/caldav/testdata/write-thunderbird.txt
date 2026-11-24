@@ -1,0 +1,163 @@
+# Thunderbird (115 and later) writing back: an edit, a conflict, a
+# completion, a create and a delete. Written from published client
+# behaviour, not captured traffic: Thunderbird's calendar provider sends the
+# whole object as it read it, with the properties it did not change, adds
+# X-MOZ-GENERATION and X-MOZ-LASTACK, sends If-Match on every change and
+# If-None-Match: * on a create, offers overwrite or discard on 412, writes
+# PERCENT-COMPLETE:100 and COMPLETED with a tick, and fetches the object
+# again after a PUT answered without an ETag. Thunderbird writes DAV: as D:.
+
+### the tags tix shows are set in the browser
+DO tag open1
+
+### the ETags at depth 1
+PROPFIND {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:"><D:prop><D:getetag/><D:current-user-privilege-set/></D:prop></D:propfind>
+EXPECT 207
+PROP {infra} {DAV:}current-user-privilege-set 200 <d:bind/>
+SAVE etag1 {infra}{open1}.ics {DAV:}getetag
+
+### editing the summary sends the whole object back
+PUT {infra}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag1}
+
+BEGIN:VCALENDAR
+PRODID:-//Mozilla.org/NONSGML Mozilla Calendar V1.1//EN
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+CREATED:20260101T000000Z
+LAST-MODIFIED:20260101T090000Z
+DTSTAMP:20260101T090000Z
+SEQUENCE:2
+SUMMARY:Rotate keys with ops
+STATUS:NEEDS-ACTION
+PRIORITY:0
+CATEGORIES:ops,security
+X-TIX-REF:INFRA-1
+X-TIX-STATE:todo
+X-MOZ-GENERATION:1
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 title Rotate keys with ops
+TASK open1 tags ops,security
+
+### the object fetched again carries Thunderbird's generation
+GET {infra}{open1}.ics
+
+EXPECT 200
+HAS X-MOZ-GENERATION:1
+SAVEHEADER etag2 ETag
+
+### the task is renamed in the browser
+DO retitle open1
+
+### Thunderbird's next edit is a conflict
+PUT {infra}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag2}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:Thunderbird's version
+X-MOZ-GENERATION:2
+END:VTODO
+END:VCALENDAR
+EXPECT 412
+TASK open1 title Rotate keys (edited)
+
+### discard: the object is fetched again
+GET {infra}{open1}.ics
+
+EXPECT 200
+HAS SUMMARY:Rotate keys (edited)
+SAVEHEADER etag3 ETag
+
+### ticking the task off
+PUT {infra}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag3}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:Rotate keys (edited)
+STATUS:COMPLETED
+COMPLETED:20260101T100000Z
+PERCENT-COMPLETE:100
+CATEGORIES:ops,security
+X-MOZ-GENERATION:3
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 status done
+
+### a new task with an alarm
+PUT {infra}a2d5c1f0-7b4e-4c8e-9d3a-1f2e3d4c5b6a.ics
+Content-Type: text/calendar; charset=utf-8
+If-None-Match: *
+
+BEGIN:VCALENDAR
+PRODID:-//Mozilla.org/NONSGML Mozilla Calendar V1.1//EN
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Europe/Berlin
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:CET
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+END:STANDARD
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:CEST
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VTODO
+CREATED:20260101T100000Z
+LAST-MODIFIED:20260101T100000Z
+DTSTAMP:20260101T100000Z
+UID:a2d5c1f0-7b4e-4c8e-9d3a-1f2e3d4c5b6a
+SUMMARY:Renew the certificate
+DTSTART;TZID=Europe/Berlin:20260101T110000
+DUE;TZID=Europe/Berlin:20260120T170000
+PRIORITY:1
+X-MOZ-GENERATION:1
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER;RELATED=END:-PT15M
+DESCRIPTION:Default Mozilla Description
+END:VALARM
+END:VTODO
+END:VCALENDAR
+EXPECT 201
+TASK Renew_the_certificate due 2026-01-20T16:00Z
+TASK Renew_the_certificate snoozed 2026-01-01T10:00Z
+
+### the new task's object keeps the alarm
+GET {infra}a2d5c1f0-7b4e-4c8e-9d3a-1f2e3d4c5b6a.ics
+
+EXPECT 200
+HAS UID:a2d5c1f0-7b4e-4c8e-9d3a-1f2e3d4c5b6a
+HAS TRIGGER;RELATED=END:-PT15M
+HAS PRIORITY:1
+
+### deleting the other task cancels it
+DELETE {infra}{open2}.ics
+If-Match: *
+
+EXPECT 204
+TASK open2 status cancelled
+TASK open2 trashed false
