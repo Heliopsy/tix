@@ -89,8 +89,8 @@ func TestDAVSectionShowsTheAddressAndUsername(t *testing.T) {
 	}
 	if tip := between(t, state, `<details class="field-info tip">`, "</details>"); !strings.Contains(tip, "Apple Reminders") ||
 		!strings.Contains(tip, "Thunderbird") || !strings.Contains(tip, "DAVx5") || !strings.Contains(tip, "Evolution") ||
-		!strings.Contains(tip, "cannot change them") {
-		t.Errorf("the (i) tip does not explain CalDAV, its apps and that it reads only:\n%s", state)
+		!strings.Contains(tip, "tick off, edit, add and cancel") || !strings.Contains(tip, "read-only") {
+		t.Errorf("the (i) tip does not explain CalDAV, its apps, that they write back and the read-only choice:\n%s", state)
 	}
 	if !strings.Contains(davHead(t, section), `data-dlg-open="dav-new"`) {
 		t.Errorf("the heading carries no button opening the create dialog:\n%s", section)

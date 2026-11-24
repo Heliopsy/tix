@@ -65,8 +65,9 @@ type DAVInfo struct {
 	// Username is the exact Basic username: the caller's sign-in email, or
 	// their handle when their account has no email.
 	Username string `json:"username" yaml:"username"`
-	// Write reports whether the caller's DAV requests may change tasks. It is
-	// false while CalDAV is read-only.
+	// Write reports whether the caller's DAV requests may change tasks: true
+	// when their role holds task write and task transition. A read-only app
+	// password is read-only whatever this says.
 	Write bool `json:"write" yaml:"write"`
 	// Collections are the choices an app password may be created with.
 	Collections []DAVCollections `json:"collections" yaml:"collections"`
@@ -88,7 +89,7 @@ type DAVPassword struct {
 	Scopes []Scope `json:"scopes" yaml:"scopes"`
 	// Collections is which collections it exposes.
 	Collections DAVCollections `json:"collections" yaml:"collections"`
-	// ReadOnly keeps it from changing tasks once CalDAV accepts writes.
+	// ReadOnly keeps it from changing tasks, whatever its owner's role allows.
 	ReadOnly bool `json:"read_only" yaml:"read_only"`
 	// CreatedAt is when it was issued.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
@@ -126,7 +127,7 @@ type CreateDAVPasswordInput struct {
 	Name string `json:"name" yaml:"name"`
 	// Collections is assigned (the default), projects or all.
 	Collections DAVCollections `json:"collections,omitempty" yaml:"collections,omitempty"`
-	// ReadOnly keeps the password from changing tasks once CalDAV accepts writes.
+	// ReadOnly keeps the password from changing tasks, whatever the role allows.
 	ReadOnly bool `json:"read_only,omitempty" yaml:"read_only,omitempty"`
 	// ExpiresAt is when it stops working, an RFC 3339 timestamp; omitted means never.
 	ExpiresAt *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
@@ -281,6 +282,96 @@ type TaskCollections interface {
 	// GetDAVObjects renders the named members of a collection. A name the
 	// collection does not hold is left out of the answer.
 	GetDAVObjects(ctx context.Context, in DAVObjectsInput) ([]DAVObject, error)
+	// PutDAVObject changes the task behind an object by what differs from
+	// what tix would render for it, or creates a task when the collection
+	// holds no object of that name. Every change is made by UpdateTask,
+	// CreateTask, SnoozeTask and TransitionRoute as the owner.
+	PutDAVObject(ctx context.Context, in DAVPutInput) (*DAVPutResult, error)
+	// DeleteDAVObject cancels the open task behind an object, and leaves a
+	// done one alone. It never moves a task to the trash.
+	DeleteDAVObject(ctx context.Context, in DAVDeleteInput) error
+}
+
+// DAVPutInput is one PUT of an object.
+type DAVPutInput struct {
+	Collection string
+	// Name is the resource name, without the .ics suffix.
+	Name string
+	// IfMatch is the If-Match header as sent, empty when absent.
+	IfMatch string
+	// IfNoneMatch reports If-None-Match: *, which asks for a create only.
+	IfNoneMatch bool
+	// Data is the VCALENDAR the client sent.
+	Data []byte
+	// Origin is as DAVSnapshotInput's.
+	Origin string
+}
+
+// DAVPutResult says what a PUT did.
+type DAVPutResult struct {
+	// Created reports a new task, answered 201 rather than 204.
+	Created bool
+	// Task is the task as the write left it.
+	Task *Task
+	// KeptDropped reports that what tix has no field for was over the
+	// bound and was not kept.
+	KeptDropped bool
+}
+
+// DAVDeleteInput is one DELETE of an object.
+type DAVDeleteInput struct {
+	Collection string
+	Name       string
+	IfMatch    string
+	Origin     string
+}
+
+// Reasons a CalDAV write is refused, carried as the reason detail so the
+// protocol layer answers each with its own status and precondition.
+const (
+	// ReasonDAVIfMatchRequired is an update sent without If-Match: 428.
+	ReasonDAVIfMatchRequired = "dav_if_match_required"
+	// ReasonDAVStale is an If-Match or If-None-Match the object does not
+	// meet, or a task changed while the write ran: 412.
+	ReasonDAVStale = "dav_stale"
+	// ReasonDAVUIDConflict is a create whose UID or name another task holds:
+	// 403 with CALDAV:no-uid-conflict.
+	ReasonDAVUIDConflict = "dav_uid_conflict"
+	// ReasonDAVInvalidObject is a body that is not one VTODO tix can read:
+	// 403 with CALDAV:valid-calendar-object-resource.
+	ReasonDAVInvalidObject = "invalid_calendar_object"
+	// ReasonDAVReadOnly is a write from a password or an owner that may not
+	// write: 403 with DAV:need-privileges.
+	ReasonDAVReadOnly = "dav_read_only"
+	// ReasonDAVRefused is a change the task's rules refuse, such as a guarded
+	// or ambiguous move: 403 with the reason as plain text.
+	ReasonDAVRefused = "dav_refused"
+)
+
+// DAVRefusal is a CalDAV write refused for a reason, of the kind the reason
+// maps to everywhere else.
+func DAVRefusal(reason string, format string, args ...any) error {
+	kind := KindForbidden
+	switch reason {
+	case ReasonDAVIfMatchRequired, ReasonDAVStale:
+		kind = KindPrecondition
+	}
+	return newf(kind, format, args...).WithDetail("reason", reason)
+}
+
+// DAVReason is the reason detail of a CalDAV write refusal, empty for any
+// other error.
+func DAVReason(err error) string {
+	var e *Error
+	if !errors.As(err, &e) {
+		return ""
+	}
+	switch r, _ := e.Details["reason"].(string); r {
+	case ReasonDAVIfMatchRequired, ReasonDAVStale, ReasonDAVUIDConflict, ReasonDAVInvalidObject,
+		ReasonDAVReadOnly, ReasonDAVRefused:
+		return r
+	}
+	return ""
 }
 
 // ReasonDAVSyncToken is the reason detail of ErrDAVSyncToken.

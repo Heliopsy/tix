@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 	"unicode"
@@ -61,8 +62,18 @@ func (l *Local) GetDAVInfo(ctx context.Context) (*core.DAVInfo, error) {
 		if err != nil {
 			return err
 		}
-		out.Username, err = davUsername(ctx, tx, owner)
-		return err
+		if out.Username, err = davUsername(ctx, tx, owner); err != nil {
+			return err
+		}
+		reader, err := ownerReader(ctx, tx, actor.TenantID, owner.ID, davWriteScopes)
+		if errors.Is(err, errOwnerGone) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out.Write = l.dav.enabled && davMayWrite(reader)
+		return nil
 	})
 	if err != nil {
 		return nil, err

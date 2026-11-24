@@ -178,9 +178,12 @@ func TestADAVReaderFollowsItsOwnersStanding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(s.reader.Scopes, davReadScopes) || s.reader.HasScope(core.ScopeTaskDelete) ||
-		s.reader.HasScope(core.ScopeTaskWrite) {
-		t.Errorf("an admin's phone reads with %v", s.reader.Scopes)
+	if !slices.Equal(s.reader.Scopes, davWriteScopes) || s.reader.HasScope(core.ScopeTaskDelete) {
+		t.Errorf("an admin's phone acts with %v", s.reader.Scopes)
+	}
+	ro := f.create(t, f.member, core.CreateDAVPasswordInput{Name: "Mac", ReadOnly: true})
+	if s, err := f.l.davSessionOf(f.as(ro)); err != nil || !slices.Equal(s.reader.Scopes, davReadScopes) {
+		t.Errorf("an admin's read-only password acts with %v (%v)", s.reader.Scopes, err)
 	}
 
 	for name, stop := range map[string]func(f davFixture){

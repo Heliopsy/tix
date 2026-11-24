@@ -793,6 +793,8 @@ func baseVia(r *http.Request) core.Via {
 		v.Kind = core.ViaAPI
 	case IsSCIMPath(r.URL.Path):
 		v.Kind = core.ViaSCIM
+	case core.IsDAVPath(r.URL.Path):
+		v.Kind = core.ViaCalDAV
 	}
 	if ip := ClientIPFrom(r.Context()); ip.IsValid() {
 		v.ClientAddr = ip.String()
@@ -810,6 +812,9 @@ func credentialVia(r *http.Request, actor *core.Actor) core.Via {
 	switch {
 	case actor.TokenID != "" && IsSCIMPath(r.URL.Path):
 		v.Kind = core.ViaSCIM
+		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
+	case actor.TokenID != "" && core.IsDAVPath(r.URL.Path):
+		v.Kind = core.ViaCalDAV
 		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
 	case actor.TokenID != "":
 		v.Kind = core.ViaAPI

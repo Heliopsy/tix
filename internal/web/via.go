@@ -33,6 +33,7 @@ var viaIcons = map[core.ViaKind]string{
 	core.ViaSync:      "sync",
 	core.ViaImport:    "transfer",
 	core.ViaSCIM:      "users",
+	core.ViaCalDAV:    "calendar",
 	core.ViaSystem:    "settings",
 	core.ViaUnknown:   "via-unknown",
 }
@@ -49,6 +50,7 @@ var viaLabels = map[core.ViaKind][2]string{
 	core.ViaSync:      {"via sync", "via sync (token %s)"},
 	core.ViaImport:    {"via import", "via import (token %s)"},
 	core.ViaSCIM:      {"via SCIM", "via SCIM (token %s)"},
+	core.ViaCalDAV:    {"via CalDAV", "via CalDAV (app password %s)"},
 	core.ViaSystem:    {"via system", "via system (%s)"},
 	core.ViaUnknown:   {"via unknown channel", "via unknown channel"},
 }
@@ -64,6 +66,7 @@ var viaChoiceLabels = map[core.ViaKind]string{
 	core.ViaSync:      "Sync",
 	core.ViaImport:    "Import",
 	core.ViaSCIM:      "SCIM provisioning",
+	core.ViaCalDAV:    "CalDAV app",
 	core.ViaSystem:    "System",
 	core.ViaUnknown:   "Unknown (older entries)",
 }

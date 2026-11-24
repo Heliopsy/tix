@@ -102,8 +102,9 @@ func TestACollectionAnswersItsPropertiesAndMembers(t *testing.T) {
 	if !strings.HasPrefix(token, "https://tix.red/ns/sync/") || c.okProp(t, csName("getctag")).Text != token {
 		t.Errorf("sync-token %q and getctag %q", token, c.okProp(t, csName("getctag")).Text)
 	}
-	if got := c.okProp(t, davName("current-user-privilege-set")).Inner; got != "<d:privilege><d:read/></d:privilege>" {
-		t.Errorf("privileges %q, want DAV:read alone", got)
+	if got := c.okProp(t, davName("current-user-privilege-set")).Inner; got != "<d:privilege><d:read/></d:privilege>"+
+		"<d:privilege><d:write-content/></d:privilege><d:privilege><d:bind/></d:privilege><d:privilege><d:unbind/></d:privilege>" {
+		t.Errorf("privileges %q, want read, write-content, bind and unbind", got)
 	}
 	if got := c.okProp(t, appleName("calendar-color")).Text; got != "#336699ff" {
 		t.Errorf("colour %q", got)

@@ -658,8 +658,8 @@ paths:
               type: string
             type: array
         - description: 'Via keeps entries that arrived through an access channel:
-            web, api, cli-local, cli-remote, ssh, mcp, sync, import, system or unknown;
-            repeat it for several.'
+            web, api, cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav,
+            system or unknown; repeat it for several.'
           in: query
           name: via
           schema:
@@ -9349,8 +9349,8 @@ paths:
               type: string
             type: array
         - description: 'Via keeps entries that arrived through an access channel:
-            web, api, cli-local, cli-remote, ssh, mcp, sync, import, system or unknown;
-            repeat it for several.'
+            web, api, cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav,
+            system or unknown; repeat it for several.'
           in: query
           name: via
           schema:
@@ -15558,8 +15558,8 @@ components:
             among the caller's live ones. Required.
           type: string
         read_only:
-          description: ReadOnly keeps the password from changing tasks once CalDAV
-            accepts writes.
+          description: ReadOnly keeps the password from changing tasks, whatever the
+            role allows.
           type: boolean
       type: object
     CreateInviteInput:
@@ -16072,8 +16072,9 @@ components:
             email, or their handle when their account has no email.'
           type: string
         write:
-          description: Write reports whether the caller's DAV requests may change
-            tasks. It is false while CalDAV is read-only.
+          description: 'Write reports whether the caller''s DAV requests may change
+            tasks: true when their role holds task write and task transition. A read-only
+            app password is read-only whatever this says.'
           type: boolean
       type: object
     DAVPassword:
@@ -16112,7 +16113,8 @@ components:
             app passwords.
           type: string
         read_only:
-          description: ReadOnly keeps it from changing tasks once CalDAV accepts writes.
+          description: ReadOnly keeps it from changing tasks, whatever its owner's
+            role allows.
           type: boolean
         revoked_at:
           description: RevokedAt is when it was revoked, absent while it is live.
@@ -17118,7 +17120,8 @@ components:
           description: Path is the CalDAV context root, /dav/.
           type: string
         read_only:
-          description: ReadOnly keeps it from changing tasks once CalDAV accepts writes.
+          description: ReadOnly keeps it from changing tasks, whatever its owner's
+            role allows.
           type: boolean
         revoked_at:
           description: RevokedAt is when it was revoked, absent while it is live.

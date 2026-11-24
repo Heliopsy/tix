@@ -14,7 +14,8 @@ import (
 // davHelp says what CalDAV and an app password are, once, for every command
 // in the group.
 const davHelp = "tix serve answers CalDAV under /dav/, so Apple Reminders, Thunderbird, tasks.org or jtx Board " +
-	"through DAVx5, and Evolution list your tasks as to-dos. For now the lists are read-only.\n\n" +
+	"through DAVx5, and Evolution list your tasks as to-dos. They can tick them off, " +
+	"edit, add and cancel them too, unless the app password is read-only.\n\n" +
 	"A client signs in with your sign-in email as the username and an app password: a token that works " +
 	"only for CalDAV, which any person can create for themselves. Each app password chooses its " +
 	"collections: assigned (Assigned to me, the default), projects (one list per project) or all. It is " +
@@ -143,7 +144,7 @@ func davPasswordCreateCmd(g *globals) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&collections, "collections", string(core.DAVCollectionsAssigned),
 		"which lists the client shows: assigned, projects or all")
-	f.BoolVar(&readOnly, "read-only", false, "never let this client change tasks, once CalDAV accepts changes")
+	f.BoolVar(&readOnly, "read-only", false, "let this client list tasks but never change them")
 	f.StringVar(&expires, "expires", ExpiryNever,
 		"when the password stops working: a duration such as 90d, a date, an RFC3339 timestamp, or never")
 	names := make([]string, len(core.AllDAVCollections))
