@@ -599,7 +599,7 @@ actionlint: (tool "actionlint")
 # info on made the gate depend on which shellcheck release the runner had,
 # which is how it failed on a machine where it had just passed. SC2189 is an
 # error and is still caught, verified against the commit that motivated this.
-shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh" ".github/actions/fetch-release-asset.sh")
+shellcheck: (tool "shellcheck" "--severity=warning" "demo/scene/agent.sh" "demo/scene/agent-stub.sh" "demo/scene/board.sh" "demo/scene/planner.sh" "demo/scene/planner-stub.sh" "demo/scene/run.sh" "demo/scene/stream_test.sh" "demo/scene/watch.sh" "demo/encode.sh" "scripts/test-shards.sh" ".github/actions/fetch-release-asset.sh" "examples/sh/tix-example.sh")
 hadolint: (tool "hadolint" "Containerfile" "Containerfile.ci")
 # The jq filter that renders the agent panes, which is the only thing between a
 # lease token and a published video. shellcheck cannot read it and bash -n
@@ -739,6 +739,9 @@ docs-check:
     # the capability registry. The test regenerates both in memory and names
     # the first line that differs from what is committed.
     go test ./internal/openapi -run '^TestTheCommittedDocumentIsGenerated$' -count=1 || { echo "run: just openapi"; rc=1; }
+    # Every snippet in docs/examples.md is a marked region of a file under
+    # examples/, and the smoke suite runs those files against a server.
+    go test ./internal/docsmd -run '^TestTheExamplesPageShowsTheExampleFiles$' -count=1 || { echo "copy the region back into docs/examples.md"; rc=1; }
     exit $rc
 
 # Create a migration named by the current UTC time, so two branches never

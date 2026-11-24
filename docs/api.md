@@ -7,6 +7,9 @@ web UI.
 tix serve --listen 127.0.0.1:8080
 ```
 
+[examples.md](examples.md) walks one client through the common calls in curl, Python, TypeScript and Go, from
+signing in to reading the events it caused, with a version conflict handled on the way.
+
 ## Authentication
 
 Bearer token:
@@ -1370,6 +1373,7 @@ not through these endpoints, which are tenant configuration filtered by event ty
 
 ## Related
 
+- [examples.md](examples.md) for a runnable client in curl, Python, TypeScript and Go
 - [agents.md](agents.md) for claiming and leases
 - [deployment.md](deployment.md) for TLS, proxies and the bind guard
 - [scripting.md](scripting.md) for the CLI equivalents
