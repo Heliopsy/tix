@@ -28,6 +28,15 @@ const (
 	RefusedActorDisabled = "actor_disabled"
 	// RefusedSCIMOnly is a SCIM provisioning token used off the SCIM endpoints.
 	RefusedSCIMOnly = "scim_only"
+	// RefusedCaldavOnly is an app password used off the CalDAV endpoints.
+	RefusedCaldavOnly = "caldav_only"
+	// RefusedDAVPasswordRequired is a request under /dav/ presenting anything
+	// but an app password over Basic: an account password, a session cookie,
+	// a bearer header or another API token.
+	RefusedDAVPasswordRequired = "dav_password_required"
+	// RefusedDAVUserMismatch is an app password presented with a username
+	// that names somebody other than its owner.
+	RefusedDAVUserMismatch = "dav_user_mismatch"
 	// RefusedWrongTenant is a credential of another tenant than the host's.
 	RefusedWrongTenant = "wrong_tenant"
 	// RefusedUnknownSession is a session cookie no row matches. Logout and

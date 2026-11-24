@@ -123,6 +123,9 @@ shares one key and one record a minute.
 | `token_revoked` | 401 | The token was revoked, or rotated and its grace window is over |
 | `actor_disabled` | 401 | The token's or session's actor or account is disabled |
 | `scim_only` | 403 | A `scim:provision` token used outside `/scim/v2` |
+| `caldav_only` | 403 | An app password (a `caldav` token) used outside `/dav/` |
+| `dav_password_required` | 401 | A request under `/dav/` that presented anything but an app password over Basic: an account password, a session cookie, a bearer header or another API token. No password hash is computed for it |
+| `dav_user_mismatch` | 401 | An app password presented with a Basic username other than its owner's sign-in email or handle |
 | `wrong_tenant` | 401 | A credential of another tenant than the one this shared host resolved |
 | `unknown_session` | any | A session cookie no session matches; a signed out session is deleted, so it reads the same |
 | `session_expired` | any | The session is past its expiry |

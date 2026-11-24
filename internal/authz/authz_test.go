@@ -73,8 +73,8 @@ func TestActionsAreUniqueAndNamed(t *testing.T) {
 
 func TestRoleActionMatrix(t *testing.T) {
 	viewer := []Action{
-		ActionTaskRead, ActionTaskStar, ActionViewArrange, ActionFilterSave, ActionCalendarFeed, ActionInboxRead,
-		ActionProjectRead, ActionWorkflowRead,
+		ActionTaskRead, ActionTaskStar, ActionViewArrange, ActionFilterSave, ActionCalendarFeed, ActionDAVPassword,
+		ActionInboxRead, ActionProjectRead, ActionWorkflowRead,
 		ActionEventSubscribe, ActionAuditRead,
 	}
 	member := append([]Action{
@@ -437,7 +437,7 @@ func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
 // pins.
 func scopedActions() []Action {
 	return slices.DeleteFunc(Actions(), func(a Action) bool {
-		return a == ActionGlobalAdmin || a == ActionAccountRead || a == ActionSCIMProvision
+		return a == ActionGlobalAdmin || a == ActionAccountRead || a == ActionSCIMProvision || a == ActionDAVSync
 	})
 }
 
@@ -575,5 +575,33 @@ func TestCanRotateToken(t *testing.T) {
 	}
 	if err := p.CanRotateToken(nil, "x", ""); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("nil actor: %v, want unauthenticated", err)
+	}
+}
+
+// TestDAVSyncIsHeldOnlyByAnAppPassword: neither the wildcard, the system actor
+// nor the admin role reads over CalDAV; only a token naming caldav. Managing
+// app passwords needs task:read and is not confinable to a project.
+func TestDAVSyncIsHeldOnlyByAnAppPassword(t *testing.T) {
+	p := New()
+	for name, actor := range map[string]*core.Actor{
+		"system":     core.SystemActor(tenantA),
+		"admin role": roleActor(core.RoleAdmin),
+		"wildcard":   scopeActor(core.ScopeAll),
+	} {
+		if err := p.Can(actor, ActionDAVSync, resource()); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("%s: %v, want forbidden", name, err)
+		}
+	}
+	if err := p.Can(scopeActor(core.ScopeCaldav), ActionDAVSync, resource()); err != nil {
+		t.Errorf("an app password: %v", err)
+	}
+	if err := p.Can(scopeActor(core.ScopeCaldav), ActionTaskRead, resource()); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("an app password read tasks directly: %v", err)
+	}
+	if ActionDAVPassword.ProjectConfinable() || ActionDAVSync.ProjectConfinable() {
+		t.Error("a dav action is project-confinable")
+	}
+	if err := p.Can(roleActor(core.RoleViewer), ActionDAVPassword, resource()); err != nil {
+		t.Errorf("a viewer cannot manage their app passwords: %v", err)
 	}
 }

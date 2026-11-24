@@ -107,13 +107,23 @@ const (
 	// imply it, a token carrying it carries nothing else, and such a token is
 	// refused everywhere but the SCIM endpoints.
 	ScopeSCIMProvision Scope = "scim:provision"
+
+	// ScopeCaldav is an app password: a token a calendar or reminders app
+	// presents over HTTP Basic under /dav/. "*" and roles do not imply it, a
+	// token carrying it carries nothing else, and such a token is refused
+	// everywhere but /dav/.
+	ScopeCaldav Scope = "caldav"
 )
 
 // NamedOnly reports whether a scope is held only when named, never through
 // "*" or a role.
 func (s Scope) NamedOnly() bool {
-	return s == ScopeGlobalAdmin || s == ScopeAccountRead || s == ScopeSCIMProvision
+	return s == ScopeGlobalAdmin || s == ScopeAccountRead || s == ScopeSCIMProvision || s == ScopeCaldav
 }
+
+// Alone reports whether a scope is carried only by itself, with no other
+// scope, no project and no claim requirement.
+func (s Scope) Alone() bool { return s == ScopeSCIMProvision || s == ScopeCaldav }
 
 // AllScopes is the complete vocabulary, excluding ScopeAll.
 var AllScopes = []Scope{
@@ -126,7 +136,7 @@ var AllScopes = []Scope{
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
 	ScopeSSOAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
-	ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision,
+	ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision, ScopeCaldav,
 }
 
 // Role is a named bundle of scopes granted to a human within one tenant.

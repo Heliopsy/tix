@@ -40,6 +40,10 @@ const (
 	// reads no more than its owner may, so reading tasks is authority enough;
 	// it lists every project the owner reads, so it is not confinable.
 	ActionCalendarFeed Action = "calendar.feed"
+	// ActionDAVPassword manages the caller's own app passwords. A password
+	// reads no more than its owner may, so reading tasks is authority enough;
+	// it reaches every project the owner reads, so it is not confinable.
+	ActionDAVPassword Action = "dav.password"
 	// ActionInboxRead reads and changes the caller's own inbox. An inbox is
 	// the caller's alone and spans projects, so it needs only task:read and
 	// is not confinable.
@@ -81,6 +85,10 @@ const (
 	// ActionSCIMProvision creates, changes and removes the tenant's users and
 	// groups on behalf of an identity provider.
 	ActionSCIMProvision Action = "scim.provision"
+	// ActionDAVSync reads tasks over CalDAV as an app password. Only a token
+	// naming caldav holds it, and what it then reads is decided by its
+	// owner's role, not by the token.
+	ActionDAVSync Action = "dav.sync"
 
 	// ActionServerRead reads the installation: which servers are registered,
 	// what the store is, and how big the tenant's work is. It is not confinable
@@ -115,6 +123,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionFilterSave:          core.ScopeTaskRead,
 	ActionFilterManage:        core.ScopeTenantAdmin,
 	ActionCalendarFeed:        core.ScopeTaskRead,
+	ActionDAVPassword:         core.ScopeTaskRead,
 	ActionInboxRead:           core.ScopeTaskRead,
 	ActionTemplateTenantWrite: core.ScopeTaskWrite,
 
@@ -142,6 +151,7 @@ var actionScopes = map[Action]core.Scope{
 	ActionAccountRead:  core.ScopeAccountRead,
 
 	ActionSCIMProvision: core.ScopeSCIMProvision,
+	ActionDAVSync:       core.ScopeCaldav,
 
 	ActionExport:         core.ScopeExport,
 	ActionTaskExport:     core.ScopeExport,
@@ -209,7 +219,7 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
 	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskApprove, ActionTaskStar, ActionViewArrange,
-	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionInboxRead,
+	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionDAVPassword, ActionInboxRead,
 	ActionTemplateTenantWrite,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
@@ -217,7 +227,7 @@ var allActions = []Action{
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
 	ActionSSOAdmin,
-	ActionGlobalAdmin, ActionAccountRead, ActionSCIMProvision,
+	ActionGlobalAdmin, ActionAccountRead, ActionSCIMProvision, ActionDAVSync,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead, ActionTaskExport, ActionTaskImport,
 }

@@ -3,6 +3,7 @@
 package core
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -203,6 +204,31 @@ func TestCreateTokenInputValidate(t *testing.T) {
 	}
 	if err := (CreateTokenInput{Scopes: []Scope{ScopeTaskRead}}).Validate(); err == nil {
 		t.Error("a token with no name must be rejected")
+	}
+}
+
+// A scope carried alone is refused beside anything else, for each such scope,
+// and accepted by itself.
+func TestCreateTokenInputKeepsAloneScopesAlone(t *testing.T) {
+	for _, scope := range []Scope{ScopeSCIMProvision, ScopeCaldav} {
+		if err := (CreateTokenInput{Name: "x", Scopes: []Scope{scope}}).Validate(); err != nil {
+			t.Errorf("%s alone: %v", scope, err)
+		}
+		for name, in := range map[string]CreateTokenInput{
+			"another scope":     {Name: "x", Scopes: []Scope{scope, ScopeTaskRead}},
+			"a project":         {Name: "x", Scopes: []Scope{scope}, ProjectID: "infra"},
+			"a claim condition": {Name: "x", Scopes: []Scope{scope}, RequireClaim: true},
+		} {
+			err := in.Validate()
+			if !IsKind(err, KindInvalid) {
+				t.Errorf("%s with %s: %v, want invalid", scope, name, err)
+				continue
+			}
+			var e *Error
+			if errors.As(err, &e) && e.Details[DetailField] != "scopes" {
+				t.Errorf("%s with %s names field %q", scope, name, e.Details[DetailField])
+			}
+		}
 	}
 }
 
