@@ -56,14 +56,16 @@ func (a *BasicDAVAuthenticator) Authenticate(ctx context.Context, r *http.Reques
 		}
 		return nil, ErrNoCredential
 	}
-	username, password, ok := r.BasicAuth()
+	// The Basic password slot carries an app password: a minted 256-bit token,
+	// hashed like every other token, never a password a person chose.
+	username, appToken, ok := r.BasicAuth()
 	if !ok {
 		return refused()
 	}
-	if _, err := ParseAPIToken(password); err != nil {
+	if _, err := ParseAPIToken(appToken); err != nil {
 		return refused()
 	}
-	return a.verifier.verify(ctx, password, func(tok *core.APIToken) error {
+	return a.verifier.verify(ctx, appToken, func(tok *core.APIToken) error {
 		if !slices.Equal(tok.Scopes, []core.Scope{core.ScopeCaldav}) {
 			NoteRefusal(ctx, Refusal{Reason: RefusedDAVPasswordRequired, TokenID: tok.ID, TokenName: tok.Name})
 			return core.Unauthenticated("an app password is required; this token is not one")

@@ -403,7 +403,7 @@ const (
 	// inside the span and moves the count, so the short cut is not taken.
 	davEventSpan = 1024
 	// DAVSyncTokenPrefix starts every sync token, a URI as RFC 6578 asks.
-	DAVSyncTokenPrefix = "https://tix.red/ns/sync/"
+	DAVSyncTokenPrefix = "https://tix.red/ns/sync/" // #nosec G101 -- a namespace URI, not a credential
 )
 
 // DAVSnapshot answers a collection's members and what changed since a token.

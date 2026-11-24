@@ -15,8 +15,8 @@ import (
 // rather than a redirect, as a feed address is, so the secret is in no URL,
 // no access log and no browser history.
 const (
-	RouteDAVPasswordCreate = "/settings/dav/passwords"
-	RouteDAVPasswordRevoke = "/settings/dav/passwords/{id}/revoke"
+	RouteDAVPasswordCreate = "/settings/dav/passwords"             // #nosec G101 -- a route path, not a credential
+	RouteDAVPasswordRevoke = "/settings/dav/passwords/{id}/revoke" // #nosec G101 -- a route path, not a credential
 
 	davIssuedTemplate = "davpassword.html"
 	davSection        = "dav"
