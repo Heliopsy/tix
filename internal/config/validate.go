@@ -456,9 +456,15 @@ func validatePasswordHashing(a Auth, sources map[string]Layer) error {
 }
 
 // validateAppRedirects refuses an app redirect that is not an absolute
-// address with a scheme, or that carries a fragment the code would be lost in.
+// address with a scheme, that carries a fragment the code would be lost in,
+// or whose scheme would run in the browser rather than open an app.
 func validateAppRedirects(redirects []string, sources map[string]Layer) error {
 	for _, raw := range redirects {
+		if core.AppSchemeRefused(raw) {
+			return invalidKey("auth.sso_app_redirects", sources).WithDetail("value", raw).
+				WithDetail("reason", "an app redirect may not use the "+strings.Join(core.RefusedAppSchemes, ", ")+
+					" schemes: the browser would run or read it instead of opening an app")
+		}
 		u, err := url.Parse(raw)
 		if err == nil && u.Scheme != "" && u.Fragment == "" && !strings.HasSuffix(raw, "#") && u.User == nil &&
 			(u.Opaque != "" || u.Path != "" || u.Host != "") {

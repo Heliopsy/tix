@@ -174,3 +174,61 @@ func TestSAMLRefreshStateOnSQLite(t *testing.T) {
 		t.Fatalf("reading: %v", err)
 	}
 }
+
+// TestSSOHandoffsAreTakenOnceAndPrunedOnSQLite pins that a handoff is taken
+// once, and that a take prunes the tenant's expired handoffs as a create
+// does, so codes nobody exchanged do not wait for the next sign-in.
+func TestSSOHandoffsAreTakenOnceAndPrunedOnSQLite(t *testing.T) {
+	ctx := context.Background()
+	s, clk := newStore(t)
+	f := seed(t, s, clk, "acme")
+	p := core.SSOProvider{Key: "kc", Kind: core.SSOKindOIDC, Enabled: true, DefaultRole: core.RoleMember,
+		Issuer: "https://id.example.com", ClientID: "tix"}
+	user := core.User{Email: "ada@example.com"}
+	now := clk.Now()
+	handoff := func(hash string) *store.SSOHandoff {
+		return &store.SSOHandoff{ProviderID: p.ID, CodeHash: hash, CodeChallenge: "challenge", UserID: user.ID,
+			Method: "sso:kc", SecondFactor: true, ExpiresAt: now.Add(2 * time.Minute)}
+	}
+	if err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+		if err := tx.CreateSSOProvider(ctx, &p); err != nil {
+			return err
+		}
+		if err := tx.CreateUser(ctx, &user, ""); err != nil {
+			return err
+		}
+		if err := tx.CreateSSOHandoff(ctx, handoff("kept"), now); err != nil {
+			return err
+		}
+		return tx.CreateSSOHandoff(ctx, handoff("taken"), now)
+	}); err != nil {
+		t.Fatalf("writing: %v", err)
+	}
+	take := func(hash string, at time.Time) (*store.SSOHandoff, error) {
+		var out *store.SSOHandoff
+		err := s.Update(ctx, f.scope, func(tx store.Tx) error {
+			var err error
+			out, err = tx.TakeSSOHandoff(ctx, hash, at)
+			if core.IsKind(err, core.KindNotFound) {
+				return nil
+			}
+			return err
+		})
+		return out, err
+	}
+	got, err := take("taken", now.Add(time.Minute))
+	if err != nil || got == nil || got.UserID != user.ID || !got.SecondFactor || got.Method != "sso:kc" ||
+		got.CodeChallenge != "challenge" {
+		t.Fatalf("take = %+v, %v; want the handoff as written", got, err)
+	}
+	if again, err := take("taken", now.Add(time.Minute)); err != nil || again != nil {
+		t.Errorf("a second take = %+v, %v; want not found", again, err)
+	}
+	if late, err := take("unknown", now.Add(10*time.Minute)); err != nil || late != nil {
+		t.Fatalf("a take after the rest expired = %+v, %v; want not found", late, err)
+	}
+	if early, err := take("kept", now.Add(time.Minute)); err != nil || early != nil {
+		t.Errorf("an expired handoff read with an earlier clock = %+v, %v; want it pruned by the last take",
+			early, err)
+	}
+}

@@ -488,7 +488,9 @@ auth:
 ```
 
 As an environment variable the list is comma separated, and `TIX_AUTH_SSO_APP_REDIRECTS=` with nothing after it
-turns it off. Each entry needs a scheme and no fragment. See [sso.md](sso.md#signing-in-from-the-app).
+turns it off. Each entry needs a scheme and no fragment, and `javascript:`, `data:`, `vbscript:` and `file:`
+entries are refused in any letter case, since the browser would run or read them instead of opening an app.
+See [sso.md](sso.md#signing-in-from-the-app).
 
 ### Sign-in sessions
 

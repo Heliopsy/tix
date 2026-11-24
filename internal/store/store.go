@@ -839,9 +839,10 @@ type SSOTx interface {
 	// CreateSSOHandoff records the code an app sign-in hands the app, after
 	// deleting the tenant's rows that expired before now.
 	CreateSSOHandoff(ctx context.Context, h *SSOHandoff, now time.Time) error
-	// TakeSSOHandoff deletes and returns the code whose hash is codeHash. A
-	// code that is unknown, already taken or expired at now is not found;
-	// of two takes of one code, only one finds it.
+	// TakeSSOHandoff deletes and returns the code whose hash is codeHash,
+	// after deleting the tenant's rows that expired before now. A code that
+	// is unknown, already taken or expired at now is not found; of two takes
+	// of one code, only one finds it.
 	TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time) (*SSOHandoff, error)
 }
 

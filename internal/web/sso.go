@@ -22,6 +22,7 @@ func (h *handler) ssoRoutes() []route {
 		public(get(RouteSSOStart, "", h.startSSO, "BeginSSOLogin")),
 		public(get(RouteSSOCallback, totpTemplate, h.finishSSO, "CompleteSSOLogin")),
 		crossSite(public(post(RouteSAMLACS, h.finishSAML, "CompleteSSOLogin"))),
+		public(post(RouteSSOApp, h.openApp, "Login")),
 		public(getFile(RouteSAMLMetadata, h.samlMetadata, "SAMLMetadata")),
 		get(RouteSSO, ssoTemplate, h.showSSO, "ListSSOProviders", "SignInOptions"),
 		post(RouteSSO, h.createSSO, "CreateSSOProvider"),
@@ -57,7 +58,7 @@ func (h *handler) startSSO(w http.ResponseWriter, r *http.Request) error {
 		AppState:            q.Get("app_state"),
 	})
 	if err != nil {
-		return err
+		return h.refusedForApp(w, r, err)
 	}
 	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- HttpOnly and SameSite always; Secure tracks TLS, as the session cookie does
 		Name: auth.SSOFlowCookieName, Value: begin.Flow, Path: ssoFlowPath, HttpOnly: true,
@@ -148,7 +149,7 @@ func (h *handler) samlMetadata(w http.ResponseWriter, r *http.Request) error {
 // return to.
 func (h *handler) signedInThroughSSO(w http.ResponseWriter, r *http.Request, result *core.LoginResult) error {
 	next := safeNext(result.Next)
-	if result.Challenge == nil && result.AppRedirect != "" {
+	if result.Challenge == nil && (result.AppRedirect != "" || result.AppHandoff != "") {
 		return h.backToApp(w, r, result)
 	}
 	if challenge := result.Challenge; challenge != nil {
@@ -183,6 +184,12 @@ type ssoAppView struct {
 	Target template.URL
 	Codes  []string
 	Failed bool
+	// Handoff is the signed handoff of a sign-in that completed by
+	// enrolling. Open the app posts it to mint the app's code, so the code's
+	// two minutes start when the reader has kept the recovery codes.
+	Handoff string
+	// Action is where Open the app posts the handoff.
+	Action string
 }
 
 // Joined is the recovery codes one to a line.
@@ -191,21 +198,50 @@ func (v ssoAppView) Joined() string { return strings.Join(v.Codes, "\n") }
 // refusedForApp answers a refused provider sign-in: the app's redirect
 // carrying the reason when an app started it, the error screen otherwise.
 func (h *handler) refusedForApp(w http.ResponseWriter, r *http.Request, err error) error {
-	var e *core.Error
-	if !errors.As(err, &e) {
-		return err
-	}
-	target, _ := e.Details[core.DetailAppRedirect].(string)
+	target := appTarget(err)
 	if target == "" {
 		return err
 	}
 	return h.toApp(w, r, ssoAppView{Target: appURL(target), Failed: true})
 }
 
+// appTarget is the app redirect a refusal names, or "" for a browser's own
+// sign-in.
+func appTarget(err error) string {
+	var e *core.Error
+	if !errors.As(err, &e) {
+		return ""
+	}
+	target, _ := e.Details[core.DetailAppRedirect].(string)
+	return target
+}
+
 // backToApp hands a completed sign-in to the app that started it. No
 // session cookie is set: the app exchanges the code for its own session.
 func (h *handler) backToApp(w http.ResponseWriter, r *http.Request, result *core.LoginResult) error {
+	if result.AppHandoff != "" {
+		return h.toApp(w, r, ssoAppView{Codes: result.RecoveryCodes, Handoff: result.AppHandoff, Action: RouteSSOApp})
+	}
 	return h.toApp(w, r, ssoAppView{Target: appURL(result.AppRedirect), Codes: result.RecoveryCodes})
+}
+
+// openApp is Open the app under an enrolment's recovery codes: it mints the
+// app's code now and sends the browser to the app with it. The tap that
+// posted the form is the gesture a browser asks for before it opens an app.
+func (h *handler) openApp(w http.ResponseWriter, r *http.Request) error {
+	result, err := h.svc.Login(r.Context(), core.LoginInput{Surface: core.SurfaceWeb,
+		AppHandoff: r.PostFormValue("handoff")})
+	if err != nil {
+		return h.refusedForApp(w, r, err)
+	}
+	if result.AppRedirect == "" {
+		return core.Invalid("this sign-in has nothing to hand to an app; start again from the app")
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	// #nosec G710 -- an address auth.sso_app_redirects lists exactly; see appURL.
+	http.Redirect(w, r, result.AppRedirect, http.StatusFound)
+	return nil
 }
 
 // appURL marks an app redirect safe to draw as a link. The service built it

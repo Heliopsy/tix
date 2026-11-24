@@ -18,6 +18,11 @@ import (
 // wait to be exchanged.
 const SSOHandoffTTL = 2 * time.Minute
 
+// SSOHandoffTicketTTL bounds how long the recovery codes page of an app
+// sign-in that completed by enrolling may wait for Open the app, which
+// mints the code then.
+const SSOHandoffTicketTTL = 15 * time.Minute
+
 // AppSignIn is a native app's part of a sign-in through a provider: where the
 // browser hands the result back, the PKCE challenge the code is bound to and
 // the state the app gets back unchanged. It travels sealed in the flow and

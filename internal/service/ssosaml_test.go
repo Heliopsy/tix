@@ -58,7 +58,7 @@ func (f samlFixture) begin(t *testing.T) (*core.SSOBegin, ssotest.AuthnRequest) 
 }
 
 func (f samlFixture) post(begin *core.SSOBegin, state, response string) (*core.LoginResult, error) {
-	return f.l.CompleteSSOLogin(loginContext(f.scope), core.CompleteSSOInput{Flow: begin.Flow, State: state,
+	return f.l.CompleteSSOLogin(browserContext(f.scope), core.CompleteSSOInput{Flow: begin.Flow, State: state,
 		SAMLResponse: response, Provider: "okta", RedirectURI: samlACSURL})
 }
 

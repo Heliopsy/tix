@@ -453,7 +453,12 @@ registered there.
 3. The browser signs in as on the web: the provider, the [linking rules](#linking-rules) and the tenant's
    second factor, asked in the browser. An app sign-in always counts as Keep me signed in. The second factor is
    asked when the tenant requires it on the web or on the command line, since the app's session is the one its
-   password sign-in gets; an enrolment that completes here shows its recovery codes in the browser first.
+   password sign-in gets, and when the tenant's second factor policy is required. Someone with no factor yet
+   enrols right there in the browser, as `tix login` does, rather than getting a session that can only enrol.
+   An enrolment that completes here shows its recovery codes first, with **Open the app** under them: the
+   code is minted when that button is pressed, so taking a while to keep the codes does not spend it. The
+   button works for 15 minutes; after that it sends the app `error=expired`, and signing in again just asks
+   for a code.
 4. Where the web would set its session cookie, the browser goes to `URI?code=CODE&state=STATE` instead: a 302
    after the provider's redirect back, and a small page that navigates on its own and links the address after
    a POST (the SAML ACS, the second factor's form), because a browser may refuse to follow a redirect to an
@@ -461,16 +466,22 @@ registered there.
    `access_denied` (the provider or the person ended it, or the account may not sign in here), `not_linked`
    (no account matches, see the linking rules), `expired` (the sign-in took too long, was started in another
    browser, or was already used), `provider_error` (the provider's answer did not verify) and `server_error`.
-   A refusal of the second factor's code stays in the browser, so the person can try again.
+   That covers a start refused after `app_redirect` was checked and a second factor step that expired or
+   failed. A wrong or rate limited code stays in the browser, so the person can try again.
 5. The app posts the code and its verifier to `POST /api/v1/auth/sso/exchange` within two minutes, and gets
    back exactly what `POST /api/v1/auth/login` answers for a completed sign-in. The session's sign-in method is
    `sso:KEY`, and it is audited as a `user.login` like any other. See [api.md](api.md#signing-in-from-an-app).
 
 The code is 32 random bytes. Only its SHA-256 is stored, in `sso_handoffs`, bound to the PKCE challenge, the
 account, the tenant and the provider. The exchange deletes the row, so a code is taken once across every
-replica, and a wrong verifier spends it too. An unknown, used or expired code, or a wrong verifier, is `401
+replica, and a wrong verifier spends it too. Every new code and every exchange also deletes the tenant's
+expired codes. An unknown, used or expired code, or a wrong verifier, is `401
 invalid credentials`, logged as `sso_code_invalid` ([deployment.md](deployment.md)). An account disabled, or a
 provider switched off, between the browser and the exchange is refused the same way.
+
+The browser half only finishes in the browser. An app's flow sent to `POST /api/v1/auth/sso/complete`, or its
+second factor ticket sent to `POST /api/v1/auth/login`, is a 400 naming `flow` or `ticket`, and no code is
+stored.
 
 ## Turning passwords off
 

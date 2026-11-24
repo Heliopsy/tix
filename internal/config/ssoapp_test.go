@@ -41,6 +41,15 @@ func TestSSOAppRedirectsValidation(t *testing.T) {
 		{"/sso", false},
 		{"red.tix.mobile:/sso#frag", false},
 		{"red.tix.mobile:", false},
+		{"javascript:alert(1)//", false},
+		{"JavaScript:alert(1)", false},
+		{"data:text/html,<script>alert(1)</script>", false},
+		{"DATA:text/html;base64,PHNjcmlwdD4=", false},
+		{"vbscript:msgbox(1)", false},
+		{"VBScript:msgbox(1)", false},
+		{"file:///etc/passwd", false},
+		{"FILE:/etc/passwd", false},
+		{"http://app.example/sso", true},
 	} {
 		cfg := Defaults()
 		cfg.Auth.SSOAppRedirects = []string{tc.value}
