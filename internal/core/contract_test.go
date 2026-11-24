@@ -55,6 +55,7 @@ var (
 	_ core.ViewService         = service
 	_ core.SavedFilterService  = service
 	_ core.CalendarService     = service
+	_ core.DAVService          = service
 	_ core.InviteService       = service
 	_ core.InboxService        = service
 	_ core.InboxChannelService = service
@@ -81,6 +82,7 @@ var serviceParts = map[string]reflect.Type{
 	"ViewService":         reflect.TypeOf((*core.ViewService)(nil)).Elem(),
 	"SavedFilterService":  reflect.TypeOf((*core.SavedFilterService)(nil)).Elem(),
 	"CalendarService":     reflect.TypeOf((*core.CalendarService)(nil)).Elem(),
+	"DAVService":          reflect.TypeOf((*core.DAVService)(nil)).Elem(),
 	"InviteService":       reflect.TypeOf((*core.InviteService)(nil)).Elem(),
 	"InboxService":        reflect.TypeOf((*core.InboxService)(nil)).Elem(),
 	"InboxChannelService": reflect.TypeOf((*core.InboxChannelService)(nil)).Elem(),

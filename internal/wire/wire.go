@@ -233,6 +233,9 @@ const (
 	RouteFilterOrder    = APIPrefix + "/filters/order"
 	RouteCalendar       = APIPrefix + "/calendar"
 	RouteCalendarRotate = APIPrefix + "/calendar/rotate"
+	RouteDAV            = APIPrefix + "/dav"
+	RouteDAVPasswords   = APIPrefix + "/dav/passwords"
+	RouteDAVPassword    = APIPrefix + "/dav/passwords/{id}"
 	// RouteCalendarFeed is read by calendar apps with no credential. Its one
 	// segment is the feed secret followed by CalendarFeedSuffix, because some
 	// clients refuse an address that does not look like a file.

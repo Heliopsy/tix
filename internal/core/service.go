@@ -38,6 +38,7 @@ type Service interface {
 	ViewService
 	SavedFilterService
 	CalendarService
+	DAVService
 	InviteService
 	InboxService
 	InboxChannelService

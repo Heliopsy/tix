@@ -224,6 +224,14 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strings.Join(cfg.Artifacts.AllowedTypes, ",")).
 			WithDetail("reason", err.Error())
 	}
+	if w := cfg.CalDAV.CompletedWindow.D(); w < 0 || w > MaxCalDAVCompletedWindow {
+		return invalidKey("caldav.completed_window", sources).WithDetail("value", cfg.CalDAV.CompletedWindow.String()).
+			WithDetail("reason", "a finished task stays in a collection for between 0 and 365d")
+	}
+	if n := cfg.CalDAV.MaxObjects; n < 1 || n > MaxCalDAVMaxObjects {
+		return invalidKey("caldav.max_objects", sources).WithDetail("value", strconv.Itoa(n)).
+			WithDetail("reason", "a collection holds between 1 and "+strconv.Itoa(MaxCalDAVMaxObjects)+" tasks")
+	}
 	if cfg.Session.TTL < core.MinSessionDuration {
 		return invalidKey("session.ttl", sources).WithDetail("value", cfg.Session.TTL.String()).
 			WithDetail("reason", "a session lifetime must be at least a minute")

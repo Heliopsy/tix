@@ -79,6 +79,9 @@ type Local struct {
 	artifactMaxBytes int64
 	artifactTypes    []string
 
+	// dav is the deployment's CalDAV settings.
+	dav davSettings
+
 	// sessionDefaults are the server's session settings, which a tenant may
 	// tighten and never loosen.
 	sessionDefaults core.SessionPolicy
@@ -314,6 +317,7 @@ func New(st store.Store, opts ...Option) *Local {
 		artifactTypes:     core.DefaultArtifactTypes,
 		sessionDefaults:   defaultSessionPolicy(),
 		appRedirects:      slices.Clone(core.DefaultSSOAppRedirects),
+		dav:               defaultDAVSettings(),
 	}
 	for _, opt := range opts {
 		opt(l)
