@@ -5,9 +5,11 @@ Thunderbird's Tasks, tasks.org, jtx Board or OpenTasks through DAVx5 on Android,
 answers CalDAV (RFC 4791) for them under `/dav/`, and each person signs their app in with an app password of
 their own.
 
-**For now it is read-only.** A client shows the lists and keeps them current, and shows them as lists it
-cannot change: a task cannot be ticked off, edited, added or removed from the client yet. Writing back is a
-later phase. Until then a task is changed in tix, and the client picks the change up on its next sync.
+A client shows the lists, keeps them current, and writes back: ticking a reminder off finishes the task,
+editing it changes the task, adding one creates a task, and deleting one cancels it. Every change goes
+through the same rules, audit entries and events as a change made in the browser, as you, within your
+current role. [Writing back](#writing-back) says exactly what each change does. A password created
+read-only, or one whose owner is a viewer, shows the lists without a way to change them.
 
 CalDAV here is about to-dos. Due dates as events in Google Calendar, Apple Calendar or Outlook are the
 calendar feed ([calendar.md](calendar.md)), which needs no app password and works where CalDAV does not.
@@ -43,8 +45,8 @@ The flags of `create`:
 
 - `--collections assigned|projects|all` chooses which lists the client sees (see [Collections](#collections)).
   `assigned` is the default.
-- `--read-only` keeps the password from changing tasks once CalDAV accepts writes. Today every password reads
-  only, so it changes nothing yet.
+- `--read-only` keeps the password from changing tasks, whatever your role allows. A tablet on the wall
+  that should only show the list is the usual case.
 - `--expires DURATION` stops it after that long; `never` is the default. This differs from `tix token
   create`, which defaults to ninety days, because a phone account that stops syncing one day with no prompt
   looks broken rather than expired.
@@ -59,19 +61,22 @@ Over the API: `POST /api/v1/dav/passwords` with `{"name": "iPhone"}` and optiona
 `GET /api/v1/dav/passwords` lists them without secrets, revoked ones included, and
 `DELETE /api/v1/dav/passwords/ID` revokes one. `GET /api/v1/dav` answers whether CalDAV is on (`enabled`, and
 a `reason` when it is not), the `url`, the exact `username`, whether your DAV requests may change tasks
-(`write`, false for now) and the `collections` choices. [api.md](api.md#caldav) has the routes.
+(`write`, true when your role holds task write and task transition) and the `collections` choices.
+[api.md](api.md#caldav) has the routes.
 
 The name you give is yours: it must differ from your other live app passwords, and two people may both call
 theirs `iPhone`. The token behind it is named `dav-HANDLE-NAME`, with a short suffix when that is taken,
 which is what an administrator sees in `tix token ls`. An administrator revokes anybody's with `tix token rm
 ID`; `tix token create --scope caldav` is refused, so there is one way to make one.
 
-### What a password may read
+### What a password may do
 
-The password is not its own authority. On every request it reads as you, with your current role in the
-tenant, cut down to reading tasks, projects and workflows. A demotion lands on the next request. Removal from
-the tenant or a disabled account stops it at once, and so does revoking it. It can never read more than you
-could.
+The password is not its own authority. On every request it acts as you, with your current role in the
+tenant, cut down to reading tasks, projects and workflows, and changing and moving tasks (`task:write` and
+`task:transition`) unless it was created read-only. Deleting tasks is never in it: a `DELETE` cancels.
+A demotion to viewer turns the client read-only on its next request, and its lists then advertise read
+access alone. Removal from the tenant or a disabled account stops it at once, and so does revoking it. It
+can never do more than you could.
 
 Creating and revoking one write the ordinary `token.create` and `token.revoke` audit entries and
 `token.created` and `token.revoked` events, with `caldav` in the scopes, so a webhook sees them too.
@@ -139,7 +144,7 @@ Each task is one object holding one `VCALENDAR` with one `VTODO`.
 
 | VTODO property | From the task |
 | --- | --- |
-| `UID` | `task-<id>@tix`, the same as the calendar feed's, stable across renames, new dates and moves |
+| `UID` | `task-<id>@tix`, the same as the calendar feed's, stable across renames, new dates and moves; a task a client created keeps the client's UID and resource name |
 | `SUMMARY` | the title alone, with no reference in front of it |
 | `DESCRIPTION` | the body as written; Markdown stays text. Absent when the body is empty |
 | `STATUS` | `NEEDS-ACTION` for a todo, blocked or waiting state, `IN-PROCESS` in progress, `COMPLETED` done |
@@ -198,6 +203,114 @@ sync, which clients do without asking. Nothing is lost by it; it costs one full 
 There is no push. How often a client polls is its own setting, so a change in tix reaches a phone on the
 client's next refresh rather than at once.
 
+## Writing back
+
+A client writes with `PUT` and `DELETE`. Each list advertises `DAV:write-content`, `DAV:bind` and
+`DAV:unbind` in `current-user-privilege-set` when the password may write, and `DAV:read` alone otherwise,
+which is what makes a client draw it as editable or locked.
+
+### Changing a task
+
+A `PUT` to an object that exists needs `If-Match` with the ETag the client last fetched. Without it the
+answer is `428`; with an older one it is `412`, and the task is unchanged. A change made in the browser
+since the client's last fetch therefore wins, and the client offers to fetch it again (Thunderbird asks
+whether to overwrite or discard). A successful update answers `204` with no `ETag`, because what tix stores
+is not byte for byte what was sent; the client fetches the object again, and all of them do.
+
+tix compares the object with what it would write for the task and changes only what differs:
+
+| The client sends | tix changes |
+| --- | --- |
+| `SUMMARY` | the title. An empty one is ignored |
+| `DESCRIPTION` | the body |
+| `PRIORITY` | the priority: 1 and 2 highest, 3 and 4 high, 0 and 5 normal, 6 and 7 low, 8 and 9 lowest |
+| `CATEGORIES` | the tags, the whole set. An empty `CATEGORIES` removes them |
+| `DUE` | the due date. A date is midnight UTC, as on every surface |
+| no `DUE` | clears the due date, because every client removes the property to remove a date |
+| `DTSTART` in the future | snoozes the task until then. A past one changes nothing: Thunderbird writes the creation time there |
+| `STATUS`, `COMPLETED` | moves the task, below |
+
+A property the client leaves out leaves its field alone, apart from `DUE` and the status. Apple Reminders
+rewrites the whole object on every change and leaves out `CATEGORIES`, so reading a missing property as
+"clear it" would strip the tags from every task touched on an iPhone. Sending back an object exactly as it
+was fetched changes nothing and does not move the task's version.
+
+A date-time with `TZID` is read in that zone from the zone database built into tix. A zone the database does
+not know is read from the `VTIMEZONE` the object carries, and failing that in your time zone preference. A
+floating time, one with neither `Z` nor `TZID`, is read in your time zone preference, then the tenant's,
+then UTC.
+
+### Ticking off and reopening
+
+| The client sends | The task moves to its workflow's state of the category |
+| --- | --- |
+| `STATUS:COMPLETED`, or `COMPLETED` or `PERCENT-COMPLETE:100` without a `STATUS` | done |
+| `STATUS:IN-PROCESS` | in progress |
+| `STATUS:NEEDS-ACTION`, or no status at all, on a done task | todo |
+| `STATUS:CANCELLED` | cancelled, which takes it out of the list |
+
+A blocked or waiting task reads as `NEEDS-ACTION`, so a client sending that back leaves it where it is. The
+move takes the shortest route through the workflow, one ordinary transition per step, so a workflow that
+needs two steps to reach done works and records both. A move the workflow refuses is `403`, with a plain
+text body saying why, and nothing changes: an edge that needs a comment, an approval or a scope, a task
+claimed by somebody else, no state of that category within reach, or two equally short routes (tix will not
+guess which states to record in the task's history). Move such a task in tix instead.
+
+The move is tried first without writing anything. Only when it would succeed are the other changes and then
+the move made, so a refused tick leaves a renamed title unchanged too.
+
+### Adding a task
+
+A `PUT` to a name the list does not hold creates a task and answers `201`. In a project's list the task is
+created in that project. In Assigned to me it is created in the tenant's `default` project and assigned to
+you; in a tenant with several projects and none keyed `default` that is refused with `403`, and the task
+has to be added to a project's list. `If-None-Match: *` asks for a create only; Evolution sends none, and a
+`PUT` to a new name without it is a create too.
+
+The client's `UID` and resource name are kept, so the client finds the task where it put it, with the UID it
+gave it, in every list that holds it. A UID or a name another task in the tenant already has is `403` with
+`CALDAV:no-uid-conflict`. A new task needs a `SUMMARY`.
+
+### Deleting
+
+`DELETE` never removes a task and never moves one to the trash. Trashing needs `task:delete`, which members do
+not hold, and one tap on a phone should not be how work is lost.
+
+- An open task is moved to its workflow's cancelled state, by the same route as `STATUS:CANCELLED`, and leaves
+  the list. With no cancelled state within reach the answer is `403` and the task stays.
+- A done task is left alone and the answer is `204`. Apple Reminders' "Clear completed" sends a `DELETE` for
+  every finished reminder, and refusing them would show an error per task. The task stays in the list until
+  `caldav.completed_window` passes: a client syncing by token does not see it again unless it changes, and
+  a client that relists by ETag, such as Thunderbird, may show it again until it ages out.
+
+### What is kept and what is dropped
+
+Alarms (`VALARM`), `LOCATION`, `GEO`, `ATTACH`, `ATTENDEE`, `ORGANIZER`, `CLASS`, a `PERCENT-COMPLETE` other
+than 100, and client extensions such as `X-APPLE-SORT-ORDER`, `X-MOZ-GENERATION` and `X-MOZ-LASTACK` have no
+tix field. tix keeps them as the client sent them, for you and that task, and writes them back into your own
+copy of the object, so an alarm set on your phone is still there on its next sync. They are never shown in
+tix, never read by it, never written into anybody else's object, and are removed with the task, your account
+or the tenant. At most 8 KiB is kept per person and task; past that the object is still accepted, the extras
+are dropped, and the server logs a warning.
+
+Dropped and not kept:
+
+- `RRULE`, `RDATE`, `EXDATE`, `EXRULE` and `RECURRENCE-ID`. A repeat rule set on a phone does not make the task
+  repeat; set the repeat in tix, which makes the next occurrence itself.
+- `RELATED-TO`. Making a reminder a subtask on the phone does not reparent the task.
+- `URL`, which tix writes as the task's page, and `DURATION`.
+
+A `PUT` body is at most 256 KiB of `text/calendar` holding one `VCALENDAR` with exactly one `VTODO`, and any
+`VTIMEZONE` it names. Another media type is `415`; anything else, an event or two to-dos among them, is `403`
+with `CALDAV:valid-calendar-object-resource`.
+
+### In the audit log
+
+A change from a client is recorded like any other, as you, on the `caldav` channel with the app password's
+token name, so `tix audit ls --via caldav` lists them and the task's history says `via CalDAV`. Its events
+reach webhooks, the event stream and the browser's live updates as every change's do. What tix keeps for a
+client, above, is the client's own copy and writes no audit entry and no event.
+
 ## Security
 
 - **TLS.** Basic authentication sends the app password on every request, so CalDAV must be reached over
@@ -217,7 +330,10 @@ client's next refresh rather than at once.
   else answers `404`, as in [Addresses](#addresses).
 - **Request bodies.** A `PROPFIND` or `REPORT` body is at most 64 KiB, 32 elements deep and 2000 elements, with
   no document type or entity declarations, or it is `400`. `Depth: infinity`, or no `Depth` header at all, is
-  refused, and a multiget names at most 1000 objects.
+  refused, and a multiget names at most 1000 objects. A `PUT` body is at most 256 KiB.
+- **Cross-site requests.** `/dav/` accepts no `POST` and sends no CORS headers, and `PUT` and `DELETE` are
+  methods a browser preflights, so another site cannot make your browser write with credentials it once
+  typed in.
 - **Logs.** The Authorization header is never logged, and no address carries a secret.
 
 ## Setting up a client
@@ -239,7 +355,10 @@ Server Path `/dav/`, port 443 with SSL.
 What to expect:
 
 - The lists appear in Reminders, not in Calendar, because they hold only to-dos.
-- They are read-only for now: Reminders shows them without a way to tick or add.
+- Ticking, editing, adding and deleting reminders all reach tix, as [Writing back](#writing-back) says.
+  "Clear completed" leaves the finished tasks alone.
+- Reminders' High is written as priority 1 and reads as highest, and its Low as 9, lowest.
+- Moving a reminder to another list is refused, because the UID is already in use; move the task in tix.
 - Reminders shows no tags, subtasks or sections for a CalDAV list, so `CATEGORIES` and `RELATED-TO` are not
   drawn. The task's page is the link to open.
 - Reminders has three priorities. tix's highest and high show as High, low and lowest as Low, and normal shows
@@ -254,7 +373,8 @@ tasks app first, so DAVx5 offers its task lists.
 
 In DAVx5: **+**, **Login with URL and user name**. Base URL is `https://tix.example.com` (DAVx5 follows the
 well-known address; `https://tix.example.com/dav/` works too), then your username and the app password. In
-the new account's CalDAV tab, tick the lists to sync. Each one shows a lock, since it is read-only.
+the new account's CalDAV tab, tick the lists to sync. A list shows a lock when the password is read-only or
+your role cannot change tasks.
 
 What to expect:
 
@@ -262,6 +382,8 @@ What to expect:
   `RELATED-TO`.
 - tasks.org hides a task until its `DTSTART`, so a snoozed task stays hidden until the snooze ends, as it
   does in tix.
+- A tick in tasks.org sends `STATUS`, `COMPLETED` and `PERCENT-COMPLETE` together, which finishes the task.
+  A subtask made in tasks.org is created as a task of its own; `RELATED-TO` is not read.
 - The sync interval is set per account in DAVx5.
 
 ### Thunderbird
@@ -269,13 +391,16 @@ What to expect:
 Thunderbird 102 and later discovers task lists from the server's address. In the Calendar or Tasks tab:
 **New Calendar**, **On the Network**. Username is your username and Location is `https://tix.example.com/dav/`;
 **Find Calendars**, then enter the app password when asked. Choose the lists to subscribe to. They appear
-under Tasks, and Thunderbird marks them read-only on its own.
+under Tasks, and Thunderbird marks them read-only when the password or your role cannot change tasks.
 
 What to expect:
 
 - Thunderbird polls `getctag` and then compares ETags, and uses sync tokens when the server offers them,
   which tix does. Refresh interval is in each list's properties.
 - Categories show as Thunderbird categories; `X-TIX-REF` and `X-TIX-STATE` are not shown.
+- Thunderbird sends the whole task back on every change; only what differs is applied. When the task changed
+  in tix since Thunderbird fetched it, the save is refused with `412` and Thunderbird offers to overwrite or
+  discard.
 
 ### Evolution
 
@@ -285,7 +410,7 @@ then **Find Task Lists** and the app password when asked. Pick a list; add the a
 What to expect:
 
 - Evolution polls `getctag` and fetches changed objects in one multiget.
-- The list is read-only, so the editor opens tasks without saving changes back.
+- Evolution may save a new task without `If-None-Match`; tix creates it all the same.
 
 ## Troubleshooting
 
@@ -309,14 +434,28 @@ A person removed from the tenant is refused with `401` from the next request too
 
 ### 403 Forbidden
 
-- **Under `/dav/`, on a change.** CalDAV is read-only for now, so `PUT`, `DELETE`, `MOVE` and the other write
-  methods answer `403` and nothing changes. A client that tries anyway has ignored the read-only privileges;
-  undo the change in the client.
+- **Under `/dav/`, with `DAV:need-privileges`.** The password is read-only, or your role does not change
+  tasks. `MOVE`, `COPY`, `MKCOL`, `MKCALENDAR` and `LOCK` are always refused. Undo the change in the client.
+- **Under `/dav/`, with a sentence.** The workflow refused the move, and the sentence says why: a comment or
+  approval is needed, somebody else holds a claim on the task, no such state can be reached, or two routes
+  are equally short. Nothing changed. Move the task in tix.
+- **`CALDAV:no-uid-conflict`.** The client created a task with a UID or a name another task already has,
+  most often by moving a reminder between lists.
+- **`CALDAV:valid-calendar-object-resource`.** The object was not one to-do tix can read: an event, two
+  to-dos, no `UID`, no `SUMMARY` on a new task, a date it cannot read, or a body over 256 KiB.
 - **On `/api/v1`, reason `caldav_only`.** An app password was used as an API token: in `tix ctx add`, a
   script, or the tix app's token field. It works only under `/dav/`. Use `tix token create` or a session for
   the API.
 - **`DAV:valid-sync-token`.** The client's sync token is older than the server keeps. The client does a full
   sync by itself.
+
+### 412, 428 and 415
+
+- **`412 Precondition Failed`.** The task changed since the client fetched it. The client fetches it again,
+  or asks you what to keep.
+- **`428 Precondition Required`.** The client changed an object without `If-Match`, which tix requires so a
+  phone cannot overwrite an edit it never saw. A client that does this is not one listed here.
+- **`415 Unsupported Media Type`.** The body was not `text/calendar`.
 
 ### 404 Not Found
 

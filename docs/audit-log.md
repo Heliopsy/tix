@@ -24,10 +24,12 @@ request body says can set it.
 | `sync` | a sync run's changes | `origin`: the channel that started the run, and its details |
 | `import` | a snapshot or bundle import's changes | `origin`: the channel that ran the import, and its details |
 | `scim` | an identity provider over `/scim/v2` ([scim.md](scim.md)) | token ID and name, client address, user agent |
+| `caldav` | a calendar or reminders app over `/dav/` with an app password ([caldav.md](caldav.md)) | token ID and name, client address, user agent |
 | `system` | background work in `tix serve` | `job`: `lease-sweep`, `snooze-wake`, `prune`, `housekeeping` or `sandbox-seed` |
 | `unknown` | an entry written before tix recorded channels | nothing |
 
-The credential decides the channel. A session cookie is `web`; a bearer token is `api`; a request with
+The credential decides the channel. A session cookie is `web`; a bearer token is `api`; an app password
+under `/dav/` is `caldav`; a request with
 neither (sign-in, no-auth mode) is `web` on a browser path and `api` under `/api/`. The tix client sends
 `X-Tix-Client: cli`, and `tix mcp` sends `X-Tix-Client: mcp`. The server reads that header only to narrow
 `api` to `cli-remote` or `mcp`: it cannot make a request `web`, `ssh`, `system` or anything else, and a

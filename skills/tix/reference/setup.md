@@ -222,12 +222,15 @@ the `caldav` scope, that a person types into Apple Reminders, DAVx5 (tasks.org),
 Thunderbird or Evolution with their sign-in email as the username. It prints
 once. `--collections` picks `assigned` (the default), `projects` or `all`, and
 `--expires` defaults to `never`; `--read-only` keeps that client from changing
-tasks once CalDAV accepts changes. `tix dav show` prints the address and
+tasks. `tix dav show` prints the address and
 username, `tix dav password list` and `tix dav password revoke ID` manage them.
 Any person who reads tasks may create one; an agent is refused, exit `5`.
 `tix token create --scope caldav` is refused too. The password works only under
 `/dav/` and is refused on the API, so it is never a token for `tix ctx add`.
-CalDAV is read-only for now. The project's `docs/caldav.md` owns the details.
+A client can tick off, edit, add and cancel tasks as its owner, within their
+current role; deleting a reminder cancels the task and never trashes it, and
+the change is recorded on the `caldav` channel (`tix audit ls --via caldav`).
+The project's `docs/caldav.md` owns the details.
 
 ### The second factor policy
 
@@ -396,7 +399,7 @@ tix audit ls --via mcp --token ci-agent
 ```
 
 Each entry's `via` says how the change arrived: `web`, `api`, `cli-local`,
-`cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim` or `system`, with the token's
+`cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim`, `caldav` or `system`, with the token's
 name, never its secret. Filter on it with `--via` and `--token`, or `via:` and
 `token:` in `--filter`.
 
