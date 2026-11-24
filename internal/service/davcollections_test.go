@@ -54,7 +54,9 @@ func names(tasks ...*core.Task) []string {
 	return out
 }
 
-func (f davFixture) projectCollection() string { return core.DAVProjectPrefix + strings.ToLower(f.project.ID) }
+func (f davFixture) projectCollection() string {
+	return core.DAVProjectPrefix + strings.ToLower(f.project.ID)
+}
 
 func TestACollectionHoldsOpenAndRecentlyFinishedTasks(t *testing.T) {
 	f := newDAVFixture(t)

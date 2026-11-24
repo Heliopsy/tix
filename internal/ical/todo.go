@@ -160,14 +160,14 @@ func TodoPriority(p core.Priority) int {
 // highest, 3 and 4 high, 6 and 7 low, 8 and 9 lowest. Every value TodoPriority
 // writes reads back to itself.
 func PriorityFromTodo(n int) core.Priority {
-	switch {
-	case n == 1 || n == 2:
+	switch n {
+	case 1, 2:
 		return core.PriorityHighest
-	case n == 3 || n == 4:
+	case 3, 4:
 		return core.PriorityHigh
-	case n == 6 || n == 7:
+	case 6, 7:
 		return core.PriorityLow
-	case n == 8 || n == 9:
+	case 8, 9:
 		return core.PriorityLowest
 	default:
 		return core.PriorityNormal
