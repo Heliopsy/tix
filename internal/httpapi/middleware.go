@@ -495,11 +495,16 @@ func (rt *Router) namedTenant(ctx context.Context, hosts SharedHosts, r *http.Re
 // credentialHash is the stored hash of the credential a request presents, a
 // bearer token before a session cookie as the authenticator chain tries them,
 // or "" when it presents neither. Under /dav/ it is the Basic password and
-// nothing else, because that is the one credential read there.
+// nothing else, because that is the one credential read there, and only when
+// it has a token's shape.
 func credentialHash(r *http.Request) string {
 	if core.IsDAVPath(r.URL.Path) {
-		if _, password, ok := r.BasicAuth(); ok && password != "" {
-			return auth.HashToken(password)
+		// Only a value shaped like a minted token is hashed: an account password
+		// typed into a client's password field never reaches the hasher.
+		if _, appToken, ok := r.BasicAuth(); ok {
+			if _, err := auth.ParseAPIToken(appToken); err == nil {
+				return auth.HashToken(appToken)
+			}
 		}
 		return ""
 	}
