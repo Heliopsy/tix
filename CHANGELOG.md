@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.69.0](https://github.com/Heliopsy/tix/compare/v0.68.3...v0.69.0) (2026-11-25)
+
+
+### Features
+
+* **caldav:** serve tasks as VTODO over CalDAV, read only ([3ebb5d5](https://github.com/Heliopsy/tix/commit/3ebb5d5a92b77c694b1e8d327f01381c7d68e606))
+* **caldav:** write tasks back over PUT and DELETE ([e64fce9](https://github.com/Heliopsy/tix/commit/e64fce96cb40c3c7c5ab88d545f1e0d12f70b74a))
+* **ical:** read a client's VTODO back, with its dates and what tix keeps ([87fdf48](https://github.com/Heliopsy/tix/commit/87fdf482cf13730aaf2cf8837e96aee73bda036a))
+* **store:** keep client UIDs, names and kept properties for CalDAV ([a12699a](https://github.com/Heliopsy/tix/commit/a12699aca036f6cd9acb5ee3a38c5f8c36859bb3))
+
+
+### Bug Fixes
+
+* **caldav:** hash a Basic password for tenant lookup only when it is shaped like a token ([903434e](https://github.com/Heliopsy/tix/commit/903434e12407e41df500972b1ca5dc58111ebdce))
+
 ## [0.68.3](https://github.com/Heliopsy/tix/compare/v0.68.2...v0.68.3) (2026-11-24)
 
 
