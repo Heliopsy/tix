@@ -25,6 +25,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
 | [sso.md](sso.md) | Single sign-on per tenant: OIDC, GitHub and SAML providers, linking, password policy, break-glass |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
+| [examples.md](examples.md) | One API client in curl, Python, TypeScript and Go: a task from creation to its events, conflicts included |
 | [mcp.md](mcp.md) | `tix mcp`: the API as MCP tools for Claude Code and other clients, the overlay, scopes and destructive tools |
 | [audit-log.md](audit-log.md) | The audit log: what an entry records, the access channel of every change, what is never stored |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
@@ -58,7 +59,7 @@ task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent alr
   [deployment.md](deployment.md), and [scim.md](scim.md) to provision people from an identity provider.
 - Running the published image, in a container or on Kubernetes: [deployment.md](deployment.md#containers).
 - Coming from another tracker: [migrating.md](migrating.md).
-- Building a client: [api.md](api.md).
+- Building a client: [examples.md](examples.md) for a working one in four languages, then [api.md](api.md).
 - Seeing your tasks in Apple Reminders, tasks.org, Thunderbird or Evolution: [caldav.md](caldav.md).
 - Working in a terminal, or putting a team on a board over SSH: [tui.md](tui.md).
 - Showing tix to somebody: `tix demo seed` and [web-ui.md](web-ui.md).

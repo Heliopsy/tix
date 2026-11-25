@@ -234,6 +234,7 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/commands.md](docs/commands.md) | Every command, grouped |
 | [docs/configuration.md](docs/configuration.md) | Contexts, the five layers, `TIX_*` variables, discovery |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
+| [docs/examples.md](docs/examples.md) | Calling the API from curl, Python, TypeScript and Go |
 | [docs/mcp.md](docs/mcp.md) | `tix mcp`: the API as MCP tools, the overlay, scopes and destructive tools |
 | [docs/deployment.md](docs/deployment.md) | `tix serve`, the container image, Kubernetes, TLS, proxies |
 | [docs/sso.md](docs/sso.md) | Single sign-on per tenant: OIDC, GitHub and SAML, linking, turning passwords off |
