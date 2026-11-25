@@ -34,7 +34,7 @@ func TestActorHasScopeWildcard(t *testing.T) {
 // role minted before they existed gained authority over other tenants or
 // learned about them.
 func TestNamedOnlyScopesAreOnlyHeldWhenNamed(t *testing.T) {
-	for _, scope := range []Scope{ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision} {
+	for _, scope := range []Scope{ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision, ScopeCaldav} {
 		for name, a := range map[string]*Actor{
 			"wildcard":   {Scopes: []Scope{ScopeAll}},
 			"admin role": {Role: RoleAdmin},

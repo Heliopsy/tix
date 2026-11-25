@@ -119,6 +119,10 @@ func (l *Local) CreateToken(ctx context.Context, in core.CreateTokenInput) (*cor
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
+	if slices.Contains(in.Scopes, core.ScopeCaldav) {
+		return nil, core.Invalid("a %s token is an app password; create one with tix dav password create",
+			core.ScopeCaldav).WithDetail(core.DetailField, "scopes")
+	}
 	if err := l.checkMintScopes(ctx, actor, in.Scopes); err != nil {
 		return nil, err
 	}

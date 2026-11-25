@@ -40,6 +40,7 @@
   <a href="#second-factor">{{t "Second factor"}}</a>
   <a href="#sessions">{{t "Sessions"}}</a>
   <a href="#calendar">{{t "Calendar feed"}}</a>
+  <a href="#dav">{{t "Tasks in other apps"}}</a>
   {{if .Data.ShowTarget}}<a href="#database">{{t "Database"}}</a>{{end}}
 </nav>
 
@@ -720,6 +721,94 @@
   {{end}}
   </div>
 </section>
+
+{{/* Calendar and reminders apps reading tasks over CalDAV, each signed in
+     with an app password of its own. A password is shown once, on the
+     screen creating it answers with; a live one carries a red Revoke that
+     only opens its dialog, which holds the form. */}}
+{{$d := .Data.DAV}}
+<section class="setgroup" id="dav">
+  <div class="sechead"><h2>{{t "Tasks in other apps"}}</h2>{{if $d.Offered}}{{template "dlg-open" (opener "dav-new" (t "Add an app password") "plus" "" .Here)}}{{end}}</div>
+  <div class="setlist">
+    <p class="setrow setlead">{{t "Show your tasks in Apple Reminders, Thunderbird, DAVx5 with tasks.org, or Evolution. Each app signs in with an app password of its own."}}</p>
+  {{if not $d.Available}}
+    <div class="setrow" id="dav-state">
+      <div class="setrow-text">
+        <span class="setname">{{t "CalDAV address"}}</span>
+        <span class="sethelp">{{t "An app password belongs to a person who reads tasks, and this session does not speak for one, so there is nothing to manage here."}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "Not applicable"}}</span></div>
+    </div>
+  {{else if not $d.Info.Enabled}}
+    <div class="setrow" id="dav-state">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
+        <span class="sethelp" id="dav-reason">{{t $d.Info.Reason}}</span>
+      </div>
+      <div class="setrow-ctl"><span class="setvalue">{{t "Off"}}</span></div>
+    </div>
+  {{else}}
+    <div class="setrow stacked" id="dav-state">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{t "CalDAV address"}}</span>{{template "tip" (tip "CalDAV" "CalDAV is how calendar and reminders apps read tasks from a server. Apple Reminders, Thunderbird, DAVx5 with tasks.org and Evolution all speak it. For now the apps can read your tasks and cannot change them." "docs/caldav.md")}}</div>
+        <span class="sethelp">{{t "Give your app this address, your username and an app password. Your account password does not work here."}}</span>
+      </div>
+      <div class="setrow-ctl dav-account">
+        <div class="copyline"><pre id="dav-url" class="wraps"><code>{{$d.URL}}</code></pre><button type="button" class="secondary" data-copy-target="dav-url">{{t "Copy"}}</button></div>
+        <div class="copyline"><pre id="dav-username" class="wraps"><code>{{$d.Info.Username}}</code></pre><button type="button" class="secondary" data-copy-target="dav-username">{{t "Copy"}}</button></div>
+      </div>
+    </div>
+    {{range $d.Passwords}}
+    <div class="setrow dav-row" id="dav-{{.ID}}">
+      <div class="setrow-text">
+        <div class="setname-line"><span class="setname">{{.Name}}</span>{{if not .Live}} <span class="chip">{{if .Expired}}{{t "Expired"}}{{else}}{{t "Revoked"}}{{end}}</span>{{end}}</div>
+        <span class="sethelp">{{t .CollectionsLabel}}{{if .ReadOnly}}, {{t "read-only"}}{{end}}. {{tt "Created %s." (when .CreatedAt)}} {{if .LastUsedAt}}{{tt "Last used %s." (when .LastUsedAt)}}{{else}}{{t "Never used."}}{{end}}{{if .RevokedAt}} {{tt "Revoked %s." (when .RevokedAt)}}{{end}}</span>
+      </div>
+      {{if .Live}}<div class="setrow-ctl">{{template "dlg-open" ((opener .DialogID (t "Revoke") "" "danger small" $.Here).Named (t "Revoke %s" .Name))}}</div>{{end}}
+    </div>
+    {{else}}
+    <div class="setrow" id="dav-empty">
+      <div class="empty-action"><span>{{t "No app passwords yet. Add one for each app you sign in."}}</span>{{template "dlg-open" (opener "dav-new" (t "Add an app password") "plus" "" .Here)}}</div>
+    </div>
+    {{end}}
+  {{end}}
+  </div>
+</section>
+{{if $d.Offered}}
+{{$dd := .Dialog.For "dav-new"}}
+{{$sh := shell "dav-new" (t "Add an app password") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="dav-form" action="/settings/dav/passwords" hx-boost="false">
+  {{template "csrf" .CSRF}}
+  {{with $dd.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="dav-name">{{t "Name"}}</label>{{template "required-mark"}}
+    {{template "field-info" "The app or device this password is for, so you know which one to revoke later. Each of your live app passwords has its own name."}}
+  </div>
+  <input id="dav-name" name="name" value="{{$dd.Value "name"}}" placeholder="{{t "For example, iPhone"}}" maxlength="64" autocomplete="off" required{{$dd.Errors.Attrs "name"}}>
+  {{with $dd.Errors.On "name"}}{{template "field-error" .}}{{end}}
+  <fieldset class="dav-choices">
+    <legend>{{t "Lists"}}</legend>
+    {{range $i, $c := $d.Choices}}
+    <label class="check"><input type="radio" name="collections" value="{{$c.Value}}"{{if $dd.Refused}}{{if $dd.Chose "collections" (print $c.Value)}} checked{{end}}{{else if eq $i 0}} checked{{end}}> <span><strong>{{t $c.Label}}</strong> <span class="muted">{{t $c.Help}}</span></span></label>
+    {{end}}
+    {{with $dd.Errors.On "collections"}}{{template "field-error" .}}{{end}}
+  </fieldset>
+  <label class="check"><input type="checkbox" name="read_only" value="on"{{if $dd.Checked "read_only" false}} checked{{end}}> {{t "Read-only, even once apps can change tasks"}}</label>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Create password"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{range $d.Passwords}}{{if .Live}}
+{{$sh := shell .DialogID (t "Revoke %s?" .Name) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="{{.Revoke}}" hx-boost="false">
+  {{template "csrf" $.CSRF}}
+  <p>{{t "The app signed in with this password is refused from its next request. It cannot be undone; add a new password to sign the app in again."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Revoke"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}{{end}}
 
 {{/* For a tenant administrator only: a path on the server or a redacted DSN
      says where the data lives, which is the operator's business and nobody

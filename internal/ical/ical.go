@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package ical renders a calendar feed as an RFC 5545 VCALENDAR. It is a pure
-// function of the entries it is given, so the same tasks always render the
-// same bytes and an ETag over them changes only when the tasks do.
+// Package ical renders RFC 5545 iCalendar: a calendar feed of events, and one
+// task as a VTODO for CalDAV. Both are pure functions of what they are given,
+// so the same tasks always render the same bytes and an ETag over them
+// changes only when the tasks do. Parse reads an object back, for evaluating
+// a calendar-query and for tests.
 package ical
 
 import (

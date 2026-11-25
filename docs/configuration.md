@@ -72,6 +72,9 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `lease.max` | `TIX_LEASE_MAX` | (unset: `24h`) |
 | `artifacts.max_bytes` | `TIX_ARTIFACTS_MAX_BYTES` | `1048576` (1 MiB) |
 | `artifacts.allowed_types` | `TIX_ARTIFACTS_ALLOWED_TYPES` | common images, PDF, text, CSV, JSON, YAML, archives |
+| `caldav.enabled` | `TIX_CALDAV_ENABLED` | `true` |
+| `caldav.completed_window` | `TIX_CALDAV_COMPLETED_WINDOW` | `14d` (`0` to `365d`) |
+| `caldav.max_objects` | `TIX_CALDAV_MAX_OBJECTS` | `2000` (`1` to `10000`) |
 | `session.ttl` | `TIX_SESSION_TTL` | `12h` |
 | `session.idle_timeout` | `TIX_SESSION_IDLE_TIMEOUT` | `0` (off) |
 | `session.remember_ttl` | `TIX_SESSION_REMEMBER_TTL` | `30d` (`0` stops offering it) |
@@ -425,6 +428,13 @@ browser's artifact form, take a body large enough for `artifacts.max_bytes` once
 the rest of the request, whatever `--max-body-bytes` says. Raising `artifacts.max_bytes` is therefore enough on
 its own; `--max-body-bytes` never refuses an upload under it. Over SSH, standard input for a hosted command is
 bounded by the larger of this and `server.max_import_bytes`.
+
+`caldav.enabled` turns the CalDAV surface on or off. Off, `/dav/` and `/.well-known/caldav` answer 404 and
+`GET /api/v1/dav` answers `enabled: false` with a `reason`; app passwords can still be listed and revoked.
+`caldav.completed_window` is how long a finished task stays in a collection after it was completed, so a
+reminders app can show it ticked before it leaves; `0` drops finished work at once. `caldav.max_objects` bounds
+how many tasks one collection holds, open work first, and the collection's description says how many were left
+out. A value outside its range is refused at start-up naming its key. See [CalDAV](caldav.md).
 
 `server.egress_allow_private` and `server.egress_allow` decide what a url a tenant supplies may reach: webhook
 endpoints, inbox channels and external sync sources. By default every request to such a url is refused when it

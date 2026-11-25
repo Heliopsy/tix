@@ -253,7 +253,7 @@ func newRoot(environ []string, dir string) (*cobra.Command, *globals) {
 // builders are the command groups that make up the tree.
 var builders = []func(*globals) *cobra.Command{
 	newTaskCmd, newDepCmd, newTagCmd, newCommentCmd,
-	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd, newViewCmd, newFilterCmd, newCalendarCmd,
+	newProjectCmd, newWorkflowCmd, newFieldCmd, newClaimCmd, newViewCmd, newFilterCmd, newCalendarCmd, newDAVCmd,
 	newInboxCmd, newTemplateCmd,
 	newTenantCmd, newGlobalAdminCmd, newAccountCmd, newDomainCmd, newMemberCmd, newActorCmd, newUserCmd, newTokenCmd, newLoginCmd,
 	newCtxCmd, newConfigCmd, newDoctorCmd, newPruneCmd, newRetentionCmd, newCleanupCmd, newWebhookCmd,

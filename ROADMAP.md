@@ -252,6 +252,23 @@ Calendar, Apple Calendar or Outlook to subscribe to. Every unfinished task assig
 date becomes an all-day event, or whatever a filter expression selects. The address reads as you and
 stops working when it is rotated or revoked. See [docs/calendar.md](docs/calendar.md).
 
+#### Tasks over CalDAV, read-only
+
+`tix serve` answers CalDAV under `/dav/`, with `/.well-known/caldav` redirecting there, so Apple Reminders,
+tasks.org and jtx Board through DAVx5, Thunderbird and Evolution show tasks as to-do lists: Assigned to me, and
+one list per readable project. A client signs in with an app password from `tix dav password create`, Settings
+or `POST /api/v1/dav/passwords`: a token carrying only the named-only `caldav` scope, refused everywhere but
+`/dav/`, which any person can create, people who sign in only through SSO included, and which reads with its
+owner's current role. This is phase 1 of the `caldav-tasks` change: lists, objects, ETags and sync, with every
+write refused. Write-back is still to come, below.
+
+Where it came out different from the contract shared with tix-mobile: which lists a client sees is chosen per
+app password (`assigned`, `projects` or `all`) instead of being fixed; `STATUS:CANCELLED` is never written,
+because a cancelled task leaves its list, which is also what will let a `DELETE` mean cancel in phase 2 rather
+than a removal; sync tokens are snapshots of a list's members rather than positions in the event log, since a
+task can leave a list with no event about it; and the operations are `dav.*` at `/api/v1/dav`, with the CLI
+`tix dav`. See [docs/caldav.md](docs/caldav.md).
+
 #### Screens that keep themselves current
 
 The task list, the board and a task's own screen update when something commits, from another tab, the
@@ -836,6 +853,19 @@ tenant resolution and forwarded-header handling already run there, and a limiter
 it. The SSH listener's token bucket in `internal/sshd` is the shape to reuse. `tix serve` already
 refuses a non-loopback bind without TLS or an explicit override, so the deployment shape these
 protect is already the documented one.
+
+### CalDAV write-back
+
+Phase 2 of the `caldav-tasks` OpenSpec change, not built; phase 1, read-only lists, has shipped above. A client
+would tick a task off, edit its title, description, due date, priority and tags, and add one, through `PUT`
+with `If-Match`, a stale ETag being `412`. `DELETE` would cancel an open task and leave a done one alone,
+never trashing anything. Alarms and other properties tix has no field for would be kept per person, so an
+alarm set on a phone does not vanish on the next sync.
+
+**Seam:** the read path already renders every object from the task's version, which is the ETag a write is
+checked against; the app password already reads with its owner's current role cut to a ceiling, so adding
+task write and transition to that ceiling is the authorization change; and every write would go through the
+existing task update, creation and multi-hop move, so audit entries and events need nothing new.
 
 ### Plugins as commands
 

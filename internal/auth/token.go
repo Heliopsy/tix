@@ -137,6 +137,13 @@ func NewTokenVerifier(lookup TokenLookup, clk clock.Clock) *TokenVerifier {
 
 // Verify returns the actor a valid token grants, or an unauthenticated error.
 func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, error) {
+	return v.verify(ctx, value, nil)
+}
+
+// verify is Verify with a check of its own on the stored token, run before the
+// token is recorded as used, so a token the caller refuses leaves no trace of
+// having signed anything in.
+func (v *TokenVerifier) verify(ctx context.Context, value string, accept func(*core.APIToken) error) (*core.Actor, error) {
 	if _, err := ParseAPIToken(value); err != nil {
 		NoteRefusal(ctx, Refusal{Reason: RefusedMalformedToken})
 		return nil, err
@@ -158,6 +165,16 @@ func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, 
 	if !tok.Active(now) {
 		NoteRefusal(ctx, Refusal{Reason: inactiveTokenReason(*tok, now), TokenID: tok.ID, TokenName: tok.Name})
 		return nil, core.Unauthenticated("invalid credentials")
+	}
+	if accept != nil {
+		if err := accept(tok); err != nil {
+			return nil, err
+		}
+	}
+	if slices.Contains(tok.Scopes, core.ScopeCaldav) && !core.DAVRequestFrom(ctx) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedCaldavOnly, TokenID: tok.ID, TokenName: tok.Name})
+		return nil, core.Forbidden("a %s token is an app password and works only under %s, over Basic",
+			core.ScopeCaldav, core.DAVRoot)
 	}
 	if slices.Contains(tok.Scopes, core.ScopeSCIMProvision) && !core.SCIMRequestFrom(ctx) {
 		NoteRefusal(ctx, Refusal{Reason: RefusedSCIMOnly, TokenID: tok.ID, TokenName: tok.Name})

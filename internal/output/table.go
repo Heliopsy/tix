@@ -38,6 +38,9 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return t.Format(w, rv.Elem().Interface())
 	}
 
+	if ok, err := renderDAV(w, p, data); ok {
+		return err
+	}
 	switch v := data.(type) {
 	case core.TaskPage:
 		return renderTaskPage(w, p, v)

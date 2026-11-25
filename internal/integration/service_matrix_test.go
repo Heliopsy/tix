@@ -782,6 +782,40 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "app password round-trip",
+		covers: []string{"GetDAVInfo", "CreateDAVPassword", "ListDAVPasswords", "RevokeDAVPassword"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			info, err := tg.svc.GetDAVInfo(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			created, err := tg.svc.CreateDAVPassword(tg.ctx, core.CreateDAVPasswordInput{Name: "matrix phone"})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.CreateDAVPassword(tg.ctx, core.CreateDAVPasswordInput{Name: "Matrix Phone"})
+			mustf(t, tg, tg.svc.RevokeDAVPassword(tg.ctx, created.ID), "revoking")
+			listed, err := tg.svc.ListDAVPasswords(tg.ctx)
+			mustf(t, tg, err, "listing")
+			revoked := false
+			for _, p := range listed {
+				if p.ID == created.ID {
+					revoked = p.RevokedAt != nil
+				}
+			}
+			return sig{
+				"enabled":     info.Enabled,
+				"write":       info.Write,
+				"path":        info.Path,
+				"secret":      strings.HasPrefix(created.Password, "tix_pat_"),
+				"scopes":      created.Scopes,
+				"collections": created.Collections,
+				"again":       core.KindOf(again),
+				"revoked":     revoked,
+			}, nil
+		},
+	},
+	{
 		name:   "copy round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddComment", "CopyTask", "TaskTree", "ListComments"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {

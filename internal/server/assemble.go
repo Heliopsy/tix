@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/heliopsy/tix/internal/caldav"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
@@ -48,6 +49,9 @@ type Options struct {
 	// Egress is the operator's policy for tenant-supplied urls, strict when
 	// zero. AllowPrivateWebhookTargets widens it for deliveries only.
 	Egress egress.Policy
+	// CalDAV serves tasks over CalDAV under /dav/, caldav.enabled. Off, /dav/
+	// and /.well-known/caldav answer not found.
+	CalDAV bool
 	// Releases is the process's release check, shared with the browser
 	// interface so both report the same answer. Nil starts one for the API.
 	Releases *release.Watch
@@ -148,8 +152,14 @@ func Assemble(opts Options) (*Server, error) {
 	if p, ok := opts.Service.(core.Provisioner); ok {
 		provisioning = scim.New(p, httpapi.Origin)
 	}
+	var calDAV http.Handler
+	if collections, ok := opts.Service.(core.TaskCollections); ok && opts.CalDAV {
+		calDAV = caldav.New(collections, httpapi.Origin)
+	}
 	router, err := httpapi.New(httpapi.Config{
 		SCIM:             provisioning,
+		CalDAV:           calDAV,
+		DAVAuthenticator: NewDAVAuthenticator(opts.Store, opts.Clock, opts.Sessions),
 		Service:          opts.Service,
 		EventHandler:     httpapi.NewEventStream(hub, log),
 		WebHandler:       opts.WebHandler,

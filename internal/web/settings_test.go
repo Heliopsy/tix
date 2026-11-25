@@ -537,7 +537,7 @@ func TestSettingsSectionsShareOneShape(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := contentOf(t, f.as("alice").page("/settings"))
-	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "database"} {
+	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "dav", "database"} {
 		section := between(t, page, `id="`+id+`">`, "</section>")
 		head, after, found := strings.Cut(section, "</h2>")
 		head = strings.TrimPrefix(strings.TrimSpace(head), `<div class="sechead">`)

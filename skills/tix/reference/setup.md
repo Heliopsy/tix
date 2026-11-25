@@ -215,6 +215,20 @@ in the audit trail, so it can be told apart from somebody rotating their own.
 identifier exits `3`. A token needs `account:read`, which `*` lacks (exit `5`);
 the token `tix login --tenant` stores has it. Session tokens are never printed.
 
+### App passwords for calendar and reminders apps
+
+`tix dav password create iPhone` issues an app password, a token carrying only
+the `caldav` scope, that a person types into Apple Reminders, DAVx5 (tasks.org),
+Thunderbird or Evolution with their sign-in email as the username. It prints
+once. `--collections` picks `assigned` (the default), `projects` or `all`, and
+`--expires` defaults to `never`; `--read-only` keeps that client from changing
+tasks once CalDAV accepts changes. `tix dav show` prints the address and
+username, `tix dav password list` and `tix dav password revoke ID` manage them.
+Any person who reads tasks may create one; an agent is refused, exit `5`.
+`tix token create --scope caldav` is refused too. The password works only under
+`/dav/` and is refused on the API, so it is never a token for `tix ctx add`.
+CalDAV is read-only for now. The project's `docs/caldav.md` owns the details.
+
 ### The second factor policy
 
 `tix tenant edit KEY --mfa-policy required --mfa-grace 7d` makes a second

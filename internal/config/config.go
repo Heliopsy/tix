@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/output"
 
@@ -40,6 +41,7 @@ type Config struct {
 	Discovery      Discovery          `yaml:"discovery"`
 	Lease          Lease              `yaml:"lease"`
 	Artifacts      Artifacts          `yaml:"artifacts"`
+	CalDAV         CalDAV             `yaml:"caldav"`
 	Session        Session            `yaml:"session"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
@@ -342,6 +344,25 @@ type Artifacts struct {
 	// carry. Whatever is accepted, a blob is only ever served as a download.
 	AllowedTypes []string `yaml:"allowed_types"`
 }
+
+// CalDAV configures the tasks tix serve answers over CalDAV under /dav/.
+type CalDAV struct {
+	// Enabled serves /dav/ and /.well-known/caldav. Off, both answer not found.
+	Enabled bool `yaml:"enabled"`
+	// CompletedWindow is how long a finished task stays in a collection, so a
+	// client can show it ticked, 14d by default and at most 365d.
+	CompletedWindow core.Duration `yaml:"completed_window"`
+	// MaxObjects bounds the tasks one collection holds, 2000 by default.
+	MaxObjects int `yaml:"max_objects"`
+}
+
+// Bounds on the CalDAV settings.
+const (
+	DefaultCalDAVCompletedWindow = 14 * 24 * time.Hour
+	MaxCalDAVCompletedWindow     = 365 * 24 * time.Hour
+	DefaultCalDAVMaxObjects      = 2000
+	MaxCalDAVMaxObjects          = 10000
+)
 
 // Session bounds how long a sign-in lasts, for this deployment. A tenant may
 // tighten each and loosen none.
@@ -687,6 +708,8 @@ func Defaults() Config {
 			SSOAppRedirects: slices.Clone(core.DefaultSSOAppRedirects)},
 		Artifacts: Artifacts{
 			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
+		CalDAV: CalDAV{Enabled: true, CompletedWindow: core.Duration(DefaultCalDAVCompletedWindow),
+			MaxObjects: DefaultCalDAVMaxObjects},
 		Session: Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,
 			MaxLifetime: core.DefaultSessionMaxLifetime, RememberMaxLifetime: core.DefaultSessionRememberMaxLifetime},
 		Hooks:    Hooks{Mode: DefaultHookMode},

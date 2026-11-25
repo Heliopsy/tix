@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sort"
 	"strings"
@@ -324,27 +325,50 @@ func (l *Local) ReadCalendarFeed(ctx context.Context, token string) (*core.Calen
 // current role cut down to reading, or not found when the owner is no longer
 // a member or their account is disabled.
 func feedReader(ctx context.Context, tx store.Tx, tenantID, actorID string) (*core.Actor, error) {
+	reader, err := ownerReader(ctx, tx, tenantID, actorID, calendarReadScopes)
+	if errors.Is(err, errOwnerGone) {
+		return nil, core.NotFound("calendar feed not found")
+	}
+	return reader, err
+}
+
+// errOwnerGone is ownerReader's answer for an owner who no longer reads as
+// anybody here: removed from the tenant, holding a role tix does not know, or
+// with a disabled account. Each caller says so in its own terms.
+var errOwnerGone = errors.New("the credential's owner is no longer a member")
+
+// ownerReader builds the actor a credential that is not a session reads as:
+// its owner, with the owner's current role cut down to a ceiling. The role is
+// read on every call, so a demotion, a removal or a disabled account lands on
+// the next request rather than at the credential's expiry.
+func ownerReader(ctx context.Context, tx store.Tx, tenantID, actorID string, ceiling []core.Scope) (*core.Actor, error) {
 	owner, err := tx.GetActor(ctx, actorID)
+	if core.IsKind(err, core.KindNotFound) {
+		return nil, errOwnerGone
+	}
 	if err != nil {
 		return nil, err
+	}
+	if owner.DisabledAt != nil {
+		return nil, errOwnerGone
 	}
 	role, err := userRole(ctx, tx, actorID)
 	if err != nil {
 		return nil, err
 	}
 	if role == "" || !role.Valid() {
-		return nil, core.NotFound("calendar feed not found")
+		return nil, errOwnerGone
 	}
 	user, err := accountOfActor(ctx, tx, actorID)
 	switch {
 	case err == nil && user.DisabledAt != nil:
-		return nil, core.NotFound("calendar feed not found")
+		return nil, errOwnerGone
 	case err != nil && !core.IsKind(err, core.KindNotFound):
 		return nil, err
 	}
 	member := &core.Actor{Role: role}
 	var scopes []core.Scope
-	for _, s := range calendarReadScopes {
+	for _, s := range ceiling {
 		if member.HasScope(s) {
 			scopes = append(scopes, s)
 		}

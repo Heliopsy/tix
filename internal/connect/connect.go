@@ -433,6 +433,7 @@ func dialLocal(ctx context.Context, cfg *config.Resolved, target Target, ov Over
 		service.WithLeaseDefaults(cfg.Config.Lease.Policy()),
 		service.WithArtifactLimits(cfg.Config.Artifacts.MaxBytes, artifactTypes(cfg.Config.Artifacts.AllowedTypes)),
 		service.WithSessionPolicy(cfg.Config.Session.Policy()),
+		service.WithCalDAV(cfg.Config.CalDAV.Enabled, cfg.Config.CalDAV.CompletedWindow.D(), cfg.Config.CalDAV.MaxObjects),
 		service.WithSAMLMetadataRefresh(cfg.Config.Auth.SAMLMetadataRefresh.D()),
 		service.WithSSOAppRedirects(cfg.Config.Auth.SSOAppRedirects),
 		service.WithPrivateWebhookTargets(cfg.Config.Webhooks.AllowPrivateTargets),

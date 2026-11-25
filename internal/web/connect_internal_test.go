@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/onboard"
 )
 
 // TestDocPagesAreTheDocsDirectory holds the redirect's list to docs/, so a
@@ -42,11 +43,16 @@ func TestScopePickerPlacesEveryScopeOnce(t *testing.T) {
 		}
 	}
 	for _, s := range core.AllScopes {
-		if seen[s] != 1 {
-			t.Errorf("%s is in %d picker groups, want 1", s, seen[s])
+		want := 1
+		if onboard.UnpickedScopes[s] != "" {
+			want = 0
+		}
+		if seen[s] != want {
+			t.Errorf("%s is in %d picker groups, want %d", s, seen[s], want)
 		}
 	}
-	if len(seen) != len(core.AllScopes) {
-		t.Errorf("the picker groups %d scopes, the vocabulary has %d", len(seen), len(core.AllScopes))
+	if len(seen)+len(onboard.UnpickedScopes) != len(core.AllScopes) {
+		t.Errorf("the picker groups %d scopes and leaves out %d, the vocabulary has %d",
+			len(seen), len(onboard.UnpickedScopes), len(core.AllScopes))
 	}
 }

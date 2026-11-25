@@ -1,0 +1,92 @@
+# GNOME Evolution adding a CalDAV task list by its home: a getctag check, an
+# ETag listing at depth 1 and a multiget, then a later poll whose changed
+# getctag leads to a fresh ETag listing and a GET of the changed object.
+# Written from published client behaviour (evolution-data-server's CalDAV
+# backend as documented, RFC 4791), not captured traffic.
+
+### the home, found from the principal the user typed
+PROPFIND {principal}
+Depth: 0
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><prop><C:calendar-home-set/><displayname/></prop></propfind>
+EXPECT 207
+PROP {principal} {urn:ietf:params:xml:ns:caldav}calendar-home-set 200 {home}
+
+### the lists
+PROPFIND {home}
+Depth: 1
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/"><prop><displayname/><resourcetype/><C:supported-calendar-component-set/><CS:getctag/><C:calendar-description/></prop></propfind>
+EXPECT 207
+RESPONSES 4
+PROP {web} {urn:ietf:params:xml:ns:caldav}calendar-description 200 Tasks of Web (web)
+
+### the getctag of the list
+PROPFIND {infra}
+Depth: 0
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:CS="http://calendarserver.org/ns/"><prop><CS:getctag/></prop></propfind>
+EXPECT 207
+SAVE ctag0 {infra} {http://calendarserver.org/ns/}getctag
+
+### the ETags
+PROPFIND {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:"><prop><getetag/></prop></propfind>
+EXPECT 207
+RESPONSES 4
+SAVE etag0 {infra}{open1}.ics {DAV:}getetag
+PROP {infra} {DAV:}getetag 404
+
+### the objects
+REPORT {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="utf-8"?>
+<C:calendar-multiget xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><prop><getetag/><C:calendar-data/></prop><href>{infra}{open1}.ics</href><href>{infra}{open2}.ics</href><href>{infra}{done}.ics</href></C:calendar-multiget>
+EXPECT 207
+RESPONSES 3
+
+### a poll with nothing changed
+PROPFIND {infra}
+Depth: 0
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:CS="http://calendarserver.org/ns/"><prop><CS:getctag/></prop></propfind>
+EXPECT 207
+SAVE ctag1 {infra} {http://calendarserver.org/ns/}getctag
+SAME ctag0 ctag1
+
+### a task is renamed in the browser
+DO retitle open1
+
+### the next poll sees the change
+PROPFIND {infra}
+Depth: 1
+
+<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:" xmlns:CS="http://calendarserver.org/ns/"><prop><CS:getctag/><getetag/></prop></propfind>
+EXPECT 207
+SAVE ctag2 {infra} {http://calendarserver.org/ns/}getctag
+DIFFERENT ctag1 ctag2
+SAVE etag1 {infra}{open1}.ics {DAV:}getetag
+DIFFERENT etag0 etag1
+
+### the changed object, unless it is already held
+GET {infra}{open1}.ics
+If-None-Match: {etag0}
+
+EXPECT 200
+HAS SUMMARY:Rotate keys (edited)
+HEADER ETag {etag1}
+
+### and again with the new tag
+GET {infra}{open1}.ics
+If-None-Match: {etag1}
+
+EXPECT 304
