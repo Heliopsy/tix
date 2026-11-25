@@ -31,7 +31,12 @@ func langOf(r *http.Request) string {
 
 // languageNames are the languages as their own readers write them, which is
 // how a language picker names them in every language.
-var languageNames = map[string]string{i18n.English: "English", i18n.Bulgarian: "Български"}
+var languageNames = map[string]string{
+	i18n.English:   "English",
+	i18n.Bulgarian: "Български",
+	i18n.German:    "Deutsch",
+	i18n.French:    "Français",
+}
 
 // languageChoice is one option of the language picker. The empty value is
 // the browser's own language.
@@ -168,8 +173,11 @@ func newTip(topic, text string, doc ...string) tipView {
 var jsMessages = []string{
 	"Mark unread",
 	"People to mention",
+	"Filter suggestions",
 	"Copied",
 	"Copy failed",
+	"Copied %s",
+	"or",
 	"%d new, show",
 	"Nothing ticked yet. A token needs at least one scope.",
 	"This token can use: %s",
@@ -195,6 +203,12 @@ var jsMessages = []string{
 	"Searching tasks",
 	"The task search did not respond.",
 	"No matches",
+	"Task",
+	"Templates",
+	"Colour scheme",
+	"Switch to",
+	"Switch to %s",
+	"New task from %s",
 	"%d task selected",
 	"%d tasks selected",
 	"Preview",
@@ -229,6 +243,27 @@ var jsMessages = []string{
 	"Checklist item",
 	"The rich text editor could not be loaded. Your text is unchanged.",
 	"This text uses Markdown the rich text editor cannot keep exactly, so it stays in Markdown.",
+	"Updated to %s",
+	"A new version is available.",
+	"Reload",
+	"Close",
+	"Complete",
+	"Snooze",
+	"Paused, 1 new event.",
+	"Paused, %d new events.",
+	"Paused.",
+	"Resume",
+	"Pause",
+	"Offline. Reconnecting.",
+	"Live",
+	"Connecting to the event stream",
+	"Events after #%d are no longer kept on the server. Showing new events from now.",
+	"The server refused this subscription: %s",
+	"Not following events.",
+	"system",
+	"Show",
+	"Details",
+	"Event #%d",
 }
 
 // jsMessagesFor is the table the head carries for lang, empty for English,

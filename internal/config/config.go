@@ -5,11 +5,16 @@
 package config
 
 import (
+	"fmt"
+	"math"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/output"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/lease"
@@ -35,6 +40,9 @@ type Config struct {
 	SSH            SSH                `yaml:"ssh"`
 	Discovery      Discovery          `yaml:"discovery"`
 	Lease          Lease              `yaml:"lease"`
+	Artifacts      Artifacts          `yaml:"artifacts"`
+	CalDAV         CalDAV             `yaml:"caldav"`
+	Session        Session            `yaml:"session"`
 	Retention      Retention          `yaml:"retention"`
 	Log            Log                `yaml:"log"`
 	Output         Output             `yaml:"output"`
@@ -50,11 +58,14 @@ type Config struct {
 	Themes map[string]Theme `yaml:"themes,omitempty"`
 }
 
-// Theme is one custom palette. Both colours must be #rrggbb; they end up
-// inside a stylesheet, so core validates them before anything renders.
+// Theme is one custom palette. Every colour must be #rrggbb; they end up
+// inside a stylesheet, so core validates them before anything renders. The
+// dark pair is optional and falls back to the light one.
 type Theme struct {
-	Accent     string `yaml:"accent"`
-	AccentSoft string `yaml:"accent_soft"`
+	Accent         string `yaml:"accent"`
+	AccentSoft     string `yaml:"accent_soft"`
+	AccentDark     string `yaml:"accent_dark,omitempty"`
+	AccentSoftDark string `yaml:"accent_soft_dark,omitempty"`
 }
 
 // ThemeRegistry builds the resolver every surface reads a tenant's accent
@@ -79,6 +90,7 @@ func (c *Config) ThemeRegistry() (*core.ThemeRegistry, error) {
 		t := c.Themes[name]
 		custom = append(custom, core.Theme{
 			Name: name, Accent: t.Accent, AccentSoft: t.AccentSoft,
+			AccentDark: t.AccentDark, AccentSoftDark: t.AccentSoftDark,
 		})
 	}
 	return core.NewThemeRegistry(custom)
@@ -107,6 +119,12 @@ type Server struct {
 	Listen string `yaml:"listen"`
 	Token  string `yaml:"token" secret:"opaque"`
 
+	// PublicURL is where people reach the browser interface, an absolute
+	// http or https address with at most a base path, when that is not the
+	// address a request arrives at: a proxy's name for a server bound to a
+	// private port. Task links are built under it. It is shown, never bound.
+	PublicURL string `yaml:"public_url"`
+
 	// TrustedProxies lists the reverse proxies, as IPs or CIDR blocks, whose
 	// X-Forwarded-Proto and X-Forwarded-For are believed. Any client can send
 	// those headers, so an empty list believes neither from anybody.
@@ -131,6 +149,12 @@ type Server struct {
 	// EgressAllow lists the addresses, CIDR ranges, host names and .suffixes
 	// a tenant-supplied url may reach although they are internal.
 	EgressAllow []string `yaml:"egress_allow,omitempty"`
+}
+
+// PublicBase is PublicURL without its trailing slash, the base a task's path
+// is appended to, or "" when none is set.
+func (s Server) PublicBase() string {
+	return strings.TrimRight(strings.TrimSpace(s.PublicURL), "/")
 }
 
 // Egress is the egress policy the server keys describe. Validate refuses an
@@ -206,6 +230,37 @@ type Auth struct {
 	// secret is undecryptable, and each user has to be cleared by an
 	// administrator and enrol again.
 	TOTPKey string `yaml:"totp_key" secret:"opaque"`
+	// MaxConcurrentHashes caps how many argon2id derivations run at once.
+	// 0 sizes it from the soft memory limit; see auth.ConcurrencyFor.
+	MaxConcurrentHashes int `yaml:"max_concurrent_hashes"`
+	// Argon2MemoryKiB, Argon2Time and Argon2Threads override the password
+	// hash cost new hashes are minted at, 0 for the built-in default each.
+	Argon2MemoryKiB int `yaml:"argon2_memory_kib"`
+	Argon2Time      int `yaml:"argon2_time"`
+	Argon2Threads   int `yaml:"argon2_threads"`
+	// SAMLMetadataRefresh is how often tix serve reads each enabled SAML
+	// provider's IdP metadata again; 0 turns the scheduled read off.
+	SAMLMetadataRefresh core.Duration `yaml:"saml_metadata_refresh"`
+	// SSOAppRedirects are the native app addresses a sign-in through a
+	// provider may hand its result to, matched exactly; empty turns signing
+	// in from an app off.
+	SSOAppRedirects []string `yaml:"sso_app_redirects"`
+}
+
+// PasswordParams is the argon2id policy these settings ask for: the built-in
+// default with any configured field replacing its own.
+func (a Auth) PasswordParams() auth.Params {
+	p := auth.DefaultParams()
+	if a.Argon2MemoryKiB > 0 && int64(a.Argon2MemoryKiB) <= math.MaxUint32 {
+		p.Memory = uint32(a.Argon2MemoryKiB) // #nosec G115 -- bounded above
+	}
+	if a.Argon2Time > 0 && int64(a.Argon2Time) <= math.MaxUint32 {
+		p.Time = uint32(a.Argon2Time) // #nosec G115 -- bounded above
+	}
+	if a.Argon2Threads > 0 && int64(a.Argon2Threads) <= math.MaxUint8 {
+		p.Threads = uint8(a.Argon2Threads) // #nosec G115 -- bounded above
+	}
+	return p
 }
 
 // Hooks holds the git hook settings.
@@ -277,12 +332,94 @@ func (l Lease) Policy() lease.Policy {
 	return p
 }
 
+// Artifacts bounds the blobs a task artifact may carry, for this deployment.
+//
+// A tenant may tighten both and loosen neither. The blob travels inside a
+// request, so the API's artifact route and the browser's upload take a body
+// sized for MaxBytes rather than --max-body-bytes: see ArtifactBodyLimit.
+type Artifacts struct {
+	// MaxBytes is the largest blob accepted, 1 MiB by default.
+	MaxBytes int64 `yaml:"max_bytes"`
+	// AllowedTypes are the media types and patterns such as image/* a blob may
+	// carry. Whatever is accepted, a blob is only ever served as a download.
+	AllowedTypes []string `yaml:"allowed_types"`
+}
+
+// CalDAV configures the tasks tix serve answers over CalDAV under /dav/.
+type CalDAV struct {
+	// Enabled serves /dav/ and /.well-known/caldav. Off, both answer not found.
+	Enabled bool `yaml:"enabled"`
+	// CompletedWindow is how long a finished task stays in a collection, so a
+	// client can show it ticked, 14d by default and at most 365d.
+	CompletedWindow core.Duration `yaml:"completed_window"`
+	// MaxObjects bounds the tasks one collection holds, 2000 by default.
+	MaxObjects int `yaml:"max_objects"`
+}
+
+// Bounds on the CalDAV settings.
+const (
+	DefaultCalDAVCompletedWindow = 14 * 24 * time.Hour
+	MaxCalDAVCompletedWindow     = 365 * 24 * time.Hour
+	DefaultCalDAVMaxObjects      = 2000
+	MaxCalDAVMaxObjects          = 10000
+)
+
+// Session bounds how long a sign-in lasts, for this deployment. A tenant may
+// tighten each and loosen none.
+type Session struct {
+	// TTL is how long a sign-in lasts from the moment it is made, and from
+	// each use after, 12h by default.
+	TTL core.Duration `yaml:"ttl"`
+	// IdleTimeout ends a session nobody used for this long. Zero, the
+	// default, turns it off.
+	IdleTimeout core.Duration `yaml:"idle_timeout"`
+	// RememberTTL is how long a "keep me signed in" sign-in lasts, 30d by
+	// default. Zero stops offering it.
+	RememberTTL core.Duration `yaml:"remember_ttl"`
+	// MaxLifetime is how long after the sign-in use may keep a session
+	// alive, 30d by default. Zero stops renewal: a session ends TTL after it
+	// was made.
+	MaxLifetime core.Duration `yaml:"max_lifetime"`
+	// RememberMaxLifetime is MaxLifetime for a "keep me signed in" session,
+	// 90d by default.
+	RememberMaxLifetime core.Duration `yaml:"remember_max_lifetime"`
+}
+
+// Policy is the deployment's session settings before any tenant narrows them.
+func (s Session) Policy() core.SessionPolicy {
+	return core.SessionPolicy{TTL: s.TTL, IdleTimeout: s.IdleTimeout, RememberTTL: s.RememberTTL,
+		MaxLifetime: s.MaxLifetime, RememberMaxLifetime: s.RememberMaxLifetime}
+}
+
+// ArtifactBodyLimit is the request body an artifact upload of at most maxBytes
+// needs: the blob base64 encoded in JSON, plus room for the payload and the
+// form around it. It never falls below the general body limit.
+func ArtifactBodyLimit(maxBytes, general int64) int64 {
+	n := (maxBytes+2)/3*4 + artifactBodyOverhead
+	return max(n, general)
+}
+
+// artifactBodyOverhead is the share of an artifact upload that is not the
+// blob: its name, payload, content type and the form or JSON around them.
+const artifactBodyOverhead = 1 << 20
+
+// ArtifactLimitRefusal is the answer to an artifact upload over its body
+// limit, naming the key that raises it.
+func ArtifactLimitRefusal(maxBytes int64) string {
+	return fmt.Sprintf("an artifact file may be at most %s on this server; the server's operator can raise "+
+		"artifacts.max_bytes (%s)", core.ByteSize(maxBytes), EnvName("artifacts.max_bytes"))
+}
+
 // Retention holds how long history is kept. Each class is governed
 // independently, so changing one never disturbs another.
 type Retention struct {
 	Audit             core.Duration `yaml:"audit"`
 	Events            core.Duration `yaml:"events"`
 	WebhookDeliveries core.Duration `yaml:"webhook_deliveries"`
+	// IdempotencyKeys is how long a kept Idempotency-Key answers repeats of
+	// its request. It is not a tenant policy: a key is a client's retry
+	// handle, not history anybody reads.
+	IdempotencyKeys core.Duration `yaml:"idempotency_keys"`
 }
 
 // Policy renders the configured windows as a retention policy for a tenant.
@@ -441,6 +578,8 @@ const (
 	DefaultRetentionEvent = "720h"
 	// DefaultRetentionDelivery matches the shipped webhook delivery window.
 	DefaultRetentionDelivery = "720h"
+	// DefaultRetentionIdempotency is how long a kept idempotency key answers.
+	DefaultRetentionIdempotency = "24h"
 	// DefaultPageSize is how many rows a listing shows when nothing says
 	// otherwise. Fifty filled more than three screens of a browser window,
 	// which is more rows than anybody reads before paging.
@@ -509,7 +648,14 @@ var (
 	// UnimplementedAuthModes are documented modes with no implementation
 	// behind them. They are refused rather than accepted and ignored,
 	// because a mode that reads as a security setting must never be silent.
-	UnimplementedAuthModes = []string{"none", "oidc"}
+	UnimplementedAuthModes = []string{"none"}
+	// RedirectedAuthModes are values that name something configured
+	// elsewhere, each refused with where that is. oidc is single sign-on,
+	// which is per tenant: accepting it here would let an operator think the
+	// server was set up for it.
+	RedirectedAuthModes = map[string]string{
+		"oidc": "single sign-on is configured per tenant with tix tenant sso add, not as a server mode",
+	}
 	// HookModes lists the git hook modes this build implements.
 	HookModes = []string{"off"}
 	// UnimplementedHookModes are documented modes with no implementation.
@@ -558,7 +704,14 @@ func Defaults() Config {
 		Tenant:   DefaultTenant,
 		Database: Database{DSN: DefaultDSN, ConnectTimeout: mustDuration(DefaultDatabaseConnectTimeout)},
 		Server:   Server{Listen: DefaultListen, CookieSecurity: DefaultCookieSecurity, MaxImportBytes: DefaultMaxImportBytes},
-		Auth:     Auth{Mode: DefaultAuthMode},
+		Auth: Auth{Mode: DefaultAuthMode, SAMLMetadataRefresh: core.DefaultSAMLMetadataRefresh,
+			SSOAppRedirects: slices.Clone(core.DefaultSSOAppRedirects)},
+		Artifacts: Artifacts{
+			MaxBytes: core.DefaultArtifactMaxBytes, AllowedTypes: slices.Clone(core.DefaultArtifactTypes)},
+		CalDAV: CalDAV{Enabled: true, CompletedWindow: core.Duration(DefaultCalDAVCompletedWindow),
+			MaxObjects: DefaultCalDAVMaxObjects},
+		Session: Session{TTL: core.DefaultSessionTTL, RememberTTL: core.DefaultSessionRememberTTL,
+			MaxLifetime: core.DefaultSessionMaxLifetime, RememberMaxLifetime: core.DefaultSessionRememberMaxLifetime},
 		Hooks:    Hooks{Mode: DefaultHookMode},
 		Webhooks: Webhooks{DrainMode: DefaultWebhookDrainMode},
 		SSH: SSH{
@@ -584,6 +737,7 @@ func Defaults() Config {
 			Audit:             mustDuration(DefaultRetentionAudit),
 			Events:            mustDuration(DefaultRetentionEvent),
 			WebhookDeliveries: mustDuration(DefaultRetentionDelivery),
+			IdempotencyKeys:   mustDuration(DefaultRetentionIdempotency),
 		},
 		Log: Log{
 			Level:  DefaultLogLevel,

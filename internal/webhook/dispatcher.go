@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/heliopsy/tix/internal/clock"
@@ -77,6 +78,9 @@ type Dispatcher struct {
 	batch    int
 	ticker   clock.Ticker
 	onError  func(error)
+	// public is server.public_url, the base channel messages link a task
+	// under when its tenant has no domain of its own.
+	public string
 }
 
 // Option configures a Dispatcher.
@@ -153,6 +157,12 @@ func WithBatch(n int) Option {
 
 // WithErrorHandler reports a failed pass. A failed pass never stops the loop.
 func WithErrorHandler(fn func(error)) Option { return func(d *Dispatcher) { d.onError = fn } }
+
+// WithPublicURL sets server.public_url, so a channel message links its task
+// for a tenant without a domain of its own too.
+func WithPublicURL(base string) Option {
+	return func(d *Dispatcher) { d.public = strings.TrimRight(strings.TrimSpace(base), "/") }
+}
 
 // WithInterval arms the server-mode ticker. A non-positive interval leaves
 // Run idle, so only on-demand drains happen.
@@ -331,7 +341,7 @@ func (d *Dispatcher) claim(ctx context.Context, limit int) ([]*job, error) {
 		}
 		base := ""
 		if len(channels) > 0 {
-			base = channelBase(ctx, tx)
+			base = channelBase(ctx, tx, d.public)
 		}
 		for _, delivery := range channels {
 			j, reason := d.loadChannel(ctx, tx, delivery, base)

@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/config"
@@ -22,7 +23,8 @@ func newTenantCmd(g *globals) *cobra.Command {
 	}
 	cmd.AddCommand(
 		tenantCreateCmd(g), newTenantUserCmd(g), newTenantDomainCmd(g),
-		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantRmCmd(g),
+		tenantLsCmd(g), tenantShowCmd(g), tenantUseCmd(g), tenantEditCmd(g), tenantIconCmd(g), tenantRmCmd(g),
+		tenantSessionPolicyCmd(g), newTenantSSOCmd(g), newTenantSCIMCmd(g),
 	)
 	return cmd
 }
@@ -256,6 +258,11 @@ func tenantEditCmd(g *globals) *cobra.Command {
 	var totpWeb, totpCLI, totpSSH bool
 	var trash string
 	var timeFormat, timezone string
+	var mfaPolicy, mfaGrace string
+	var passwordLogin string
+	var artifactMax, artifactTypes string
+	var sessionTTL, sessionIdle, sessionRemember string
+	var icon, iconName, iconFile string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "edit REF",
@@ -272,29 +279,67 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			"lock anybody out: a user subject to it who holds no enrolment is taken through\n" +
 			"enrolment when they next sign in. It does need auth.totp_key set, because\n" +
 			"without somewhere to seal a secret there is no enrolment to take them through.\n\n" +
+			"--mfa-policy required is the hard policy: on every surface, a person holding no\n" +
+			"second factor can do nothing but enrol, sign out and read their own account,\n" +
+			"with a session or with a token they own. Agent tokens are exempt. --mfa-grace\n" +
+			"(such as 7d) lets people keep working that long after the policy is turned on;\n" +
+			"0, the default, gates at once. Turning the policy on is refused while you hold\n" +
+			"no second factor yourself, so enrol first (tix user totp enrol).\n\n" +
 			"--lease-default and --lease-max bound how long a claim on this tenant's\n" +
 			"tasks may hold. The default is what a claim gets when neither the claim nor\n" +
 			"the project's workflow names a ttl; the maximum is a ceiling no claim may\n" +
 			"pass. Either as \"\" falls back to the deployment setting (lease.default and\n" +
 			"lease.max, or TIX_LEASE_DEFAULT and TIX_LEASE_MAX) and then to the built-in\n" +
 			"15m and 24h. A tenant may lower the deployment ceiling but never raise it.\n\n" +
+			"--artifact-max-bytes and --artifact-types tighten what a new artifact file\n" +
+			"may be on this tenant: its size, such as 512KiB or 5MiB, and its media types,\n" +
+			"comma separated, such as image/*,application/pdf. Neither can go past the\n" +
+			"server's artifacts.max_bytes and artifacts.allowed_types; a value that would is\n" +
+			"refused with the server's limit named. \"\" returns either to the server's.\n" +
+			"Artifacts already attached are not judged again.\n\n" +
+			"--session-ttl, --session-idle-timeout and --session-remember-ttl bound how long\n" +
+			"a sign-in on this tenant lasts: from the moment it is made, since it was last\n" +
+			"used, and when the person ticked keep me signed in. Each can only be shorter\n" +
+			"than the server's session.ttl, session.idle_timeout and session.remember_ttl.\n" +
+			"--session-remember-ttl off stops offering keep me signed in. \"\" returns any of\n" +
+			"them to the server's. A new lifetime applies to the next sign-in; the idle\n" +
+			"timeout applies at once, remembered sessions included. tix tenant\n" +
+			"session-policy shows what is in force.\n\n" +
+			"The icon is drawn beside the tenant's name wherever tenants are listed to\n" +
+			"switch between. It is one of --icon (an emoji or a one or two letter\n" +
+			"monogram), --icon-name (a built-in icon) or --icon-file (an image); setting\n" +
+			"one replaces whichever the tenant had, and setting any of them empty clears\n" +
+			"it. With no icon, surfaces draw a monogram of the name.\n\n" +
 			"--trash off makes deleting a task permanent: there is no trash to restore it\n" +
 			"from, and is:trashed and task restore are refused. Tasks already in the trash\n" +
 			"stay there untouched, and --trash on brings them back into reach.\n\n" +
 			"--time-format and --timezone set the date format and zone this tenant's people\n" +
 			"read dates in unless they chose their own (tix user time). Either as \"\" falls\n" +
 			"back to the deployment's output.time_format and output.timezone.\n\n" +
-			"Exit codes: 2 --trash is not on or off, or an unknown format or timezone; 3 unknown tenant or unknown theme;\n" +
-			"6 no second factor key.",
+			"--password-login disabled turns password sign-in off: people sign in through\n" +
+			"the tenant's single sign-on providers (tix tenant sso), and a global admin\n" +
+			"keeps password sign-in as the way back in. It is refused while the tenant has\n" +
+			"no enabled provider, and needs the sso:admin scope. API tokens and SSH keys\n" +
+			"keep working. --password-login allowed turns it back on.\n\n" +
+			"Exit codes: 2 --trash is not on or off, an unknown --mfa-policy, an unknown format or timezone, or an\n" +
+			"invalid icon;\n" +
+			"3 unknown tenant or unknown theme; 6 no second factor key, or you hold no second factor and asked for\n" +
+			"--mfa-policy required.",
 		Example: "  tix tenant edit acme --name \"Acme Limited\"\n" +
 			"  tix tenant edit acme --theme ocean\n" +
 			"  tix tenant edit acme --theme '#7a3ef0'\n" +
 			"  tix tenant edit acme --theme \"\"\n" +
+			"  tix tenant edit acme --icon-name rocket\n" +
+			"  tix tenant edit acme --icon-file logo.png\n" +
+			"  tix tenant edit acme --icon \"\"\n" +
 			"  tix tenant edit acme --require-totp-web\n" +
 			"  tix tenant edit acme --require-totp-ssh=false\n" +
+			"  tix tenant edit acme --mfa-policy required --mfa-grace 7d\n" +
 			"  tix tenant edit acme --lease-default 45m --lease-max 4h\n" +
 			"  tix tenant edit acme --lease-max \"\"\n" +
 			"  tix tenant edit acme --trash off\n" +
+			"  tix tenant edit acme --artifact-max-bytes 5MiB --artifact-types 'image/*,application/pdf'\n" +
+			"  tix tenant edit acme --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl off\n" +
 			"  tix tenant edit acme --time-format dotted --timezone Europe/Sofia",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -354,11 +399,39 @@ func tenantEditCmd(g *globals) *cobra.Command {
 				off := !on
 				in.TrashOff = &off
 			}
+			if cmd.Flags().Changed("password-login") {
+				policy := core.PasswordLogin(strings.ToLower(strings.TrimSpace(passwordLogin)))
+				in.PasswordLogin = &policy
+			}
+			if cmd.Flags().Changed("mfa-policy") {
+				policy := core.MFAPolicy(strings.ToLower(strings.TrimSpace(mfaPolicy)))
+				in.MFAPolicy = &policy
+			}
+			if cmd.Flags().Changed("mfa-grace") {
+				var d core.Duration
+				if raw := strings.TrimSpace(mfaGrace); raw != "" && raw != "0" {
+					parsed, err := core.ParseDuration(raw)
+					if err != nil {
+						return core.Invalid("--mfa-grace: %v", err)
+					}
+					d = parsed
+				}
+				in.MFAGrace = &d
+			}
+			if err := artifactLimitFlags(cmd, artifactMax, artifactTypes, &in); err != nil {
+				return err
+			}
+			if err := sessionFlags(cmd, sessionTTL, sessionIdle, sessionRemember, &in); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("time-format") {
 				in.TimeFormat = &timeFormat
 			}
 			if cmd.Flags().Changed("timezone") {
 				in.Timezone = &timezone
+			}
+			if err := tenantIconFlags(cmd, icon, iconName, iconFile, &in); err != nil {
+				return err
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -377,6 +450,9 @@ func tenantEditCmd(g *globals) *cobra.Command {
 			return g.render(cmd, tenant)
 		},
 	}
+	cmd.Flags().StringVar(&passwordLogin, "password-login", "", "password sign-in: allowed, or disabled for single sign-on only")
+	cmd.Flags().StringVar(&mfaPolicy, "mfa-policy", "", "second factor policy: off, or required on every surface")
+	cmd.Flags().StringVar(&mfaGrace, "mfa-grace", "", "how long people without a second factor may still work after the policy is turned on, such as 7d; 0 gates at once")
 	cmd.Flags().StringVar(&name, "name", "", "new name")
 	cmd.Flags().StringVar(&theme, "theme", "", "theme name or custom #rrggbb accent, or \"\" to use the default theme")
 	cmd.Flags().BoolVar(&totpWeb, "require-totp-web", false, "require a second factor to sign in to the browser interface")
@@ -386,7 +462,20 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"how long a claim holds when nothing else says, or \"\" to use the deployment setting")
 	cmd.Flags().StringVar(&leaseMax, "lease-max", "",
 		"the longest lease any claim may take, or \"\" to use the deployment setting")
+	cmd.Flags().StringVar(&artifactMax, "artifact-max-bytes", "",
+		"the largest artifact blob, such as 5MiB, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&artifactTypes, "artifact-types", "",
+		"comma separated media types an artifact blob may carry, within the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionTTL, "session-ttl", "",
+		"how long a sign-in lasts, such as 8h, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionIdle, "session-idle-timeout", "",
+		"end sessions unused this long, such as 30m, at most the server's; \"\" uses the server's")
+	cmd.Flags().StringVar(&sessionRemember, "session-remember-ttl", "",
+		"how long keep me signed in lasts, such as 7d, or off; \"\" uses the server's")
 	cmd.Flags().StringVar(&trash, "trash", "", "on keeps deleted tasks restorable, off deletes them permanently")
+	cmd.Flags().StringVar(&icon, "icon", "", "an emoji or a short monogram shown beside the tenant's name")
+	cmd.Flags().StringVar(&iconName, "icon-name", "", "a built-in icon shown beside the tenant's name ("+builtinIconList()+")")
+	cmd.Flags().StringVar(&iconFile, "icon-file", "", iconFileUsage)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	_ = cmd.RegisterFlagCompletionFunc("theme", fixedCompletion(core.ThemeNames()))
 	cmd.Flags().StringVar(&timeFormat, "time-format", "",
@@ -395,6 +484,68 @@ func tenantEditCmd(g *globals) *cobra.Command {
 		"the IANA timezone this tenant's people read dates in, or \"\" for the deployment setting")
 	_ = cmd.RegisterFlagCompletionFunc("trash", fixedCompletion([]string{"on", "off"}))
 	_ = cmd.RegisterFlagCompletionFunc("time-format", fixedCompletion(core.TimeFormatNames))
+	return cmd
+}
+
+// tenantIconFlags reads --icon, --icon-name and --icon-file into an update,
+// each only when given, since an empty value clears the icon.
+func tenantIconFlags(cmd *cobra.Command, icon, iconName, iconFile string, in *core.UpdateTenantInput) error {
+	if cmd.Flags().Changed("icon") {
+		in.Icon = &icon
+	}
+	if cmd.Flags().Changed("icon-name") {
+		in.IconName = &iconName
+	}
+	if cmd.Flags().Changed("icon-file") {
+		file, err := readIconFile(cmd, iconFile)
+		if err != nil {
+			return err
+		}
+		in.IconFile = file
+	}
+	if !in.IconChanged() {
+		return nil
+	}
+	return in.Validate()
+}
+
+// tenantIconCmd saves a tenant's uploaded icon image.
+func tenantIconCmd(g *globals) *cobra.Command {
+	var out string
+	cmd := &cobra.Command{
+		Use:   "icon REF",
+		Short: "Save a tenant's uploaded icon image",
+		Long: "Write a tenant's uploaded icon image to the file --out names, or to standard output when that is not a terminal. " +
+			"Any member of the tenant may read it.\n\n" +
+			"Exit codes: 2 standard output is a terminal and no --out was given, 3 unknown tenant or no uploaded icon.",
+		Example: "  tix tenant icon acme --out acme.png\n  tix tenant icon acme > acme.png",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := localFile(cmd, "--out", out); err != nil {
+				return err
+			}
+			if out == "" && writesToTerminal(cmd) {
+				return core.Invalid("standard output is a terminal; name a file with --out or redirect the output")
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			img, err := conn.Service.GetTenantIcon(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			if out == "" {
+				_, err = cmd.OutOrStdout().Write(img.Data)
+				return err
+			}
+			if err := os.WriteFile(out, img.Data, 0o600); err != nil {
+				return core.Internal("writing icon to %q: %v", out, err).Wrap(err)
+			}
+			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
+		},
+	}
+	cmd.Flags().StringVar(&out, "out", "", "file to write the image to")
 	return cmd
 }
 
@@ -676,4 +827,84 @@ func parseOnOff(cmd *cobra.Command, flag, v string) (bool, error) {
 		return false, nil
 	}
 	return false, usagef(cmd, "--%s takes on or off, not %q", flag, v)
+}
+
+// artifactLimitFlags reads --artifact-max-bytes and --artifact-types. As with
+// the lease bounds, "" hands a limit back to the server, so an empty value has
+// to be told apart from an absent flag.
+func artifactLimitFlags(cmd *cobra.Command, maxBytes, types string, in *core.UpdateTenantInput) error {
+	if cmd.Flags().Changed("artifact-max-bytes") {
+		var n int64
+		if raw := strings.TrimSpace(maxBytes); raw != "" {
+			parsed, err := core.ParseByteSize(raw)
+			if err != nil {
+				return core.Invalid("--artifact-max-bytes: %v", err)
+			}
+			n = parsed
+		}
+		in.ArtifactMaxBytes = &n
+	}
+	if cmd.Flags().Changed("artifact-types") {
+		list := strings.Split(types, ",")
+		in.ArtifactTypes = &list
+	}
+	return nil
+}
+
+// sessionFlags reads --session-ttl, --session-idle-timeout and
+// --session-remember-ttl. "" hands each back to the server, so an empty value
+// has to be told apart from an absent flag.
+func sessionFlags(cmd *cobra.Command, ttl, idle, remember string, in *core.UpdateTenantInput) error {
+	for _, f := range []struct {
+		flag string
+		raw  string
+		into **core.Duration
+	}{
+		{"session-ttl", ttl, &in.SessionTTL},
+		{"session-idle-timeout", idle, &in.SessionIdleTimeout},
+	} {
+		if !cmd.Flags().Changed(f.flag) {
+			continue
+		}
+		var d core.Duration
+		if raw := strings.TrimSpace(f.raw); raw != "" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("--%s: %v", f.flag, err)
+			}
+			d = parsed
+		}
+		*f.into = &d
+	}
+	if cmd.Flags().Changed("session-remember-ttl") {
+		in.SessionRememberTTL = &remember
+	}
+	return nil
+}
+
+// tenantSessionPolicyCmd shows how long a sign-in on the tenant lasts.
+func tenantSessionPolicyCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "session-policy",
+		Short: "Show how long a sign-in on this tenant lasts",
+		Long: "Show the session settings a new sign-in on this tenant is held to: its\n" +
+			"lifetime (ttl), how long it may sit unused (idle_timeout, 0s is off), and how\n" +
+			"long a keep me signed in sign-in lasts (remember_ttl, 0s is not offered). Each\n" +
+			"is the server's session.* setting, shown beside it, tightened by the tenant's\n" +
+			"own (tix tenant edit --session-ttl, --session-idle-timeout and\n" +
+			"--session-remember-ttl). It needs no sign-in.",
+		Example: "  tix tenant session-policy\n  tix tenant session-policy -o json",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			policy, err := conn.Service.SessionPolicy(ctx)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, policy)
+		},
+	}
 }

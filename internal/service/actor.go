@@ -29,6 +29,9 @@ func (l *Local) GetActor(ctx context.Context, id string) (*core.Actor, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := l.requireFactor(ctx, caller); err != nil {
+		return nil, err
+	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return nil, core.Invalid("actor identifier is required")
@@ -91,6 +94,9 @@ const actorSort = "handle"
 func (l *Local) ListActors(ctx context.Context, page core.Page) ([]core.Actor, string, error) {
 	caller, err := core.RequireActor(ctx)
 	if err != nil {
+		return nil, "", err
+	}
+	if err := l.requireFactor(ctx, caller); err != nil {
 		return nil, "", err
 	}
 	if page.Sort == "" {

@@ -1,0 +1,4 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Delete permanently on a trash row, sized like the Restore beside it. */
+.tasklist .purgeopen { flex: 0 0 auto; margin-left: 6px; padding: 2px 10px; font-size: var(--text-xs); }

@@ -57,6 +57,7 @@ func TestColourSchemesMatchTheStylesheet(t *testing.T) {
 		"light": schemeBlock(t, sheet, ":root"),
 		"dim":   schemeBlock(t, sheet, `:root[data-theme="dim"]`),
 		"dark":  schemeBlock(t, sheet, `:root[data-theme="dark"]`),
+		"oled":  schemeBlock(t, sheet, `:root[data-theme="oled"]`),
 	}
 	for _, s := range colourSchemes {
 		block := blocks[s.Name]
@@ -100,6 +101,7 @@ func TestEveryCustomColourReadsOnEveryScheme(t *testing.T) {
 		"light": {R: 0x0f, G: 0x13, B: 0x19},
 		"dim":   {R: 0xc7, G: 0xcc, B: 0xd3},
 		"dark":  {R: 0xe7, G: 0xea, B: 0xee},
+		"oled":  {R: 0xdd, G: 0xe1, B: 0xe6},
 	}
 	for _, s := range colourSchemes {
 		for _, c := range sweep() {
@@ -122,7 +124,7 @@ func TestEveryCustomColourReadsOnEveryScheme(t *testing.T) {
 
 // Nothing but a formatted colour reaches the style attribute.
 func TestProjStyleCarriesOnlyFormattedShades(t *testing.T) {
-	want := regexp.MustCompile(`^--proj-l: #[0-9a-f]{6}; --proj-m: #[0-9a-f]{6}; --proj-d: #[0-9a-f]{6}$`)
+	want := regexp.MustCompile(`^--proj-l: #[0-9a-f]{6}; --proj-m: #[0-9a-f]{6}; --proj-d: #[0-9a-f]{6}; --proj-o: #[0-9a-f]{6}$`)
 	if got := string(projStyle("#1a7f5a")); !want.MatchString(got) {
 		t.Errorf("projStyle(custom) = %q", got)
 	}

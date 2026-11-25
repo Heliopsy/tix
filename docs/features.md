@@ -10,10 +10,16 @@ it is shown, because a count of tasks moved to a terminal state is not a measure
 number presented without that sentence gets read as one. [docs/statistics.md](statistics.md).
 
 **Theming.** A tenant names an accent and both the browser and the terminal render it. Palettes are
-configuration rather than rows, so an operator writes one for the whole deployment. Light, dark and a
-low-contrast scheme are a separate axis, chosen per browser, because that is a property of the person
+configuration rather than rows, so an operator writes one for the whole deployment. Light, dark, a
+true black OLED and a low-contrast scheme are a separate axis, chosen per browser, because that is a property of the person
 reading. State and priority colours are deliberately not themeable: blocked is red whatever a tenant
 brands itself. [docs/theming.md](theming.md).
+
+**Dependencies.** A task can depend on other tasks (`depends_on`). While any of them is unfinished the
+task is waiting on other tasks: `claim next` skips it, `is:waiting-on` (or the older `is:blocked`) selects
+it, the CLI table's WAITING column and JSON's `waiting_on` name what it waits on, JSON keeps `blocked` as
+the flag, the browser marks the card "waiting on AICP-12", and the terminal marks it `!`. This is a
+separate thing from a workflow state in the blocked category, which is a column a task is moved into.
 
 **A directory of actors.** `tix actor ls` on the command line, `/actors` in the browser, and the same
 listing behind the assignee field, which suggests handles instead of asking for an identifier from
@@ -26,11 +32,24 @@ assigned that has a due date and is not finished becomes an all-day event, or wh
 expression selects. The address reads as you and nothing more, and stops the moment it is rotated or
 revoked or you leave the tenant. [docs/calendar.md](calendar.md).
 
+**Your tasks in a reminders app.** `tix serve` answers CalDAV under `/dav/`, so Apple Reminders, tasks.org,
+jtx Board or OpenTasks through DAVx5, Thunderbird and Evolution show your tasks as to-do lists: Assigned to
+me, one list per project, or both, chosen per app password. A client signs in with an app password from
+`tix dav password create` or Settings, a token that works only there and acts as you. Ticking a reminder
+off finishes the task through its workflow, edits and new reminders reach tix, and deleting one cancels the
+task rather than trashing it. A password can be made read-only. [docs/caldav.md](caldav.md).
+
 **Project keys that can change.** A project's key starts every task reference, and it can be changed with
 `tix project edit --key`, `PATCH /projects/{ref}`, the project's settings in the browser or the terminal's
 project screen. Every reference changes with it, and the old key stays an alias, so old references, filters
 and links keep resolving and the browser is redirected to the new address.
 [docs/workflows.md](workflows.md#changing-a-projects-key).
+
+**Workflow templates.** Twelve ready-made workflows, from a plain kanban to an agent queue with human
+sign-off, a bug triage, a sales pipeline and hiring. `tix workflow template ls` lists them purpose first,
+`tix project create --workflow-template tix-bugs` starts a project on one with its custom fields, and the
+browser's New project dialog offers them in its workflow picker.
+[docs/workflows.md](workflows.md#templates).
 
 **A status control that can move more than one step.** The status pill on a row offers the states
 that row's own workflow can reach, including ones reachable only through another state. The whole
@@ -70,6 +89,16 @@ alone:
 ```sh
 tix task add --parse 'Fix login !high #auth @raj due:fri'
 ```
+
+**Emoji reactions on comments.** Anyone who may comment can react to a comment with an emoji, and can leave
+several different ones on the same comment, each once. Pressing a reaction you already left takes it back.
+The task screen draws the reactions under each comment as chips with a count, the ones you left
+highlighted and a tooltip naming who reacted, with a quick picker (👍 👎 ❤️ 🎉 😄 😕 👀 🚀) and a box for any
+other emoji. `tix comment react ID EMOJI` adds one and `--remove` takes it back, the terminal's `&` key
+toggles one on the selected comment, and a comment read carries `"reactions"`. The server accepts only a
+single emoji grapheme, so a word or two emoji in one reaction is refused. Each reaction and each removal
+writes an audit entry and a `comment.reacted` or `comment.unreacted` event, and notifies nobody. Deleting
+a comment removes its reactions.
 
 **Descriptions and comments in Markdown, with checklists.** A task's description and its comments are
 CommonMark with the GitHub tables, task lists, autolinks, strikethrough and fenced code, and a line break
@@ -148,6 +177,9 @@ row, a card or the task screen in the browser, `*` in the terminal interface, `t
 yours alone, stored with your actor rather than in a cookie, so it follows you between the browser, the
 terminal and the command line and never reorders a colleague's queue. Your starred tasks lead under
 every sort, and `is:starred` narrows a listing to them. [docs/filtering.md](filtering.md#stars).
+Projects star too: the star beside a project's name in the browser lists it first on the projects screen
+and under Projects in the sidebar, `*` stars one in the terminal's projects view, and `tix project star`,
+`tix project ls --starred` and `PUT /api/v1/projects/{ref}/star` do the same from a script.
 
 **Snooze.** Snooze a task until later and it leaves every default listing, for everybody, until that
 moment, then comes back by itself; nothing has to run for that, because listings compare the wake time
@@ -162,16 +194,17 @@ lists them beside the rest. [docs/filtering.md](filtering.md#snoozed-tasks).
 holding that project's open work as cards. A card ticks, changes status and changes priority where it
 sits, without leaving the screen. [docs/web-ui.md](web-ui.md#lanes).
 
-**A task over the list, and titles renamed where they are listed.** Two per-browser settings: a task
-followed from a listing can open in a dialog over it instead of its own page, and a click on a listed
-title can rename it in place. [docs/web-ui.md](web-ui.md#opening-a-task-in-a-dialog).
+**A task over or beside the list, and titles renamed where they are listed.** Two per-browser settings:
+a task followed from a listing can open in a dialog over it, or in a resizable panel beside it on a wide
+window, instead of its own page, and a click on a listed title can rename it in place.
+[docs/web-ui.md](web-ui.md#opening-a-task-in-a-dialog).
 
 **Undo.** A status change, a priority change and a soft delete in the browser come back with a toast
 offering Undo. Elsewhere the same undo is an ordinary command: `tix task mv` back, `tix task edit
 --priority`, and `tix task restore` for a soft delete. [docs/web-ui.md](web-ui.md#acting-in-place).
 
-**Two languages.** The browser draws every screen in English or Bulgarian, following `Accept-Language`
-unless Settings picks one for that browser. [docs/web-ui.md](web-ui.md#language-and-info-tips).
+**Four languages.** The browser draws every screen in English, Bulgarian, German or French, following
+`Accept-Language` unless Settings picks one for that browser. [docs/web-ui.md](web-ui.md#language-and-info-tips).
 
 **An activity feed.** Every change the audit log records, as a live feed at `/activity` that narrows by
 record, kind, surface and actor, and as `tix audit ls --filter` and the terminal's history view.
@@ -218,11 +251,21 @@ has one of the same name. Comments, subtasks (recursively) and dependencies come
 linked copy shows "Copied from" with the original. Stars, claims, history and artifacts stay behind.
 [docs/api.md](api.md#copying-a-task).
 
+**Moving a task.** A task moves to another project without becoming a new task: "Move to…" on the task
+screen and in the bulk bar, `d` in the terminal interface, `tix task move REF... --to PROJECT` on the command
+line and `POST /api/v1/tasks/{ref}/move` over HTTP. It keeps its id, comments, artifacts, history,
+dependencies, tags, assignee and stars and takes the target's next number; the old reference still resolves
+everywhere, and the browser redirects it. The status is kept when the target workflow has it, else the task
+starts in the target's initial state. Custom fields the target lacks are dropped and named in the answer. It
+needs edit rights on the task and create rights in the target, and a task claimed by somebody else waits
+for the claim to end. The history records one `task.move` entry with both references.
+[docs/api.md](api.md#moving-a-task).
+
 **Bulk actions.** Tick rows on the web task list and a bar applies one action to all of them: move,
-priority, add or remove a tag, assignee, star, unstar, copy to a project, or delete with one Undo for the
+priority, add or remove a tag, assignee, star, unstar, copy or move to a project, or delete with one Undo for the
 batch. It is one request, `POST /api/v1/tasks/bulk` or `tix task bulk ACTION REF...`, and each task is still
 changed on its own with its own history entry and event, so the answer names any task that was refused and
-why. `tix task edit`, `tix task copy`, `tix tag add` and `tix tag rm` take many references too.
+why. `tix task edit`, `tix task copy`, `tix task move`, `tix tag add` and `tix tag rm` take many references too.
 [docs/web-ui.md](web-ui.md#acting-on-many-tasks), [docs/api.md](api.md#bulk-actions).
 
 **CSV export.** Export CSV in the task list's View menu, `tix task ls -o csv` and
@@ -235,9 +278,14 @@ Create tasks from it in one step, optionally with another title, project or a du
 template is not a task: it never appears in a listing, a claim or the statistics. Titles may carry
 placeholders, matched in any case and filled in at each use: `{DATE}` is today's date, `{N}` the use number
 and `{PROJECT}` the project's key. Save as template on the task screen and New from template in the add box
-in the browser, a Templates screen under Admin, `B` and `E` in the terminal interface, `tix template
+in the browser, a Templates screen in the main navigation, `B` and `E` in the terminal interface, `tix template
 ls|save|show|edit|rm|use` and `/api/v1/templates` over HTTP.
 [docs/web-ui.md](web-ui.md#task-templates), [docs/api.md](api.md#task-templates).
+
+**API examples.** One client written in curl, Python, TypeScript and Go, using nothing beyond each
+language's own runtime: it signs in with a token, creates a project and a task, edits it, recovers from a
+version conflict, moves it, comments, lists with a filter and reads back the events it caused. The smoke suite
+runs all four against a scratch server. [docs/examples.md](examples.md).
 
 **Shell completion.** `tix completion install` detects the shell, writes the script where that shell
 looks for it and never edits a startup file. It completes task references, project keys, tags and the

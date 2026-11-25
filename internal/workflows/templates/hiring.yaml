@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-hiring
+name: Hiring
+purpose: Move candidates through interviews to a decision.
+definition:
+  initial: applied
+  states:
+    - {key: applied, label: Applied, category: todo}
+    - {key: screening, label: Screening, category: in_progress}
+    - {key: interview, label: Interview, category: in_progress}
+    - {key: offer, label: Offer, category: in_progress}
+    - {key: hired, label: Hired, category: done, terminal: true}
+    - {key: rejected, label: Rejected, category: cancelled, terminal: true}
+    - {key: withdrew, label: Withdrew, category: cancelled, terminal: true}
+  transitions:
+    - {from: applied, to: screening}
+    - {from: screening, to: interview}
+    - {from: interview, to: offer}
+    - {from: offer, to: hired}
+    - {from: interview, to: screening}
+    - {from: offer, to: interview}
+    - {from: applied, to: rejected, requires_comment: true}
+    - {from: screening, to: rejected, requires_comment: true}
+    - {from: interview, to: rejected, requires_comment: true}
+    - {from: offer, to: rejected, requires_comment: true}
+    - {from: applied, to: withdrew}
+    - {from: screening, to: withdrew}
+    - {from: interview, to: withdrew}
+    - {from: offer, to: withdrew}
+fields:
+  - {key: role, label: Role, type: string, position: 1}
+  - {key: source, label: Source, type: enum, enum_options: [referral, job-board, agency, direct], position: 2}
+  - {key: salary_range, label: Salary range, type: string, position: 3}

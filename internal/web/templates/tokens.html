@@ -23,7 +23,7 @@
   <tbody>
   {{range .Data.Tokens}}
     <tr>
-      <td>{{.Name}}</td>
+      <td class="token">{{.Name}}{{if .RequireClaim}} <span class="muted tok-claim">{{t "claim required"}}</span>{{end}}</td>
       {{/* Whose credential this is. A list of other people's tokens with no
            owner column cannot be acted on: every row looks like your own. */}}
       {{if $.Data.Owners}}<td title="{{.ActorID}}"><a class="who-name" href="{{actorHref .ActorID}}">{{.Owner}}</a>{{if .Mine}} <span class="muted">{{t "(you)"}}</span>{{end}}</td>{{end}}
@@ -37,7 +37,10 @@
       {{if $.Columns.Show "tokens" "used"}}<td>{{if .LastUsedAt}}{{when .LastUsedAt}}{{else}}<span class="muted">{{t "Not yet"}}</span>{{end}}</td>{{end}}
       <td><span class="badge tok-{{tokenState .APIToken}}">{{t (tokenState .APIToken)}}</span>{{if .RevokedAt}} <span class="muted">{{when .RevokedAt}}</span>{{end}}</td>
       <td>
-        {{if not .RevokedAt}}{{template "dlg-open" ((opener (print "token-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke %s" .Name))}}{{end}}
+        <div class="tok-actions">
+        {{if eq (tokenState .APIToken) "active"}}{{template "dlg-open" ((opener (print "token-rotate-" .ID) (t "Rotate") "" "secondary small" $.Here).Named (t "Rotate %s" .Name))}}{{end}}
+        {{if ne (tokenState .APIToken) "revoked"}}{{template "dlg-open" ((opener (print "token-revoke-" .ID) (t "Revoke") "" "danger small" $.Here).Named (t "Revoke %s" .Name))}}{{end}}
+        </div>
       </td>
     </tr>
   {{else}}
@@ -50,7 +53,7 @@
 {{/* Revoking ends a credential something may be holding, so the button
      only asks: the dialog names the token, whose it is, and what revoking
      does, and its red button is the one that revokes. */}}
-{{range .Data.Tokens}}{{if not .RevokedAt}}
+{{range .Data.Tokens}}{{if ne (tokenState .APIToken) "revoked"}}
 {{$sh := shell (print "token-revoke-" .ID) (t "Revoke %s?" .Name) "confirm" $.Dialog $.Here}}
 {{template "dlg-start" $sh}}
 <form method="post" action="/admin/tokens/revoke">
@@ -58,6 +61,31 @@
   <input type="hidden" name="id" value="{{.ID}}">
   <p>{{t "Whatever holds this token stops authenticating at once. It cannot be undone, and the value cannot be recovered, so anything still using it needs a new token."}}{{if and $.Data.Owners (not .Mine)}} {{t "This token is %s's, not yours, and the trail will record that you ended somebody else's." .Owner}}{{end}}</p>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Revoke %s" .Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}{{end}}
+
+{{/* Rotating issues the same token again, same name, scopes, project and
+     lifetime, and retires this one. The dialog is the confirmation: it names
+     the token and whose it is, and asks how long the old value may keep
+     working so an agent holding it can swap without a gap. The new value is
+     shown once, through the same one-time cookie an issued token uses. */}}
+{{range .Data.Tokens}}{{if eq (tokenState .APIToken) "active"}}
+{{$sh := shell (print "token-rotate-" .ID) (t "Rotate %s?" .Name) "" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/tokens/rotate">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  {{if $.Data.Filter.Active}}<input type="hidden" name="actor" value="{{$.Data.Filter.Value}}">{{end}}
+  <div class="headtip"><p>{{t "A new token with the same name, scopes and lifetime replaces this one, and its value is shown once."}}{{if and $.Data.Owners (not .Mine)}} {{t "This token is %s's, not yours, and the trail will record that you rotated somebody else's." .Owner}}{{end}}</p>{{template "tip" (tip "Rotating a token" "Rotate a token on a schedule, or at once when it may have leaked. Whatever holds it has to be given the new value; a grace window keeps the old one working meanwhile, and revoking it ends that window early." "docs/agents.md")}}</div>
+  <div class="field-label">
+    <label for="grace-{{.ID}}">{{t "Old token"}}</label>
+    {{template "field-info" "How long the old value keeps authenticating beside the new one, up to a day, so a running agent can pick up the new value without failing a request. After a leak, stop it now."}}
+  </div>
+  <select id="grace-{{.ID}}" name="grace">
+    {{range $.Data.Graces}}<option value="{{.Key}}">{{t .Label}}</option>{{end}}
+  </select>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Rotate %s" .Name}}{{if and $.Data.Owners (not .Mine)}} ({{.Owner}}){{end}}</button></div>
 </form>
 {{template "dlg-end"}}
 {{end}}{{end}}
@@ -86,6 +114,10 @@
     {{range .Data.Expiry}}<option value="{{.Key}}" {{if $.Data.Form.ChoseExpiry .Key}}selected{{end}}>{{t .Label}}</option>{{end}}
   </select>
   {{with .Data.Errors.On "expires"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="require_claim"><input id="require_claim" type="checkbox" name="require_claim" value="1"{{if .Data.Form.RequireClaim}} checked{{end}}> {{t "Require a claim before changing a task"}}</label>
+    {{template "field-info" "Whatever holds this token may move, edit, tag, move to another project or delete a task only while it holds a live claim on it, so every change it makes is tied to work it took. Claiming, creating tasks, commenting and reading stay open. Tick it for an AI agent; leave it clear for a person's script. Rotating the token keeps the setting."}}
+  </div>
   <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Issue token"}}</button></div>
 </form>
 {{template "dlg-end"}}

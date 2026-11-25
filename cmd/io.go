@@ -14,6 +14,7 @@ import (
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/output"
+	"github.com/heliopsy/tix/internal/serving"
 	"github.com/spf13/cobra"
 )
 
@@ -39,16 +40,7 @@ func (g *globals) formatName() string {
 // is validated at load, so a bad value cannot reach here; a zero style is
 // still the fallback rather than a panic, because rendering a timestamp in the
 // wrong layout is a far smaller failure than refusing to print a task list.
-func (g *globals) configTimeStyle() output.TimeStyle {
-	if g.resolved == nil {
-		return output.TimeStyle{}
-	}
-	style, err := output.NewTimeStyle(g.resolved.Config.Output.TimeFormat, g.resolved.Config.Output.Timezone)
-	if err != nil {
-		return output.TimeStyle{}
-	}
-	return style
-}
+func (g *globals) configTimeStyle() output.TimeStyle { return serving.TimeStyle(g.resolved) }
 
 // timeStyle resolves how an instant is shown to the person running this
 // command: a format or zone set on this machine (a flag, TIX_OUTPUT_* or the
@@ -195,6 +187,24 @@ func body(cmd *cobra.Command, value string) (string, error) {
 	return readAll(cmd.InOrStdin())
 }
 
+// passwordArg returns value, or what standard input holds when value is "-",
+// less one trailing newline. Empty input is refused rather than sent on as a
+// password nobody typed.
+func passwordArg(cmd *cobra.Command, value string) (string, error) {
+	if value != StdinMarker {
+		return value, nil
+	}
+	read, err := readAll(cmd.InOrStdin())
+	if err != nil {
+		return "", err
+	}
+	read = strings.TrimSuffix(strings.TrimSuffix(read, "\n"), "\r")
+	if read == "" {
+		return "", usagef(cmd, "--password -: standard input held no password")
+	}
+	return read, nil
+}
+
 // readRefs parses positional task references, expanding "-" from standard input.
 func readRefs(cmd *cobra.Command, args []string) ([]core.TaskRef, error) {
 	raw := make([]string, 0, len(args))
@@ -253,6 +263,7 @@ type taskOutcome struct {
 	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
 	Error  string `json:"error,omitempty" yaml:"error,omitempty"`
 	Copy   string `json:"copy,omitempty" yaml:"copy,omitempty" show:"ref"`
+	Moved  string `json:"moved,omitempty" yaml:"moved,omitempty" show:"ref"`
 }
 
 // Bulk outcome statuses.
@@ -264,12 +275,18 @@ const (
 
 // bulk applies fn to every reference, reports each outcome and fails if any did.
 func (g *globals) bulk(cmd *cobra.Command, refs []core.TaskRef, fn func(core.TaskRef) error) error {
+	return g.bulkMoves(cmd, refs, func(ref core.TaskRef) (string, error) { return "", fn(ref) })
+}
+
+// bulkMoves is bulk for an action that gives each task a new reference, which
+// its outcome names.
+func (g *globals) bulkMoves(cmd *cobra.Command, refs []core.TaskRef, fn func(core.TaskRef) (string, error)) error {
 	results := make([]taskOutcome, 0, len(refs))
 	var failure error
 	for _, ref := range refs {
-		err := fn(ref)
+		moved, err := fn(ref)
 		if err == nil {
-			results = append(results, taskOutcome{Ref: ref.String(), Status: statusOK})
+			results = append(results, taskOutcome{Ref: ref.String(), Status: statusOK, Moved: moved})
 			continue
 		}
 		results = append(results, taskOutcome{
@@ -308,11 +325,22 @@ func newPlan(action, target string, detail map[string]any) plan {
 func (g *globals) dryBulk(cmd *cobra.Command, conn *connect.Conn, ctx context.Context,
 	refs []core.TaskRef, action string, detail map[string]any,
 ) error {
+	return g.dryEach(cmd, refs, action, detail, func(ref core.TaskRef) error {
+		_, err := conn.Service.GetTask(ctx, ref)
+		return err
+	})
+}
+
+// dryEach reports the change each reference would get, failing the ones check
+// refuses with the error the real call would give.
+func (g *globals) dryEach(cmd *cobra.Command, refs []core.TaskRef, action string, detail map[string]any,
+	check func(core.TaskRef) error,
+) error {
 	plans := make([]plan, 0, len(refs))
 	var failure error
 	for _, ref := range refs {
 		entry := newPlan(action, ref.String(), detail)
-		if _, err := conn.Service.GetTask(ctx, ref); err != nil {
+		if err := check(ref); err != nil {
 			entry.Status, entry.Code, entry.Error = statusFailed, string(core.KindOf(err)), err.Error()
 			if failure == nil {
 				failure = err

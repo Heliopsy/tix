@@ -114,7 +114,7 @@ func (h *handler) exportProjectTasks(w http.ResponseWriter, r *http.Request) err
 	if err == nil || out.started {
 		return nil
 	}
-	return h.refuseIn(w, r, exportDialogID, RouteProjects+"/"+key, err, h.showBoard)
+	return h.refuseIn(w, r, exportDialogID, RouteProjects+"/"+key, err, h.showProjectTasks)
 }
 
 // exportStyle is the reader's own time format and zone, the way their pages

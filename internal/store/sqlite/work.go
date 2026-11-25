@@ -61,3 +61,38 @@ func (t *tx) CountTrashed(ctx context.Context, projectID string) (int, error) {
 	}
 	return t.count(ctx, b, "counting deleted tasks")
 }
+
+// highestSeq is the highest number a task of the outer projects row holds.
+const highestSeq = "(SELECT MAX(numbered.seq) FROM tasks numbered " +
+	"WHERE numbered.tenant_id = projects.tenant_id AND numbered.project_id = projects.id)"
+
+// numberingBehindLimit bounds the diagnostic, which names projects rather
+// than paging through them.
+const numberingBehindLimit = 100
+
+// NumberingBehind lists the projects whose task number counter reads below the
+// highest number one of their tasks holds.
+func (t *tx) NumberingBehind(ctx context.Context) ([]core.NumberingLag, error) {
+	b := t.builder("projects").
+		Select("projects.key", "projects.seq_counter", highestSeq).
+		Where("projects.seq_counter < "+highestSeq).
+		OrderBy("projects.key", core.Ascending).
+		Limit(numberingBehindLimit)
+	rows, err := t.query(ctx, b, "listing projects whose task numbering is behind")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []core.NumberingLag{}
+	for rows.Next() {
+		var lag core.NumberingLag
+		if err := rows.Scan(&lag.Project, &lag.Counter, &lag.Highest); err != nil {
+			return nil, mapErr(err, "reading a project whose task numbering is behind")
+		}
+		out = append(out, lag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, mapErr(err, "listing projects whose task numbering is behind")
+	}
+	return out, nil
+}

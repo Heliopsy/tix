@@ -77,7 +77,7 @@ func TestArtifactInputIsValidated(t *testing.T) {
 		t.Errorf("artifact with no kind = %v, want invalid", err)
 	}
 	if _, err := l.PutArtifact(ctx, ref, core.ArtifactInput{
-		Kind: core.ArtifactFile, Blob: make([]byte, core.MaxBlobSize+1),
+		Kind: core.ArtifactFile, Blob: make([]byte, core.DefaultArtifactMaxBytes+1),
 	}); !core.IsKind(err, core.KindInvalid) {
 		t.Errorf("oversized blob = %v, want invalid", err)
 	}

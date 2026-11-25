@@ -28,9 +28,8 @@ type routeOutcome struct {
 }
 
 // moveByRoute finds the route to a status, prints it, and applies it one hop
-// at a time. A dry run stops after printing, which is the whole difference
-// between the two: the route a dry run shows is the route the real run takes,
-// because both are resolved by the same call.
+// at a time. A dry run asks the service to walk the same route and roll it
+// back, so it is refused where the real run would be, hop for hop.
 func (g *globals) moveByRoute(cmd *cobra.Command, conn *connect.Conn, ctx context.Context,
 	refs []core.TaskRef, status string, in core.RouteInput, dryRun bool,
 ) error {
@@ -49,13 +48,8 @@ func (g *globals) moveByRoute(cmd *cobra.Command, conn *connect.Conn, ctx contex
 		}
 		out.From, out.Route, out.Hops = from, route, len(route)
 		printRoute(cmd, ref.String(), from, route, dryRun)
-		if dryRun {
-			out.Status = statusPlanned
-			results = append(results, out)
-			continue
-		}
 		hop := in
-		hop.Route = route
+		hop.Route, hop.DryRun = route, dryRun
 		result, err := conn.Service.TransitionRoute(ctx, ref, hop)
 		switch {
 		case err != nil:
@@ -64,7 +58,12 @@ func (g *globals) moveByRoute(cmd *cobra.Command, conn *connect.Conn, ctx contex
 				failure = err
 			}
 		default:
-			out.Applied, out.Hops, out.Stopped = result.Applied, result.Hops(), result.Stopped
+			out.Stopped = result.Stopped
+			if dryRun {
+				out.Status = statusPlanned
+			} else {
+				out.Applied, out.Hops = result.Applied, result.Hops()
+			}
 			if result.Partial() {
 				out.Status, out.Error = statusFailed, result.Reason
 				if failure == nil {

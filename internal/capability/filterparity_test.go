@@ -84,9 +84,18 @@ var filterExempt = map[string]string{
 	"StarredBy": "the reading actor, which the service sets from the caller and a caller never " +
 		"names: a filter that could name another actor would list by somebody else's stars. " +
 		"It is json:\"-\" so it cannot survive the wire, which is the point.",
+	"OmitBody": "not a set of tasks but what each one carries, for the browser's overdue badge, " +
+		"which counts tasks and draws none. It is json:\"-\" like StarredBy: a remote " +
+		"listing always carries bodies.",
+	"Tally": "not a set of tasks but extra counts of the same set, for a task screen's " +
+		"heading. The HTTP API reads it as tally=true and answers it in the page's tally; " +
+		"the command line and the terminal draw no heading that would use it.",
 	"Page": "the shape of the listing rather than a set of tasks. Sort, limit, cursor " +
 		"and direction each have their own control on every surface, and the expression " +
 		"spells the first two as sort: and limit:.",
+	"PageNumber": "a position in the listing rather than a set of tasks, like Page: the HTTP API " +
+		"reads it as page, tix task ls as --page, the browser as page= in the address and the " +
+		"terminal board as its page keys.",
 }
 
 // cliFlagExempt names the fields reachable only through --filter, with the

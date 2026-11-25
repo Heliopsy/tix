@@ -361,6 +361,7 @@ func TestPendingButtonsInABrowser(t *testing.T) {
 	page.eval(t, `(() => {
 		const form = document.querySelector('form.quickadd');
 		const btn = form.querySelector('button[type=submit]');
+		btn.replaceChildren('Add');
 		form.querySelector('input[name=title]').value = 'Held in flight';
 		let submits = 0;
 		form.addEventListener('submit', () => submits++);

@@ -40,7 +40,7 @@
 
 .pill.status.todo { --state: var(--muted); }
 .pill.status.doing { --state: var(--accent); }
-.pill.status.blocked { --state: var(--warn); }
+.pill.status.blocked { --state: var(--danger); }
 .pill.status.done { --state: var(--ok); }
 .pill.status.cancelled { --state: var(--line-strong); color: var(--muted); }
 
@@ -208,7 +208,7 @@
    screens. */
 .cat-todo { --state: var(--muted); color: var(--muted); }
 .cat-in-progress { --state: var(--accent); color: var(--accent); }
-.cat-blocked { --state: var(--warn); color: var(--warn); }
+.cat-blocked { --state: var(--danger); color: var(--danger); }
 .cat-waiting { --state: var(--cat-waiting); color: var(--cat-waiting); }
 .cat-done { --state: var(--ok); color: var(--ok); }
 .cat-cancelled { --state: var(--line-strong); color: var(--line-strong); }

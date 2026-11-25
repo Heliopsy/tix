@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/server"
@@ -74,7 +75,7 @@ func TestCredentialsOfADisabledPersonStopAtOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			creds := server.NewStoreCredentials(st)
+			creds := server.NewStoreCredentials(st, core.SessionPolicy{})
 			pinned := core.WithTenant(ctx, scope)
 			if s, err := creds.SessionByHash(pinned, "session-hash"); err != nil || s == nil {
 				t.Fatalf("session before disabling = %+v, %v; want it found", s, err)
@@ -82,11 +83,11 @@ func TestCredentialsOfADisabledPersonStopAtOnce(t *testing.T) {
 			if err := st.Update(ctx, scope, func(tx store.Tx) error { return tc.disable(ctx, tx, user, actor) }); err != nil {
 				t.Fatal(err)
 			}
-			if s, err := creds.SessionByHash(pinned, "session-hash"); err != nil || s != nil {
-				t.Errorf("session after disabling = %+v, %v; want none", s, err)
+			if s, err := creds.SessionByHash(pinned, "session-hash"); !auth.IsWithdrawn(err) || s != nil {
+				t.Errorf("session after disabling = %+v, %v; want none, withdrawn", s, err)
 			}
-			if tok, err := creds.TokenByHash(pinned, "token-hash"); err != nil || tok != nil {
-				t.Errorf("token after disabling = %+v, %v; want none", tok, err)
+			if tok, err := creds.TokenByHash(pinned, "token-hash"); !auth.IsWithdrawn(err) || tok != nil {
+				t.Errorf("token after disabling = %+v, %v; want none, withdrawn", tok, err)
 			}
 		})
 	}

@@ -22,6 +22,16 @@ type Tenant struct {
 	// surface. Empty means nobody chose, and the accent is derived from the
 	// tenant's own identity instead; see ThemeRegistry.Resolve.
 	Theme string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// Icon is a text icon, one emoji or a one or two letter monogram, drawn
+	// beside the tenant's name wherever tenants are listed to switch between.
+	// At most one of Icon, IconName and IconImage is set; with none, a surface
+	// draws a monogram of the name.
+	Icon string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName names one of the built-in icons, the same set a project offers.
+	IconName string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconImage is the digest of an uploaded icon image, whose bytes are read
+	// from GET /api/v1/tenants/{ref}/icon.
+	IconImage string `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 	// RequireTOTPWeb requires a second factor when signing in to the browser
 	// interface. Each surface is set independently and defaults to false.
 	RequireTOTPWeb bool `json:"require_totp_web" yaml:"require_totp_web"`
@@ -31,6 +41,19 @@ type Tenant struct {
 	// RequireTOTPSSH requires a second factor when opening the board over SSH,
 	// on top of the key. Defaults to false.
 	RequireTOTPSSH bool `json:"require_totp_ssh" yaml:"require_totp_ssh"`
+	// MFAPolicy is the tenant's second factor policy: "off", or "required",
+	// under which a person holding no factor can do nothing but enrol, on any
+	// surface and with any credential of theirs, once the grace has passed.
+	MFAPolicy MFAPolicy `json:"mfa_policy" yaml:"mfa_policy"`
+	// MFAGrace is how long after the policy turned required an unenrolled
+	// person may still work, as a duration such as "7d". Zero gates at once.
+	MFAGrace Duration `json:"mfa_grace,omitempty" yaml:"mfa_grace,omitempty"`
+	// MFARequiredAt is when the policy last turned required, RFC 3339. Absent
+	// while it is off.
+	MFARequiredAt *time.Time `json:"mfa_required_at,omitempty" yaml:"mfa_required_at,omitempty"`
+	// PasswordLogin is "allowed", or "disabled" when people sign in through
+	// the tenant's providers only. Global admins keep password sign-in.
+	PasswordLogin PasswordLogin `json:"password_login" yaml:"password_login"`
 	// LeaseDefault is how long a claim on this tenant's tasks holds when the
 	// claim, task, project and workflow name none, as a duration such as "4h".
 	// Zero or absent defers to the deployment configuration, then the built-in
@@ -40,6 +63,23 @@ type Tenant struct {
 	// such as "24h". It can lower the deployment's ceiling but never raise it;
 	// zero or absent inherits the deployment's.
 	LeaseMax Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// ArtifactMaxBytes is the largest artifact blob this tenant accepts. It can
+	// lower the server's artifacts.max_bytes but never raise it; zero inherits.
+	ArtifactMaxBytes int64 `json:"artifact_max_bytes,omitempty" yaml:"artifact_max_bytes,omitempty"`
+	// ArtifactTypes are the media types and patterns an artifact blob may carry
+	// on this tenant, within the server's artifacts.allowed_types; empty inherits.
+	ArtifactTypes []string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
+	// SessionTTL is how long a sign-in on this tenant lasts. It can shorten
+	// the server's session.ttl but never lengthen it; zero inherits.
+	SessionTTL Duration `json:"session_ttl,omitempty" yaml:"session_ttl,omitempty"`
+	// SessionIdleTimeout ends a session unused for this long. It can only be
+	// shorter than the server's session.idle_timeout; zero inherits.
+	SessionIdleTimeout Duration `json:"session_idle_timeout,omitempty" yaml:"session_idle_timeout,omitempty"`
+	// SessionRememberTTL is how long a "keep me signed in" sign-in lasts,
+	// within the server's session.remember_ttl; zero inherits.
+	SessionRememberTTL Duration `json:"session_remember_ttl,omitempty" yaml:"session_remember_ttl,omitempty"`
+	// SessionRememberOff turns "keep me signed in" off on this tenant.
+	SessionRememberOff bool `json:"session_remember_off,omitempty" yaml:"session_remember_off,omitempty"`
 	// TrashOff makes deleting a task permanent on this tenant. False, the
 	// default, keeps deleted tasks in a trash they can be restored from.
 	TrashOff bool `json:"trash_off" yaml:"trash_off"`
@@ -72,6 +112,49 @@ func (t Tenant) RequiresTOTP(s Surface) bool {
 	default:
 		return false
 	}
+}
+
+// MFAPolicy is a tenant's second factor policy.
+type MFAPolicy string
+
+// The second factor policies.
+const (
+	MFAPolicyOff      MFAPolicy = "off"
+	MFAPolicyRequired MFAPolicy = "required"
+)
+
+// MFAPolicies lists every second factor policy.
+var MFAPolicies = []MFAPolicy{MFAPolicyOff, MFAPolicyRequired}
+
+// Valid reports whether p is a known policy. The empty policy is off.
+func (p MFAPolicy) Valid() bool { return p == "" || slices.Contains(MFAPolicies, p) }
+
+// ReasonSecondFactorEnrollmentRequired is the detail a request refused by the
+// second factor policy carries.
+const ReasonSecondFactorEnrollmentRequired = "second_factor_enrollment_required"
+
+// MFARequired reports whether the tenant's second factor policy is required.
+func (t Tenant) MFARequired() bool { return t.MFAPolicy == MFAPolicyRequired }
+
+// MFADeadline is when the policy starts refusing people without a factor:
+// when it turned required plus the grace. Nil while the policy is off.
+func (t Tenant) MFADeadline() *time.Time {
+	if !t.MFARequired() {
+		return nil
+	}
+	var from time.Time
+	if t.MFARequiredAt != nil {
+		from = *t.MFARequiredAt
+	}
+	at := from.Add(time.Duration(t.MFAGrace))
+	return &at
+}
+
+// MFAEnforced reports whether, at now, the policy refuses a person who holds
+// no second factor.
+func (t Tenant) MFAEnforced(now time.Time) bool {
+	d := t.MFADeadline()
+	return d != nil && !now.Before(*d)
 }
 
 // CertMode describes how a domain obtains its TLS certificate.
@@ -136,11 +219,6 @@ type User struct {
 	// DisabledAt is when the user was disabled, RFC 3339. A disabled user cannot
 	// sign in; absent on an active user.
 	DisabledAt *time.Time `json:"disabled_at,omitempty" yaml:"disabled_at,omitempty"`
-	// SSOProvider names the single sign-on provider that vouches for the user.
-	// Empty for a password user.
-	SSOProvider string `json:"sso_provider,omitempty" yaml:"sso_provider,omitempty"`
-	// SSOSubject is the user's subject identifier at SSOProvider.
-	SSOSubject string `json:"sso_subject,omitempty" yaml:"sso_subject,omitempty"`
 	// TOTPEnrolled reports whether this user holds a confirmed second factor.
 	// It is state, not a credential: nothing here can produce a code, and it
 	// is what lets an administrative listing say who holds one rather than
@@ -153,6 +231,10 @@ type User struct {
 	// RequirePasswordChange reports whether the next password sign-in must
 	// choose a new password before a session is minted.
 	RequirePasswordChange bool `json:"require_password_change" yaml:"require_password_change"`
+	// Removed reports that the person was removed from this tenant: their
+	// actor stays so history still names them, but they hold no membership.
+	// A listing returns such a person only when asked to include them.
+	Removed bool `json:"removed,omitempty" yaml:"removed,omitempty"`
 }
 
 // APIToken is a scoped bearer credential, normally held by an agent.
@@ -172,6 +254,9 @@ type APIToken struct {
 	// ProjectID restricts the token to one project when set. Empty means every
 	// project the actor can reach.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
+	// RequireClaim refuses a change to a task unless the token's actor holds
+	// a live claim on it. Set when the token is minted; rotation keeps it.
+	RequireClaim bool `json:"require_claim" yaml:"require_claim"`
 	// CreatedAt is when the token was issued, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// ExpiresAt is when the token stops authenticating, RFC 3339. Absent means
@@ -181,16 +266,28 @@ type APIToken struct {
 	// Absent if never used.
 	LastUsedAt *time.Time `json:"last_used_at,omitempty" yaml:"last_used_at,omitempty"`
 	// RevokedAt is when the token was revoked, RFC 3339. A revoked token never
-	// authenticates again.
+	// authenticates again. A time still to come is a rotated token's grace
+	// window: it works until then.
 	RevokedAt *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
 }
 
 // Active reports whether the token may still authenticate at time now.
 func (t APIToken) Active(now time.Time) bool {
-	if t.RevokedAt != nil {
+	if t.Revoked(now) {
 		return false
 	}
 	return t.ExpiresAt == nil || t.ExpiresAt.After(now)
+}
+
+// Revoked reports whether the token's revocation has taken effect at now.
+func (t APIToken) Revoked(now time.Time) bool {
+	return t.RevokedAt != nil && !t.RevokedAt.After(now)
+}
+
+// Retiring reports whether the token was rotated and still works at now
+// inside its grace window.
+func (t APIToken) Retiring(now time.Time) bool {
+	return t.RevokedAt != nil && t.Active(now)
 }
 
 // IssuedToken carries a newly minted token value.
@@ -245,6 +342,11 @@ type Project struct {
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// UpdatedAt is when the project was last changed, RFC 3339.
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
+
+	// Starred is the reading actor's own star on the project, never anybody
+	// else's. Only a read that knows its reader sets it, so it is omitted
+	// rather than false wherever nobody asked.
+	Starred bool `json:"starred,omitempty" yaml:"starred,omitempty"`
 }
 
 // Archived reports whether the project is archived.
@@ -372,6 +474,38 @@ func (d WorkflowDefinition) State(key string) (State, bool) {
 func (d WorkflowDefinition) HasState(key string) bool {
 	_, ok := d.State(key)
 	return ok
+}
+
+// StateKeys returns the keys of every state, in the workflow's order.
+func (d WorkflowDefinition) StateKeys() []string {
+	out := make([]string, 0, len(d.States))
+	for _, s := range d.States {
+		out = append(out, s.Key)
+	}
+	return out
+}
+
+// UnknownState refuses a status the workflow does not define, naming the
+// states it does so the caller need not look them up.
+func (d WorkflowDefinition) UnknownState(key string) *Error {
+	keys := d.StateKeys()
+	return Invalid("status %q is not a state of this project's workflow; its states are %s",
+		key, strings.Join(keys, ", ")).WithDetail("states", keys)
+}
+
+// StartState is the state a claim that starts work moves a task to from the
+// given one: the first in-progress state, in the workflow's order, with an
+// edge from it. It reports false when none has.
+func (d WorkflowDefinition) StartState(from string) (string, bool) {
+	for _, s := range d.States {
+		if d.CategoryOf(s.Key) != CategoryInProgress {
+			continue
+		}
+		if _, ok := d.CanTransition(from, s.Key); ok {
+			return s.Key, true
+		}
+	}
+	return "", false
 }
 
 // IsTerminal reports whether the named state satisfies a dependency.
@@ -615,6 +749,9 @@ type Task struct {
 	// Blocked reports that at least one task this one depends on is neither
 	// completed nor deleted.
 	Blocked bool `json:"blocked" yaml:"blocked"`
+	// WaitingOn names, by reference, the unfinished tasks that make this one
+	// Blocked, in reference order. Empty when Blocked is false.
+	WaitingOn []string `json:"waiting_on,omitempty" yaml:"waiting_on,omitempty"`
 	// DependsOn lists the IDs of the tasks this one waits for.
 	DependsOn []string `json:"depends_on,omitempty" yaml:"depends_on,omitempty"`
 
@@ -627,6 +764,12 @@ type Task struct {
 	// from the body, so it is absent from audit snapshots and exports, and nil
 	// when the description has no items.
 	Checklist *Checklist `json:"checklist,omitempty" yaml:"checklist,omitempty"`
+
+	// WebURL is the address of the task's screen in the browser interface,
+	// set when the server is configured with the address it is reached at
+	// (server.public_url). Only a read sets it, so it is absent from audit
+	// snapshots, events and exports.
+	WebURL string `json:"web_url,omitempty" yaml:"web_url,omitempty"`
 }
 
 // ClaimedAtTime reports whether the task is effectively claimed at time now.
@@ -718,6 +861,29 @@ type Comment struct {
 	// DeletedAt is when the comment was deleted, RFC 3339. Absent on a live
 	// comment.
 	DeletedAt *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty"`
+	// Reactions are the emoji people reacted with, in the order each emoji
+	// was first used. Absent when nobody reacted.
+	Reactions []Reaction `json:"reactions,omitempty" yaml:"reactions,omitempty"`
+}
+
+// Reaction is one emoji on a comment and everyone who reacted with it.
+type Reaction struct {
+	// Emoji is the reaction, a single emoji grapheme.
+	Emoji string `json:"emoji" yaml:"emoji"`
+	// Count is how many actors reacted with this emoji.
+	Count int `json:"count" yaml:"count"`
+	// ActorIDs are the actors who reacted, earliest first.
+	ActorIDs []string `json:"actor_ids" yaml:"actor_ids"`
+}
+
+// CommentReaction is one actor's emoji on one comment, as stored.
+type CommentReaction struct {
+	// CommentID is the comment reacted to.
+	CommentID string `json:"comment_id" yaml:"comment_id"`
+	// ActorID is the actor who reacted.
+	ActorID string `json:"actor_id" yaml:"actor_id"`
+	// Emoji is the reaction.
+	Emoji string `json:"emoji" yaml:"emoji"`
 }
 
 // ArtifactKind classifies a worker's structured output.
@@ -757,8 +923,8 @@ type Artifact struct {
 	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
 	// ContentType is the media type of Blob, such as "text/plain".
 	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	// Blob is inline content, base64 in JSON, at most 1 MiB. Larger content
-	// belongs elsewhere, referenced from Payload.
+	// Blob is inline content, base64 in JSON, within the tenant's artifact
+	// limits. Larger content belongs elsewhere, referenced from Payload.
 	Blob []byte `json:"blob,omitempty" yaml:"blob,omitempty"`
 	// CreatedAt is when the artifact was written, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
@@ -775,6 +941,9 @@ type Claim struct {
 	LeaseExpiresAt time.Time `json:"lease_expires_at" yaml:"lease_expires_at"`
 	// Lease is how long the lease granted runs and which level decided it.
 	Lease *LeaseGrant `json:"lease,omitempty" yaml:"lease,omitempty"`
+	// StartedFrom is the status the task was in before a claim that starts it
+	// moved it; empty when the claim did not move the task.
+	StartedFrom string `json:"started_from,omitempty" yaml:"started_from,omitempty"`
 }
 
 // LeaseSource names the level a lease length or ceiling was taken from.
@@ -856,10 +1025,14 @@ const (
 	EventTaskUnsnoozed EventType = "task.unsnoozed"
 	EventTaskWoke      EventType = "task.woke"
 
-	EventCommentAdded    EventType = "comment.added"
-	EventArtifactAdded   EventType = "artifact.added"
-	EventDependencyAdded EventType = "dependency.added"
-	EventLabelAdded      EventType = "tag.added"
+	EventCommentAdded EventType = "comment.added"
+	// EventCommentReacted and EventCommentUnreacted record one actor adding or
+	// removing an emoji reaction on a comment.
+	EventCommentReacted   EventType = "comment.reacted"
+	EventCommentUnreacted EventType = "comment.unreacted"
+	EventArtifactAdded    EventType = "artifact.added"
+	EventDependencyAdded  EventType = "dependency.added"
+	EventLabelAdded       EventType = "tag.added"
 
 	EventProjectCreated  EventType = "project.created"
 	EventProjectUpdated  EventType = "project.updated"
@@ -868,6 +1041,9 @@ const (
 
 	EventWebhookDelivered EventType = "webhook.delivered"
 	EventImportCompleted  EventType = "import.completed"
+	// EventWebhookPing is the test event a ping sends to the one endpoint
+	// named, and to no other endpoint whatever its filter.
+	EventWebhookPing EventType = "webhook.ping"
 
 	// EventViewArranged records one reader changing their own arrangement of
 	// a view's groups. Like a star it changes nothing anybody else sees.
@@ -894,13 +1070,14 @@ var eventTypes = []EventType{
 	EventTaskReclaimed,
 	EventTaskDeleted, EventTaskStarred, EventTaskUnstarred,
 	EventTaskSnoozed, EventTaskUnsnoozed, EventTaskWoke,
-	EventCommentAdded, EventArtifactAdded,
+	EventCommentAdded, EventCommentReacted, EventCommentUnreacted, EventArtifactAdded,
 	EventDependencyAdded, EventLabelAdded, EventProjectCreated,
 	EventProjectUpdated, EventWorkflowUpdated, EventFieldUpdated,
 	EventWebhookDelivered, EventImportCompleted, EventViewArranged,
 	EventFilterSaved, EventFilterUpdated, EventFilterDeleted,
 	EventInboxUpdated,
 	EventTemplateUpdated,
+	EventWebhookPing,
 }
 
 // EventTypes returns the complete event vocabulary. Callers outside this
@@ -975,7 +1152,8 @@ type WebhookEndpoint struct {
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
 	// URL is where deliveries are POSTed.
 	URL string `json:"url" yaml:"url"`
-	// Secret signs each delivery. It is never returned.
+	// Secret signs each delivery. It is never serialised; a generated one
+	// reaches its registrar once, through IssuedWebhook.
 	Secret string `json:"-" yaml:"-"`
 	// EventTypes are the event types delivered, exact or with a trailing "*"
 	// such as "task.*". Empty delivers every event.
@@ -984,6 +1162,15 @@ type WebhookEndpoint struct {
 	Active bool `json:"active" yaml:"active"`
 	// CreatedAt is when the endpoint was registered, RFC 3339.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+}
+
+// IssuedWebhook is an endpoint as PutWebhook answers it: the only answer that
+// can carry a signing secret, and only one tix generated for that call.
+type IssuedWebhook struct {
+	WebhookEndpoint `yaml:",inline"`
+	// SigningSecret is the secret tix generated for an endpoint saved without
+	// one, returned this once. Absent when the caller supplied or kept one.
+	SigningSecret string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }
 
 // DeliveryStatus is the state of one webhook delivery attempt chain.
@@ -1188,6 +1375,9 @@ type TrashStatus struct {
 // ErrTrashOff is the detail key a refusal carries when the tenant's trash is
 // turned off, so a client can tell it from any other failed precondition.
 const ErrTrashOff = "trash_off"
+
+// ErrNotTrashed is the detail reason a purge of a live task carries.
+const ErrNotTrashed = "not_trashed"
 
 // TrashIsOff is the refusal for asking a tenant with no trash for its trash.
 func TrashIsOff(what string) *Error {

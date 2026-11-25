@@ -175,4 +175,8 @@ func TestMaxImportBytesFollowsTheResolvedConfig(t *testing.T) {
 	if got := g.maxImportBytes(); got != 1234 {
 		t.Errorf("with server.max_import_bytes 1234: %d", got)
 	}
+	g.resolved.Config.Artifacts.MaxBytes = 4321
+	if got := g.maxInputBytes(); got != 4321 {
+		t.Errorf("with artifacts.max_bytes above the import limit, standard input takes %d, want 4321", got)
+	}
 }

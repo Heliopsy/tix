@@ -35,6 +35,9 @@ type Ticket struct {
 	// Method is how the first step was passed, carried so the session the
 	// second step mints is recorded as what it was. Empty reads as password.
 	Method string
+	// App is the native app a sign-in through a provider hands its result
+	// to, when an app started it.
+	App *AppSignIn
 }
 
 // ticketSeparator divides the payload fields. None of the fields may contain
@@ -48,6 +51,26 @@ const ticketSeparator = "|"
 // that requires a factor always has a key configured, because enrolment is
 // refused without one, so there is no path that needs a ticket and lacks a key.
 func MintTicket(encoded string, t Ticket) (string, error) {
+	return mintTicket(encoded, ticketLabel, t)
+}
+
+// MintHandoffTicket signs the ticket an app sign-in that completed by
+// enrolling carries to the Open the app button, which mints the app's code.
+// It is signed apart from a sign-in ticket, so neither passes for the other.
+func MintHandoffTicket(encoded string, t Ticket) (string, error) {
+	if t.App == nil {
+		return "", core.Invalid("a handoff ticket requires an app sign-in")
+	}
+	return mintTicket(encoded, handoffLabel, t)
+}
+
+// Labels the two kinds of ticket are signed under.
+const (
+	ticketLabel  = "tix-login-ticket"
+	handoffLabel = "tix-app-handoff"
+)
+
+func mintTicket(encoded, label string, t Ticket) (string, error) {
 	key, err := ParseTOTPKey(encoded)
 	if err != nil {
 		return "", err
@@ -60,11 +83,19 @@ func MintTicket(encoded string, t Ticket) (string, error) {
 	case !t.Surface.Valid():
 		return "", core.Invalid("a sign-in ticket requires a known surface")
 	}
-	payload := strings.Join([]string{
+	fields := []string{
 		t.UserID, t.TenantID, string(t.Surface), strconv.FormatInt(t.ExpiresAt.UTC().Unix(), 10), t.Method,
-	}, ticketSeparator)
+	}
+	if t.App != nil {
+		app, err := encodeApp(t.App)
+		if err != nil {
+			return "", err
+		}
+		fields = append(fields, app)
+	}
+	payload := strings.Join(fields, ticketSeparator)
 	body := base64.RawURLEncoding.EncodeToString([]byte(payload))
-	return body + "." + base64.RawURLEncoding.EncodeToString(ticketSignature(key, body)), nil
+	return body + "." + base64.RawURLEncoding.EncodeToString(ticketSignature(key, label, body)), nil
 }
 
 // ParseTicket verifies a ticket's signature and expiry and returns what it
@@ -72,6 +103,44 @@ func MintTicket(encoded string, t Ticket) (string, error) {
 // sign-in, and telling a caller which part of it was wrong tells an attacker
 // how far a forgery got.
 func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
+	out, err := readTicket(encoded, ticketLabel, ticket)
+	if err != nil || !out.ExpiresAt.After(now) {
+		return Ticket{}, orTicket(err)
+	}
+	return out, nil
+}
+
+// PeekTicket reads a sign-in ticket whose signature holds, expired or not,
+// so a refusal can still name the app the sign-in belongs to.
+func PeekTicket(encoded, ticket string) (Ticket, error) {
+	return readTicket(encoded, ticketLabel, ticket)
+}
+
+// ParseHandoffTicket verifies a ticket MintHandoffTicket signed. An expired
+// one answers what it says beside the error, so the refusal can go back to
+// the app.
+func ParseHandoffTicket(encoded, ticket string, now time.Time) (Ticket, error) {
+	out, err := readTicket(encoded, handoffLabel, ticket)
+	if err != nil || out.App == nil {
+		return Ticket{}, orTicket(err)
+	}
+	if !out.ExpiresAt.After(now) {
+		return out, errTicket()
+	}
+	return out, nil
+}
+
+// orTicket is err, or the bad ticket answer when there is none.
+func orTicket(err error) error {
+	if err != nil {
+		return err
+	}
+	return errTicket()
+}
+
+// readTicket verifies a ticket's signature under label and decodes it,
+// leaving its expiry to the caller.
+func readTicket(encoded, label, ticket string) (Ticket, error) {
 	key, err := ParseTOTPKey(encoded)
 	if err != nil {
 		return Ticket{}, err
@@ -81,7 +150,7 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		return Ticket{}, errTicket()
 	}
 	given, err := base64.RawURLEncoding.DecodeString(sig)
-	if err != nil || !hmac.Equal(given, ticketSignature(key, body)) {
+	if err != nil || !hmac.Equal(given, ticketSignature(key, label, body)) {
 		return Ticket{}, errTicket()
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(body)
@@ -89,7 +158,7 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		return Ticket{}, errTicket()
 	}
 	parts := strings.Split(string(raw), ticketSeparator)
-	if len(parts) != 4 && len(parts) != 5 {
+	if len(parts) < 4 || len(parts) > 6 {
 		return Ticket{}, errTicket()
 	}
 	unix, err := strconv.ParseInt(parts[3], 10, 64)
@@ -102,23 +171,33 @@ func ParseTicket(encoded, ticket string, now time.Time) (Ticket, error) {
 		Surface:   core.Surface(parts[2]),
 		ExpiresAt: time.Unix(unix, 0).UTC(),
 	}
-	if len(parts) == 5 {
+	if len(parts) >= 5 {
 		out.Method = parts[4]
 	}
-	if !out.Surface.Valid() || !out.ExpiresAt.After(now) {
+	if len(parts) == 6 {
+		app, ok := decodeApp(parts[5])
+		if !ok {
+			return Ticket{}, errTicket()
+		}
+		out.App = app
+	}
+	if !out.Surface.Valid() {
 		return Ticket{}, errTicket()
 	}
 	return out, nil
 }
 
 // errTicket is the single answer a bad ticket gives.
-func errTicket() error {
+func errTicket() error { return ErrSignInExpired() }
+
+// ErrSignInExpired is the answer a bad, expired or misplaced ticket gives.
+func ErrSignInExpired() error {
 	return core.Unauthenticated("this sign-in has expired; start again")
 }
 
-func ticketSignature(key []byte, body string) []byte {
+func ticketSignature(key []byte, label, body string) []byte {
 	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte("tix-login-ticket"))
+	mac.Write([]byte(label))
 	mac.Write([]byte(body))
 	return mac.Sum(nil)
 }

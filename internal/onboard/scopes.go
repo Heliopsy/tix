@@ -2,7 +2,11 @@
 
 package onboard
 
-import "github.com/heliopsy/tix/internal/core"
+import (
+	"time"
+
+	"github.com/heliopsy/tix/internal/core"
+)
 
 // ScopeGroup is a headed set of scopes, in the order a person looks for them.
 type ScopeGroup struct {
@@ -21,6 +25,7 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeTaskClaim:      "Claim tasks, renew the lease and release it.",
 	core.ScopeTaskDelete:     "Delete tasks and restore them from the trash.",
 	core.ScopeTaskReclaim:    "End a lease another worker holds.",
+	core.ScopeTaskApprove:    "Approve or reject work on a workflow edge that asks for it.",
 	core.ScopeProjectRead:    "Read projects.",
 	core.ScopeProjectWrite:   "Create and change projects.",
 	core.ScopeWorkflowRead:   "Read workflows.",
@@ -34,25 +39,34 @@ var ScopeNotes = map[core.Scope]string{
 	core.ScopeWebhookAdmin:   "Manage outgoing webhooks.",
 	core.ScopeTenantAdmin:    "Manage the tenant, its members and domains.",
 	core.ScopeSyncAdmin:      "Manage and run imports from other trackers.",
+	core.ScopeSSOAdmin:       "Manage single sign-on providers and whether passwords are accepted.",
 	core.ScopeAuditRead:      "Read the audit log.",
 	core.ScopeExport:         "Export a snapshot of the whole tenant.",
 	core.ScopeImport:         "Import a snapshot into the tenant.",
 	core.ScopeGlobalAdmin:    "Administer every tenant on this server. Only a global admin's token can carry it.",
 	core.ScopeAccountRead:    "Read your own account's history, which names every tenant you belong to. Only a token for your own account can carry it.",
+	core.ScopeSCIMProvision:  "Provision users and groups from an identity provider over SCIM. It carries no other scope and works only on /scim/v2.",
+}
+
+// UnpickedScopes are the scopes no token form offers, each with where it is
+// minted instead.
+var UnpickedScopes = map[core.Scope]string{
+	core.ScopeCaldav: "an app password, created with tix dav password create or in Settings, never as a token",
 }
 
 // ScopeGroups orders the scopes the way a person looks for them.
 var ScopeGroups = []ScopeGroup{
 	{"tasks", "Tasks", []core.Scope{core.ScopeTaskRead, core.ScopeTaskWrite, core.ScopeTaskTransition,
-		core.ScopeTaskClaim, core.ScopeTaskDelete, core.ScopeTaskReclaim}},
+		core.ScopeTaskClaim, core.ScopeTaskDelete, core.ScopeTaskReclaim, core.ScopeTaskApprove}},
 	{"projects", "Projects", []core.Scope{core.ScopeProjectRead, core.ScopeProjectWrite}},
 	{"workflows", "Workflows", []core.Scope{core.ScopeWorkflowRead, core.ScopeWorkflowWrite}},
 	{"comments", "Comments and artifacts", []core.Scope{core.ScopeCommentWrite, core.ScopeArtifactWrite}},
 	{"events", "Events", []core.Scope{core.ScopeEventSubscribe}},
 	{"admin", "Administration", []core.Scope{core.ScopeUserAdmin, core.ScopeTOTPAdmin, core.ScopeTokenAdmin,
-		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeAuditRead,
+		core.ScopeWebhookAdmin, core.ScopeTenantAdmin, core.ScopeSyncAdmin, core.ScopeSSOAdmin, core.ScopeAuditRead,
 		core.ScopeExport, core.ScopeImport, core.ScopeGlobalAdmin}},
 	{"account", "Your account", []core.Scope{core.ScopeAccountRead}},
+	{"provisioning", "Provisioning", []core.Scope{core.ScopeSCIMProvision}},
 }
 
 // TokenExpiry is one expiry a token form offers. Days is how long the token
@@ -81,3 +95,30 @@ var TokenExpiries = []TokenExpiry{
 // expiry, not "never", because a token is normally handed to something outside
 // the operator's control.
 const DefaultTokenExpiry = "90d"
+
+// RotateGrace is one grace window a rotation form offers: how long the old
+// token keeps working beside its replacement.
+type RotateGrace struct {
+	Key   string
+	Label string
+	Grace time.Duration
+}
+
+// RotateGraces are the windows a rotation form offers, the first proposed.
+// None reaches past core.MaxTokenRotateGrace.
+var RotateGraces = []RotateGrace{
+	{Key: "0", Label: "Stop the old token now", Grace: 0},
+	{Key: "10m", Label: "Keep it working for 10 minutes", Grace: 10 * time.Minute},
+	{Key: "1h", Label: "Keep it working for 1 hour", Grace: time.Hour},
+	{Key: "24h", Label: "Keep it working for 24 hours", Grace: 24 * time.Hour},
+}
+
+// RotateGraceFor resolves a grace key, or a label, to its window.
+func RotateGraceFor(choice string) (RotateGrace, bool) {
+	for _, g := range RotateGraces {
+		if g.Key == choice || g.Label == choice {
+			return g, true
+		}
+	}
+	return RotateGrace{}, false
+}

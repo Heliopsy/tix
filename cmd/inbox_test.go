@@ -77,6 +77,12 @@ func TestInboxCommandsListMarkAndMute(t *testing.T) {
 		t.Fatalf("table names neither the kind nor the actor:\n%s", table)
 	}
 
+	if got := inboxItems(t, c, "--kind", "comment,status"); len(got) != 0 {
+		t.Fatalf("--kind comment,status listed mentions: %+v", got)
+	}
+	if got := inboxItems(t, c, "--kind", "mention"); len(got) != 2 {
+		t.Fatalf("--kind mention = %+v", got)
+	}
 	c.mustRun("inbox", "read", items[0].ID, "--dry-run")
 	if unreadCount(t, c) != 2 {
 		t.Fatal("a dry run marked an item read")

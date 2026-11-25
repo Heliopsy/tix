@@ -23,10 +23,13 @@ request body says can set it.
 | `ssh` | the terminal interface or `watch` over SSH | SSH key fingerprint, client address |
 | `sync` | a sync run's changes | `origin`: the channel that started the run, and its details |
 | `import` | a snapshot or bundle import's changes | `origin`: the channel that ran the import, and its details |
+| `scim` | an identity provider over `/scim/v2` ([scim.md](scim.md)) | token ID and name, client address, user agent |
+| `caldav` | a calendar or reminders app over `/dav/` with an app password ([caldav.md](caldav.md)) | token ID and name, client address, user agent |
 | `system` | background work in `tix serve` | `job`: `lease-sweep`, `snooze-wake`, `prune`, `housekeeping` or `sandbox-seed` |
 | `unknown` | an entry written before tix recorded channels | nothing |
 
-The credential decides the channel. A session cookie is `web`; a bearer token is `api`; a request with
+The credential decides the channel. A session cookie is `web`; a bearer token is `api`; an app password
+under `/dav/` is `caldav`; a request with
 neither (sign-in, no-auth mode) is `web` on a browser path and `api` under `/api/`. The tix client sends
 `X-Tix-Client: cli`, and `tix mcp` sends `X-Tix-Client: mcp`. The server reads that header only to narrow
 `api` to `cli-remote` or `mcp`: it cannot make a request `web`, `ssh`, `system` or anything else, and a
@@ -39,7 +42,9 @@ pass run by the server's hourly timer is `system` with job `housekeeping`.
 ## What is stored, and what never is
 
 - An API token is stored by its ID and its name at the time of the change. The secret never reaches the
-  audit log or the event log.
+  audit log or the event log. A token renamed or deleted since keeps the name it had in the entries it
+  wrote; its ID tells two names of one token apart. Activity, a task's History and Sync runs print the name,
+  and they show it only to someone who can read the audit log.
 - A browser session is stored as a reference: `s-` and 16 hex characters of a digest of the session's
   stored hash. It tells two sessions apart, and it is neither the cookie nor the hash a sign-in lookup
   accepts.
@@ -64,5 +69,6 @@ curl -H "Authorization: Bearer $TIX_TOKEN" "$TIX_SERVER/api/v1/audit?via=mcp&tok
 ```
 
 `--via` and `via=` repeat for alternatives and refuse a channel that does not exist. `--token` and `token=`
-match the token's name. The Activity screen has a channel dropdown and a token box, and every row's
+match the token's name. The Activity screen has a channel dropdown, a token box, an action box and a From and To
+time window, and every row's
 channel links to the feed narrowed to it. The table output of `tix audit ls` has a `VIA` column.

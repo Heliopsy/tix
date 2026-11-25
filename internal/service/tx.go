@@ -33,7 +33,13 @@ type mutation struct {
 // Event queues a domain event. It is written before commit, in this same
 // transaction, so an event can never exist without the rows it describes.
 func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID string, payload map[string]any) {
-	m.events = append(m.events, &core.Event{
+	m.events = append(m.events, m.newEvent(typ, subjectType, subjectID, projectID, payload))
+}
+
+// newEvent builds an event attributed to this mutation's actor and channel,
+// without queueing it.
+func (m *mutation) newEvent(typ core.EventType, subjectType, subjectID, projectID string, payload map[string]any) *core.Event {
+	return &core.Event{
 		Type:        typ,
 		ProjectID:   projectID,
 		SubjectType: subjectType,
@@ -42,7 +48,7 @@ func (m *mutation) Event(typ core.EventType, subjectType, subjectID, projectID s
 		Payload:     m.withActor(payload),
 		Via:         new(m.via),
 		OccurredAt:  m.now,
-	})
+	}
 }
 
 // withActor names the actor in the payload. ActorID alone is a ULID, and a
@@ -174,6 +180,7 @@ func (m *mutation) flush(ctx context.Context) error {
 // before commit. Every mutating service method goes through here; there is no
 // other way to reach a writable transaction.
 func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation) error) error {
+	l.warmFactor(ctx, actor)
 	scope := core.TenantScope{TenantID: actor.TenantID}
 	queued := 0
 	err := l.store.Update(ctx, scope, func(tx store.Tx) error {
@@ -191,6 +198,9 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 		if err := m.flush(ctx); err != nil {
 			return err
 		}
+		if err := markIdempotent(ctx, tx); err != nil {
+			return err
+		}
 		queued = m.queued
 		return nil
 	})
@@ -203,5 +213,6 @@ func (l *Local) write(ctx context.Context, actor *core.Actor, fn func(*mutation)
 
 // read runs fn inside a read-only transaction.
 func (l *Local) read(ctx context.Context, actor *core.Actor, fn func(store.Tx) error) error {
+	l.warmFactor(ctx, actor)
 	return l.store.View(ctx, core.TenantScope{TenantID: actor.TenantID}, fn)
 }

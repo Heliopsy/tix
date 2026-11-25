@@ -80,7 +80,10 @@ func BuiltinIconGlyph(name string) (string, bool) {
 
 // NormalizeProjectIconName trims and lowercases a built-in icon name and
 // checks it is one the system ships.
-func NormalizeProjectIconName(s string) (string, error) {
+func NormalizeProjectIconName(s string) (string, error) { return normalizeIconName("project", s) }
+
+// normalizeIconName is NormalizeProjectIconName for the icon of what.
+func normalizeIconName(what, s string) (string, error) {
 	name := strings.ToLower(strings.TrimSpace(s))
 	if name == "" {
 		return "", nil
@@ -92,8 +95,8 @@ func NormalizeProjectIconName(s string) (string, error) {
 	for _, b := range builtinIcons {
 		names = append(names, b.Name)
 	}
-	return "", Invalid("project icon name %q is not a built-in icon; choose one of %s",
-		s, strings.Join(names, ", "))
+	return "", Invalid("%s icon name %q is not a built-in icon; choose one of %s",
+		what, s, strings.Join(names, ", "))
 }
 
 // ProjectIconFile is an image a caller uploads as a project's icon. The
@@ -141,12 +144,16 @@ func ProjectIconDigest(data []byte) string {
 
 // SniffProjectIcon returns the content type of an icon image, refusing
 // anything that is not a small PNG, JPEG, WebP or safe SVG.
-func SniffProjectIcon(data []byte) (string, error) {
+func SniffProjectIcon(data []byte) (string, error) { return sniffIcon("project", data) }
+
+// sniffIcon is SniffProjectIcon for the icon of what, which names the owner
+// in a refusal.
+func sniffIcon(what string, data []byte) (string, error) {
 	switch {
 	case len(data) == 0:
-		return "", Invalid("project icon image is empty")
+		return "", Invalid("%s icon image is empty", what)
 	case len(data) > MaxProjectIconBytes:
-		return "", Invalid("project icon image is %d bytes; the limit is %d", len(data), MaxProjectIconBytes)
+		return "", Invalid("%s icon image is %d bytes; the limit is %d", what, len(data), MaxProjectIconBytes)
 	case bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")):
 		return "image/png", nil
 	case bytes.HasPrefix(data, []byte{0xFF, 0xD8, 0xFF}):
@@ -154,7 +161,7 @@ func SniffProjectIcon(data []byte) (string, error) {
 	case len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WEBP":
 		return "image/webp", nil
 	}
-	if err := checkSVG(data); err != nil {
+	if err := checkSVG(what, data); err != nil {
 		return "", err
 	}
 	return "image/svg+xml", nil
@@ -164,7 +171,7 @@ func SniffProjectIcon(data []byte) (string, error) {
 var errNotSVG = errors.New("not an svg document")
 
 // checkSVG accepts an SVG document only when nothing in it can run or fetch.
-func checkSVG(data []byte) error {
+func checkSVG(what string, data []byte) error {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = true
 	root := false
@@ -175,19 +182,19 @@ func checkSVG(data []byte) error {
 		}
 		if err != nil {
 			if !root {
-				return Invalid("project icon image is not a PNG, JPEG, WebP or SVG image")
+				return Invalid("%s icon image is not a PNG, JPEG, WebP or SVG image", what)
 			}
-			return Invalid("project icon SVG could not be read: %v", err)
+			return Invalid("%s icon SVG could not be read: %v", what, err)
 		}
-		if err := checkSVGToken(tok, &root); err != nil {
+		if err := checkSVGToken(what, tok, &root); err != nil {
 			if errors.Is(err, errNotSVG) {
-				return Invalid("project icon image is not a PNG, JPEG, WebP or SVG image")
+				return Invalid("%s icon image is not a PNG, JPEG, WebP or SVG image", what)
 			}
 			return err
 		}
 	}
 	if !root {
-		return Invalid("project icon image is not a PNG, JPEG, WebP or SVG image")
+		return Invalid("%s icon image is not a PNG, JPEG, WebP or SVG image", what)
 	}
 	return nil
 }
@@ -197,15 +204,15 @@ var svgRefused = map[string]bool{
 	"script": true, "foreignobject": true, "iframe": true, "embed": true, "object": true,
 }
 
-func checkSVGToken(tok xml.Token, root *bool) error {
+func checkSVGToken(what string, tok xml.Token, root *bool) error {
 	switch t := tok.(type) {
 	case xml.ProcInst:
 		if t.Target != "xml" {
-			return Invalid("project icon SVG carries a processing instruction %q", t.Target)
+			return Invalid("%s icon SVG carries a processing instruction %q", what, t.Target)
 		}
 	case xml.Directive:
 		if bytes.Contains(t, []byte("[")) || bytes.Contains(bytes.ToUpper(t), []byte("ENTITY")) {
-			return Invalid("project icon SVG declares entities, which are not accepted")
+			return Invalid("%s icon SVG declares entities, which are not accepted", what)
 		}
 	case xml.StartElement:
 		name := strings.ToLower(t.Name.Local)
@@ -216,10 +223,10 @@ func checkSVGToken(tok xml.Token, root *bool) error {
 			*root = true
 		}
 		if svgRefused[name] {
-			return Invalid("project icon SVG carries a %s element, which is not accepted", t.Name.Local)
+			return Invalid("%s icon SVG carries a %s element, which is not accepted", what, t.Name.Local)
 		}
 		for _, a := range t.Attr {
-			if err := checkSVGAttr(a); err != nil {
+			if err := checkSVGAttr(what, a); err != nil {
 				return err
 			}
 		}
@@ -234,14 +241,14 @@ func checkSVGToken(tok xml.Token, root *bool) error {
 // svgSafeData are the embedded images an SVG reference may carry.
 var svgSafeData = []string{"data:image/png", "data:image/jpeg", "data:image/gif", "data:image/webp"}
 
-func checkSVGAttr(a xml.Attr) error {
+func checkSVGAttr(what string, a xml.Attr) error {
 	name := strings.ToLower(a.Name.Local)
 	value := strings.ToLower(strings.Join(strings.Fields(a.Value), ""))
 	if strings.HasPrefix(name, "on") {
-		return Invalid("project icon SVG carries an event handler %q, which is not accepted", a.Name.Local)
+		return Invalid("%s icon SVG carries an event handler %q, which is not accepted", what, a.Name.Local)
 	}
 	if strings.Contains(value, "javascript:") {
-		return Invalid("project icon SVG carries a javascript: address, which is not accepted")
+		return Invalid("%s icon SVG carries a javascript: address, which is not accepted", what)
 	}
 	if name != "href" && name != "src" {
 		return nil
@@ -254,17 +261,21 @@ func checkSVGAttr(a xml.Attr) error {
 			return nil
 		}
 	}
-	return Invalid("project icon SVG refers to %q; only fragments of itself and embedded images are accepted", a.Value)
+	return Invalid("%s icon SVG refers to %q; only fragments of itself and embedded images are accepted", what, a.Value)
 }
 
 // IconKind reports which kind of icon the project carries.
-func (p Project) IconKind() ProjectIconKind {
+func (p Project) IconKind() ProjectIconKind { return iconKindOf(p.Icon, p.IconName, p.IconImage) }
+
+// iconKindOf reports which kind of icon the three icon fields carry, an
+// image first, as the writes leave at most one set.
+func iconKindOf(text, name, image string) ProjectIconKind {
 	switch {
-	case p.IconImage != "":
+	case image != "":
 		return IconKindImage
-	case p.IconName != "":
+	case name != "":
 		return IconKindBuiltin
-	case p.Icon != "":
+	case text != "":
 		return IconKindText
 	default:
 		return IconKindNone
@@ -274,25 +285,33 @@ func (p Project) IconKind() ProjectIconKind {
 // IconText is the project's icon as text, for a surface that draws no sprite
 // and no image: the text icon itself, a built-in icon's fallback glyph, or a
 // fixed mark for an image.
-func (p Project) IconText() string {
-	switch p.IconKind() {
+func (p Project) IconText() string { return iconTextOf(p.Icon, p.IconName, p.IconImage) }
+
+// iconTextOf is the text stand-in for the three icon fields.
+func iconTextOf(text, name, image string) string {
+	switch iconKindOf(text, name, image) {
 	case IconKindImage:
 		return ProjectImageGlyph
 	case IconKindBuiltin:
-		glyph, _ := BuiltinIconGlyph(p.IconName)
+		glyph, _ := BuiltinIconGlyph(name)
 		return glyph
 	default:
-		return p.Icon
+		return text
 	}
 }
 
 // ValidateProjectIconChoice checks each icon kind on its own and refuses a
 // write naming more than one.
 func ValidateProjectIconChoice(text, name string, file *ProjectIconFile) error {
-	if _, err := NormalizeProjectIcon(text); err != nil {
+	return validateIconChoice("project", text, name, file)
+}
+
+// validateIconChoice is ValidateProjectIconChoice for the icon of what.
+func validateIconChoice(what, text, name string, file *ProjectIconFile) error {
+	if _, err := normalizeIcon(what, text); err != nil {
 		return err
 	}
-	if _, err := NormalizeProjectIconName(name); err != nil {
+	if _, err := normalizeIconName(what, name); err != nil {
 		return err
 	}
 	named := 0
@@ -302,10 +321,10 @@ func ValidateProjectIconChoice(text, name string, file *ProjectIconFile) error {
 		}
 	}
 	if named > 1 {
-		return Invalid("a project icon is one of text, a built-in name or an image; name only one")
+		return Invalid("a %s icon is one of text, a built-in name or an image; name only one", what)
 	}
 	if !file.Empty() {
-		if _, err := SniffProjectIcon(file.Data); err != nil {
+		if _, err := sniffIcon(what, file.Data); err != nil {
 			return err
 		}
 	}

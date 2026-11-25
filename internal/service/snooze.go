@@ -10,9 +10,9 @@ import (
 	"github.com/heliopsy/tix/internal/core"
 )
 
-// SnoozeTask hides a task from default listings until in.Until, for every
+// snoozeTask hides a task from default listings until in.Until, for every
 // reader. Snoozing a snoozed task moves its wake time.
-func (l *Local) SnoozeTask(ctx context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
+func (l *Local) snoozeTask(ctx context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -52,9 +52,9 @@ func (l *Local) SnoozeTask(ctx context.Context, ref core.TaskRef, in core.Snooze
 	return out, nil
 }
 
-// UnsnoozeTask clears a task's snooze. A task that is not snoozed is returned
+// unsnoozeTask clears a task's snooze. A task that is not snoozed is returned
 // as it is, with nothing written.
-func (l *Local) UnsnoozeTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+func (l *Local) unsnoozeTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{})
 	if err != nil {
 		return nil, err

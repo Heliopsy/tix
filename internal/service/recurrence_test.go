@@ -233,15 +233,21 @@ func TestTheNextDueDateFollowsTheAnchor(t *testing.T) {
 		name string
 		rule string
 		due  *time.Time
+		done time.Time
 		want time.Time
 	}{
-		{"schedule skips missed weeks", "every week", ptr(utc(2026, 10, 1, 0)), utc(2026, 11, 5, 0)},
-		{"after done counts from completion", "every 3 days after done", ptr(utc(2026, 10, 1, 9)), utc(2026, 11, 5, 9)},
-		{"undated counts from completion", "every 2 weeks", nil, utc(2026, 11, 16, 0)},
+		{"schedule skips missed weeks", "every week", ptr(utc(2026, 10, 1, 0)), time.Time{}, utc(2026, 11, 5, 0)},
+		{"after done counts from completion", "every 3 days after done", ptr(utc(2026, 10, 1, 9)), time.Time{}, utc(2026, 11, 5, 9)},
+		{"undated counts from completion", "every 2 weeks", nil, time.Time{}, utc(2026, 11, 16, 0)},
+		{"finished on the day the next one falls", "every week", ptr(utc(2026, 11, 2, 0)), utc(2026, 11, 9, 10), utc(2026, 11, 16, 0)},
+		{"finished the day before the next one falls", "every week", ptr(utc(2026, 11, 2, 0)), utc(2026, 11, 8, 23), utc(2026, 11, 9, 0)},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := newRecurFixture(t)
+			if !c.done.IsZero() {
+				f.clk.Set(c.done)
+			}
 			task := f.create(t, core.CreateTaskInput{Title: c.name, DueAt: c.due, Recurrence: c.rule})
 			next := f.get(t, f.move(t, task, "doing", "done").RecurrenceNextID)
 			if next.DueAt == nil || !next.DueAt.Equal(c.want) {

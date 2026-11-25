@@ -78,6 +78,16 @@ func TestInboxEndpoints(t *testing.T) {
 	if !slices.Equal(got, ids) {
 		t.Fatalf("paged = %v, want newest first %v", got, ids)
 	}
+	for query, want := range map[string]int{"?kind=comment": 3, "?kind=mention&kind=status": 0} {
+		resp := f.call(http.MethodGet, wire.RouteInbox+query, nil)
+		mustStatus(t, resp, http.StatusOK)
+		var page wire.Page[core.InboxItem]
+		decodeBody(t, resp, &page)
+		if len(page.Items) != want {
+			t.Errorf("%s listed %d items, want %d", query, len(page.Items), want)
+		}
+	}
+	mustStatus(t, f.call(http.MethodGet, wire.RouteInbox+"?kind=likes", nil), http.StatusBadRequest)
 
 	read := strings.Replace(wire.RouteInboxRead, "{id}", ids[0], 1)
 	resp := f.call(http.MethodPut, read, nil)

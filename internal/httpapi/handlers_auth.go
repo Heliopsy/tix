@@ -28,6 +28,10 @@ type LoginRequest struct {
 	Ticket string `json:"ticket,omitempty"`
 	// Code is the six-digit TOTP code or a recovery code, in the second step.
 	Code string `json:"code,omitempty"`
+	// Remember asks for a "keep me signed in" session, sent with the step
+	// that completes the sign-in. The session then lasts the tenant's
+	// remember_ttl and its cookie persists until then.
+	Remember bool `json:"remember,omitempty"`
 }
 
 // TOTPCodeRequest carries the code proving possession of an authenticator.
@@ -68,8 +72,10 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteLogin, rt.handleLogin)
 	rt.mux.HandleFunc("POST "+wire.RouteLogout, rt.handleLogout)
 	rt.mux.HandleFunc("POST "+wire.RouteSwitch, rt.handleSwitch)
+	rt.mux.HandleFunc("GET "+wire.RouteSessionPolicy, rt.handleSessionPolicy)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHChallenge, rt.handleSSHChallenge)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHVerify, rt.handleSSHLogin)
+	rt.registerSSORoutes()
 
 	rt.mux.HandleFunc("GET "+wire.RouteTOTP, rt.handleTOTPStatus)
 	rt.mux.HandleFunc("POST "+wire.RouteTOTP, rt.handleBeginTOTP)
@@ -91,6 +97,9 @@ func (rt *Router) registerAuthRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteTokens, rt.handleListTokens)
 	rt.mux.HandleFunc("POST "+wire.RouteTokens, rt.handleCreateToken)
 	rt.mux.HandleFunc("DELETE "+wire.RouteToken, rt.handleRevokeToken)
+	rt.mux.HandleFunc("GET "+wire.RouteAccountSessions, rt.handleListSessions)
+	rt.mux.HandleFunc("DELETE "+wire.RouteAccountSession, rt.handleRevokeSession)
+	rt.mux.HandleFunc("POST "+wire.RouteTokenRotate, rt.handleRotateToken)
 
 	rt.mux.HandleFunc("GET "+wire.RouteSSHKeys, rt.handleListSSHKeys)
 	rt.mux.HandleFunc("POST "+wire.RouteSSHKeys, rt.handleEnrolSSHKey)
@@ -147,16 +156,26 @@ func (rt *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Surface:     in.Surface,
 		Ticket:      in.Ticket,
 		Code:        in.Code,
+		Remember:    in.Remember,
 	})
 	if err != nil {
 		WriteError(w, err)
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
+}
+
+// handleSessionPolicy answers the tenant's session settings.
+func (rt *Router) handleSessionPolicy(w http.ResponseWriter, r *http.Request) {
+	policy, err := rt.cfg.Service.SessionPolicy(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, policy)
 }
 
 // handleSSHChallenge issues a nonce bound to the host the request names, the
@@ -182,8 +201,7 @@ func (rt *Router) handleSSHLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }
@@ -286,8 +304,7 @@ func (rt *Router) handleSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }
@@ -299,7 +316,7 @@ func (rt *Router) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	users, next, err := rt.cfg.Service.ListUsers(r.Context(), page)
+	users, next, err := rt.cfg.Service.ListUsers(r.Context(), userFilter(r, page))
 	if err != nil {
 		WriteError(w, err)
 		return
@@ -385,6 +402,44 @@ func (rt *Router) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleListSessions returns a page of the caller's own sessions.
+func (rt *Router) handleListSessions(w http.ResponseWriter, r *http.Request) {
+	page, err := pageFrom(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	sessions, next, err := rt.cfg.Service.ListSessions(r.Context(), page)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, sessions, next)
+}
+
+// handleRevokeSession ends one of the caller's own sessions.
+func (rt *Router) handleRevokeSession(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.RevokeSession(r.Context(), r.PathValue("id")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleRotateToken replaces an API token, answering the new value once.
+func (rt *Router) handleRotateToken(w http.ResponseWriter, r *http.Request) {
+	var in core.RotateTokenInput
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+	token, err := rt.cfg.Service.RotateToken(r.Context(), r.PathValue("id"), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, token)
 }
 
 // handleListSSHKeys returns the enrolled keys of one actor, revoked ones

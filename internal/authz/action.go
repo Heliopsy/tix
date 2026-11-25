@@ -17,6 +17,10 @@ const (
 	ActionTaskClaim      Action = "task.claim"
 	ActionTaskDelete     Action = "task.delete"
 	ActionTaskReclaim    Action = "task.reclaim"
+	// ActionTaskApprove crosses a workflow edge that names task:approve: a
+	// sign-off rather than progress, which the worker doing the task must not
+	// be able to give itself.
+	ActionTaskApprove Action = "task.approve"
 	// ActionTaskStar sets or clears the caller's own star. It changes nothing
 	// anybody else sees in a listing, so reading the task is authority enough.
 	ActionTaskStar Action = "task.star"
@@ -36,6 +40,10 @@ const (
 	// reads no more than its owner may, so reading tasks is authority enough;
 	// it lists every project the owner reads, so it is not confinable.
 	ActionCalendarFeed Action = "calendar.feed"
+	// ActionDAVPassword manages the caller's own app passwords. A password
+	// reads no more than its owner may, so reading tasks is authority enough;
+	// it reaches every project the owner reads, so it is not confinable.
+	ActionDAVPassword Action = "dav.password"
 	// ActionInboxRead reads and changes the caller's own inbox. An inbox is
 	// the caller's alone and spans projects, so it needs only task:read and
 	// is not confinable.
@@ -65,6 +73,7 @@ const (
 	ActionWebhookAdmin Action = "webhook.admin"
 	ActionTenantAdmin  Action = "tenant.admin"
 	ActionSyncAdmin    Action = "sync.admin"
+	ActionSSOAdmin     Action = "sso.admin"
 	// ActionGlobalAdmin administers the installation across tenants: creating
 	// tenants and granting global admin. It is decided by Policy.CanGlobal,
 	// never by Can, because a scope alone does not carry it.
@@ -73,6 +82,13 @@ const (
 	// tenant the person belongs to. It is decided by Policy.CanReadAccount,
 	// never by Can, because a browser session carries no scope for it.
 	ActionAccountRead Action = "account.read"
+	// ActionSCIMProvision creates, changes and removes the tenant's users and
+	// groups on behalf of an identity provider.
+	ActionSCIMProvision Action = "scim.provision"
+	// ActionDAVSync reads tasks over CalDAV as an app password. Only a token
+	// naming caldav holds it, and what it then reads is decided by its
+	// owner's role, not by the token.
+	ActionDAVSync Action = "dav.sync"
 
 	// ActionServerRead reads the installation: which servers are registered,
 	// what the store is, and how big the tenant's work is. It is not confinable
@@ -101,11 +117,13 @@ var actionScopes = map[Action]core.Scope{
 	ActionTaskClaim:           core.ScopeTaskClaim,
 	ActionTaskDelete:          core.ScopeTaskDelete,
 	ActionTaskReclaim:         core.ScopeTaskReclaim,
+	ActionTaskApprove:         core.ScopeTaskApprove,
 	ActionTaskStar:            core.ScopeTaskRead,
 	ActionViewArrange:         core.ScopeTaskRead,
 	ActionFilterSave:          core.ScopeTaskRead,
 	ActionFilterManage:        core.ScopeTenantAdmin,
 	ActionCalendarFeed:        core.ScopeTaskRead,
+	ActionDAVPassword:         core.ScopeTaskRead,
 	ActionInboxRead:           core.ScopeTaskRead,
 	ActionTemplateTenantWrite: core.ScopeTaskWrite,
 
@@ -128,8 +146,12 @@ var actionScopes = map[Action]core.Scope{
 	ActionWebhookAdmin: core.ScopeWebhookAdmin,
 	ActionTenantAdmin:  core.ScopeTenantAdmin,
 	ActionSyncAdmin:    core.ScopeSyncAdmin,
+	ActionSSOAdmin:     core.ScopeSSOAdmin,
 	ActionGlobalAdmin:  core.ScopeGlobalAdmin,
 	ActionAccountRead:  core.ScopeAccountRead,
+
+	ActionSCIMProvision: core.ScopeSCIMProvision,
+	ActionDAVSync:       core.ScopeCaldav,
 
 	ActionExport:         core.ScopeExport,
 	ActionTaskExport:     core.ScopeExport,
@@ -167,6 +189,8 @@ var projectConfinable = map[Action]bool{
 	// be trusted with it the way it is trusted with claiming: the policy
 	// holds it inside its own project on the way through.
 	ActionTaskReclaim: true,
+	// An approval reaches one task, inside the token's own project.
+	ActionTaskApprove: true,
 	ActionTaskStar:    true,
 
 	ActionProjectRead:  true,
@@ -180,6 +204,11 @@ var projectConfinable = map[Action]bool{
 
 	ActionTaskExport: true,
 	ActionTaskImport: true,
+
+	// Every event transport narrows a pinned token to its own project and
+	// refuses one naming another, which the WebSocket always did on its own
+	// and the service now does for the poll and the direct subscription.
+	ActionEventSubscribe: true,
 }
 
 // ProjectConfinable reports whether a project-pinned token may perform the
@@ -189,15 +218,16 @@ func (a Action) ProjectConfinable() bool { return projectConfinable[a] }
 // allActions is the action vocabulary in a stable order.
 var allActions = []Action{
 	ActionTaskRead, ActionTaskCreate, ActionTaskUpdate, ActionTaskTransition,
-	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskStar, ActionViewArrange,
-	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionInboxRead,
+	ActionTaskClaim, ActionTaskDelete, ActionTaskReclaim, ActionTaskApprove, ActionTaskStar, ActionViewArrange,
+	ActionFilterSave, ActionFilterManage, ActionCalendarFeed, ActionDAVPassword, ActionInboxRead,
 	ActionTemplateTenantWrite,
 	ActionProjectRead, ActionProjectWrite,
 	ActionWorkflowRead, ActionWorkflowWrite,
 	ActionFieldWrite, ActionCommentWrite, ActionArtifactWrite,
 	ActionEventSubscribe, ActionAuditRead,
 	ActionUserAdmin, ActionTOTPAdmin, ActionTokenAdmin, ActionWebhookAdmin, ActionTenantAdmin, ActionSyncAdmin,
-	ActionGlobalAdmin, ActionAccountRead,
+	ActionSSOAdmin,
+	ActionGlobalAdmin, ActionAccountRead, ActionSCIMProvision, ActionDAVSync,
 	ActionExport, ActionImport, ActionRetentionWrite,
 	ActionServerRead, ActionTaskExport, ActionTaskImport,
 }

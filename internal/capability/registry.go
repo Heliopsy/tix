@@ -57,6 +57,17 @@ var transferLimits = []Limitation{{SurfaceTUI,
 		"`ssh HOST ...` command that does each transfer through standard input and output instead of " +
 		"reading or writing a path"}}
 
+// ssoOverSSH is why signing in through a provider is not offered over the
+// SSH listener: the session there is already signed in by its key.
+const ssoOverSSH = "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"
+
+// davInTUI is why app passwords are managed outside the terminal interface.
+const davInTUI = "an app password is pasted into a phone or mail client, which the terminal is neither; the cli and the settings screen manage it"
+
+// ssoInTUI is why a provider is configured outside the terminal interface,
+// which lists the tenant's providers on its tenant screen.
+const ssoInTUI = "a provider is a dozen protocol settings and a client secret pasted from the identity provider's console; the tenant screen lists providers and tix tenant sso, on the same terminal, configures them"
+
 // Templates the browser screens render, named once so a binding cannot invent
 // a file the embedded assets do not hold.
 const (
@@ -67,7 +78,6 @@ const (
 	tplTokens    = "tokens.html"
 	tplSSHKeys   = "sshkeys.html"
 	tplProjects  = "projects.html"
-	tplBoard     = "board.html"
 	tplFields    = "fields.html"
 	tplWorkflows = "workflows.html"
 	tplWorkflow  = "workflow.html"
@@ -79,6 +89,7 @@ const (
 	tplStats     = "stats.html"
 	tplWebhooks  = "webhooks.html"
 	tplSync      = "sync.html"
+	tplSCIM      = "scim.html"
 	tplConns     = "connections.html"
 	tplStatus    = "status.html"
 	tplSettings  = "settings.html"
@@ -90,6 +101,9 @@ const (
 	tplGlobal    = "globaladmin.html"
 	tplGlobalUsr = "globalusers.html"
 	tplAcctLog   = "accountlog.html"
+	tplLogin     = "login.html"
+	tplSSO       = "sso.html"
+	tplTOTP      = "totp.html"
 )
 
 // registry declares every operation the product offers. Every exported method
@@ -148,6 +162,17 @@ var registry = []Operation{
 		HTTP:  apiPatch(wire.RouteTenant),
 		Web:   webPost(web.RouteTenant),
 		TUI:   "tenant",
+	},
+	{
+		Name: "tenant.icon", Method: "GetTenantIcon", Contract: Contract{Resp: None{}, Status: http.StatusOK, Content: contentImage, Also: map[int]any{http.StatusNotModified: None{}}},
+		// No scope: any member of the tenant reads its icon, from a credential
+		// in any tenant they belong to, because the switcher draws them all.
+		CLI:  "tix tenant icon",
+		HTTP: apiGet(wire.RouteTenantIcon),
+		Web:  webAsset(web.RouteTenantIcon),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "a terminal draws no image; the tenant view lists each tenant behind a text stand-in for its icon"),
+		},
 	},
 	{
 		Name: "tenant.delete", Method: "DeleteTenant",
@@ -254,7 +279,7 @@ var registry = []Operation{
 		Scope: core.ScopeProjectRead,
 		CLI:   "tix project show",
 		HTTP:  apiGet(wire.RouteProject),
-		Web:   webGet(web.RouteProject, tplBoard),
+		Web:   webGet(web.RouteProject, tplTasks),
 		// The project screen fetches the project it renders rather than reusing
 		// the row the listing held. It is the read that answers "this project,
 		// now", which a screen that edits and archives one has to show: an
@@ -278,6 +303,30 @@ var registry = []Operation{
 		CLI:   "tix project ls",
 		HTTP:  apiGet(wire.RouteProjects),
 		Web:   webGet(web.RouteProjects, tplProjects),
+		TUI:   "projects",
+	},
+	{
+		Name: "project.starred", Method: "ListStarredProjects",
+		Scope: core.ScopeProjectRead,
+		CLI:   "tix project ls",
+		HTTP:  apiGet(wire.RouteStarredProjects),
+		Web:   webGet(web.RouteProjects, tplProjects),
+		TUI:   "projects",
+	},
+	{
+		Name: "project.star", Method: "StarProject",
+		Scope: core.ScopeProjectRead,
+		CLI:   "tix project star",
+		HTTP:  apiPut(wire.RouteProjectStar),
+		Web:   webPost(web.RouteProjectStar),
+		TUI:   "projects",
+	},
+	{
+		Name: "project.unstar", Method: "UnstarProject",
+		Scope: core.ScopeProjectRead,
+		CLI:   "tix project unstar",
+		HTTP:  apiDelete(wire.RouteProjectStar),
+		Web:   webPost(web.RouteProjectUnstar),
 		TUI:   "projects",
 	},
 	{
@@ -384,6 +433,31 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "workflow.template.list", Method: "ListWorkflowTemplates",
+		Scope: core.ScopeWorkflowRead,
+		CLI:   "tix workflow template ls",
+		HTTP:  apiGet(wire.RouteWorkflowTemplates),
+		// The Workflows screen's Add from template dialog and the New project
+		// dialog's workflow picker both read the templates.
+		Web: webGet(web.RouteWorkflows, tplWorkflows),
+		// The project list's new project form offers the templates beside the
+		// tenant's workflows, each with its purpose first.
+		TUI: "projects",
+	},
+	{
+		Name: "workflow.template.apply", Method: "ApplyWorkflowTemplate", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeWorkflowWrite,
+		CLI:   "tix workflow template apply",
+		HTTP:  apiPost(wire.RouteWorkflowTemplateApply),
+		Web:   webPost(web.RouteWorkflowTemplateApply),
+		TUI:   "projects",
+		Limits: []Limitation{{SurfaceTUI,
+			"the terminal applies a template only while creating a project, under the template's own key " +
+				"and reusing the workflow when the tenant already holds it; another key or a collision policy " +
+				"is tix workflow template apply --as and --on-collision"}},
+	},
+
+	{
 		Name: "task.create", Method: "CreateTask", Contract: Contract{Body: httpapi.CreateTaskRequest{}, Status: http.StatusCreated},
 		Scope: core.ScopeTaskWrite,
 		CLI:   "tix task add",
@@ -395,9 +469,12 @@ var registry = []Operation{
 		Name: "task.show", Method: "GetTask",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task show",
-		HTTP:  apiGet(wire.RouteTask),
-		Web:   webGet(web.RouteTask, tplTask),
-		TUI:   "detail",
+		// tix task link prints the task's web_url, or the link under a
+		// remote context's server, in the forms the Share menu copies.
+		Formats: []string{"tix task link"},
+		HTTP:    apiGet(wire.RouteTask),
+		Web:     webGet(web.RouteTask, tplTask),
+		TUI:     "detail",
 	},
 	{
 		Name: "task.list", Method: "ListTasks", Contract: Contract{Query: httpapi.TaskListQuery{}, Resp: wire.Page[core.Task]{}, Alt: []string{wire.ContentCSV}},
@@ -456,6 +533,16 @@ var registry = []Operation{
 		TUI: "board",
 	},
 	{
+		Name: "task.purge", Method: "PurgeTask",
+		Scope: core.ScopeTaskDelete,
+		CLI:   "tix task purge",
+		HTTP:  apiDelete(wire.RouteTaskTrash),
+		Web:   webPost(web.RouteTaskPurge),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the board reveals deleted cards and offers restore on them, but a permanent delete there would need its own confirmation flow; purging is on the web Trash, the command line and the API"),
+		},
+	},
+	{
 		Name: "trash.status", Method: "TrashStatus",
 		Scope: core.ScopeTaskRead,
 		CLI:   "tix task trash",
@@ -473,6 +560,14 @@ var registry = []Operation{
 		CLI:   "tix task copy",
 		HTTP:  apiPost(wire.RouteTaskCopy),
 		Web:   webPost(web.RouteTaskCopy),
+		TUI:   "board",
+	},
+	{
+		Name: "task.move", Method: "MoveTask",
+		Scope: core.ScopeTaskWrite,
+		CLI:   "tix task move",
+		HTTP:  apiPost(wire.RouteTaskMove),
+		Web:   webPost(web.RouteTaskRehome),
 		TUI:   "board",
 	},
 	{
@@ -884,6 +979,22 @@ var registry = []Operation{
 		TUI:   "detail",
 	},
 	{
+		Name: "comment.react", Method: "AddReaction",
+		Scope: core.ScopeCommentWrite,
+		CLI:   "tix comment react",
+		HTTP:  apiPut(wire.RouteCommentReaction),
+		Web:   webPost(web.RouteCommentReact),
+		TUI:   "detail",
+	},
+	{
+		Name: "comment.unreact", Method: "RemoveReaction",
+		Scope: core.ScopeCommentWrite,
+		CLI:   "tix comment react",
+		HTTP:  apiDelete(wire.RouteCommentReaction),
+		Web:   webPost(web.RouteCommentUnreact),
+		TUI:   "detail",
+	},
+	{
 		Name: "artifact.put", Method: "PutArtifact",
 		Scope: core.ScopeArtifactWrite,
 		CLI:   "tix artifact put",
@@ -892,6 +1003,14 @@ var registry = []Operation{
 		TUI:   "detail",
 		Limits: []Limitation{{SurfaceTUI,
 			"the prompt gathers a name and the form gathers a kind, which is all the service requires; a payload, a content type and an inline blob are structured input no terminal control gathers, so `tix artifact put` and the api record those"}},
+	},
+	{
+		Name: "artifact.limits", Method: "ArtifactLimits",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix artifact limits",
+		HTTP:  apiGet(wire.RouteArtifactLimits),
+		Web:   webGet(web.RouteTask, tplTask),
+		TUI:   "tenant",
 	},
 	{
 		Name: "artifact.list", Method: "ListArtifacts",
@@ -1004,6 +1123,16 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "event.poll", Method: "PollEvents", Contract: Contract{Query: httpapi.EventPollQuery{}},
+		Scope: core.ScopeEventSubscribe,
+		CLI:   "tix events",
+		HTTP:  apiGet(wire.RouteEventsPoll),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "the browser follows events over the websocket; the poll is a fallback for clients whose network breaks websockets"),
+			off(SurfaceTUI, "the terminal views subscribe to the event stream directly and have no network to fall back from"),
+		},
+	},
+	{
 		Name: "retention.prune", Method: "Prune", Contract: Contract{OptionalBody: true},
 		Scope: core.ScopeTenantAdmin,
 		CLI:   "tix prune",
@@ -1098,7 +1227,7 @@ var registry = []Operation{
 		},
 	},
 	{
-		Name: "user.list", Method: "ListUsers",
+		Name: "user.list", Method: "ListUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeUserAdmin,
 		CLI:   "tix user ls",
 		HTTP:  apiGet(wire.RouteUsers),
@@ -1122,7 +1251,7 @@ var registry = []Operation{
 		TUI:   "people",
 	},
 	{
-		Name: "tenant.user.list", Method: "ListTenantUsers",
+		Name: "tenant.user.list", Method: "ListTenantUsers", Contract: Contract{Query: httpapi.UserListQuery{}},
 		Scope: core.ScopeGlobalAdmin,
 		CLI:   "tix tenant user ls",
 		HTTP:  apiGet(wire.RouteTenantUsers),
@@ -1142,6 +1271,20 @@ var registry = []Operation{
 		CLI:  "tix account log",
 		HTTP: apiGet(wire.RouteAccountLog),
 		Web:  webGet(web.RouteAccount, tplAcctLog),
+		TUI:  "account",
+	},
+	{
+		Name: "session.list", Method: "ListSessions",
+		CLI:  "tix account sessions",
+		HTTP: apiGet(wire.RouteAccountSessions),
+		Web:  webGet(web.RouteSettings, tplSettings),
+		TUI:  "account",
+	},
+	{
+		Name: "session.revoke", Method: "RevokeSession",
+		CLI:  "tix account sessions revoke",
+		HTTP: apiDelete(wire.RouteAccountSession),
+		Web:  webPost(web.RouteSessionRevoke),
 		TUI:  "account",
 	},
 	{
@@ -1261,6 +1404,13 @@ var registry = []Operation{
 		},
 	},
 	{
+		Name: "session.policy", Method: "SessionPolicy", Contract: Contract{Public: true},
+		CLI:  "tix tenant session-policy",
+		HTTP: apiGet(wire.RouteSessionPolicy),
+		Web:  webGet(web.RouteLogin, tplLogin),
+		TUI:  "tenant",
+	},
+	{
 		Name: "session.ssh_challenge", Method: "SSHLoginChallenge", Contract: Contract{Public: true},
 		CLI:  "tix login",
 		HTTP: apiPost(wire.RouteSSHChallenge),
@@ -1278,6 +1428,113 @@ var registry = []Operation{
 			off(SurfaceWeb, "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"),
 			off(SurfaceTUI, "the interface opens on a session that already exists; the ssh listener has already proved the key"),
 			off(SurfaceSSH, "an ssh session is already signed in by its key, and tix login writes a token into a local configuration the server has no business touching"),
+		},
+	},
+	{
+		Name: "sso.options", Method: "SignInOptions", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiGet(wire.RouteSignInOptions),
+		Web:  webGet(web.RouteLogin, tplLogin),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.begin", Method: "BeginSSOLogin", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSOBegin),
+		Web:  webGet(web.RouteSSOStart, ""),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.complete", Method: "CompleteSSOLogin", Contract: Contract{Public: true},
+		CLI:  "tix login",
+		HTTP: apiPost(wire.RouteSSOComplete),
+		Web:  webGet(web.RouteSSOCallback, tplTOTP),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+			off(SurfaceSSH, ssoOverSSH),
+		},
+	},
+	{
+		Name: "sso.exchange", Method: "ExchangeSSOCode", Contract: Contract{Public: true},
+		HTTP: apiPost(wire.RouteSSOExchange),
+		Exempt: []Exemption{
+			off(SurfaceCLI, "tix login --sso completes its sign-in in one step through a loopback redirect; the exchange is a native app's half of a browser sign-in"),
+			off(SurfaceWeb, "the browser's own provider sign-in sets its session at the callback; the exchange is for the app the browser hands a code to"),
+			off(SurfaceTUI, "the interface opens on a session that already exists; tix login establishes it before the program starts"),
+		},
+	},
+	{
+		Name: "sso.saml.metadata", Method: "SAMLMetadata",
+		Contract: Contract{Body: None{}, Resp: None{}, Status: http.StatusOK, Content: wire.ContentSAMLMetadata, Public: true},
+		CLI:      "tix tenant sso metadata",
+		HTTP:     apiGet(wire.RouteSAMLMetadata),
+		Web:      webAsset(web.RouteSAMLMetadata),
+		Exempt: []Exemption{
+			off(SurfaceTUI, "metadata is an XML document an identity provider imports by its address; the single sign-on screen and tix tenant sso metadata hand it out"),
+		},
+	},
+	{
+		Name: "sso.provider.list", Method: "ListSSOProviders",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso ls",
+		HTTP:  apiGet(wire.RouteSSOProviders),
+		Web:   webGet(web.RouteSSO, tplSSO),
+		TUI:   "tenant",
+	},
+	{
+		Name: "sso.provider.show", Method: "GetSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso show",
+		HTTP:  apiGet(wire.RouteSSOProvider),
+		Exempt: []Exemption{
+			off(SurfaceWeb, "the single sign-on screen already shows every field of every provider, and its edit dialog each setting"),
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.create", Method: "CreateSSOProvider", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso add",
+		HTTP:  apiPost(wire.RouteSSOProviders),
+		Web:   webPost(web.RouteSSO),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.update", Method: "UpdateSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso edit",
+		HTTP:  apiPatch(wire.RouteSSOProvider),
+		Web:   webPost(web.RouteSSOUpdate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.delete", Method: "DeleteSSOProvider",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso rm",
+		HTTP:  apiDelete(wire.RouteSSOProvider),
+		Web:   webPost(web.RouteSSODelete),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
+		},
+	},
+	{
+		Name: "sso.provider.refresh", Method: "RefreshSAMLMetadata",
+		Scope: core.ScopeSSOAdmin,
+		CLI:   "tix tenant sso refresh",
+		HTTP:  apiPost(wire.RouteSSOProviderRefresh),
+		Web:   webPost(web.RouteSSORefresh),
+		Exempt: []Exemption{
+			off(SurfaceTUI, ssoInTUI),
 		},
 	},
 	{
@@ -1413,6 +1670,47 @@ var registry = []Operation{
 	},
 
 	{
+		Name: "dav.info", Method: "GetDAVInfo",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav show",
+		HTTP:  apiGet(wire.RouteDAV),
+		Web:   webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.list", Method: "ListDAVPasswords",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password list",
+		HTTP:  apiGet(wire.RouteDAVPasswords),
+		Web:   webGet(web.RouteSettings, tplSettings),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.create", Method: "CreateDAVPassword", Contract: Contract{Status: http.StatusCreated},
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password create",
+		HTTP:  apiPost(wire.RouteDAVPasswords),
+		Web:   webPost(web.RouteDAVPasswordCreate),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+	{
+		Name: "dav.password.revoke", Method: "RevokeDAVPassword",
+		Scope: core.ScopeTaskRead,
+		CLI:   "tix dav password revoke",
+		HTTP:  apiDelete(wire.RouteDAVPassword),
+		Web:   webPost(web.RouteDAVPasswordRevoke),
+		Exempt: []Exemption{
+			off(SurfaceTUI, davInTUI),
+		},
+	},
+
+	{
 		Name: "token.create", Method: "CreateToken", Contract: Contract{Status: http.StatusCreated},
 		Scope: core.ScopeTokenAdmin,
 		CLI:   "tix token create",
@@ -1437,6 +1735,13 @@ var registry = []Operation{
 		HTTP:  apiDelete(wire.RouteToken),
 		Web:   webPost(web.RouteTokenRevoke),
 		TUI:   "account",
+	},
+	{
+		Name: "token.rotate", Method: "RotateToken", Contract: Contract{Status: http.StatusCreated, OptionalBody: true},
+		CLI:  "tix token rotate",
+		HTTP: apiPost(wire.RouteTokenRotate),
+		Web:  webPost(web.RouteTokenRotate),
+		TUI:  "account",
 	},
 
 	{
@@ -1504,6 +1809,14 @@ var registry = []Operation{
 		CLI:   "tix webhook redeliver",
 		HTTP:  apiPost(wire.RouteDeliveryRedeliver),
 		Web:   webPost(web.RouteRedeliver),
+		TUI:   "integrations",
+	},
+	{
+		Name: "webhook.ping", Method: "PingWebhook",
+		Scope: core.ScopeWebhookAdmin,
+		CLI:   "tix webhook ping",
+		HTTP:  apiPost(wire.RouteWebhookPing),
+		Web:   webPost(web.RouteWebhookPing),
 		TUI:   "integrations",
 	},
 
@@ -1623,4 +1936,58 @@ var registry = []Operation{
 		Web:   webPost(web.RouteConnectionEnd),
 		TUI:   "server",
 	},
+
+	{
+		Name: "scim.get", Method: "GetSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim show",
+		HTTP:   apiGet(wire.RouteSCIM),
+		Web:    webGet(web.RouteSCIM, tplSCIM),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.enable", Method: "EnableSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim enable",
+		HTTP:   apiPost(wire.RouteSCIMEnable),
+		Web:    webPost(web.RouteSCIMEnable),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.disable", Method: "DisableSCIM",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim disable",
+		HTTP:   apiPost(wire.RouteSCIMDisable),
+		Web:    webPost(web.RouteSCIMDisable),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.token", Method: "RotateSCIMToken",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim token",
+		HTTP:   apiPost(wire.RouteSCIMToken),
+		Web:    webPost(web.RouteSCIMToken),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.group.map", Method: "MapSCIMGroup",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim map-group",
+		HTTP:   apiPut(wire.RouteSCIMGroups),
+		Web:    webPost(web.RouteSCIMGroups),
+		Exempt: scimTUI,
+	},
+	{
+		Name: "scim.group.unmap", Method: "UnmapSCIMGroup",
+		Scope:  core.ScopeTenantAdmin,
+		CLI:    "tix tenant scim unmap-group",
+		HTTP:   apiDelete(wire.RouteSCIMGroup),
+		Web:    webPost(web.RouteSCIMUnmap),
+		Exempt: scimTUI,
+	},
+}
+
+// scimTUI records why SCIM administration has no terminal binding.
+var scimTUI = []Exemption{
+	off(SurfaceTUI, "SCIM provisioning is tenant administration set up once with an identity provider, from the SCIM screen, the command line or the API; the terminal shows the people it provisions"),
 }

@@ -56,6 +56,12 @@ var endpoints = []Endpoint{
 		Contract: Contract{Resp: map[string]any{}, Public: true},
 	},
 	{
+		Name: "server.release", HTTP: apiGet(wire.RouteRelease), Method: "WhoAmI",
+		Reason:   "the release check and the bundled changelog belong to the binary, not to the service",
+		Summary:  "The running version, the newest published release with its notes and upgrade commands when it is newer, and the bundled changelog around the running version. Notes are Markdown with links removed.",
+		Contract: Contract{Resp: httpapi.ReleaseBody{}},
+	},
+	{
 		Name: "task.tags", HTTP: apiGet(wire.RouteTaskLabels), Method: "GetTask",
 		Reason:   "a task's tags are a field of the task; the route answers that field alone",
 		Summary:  "The tags of one task.",

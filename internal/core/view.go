@@ -4,6 +4,7 @@ package core
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 )
@@ -23,7 +24,53 @@ const (
 	// ViewMine is the reader's own work grouped by deadline. Its groups are
 	// the DueBuckets.
 	ViewMine = "mine"
+	// ViewLanesPrefix starts the view of the lanes grouped by something other
+	// than the project, as in "lanes:assignee".
+	ViewLanesPrefix = "lanes:"
 )
+
+// What a lane can be. LanesByProject is the original grouping and keeps the
+// ViewLanes arrangement; each other one is arranged under LanesView of it.
+const (
+	LanesByProject  = "project"
+	LanesByAssignee = "assignee"
+	LanesByPriority = "priority"
+	LanesByTag      = "tag"
+	LanesByDue      = "due"
+)
+
+// LaneGroupings lists what a lane can be, in the order a control offers them.
+var LaneGroupings = []string{LanesByProject, LanesByAssignee, LanesByPriority, LanesByTag, LanesByDue}
+
+// GroupNone names the lane of the tasks with no assignee or no tag.
+const GroupNone = "-"
+
+// LanesView is the view the lanes grouped by by are arranged under: ViewLanes
+// for projects, so an arrangement made before other groupings existed stays.
+func LanesView(by string) string {
+	if by == LanesByProject || by == "" {
+		return ViewLanes
+	}
+	return ViewLanesPrefix + by
+}
+
+// PriorityKeys names the priorities, highest first, as a lane or a filter
+// term spells them.
+var PriorityKeys = []string{"highest", "high", "normal", "low", "lowest"}
+
+// Key is the priority's name, or "" when it is out of range.
+func (p Priority) Key() string {
+	if !p.Valid() {
+		return ""
+	}
+	return PriorityKeys[p-PriorityHighest]
+}
+
+// laneView reports whether view is one of the lanes:BY views.
+func laneView(view string) bool {
+	by, ok := strings.CutPrefix(view, ViewLanesPrefix)
+	return ok && by != LanesByProject && slices.Contains(LaneGroupings, by)
+}
 
 // Deadline buckets: the groups of ViewMine, in the order it draws them.
 const (
@@ -69,10 +116,12 @@ const MaxGroupsOrdered = 500
 // moved to. It belongs to the actor who set it and changes nothing anybody
 // else sees.
 type GroupPref struct {
-	// View names the view: board, lanes, mine or project:KEY.
+	// View names the view: board, lanes, lanes:assignee, lanes:priority,
+	// lanes:tag, lanes:due, mine or project:KEY.
 	View string `json:"view" yaml:"view"`
 	// Group names the group on that view: a state key on a board, a project
-	// key on lanes, or a deadline bucket on mine.
+	// key on lanes, a handle, priority, tag or deadline bucket on the other
+	// lanes (- for no assignee or no tag), or a deadline bucket on mine.
 	Group string `json:"group" yaml:"group"`
 	// Hidden leaves the group out of the view.
 	Hidden bool `json:"hidden" yaml:"hidden"`
@@ -138,7 +187,7 @@ func ProjectView(projectRef string) string { return ViewProjectPrefix + projectR
 func SplitView(view string) (kind, project string, err error) {
 	view = strings.TrimSpace(view)
 	switch {
-	case view == ViewBoard || view == ViewLanes || view == ViewMine:
+	case view == ViewBoard || view == ViewLanes || view == ViewMine || laneView(view):
 		return view, "", nil
 	case strings.HasPrefix(view, ViewProjectPrefix):
 		ref := strings.TrimSpace(strings.TrimPrefix(view, ViewProjectPrefix))
@@ -147,7 +196,8 @@ func SplitView(view string) (kind, project string, err error) {
 		}
 		return ViewProjectPrefix, ref, nil
 	default:
-		return "", "", Invalid("unknown view %q: use %s, %s, %s or %sKEY", view, ViewBoard, ViewLanes, ViewMine, ViewProjectPrefix)
+		return "", "", Invalid("unknown view %q: use %s, %s, %s, %sassignee, %spriority, %stag, %sdue or %sKEY",
+			view, ViewBoard, ViewLanes, ViewMine, ViewLanesPrefix, ViewLanesPrefix, ViewLanesPrefix, ViewLanesPrefix, ViewProjectPrefix)
 	}
 }
 

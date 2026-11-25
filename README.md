@@ -47,6 +47,12 @@ everywhere, and a durable event stream. Both work the same tasks in the same sto
 > run by anyone but its author, so expect the rough edges of a first release. The
 > [v1 task list](openspec/changes/archive/2026-10-10-tix-v1/tasks.md) says what is done and what is not.
 
+**New to tix, or helping someone who is?** Start with the getting-started skill,
+[skills/tix-getting-started/SKILL.md](skills/tix-getting-started/SKILL.md). It asks how the person wants to use
+tix (desktop or mobile app, browser, CLI, TUI, SSH or an AI agent), explains instances, tenants, projects and
+workflows with one example, and walks the setup and a first task. Agents already set up use the main
+[skills/tix/SKILL.md](skills/tix/SKILL.md).
+
 ## How it works
 
 ```text
@@ -81,7 +87,8 @@ subscribe and a reconnect resumes from a cursor without gaps.
 ### For humans
 
 The same data, with a board, custom workflows, custom fields, dependencies, comments, history, and a personal
-star that keeps the tasks you are watching at the top of your own listings. The columns and lanes are yours to
+star that keeps the tasks you are watching at the top of your own listings, and the projects you work in at
+the top of the projects screen and the sidebar (`tix project star`). The columns and lanes are yours to
 arrange too: hide, star, collapse or move any of them from the three dots on its heading, kept with your
 account so it follows you everywhere (`tix view`). A filter you use every day is saved under a name in the
 sidebar, for you or the whole team (`tix filter`), My work lists what is yours by deadline (`assignee:me`),
@@ -91,10 +98,12 @@ template and created from it in one step (`tix template`). Tick rows on the task
 star, copy or delete them in one go, and export any filtered list as CSV for a spreadsheet, or a whole
 project as CSV, JSON, NDJSON or Markdown with the columns you pick (`tix export tasks`). Your due dates
 show up in Google Calendar, Apple Calendar or Outlook through a private feed address you subscribe to once
-(`tix calendar`, or Settings in the browser). A task you cannot move until later snoozes out of every listing
-until then and comes back by itself. A fresh install needs no configuration: one default workflow, no required
-fields, and `tix task add "buy milk"` works on a machine that has never seen tix. A task can be typed in one
-line, `Fix login !high #auth @raj due:fri`, in the browser, the terminal or `tix task add --parse`.
+(`tix calendar`, or Settings in the browser), and your tasks as to-do lists in Apple Reminders, tasks.org,
+Thunderbird or Evolution over CalDAV, ticked off and edited from there (`tix dav`). A task you cannot move until later
+snoozes out of every listing until then and comes back by itself. A fresh install needs no configuration:
+one default workflow, no required fields, and `tix task add "buy milk"` works on a machine that has never
+seen tix. A task can be typed in one line, `Fix login !high #auth @raj due:fri`, in the browser, the
+terminal or `tix task add --parse`.
 
 ### For teams
 
@@ -106,6 +115,18 @@ row-level security policies, applied to the connection when tix opens the databa
 
 Bring people in with a single-use invite link instead of a password you have to pass on (`tix user
 invite`, or the Users screen), or set one and require it to be changed at the first sign-in.
+
+Single sign-on per tenant through any OpenID Connect provider (Keycloak, Authentik, Entra ID, Google, Okta),
+GitHub, or a SAML 2.0 identity provider read from its metadata and reread on a schedule so certificate
+rollovers just work, configured by the tenant's own admins
+(`tix tenant sso add`, or the Single sign-on screen), in the browser, from the mobile app through the system
+browser and, for OIDC and GitHub, with `tix login --sso`. A tenant can turn passwords off, with global admins
+kept as the way back in.
+See [docs/sso.md](docs/sso.md).
+
+Provision people and groups from Entra ID, Okta, Authentik or JumpCloud over SCIM 2.0 (`tix tenant scim enable`).
+Deactivating someone in the provider ends their sessions and stops their tokens and keys, and the provider's
+groups map to roles. See [docs/scim.md](docs/scim.md).
 
 ## Access paths
 
@@ -124,9 +145,10 @@ by a test that fails the build when an operation lacks a binding.
 ## What else is in the binary
 
 An inbox of mentions, assignments, comments and status changes, statistics, tenant theming, a ctrl+k
-command palette in the browser, an actor directory, multi-step status moves, bulk actions, CSV export, tasks
-that repeat when they are done, quick-add syntax, Markdown descriptions with checklists you tick in place,
-per-browser dates, lease badges, shell completion, self-update and seedable demonstration data.
+command palette and a live event stream in the browser, an actor directory, multi-step status moves, bulk
+actions, CSV export, tasks that repeat when they are done, quick-add syntax, Markdown descriptions with
+checklists you tick in place, tasks as to-do lists over CalDAV, per-browser dates, lease badges, shell
+completion, self-update and seedable demonstration data.
 [docs/features.md](docs/features.md) describes each one and why it is there.
 
 ## Screenshots
@@ -212,8 +234,10 @@ code there. Nothing else changes: the commands, the output and the exit codes ar
 | [docs/commands.md](docs/commands.md) | Every command, grouped |
 | [docs/configuration.md](docs/configuration.md) | Contexts, the five layers, `TIX_*` variables, discovery |
 | [docs/api.md](docs/api.md) | HTTP API and the WebSocket event stream |
+| [docs/examples.md](docs/examples.md) | Calling the API from curl, Python, TypeScript and Go |
 | [docs/mcp.md](docs/mcp.md) | `tix mcp`: the API as MCP tools, the overlay, scopes and destructive tools |
 | [docs/deployment.md](docs/deployment.md) | `tix serve`, the container image, Kubernetes, TLS, proxies |
+| [docs/sso.md](docs/sso.md) | Single sign-on per tenant: OIDC, GitHub and SAML, linking, turning passwords off |
 | [docs/features.md](docs/features.md) | Statistics, theming, completion, self-update and the rest |
 | [docs/specifications.md](docs/specifications.md) | The normative OpenSpec contract, capability by capability |
 

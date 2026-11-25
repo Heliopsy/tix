@@ -819,7 +819,9 @@ identifier presented as a destination.
 #### Scenario: A record inside a closed disclosure is still reached
 
 - **WHEN** a link from the feed addresses a record that the target screen keeps behind a disclosure
-- **THEN** that disclosure is opened and the record is marked, so the link lands somewhere visible
+  or on a tab not shown
+- **THEN** that disclosure is opened or that tab shown, and the record is marked, so the link lands
+  somewhere visible
 
 #### Scenario: An unresolvable subject is not a dead link
 
@@ -1321,7 +1323,8 @@ can explain it.
 ### Requirement: A tenant administrator can see and revoke another actor's token in the browser
 
 The API token screen SHALL list every token of the tenant to a reader holding the tenant administration
-scope, and SHALL list only the reader's own tokens to any other reader.
+scope, and SHALL list only the reader's own tokens to any other reader unless the reader names another actor
+in the screen's actor filter.
 
 Where the listing spans more than the reader's own tokens, each row SHALL say which actor holds it, by that
 actor's handle where the directory holds one. A row that is the reader's own SHALL be distinguishable from
@@ -1331,7 +1334,7 @@ a row that is not.
 
 - **GIVEN** a reader holding the token administration scope and not the tenant administration scope
 - **AND** a token held by another actor of the same tenant
-- **WHEN** the token screen is read
+- **WHEN** the token screen is read with no actor filter
 - **THEN** the other actor's token is not listed
 - **AND** no revocation control on the screen names that token
 - **AND** the listing carries no owner column
@@ -5441,3 +5444,293 @@ whose close control leads back to the screen without it.
 
 - **WHEN** the activity feed is read at `?dialog=raw-SEQ` for a row on it
 - **THEN** that row's Raw entry dialog is drawn open, with a Close link back to `/activity`
+
+### Requirement: A help button on every screen
+
+Every screen of the browser interface SHALL carry a help link at the right end of its header row,
+named "Help: " followed by the screen's title and opening in a new tab with `rel="noopener"`. It
+SHALL lead through `/docs/{page}` to the documentation section about that screen, for the running
+release. The task screen drawn in the task dialog SHALL carry none.
+
+#### Scenario: The task list's help
+
+- **GIVEN** a reader on `/tasks`
+- **WHEN** they follow the help link in the header
+- **THEN** it opens `/docs/web-ui.md?section=the-task-list` in a new tab, which redirects to that page
+  of the running release with `#the-task-list`
+
+### Requirement: The docs redirect carries a section
+
+`GET /docs/{page}` SHALL accept a `section` query parameter and SHALL append it to the redirect target
+as a fragment when it consists of lower-case letters, digits, hyphens and underscores. Any other value
+SHALL be ignored, and the redirect SHALL go to the page alone.
+
+#### Scenario: A malformed section is dropped
+
+- **GIVEN** a request for `/docs/web-ui.md?section=Bad%20Section`
+- **WHEN** the server answers
+- **THEN** it redirects to the page with no fragment
+
+### Requirement: A task's activity is tabs with counts
+
+The task screen and the task dialog SHALL show Comments, History and Artifacts as a tab strip under the
+task's dependencies, each tab naming its count and a zero count shown muted. One panel SHALL show at a
+time, the tabs SHALL follow the ARIA tabs pattern with arrow keys, Home and End, and none SHALL sit in
+an expander.
+
+#### Scenario: Switching with the keyboard
+
+- **GIVEN** a task screen showing the Comments tab
+- **WHEN** the reader focuses it and presses the right arrow
+- **THEN** the History tab is selected and focused and only its panel is shown
+
+### Requirement: The activity tab chosen is kept and addressable
+
+The browser SHALL remember the activity tab a reader last chose. A fragment naming a panel or a record
+inside one, an older page of history, or a raw entry in the address SHALL open the tab that holds it
+instead. A live update SHALL redraw the lists and counts and keep the tab shown.
+
+#### Scenario: A history link opens History
+
+- **GIVEN** a reader whose last chosen tab was Artifacts
+- **WHEN** they follow a link to the task ending in `#history`
+- **THEN** the History tab is the one shown
+
+#### Scenario: A comment arrives while History is shown
+
+- **WHEN** a live update brings a new comment
+- **THEN** the Comments count goes up and History stays the tab shown
+
+### Requirement: The activity panels all show without scripting
+
+Without scripting the tab strip SHALL NOT be drawn and every activity panel SHALL show under its own
+heading, one under another.
+
+#### Scenario: Scripting off
+
+- **WHEN** a task screen is drawn with scripting disabled
+- **THEN** Comments, History and Artifacts each show with their heading and nothing is hidden
+
+### Requirement: The task panel's due hint fits its column
+
+The due field in the task panel SHALL show a hint that fits its column whole: the date in the reader's
+format, with the words and offsets it also takes in its tip.
+
+#### Scenario: A task with no due date
+
+- **WHEN** a task with no due date is shown at any viewport
+- **THEN** its due field's hint is a whole date, not one cut off
+
+### Requirement: The Manage dialog sends only what changed
+
+Saving a user's Manage dialog on the Users screen SHALL send the service only the fields whose value
+differs from the user as stored: display name, role, disabled and the forced password change. A save that
+changes nothing SHALL make no update.
+
+#### Scenario: Renaming a person who belongs to two tenants
+
+- **GIVEN** a tenant admin who is not a global admin, and a person who is a member of that tenant and another
+- **WHEN** the admin changes only the person's display name or role in the Manage dialog and saves
+- **THEN** the change is saved and the forced password change is neither sent nor set
+
+#### Scenario: Saving the form as drawn
+
+- **WHEN** an admin saves a Manage dialog without changing anything
+- **THEN** no user update is recorded
+
+### Requirement: A cross-tenant refusal is shown on the Manage dialog
+
+When the service refuses a Manage dialog change with reason `account_in_other_tenants`, the Users screen
+SHALL be drawn again with that dialog open, holding what was submitted, and a message naming the person
+beside the control that asked: the forced password change box, or the clear second factor part.
+
+#### Scenario: Asking a two-tenant person to change their password
+
+- **WHEN** a tenant admin who is not a global admin ticks the forced password change for a person who also belongs to another tenant and saves
+- **THEN** the dialog comes back open with the typed values and says that only the person or a global admin can ask them to change their password, and nothing is changed
+
+### Requirement: The header switches between the reader's tenants
+
+For a reader who is a member of more than one tenant, the header SHALL show the current tenant as a button opening a dialog that lists each of the reader's tenants with its role and a Switch button. It SHALL use no disclosure element, and SHALL work without scripting through a dialog link.
+
+#### Scenario: Two memberships
+
+- **WHEN** a person who is a member of HO and `test` is signed in to HO
+- **THEN** the header's tenant button opens a dialog listing HO as current and `test` with a Switch button
+
+#### Scenario: One membership
+
+- **WHEN** a person who is a member of one tenant only is signed in
+- **THEN** the header shows the tenant's name as text and offers no switcher
+
+#### Scenario: Without scripting
+
+- **WHEN** scripting is off and the tenant button is followed
+- **THEN** the same list is drawn in place and each Switch button submits a plain form
+
+### Requirement: A tenant at its own address is a link
+
+The switcher SHALL offer a Switch button only for a tenant the current host serves. A tenant served at a domain of its own SHALL be listed as a link to that address's sign-in page.
+
+#### Scenario: Tenant with its own domain
+
+- **WHEN** a person in HO and in `away`, which has its own domain, opens the switcher on HO's shared host
+- **THEN** `away` is listed with a link to its sign-in page and no Switch button
+
+### Requirement: Sign-in on a shared host goes by the account
+
+A browser sign-in on a shared host that no header or credential pointed at a tenant SHALL accept an account that is no member of the host's own tenant, signing it in to the first tenant by key it belongs to that the host serves. After the password and any second factor, a person with more than one such tenant SHALL land on a Choose a tenant screen.
+
+#### Scenario: Member of test only
+
+- **WHEN** a member of `test` alone signs in on tix.z09.org, a shared domain of HO
+- **THEN** the session belongs to `test`
+
+#### Scenario: Member of both
+
+- **WHEN** a member of HO and `test` signs in on tix.z09.org
+- **THEN** after the password and any code the Choose a tenant screen lists both
+
+### Requirement: The switcher lists only the reader's own memberships
+
+The switcher SHALL list only tenants the reader is a member of. A global admin's reach into other tenants SHALL stay in the Global admin area and SHALL NOT appear as switcher entries.
+
+#### Scenario: Global admin without membership
+
+- **WHEN** a global admin who is a member of HO only opens the switcher
+- **THEN** it lists HO alone and links to the Global admin area
+
+### Requirement: Users screen shows a pending invite of an existing account
+
+A pending invite addressed to an existing account SHALL appear on the inviting tenant's Users screen with its email and state.
+
+#### Scenario: Pending
+
+- **WHEN** a tenant admin has invited an address that has an account and it is not accepted yet
+- **THEN** the Users screen lists the address as pending
+
+### Requirement: The Global admin area shares a tenant's domains
+
+A tenant's screen in the Global admin area SHALL list its domains, each marked shared or bound to the tenant, with a control that sets or clears the flag. A tenant's own Domains screen SHALL show the flag and SHALL NOT offer to change it.
+
+#### Scenario: Global admin shares a host
+
+- **WHEN** a global admin opens tenant HO in the Global admin area and shares tix.z09.org
+- **THEN** the row shows the domain as shared and offers to stop sharing it
+
+### Requirement: An Account screen shows the reader's account log
+
+The web UI SHALL offer an Account screen, reached from the settings screen, listing the reader's account log. The Global admin area SHALL link each user to their account log.
+
+#### Scenario: Reader opens Account
+
+- **WHEN** a signed-in person opens the Account screen
+- **THEN** it lists the changes to their account with who made each and the tenant it came from
+
+### Requirement: Settings states who the reader is
+
+The settings screen SHALL open with a Profile section naming the signed-in actor's handle, email, display
+name, identifier, kind, role, tenant, memberships, scopes, whether it may act as a global admin, and whether
+the request authenticated with a browser session or an API token. It SHALL read them from `WhoAmI` and
+SHALL link to the reader's own actor screen.
+
+#### Scenario: An administrator reads their profile
+
+- **GIVEN** alice, an admin of the tenant acme
+- **WHEN** she opens Settings
+- **THEN** the Profile section names `alice`, her email, her actor identifier, the role admin and the tenant acme
+- **AND** it lists acme among her memberships as this tenant
+- **AND** it links to `/actors/` followed by her identifier
+
+### Requirement: An actor has a screen of its own
+
+`GET /actors/{id}` SHALL show the actor a handle or an identifier names: its handle, display name, kind and
+identifier, a link to the tasks assigned to it, and for a reader holding `token:admin` links to its tokens
+and SSH keys. It SHALL show no scope or role of that actor. An identifier this tenant does not hold SHALL be
+not found.
+
+#### Scenario: Opening an agent by handle
+
+- **GIVEN** an agent with the handle `ci-bot`
+- **WHEN** a member opens `/actors/ci-bot`
+- **THEN** the screen names `ci-bot`, the kind agent and its identifier
+
+### Requirement: The actor screen shows recent activity to an audit reader
+
+The actor screen SHALL list the actor's most recent audit entries, grouped and worded as the activity feed
+words them, with a link to the activity feed narrowed to that actor. A reader without `audit:read` SHALL be
+told the activity needs that scope, and SHALL still be shown the rest of the screen.
+
+#### Scenario: A viewer without the audit scope
+
+- **GIVEN** a reader without `audit:read`
+- **WHEN** they open an actor screen
+- **THEN** the screen shows the actor and says recent activity needs `audit:read`
+
+### Requirement: An actor named on a screen links to its actor screen
+
+The directory's handles, a task's assignee and creator, a comment's author and a token's owner SHALL link to
+that actor's screen.
+
+#### Scenario: Following a comment's author
+
+- **GIVEN** a comment written by alice
+- **WHEN** the reader activates the author's name on the task screen
+- **THEN** alice's actor screen opens
+
+### Requirement: The task screen shows the whole subtask tree
+
+The task screen SHALL draw the task's subtasks as a tree to any depth. It SHALL draw three levels on load,
+and a node at the third level that has children SHALL offer to load them in place, three levels further,
+from `GET /tasks/{ref}/tree`. Without scripting that offer SHALL be a link to the subtask's own screen.
+
+#### Scenario: A grandchild is drawn
+
+- **GIVEN** infra-1 with a subtask infra-2 that has a subtask infra-3
+- **WHEN** the reader opens infra-1
+- **THEN** infra-3 is drawn under infra-2 in the Subtasks section
+
+#### Scenario: A deep subtree loads on request
+
+- **GIVEN** a chain of subtasks five levels deep under infra-1
+- **WHEN** the reader opens infra-1
+- **THEN** the fourth level is not drawn and its parent offers to show its subtasks
+
+### Requirement: A subtask tree node collapses
+
+Each tree node with drawn children SHALL carry a control with `aria-expanded` that hides and shows them.
+Without scripting the control SHALL NOT be drawn and the tree SHALL stay open. A subtree too large to walk
+SHALL fall back to direct subtasks rather than failing the screen.
+
+#### Scenario: Collapsing a node
+
+- **WHEN** the reader activates the collapse control of infra-2
+- **THEN** infra-2's subtasks are hidden and the control reads `aria-expanded="false"`
+
+### Requirement: The token and SSH key screens take an actor filter
+
+The token screen and the SSH key screen SHALL take an `actor` query parameter, a handle or an identifier,
+and SHALL then list that actor's credentials only, naming whose they are. The service SHALL decide whether
+the reader may; the filter SHALL be a GET form offering the directory's handles.
+
+#### Scenario: A token keeper reads another actor's keys
+
+- **GIVEN** a reader holding `token:admin` and not `tenant:admin`
+- **AND** another actor with an enrolled key
+- **WHEN** they open `/admin/ssh-keys?actor=` with that actor's handle
+- **THEN** that key is listed and the screen names whose keys it lists
+
+### Requirement: The Tokens screen rotates a token
+
+The Tokens screen SHALL offer a Rotate button beside Revoke on every live token, including when the listing is filtered to one actor. It SHALL open a dialog naming the token and its owner with a grace choice, and the new value SHALL be shown once with a copy control, as an issued token is.
+
+#### Scenario: Rotating from the screen
+
+- **WHEN** a reader rotates a token from the Tokens screen
+- **THEN** the screen shows the new value once
+- **AND** the old token is listed as revoked, or as retiring when a grace was chosen
+
+#### Scenario: A retiring token offers no rotate
+
+- **WHEN** a token is inside its grace window
+- **THEN** its row offers Revoke and not Rotate

@@ -1,8 +1,8 @@
 ---
 name: tix
-description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks with a lease sized to each before starting, the claim/lease/release loop, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
-version: 21
-verified-against: tix 7be6cf4a (2026-11-06)
+description: Drive tix, a task tracker built as one shared queue for humans and AI agents, entirely from its `tix` CLI. Use this whenever a task says to use tix, whenever you need durable task state that survives your own process dying, whenever you need to claim and work a queue of tasks under a lease, or whenever you see `tix` referenced in a repo, CI job, or agent instructions. `tix mcp` serves the same API as MCP tools for a client that wants them, but this skill drives the CLI, which reaches everything. Covers writing your own plan down as tasks before starting, claiming with a short lease and renewing it as you work, the claim/lease/release loop, posting progress comments on bigger tasks, `tix claim exec`, crash recovery, exit codes, machine-readable output, comments and artifacts, dependencies and subtasks, and `tix status`.
+version: 26
+verified-against: tix f12f12fe (2026-11-11)
 ---
 
 # tix
@@ -14,13 +14,20 @@ need once in a while:
 - [reference/queries.md](reference/queries.md): the filter language, deadlines,
   sorting and paging, the actor directory, `tix stats`, `tix watch`.
 - [reference/setup.md](reference/setup.md): targets and contexts, API tokens
-  and scopes, `tix serve`, `tix mcp`, workflows and custom fields, the audit log,
-  import/export, sync, webhooks, bundles, retention.
+  and scopes, app passwords for CalDAV (`tix dav`), `tix serve`, `tix mcp`,
+  workflows and custom fields, the audit log, import/export, sync, webhooks,
+  bundles, retention.
 - [reference/ssh.md](reference/ssh.md): serving the terminal interface over
   SSH, running tix commands over SSH with only a key, enrolling keys, and
   `tix login --ssh-key`.
 - [reference/recovery.md](reference/recovery.md): the worked crash transcript
   this skill's claims were verified against.
+
+If the person you are helping is new to tix and has nothing set up yet, use
+the getting-started skill first
+([tix-getting-started](https://github.com/heliopsy/tix/blob/main/skills/tix-getting-started/SKILL.md)):
+it asks how they want to use tix and walks the setup. This one assumes tix is
+already reachable.
 
 The commit this file was checked against is the `verified-against` field above,
 and nowhere else. `cmd/skill_test.go` reads that field and fails if it names a
@@ -57,7 +64,10 @@ where it came from.
   token for the command line. `tix login --tenant KEY --context NAME` against a
   server does store one: it signs in to that tenant, mints a token for the
   person's actor there and writes it to the context. That is for a person; an
-  agent is handed a token.
+  agent is handed a token. On a tenant that signs in through single sign-on,
+  add `--sso` in place of `--email` and `--password`; it opens the browser. A
+  SAML provider signs in only in the browser, so there the person creates a
+  token on the Connect screen instead.
 - **One person, several tenants:** each context holds one tenant's token.
   `tix tenant ls` lists the person's tenants with the role held in each and the
   context holding a token for it; `tix tenant use KEY` makes that context
@@ -70,6 +80,22 @@ where it came from.
   `tix ctx add` line above for a server, or `tix init` for a local database.
 - **Exit `5` naming "needs an API token":** the server is set but no token is.
   Add one with `tix ctx add ... --token`, as above.
+- **Exit `5` naming "this token requires a claim on REF":** your token was
+  minted with `--require-claim`, so you change a task (move, edit, tag,
+  project move, delete) only while you hold a live claim on it. Run the
+  command the message names, `tix claim task REF --start`, then retry with the
+  lease token. Do not ask for a token without the setting to get around it.
+- **Exit `5` with reason `second_factor_enrollment_required`:** the tenant's
+  second factor policy is on and the person your token belongs to has no
+  second factor. Nothing but enrolment works until they add one
+  (`tix user totp enrol` on a terminal, or `/settings/totp` in the browser);
+  the same token works again afterwards. Do not retry, tell the person. A token
+  of an agent actor is never refused this way. See
+  [reference/setup.md](reference/setup.md#the-second-factor-policy).
+- **Asked to rotate your own token:** `tix token rotate NAME --grace 10m -o json`
+  prints the new value once; put it in your context before the ten minutes are
+  up. No `token:admin` is needed for the token you run on. See
+  [reference/setup.md](reference/setup.md).
 
 While the default local database is in use, every command also prints
 `using local database PATH (no server configured; ...)` on standard error,
@@ -90,10 +116,10 @@ or another agent can pick it up.
 # 1. the assignment, as one parent task
 tix task add "ship the retry fix" -p default --priority high -q -o json
 
-# 2. the steps, as subtasks of it, with the ordering and a lease for each
-tix task add "reproduce the flake" --parent default-1 --lease 30m -q
-tix task add "patch and test" --parent default-1 --depends-on default-2 --lease 2h -q
-tix task add "update the changelog" --parent default-1 --depends-on default-3 --lease 15m -q
+# 2. the steps, as subtasks of it, with the ordering and a lease where the default does not fit
+tix task add "reproduce the flake" --parent default-1 --lease 15m -q
+tix task add "patch and test" --parent default-1 --depends-on default-2 -q
+tix task add "update the changelog" --parent default-1 --depends-on default-3 --lease 10m -q
 
 # 3. read back what you committed to
 tix task tree default-1
@@ -129,16 +155,22 @@ works it. A plan with only parents lets you claim step three before step one.
 Write the steps at the granularity you are willing to lose. One task per unit
 of work you could redo from its description alone.
 
-**Give each step a `--lease` sized to the work** instead of leaving every
-step on the project default: 30m for a quick fix, 2h for a test-and-patch step.
-The lease is how long a claim holds without a `--ttl`, so a sensible one means
-a crashed agent's step is back in the queue soon, and a long one does not
-expire mid-work. Over the maximum is exit `2` and nothing is created. If a step
-runs over anyway, renew (`tix claim renew`) before it lapses.
+**Keep leases short and renew them; do not front-load a long one.** The lease
+is how long a claim holds without a `--ttl`, and it is also how long a step
+sits locked after you crash, so every minute you add "to be safe" is a minute
+nobody can pick the work up. Agents consistently overestimate here. Size a
+step's `--lease` to the stretch of work you expect before you next touch tix,
+not to the whole step's worst case: 10m or 15m for a quick edit, nothing at
+all (the 30m default) for most steps, and more than an hour only for one
+unattended command, which `tix claim exec` renews for you anyway. If a step
+runs over, renew (`tix claim renew`, see "Leases") rather than having guessed
+long up front. Over the maximum is exit `2` and nothing is created.
 
 Then take them one at a time, leaving a trail as you go, including a comment
 for every block and every significant decision (see "Comments, artifacts and
-results"):
+results"). An assignment you split like this is a bigger task, so post its
+plan, milestones and final summary as comments on the parent (see "Post
+progress on bigger tasks"):
 
 ```sh
 tix comment add default-2 "reproduced on the third run; it is a race in TestRetry"
@@ -147,6 +179,11 @@ tix artifact put default-2 --kind log --file ./test-output.txt --content-type te
 
 (Once you have *claimed* default-2, `artifact put` also needs
 `--lease-token "$token"`; see "Leases" below. `comment add` never does.)
+
+A file has to fit the tenant's artifact limits, 1 MiB and common document,
+data and image types unless the operator or tenant changed them.
+`tix artifact limits` prints the ones in force; a refusal names them too.
+Without `--content-type` the type comes from the file's extension.
 
 For small steps that do not each deserve a task, a checklist in the
 description is enough. A description is Markdown, and `- [ ]` lines are items:
@@ -168,15 +205,20 @@ same reason an unrecorded plan is.
 ## The loop
 
 ```sh
-claim=$(tix claim next -p default -s todo -o json -q) || exit $?
+claim=$(tix claim next -p default -s todo --start -o json -q) || exit $?
 ref=$(jq -r .task.ref <<<"$claim")
 token=$(jq -r .lease_token <<<"$claim")
 
-tix task mv "$ref" doing --lease-token "$token" -q
-# ... do the work ...
+# ... do the work; the task is already in doing ...
 tix claim release "$ref" --token "$token" --status done \
   --result exit_code=0 --comment "what happened"
 ```
+
+That is two calls. `--start` moves the task to its first in-progress state
+(`doing` on the default workflow) in the same write as the claim, and the
+release moves it to `done` and gives the lease up. If you would rather finish
+with `task mv`, `tix task mv "$ref" done --lease-token "$token"` also releases
+your lease, because the task is finished; there is no release to run after it.
 
 - `tix claim next` picks the highest-priority unblocked, unclaimed,
   **non-terminal** task matching the filter and claims it atomically. No
@@ -202,8 +244,14 @@ tix claim release "$ref" --token "$token" --status done \
 - A **snoozed** task is invisible to the queue: `claim next` skips it and
   `claim task REF` refuses it with exit `6` (`precondition`) naming the wake
   time, until it wakes on its own or somebody runs `tix task unsnooze REF`.
-- Claiming does **not** transition the task. Move it yourself (`task mv`) or
-  use `--on-start` with `claim exec`.
+- A plain claim does **not** transition the task. Pass `--start` to `claim
+  next` or `claim task` to move it to the first in-progress state in the same
+  write, or `--start-status STATE` to name the state. A task already in
+  progress stays where it is. If the move is refused (exit `2` for a state the
+  workflow lacks, exit `6` for no edge to it), **nothing is claimed**. `claim
+  exec --on-start STATE` starts the task the same way. `--start` is opt-in on
+  purpose: a script that claims and then runs `task mv REF doing` itself keeps
+  working.
 - There is no `tix claim` subcommand that lists leases. To see what is
   currently held (which is how you tell whether another agent is already on
   the queue), ask the task listing: `tix task ls --filter 'claimed:yes'`.
@@ -214,6 +262,10 @@ tix claim release "$ref" --token "$token" --status done \
   `claims last 2h, from the project`. A `--ttl` above the maximum is exit `2`.
   Renew at a third of the length you were actually granted, not the one you
   assumed.
+- Claim with the length you were given, or a `--ttl` close to the time the
+  next piece of work really takes, never one sized to cover the whole job.
+  Release the moment you finish or stop: a lease held while you do something
+  else keeps the task from everybody.
 
 ## Leases
 
@@ -225,16 +277,29 @@ task's **status or its results**:
   now+ttl (not "extend by").
 - `tix claim release REF --token T [--status S]`
 - `tix task mv REF STATUS --lease-token T`: required whenever the task is
-  currently claimed.
+  currently claimed, **including by you**. The token, not your account, proves
+  the claim: two workers can share one account, and a worker whose lease
+  lapsed is still logged in. Moving into a finished state (`done`,
+  `cancelled`) with your token also releases the lease.
 - `tix artifact put REF --lease-token T`: required whenever the task is
   currently claimed. `claim release --result` and `claim exec` already carry
   results under the token, so reach for this one when you are recording
   something mid-run rather than at the end.
 
-**Omit `--ttl` unless the work is genuinely long.** Without one the length
-comes from the project's workflow, then the tenant, then the deployment. A ttl
-you do pass is capped at whatever the operator set, 24h at most, and over that
-is refused: exit `2`, nothing renewed, old deadline still running:
+**Omit `--ttl` unless you know the default is too short for the next stretch,
+and then ask for that stretch, not the whole job.** Without one the length
+comes from the task, the project, the workflow, the tenant and the deployment,
+30m when none sets it. A long lease is not safety: it is how long the task
+stays locked if you die. Renew as you go instead; a renewal with no `--ttl`
+resets to the length you were granted:
+
+```sh
+tix claim renew "$ref" --token "$token" -q                # another full lease from now
+tix claim renew "$ref" --token "$token" --ttl 20m -q      # or the time the next step needs
+```
+
+A ttl you do pass is capped at whatever the operator set, 24h at most, and
+over that is refused: exit `2`, nothing renewed, old deadline still running:
 
 ```console
 $ tix claim renew infra-8 --token "$token" --ttl 48h
@@ -273,6 +338,14 @@ $ tix artifact put default-2 --kind result --payload '{"stale":true}'
 error: lease_expired: task "default-2" is claimed; supply the lease token
 ```
 
+When you are the holder and just forgot the token, the error says so and
+names the flag. The token is the `lease_token` field of your claim's output:
+
+```console
+$ tix task mv default-2 doing
+error: lease_expired: task "default-2" is claimed by you; pass the lease_token your claim printed (--lease-token TOKEN on the command line, lease_token over the API)
+```
+
 `task mv`'s `lease_expired` only fires when the target status is otherwise a
 legal transition from the task's current state. If the transition itself
 isn't legal you get the ordinary `precondition_failed`/exit `6` for an
@@ -299,7 +372,13 @@ not pass one and do not expect a refusal:
   the browser has on a task you hold, since a browser session holds no lease.
 - **`tix task edit`.** Field edits are shared triage: a human re-prioritising
   or re-assigning live work is the queue doing its job. If you care about a
-  concurrent edit, that is what `--version` is for, not the lease.
+  concurrent edit, that is what `--version` is for, not the lease. A token
+  minted with `--require-claim` is the exception: it edits only tasks its
+  actor has claimed, though still without passing the lease token.
+
+`tix comment react ID EMOJI` (and `--remove`) leaves an emoji reaction on a
+comment. It notifies nobody, so it is an acknowledgement, never a substitute
+for a reply someone is waiting on.
 
 So treat a **comment** as evidence, never a lock: two agents can write
 contradictory ones. The **artifact** is what the lease protects, so keep your
@@ -367,7 +446,7 @@ tix claim exec -p default -s todo --on-start doing --on-failure blocked -- ./wor
 | Flag | Effect |
 | --- | --- |
 | `--ref` | claim this task instead of the next eligible one |
-| `--on-start` | move here before running (often required, see below) |
+| `--on-start` | move here as the task is claimed (often required, see below) |
 | `--on-success` | release status on exit 0 (default `done`) |
 | `--on-failure` | release status on nonzero exit |
 | `-p / -s / -l / --ttl / --actor` | same as `claim next` |
@@ -388,18 +467,19 @@ and the process exits `2`, not the child's status. The task is left claimed
 under a lease nobody is renewing, so it comes back when the lease lapses.
 Always set `--on-start` unless you know the workflow allows a direct edge.
 
-Equally, do not point `--on-start` at the status the task is already in. That
-is an illegal self-transition, and exec claims the task, fails the move and
-stops **before** the child runs:
+`--on-start` is the claim's own `--start-status`: the move happens in the
+same write as the claim. A task already in that status stays put. A status the
+task cannot reach in one step is refused, **nothing is claimed**, and the
+child never runs:
 
 ```console
-$ tix claim exec --ref default-2 --on-start doing -- true
-claimed DEFAULT-2 until 2026-10-11T13:40:40Z
-error: precondition_failed: cannot move task "default-2" from "doing" to "doing"; allowed targets are todo, blocked, done, cancelled
+$ tix claim exec --ref default-2 --on-start done -- true
+error: precondition_failed: cannot move task "default-2" from "todo" to "done"; allowed targets are doing, blocked, cancelled
 ```
 
-That is exit `6`, which is not in exec's table below, so a child exiting `6`
-and a refused `--on-start` look alike, so read the message.
+That is exit `6` (exit `2` for a status the workflow lacks), which is not in
+exec's table below, so a child exiting `6` and a refused `--on-start` look
+alike; read the message.
 
 Exec's exit codes are not the normal table, because the child's own exit
 status is threaded through:
@@ -442,7 +522,8 @@ that the work did not happen.
 `tix task mv REF STATUS --hops` reaches a status the workflow only gets to
 through another state: it prints the route, then applies one ordinary
 transition per hop, so the audit trail records every state the task passed
-through. With `--dry-run` it prints the route and writes nothing. When two
+through. With `--dry-run` it prints the route, makes every check the real
+hops would, and writes nothing. When two
 routes are equally short it refuses rather than guessing, and asks you to name
 one, written `doing>done`.
 
@@ -547,6 +628,7 @@ Reading one task or a few:
 ```sh
 tix task show default-1 -o json      # one task
 tix task tree default-1              # a task and its descendants
+tix task link default-1 --as markdown   # its web address as a Markdown link, for a PR or a chat
 tix task ls -s todo --unclaimed -o json
 tix task ls --blocked                # only tasks blocked by a dependency
 tix task ls --starred                # only tasks you starred
@@ -554,12 +636,21 @@ tix task ls --filter 'deploy api' --limit 10 -o json   # find by words, as the b
 tix task ls --snoozed                # only snoozed tasks, hidden by default
 tix task ls --include-snoozed        # snoozed tasks beside the rest
 tix task copy default-1 --to work --with-subtasks --link   # a fresh copy in another project
+tix task move default-1 --to work    # the same task in another project, under a new number
 tix project ls -o json               # the project keys, if you do not know them
+tix project ls --starred             # only the projects you starred (tix project star KEY)
 ```
+
+When the server sets `server.public_url`, every task in `-o json` output (and
+in the API and MCP) carries `web_url`, the address a person opens it at. Hand
+that to a human instead of building a link yourself; it is absent when the
+server knows no public address, and then `tix task link` needs `--base` or a
+remote context. `tix task link` also runs over the SSH listener.
 
 `tix project rm KEY` exits 6 while the project holds tasks. Say what happens
 to them: `--move-tasks-to OTHER` (renumbered there, statuses mapped onto its
 workflow) or `--delete-tasks` (permanent). `--dry-run` shows the mapping first.
+In JSON, `deleted` is how many tasks went and a dry run says `would_delete`.
 
 A project's key can change (`tix project edit infra --key ops`). Every
 reference changes with it, so `infra-8` becomes `ops-8`, but the old key stays
@@ -574,14 +665,18 @@ lands in `default`. `--limit` (default 25) sizes a page, `--cursor` continues
 one, `--all` follows them for you. Tasks the caller starred (`tix task star
 REF`) list first under every sort; a star is per actor, so another worker's
 stars never reorder your queue, and a token that stars nothing sees the plain
-order. The whole filter language, deadlines and sorting are in
+order. Projects take a star the same way (`tix project star KEY`, `tix project
+unstar KEY`): yours alone, it lists the project first for you and sets
+`starred` in its JSON. The whole filter language, deadlines and sorting are in
 [reference/queries.md](reference/queries.md).
 
 A project's JSON may carry an icon as one of `icon` (an emoji or monogram),
 `icon_name` (a built-in symbol such as `rocket`) or `icon_image` (the digest of
 an uploaded image, fetched with `tix project icon KEY --out FILE`). Set one with
 `tix project edit KEY --icon`, `--icon-name` or `--icon-file`; it replaces the
-others. None of it affects how tasks are listed or claimed.
+others. None of it affects how tasks are listed or claimed. A tenant carries
+the same three fields, set with `tix tenant edit REF --icon`, `--icon-name` or
+`--icon-file` and fetched with `tix tenant icon REF --out FILE`.
 
 **Titles are literal unless you pass `--parse`.** `tix task add` stores the
 title you give it, `#`, `@` and `!` included, so pass issue titles and commit
@@ -604,7 +699,8 @@ there will be two. Moving it to `cancelled` ends the series instead.
 --hidden`, `tix view set lanes homelab --starred`, `tix view set board doing
 --collapsed` (each flag takes `=false` to undo it), `tix view order lanes work
 homelab` and `tix view reset board` change how the caller's own boards and
-lanes are drawn (views `board`, `lanes`, `mine`, `project:KEY`), and `tix view ls
+lanes are drawn (views `board`, `lanes`, `lanes:assignee`, `lanes:priority`,
+`lanes:tag`, `lanes:due`, `mine`, `project:KEY`), and `tix view ls
 board -o json` lists it. It reorders no listing and changes nothing another
 actor sees, so an agent has no reason to touch it unless asked to.
 
@@ -612,7 +708,8 @@ actor sees, so an agent has no reason to touch it unless asked to.
 `creator:` or `claimed-by:` is the caller, so `tix task ls --mine` (the same
 as `--filter assignee:me`) lists what is assigned to you and
 `--filter claimed-by:me` what you hold. In the browser the same list is My
-work, grouped by deadline.
+work, grouped by deadline. `@HANDLE` is short for `assignee:HANDLE`, so
+`--filter '@lena tag:ops'` is lena's ops work.
 
 **Saved filters are named filters a person keeps.** `tix filter save NAME
 --filter EXPR [--view list|board|lanes] [--sort FIELD] [--shared]` keeps one,
@@ -636,7 +733,8 @@ address reads their tasks without signing in.
 items written when somebody mentions you as `@handle`, assigns you a task,
 comments on a task you are assigned to or starred, or moves a task assigned to
 you; each names the task (`task_ref`), who (`actor_handle`) and the `kind`
-(`mention`, `assigned`, `comment`, `status`). `tix inbox count -o json` is the
+(`mention`, `assigned`, `comment`, `status`); `--kind mention,assigned` lists
+only those. `tix inbox count -o json` is the
 unread count, `tix inbox read ID` and `tix inbox read-all` mark them, and
 `tix inbox prefs --mute comment` stops a kind. `tix inbox channel add NAME URL
 --format slack|discord|ntfy|generic --kinds mention` sends your items to an
@@ -652,6 +750,14 @@ initial state unless `--keep-status` finds a state of the same name.
 `--with-subtasks`, `--with-comments` and `--with-deps` bring those along, and
 `--link` records the original as `copied_from_id`. It never copies a lease, so
 a copy of a task you hold is unclaimed. Exit `3` on an unknown project.
+
+**Move when it is in the wrong project.** `tix task move REF... --to KEY` moves
+the task itself: same id, comments, artifacts, history and links, the next
+number in the target. The old reference keeps resolving, so mentions you wrote
+still work; use the new `ref` from the answer from then on. The status is kept
+when the target workflow has it (`status_kept`), custom fields the target lacks
+are listed in `dropped_fields`. A task somebody else holds is exit `4`; your
+own claim moves with it.
 
 **Many tasks in one request.** `tix task bulk ACTION REF...` applies `move
 --to S`, `priority --priority P`, `tag-add`/`tag-remove --tag T`, `assign
@@ -679,6 +785,8 @@ in any case, filled in at each use.
 
 **Do not poll `tix task ls` in a loop.** `tix watch` subscribes to the event
 stream instead; see [reference/queries.md](reference/queries.md).
+Where a WebSocket cannot stay up, `tix events --since N --wait 25s -o json`
+reads the same events once over plain HTTP; resume from its `next_seq`.
 
 ## Comments, artifacts and results
 
@@ -713,6 +821,41 @@ fast path when you're closing the task anyway, and need no token of their own.
 
 Every mutating command takes `--dry-run`, which reports what it would do and
 writes nothing. Use it when you are unsure a transition or a delete is legal.
+`task mv --dry-run` runs every check the move runs (the state, the edge, a
+required comment or scope, the lease token, `--version`) and fails with the
+same error and exit code. A state the workflow lacks is exit `2`, and the
+message lists the workflow's states, so you do not need `workflow get`.
+
+### Post progress on bigger tasks
+
+A task is bigger when any of these holds: you split it into subtasks, it
+takes more than about three distinct steps, you expect it to run past one
+default lease (30m) or need a renewal, or it touches more than a couple of
+files or systems. On a bigger task **you must post progress as comments on
+the task**, so a person watching the board knows where it stands without
+asking, and whoever replaces you after a crash knows where to pick up:
+
+- **When you start:** the plan in two to five lines.
+- **At each meaningful milestone, and whenever you are blocked:** a subtask
+  done, the tests green, a pull request opened, an approach abandoned. One or
+  two lines each.
+- **When you finish:** a short summary of what changed and the results, with
+  links (pull request, commit, artifact, `web_url`). `claim release --comment`
+  carries it on the closing write.
+
+```sh
+tix comment add default-1 "Plan: reproduce the flake, patch the retry loop, add a regression test, update the changelog"
+tix comment add default-1 "Reproduced: race in TestRetry under -race, 1 run in 5. Patching next."
+tix claim release default-1 --token "$token" --status done \
+  --comment "Fixed the race with a mutex around the retry counter; regression test added. PR: https://github.com/example/repo/pull/42"
+```
+
+Over MCP the same write is the `comment_add` tool with `{"ref": "default-1",
+"body": "..."}`.
+
+Keep each update short and factual: what is done, what is next, what is in
+the way. Do not narrate every command. A quick task you finish in a few
+minutes needs no progress comments; its closing `--comment` is enough.
 
 ## Dependencies
 
@@ -754,6 +897,10 @@ every `task rm` is permanent, `task rm` says so on stderr, and `task restore`
 and `--trashed` fail with exit `6`. `tix task trash -o json` answers
 `{"enabled": ..., "held": N}`; check it before deleting anything you might
 want back, and prefer cancelling a task over deleting it when it is off.
+
+`tix task purge REF` deletes a task that is already in the trash for good,
+with its trashed subtasks. A live task is exit `6` (`not_trashed`), and so is
+any purge while the trash is off. It has no way back, so only purge when asked.
 
 A tenant can also tidy up on its own: `tix cleanup show` lists the rules that
 move done and cancelled tasks to the trash after N days and empty the trash
@@ -845,6 +992,10 @@ Targets, contexts, tokens and scopes are in
   blocked tasks; `claim next` does not.
 - Do not write a mapping file to add a few tasks. `task add` per task, or
   `import tasks --lines`, needs none.
+- Do not ask for a long `--ttl` or `--lease` to be safe. Claim short, renew
+  while you work, release when you stop.
+- Do not work a bigger task silently. Post the plan, the milestones and a
+  final summary as comments on it.
 - Do not leave abandoned work in `doing`. Move it to `cancelled`, which is
   terminal, so whatever depends on it stops waiting.
 

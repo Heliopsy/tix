@@ -47,9 +47,13 @@ type Model struct {
 	width  int
 	height int
 
-	projects   []core.Project
-	projectSel int
-	projectOff int
+	projects []core.Project
+	// allProjects is the whole listing, and starredOnly narrows projects to
+	// the reader's starred ones.
+	allProjects []core.Project
+	starredOnly bool
+	projectSel  int
+	projectOff  int
 
 	project  core.Project
 	workflow *core.WorkflowDefinition
@@ -70,7 +74,10 @@ type Model struct {
 
 	filterText string
 	filter     core.TaskFilter
-	filterErr  string
+	// paged is which page of the project's tasks the board holds, of how
+	// many the listing counted.
+	paged     boardPage
+	filterErr string
 	// quickErr is why the new-task prompt's line was refused, drawn under
 	// the field while the prompt stays open on the line.
 	quickErr string
@@ -114,6 +121,15 @@ type Model struct {
 
 	choice  choiceKind
 	choices []Choice
+	// choiceNote is said above a picker's options: why the share picker
+	// offers no link, for one.
+	choiceNote string
+	// shared is the text the share key just copied, drawn in full until the
+	// next key, so a terminal that ignores OSC 52 still shows it to select.
+	shared *sharedText
+	// webBase is the browser interface's address a task's link is built
+	// under when the task carries no web_url: a remote context's server.
+	webBase string
 
 	// paletteOpen is the command palette, which takes the keyboard the way a
 	// prompt does. paletteSel indexes the entries the query leaves and
@@ -319,6 +335,11 @@ type Config struct {
 	// commands that move data through standard input and output instead of
 	// asking for a path. Empty is a local session.
 	SSHCommand string
+	// WebBase is the address of the browser interface the share key links a
+	// task under when the task carries no web_url of its own, which a server
+	// with server.public_url sets. A remote context's server URL; empty for a
+	// local database.
+	WebBase string
 }
 
 // New builds the initial model.
@@ -354,6 +375,7 @@ func New(cfg Config) Model {
 		autoColor: auto, profile: cfg.Profile, brand: cfg.Brand,
 		allowed:    resolveActions(cfg.Actor),
 		sshCommand: strings.TrimSpace(cfg.SSHCommand), files: osFiles{},
+		webBase: strings.TrimRight(strings.TrimSpace(cfg.WebBase), "/"),
 	}
 	// The probe decides only when no colour mode was configured, so a reader
 	// who asked for colour over a pipe still gets it.
@@ -530,6 +552,8 @@ func (m Model) reduce(msg tea.Msg) (Model, tea.Cmd) {
 		return m.enterView(viewProject), nil
 	case projectsMsg:
 		return m.onProjects(msg)
+	case newProjectChoiceMsg:
+		return m.openForm(NewProjectForm(msg.key, msg.name, msg.workflows, msg.templates))
 	case boardMsg:
 		return m.onBoard(msg)
 	case tasksMsg:
@@ -599,10 +623,11 @@ func (m Model) onResize(msg tea.WindowSizeMsg) Model {
 
 // onProjects installs a project listing and opens a board when one was asked for.
 func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
-	m.projects = msg.projects
-	if m.projectSel >= len(m.projects) {
-		m.projectSel = max(0, len(m.projects)-1)
+	m.allProjects = msg.projects
+	if m.openProject != "" {
+		m.starredOnly = false
 	}
+	m = m.showProjects()
 	if m.openProject == "" {
 		return m, nil
 	}
@@ -617,9 +642,43 @@ func (m Model) onProjects(msg projectsMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// showProjects draws the listing the starred filter asks for, keeping the
+// selection on the project it was on where that project is still listed.
+func (m Model) showProjects() Model {
+	selected := ""
+	if m.projectSel < len(m.projects) {
+		selected = m.projects[m.projectSel].ID
+	}
+	m.projects = StarredProjects(m.allProjects, m.starredOnly)
+	for i, p := range m.projects {
+		if p.ID == selected {
+			m.projectSel = i
+		}
+	}
+	if m.projectSel >= len(m.projects) {
+		m.projectSel = max(0, len(m.projects)-1)
+	}
+	return m
+}
+
+// StarredProjects is the projects view's listing: every project, or only the
+// reader's starred ones.
+func StarredProjects(all []core.Project, starredOnly bool) []core.Project {
+	if !starredOnly {
+		return all
+	}
+	out := make([]core.Project, 0, len(all))
+	for _, p := range all {
+		if p.Starred {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // onBoard installs a project's workflow and first page of tasks.
 func (m Model) onBoard(msg boardMsg) (Model, tea.Cmd) {
-	m.project, m.workflow, m.arrangement = msg.project, msg.workflow, msg.prefs
+	m.project, m.workflow, m.arrangement, m.paged = msg.project, msg.workflow, msg.prefs, msg.paged
 	return m.enterView(viewBoard).installTasks(msg.tasks)
 }
 
@@ -628,6 +687,7 @@ func (m Model) onTasks(msg tasksMsg) (Model, tea.Cmd) {
 	if msg.arranged {
 		m.arrangement = msg.prefs
 	}
+	m.paged = msg.paged
 	return m.installTasks(msg.tasks)
 }
 
@@ -733,9 +793,13 @@ func (m Model) onAction(msg actionMsg) (Model, tea.Cmd) {
 		m.leases[msg.ref.ID] = msg.token
 	case actionRelease:
 		delete(m.leases, msg.ref.ID)
+	case actionTransition:
+		if msg.released {
+			delete(m.leases, msg.ref.ID)
+		}
 	}
 	m.status, m.err = msg.statusText(), ""
-	if msg.kind == actionNewProject {
+	if msg.kind == actionNewProject || msg.kind == actionStarProject || msg.kind == actionUnstarProject {
 		return m, m.loadProjects()
 	}
 	// A deleted task has no detail view to go back to, so the interface leaves
@@ -809,6 +873,9 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Interrupt):
 		m.interrupted = true
 		return m, tea.Quit
+	case m.shared != nil:
+		m.shared = nil
+		return m, nil
 	case m.confirm.Open():
 		return m.handleConfirmKey(msg)
 	case m.form.Open():
@@ -1074,6 +1141,13 @@ func (m Model) handleProjectsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.projectSel = max(0, len(m.projects)-1)
 	case key.Matches(msg, m.keys.New):
 		return m.openPrompt(promptNewProject)
+	case key.Matches(msg, m.keys.Star):
+		if m.projectSel < len(m.projects) && m.mayPerform("StarProject") && m.mayPerform("UnstarProject") {
+			return m, m.toggleProjectStar(m.projects[m.projectSel])
+		}
+	case key.Matches(msg, m.keys.Filter):
+		m.starredOnly = !m.starredOnly
+		m = m.showProjects()
 	case key.Matches(msg, m.keys.Enter):
 		if m.projectSel < len(m.projects) {
 			m.err = ""
@@ -1123,7 +1197,7 @@ func (m Model) handleBoardKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Enter):
 		return m, m.loadDetail()
 	default:
-		if a, ok := ResolveAction(msg, append(m.keys.columnBindings(), m.keys.filterBindings()...)); ok {
+		if a, ok := ResolveAction(msg, append(append(m.keys.columnBindings(), m.keys.filterBindings()...), m.keys.pageBindings()...)); ok {
 			if !m.paletteContext().offers(a) {
 				return m, nil
 			}
@@ -1258,6 +1332,13 @@ func (m Model) performAction(id actionID) (Model, tea.Cmd, bool) {
 	case doSaveFilter:
 		next, cmd := m.openSaveFilter()
 		return next, cmd, true
+	case doNextPage, doPrevPage:
+		step := 1
+		if id == doPrevPage {
+			step = -1
+		}
+		m.paged.number = min(max(m.paged.number+step, 1), m.paged.pages())
+		return m, m.loadTasks(), true
 	}
 	return m.performTaskAction(id)
 }
@@ -1295,6 +1376,9 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCommentEdit:
 		next, cmd := m.openPrompt(promptCommentEdit)
 		return next, cmd, true
+	case doReact:
+		next, cmd := m.openPrompt(promptReact)
+		return next, cmd, true
 	case doTag:
 		next, cmd := m.openPrompt(promptTag)
 		return next, cmd, true
@@ -1328,6 +1412,11 @@ func (m Model) performTaskAction(id actionID) (Model, tea.Cmd, bool) {
 	case doCopy:
 		next, cmd := m.openCopyForm()
 		return next, cmd, true
+	case doMove:
+		next, cmd := m.openMoveForm()
+		return next, cmd, true
+	case doShare:
+		return m.startShare(), nil, true
 	case doTemplates:
 		next, cmd := m.openTemplatesForm()
 		return next, cmd, true
@@ -1449,7 +1538,7 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 	switch kind {
 	case promptNewProject:
 		key, name := SplitProjectEntry(text)
-		return m.createProject(key, name)
+		return m.startNewProject(key, name)
 	case promptProjectName:
 		return m.updateProject(core.UpdateProjectInput{Name: &text}, attrName)
 	case promptProjectKey:
@@ -1464,6 +1553,10 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.updateTenant(core.UpdateTenantInput{Name: &text}, attrName)
 	case promptTenantAccent:
 		return m.updateTenant(core.UpdateTenantInput{Theme: &text}, attrTheme)
+	case promptTenantArtifactMax, promptTenantArtifactTypes:
+		return m.updateArtifactLimit(kind, text)
+	case promptTenantSessionTTL, promptTenantSessionIdle, promptTenantSessionRemember:
+		return m.updateSessionSetting(kind, text)
 	case promptDomain:
 		return m.addDomain(text)
 	case promptSaveFilter:
@@ -1478,6 +1571,8 @@ func (m Model) runPrompt(kind promptKind, text string) tea.Cmd {
 		return m.comment(task, text)
 	case promptCommentEdit:
 		return m.editComment(text)
+	case promptReact:
+		return m.react(text)
 	case promptTag:
 		return m.tag(task, text)
 	case promptCheck:
@@ -1506,7 +1601,7 @@ func (m Model) openPrompt(kind promptKind) (Model, tea.Cmd) {
 		m.err = "open a project before adding a task"
 		return m, nil
 	}
-	if kind == promptCommentEdit {
+	if kind == promptCommentEdit || kind == promptReact {
 		if _, ok := m.selectedComment(); !ok {
 			m.err = m.noCommentReason()
 			return m, nil
@@ -1570,7 +1665,7 @@ func (m Model) closePrompt() Model {
 // handleChoiceKey picks a numbered option.
 func (m Model) handleChoiceKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Cancel) {
-		m.choice, m.choices = choiceNone, nil
+		m.choice, m.choices, m.choiceNote = choiceNone, nil, ""
 		return m, nil
 	}
 	picked, ok := ChoiceAt(m.choices, msg.String())
@@ -1578,7 +1673,10 @@ func (m Model) handleChoiceKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	kind := m.choice
-	m.choice, m.choices = choiceNone, nil
+	m.choice, m.choices, m.choiceNote = choiceNone, nil, ""
+	if kind == choiceShare {
+		return m.copyShare(picked)
+	}
 	return m, m.runChoice(kind, picked)
 }
 
@@ -1627,6 +1725,7 @@ func (m Model) applyFilterText(text string) Model {
 		return m
 	}
 	m.filterErr, m.filterText, m.filter = "", text, BindMe(parsed, m.actorID())
+	m.paged.number = 1
 	selected, _ := TaskAt(m.columns, m.sel)
 	m = m.drawColumns()
 	m.sel = PreserveSelection(m.columns, m.sel, selected.ID)
@@ -1721,6 +1820,8 @@ func (m Model) actionContext() ActionContext {
 	}
 	ctx.HasHidden = m.view == viewBoard && len(m.hiddenCols) > 0
 	ctx.HasFilter = strings.TrimSpace(m.filterText) != ""
+	ctx.HasNextPage = m.view == viewBoard && m.paged.number < m.paged.pages()
+	ctx.HasPrevPage = m.view == viewBoard && m.paged.number > 1
 	task, ok := m.selectedTask()
 	if !ok {
 		return ctx
@@ -1983,6 +2084,21 @@ func (m Model) openCopyForm() (Model, tea.Cmd) {
 	form := CopyForm(task, m.projects, m.project.Key)
 	if !form.Open() {
 		m.err = "there is no project to copy into"
+		return m, nil
+	}
+	return m.openForm(form)
+}
+
+// openMoveForm asks which project the selected task moves to.
+func (m Model) openMoveForm() (Model, tea.Cmd) {
+	task, ok := m.selectedTask()
+	if !ok {
+		m.err = "no task is selected"
+		return m, nil
+	}
+	form := MoveForm(task, m.projects)
+	if !form.Open() {
+		m.err = "there is no other project to move into"
 		return m, nil
 	}
 	return m.openForm(form)
@@ -2279,6 +2395,8 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 	switch form.Kind {
 	case formProject:
 		return m.closeForm().applyProjectEdit(form)
+	case formNewProject:
+		return m.closeForm().applyNewProject(form)
 	case formProjectRemove:
 		return m.closeForm().confirmProjectRemoval(form)
 	case formFieldPick:
@@ -2299,7 +2417,7 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 		return m.closeForm().applyPeopleEdit(form)
 	case formInviteReissue:
 		return m.closeForm().applyReissue(form)
-	case formAccountAdd, formToken, formSSHKey, formTOTPCode:
+	case formAccountAdd, formToken, formSSHKey, formTOTPCode, formRotateToken:
 		return m.closeForm().submitAccountForm(form)
 	case formTransfer:
 		return m.closeForm().applyTransferForm(form)
@@ -2333,6 +2451,14 @@ func (m Model) submitForm() (Model, tea.Cmd) {
 			return next, nil
 		}
 		return next, next.copyTask(task, CopyInput(task, form))
+	}
+	if form.Kind == formMove {
+		next := m.closeForm()
+		task, ok := next.selectedTask()
+		if !ok {
+			return next, nil
+		}
+		return next, next.moveTask(task, MoveInput(form))
 	}
 	if form.Kind == formAssignee {
 		next := m.closeForm()

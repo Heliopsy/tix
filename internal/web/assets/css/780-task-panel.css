@@ -1,0 +1,82 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The task panel (Task opens in: Panel). The task dialog of
+   440-task-dialog-and-feel.css, opened without a modal by assets/taskopen.js
+   on a window at least 1100px wide and marked data-shown="pane": fixed to
+   the right of the window, --pane-w wide, with the page beside it given the
+   rest. Below that width the script opens the same element as the dialog,
+   so nothing here applies to a phone. */
+dialog.taskdlg[data-shown="pane"] {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 25;
+  width: var(--pane-w, 460px);
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-pane-open] .shell { margin-right: var(--pane-w, 460px); }
+/* The page's toast moves out from under the panel. */
+:root[data-pane-open] #toast .flash { right: calc(var(--pane-w, 460px) + var(--gutter)); }
+
+/* The task screen's columns follow the window, not the panel: in the panel
+   it is laid out as on a narrow window, the properties first. */
+dialog.taskdlg[data-shown="pane"] .taskgrid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "props" "main" "meta";
+  grid-template-rows: none;
+}
+dialog.taskdlg[data-shown="pane"] .taskprops { position: static; padding: var(--space-2) var(--space-3); }
+
+/* The row whose task is in the panel. */
+[data-shortcut-row][aria-current="true"] {
+  background-color: var(--row-selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* The divider: an 8px hit area on the panel's left edge, drawn as a 2px
+   accent line while it is hovered, focused or dragged, as the sidebar's edge
+   is (430-sidebar-resize.css). Not drawn while the element is a dialog. */
+.pane-resize { display: none; }
+dialog.taskdlg[data-shown="pane"] .pane-resize {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+dialog.taskdlg[data-shown="pane"] .pane-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: transparent;
+}
+dialog.taskdlg[data-shown="pane"] .pane-resize:hover::after,
+dialog.taskdlg[data-shown="pane"] .pane-resize:focus-visible::after,
+:root[data-pane-drag] dialog.taskdlg .pane-resize::after { background: var(--accent); }
+.pane-resize:focus-visible { outline: none; }
+:root[data-pane-drag],
+:root[data-pane-drag] * { cursor: col-resize !important; user-select: none; }
+
+/* Motion only for a reader who has not asked for less, and never while the
+   divider is being dragged, when the panel follows the pointer. */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.taskdlg[data-shown="pane"] { animation: pane-in 140ms ease-out; }
+  dialog.taskdlg[data-shown="pane"] .pane-resize::after { transition: background 120ms ease; }
+}
+@keyframes pane-in {
+  from { opacity: 0; transform: translateX(16px); }
+}

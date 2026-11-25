@@ -86,6 +86,7 @@ func (l *Local) GetAccountLog(ctx context.Context, page core.Page) ([]core.Accou
 		return nil, "", err
 	}
 	if err := l.policy.CanReadAccount(actor); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, "", err
 	}
 	var account *core.User

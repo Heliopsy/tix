@@ -94,6 +94,8 @@ type identity struct {
 	Role        core.Role    `json:"role,omitempty" yaml:"role,omitempty"`
 	Token       bool         `json:"token" yaml:"token"`
 	TokenSource string       `json:"token_source,omitempty" yaml:"token_source,omitempty"`
+	// Theme is the palette the tenant resolves to, when the target reports one.
+	Theme *core.Theme `json:"theme,omitempty" yaml:"theme,omitempty"`
 	// Memberships are the account's tenants, when the credential lists them.
 	Memberships []membershipRow `json:"memberships,omitempty" yaml:"memberships,omitempty"`
 }
@@ -156,8 +158,11 @@ func (g *globals) identity(ctx context.Context, conn *connect.Conn) identity {
 		out.Token, out.TokenSource = true, source
 	}
 	who := conn.Actor
-	if who == nil || len(who.Memberships) == 0 {
+	if who == nil || who.Theme == nil || len(who.Memberships) == 0 {
 		who, _ = conn.Service.WhoAmI(ctx)
+	}
+	if who != nil {
+		out.Theme = who.Theme
 	}
 	if who != nil && len(who.Memberships) > 1 {
 		out.Memberships = membershipRows(who, g.tenantCredentials(conn, who.TenantKey))
@@ -221,6 +226,11 @@ func writeIdentity(w io.Writer, r identity) error {
 	if err != nil {
 		return err
 	}
+	if r.Theme != nil {
+		if _, err := fmt.Fprintf(tw, "theme\t%s\n", themeLine(*r.Theme)); err != nil {
+			return err
+		}
+	}
 	for i, m := range r.Memberships {
 		label := ""
 		if i == 0 {
@@ -231,6 +241,11 @@ func writeIdentity(w io.Writer, r identity) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// themeLine names the tenant's theme and its light and dark accents.
+func themeLine(t core.Theme) string {
+	return t.Name + " (" + t.Accent + ", dark " + t.AccentDark + ")"
 }
 
 // membershipLine is one of the person's tenants on the whoami report.

@@ -122,3 +122,25 @@ func TestLoginEnrolsWhenTheTenantRequiresAFactorAndTheUserHasNone(t *testing.T) 
 		t.Fatalf("recovery codes were shown %d times, want exactly once:\n%s", n, got.err)
 	}
 }
+
+// TestLoginUnderTheMFAPolicyWithoutATerminalNamesEnrolment is the hard
+// policy's command line refusal: no terminal to enrol on, so the sign-in
+// stops with the policy's own reason and exit code and says where to enrol.
+func TestLoginUnderTheMFAPolicyWithoutATerminalNamesEnrolment(t *testing.T) {
+	c := newCLI(t)
+	c.mustRun("user", "create", "ada@example.com", "--password", "correct horse battery",
+		"--handle", "ada", "--role", "admin")
+	edited := c.mustRunEnv([]string{totpKey}, "tenant", "edit", "default", "--mfa-policy", "required", "-o", "json")
+	if !strings.Contains(edited.out, `"mfa_policy": "required"`) {
+		t.Fatalf("tenant edit did not set the policy:\n%s", edited.out)
+	}
+
+	got := runEnv(c, []string{totpKey},
+		"login", "--email", "ada@example.com", "--password", "correct horse battery")
+	if got.code != core.ExitPermission {
+		t.Fatalf("login exited %d, want %d\nstderr: %s", got.code, core.ExitPermission, got.err)
+	}
+	if !strings.Contains(got.err, "/settings/totp") {
+		t.Fatalf("stderr = %q, want it to name the enrolment screen", got.err)
+	}
+}

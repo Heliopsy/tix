@@ -9,7 +9,10 @@ import (
 
 // viewHelp names the views every command in the group takes.
 const viewHelp = "A view is board (the task screen grouped by status, whose groups are states), " +
-	"lanes (the task screen grouped by project, whose groups are project keys) or " +
+	"lanes (the task screen grouped by project, whose groups are project keys), " +
+	"lanes:assignee, lanes:priority, lanes:tag or lanes:due (the lanes grouped by person, priority, " +
+	"tag or deadline, whose groups are handles, priority names, tags or deadline buckets, - for none), " +
+	"mine (My work, whose groups are deadline buckets) or " +
 	"project:KEY (one project's board, whose groups are the states of its workflow). " +
 	"The arrangement is yours alone: it changes nothing anybody else sees, and it follows you " +
 	"to the browser and the terminal interface."

@@ -31,13 +31,15 @@ type enrolled struct {
 
 var _ auth.PublicKeyLookup = (*enrolled)(nil)
 
-// refused is the single answer every unresolved key gets.
+// refused is the single answer every unresolved key gets. The reason goes to
+// the server's log and never to the client.
 //
 // It is one sentence for every failure on purpose. An unenrolled key, a
 // username naming a tenant that does not exist, and a username naming one that
 // does but holds no enrolment of this key are all the same refusal, so a
 // stranger cannot use the listener to discover which tenants exist.
-func refused() error {
+func refused(ctx context.Context, reason string) error {
+	auth.NoteRefusal(ctx, auth.Refusal{Reason: reason})
 	return core.Unauthenticated(
 		"this key is not enrolled here: ask an operator to enrol it with `tix user key add`")
 }
@@ -69,7 +71,7 @@ func (e *enrolled) resolve(ctx context.Context, fingerprint string) (*core.Actor
 // select, and the actor and authority behind it.
 func (e *enrolled) resolveKey(ctx context.Context, fingerprint string) (*core.Actor, *core.SSHKey, error) {
 	if strings.TrimSpace(fingerprint) == "" {
-		return nil, nil, refused()
+		return nil, nil, refused(ctx, auth.RefusedSSHUnknownKey)
 	}
 	var found []core.SSHKey
 	if err := e.store.Unscoped(ctx, func(u store.UnscopedTx) error {
@@ -80,7 +82,7 @@ func (e *enrolled) resolveKey(ctx context.Context, fingerprint string) (*core.Ac
 		return nil, nil, err
 	}
 	if len(found) == 0 {
-		return nil, nil, refused()
+		return nil, nil, refused(ctx, auth.RefusedSSHUnknownKey)
 	}
 	key, err := e.narrow(ctx, found, usernameFrom(ctx))
 	if err != nil {
@@ -124,14 +126,14 @@ func (e *enrolled) byTenantKey(ctx context.Context, found []core.SSHKey, usernam
 		return nil, err
 	}
 	if tenant == nil || tenant.DeletedAt != nil {
-		return nil, refused()
+		return nil, refused(ctx, auth.RefusedSSHWrongTenant)
 	}
 	for i := range found {
 		if found[i].TenantID == tenant.ID {
 			return &found[i], nil
 		}
 	}
-	return nil, refused()
+	return nil, refused(ctx, auth.RefusedSSHWrongTenant)
 }
 
 // ambiguous refuses a fingerprint enrolled in several tenants, naming them.
@@ -144,8 +146,9 @@ func (e *enrolled) ambiguous(ctx context.Context, found []core.SSHKey) error {
 		return err
 	}
 	if len(keys) == 0 {
-		return refused()
+		return refused(ctx, auth.RefusedSSHUnknownKey)
 	}
+	auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSSHAmbiguousKey})
 	return core.Unauthenticated(
 		"this key is enrolled in more than one tenant: connect as one of %s, for example `ssh %s@host`",
 		strings.Join(keys, ", "), keys[0])
@@ -201,11 +204,8 @@ func (e *enrolled) actor(ctx context.Context, key core.SSHKey) (*core.Actor, err
 	}); err != nil {
 		return nil, err
 	}
-	if found == nil {
-		return nil, refused()
-	}
-	if found.Role != "" && !found.Role.Valid() {
-		return nil, refused()
+	if found == nil || found.Role != "" && !found.Role.Valid() {
+		return nil, refused(ctx, auth.RefusedSSHNoActor)
 	}
 	found.TenantID = key.TenantID
 	// The key grants nothing of its own: whatever authority this session holds

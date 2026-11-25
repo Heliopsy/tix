@@ -136,27 +136,37 @@ func (t *tx) CountExpiredTrash(ctx context.Context, projectID string, before tim
 	return t.count(ctx, t.expiredTrash(projectID, before), "counting expired trash")
 }
 
-// TrashedChildren returns a task's children deleted before the cutoff.
+// TrashedChildren returns a task's children deleted before the cutoff, or
+// at any time when the cutoff is zero.
 func (t *tx) TrashedChildren(ctx context.Context, parentID string, before time.Time) ([]core.Task, error) {
 	b := t.builder("tasks").
 		Select(taskColumns...).
 		Join(projectJoin).
 		Where("tasks.parent_id = ?", parentID).
 		Where("tasks.deleted_at IS NOT NULL").
-		Where("tasks.deleted_at < ?", timeArg(before)).
 		OrderBy("tasks.id", core.Ascending)
+	b = trashedBefore(b, before)
 	return t.housekeepingTasks(ctx, b, "listing trashed children")
 }
 
 // PurgeTrashed permanently deletes a task still in the trash since before
-// the cutoff.
+// the cutoff, or since any time when the cutoff is zero.
 func (t *tx) PurgeTrashed(ctx context.Context, taskID string, before time.Time) (bool, error) {
 	b := t.builder("tasks").
 		Where("tasks.id = ?", taskID).
-		Where("tasks.deleted_at IS NOT NULL").
-		Where("tasks.deleted_at < ?", timeArg(before))
+		Where("tasks.deleted_at IS NOT NULL")
+	b = trashedBefore(b, before)
 	n, err := t.execDelete(ctx, b, "purging task %q", taskID)
 	return n > 0, err
+}
+
+// trashedBefore narrows a trash selection to tasks deleted before the cutoff.
+// A zero cutoff leaves it whole, which is how one task is purged on request.
+func trashedBefore(b *sqlb.Builder, before time.Time) *sqlb.Builder {
+	if before.IsZero() {
+		return b
+	}
+	return b.Where("tasks.deleted_at < ?", timeArg(before))
 }
 
 // housekeepingTasks runs a task selection.

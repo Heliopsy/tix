@@ -1,0 +1,79 @@
+name: Load
+
+# Nightly and on demand, never per pull request. A load run is two minutes of
+# wall time on a shared runner, and its signal is the server's peak memory,
+# which a pull request that touches docs cannot move. docs/testing.md, "Load
+# testing", says how to read the report and how to run the same thing locally.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      users:
+        description: 'Virtual users'
+        required: false
+        default: '4'
+        type: string
+      duration:
+        description: 'How long the load runs, e.g. 2m'
+        required: false
+        default: '2m'
+        type: string
+      max-rss:
+        description: 'Peak RSS budget, e.g. 128MiB; 0 reports memory without enforcing a budget'
+        required: false
+        default: '128MiB'
+        type: string
+
+permissions: read-all
+
+jobs:
+  load:
+    name: Load (memory budget)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Non-blocking until the memory spike fix lands: production was OOM-killed
+    # at 256 MiB with four users, and this job reproduces a peak above the
+    # 128 MiB budget today. Remove this line once the memory-spike change is on
+    # main and a nightly run has passed, so a regression turns the run red.
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/go
+        with:
+          job: load
+      # Pinned, cached and checksummed: .github/actions/just says why.
+      - uses: ./.github/actions/just
+
+      - name: Load
+        run: |
+          just load --users "${USERS}" --duration "${DURATION}" --max-rss "${MAX_RSS}" \
+            --report out/load/report.json 2> >(tee out-load-progress.txt >&2)
+        env:
+          USERS: ${{ inputs.users || '4' }}
+          DURATION: ${{ inputs.duration || '2m' }}
+          MAX_RSS: ${{ inputs.max-rss || '128MiB' }}
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo '## Load test'
+            echo ''
+            echo '```text'
+            cat out/load/report.txt 2>/dev/null || { echo 'no report was produced'; tail -40 out-load-progress.txt; }
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: load-report
+          path: |
+            out/load/
+            out-load-progress.txt
+          retention-days: 30

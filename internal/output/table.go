@@ -38,6 +38,9 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return t.Format(w, rv.Elem().Interface())
 	}
 
+	if ok, err := renderDAV(w, p, data); ok {
+		return err
+	}
 	switch v := data.(type) {
 	case core.TaskPage:
 		return renderTaskPage(w, p, v)
@@ -59,6 +62,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, workflowHeader, deref(v), p.workflowRow)
 	case core.Workflow:
 		return renderRows(w, p, workflowHeader, []core.Workflow{v}, p.workflowRow)
+	case []core.WorkflowTemplate:
+		return renderRows(w, p, workflowTemplateHeader, v, workflowTemplateRow)
 	case []core.Comment:
 		return renderRows(w, p, commentHeader, v, p.commentRow)
 	case []*core.Comment:
@@ -89,6 +94,11 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, endpointHeader, deref(v), p.endpointRow)
 	case core.WebhookEndpoint:
 		return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v}, p.endpointRow)
+	case *core.IssuedWebhook:
+		if v.SigningSecret == "" {
+			return renderRows(w, p, endpointHeader, []core.WebhookEndpoint{v.WebhookEndpoint}, p.endpointRow)
+		}
+		return renderRows(w, p, issuedEndpointHeader, []core.IssuedWebhook{*v}, p.issuedEndpointRow)
 	case []core.Tenant:
 		return renderRows(w, p, tenantHeader, v, p.tenantRow)
 	case []*core.Tenant:
@@ -99,6 +109,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, tenantUserHeader, v, p.tenantUserRow)
 	case []core.AccountLogEntry:
 		return renderRows(w, p, accountLogHeader, v, p.accountLogRow)
+	case []core.SessionInfo:
+		return renderRows(w, p, sessionHeader, v, p.sessionRow)
 	case core.User:
 		return renderRows(w, p, userHeader, []core.User{v}, p.userRow)
 	case *core.User:
@@ -121,6 +133,8 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 		return renderRows(w, p, depHeader, v, p.depRow)
 	case []core.WebhookDelivery:
 		return renderRows(w, p, deliveryHeader, v, p.deliveryRow)
+	case *core.WebhookDelivery:
+		return renderRows(w, p, deliveryHeader, []core.WebhookDelivery{*v}, p.deliveryRow)
 	case []core.Tag:
 		return renderRows(w, p, tagHeader, v, tagRow)
 	case core.Tag:
@@ -184,21 +198,23 @@ func (t *tableFormatter) Format(w io.Writer, data any) error {
 }
 
 var (
-	taskHeader            = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "BLOCKED"}
-	projectHeader         = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
-	workflowHeader        = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
-	commentHeader         = table.Row{"ID", "TASK", "AUTHOR", "BODY", "CREATED"}
-	tokenHeader           = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CREATED", "EXPIRES", "LAST USED", "REVOKED"}
+	taskHeader     = table.Row{"REF", "TITLE", "STATUS", "PRIORITY", "ASSIGNEE", "TAGS", "DUE", "REPEAT", "UPDATED", "WAITING"}
+	projectHeader  = table.Row{"KEY", "NAME", "WORKFLOW", "COLOR", "ICON", "ARCHIVED", "CREATED", "UPDATED"}
+	workflowHeader = table.Row{"KEY", "NAME", "INITIAL", "STATES", "TRANSITIONS", "BUILTIN", "UPDATED"}
+	commentHeader  = table.Row{"ID", "TASK", "AUTHOR", "BODY", "REACTIONS", "CREATED"}
+	tokenHeader    = table.Row{"ID", "NAME", "ACTOR", "SCOPES", "PROJECT", "CLAIM", "CREATED", "EXPIRES", "LAST USED",
+		"REVOKED"}
 	sshKeyHeader          = table.Row{"ID", "ACTOR", "LABEL", "FINGERPRINT", "CREATED", "LAST USED", "REVOKED"}
 	auditHeader           = table.Row{"SEQ", "ACTION", "SUBJECT", "ACTOR", "SOURCE", "VIA", "OCCURRED"}
 	endpointHeader        = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED"}
-	tenantHeader          = table.Row{"ID", "KEY", "NAME", "THEME", "CREATED", "DELETED"}
+	tenantHeader          = table.Row{"ID", "KEY", "NAME", "ICON", "THEME", "CREATED", "DELETED"}
 	syncResultHeader      = table.Row{"ENTITY", "CREATED", "UPDATED", "SKIPPED", "DELETED"}
 	themeHeader           = table.Row{"NAME", "ACCENT", "SOFT", "SOURCE"}
-	userHeader            = table.Row{"ID", "EMAIL", "NAME", "CREATED", "DISABLED"}
-	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "CREATED", "DISABLED"}
+	userHeader            = table.Row{"ID", "EMAIL", "NAME", "2FA", "CREATED", "DISABLED"}
+	tenantUserHeader      = table.Row{"ID", "EMAIL", "NAME", "ROLE", "GLOBAL ADMIN", "2FA", "CREATED", "DISABLED"}
 	accountLogHeader      = table.Row{"WHEN", "ACTION", "TENANT", "BY", "VIA", "DETAIL"}
-	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "TOKEN", "EXPIRES"}
+	sessionHeader         = table.Row{"ID", "CREATED", "EXPIRES", "METHOD", "2FA", "CURRENT", "USER AGENT"}
+	issuedHeader          = table.Row{"ID", "NAME", "SCOPES", "CLAIM", "TOKEN", "EXPIRES"}
 	claimHeader           = table.Row{"REF", "TITLE", "STATUS", "LEASE EXPIRES", "TOKEN"}
 	fieldHeader           = table.Row{"KEY", "LABEL", "TYPE", "REQUIRED", "OPTIONS"}
 	depHeader             = table.Row{"TASK", "DEPENDS ON", "CREATED"}
@@ -206,6 +222,7 @@ var (
 	inboxHeader           = table.Row{"ID", "KIND", "TASK", "TITLE", "BY", "WHAT", "CREATED", "READ"}
 	channelHeader         = table.Row{"ID", "NAME", "FORMAT", "KINDS", "ON", "URL", "CREATED"}
 	issuedChannelHeader   = table.Row{"ID", "NAME", "FORMAT", "SECRET"}
+	issuedEndpointHeader  = table.Row{"ID", "URL", "EVENTS", "ACTIVE", "CREATED", "SECRET"}
 	channelDeliveryHeader = table.Row{"ID", "WHAT", "STATUS", "ATTEMPTS", "CODE", "ERROR", "CREATED"}
 	tagHeader             = table.Row{"ID", "NAME", "PROJECT", "COLOR"}
 	groupPrefHeader       = table.Row{"VIEW", "GROUP", "HIDDEN", "COLLAPSED", "STARRED", "POSITION"}
@@ -293,12 +310,20 @@ func renderConnectionList(w io.Writer, p Painter, list core.ConnectionList) erro
 }
 
 func (p Painter) userRow(u core.User) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30),
+	name := truncate(u.DisplayName, 30)
+	if u.Removed {
+		name = strings.TrimSpace(name + " (removed)")
+	}
+	return table.Row{u.ID, u.Email, name, yesNo(u.TOTPEnrolled),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
 func (p Painter) tenantUserRow(u core.TenantUser) table.Row {
-	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), string(u.Role), yesNo(u.GlobalAdmin),
+	role := string(u.Role)
+	if u.Removed {
+		role = "removed"
+	}
+	return table.Row{u.ID, u.Email, truncate(u.DisplayName, 30), role, yesNo(u.GlobalAdmin), yesNo(u.TOTPEnrolled),
 		p.style.Format(u.CreatedAt), p.style.FormatPtr(u.DisabledAt)}
 }
 
@@ -312,6 +337,11 @@ func (p Painter) accountLogRow(e core.AccountLogEntry) table.Row {
 	}
 	return table.Row{p.style.Format(e.OccurredAt), string(e.Action), e.TenantKey, by, string(e.Via),
 		accountLogDetail(e.Detail)}
+}
+
+func (p Painter) sessionRow(s core.SessionInfo) table.Row {
+	return table.Row{s.ID, p.style.Format(s.CreatedAt), p.style.Format(s.ExpiresAt), s.Method,
+		yesNo(s.SecondFactor), yesNo(s.Current), truncate(s.UserAgent, 60)}
 }
 
 // accountLogDetail renders an entry's detail as key=value pairs in key order.
@@ -329,7 +359,17 @@ func accountLogDetail(d map[string]any) string {
 }
 
 func (p Painter) issuedRow(t core.IssuedToken) table.Row {
-	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), t.Token, p.style.FormatPtr(t.ExpiresAt)}
+	return table.Row{t.ID, t.Name, joinScopes(t.Scopes), claimRule(t.RequireClaim), t.Token,
+		p.style.FormatPtr(t.ExpiresAt)}
+}
+
+// claimRule is a token's CLAIM cell: "required" when it changes only tasks
+// its actor has claimed, empty otherwise.
+func claimRule(required bool) string {
+	if required {
+		return "required"
+	}
+	return ""
 }
 
 func (p Painter) claimRow(c core.Claim) table.Row {
@@ -528,7 +568,8 @@ func joinScopes(scopes []core.Scope) string {
 	return truncate(strings.Join(out, ", "), 40)
 }
 
-// StarMarker leads the reference of a task the reader has starred.
+// StarMarker leads the reference of a task, or the key of a project, the
+// reader has starred.
 const StarMarker = "* "
 
 func (p Painter) taskRow(t core.Task) table.Row {
@@ -546,8 +587,14 @@ func (p Painter) taskRow(t core.Task) table.Row {
 		p.style.FormatPtr(t.DueAt),
 		truncate(t.Recurrence, 30),
 		p.style.Format(t.UpdatedAt),
-		p.Blocked(t.Blocked, yesNo(t.Blocked)),
+		p.Blocked(t.Blocked, waitingCell(t)),
 	}
+}
+
+// tenantIconCell is a tenant's icon as a table cell, read the way a project's
+// is, and empty when the tenant set none.
+func tenantIconCell(t core.Tenant) string {
+	return projectIconCell(core.Project{Icon: t.Icon, IconName: t.IconName, IconImage: t.IconImage})
 }
 
 // projectIconCell is a project's icon as a table cell: a text icon as it is, a
@@ -564,11 +611,28 @@ func projectIconCell(p core.Project) string {
 }
 
 func (p Painter) projectRow(project core.Project) table.Row {
+	key := ShowKey(project.Key)
+	if project.Starred {
+		key = StarMarker + key
+	}
 	return table.Row{
-		ShowKey(project.Key), truncate(project.Name, 40), project.WorkflowID,
+		key, truncate(project.Name, 40), project.WorkflowID,
 		p.Swatch(project.Color), projectIconCell(project),
 		yesNo(project.Archived()), p.style.Format(project.CreatedAt), p.style.Format(project.UpdatedAt),
 	}
+}
+
+// workflowTemplateHeader leads with the purpose, which is what a reader picks a
+// template by.
+var workflowTemplateHeader = table.Row{"PURPOSE", "KEY", "NAME", "STATES", "FIELDS"}
+
+// workflowTemplateRow renders one built-in workflow template.
+func workflowTemplateRow(t core.WorkflowTemplate) table.Row {
+	fields := make([]string, 0, len(t.Fields))
+	for _, f := range t.Fields {
+		fields = append(fields, f.Key)
+	}
+	return table.Row{t.Purpose, t.Key, t.Name, t.States, strings.Join(fields, ", ")}
 }
 
 func (p Painter) workflowRow(wf core.Workflow) table.Row {
@@ -585,7 +649,16 @@ func (p Painter) workflowRow(wf core.Workflow) table.Row {
 }
 
 func (p Painter) commentRow(c core.Comment) table.Row {
-	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), p.style.Format(c.CreatedAt)}
+	return table.Row{c.ID, c.TaskID, c.AuthorActorID, truncate(c.Body, 60), reactionCell(c.Reactions), p.style.Format(c.CreatedAt)}
+}
+
+// reactionCell writes a comment's reactions as emoji and count pairs.
+func reactionCell(rs []core.Reaction) string {
+	parts := make([]string, len(rs))
+	for i, r := range rs {
+		parts[i] = r.Emoji + " " + strconv.Itoa(r.Count)
+	}
+	return strings.Join(parts, "  ")
 }
 
 func (p Painter) tokenRow(t core.APIToken) table.Row {
@@ -594,7 +667,7 @@ func (p Painter) tokenRow(t core.APIToken) table.Row {
 		scopes = append(scopes, string(s))
 	}
 	return table.Row{
-		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID,
+		t.ID, t.Name, t.ActorID, strings.Join(scopes, ", "), t.ProjectID, claimRule(t.RequireClaim),
 		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.ExpiresAt),
 		p.style.FormatPtr(t.LastUsedAt), p.style.FormatPtr(t.RevokedAt),
 	}
@@ -631,6 +704,12 @@ func (p Painter) endpointRow(e core.WebhookEndpoint) table.Row {
 	}
 }
 
+// issuedEndpointRow is an endpoint as saved, the one time a generated secret
+// is shown.
+func (p Painter) issuedEndpointRow(e core.IssuedWebhook) table.Row {
+	return append(p.endpointRow(e.WebhookEndpoint), e.SigningSecret)
+}
+
 func (p Painter) tenantRow(t core.Tenant) table.Row {
 	theme := t.Theme
 	if theme == "" {
@@ -639,7 +718,7 @@ func (p Painter) tenantRow(t core.Tenant) table.Row {
 		theme = "(derived)"
 	}
 	return table.Row{
-		t.ID, t.Key, truncate(t.Name, 40), theme,
+		t.ID, t.Key, truncate(t.Name, 40), tenantIconCell(t), theme,
 		p.style.Format(t.CreatedAt), p.style.FormatPtr(t.DeletedAt),
 	}
 }
@@ -871,6 +950,19 @@ func priorityLabel(p core.Priority) string {
 	}
 }
 
+// waitingCell names the unfinished tasks a task waits on, "no" when it waits
+// on none, and "yes" when a server reported the wait without naming them.
+func waitingCell(t core.Task) string {
+	switch {
+	case len(t.WaitingOn) > 0:
+		return truncate(strings.Join(t.WaitingOn, ", "), 30)
+	case t.Blocked:
+		return "yes"
+	default:
+		return "no"
+	}
+}
+
 func yesNo(b bool) string {
 	if b {
 		return "yes"
@@ -957,7 +1049,8 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.DryRun && d.MoveTo != "":
 		return fmt.Sprintf("Dry run, planned only: deleting %s would move its %s to %s; nothing was written.", d.Project, n, d.MoveTo)
 	case d.DryRun && d.DeleteTasks:
-		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.", d.Project, n)
+		return fmt.Sprintf("Dry run, planned only: deleting %s would delete its %s permanently; nothing was written.",
+			d.Project, countOf(d.WouldDelete, "task", "tasks"))
 	case d.DryRun:
 		return fmt.Sprintf("Dry run, planned only: %s holds %s; pass --move-tasks-to KEY or --delete-tasks; nothing was written.",
 			d.Project, n)
@@ -966,7 +1059,7 @@ func projectDeletionLead(deletion *core.ProjectDeletion) string {
 	case d.MoveTo != "":
 		return fmt.Sprintf("Deleted project %s and moved its %s to %s.", d.Project, n, d.MoveTo)
 	default:
-		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, n)
+		return fmt.Sprintf("Deleted project %s with its %s, permanently.", d.Project, countOf(d.Deleted, "task", "tasks"))
 	}
 }
 

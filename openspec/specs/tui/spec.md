@@ -526,17 +526,17 @@ The TUI SHALL offer named keybinding schemes and per-action overrides, SHALL pro
 
 ### Requirement: Tenant switching from inside the interface
 
-The TUI SHALL offer a tenant view that names the tenant the session is working in and accepts a tenant key to switch to, SHALL validate that key by opening a connection pinned to it and asking that connection who the actor is, and SHALL NOT present a list of tenants to choose from. A session opened without a way to dial another tenant SHALL say so and name the command that can.
+The TUI SHALL offer a tenant view that names the tenant the session is working in, lists the caller's memberships and accepts a typed tenant key, and SHALL validate the chosen key by opening a connection pinned to it and asking that connection who the actor is. A session opened without a way to dial another tenant SHALL say so and name the command that can.
 
 #### Scenario: The tenant in force is stated
 
 - **WHEN** the tenant view is open
 - **THEN** it names the tenant the session is working in and the actor it is working as
 
-#### Scenario: A key is typed rather than picked from a list
+#### Scenario: A key can still be typed
 
-- **WHEN** the user asks to switch tenant
-- **THEN** the interface takes a typed key, and says that no list exists because an actor belongs to one tenant and tenant listings are scoped to it
+- **WHEN** the user asks to switch tenant to a tenant that is not in the membership list
+- **THEN** the interface takes a typed key and validates it as it would a listed one
 
 #### Scenario: A reachable tenant replaces the session
 
@@ -1924,3 +1924,455 @@ date field the machine leaves unset, and say that a value picked there applies t
 - **GIVEN** a tenant default of `long` and nothing on the machine
 - **WHEN** the person opens the settings screen
 - **THEN** the time format row reads `long` with a note that it comes from the tenant default
+
+### Requirement: People administration view
+
+The TUI SHALL provide a people view listing the tenant's users, each with role, state and second factor, and the pending invites, with one cursor over both lists. It SHALL be offered only to a reader who may list users.
+
+#### Scenario: Administrator opens the view
+
+- **WHEN** a reader holding `user:admin` presses `@`
+- **THEN** the people view lists the tenant's users and pending invites
+
+#### Scenario: Member is not offered the view
+
+- **WHEN** a reader without `user:admin` presses `@`
+- **THEN** no view opens, no user listing is requested, and neither the help overlay nor the palette offers the key
+
+### Requirement: Creating a user or an invite from the terminal
+
+The people view SHALL create a user with a password, optionally requiring a password change at first sign-in, or issue an invite link, from one form whose mode decides which fields are shown. A password SHALL be masked while typed and while shown.
+
+#### Scenario: Password with forced change
+
+- **WHEN** the reader creates a user with a password and requires a change
+- **THEN** the user is created with that password and the forced change set
+
+#### Scenario: Invite instead of a password
+
+- **WHEN** the reader switches the form to an invite and submits it
+- **THEN** an invite is issued with the chosen role and expiry and no password is sent
+
+### Requirement: An issued invite link is shown once
+
+The people view SHALL show the link of an invite it issued or re-issued, with its expiry and that it is not shown again, until the reader leaves the view or performs another action.
+
+#### Scenario: Link on screen
+
+- **WHEN** an invite is issued from the people view
+- **THEN** its link is drawn on the view with a note that it is shown once
+
+#### Scenario: Link cleared
+
+- **WHEN** the reader leaves the people view after an invite was issued
+- **THEN** the link is no longer drawn when the view is opened again
+
+### Requirement: Editing, deleting and second factor from the terminal
+
+The people view SHALL edit a user's display name, role, disabled state, forced password change and password, sending only the fields the reader changed, SHALL delete a user, re-issue or revoke an invite, and clear a user's second factor. Deleting, revoking and clearing SHALL each ask a confirmation naming the subject.
+
+#### Scenario: Only the changed field is sent
+
+- **WHEN** the reader changes only a user's role on the edit form
+- **THEN** the update carries the role and no other field
+
+#### Scenario: Clearing a second factor asks first
+
+- **WHEN** the reader presses the second factor key on a user
+- **THEN** a confirmation naming the user is shown and nothing is cleared until it is agreed to
+
+### Requirement: Account changes refused across tenants are explained
+
+When the service refuses a people view change with the reason `account_in_other_tenants`, the TUI SHALL say that the person also belongs to another tenant and that only they or a global admin may change their password, second factor or account.
+
+#### Scenario: Password of a person in two tenants
+
+- **WHEN** a tenant administrator sets the password of a person who also belongs to another tenant
+- **THEN** the status line names the person and states that only they or a global admin can make that change
+
+### Requirement: The terminal has an integrations view with a tab per scope
+
+The terminal interface SHALL offer an integrations view, opened by one cross-view key, holding a webhooks tab,
+a sync tab and a retention tab. A tab SHALL be offered only when the reader may perform its read, and the
+arrow keys that move between columns on the board SHALL move between the offered tabs.
+
+#### Scenario: A sync administrator sees only the sync tab
+
+- **GIVEN** a reader holding `sync:admin` and neither `webhook:admin` nor `tenant:admin`
+- **WHEN** the reader opens the integrations view
+- **THEN** the sync tab is shown
+- **AND** neither the webhooks tab nor the retention tab is named
+- **AND** no webhook or retention read is sent
+
+#### Scenario: A reader with none of the three scopes is not offered the view
+
+- **WHEN** a reader holding none of the three scopes presses the key
+- **THEN** the view does not open and the help overlay does not name the key
+
+### Requirement: The webhooks tab lists endpoints and deliveries under one cursor
+
+The webhooks tab SHALL list every endpoint with its URL, whether it is active and the event types it receives,
+followed by the newest page of deliveries with status, attempts, last error and the endpoint delivered to. One
+cursor SHALL run over both, and a log longer than the page SHALL say so and name `tix webhook deliveries`.
+
+#### Scenario: Moving past the last endpoint selects the first delivery
+
+- **WHEN** a reader moves down from the last endpoint
+- **THEN** the first delivery is selected
+
+### Requirement: The webhooks tab registers, edits, deletes and redelivers
+
+The webhooks tab SHALL register an endpoint from a form of URL, event types, active and signing secret, edit
+the selected endpoint from the same form seeded with its values, delete it behind a confirmation naming its
+URL, and redeliver the selected delivery. A secret tix generates SHALL be shown once on the tab.
+
+#### Scenario: Registering with no secret shows the generated one once
+
+- **WHEN** a reader registers an endpoint leaving the secret blank
+- **THEN** the endpoint is registered and the tab shows the secret tix returned
+- **AND** leaving and reopening the view no longer shows it
+
+#### Scenario: Deleting names the URL
+
+- **WHEN** a reader presses the removal key on an endpoint
+- **THEN** the confirmation names its URL and nothing is deleted until the reader agrees
+
+#### Scenario: Redelivering the selected delivery
+
+- **WHEN** a reader presses enter on a delivery
+- **THEN** that delivery is queued again
+
+### Requirement: Secrets in terminal forms are write-only
+
+A signing secret or sync credential SHALL be gathered by a masked field, drawn without its characters, never
+seeded with a stored value, and sent only when typed, so a blank field keeps what is stored.
+
+#### Scenario: Editing an endpoint keeps its secret
+
+- **WHEN** a reader edits an endpoint and leaves the secret blank
+- **THEN** the update carries no secret and the stored one is kept
+
+#### Scenario: A typed credential is masked
+
+- **WHEN** a reader types a token into the sync source form
+- **THEN** the form never draws the token's characters
+
+### Requirement: The sync tab lists sources with what a run would use
+
+The sync tab SHALL list every source with its name, system, last run and status, its stored settings, which
+credentials are stored with their hints, where its mapping and credentials come from on the server and what a
+run still lacks.
+
+#### Scenario: A source missing a setting says so
+
+- **WHEN** the server reports a source lacking its URL
+- **THEN** the source's rows name what is missing
+
+### Requirement: The sync tab configures, sets up, checks and deletes sources
+
+The sync tab SHALL configure a source from a form of name, system, the settings that system takes, mapping path,
+mapping document and credentials, set up the selected source from the same form seeded with its stored values,
+check a source without saving it, and delete the selected source behind a confirmation naming it.
+
+#### Scenario: Only the chosen system's settings are offered
+
+- **WHEN** the reader picks the generic system
+- **THEN** the form offers a file and no URL, project or query
+
+#### Scenario: A check saves nothing
+
+- **WHEN** a reader submits the form with check only set
+- **THEN** the source is validated with nothing written and the tab draws what a run would use
+
+### Requirement: The sync tab runs a source
+
+Enter on a source SHALL open a form of dry run, on by default, and full, and SHALL run the source with those
+answers. The run's counts, warnings, unmatched people and cursor, or the reason it was refused, SHALL be drawn
+on the tab.
+
+#### Scenario: A dry run is the default
+
+- **WHEN** a reader presses enter on a source and accepts the form unchanged
+- **THEN** the run is sent as a dry run and the tab says nothing was written
+
+### Requirement: The retention tab edits the windows and prunes
+
+The retention tab SHALL show the events, audit entries and webhook deliveries windows, edit them from a form
+read by the duration grammar the CLI uses, a blank window keeping its value, and prune from a form of dry run,
+on by default, and a limit. A prune that writes SHALL ask first, and its counts SHALL be drawn on the tab.
+
+#### Scenario: A blank window is kept
+
+- **WHEN** a reader edits the retention windows and blanks the audit window
+- **THEN** the update leaves the audit window unset so the stored value is kept
+
+#### Scenario: A real prune asks first
+
+- **WHEN** a reader turns dry run off and submits the prune form
+- **THEN** a confirmation opens and nothing is pruned until the reader agrees
+
+### Requirement: The integrations view offers only what the reader's authority reaches
+
+Each integrations action SHALL be gated on the operation it calls, in the footer, in the help overlay and at
+the keystroke, so that none of the three offers what the others refuse.
+
+#### Scenario: A reader who may list but not write is offered no writes
+
+- **WHEN** a reader who may list webhooks but not change them opens the webhooks tab
+- **THEN** the footer offers neither register, edit, delete nor redeliver
+- **AND** pressing those keys opens nothing and sends nothing
+
+### Requirement: The terminal interface shows the server's status and live connections
+
+The terminal interface SHALL offer a server view, to a reader who may read the status report, that states
+the installation, the answering server, every registered server with whether it still heartbeats, the
+tenant's work counts and its second factor state, and the tenant's live connections on the answering
+server.
+
+#### Scenario: The status and the connections are read when the view opens
+
+- **WHEN** a tenant admin opens the server view
+- **THEN** it states the installation's version and schema and lists each registered server
+- **AND** lists each live connection with its surface, handle and address
+
+#### Scenario: A refused section costs nothing else
+
+- **WHEN** the connections cannot be read
+- **THEN** the connections section says why it is not shown
+- **AND** the status sections are still drawn
+
+### Requirement: Ending a live connection names it and is confirmed
+
+The terminal interface SHALL put a cursor over the live connections and SHALL hold ending the selected one
+behind a confirmation naming its surface, handle and address, which says the holder may reconnect.
+
+A view with no connection SHALL refuse the key rather than open a question over nothing.
+
+#### Scenario: The question names the connection
+
+- **WHEN** a reader presses the removal key on a selected connection
+- **THEN** the confirmation names the connection's surface, handle and address
+
+#### Scenario: Agreeing ends it
+
+- **WHEN** the reader agrees
+- **THEN** the connection is ended through the service and the view is read again
+
+### Requirement: The terminal interface offers a global admin view only to a global admin
+
+The terminal interface SHALL offer a global admin view only to a session whose actor the service reports
+as a global admin when the session opens, resolved from the same report the web sidebar uses.
+
+A reader who is not a global admin SHALL NOT be offered the view's key, and pressing it SHALL enter
+nothing.
+
+#### Scenario: A global admin is offered the view
+
+- **WHEN** a session opens for an actor the service reports as a global admin
+- **THEN** the global admin view is offered
+
+#### Scenario: A tenant admin is not
+
+- **WHEN** a session opens for a tenant admin who is not a global admin
+- **THEN** the global admin view is not offered and its key enters nothing
+
+### Requirement: The global admin view lists, creates and deletes tenants
+
+The global admin view SHALL list every tenant and SHALL create one from a key, a name and an optional list
+of first admins' emails, showing any password the service generated once.
+
+Deleting a tenant SHALL be confirmed against its key, and the tenant the session is pinned to SHALL NOT be
+deleted from here.
+
+#### Scenario: Generated passwords are shown once
+
+- **WHEN** a tenant is created naming a first admin with no account
+- **THEN** the view shows that admin's generated password
+- **AND** it is gone when the view is read again
+
+#### Scenario: The session's own tenant is refused
+
+- **WHEN** a reader presses the removal key on the tenant the session is pinned to
+- **THEN** no confirmation opens and the view says why
+
+### Requirement: The global admin view manages any tenant's users
+
+The global admin view SHALL open the users of the selected tenant, with each user's role and whether they
+are disabled, and SHALL create a user, add an existing account by email, edit a user's name, role and
+disabled state, and delete a user after a confirmation naming them.
+
+#### Scenario: An existing account is added
+
+- **WHEN** a reader adds an existing account to a tenant by email with a role
+- **THEN** the account is added to that tenant with that role through the service
+
+#### Scenario: A new user's password is never drawn
+
+- **WHEN** a reader types a password into the new user form
+- **THEN** the frame shows it masked
+
+### Requirement: The global admin view manages global admins and reads any account's log
+
+The global admin view SHALL list the global admins, grant global admin by email and revoke it after a
+confirmation naming the address, and SHALL read the log of any account by email.
+
+#### Scenario: An account log is read by email
+
+- **WHEN** a reader asks for the log of an account by its email
+- **THEN** the view lists that account's log entries, newest last
+
+#### Scenario: Back leaves a mode before the view
+
+- **WHEN** a reader presses Back on a tenant's users or an account log
+- **THEN** the view returns to the tenant listing rather than leaving
+
+### Requirement: The terminal interface states the signed-in person's account
+
+The terminal interface SHALL offer an account screen stating who the session is signed in as, the person's second factor, their own API tokens, their own SSH keys and the newest page of their account log. Each section SHALL be read when the screen opens.
+
+#### Scenario: The screen lists what it read
+
+- **WHEN** a reader opens the account screen
+- **THEN** it lists the reader's tokens with their scopes and expiry, the reader's keys with their fingerprints, the state of the second factor and the newest account log entries
+
+### Requirement: The account screen survives a refused section
+
+A section the service refuses SHALL say why it is not shown and SHALL NOT cost the reader the rest of the screen.
+
+#### Scenario: A caller who is not a person
+
+- **WHEN** the account log is refused because the caller is not a person
+- **THEN** the log section says why
+- **AND** the tokens and keys are still listed
+
+### Requirement: The account screen issues a token through the browser's scope picker
+
+The account screen SHALL issue an API token from a name, an expiry chosen from the browser's choices and a set of scopes picked from the browser's scope groups, each with its note. A scope the reader does not hold SHALL be drawn and SHALL NOT be tickable.
+
+#### Scenario: A preset ticks its scopes
+
+- **WHEN** a reader starts a token from a preset
+- **THEN** the picker opens with exactly that preset's scopes ticked
+
+#### Scenario: A scope the reader lacks
+
+- **WHEN** a reader tries to tick a scope they do not hold
+- **THEN** it stays unticked and the screen says why
+
+### Requirement: An issued token is shown once
+
+The value of an issued token SHALL be drawn on the account screen until the reader dismisses it, and SHALL NOT be written to the status bar.
+
+#### Scenario: The value is dismissed
+
+- **WHEN** a token is issued and the reader presses back
+- **THEN** the value is no longer drawn and the screen stays open
+
+### Requirement: The account screen enrols an SSH key
+
+The account screen SHALL enrol a public key in `authorized_keys` form, with an optional label, against the signed-in actor.
+
+#### Scenario: A key is enrolled
+
+- **WHEN** a reader enters a public key and a label
+- **THEN** the key is enrolled for the reader and appears in the keys section
+
+### Requirement: The account screen enrols a second factor with a terminal QR code
+
+Starting enrolment SHALL draw the otpauth URI as a QR code when the terminal has colour and room for the whole symbol, and SHALL always draw the secret, grouped in fours, and the URI as text. When the code is not drawn the screen SHALL say why.
+
+#### Scenario: No colour
+
+- **WHEN** enrolment starts on a terminal without colour
+- **THEN** no QR code is drawn, the screen says so, and the key and URI are drawn
+
+#### Scenario: The code is confirmed
+
+- **WHEN** the reader enters the code the authenticator shows
+- **THEN** the enrolment is confirmed and the recovery codes are drawn once
+
+### Requirement: The account screen replaces recovery codes and removes the second factor behind a confirmation
+
+Replacing the recovery codes and removing the second factor SHALL each be confirmed against a named subject, and a refusal from the service SHALL be shown in the status bar.
+
+#### Scenario: Codes are replaced
+
+- **WHEN** a reader with a second factor agrees to replace the recovery codes
+- **THEN** the new codes are drawn once
+
+### Requirement: Revoking a token or a key names its subject
+
+`X` on a token or key SHALL open a confirmation naming it. A revoked one SHALL NOT be revoked again.
+
+#### Scenario: A token is revoked
+
+- **WHEN** a reader selects a token, presses `X` and agrees
+- **THEN** that token is revoked and the listing is read again
+
+### Requirement: Every account affordance is gated by the authority it needs
+
+The account screen SHALL offer issuing and revoking tokens and keys only to a reader who may perform them, and its additions form SHALL offer only the subjects the reader may add.
+
+#### Scenario: A reader without token:admin
+
+- **WHEN** a reader who may not issue tokens or enrol keys opens the add form
+- **THEN** it offers neither a token nor a key
+
+### Requirement: A transfer view exports and imports by file path
+
+The local terminal interface SHALL offer a transfer view that exports a project's tasks, a bundle or
+a snapshot to a file path, and imports each from a file path, through the same service calls as the
+CLI.
+
+#### Scenario: Exporting a project's tasks
+
+- **WHEN** a person opens the transfer view in `tix tui`, picks a task export of INFRA and names
+  `infra.csv`
+- **THEN** the file holds the same CSV `tix export tasks -p INFRA` writes
+
+### Requirement: A task import in the terminal walks through the column mapping
+
+A task import in the transfer view SHALL first run as a dry run, show which column fills which field
+and the rows in error, and write only after the person confirms that mapping.
+
+#### Scenario: Confirming a suggested mapping
+
+- **WHEN** a person imports `jira.csv` into INFRA
+- **THEN** the view shows the suggested columns and preview rows, and nothing is written until the
+  person confirms
+
+### Requirement: The hosted transfer view names the SSH command
+
+Over SSH the server cannot read or write the client's files, so the transfer view SHALL name the
+`ssh` command that performs each transfer through standard input or output instead of asking for a
+path, and the registry SHALL record this as a TUI limitation rather than a gap.
+
+#### Scenario: Opening the transfer view over SSH
+
+- **WHEN** a person opens the transfer view in an SSH session as `acme`
+- **THEN** the view shows commands such as `ssh acme@host export tasks -p KEY > FILE` and asks for no path
+
+### Requirement: Every import in the transfer view previews first
+
+A bundle or snapshot import in the transfer view SHALL first run as a preview or dry run and write
+only after the person confirms what it showed.
+
+#### Scenario: Importing a snapshot
+
+- **WHEN** a person imports `snapshot.ndjson` in merge mode
+- **THEN** the dry run's counts are shown and nothing is written until the person confirms
+
+### Requirement: The account screen rotates a token
+
+The terminal account view SHALL rotate the selected live token on `R`: it SHALL ask for a grace from the browser's choices, confirm naming the token, and show the new value once as an issued token is shown.
+
+#### Scenario: Rotating from the account view
+
+- **WHEN** a reader presses `R` on a live token, picks a grace and confirms
+- **THEN** the service is asked to rotate that token with that grace
+- **AND** the new value is shown once at the top of the screen
+
+#### Scenario: A token that no longer works
+
+- **WHEN** a reader presses `R` on a revoked, expired or retiring token
+- **THEN** nothing is asked of the service and the screen says why

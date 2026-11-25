@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
@@ -12,10 +13,13 @@ import (
 )
 
 var tenantColumns = []string{
-	"id", "key", "name", "theme",
+	"id", "key", "name", "theme", "icon", "icon_name", "icon_image",
 	"require_totp_web", "require_totp_cli", "require_totp_ssh",
 	"lease_default", "lease_max", "trash_off",
 	"time_format", "timezone",
+	"mfa_policy", "mfa_grace", "mfa_required_at", "password_login",
+	"artifact_max_bytes", "artifact_types",
+	"session_ttl", "session_idle_timeout", "session_remember_ttl",
 	"created_at", "updated_at", "deleted_at",
 }
 
@@ -31,11 +35,20 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		leaseDef  sql.NullString
 		leaseMax  sql.NullString
 		trashOff  int64
+		mfaGrace  string
+		artTypes  string
+		sessTTL   string
+		sessIdle  string
+		sessKeep  string
+		mfaAt     sql.NullString
 	)
-	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme,
+	if err := s.Scan(&t.ID, &t.Key, &t.Name, &t.Theme, &t.Icon, &t.IconName, &t.IconImage,
 		&totpWeb, &totpCLI, &totpSSH,
 		&leaseDef, &leaseMax, &trashOff,
 		&t.TimeFormat, &t.Timezone,
+		&t.MFAPolicy, &mfaGrace, &mfaAt, &t.PasswordLogin,
+		&t.ArtifactMaxBytes, &artTypes,
+		&sessTTL, &sessIdle, &sessKeep,
 		&created, &updated, &deletedAt); err != nil {
 		return core.Tenant{}, mapErr(err, "scanning tenant")
 	}
@@ -48,6 +61,16 @@ func scanTenant(s scanner) (core.Tenant, error) {
 		return core.Tenant{}, err
 	}
 	if t.LeaseMax, err = sqlb.ScanDuration(sqlb.Text(leaseMax), "tenant lease maximum"); err != nil {
+		return core.Tenant{}, err
+	}
+	t.ArtifactTypes = splitArtifactTypes(artTypes)
+	if err = scanSessionSettings(&t, sessTTL, sessIdle, sessKeep); err != nil {
+		return core.Tenant{}, err
+	}
+	if t.MFAGrace, err = sqlb.ScanDuration(mfaGrace, "tenant second factor grace"); err != nil {
+		return core.Tenant{}, err
+	}
+	if t.MFARequiredAt, err = sqlb.ScanNullTime(mfaAt); err != nil {
 		return core.Tenant{}, err
 	}
 	if t.CreatedAt, err = sqlb.ScanTime(created); err != nil {
@@ -134,6 +157,9 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
@@ -142,6 +168,15 @@ func (t *tx) CreateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("trash_off", sqlb.BoolInt(in.TrashOff)).
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
+		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("password_login", string(passwordLoginOf(in))).
+		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
+		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
+		Set("artifact_max_bytes", in.ArtifactMaxBytes).
+		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
+		Set("session_ttl", sqlb.DurationText(in.SessionTTL)).
+		Set("session_idle_timeout", sqlb.DurationText(in.SessionIdleTimeout)).
+		Set("session_remember_ttl", core.SessionRememberText(in.SessionRememberTTL, in.SessionRememberOff)).
 		Set("created_at", sqlb.TimeText(in.CreatedAt)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
@@ -157,6 +192,9 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("key", in.Key).
 		Set("name", in.Name).
 		Set("theme", in.Theme).
+		Set("icon", in.Icon).
+		Set("icon_name", in.IconName).
+		Set("icon_image", in.IconImage).
 		Set("require_totp_web", sqlb.BoolInt(in.RequireTOTPWeb)).
 		Set("require_totp_cli", sqlb.BoolInt(in.RequireTOTPCLI)).
 		Set("require_totp_ssh", sqlb.BoolInt(in.RequireTOTPSSH)).
@@ -165,6 +203,15 @@ func (t *tx) UpdateTenant(ctx context.Context, in *core.Tenant) error {
 		Set("trash_off", sqlb.BoolInt(in.TrashOff)).
 		Set("time_format", in.TimeFormat).
 		Set("timezone", in.Timezone).
+		Set("mfa_policy", string(mfaPolicyOf(in))).
+		Set("password_login", string(passwordLoginOf(in))).
+		Set("mfa_grace", sqlb.DurationText(in.MFAGrace)).
+		Set("mfa_required_at", sqlb.NullTimeText(in.MFARequiredAt)).
+		Set("artifact_max_bytes", in.ArtifactMaxBytes).
+		Set("artifact_types", strings.Join(in.ArtifactTypes, ",")).
+		Set("session_ttl", sqlb.DurationText(in.SessionTTL)).
+		Set("session_idle_timeout", sqlb.DurationText(in.SessionIdleTimeout)).
+		Set("session_remember_ttl", core.SessionRememberText(in.SessionRememberTTL, in.SessionRememberOff)).
 		Set("updated_at", sqlb.TimeText(in.UpdatedAt)).
 		Set("deleted_at", sqlb.NullTimeText(in.DeletedAt))
 	n, err := t.execUpdate(ctx, b, "updating tenant %q", in.ID)
@@ -377,4 +424,45 @@ func mapRowsErr(rows *sql.Rows, what string) error {
 		return mapErr(err, "%s", what)
 	}
 	return nil
+}
+
+// mfaPolicyOf is the policy a tenant row stores; a tenant built without one
+// is off, which is what the column defaults to.
+func mfaPolicyOf(t *core.Tenant) core.MFAPolicy {
+	if t.MFAPolicy == "" {
+		return core.MFAPolicyOff
+	}
+	return t.MFAPolicy
+}
+
+// splitArtifactTypes reads the stored comma separated list; empty inherits.
+func splitArtifactTypes(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ",")
+}
+
+// scanSessionSettings reads a tenant's stored session settings; empty inherits.
+func scanSessionSettings(t *core.Tenant, ttl, idle, remember string) error {
+	var err error
+	if t.SessionTTL, err = sqlb.ScanDuration(ttl, "tenant session lifetime"); err != nil {
+		return err
+	}
+	if t.SessionIdleTimeout, err = sqlb.ScanDuration(idle, "tenant session idle timeout"); err != nil {
+		return err
+	}
+	if t.SessionRememberTTL, t.SessionRememberOff, err = core.ParseSessionRemember(remember); err != nil {
+		return core.Internal("parsing stored tenant keep me signed in %q", remember).Wrap(err)
+	}
+	return nil
+}
+
+// passwordLoginOf is the password policy a tenant row stores; a tenant built
+// without one allows passwords.
+func passwordLoginOf(t *core.Tenant) core.PasswordLogin {
+	if t.PasswordLogin == "" {
+		return core.PasswordLoginAllowed
+	}
+	return t.PasswordLogin
 }

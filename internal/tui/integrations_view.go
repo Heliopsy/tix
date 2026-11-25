@@ -424,6 +424,7 @@ func PruneLines(r core.PruneResult) []TenantLine {
 		{Text: "  " + pad("events", integLabelWidth) + n(r.Events)},
 		{Text: "  " + pad("audit entries", integLabelWidth) + n(r.AuditEntries)},
 		{Text: "  " + pad("webhook deliveries", integLabelWidth) + n(r.WebhookDeliveries)},
+		{Text: "  " + pad("idempotency keys", integLabelWidth) + n(r.IdempotencyKeys)},
 		{Text: "  " + pad("kept for subscribers", integLabelWidth) + n(r.RetainedForSubscribers)},
 	}
 }

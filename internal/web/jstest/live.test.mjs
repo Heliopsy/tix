@@ -13,12 +13,10 @@ import { newContext, run, fakeDocument, domNode } from "./harness.mjs";
 
 // board builds the part of a project board the drag handlers actually read:
 // a board with a data-drag gate, columns naming their state, and one card
-// whose Move disclosure names the states that card may move to.
+// whose menu's Move section names the states that card may move to.
 function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
-  const select = domNode(["form select[name=route]", "select[name=route]"], {
-    options: targets.map((t) => ({ value: t })),
-  });
-  const form = domNode(["form"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, [select]);
+  const buttons = targets.map((t) => domNode(["button[name=route]"], { value: t }));
+  const form = domNode(["form", "form[data-move-form]"], { action: "/projects/infra/move", fields: { ref: "infra-1" } }, buttons);
   // Every card draws its star button first, and that is a form too.
   const star = domNode(["form"], { action: "/tasks/infra-1/star", fields: {} });
   const card = domNode([".card"], { "data-task": "infra-1" }, [star, form]);
@@ -31,7 +29,7 @@ function board({ drag = "1", from = "todo", targets = ["doing"] } = {}) {
     columns.push(domNode([".column"], { "data-state": state }, [heading]));
   }
   const root = domNode([".board"], { "data-drag": drag }, columns);
-  return { root, card, columns, select, form };
+  return { root, card, columns, form };
 }
 
 // context loads decide.js and live.js against a document that has no board on
@@ -45,7 +43,11 @@ function context({ pathname = "/projects/infra", search = "" } = {}) {
     location: { protocol: "http:", host: "localhost", pathname, search },
     WebSocket: function () { throw new Error("no feed on this page"); },
     DOMParser: function () { return { parseFromString: () => ({ querySelector: () => null }) }; },
-    FormData: function (form) { return form.fields; },
+    FormData: function (form) {
+      const fields = { ...form.fields };
+      Object.defineProperty(fields, "set", { value(k, v) { this[k] = v; } });
+      return fields;
+    },
     URLSearchParams: function (fields) {
       this.toString = () =>
         Object.keys(fields).map((k) => k + "=" + fields[k]).join("&");
@@ -94,7 +96,7 @@ test("a board that appears after the script ran still moves a card", async () =>
   assert.equal(fetches.length, 1, "no move was posted");
   assert.equal(fetches[0].url, "/projects/infra/move");
   assert.match(fetches[0].body, /ref=infra-1/);
-  assert.equal(b.select.value, "doing", "the move form was not pointed at the drop column");
+  assert.match(fetches[0].body, /route=doing/, "the move was not pointed at the drop column");
 });
 
 // The task screen draws a board of a filtered, sorted, paged listing, so the
@@ -233,7 +235,7 @@ function liveScreen({ subject = "", regions = ["task-pills"], window: win = 150 
 
 // liveContext loads the assets against a page carrying a screen binding, a
 // controllable clock, and a WebSocket that does nothing until a test says so.
-function liveContext({ subject = "", regions = ["task-pills"], fresh = {} } = {}) {
+function liveContext({ subject = "", regions = ["task-pills"], fresh = {}, notes = null } = {}) {
   const clock = fakeClock();
   const sockets = [];
   const fetches = [];
@@ -294,13 +296,20 @@ function liveContext({ subject = "", regions = ["task-pills"], fresh = {} } = {}
         }),
       };
     },
-    FormData: function (form) { return form.fields; },
+    FormData: function (form) {
+      const fields = { ...form.fields };
+      Object.defineProperty(fields, "set", { value(k, v) { this[k] = v; } });
+      return fields;
+    },
     URLSearchParams: function (fields) { this.toString = () => JSON.stringify(fields); },
     fetch: (url) => {
       fetches.push(url);
       return Promise.resolve({ ok: true, text: () => Promise.resolve(fetchBody) });
     },
   });
+  if (notes) {
+    ctx.tix.liveNote = (n) => notes.push({ ...n });
+  }
   run(ctx, "live.js");
   return { ctx, doc, clock, sockets, fetches, page, nodes, bySelector };
 }
@@ -584,4 +593,60 @@ test("a refresh asked for during a fetch runs when the fetch lands", async () =>
   await settle();
   c.clock.fire();
   assert.equal(c.ctx.tix.liveSettled(), true, "the screen never said it had drawn everything");
+});
+
+// assets/deploy.js checks for a new release when the socket comes back,
+// because a server restarted for a deploy looks exactly like that from here.
+// The first connection of a page is not a comeback and asks nothing.
+test("a socket that comes back after a drop says so, and the first one does not", () => {
+  const c = liveContext();
+  const said = [];
+  c.ctx.CustomEvent = function (type) { this.type = type; };
+  c.ctx.document.dispatchEvent = (event) => { said.push(event.type); };
+  c.sockets[0].emit("open", {});
+  assert.deepEqual(said, [], "the first connection was announced as a reconnect");
+  c.sockets[0].emit("close", {});
+  c.clock.fire();
+  c.sockets[1].emit("open", {});
+  assert.deepEqual(said, ["tix:live-reconnected"]);
+});
+
+// The shell's connection indicator (assets/livestatus.js) knows only what
+// each stream reports, so a stream that stops reporting a drop leaves it
+// saying live while the page has gone stale.
+test("a stream reports its connection to the indicator", async () => {
+  const notes = [];
+  const { sockets, ctx } = liveContext({ notes });
+  const kinds = () => notes.map((n) => n.kind);
+  assert.deepEqual(kinds(), ["bound", "connecting"], "binding and the first try were not reported");
+  assert.ok(notes.every((n) => n.stream === "screen"), "a report did not name its stream");
+
+  sockets[0].emit("open", {});
+  sockets[0].event({ seq: 9, subject_id: "task-1" });
+  assert.deepEqual(kinds().slice(2), ["open", "event"], "the open and the event were not reported");
+  assert.equal(notes[3].seq, 9, "the event's sequence number was not passed on");
+  await settle();
+  assert.equal(notes[notes.length - 1].kind, "fetched", "a fetch that got through was not reported");
+
+  notes.length = 0;
+  sockets[0].emit("close", { code: 1006, reason: "" });
+  assert.deepEqual(kinds(), ["closed", "retrying"], "the drop and the retry were not reported");
+  assert.equal(notes[0].code, 1006, "the close code was lost");
+  assert.equal(notes[0].opened, true, "a socket that had opened was reported as never opened");
+  assert.equal(notes[1].attempt, 1, "the retry did not say which attempt it is");
+
+  notes.length = 0;
+  ctx.tix.liveRetry();
+  assert.equal(sockets.length, 2, "Reconnect now did not open a socket at once");
+  assert.equal(kinds()[0], "connecting", "Reconnect now was not reported");
+});
+
+test("a close that follows an error is still reported with its code", () => {
+  const notes = [];
+  const { sockets } = liveContext({ notes });
+  sockets[0].emit("error", {});
+  sockets[0].emit("close", { code: 1006, reason: "" });
+  const closed = notes.filter((n) => n.kind === "closed");
+  assert.equal(closed.length, 1, "the close after an error went unreported");
+  assert.equal(closed[0].opened, false, "a socket that never opened was reported as opened");
 });

@@ -44,6 +44,9 @@ func (l *Local) PlanProjectDeletion(ctx context.Context, ref string, in core.Del
 		}
 		out = s.summary(in)
 		out.DryRun = true
+		if in.DeleteTasks {
+			out.WouldDelete = len(s.tasks)
+		}
 		return nil
 	})
 	if err != nil {
@@ -76,6 +79,7 @@ func (l *Local) DeleteProject(ctx context.Context, ref string, in core.DeletePro
 				err = l.moveProjectTasks(ctx, m, s)
 			case in.DeleteTasks:
 				err = recordProjectTaskDeletions(m, s)
+				out.Deleted = len(s.tasks)
 			default:
 				err = core.Precondition("project %q holds %d task(s); move them to another project or delete them with it",
 					s.project.Key, len(s.tasks)).WithDetail("tasks", len(s.tasks))
@@ -161,7 +165,7 @@ func (s *deletionScope) summary(in core.DeleteProjectInput) *core.ProjectDeletio
 	at := map[string]int{}
 	for _, t := range s.tasks {
 		if t.DeletedAt != nil {
-			out.Deleted++
+			out.Trashed++
 		} else {
 			out.Tasks++
 		}
@@ -225,22 +229,8 @@ func (l *Local) moveProjectTasks(ctx context.Context, m *mutation, s *deletionSc
 		if err := m.tx.MoveTask(ctx, t.ID, s.target.ID, seq, status); err != nil {
 			return err
 		}
-		for _, name := range t.Tags {
-			old, ok := scoped[name]
-			if !ok {
-				continue
-			}
-			tag, ok := rehomed[name]
-			if !ok {
-				tag = &core.Tag{ProjectID: s.target.ID, Name: old.Name, Color: old.Color}
-				if err := m.tx.PutTag(ctx, tag); err != nil {
-					return err
-				}
-				rehomed[name] = tag
-			}
-			if err := m.tx.AttachTag(ctx, t.ID, tag.ID); err != nil {
-				return err
-			}
+		if err := rehomeTags(ctx, m.tx, t, scoped, s.target.ID, rehomed); err != nil {
+			return err
 		}
 		after, err := m.tx.GetTask(ctx, core.TaskRef{ID: t.ID})
 		if err != nil {
@@ -252,6 +242,34 @@ func (l *Local) moveProjectTasks(ctx context.Context, m *mutation, s *deletionSc
 				"project": s.target.Key, "from_project": s.project.Key,
 				"status": status, "from_status": before.Status,
 			}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rehomeTags gives a task leaving a project the target's copy of each tag it
+// carries that was scoped to the project it left, creating the copy once per
+// name in rehomed, and detaches the left-behind tag.
+func rehomeTags(ctx context.Context, tx store.Tx, t *core.Task, scoped map[string]core.Tag, targetID string,
+	rehomed map[string]*core.Tag) error {
+	for _, name := range t.Tags {
+		old, ok := scoped[name]
+		if !ok {
+			continue
+		}
+		tag, ok := rehomed[name]
+		if !ok {
+			tag = &core.Tag{ProjectID: targetID, Name: old.Name, Color: old.Color}
+			if err := tx.PutTag(ctx, tag); err != nil {
+				return err
+			}
+			rehomed[name] = tag
+		}
+		if err := tx.DetachTag(ctx, t.ID, old.ID); err != nil && !core.IsKind(err, core.KindNotFound) {
+			return err
+		}
+		if err := tx.AttachTag(ctx, t.ID, tag.ID); err != nil {
 			return err
 		}
 	}

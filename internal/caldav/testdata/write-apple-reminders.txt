@@ -1,0 +1,153 @@
+# Apple Reminders (iOS and macOS) writing back: an edit, a completion, a
+# create and a delete, then "Clear completed" and a sync. Written from
+# published client behaviour, not captured traffic: Reminders rewrites the
+# whole object on every change, leaves out CATEGORIES and every property it
+# does not show, adds X-APPLE-SORT-ORDER, sends If-Match with the ETag it
+# last fetched and If-None-Match: * for a new reminder, and fetches the
+# object again after a PUT answered without an ETag. Apple writes DAV: as A:.
+
+### the tags tix shows are set in the browser
+DO tag open1
+
+### the collection before the changes
+PROPFIND {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:"><A:prop><A:sync-token/><A:current-user-privilege-set/></A:prop></A:propfind>
+EXPECT 207
+PROP {assigned} {DAV:}current-user-privilege-set 200 <d:write-content/>
+SAVE start {assigned} {DAV:}sync-token
+
+### the reminder as Reminders last fetched it
+GET {assigned}{open1}.ics
+
+EXPECT 200
+SAVEHEADER etag1 ETag
+HAS CATEGORIES:ops,security
+
+### renaming the reminder rewrites it without CATEGORIES
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag1}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iOS 18.0//EN
+BEGIN:VTODO
+UID:task-{open1}@tix
+DTSTAMP:20260101T080000Z
+SUMMARY:Rotate keys today
+STATUS:NEEDS-ACTION
+PRIORITY:0
+X-APPLE-SORT-ORDER:742
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+LACKS ETag
+TASK open1 title Rotate keys today
+TASK open1 tags ops,security
+
+### the object fetched again keeps Apple's sort order
+GET {assigned}{open1}.ics
+
+EXPECT 200
+HAS SUMMARY:Rotate keys today
+HAS X-APPLE-SORT-ORDER:742
+SAVEHEADER etag2 ETag
+DIFFERENT etag1 etag2
+
+### a second PUT with the first ETag is stale
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag1}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:task-{open1}@tix
+SUMMARY:An older edit
+END:VTODO
+END:VCALENDAR
+EXPECT 412
+TASK open1 title Rotate keys today
+
+### ticking the reminder off
+PUT {assigned}{open1}.ics
+Content-Type: text/calendar; charset=utf-8
+If-Match: {etag2}
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iOS 18.0//EN
+BEGIN:VTODO
+UID:task-{open1}@tix
+DTSTAMP:20260101T081000Z
+SUMMARY:Rotate keys today
+STATUS:COMPLETED
+COMPLETED:20260101T081000Z
+X-APPLE-SORT-ORDER:742
+END:VTODO
+END:VCALENDAR
+EXPECT 204
+TASK open1 status done
+TASK open1 tags ops,security
+
+### a new reminder in the Infra list
+PUT {infra}8F4A61C2-1E1B-4C0B-9A3E-5B7D2C1A0F11.ics
+Content-Type: text/calendar; charset=utf-8
+If-None-Match: *
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iOS 18.0//EN
+BEGIN:VTODO
+UID:8F4A61C2-1E1B-4C0B-9A3E-5B7D2C1A0F11
+DTSTAMP:20260101T082000Z
+CREATED:20260101T082000Z
+SUMMARY:Call the bank
+DUE;VALUE=DATE:20260115
+X-APPLE-SORT-ORDER:743
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+TRIGGER;VALUE=DATE-TIME:20260115T080000Z
+X-WR-ALARMUID:0B8C6F1E-4D3A-4B53-8E7A-2F6C1D9A3B44
+END:VALARM
+END:VTODO
+END:VCALENDAR
+EXPECT 201
+TASK Call_the_bank due 2026-01-15T00:00Z
+TASK Call_the_bank status todo
+
+### the new reminder fetched by its own name keeps its UID and alarm
+GET {infra}8F4A61C2-1E1B-4C0B-9A3E-5B7D2C1A0F11.ics
+
+EXPECT 200
+HAS UID:8F4A61C2-1E1B-4C0B-9A3E-5B7D2C1A0F11
+HAS TRIGGER;VALUE=DATE-TIME:20260115T080000Z
+HAS DUE;VALUE=DATE:20260115
+
+### deleting an open reminder
+DELETE {assigned}{open2}.ics
+
+EXPECT 204
+TASK open2 status cancelled
+TASK open2 trashed false
+
+### Clear completed deletes every finished reminder
+DELETE {assigned}{done}.ics
+
+EXPECT 204
+TASK done status done
+TASK done trashed false
+
+### the sync after the changes
+REPORT {assigned}
+Depth: 0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:"><A:sync-token>{start}</A:sync-token><A:sync-level>1</A:sync-level><A:prop><A:getetag/></A:prop></A:sync-collection>
+EXPECT 207
+PROP {assigned}{open1}.ics {DAV:}getetag 200 "
+STATUS {assigned}{open2}.ics 404

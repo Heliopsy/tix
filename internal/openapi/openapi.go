@@ -490,6 +490,12 @@ func errorDescription(code int) string {
 		return http.StatusText(code) + ": `internal`, the request ran past the server's timeout."
 	case len(kinds) == 0:
 		return http.StatusText(code) + ": `invalid`, the body was refused before it was read."
+	case code == http.StatusConflict:
+		return http.StatusText(code) + ": " + strings.Join(kinds, ", ") + ". A write whose `" +
+			wire.HeaderIdempotencyKey + "` belongs to a request still running carries `" + wire.HeaderRetryAfter + "`."
+	case code == http.StatusUnprocessableEntity:
+		return http.StatusText(code) + ": " + strings.Join(kinds, ", ") + ", or `invalid` when an `" +
+			wire.HeaderIdempotencyKey + "` is reused with a different request."
 	}
 	return http.StatusText(code) + ": " + strings.Join(kinds, ", ") + "."
 }

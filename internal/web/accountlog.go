@@ -20,29 +20,41 @@ type accountLogView struct {
 
 // showAccountLog draws the reader's own account log.
 func (h *handler) showAccountLog(w http.ResponseWriter, r *http.Request) error {
-	entries, next, err := h.svc.GetAccountLog(r.Context(), core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r), Direction: core.Descending,
-	})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.AccountLogEntry, string, error) {
+		return h.svc.GetAccountLog(r.Context(), core.Page{Cursor: cursor, Limit: limit, Direction: core.Descending})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	entries, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	return h.render(w, r, accountLogTemplate, "Your account", accountLogView{
-		Entries: entries, Pager: newPager(r, RouteAccount, next, len(entries), "changes", SizeParam),
+		Entries: entries, Pager: newPager(r, RouteAccount, next, len(entries), "changes", SizeParam).counted(pos, size),
 	})
 }
 
 // showGlobalAccountLog draws any account's log for a global admin.
 func (h *handler) showGlobalAccountLog(w http.ResponseWriter, r *http.Request) error {
 	email := strings.TrimSpace(r.PathValue("email"))
-	entries, next, err := h.svc.GetAccountLogFor(r.Context(), email, core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r), Direction: core.Descending,
-	})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.AccountLogEntry, string, error) {
+		return h.svc.GetAccountLogFor(r.Context(), email, core.Page{Cursor: cursor, Limit: limit, Direction: core.Descending})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	entries, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	return h.render(w, r, accountLogTemplate, "An account's history", accountLogView{
 		Email: email, Entries: entries,
-		Pager: newPager(r, globalAccountPath(email), next, len(entries), "changes", SizeParam),
+		Pager: newPager(r, globalAccountPath(email), next, len(entries), "changes", SizeParam).counted(pos, size),
 	})
 }
 

@@ -131,7 +131,7 @@ func TestUnimplementedModesExitTwo(t *testing.T) {
 		key       string
 		supported string
 	}{
-		{"auth mode", "TIX_AUTH_MODE=oidc", "auth.mode", "token"},
+		{"auth mode", "TIX_AUTH_MODE=none", "auth.mode", "token"},
 		{"hook mode", "TIX_HOOKS_MODE=enforce", "hooks.mode", "off"},
 	}
 	for _, tc := range cases {

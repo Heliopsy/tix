@@ -10,7 +10,7 @@ import (
 	"github.com/heliopsy/tix/internal/store"
 )
 
-// ForceReclaim ends the lease another actor holds, for an administrator whose
+// forceReclaim ends the lease another actor holds, for an administrator whose
 // worker has died or wandered off.
 //
 // It is a reclaim and nothing else. The task keeps its status, including a
@@ -20,7 +20,7 @@ import (
 // into this call would record a status change in the trail under an action
 // whose name does not mention one, and leave the operator unable to tell the
 // move they chose from the move the reclaim made for them.
-func (l *Local) ForceReclaim(ctx context.Context, ref core.TaskRef, in core.ForceReclaimInput) (*core.Task, error) {
+func (l *Local) forceReclaim(ctx context.Context, ref core.TaskRef, in core.ForceReclaimInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskReclaim, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -117,6 +117,7 @@ func (l *Local) reclaimTarget(ctx context.Context, tx store.Tx, ref core.TaskRef
 		ProjectID: task.ProjectID,
 		OwnerID:   task.CreatorActorID,
 	}); err != nil {
+		noteDenied(ctx, actor, err)
 		return nil, err
 	}
 	return task, nil

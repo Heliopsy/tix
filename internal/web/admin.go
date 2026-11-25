@@ -5,6 +5,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -18,7 +19,8 @@ import (
 func (h *handler) adminRoutes() []route {
 	return []route{
 		get(RouteTenant, "tenant.html", h.showTenant,
-			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings"),
+			"GetTenant", "ListTenants", "ListMembers", "GetRetention", "GetActor", "GetHousekeeping", "GetTimeSettings",
+			"ArtifactLimits", "SessionPolicy"),
 		post(RouteTenant, h.updateTenant, "UpdateTenant"),
 		post(RouteMembers, h.addMember, "AddMember"),
 		post(RouteMemberRemove, h.removeMember, "RemoveMember"),
@@ -37,6 +39,7 @@ func (h *handler) adminRoutes() []route {
 		get(RouteTokens, "tokens.html", h.showTokens, "ListTokens", "ListActors"),
 		post(RouteTokens, h.createToken, "CreateToken"),
 		post(RouteTokenRevoke, h.revokeToken, "RevokeToken"),
+		post(RouteTokenRotate, h.rotateToken, "RotateToken"),
 		get(RouteSSHKeys, "sshkeys.html", h.showSSHKeys, "ListSSHKeys"),
 		post(RouteSSHKeys, h.enrolSSHKey, "EnrolSSHKey"),
 		post(RouteSSHKeyRevoke, h.revokeSSHKey, "RevokeSSHKey"),
@@ -46,6 +49,8 @@ func (h *handler) adminRoutes() []route {
 // tenantView is what the tenant administration screen renders.
 type tenantView struct {
 	Tenant core.Tenant
+	// Picker is the tenant's icon picker, the one a project's settings use.
+	Picker iconPicker
 	// Themes are the palettes this deployment resolves, for the picker. The
 	// command line could set one from the start and the browser could not,
 	// which made a tenant-wide setting reachable only by whoever had shell
@@ -56,7 +61,17 @@ type tenantView struct {
 	// ambiguous between "no bound" and "the one you cannot see from here".
 	LeaseDefault core.Duration
 	LeaseMax     core.Duration
-	Tenants      []core.Tenant
+	// Artifacts are this tenant's artifact limits with the server's beside
+	// them, the server's shown as the placeholder of each empty box.
+	Artifacts core.ArtifactLimits
+	// Sessions are the session settings in force with the server's beside
+	// them, the server's shown as the placeholder of each empty box.
+	Sessions core.SessionPolicy
+	// RememberText is the tenant's own "keep me signed in" setting as typed,
+	// and ServerRemember the server's, written the same way.
+	RememberText   string
+	ServerRemember string
+	Tenants        []core.Tenant
 	// Trash is whether deleted tasks are kept, and how many are held, so
 	// turning it off can say what stays behind.
 	Trash core.TrashStatus
@@ -133,6 +148,14 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	artifacts, err := h.svc.ArtifactLimits(r.Context())
+	if err != nil {
+		return err
+	}
+	sessions, err := h.svc.SessionPolicy(r.Context())
+	if err != nil {
+		return err
+	}
 	actors := make([]string, 0, len(members))
 	for _, m := range members {
 		actors = append(actors, m.ActorID)
@@ -140,8 +163,12 @@ func (h *handler) showTenant(w http.ResponseWriter, r *http.Request) error {
 	dateFormat, dateZone := tenantTimeLevels(h.readerSettings(r))
 	return h.render(w, r, "tenant.html", "Tenant", tenantView{
 		DateFormat: dateFormat, DateZone: dateZone,
-		Tenant: *tenant, Tenants: tenants, Members: members, Themes: h.themes.List(),
+		Tenant: *tenant, Picker: newTenantIconPicker(*tenant), Tenants: tenants, Members: members, Themes: h.themes.List(),
 		LeaseDefault: core.Duration(h.leases.Default), LeaseMax: core.Duration(h.leases.Max),
+		Artifacts: *artifacts, Sessions: *sessions,
+		RememberText: rememberText(*tenant),
+		ServerRemember: rememberText(core.Tenant{SessionRememberTTL: sessions.ServerRememberTTL,
+			SessionRememberOff: sessions.ServerRememberTTL == 0}),
 		Retention: *retention, Roles: core.Roles, Shape: shape, Trash: *trash,
 		Housekeeping: newHousekeepingForm(housekeeping),
 		Names:        h.resolveActors(r, actors...)})
@@ -238,7 +265,27 @@ func (h *handler) tokenShapeRow(r *http.Request) shapeNode {
 	return row
 }
 
-// updateTenant saves the tenant's display name, theme, lease bounds and trash.
+// tenantIconChoice reads the icon the tenant form asks for into the update.
+// A form naming no icon kind, an older one, leaves the icon alone; Upload with
+// no new file keeps the image the tenant has.
+func (h *handler) tenantIconChoice(r *http.Request, in *core.UpdateTenantInput) error {
+	if _, named := sent(r, "icon_kind"); !named {
+		return nil
+	}
+	tenant, err := h.svc.GetTenant(r.Context(), "")
+	if err != nil {
+		return err
+	}
+	choice, err := iconChoiceOf(r, tenant.IconImage != "")
+	if err != nil {
+		return core.OnField(err, "icon")
+	}
+	in.Icon, in.IconName, in.IconFile = choice.Icon, choice.IconName, choice.IconFile
+	return nil
+}
+
+// updateTenant saves the tenant's display name, theme, icon, lease bounds and
+// trash.
 func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	name := field(r, "name")
 	// The empty option clears the theme, so the field is always sent and
@@ -266,12 +313,33 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 		}
 		*f.into = &d
 	}
+	if err := artifactSettings(r, &in); err != nil {
+		return err
+	}
+	if err := sessionSettings(r, &in); err != nil {
+		return err
+	}
 	switch field(r, "trash") {
 	case "on":
 		in.TrashOff = new(bool)
 	case "off":
 		off := true
 		in.TrashOff = &off
+	}
+	if r.PostForm.Has("mfa_policy") {
+		policy := core.MFAPolicy(field(r, "mfa_policy"))
+		in.MFAPolicy = &policy
+	}
+	if r.PostForm.Has("mfa_grace") {
+		var d core.Duration
+		if raw := strings.TrimSpace(field(r, "mfa_grace")); raw != "" && raw != "0" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("grace period: %v", err)
+			}
+			d = parsed
+		}
+		in.MFAGrace = &d
 	}
 	if r.PostForm.Has("time_format") {
 		v := field(r, "time_format")
@@ -280,6 +348,9 @@ func (h *handler) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	if r.PostForm.Has("timezone") {
 		v := field(r, "timezone")
 		in.Timezone = &v
+	}
+	if err := h.tenantIconChoice(r, &in); err != nil {
+		return err
 	}
 	if _, err := h.svc.UpdateTenant(r.Context(), "", in); err != nil {
 		return err
@@ -474,25 +545,40 @@ type usersView struct {
 	InviteExpiries []inviteExpiry
 	// IssuedInvite is the link just issued, shown once; nil otherwise.
 	IssuedInvite *issuedInviteLink
+	// WithoutTOTP is set while the listing shows only people who hold no
+	// second factor.
+	WithoutTOTP bool
 }
+
+// WithoutTOTPParam filters the Users screen to people without a second
+// factor, the list an administrator needs before turning the policy on.
+const WithoutTOTPParam = "without_totp"
 
 // showUsers renders the tenant's users, each with the role its membership
 // grants. A membership listing the caller may not read leaves every row's
 // role empty rather than failing the screen, and the edit control then says
 // so instead of quietly proposing a role nobody chose.
 func (h *handler) showUsers(w http.ResponseWriter, r *http.Request) error {
-	users, next, err := h.svc.ListUsers(r.Context(), core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	})
+	size := h.rowsPerPage(r)
+	without := r.URL.Query().Get(WithoutTOTPParam) != ""
+	read := func(cursor string, limit int) ([]core.User, string, error) {
+		return h.svc.ListUsers(r.Context(), core.UserFilter{WithoutTOTP: without,
+			Page: core.Page{Cursor: cursor, Limit: limit}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	users, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	roles := h.memberRoles(r)
 	actor, _ := core.ActorFrom(r.Context())
 	data := usersView{Users: make([]userRow, 0, len(users)), Roles: core.Roles,
-		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam),
+		Pager:        newPager(r, RouteUsers, next, len(users), "users", SizeParam).counted(pos, size),
 		CanClearTOTP: actor.HasScope(core.ScopeTOTPAdmin), InviteExpiries: inviteExpiryChoices,
-		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r)}
+		Invites: h.inviteRows(r), IssuedInvite: issuedInvite(w, r), WithoutTOTP: without}
 	for _, u := range users {
 		row := userRow{User: u, Role: roles[u.ID]}
 		if actor != nil && actor.ID == u.ID {
@@ -635,6 +721,8 @@ type tokensView struct {
 	Tokens []tokenRow
 	Picker scopePicker
 	Expiry []tokenExpiry
+	// Graces are the windows the rotate dialog offers the old token.
+	Graces []onboard.RotateGrace
 	Secret *oneTimeSecret
 	Form   tokenForm
 	Errors fieldErrors
@@ -675,6 +763,9 @@ type tokenForm struct {
 	Name   string
 	Scopes []core.Scope
 	Expiry string
+	// RequireClaim is the "require a claim" checkbox, kept ticked when a
+	// refused form is drawn again.
+	RequireClaim bool
 }
 
 // newTokenForm is the empty form, carrying the proposed expiry.
@@ -688,7 +779,7 @@ func newTokenForm() tokenForm { return tokenForm{Expiry: defaultTokenExpiry} }
 // the re-rendered select with nothing selected, which showed the reader the
 // first option while the handler meant the default.
 func tokenFormOf(r *http.Request) tokenForm {
-	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires")}
+	out := tokenForm{Name: field(r, "name"), Expiry: field(r, "expires"), RequireClaim: field(r, "require_claim") != ""}
 	if out.Expiry == "" {
 		out.Expiry = defaultTokenExpiry
 	}
@@ -868,6 +959,7 @@ func (h *handler) renderTokens(w http.ResponseWriter, r *http.Request, status in
 	}
 	return h.renderStatus(w, r, status, "tokens.html", "Tokens", tokensView{
 		Tokens: list.Rows, Picker: newScopePicker(actor, form.Scopes), Expiry: tokenExpiryChoices,
+		Graces: onboard.RotateGraces,
 		Secret: issuedTokenSecret(issued), Form: form, Errors: errs,
 		Owners: list.Owners, Whole: list.Whole, Filter: filter})
 }
@@ -904,7 +996,7 @@ func (h *handler) createToken(w http.ResponseWriter, r *http.Request) error {
 		return h.refuseToken(w, r, form, err)
 	}
 	issued, err := h.svc.CreateToken(r.Context(), core.CreateTokenInput{
-		Name: form.Name, Scopes: form.Scopes, ExpiresAt: expiresAt})
+		Name: form.Name, Scopes: form.Scopes, ExpiresAt: expiresAt, RequireClaim: form.RequireClaim})
 	if err != nil {
 		return h.refuseToken(w, r, form, err)
 	}
@@ -920,6 +1012,27 @@ func (h *handler) revokeToken(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	redirect(w, r, RouteTokens, "token revoked")
+	return nil
+}
+
+// rotateToken replaces an API token and shows the new value exactly once,
+// back on the listing the reader rotated it from.
+func (h *handler) rotateToken(w http.ResponseWriter, r *http.Request) error {
+	grace, ok := onboard.RotateGraceFor(field(r, "grace"))
+	if !ok {
+		return core.Invalid("choose how long the old token keeps working").WithDetail(core.DetailField, "grace")
+	}
+	issued, err := h.svc.RotateToken(r.Context(), field(r, "id"), core.RotateTokenInput{Grace: core.Duration(grace.Grace)})
+	if err != nil {
+		return err
+	}
+	back := RouteTokens
+	if actor := field(r, actorFilterParam); actor != "" {
+		back += "?" + url.Values{actorFilterParam: {actor}}.Encode()
+	}
+	// #nosec G124 -- one-time value, HttpOnly, cleared by the screen that shows it
+	http.SetCookie(w, oneTimeCookie(issuedTokenCookie, RouteTokens, issuedValue(issued.Token, issued.Scopes), h.secureCookie(r)))
+	redirect(w, r, back, "token rotated")
 	return nil
 }
 
@@ -992,4 +1105,73 @@ func firstLetter(s string) string {
 		}
 	}
 	return ""
+}
+
+// artifactSettings reads the tenant's artifact limits. Like the lease bounds,
+// an empty box hands the limit back to the server, so a form carrying the
+// fields always applies them.
+func artifactSettings(r *http.Request, in *core.UpdateTenantInput) error {
+	if r.PostForm.Has("artifact_max_bytes") {
+		var n int64
+		if raw := strings.TrimSpace(field(r, "artifact_max_bytes")); raw != "" {
+			parsed, err := core.ParseByteSize(raw)
+			if err != nil {
+				return core.Invalid("artifact size limit: %v", err).WithDetail(core.DetailField, "artifact_max_bytes")
+			}
+			n = parsed
+		}
+		in.ArtifactMaxBytes = &n
+	}
+	if r.PostForm.Has("artifact_types") {
+		types := strings.FieldsFunc(field(r, "artifact_types"), func(c rune) bool {
+			return c == ',' || c == '\n' || c == ' '
+		})
+		in.ArtifactTypes = &types
+	}
+	return nil
+}
+
+// sessionSettings reads the tenant's session settings. As with the lease
+// bounds, an empty box hands the setting back to the server, so a form
+// carrying the fields always applies them.
+func sessionSettings(r *http.Request, in *core.UpdateTenantInput) error {
+	for _, f := range []struct {
+		field string
+		what  string
+		into  **core.Duration
+	}{
+		{"session_ttl", "session lifetime", &in.SessionTTL},
+		{"session_idle_timeout", "idle timeout", &in.SessionIdleTimeout},
+	} {
+		if !r.PostForm.Has(f.field) {
+			continue
+		}
+		var d core.Duration
+		if raw := field(r, f.field); raw != "" {
+			parsed, err := core.ParseDuration(raw)
+			if err != nil {
+				return core.Invalid("%s: %v", f.what, err).WithDetail(core.DetailField, f.field)
+			}
+			d = parsed
+		}
+		*f.into = &d
+	}
+	if r.PostForm.Has("session_remember_ttl") {
+		v := field(r, "session_remember_ttl")
+		in.SessionRememberTTL = &v
+	}
+	return nil
+}
+
+// rememberText is the tenant's own "keep me signed in" setting as a reader
+// would type it: off, a duration, or empty when it inherits the server's.
+func rememberText(t core.Tenant) string {
+	switch {
+	case t.SessionRememberOff:
+		return core.SessionRememberOff
+	case t.SessionRememberTTL > 0:
+		return t.SessionRememberTTL.Human()
+	default:
+		return ""
+	}
 }

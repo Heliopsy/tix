@@ -49,11 +49,18 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `server.token` | `TIX_SERVER_TOKEN` | (unset) |
 | `server.trusted_proxies` | `TIX_SERVER_TRUSTED_PROXIES` | (unset) |
 | `server.cookie_security` | `TIX_SERVER_COOKIE_SECURITY` | `auto` (`auto`, `always`, `never`) |
+| `server.public_url` | `TIX_SERVER_PUBLIC_URL` | (unset: links follow the host each request arrived at) |
 | `server.max_import_bytes` | `TIX_SERVER_MAX_IMPORT_BYTES` | `33554432` (32 MiB) |
 | `server.egress_allow_private` | `TIX_SERVER_EGRESS_ALLOW_PRIVATE` | `false` |
 | `server.egress_allow` | `TIX_SERVER_EGRESS_ALLOW` | (unset: no internal address is reachable for a tenant) |
 | `auth.mode` | `TIX_AUTH_MODE` | `token` |
 | `auth.totp_key` | `TIX_AUTH_TOTP_KEY` | (unset) |
+| `auth.max_concurrent_hashes` | `TIX_AUTH_MAX_CONCURRENT_HASHES` | `0` (sized from the memory limit) |
+| `auth.argon2_memory_kib` | `TIX_AUTH_ARGON2_MEMORY_KIB` | `0` (`65536`, 64 MiB) |
+| `auth.argon2_time` | `TIX_AUTH_ARGON2_TIME` | `0` (`3`) |
+| `auth.argon2_threads` | `TIX_AUTH_ARGON2_THREADS` | `0` (`4`) |
+| `auth.saml_metadata_refresh` | `TIX_AUTH_SAML_METADATA_REFRESH` | `12h` (`0` turns the scheduled read off) |
+| `auth.sso_app_redirects` | `TIX_AUTH_SSO_APP_REDIRECTS` | `red.tix.mobile:/sso` (empty turns app sign-in off) |
 | `hooks.mode` | `TIX_HOOKS_MODE` | `off` |
 | `webhooks.drain_mode` | `TIX_WEBHOOKS_DRAIN_MODE` | `inline` (`inline`, `server`, `off`) |
 | `webhooks.allow_private_targets` | `TIX_WEBHOOKS_ALLOW_PRIVATE_TARGETS` | `false` |
@@ -63,9 +70,20 @@ Every key has a generated `TIX_*` variable: uppercase the path, replace `.` and 
 | `discovery.filenames` | `TIX_DISCOVERY_FILENAMES` | `.tix.yaml,.tix/config.yaml` |
 | `lease.default` | `TIX_LEASE_DEFAULT` | (unset: `30m`) |
 | `lease.max` | `TIX_LEASE_MAX` | (unset: `24h`) |
+| `artifacts.max_bytes` | `TIX_ARTIFACTS_MAX_BYTES` | `1048576` (1 MiB) |
+| `artifacts.allowed_types` | `TIX_ARTIFACTS_ALLOWED_TYPES` | common images, PDF, text, CSV, JSON, YAML, archives |
+| `caldav.enabled` | `TIX_CALDAV_ENABLED` | `true` |
+| `caldav.completed_window` | `TIX_CALDAV_COMPLETED_WINDOW` | `14d` (`0` to `365d`) |
+| `caldav.max_objects` | `TIX_CALDAV_MAX_OBJECTS` | `2000` (`1` to `10000`) |
+| `session.ttl` | `TIX_SESSION_TTL` | `12h` |
+| `session.idle_timeout` | `TIX_SESSION_IDLE_TIMEOUT` | `0` (off) |
+| `session.remember_ttl` | `TIX_SESSION_REMEMBER_TTL` | `30d` (`0` stops offering it) |
+| `session.max_lifetime` | `TIX_SESSION_MAX_LIFETIME` | `30d` (`0` stops renewal) |
+| `session.remember_max_lifetime` | `TIX_SESSION_REMEMBER_MAX_LIFETIME` | `90d` (`0` stops renewal) |
 | `retention.audit` | `TIX_RETENTION_AUDIT` | `8760h` |
 | `retention.events` | `TIX_RETENTION_EVENTS` | `720h` |
 | `retention.webhook_deliveries` | `TIX_RETENTION_WEBHOOK_DELIVERIES` | `720h` |
+| `retention.idempotency_keys` | `TIX_RETENTION_IDEMPOTENCY_KEYS` | `24h` |
 | `log.level` | `TIX_LOG_LEVEL` | `info` (`debug`, `info`, `warn`, `error`) |
 | `log.format` | `TIX_LOG_FORMAT` | `text` (`text`, `json`) |
 | `log.output` | `TIX_LOG_OUTPUT` | `stderr` (`stderr`, `stdout`, or a file path) |
@@ -215,9 +233,12 @@ Rotation is not limited to `tix serve`. The destination is a property of the pro
 honours it wherever it runs. The file is opened only by a command that actually builds a logger, which today is
 `tix serve` and `tix ssh`, so an ordinary `tix task add` never creates one.
 
-The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys and
-request paths. A path tix cannot open is refused at startup rather than at the first record, because a server
-that started and then logged nothing is the failure that is hardest to notice.
+The directory is created if it is missing, and the file is written `0600`: a record carries tenant keys, request
+paths, client addresses and user agents. A refused credential is logged as `auth refused` at `warn`, with a reason
+code and the token's id and name but never its value, at most once a minute per client, reason and token; the fields
+and codes are in [deployment.md](deployment.md#refused-authentication). Setting `log.level: warn` keeps those records
+and drops the request lines. A path tix cannot open is refused at startup rather than at the first record, because a
+server that started and then logged nothing is the failure that is hardest to notice.
 
 ### Leases
 
@@ -266,6 +287,12 @@ The audit window defaults to a year and the other two to thirty days, because an
 record while an event is a transport buffer and a delivery is a receipt. A negative window is refused. A window of
 `0` does not mean "keep forever": it means "unset", and the shipped default for that class applies. Say `87600h`
 rather than `0` if you mean ten years.
+
+`retention.idempotency_keys` is how long the server remembers an `Idempotency-Key` a client sent with a write,
+and the answer it gave, so a retry within the window replays that answer instead of applying the change again
+(see [Retrying safely](api.md#retrying-safely)). It defaults to `24h`. It is a deployment setting, not part of a
+tenant's policy, and a change applies to keys kept after it; keys already kept expire when they were due to. The
+pruner deletes expired keys on its tick, and `tix prune` reports them as `idempotency_keys`.
 
 ### Housekeeping
 
@@ -326,11 +353,88 @@ scheme of each request, so a deployment behind a TLS-terminating proxy gets `Sec
 `server.trusted_proxies`. `always` sets it unconditionally; `never` never sets it, which is only correct on a
 network that is deliberately plaintext. Serving TLS from tix itself sets it regardless of this key.
 
+### Password hashing
+
+Passwords are hashed with argon2id at 64 MiB, three passes and four lanes. Each hash or check holds its memory
+for the time it runs, so `auth.max_concurrent_hashes` caps how many run at once. At `0` it is sized from the
+Go runtime's soft memory limit: a quarter of it divided by the memory one hash takes, at least 1 and at most
+the number of cores. A process with no soft limit runs two at a time. A sign-in that finds every slot taken
+waits up to ten seconds, or less if its request ends first, then gets `precondition_failed` with
+`reason: password_hashing_busy`. It is never let in without the check. See
+[deployment.md](deployment.md#password-hashing-memory) for the sizing.
+
+`auth.argon2_memory_kib`, `auth.argon2_time` and `auth.argon2_threads` change the cost new hashes are made at;
+`0` keeps the default for that one. A setting below every configuration OWASP lists (under 7 MiB, or less than
+35 MiB of memory times passes) is refused at start-up. Existing hashes keep verifying at the parameters they
+were stored with. A stored hash weaker than the setting is rehashed on its owner's next successful sign-in; a
+stronger one is kept, so lowering the cost to fit a small server changes new hashes only.
+
+### The public web address
+
+`server.public_url` (`TIX_SERVER_PUBLIC_URL`) is the address people reach the browser interface at, when
+that is not the address a request arrives at: a server bound to `127.0.0.1:8080` behind a proxy that
+answers as `https://tix.example.com`. Nothing binds it, and `tix serve` has no flag for it, the same as
+`ssh.public_address`.
+
+```sh
+TIX_SERVER_PUBLIC_URL=https://tix.example.com tix serve --listen 127.0.0.1:8080
+```
+
+It must be an absolute `http` or `https` address. A path is kept as a base path, for a proxy serving tix
+under one (`https://example.com/tix`), and a trailing slash is dropped. A user, a query, a fragment or a
+port outside 1 to 65535 is refused at startup, naming the key, because the value ends up inside every link
+people paste.
+
+With it set:
+
+- Every task the API returns carries `web_url`, the task's screen in the browser interface, and so does
+  every task `tix mcp` returns, `-o json` output and the terminal interface. It is set on reads, never
+  stored, so audit entries, events and exports do not carry it. Unset, no task carries it.
+- `tix task link` runs over SSH and needs no `--base` against a local database configured with the key.
+- `tix user invite` and `tix user invite reissue`, over SSH or against a local database configured with
+  the key, and the terminal interface's people view, print the invite's absolute link and give it as
+  `url` beside `path` in `-o json`, under the tenant's own domain when it has one.
+- The links a page draws from a request (the Share menu, the hand-off dialog, calendar feed addresses,
+  invite links, the Connect screen) use it on a host serving several tenants. On a tenant's own domain they
+  stay on that domain ([tenancy.md](tenancy.md#switching-tenant)).
+- Notification channel messages link every task, under the tenant's own domain when it has one and under
+  this address otherwise. Without the key only a tenant with a domain gets links.
+
+Unset, links follow the host each request arrived at, as they always have.
+
 `server.max_import_bytes` caps the body of a project task import, `POST /v1/projects/{ref}/tasks/import` and the
 upload step of the browser's import, in bytes. Every other request answers to `tix serve --max-body-bytes`, 1 MiB
 by default, which is sized for a form rather than a file. A larger import is refused with 413 and a message naming
 both the limit and this key. The import also has limits of its own, 64 MiB among them, so raising this key past
 that gains nothing. `tix serve` reads it and has no flag for it.
+
+`artifacts.max_bytes` and `artifacts.allowed_types` bound the file a new task artifact may carry, in bytes and
+as media types or patterns such as `image/*` (`*/*` accepts anything). `tix serve --artifact-max-bytes` and
+`--artifact-allowed-types` set them too and win over the file and the environment when typed. The default list is
+`image/png`, `image/jpeg`, `image/gif`, `image/webp`, `image/avif`, `application/pdf`, `text/plain`,
+`text/markdown`, `text/csv`, `application/json`, `application/x-ndjson`, `application/yaml`, `application/zip`,
+`application/gzip`, `application/x-tar` and `application/octet-stream`, which is also what a blob sent without a
+type is judged as. HTML, SVG and scripts are not on it. Whatever the list says, the browser only ever offers an
+artifact file as a download (`Content-Disposition: attachment`, `nosniff`, a sandboxing policy), never as a page.
+
+A tenant administrator can tighten both for their tenant (`tix tenant edit --artifact-max-bytes 5MiB
+--artifact-types 'image/*,application/pdf'`, the tenant settings screen, or `PATCH /v1/tenants/{ref}`), and can
+loosen neither: a value past the server's is refused with the server's limit named. Unset inherits. The limits
+apply to new uploads; artifacts already stored are not judged again. `tix artifact limits` and
+`GET /v1/artifact-limits` report the limits in force.
+
+The blob travels inside the request, so the artifact upload routes, `PUT /v1/tasks/{ref}/artifacts` and the
+browser's artifact form, take a body large enough for `artifacts.max_bytes` once base64 encoded, plus 1 MiB for
+the rest of the request, whatever `--max-body-bytes` says. Raising `artifacts.max_bytes` is therefore enough on
+its own; `--max-body-bytes` never refuses an upload under it. Over SSH, standard input for a hosted command is
+bounded by the larger of this and `server.max_import_bytes`.
+
+`caldav.enabled` turns the CalDAV surface on or off. Off, `/dav/` and `/.well-known/caldav` answer 404 and
+`GET /api/v1/dav` answers `enabled: false` with a `reason`; app passwords can still be listed and revoked.
+`caldav.completed_window` is how long a finished task stays in a collection after it was completed, so a
+reminders app can show it ticked before it leaves; `0` drops finished work at once. `caldav.max_objects` bounds
+how many tasks one collection holds, open work first, and the collection's description says how many were left
+out. A value outside its range is refused at start-up naming its key. See [CalDAV](caldav.md).
 
 `server.egress_allow_private` and `server.egress_allow` decide what a url a tenant supplies may reach: webhook
 endpoints, inbox channels and external sync sources. By default every request to such a url is refused when it
@@ -352,13 +456,91 @@ Webhooks and inbox channels are held to this on every surface, as they were befo
 operator's own process and reaches what the operator's network allows. See
 [deployment.md](deployment.md#outbound-requests-to-tenant-urls) for the reasoning.
 
-`auth.mode` and `hooks.mode` each accept one value in this build. `none` and `oidc` for `auth.mode`, and `warn`
+`auth.mode` and `hooks.mode` each accept one value in this build. `none` for `auth.mode`, and `warn`
 and `enforce` for `hooks.mode`, are refused with "is not implemented by this build" rather than accepted and
-ignored, because a setting that reads as a security control must never be silent.
+ignored, because a setting that reads as a security control must never be silent. `auth.mode: oidc` is refused
+too, naming `tix tenant sso add`: single sign-on is configured per tenant, not for the server. See
+[sso.md](sso.md).
 
 `hooks.mode` and `webhooks.drain_mode` are unrelated, despite the similar names. `hooks.mode` is the git hook
 setting. `webhooks.drain_mode` decides which process delivers queued webhook events: `inline` drains them in the
 command that produced them, `server` leaves them for `tix serve`, and `off` queues them and delivers nothing.
+
+### SCIM provisioning
+
+SCIM has no keys in the configuration file and no `TIX_*` variable. It is set per tenant: a tenant admin turns
+it on with `tix tenant scim enable`, which mints the provider's token, and `tix serve` answers it under
+`/scim/v2`. The endpoint `tix tenant scim show` prints is built from `server.public_url` when that is set, and
+from the host the request arrived at otherwise. See [scim.md](scim.md#turning-it-on).
+
+### SAML metadata refresh
+
+`auth.saml_metadata_refresh` is how often `tix serve` reads the IdP metadata of every enabled SAML provider
+that has a metadata URL, so a signing certificate the identity provider rotates reaches tix before the old one
+stops working. The default is `12h`; a failed read is tried again after an hour. `0` turns the scheduled read
+off, and `tix tenant sso refresh KEY` still reads it on demand. Every process with the setting on reads on its
+schedule, and a provider read by one replica is not due on another, so only the process that runs the other
+background workers needs it on. See [sso.md](sso.md#certificate-rollover).
+
+### Signing in from an app
+
+`auth.sso_app_redirects` lists the addresses a native app's single sign-on may hand its result to. The app
+opens `/login/sso/KEY` in the system browser with one of them as `app_redirect`, and once the sign-in finishes
+there the browser goes to that address with a one-time code. An address is accepted only when it matches an
+entry exactly, with no prefix or pattern matching, so an `http` or `https` address works only when it is listed
+in full. The default is the tix mobile app's `red.tix.mobile:/sso`. An empty list turns app sign-in off, and
+`GET /api/v1/auth/sso/options` then answers `app_sign_in: false`. In a file:
+
+```yaml
+auth:
+  sso_app_redirects: []                     # off
+  # sso_app_redirects: [red.tix.mobile:/sso, com.example.fork:/sso]
+```
+
+As an environment variable the list is comma separated, and `TIX_AUTH_SSO_APP_REDIRECTS=` with nothing after it
+turns it off. Each entry needs a scheme and no fragment, and `javascript:`, `data:`, `vbscript:` and `file:`
+entries are refused in any letter case, since the browser would run or read them instead of opening an app.
+See [sso.md](sso.md#signing-in-from-the-app).
+
+### Sign-in sessions
+
+`session.ttl` is how long a password, SSH key or tenant switch sign-in lasts from the moment it is made, `12h`
+by default, and again from each use: a session in use has its expiry pushed to `session.ttl` past that use,
+so somebody working all day is not signed out in the middle of it. The push is written with the last-use time,
+at most once a minute, so it costs no extra writes. `tix serve --session-ttl` sets it too and wins over the file
+and the environment when typed. A new value applies from each session's next use.
+
+`session.max_lifetime` caps that renewal: a session is never renewed past this long after its sign-in, `30d` by
+default, and then has to sign in again. `0` turns renewal off, so a session ends `session.ttl` after it was
+made whether it was used or not, as it did before renewal existed; so does any value no longer than
+`session.ttl`. `session.remember_max_lifetime` is the same cap for Keep me signed in sessions, `90d` by default,
+which are renewed by `session.remember_ttl` instead. A tenant switch keeps the original sign-in time, so moving
+between tenants does not restart the cap. `tix serve --session-max-lifetime` and
+`--session-remember-max-lifetime` set them. These two are server-wide; a tenant shortening `session.ttl`
+shortens the renewal window, not the cap.
+
+`session.idle_timeout` ends a session nobody has used for that long, such as `30m`. `0`, the default, turns it
+off. Each session records when it last authenticated a request, at most once a minute, so the timeout is honoured
+to within a minute and costs one write a minute for a busy session rather than one a request. It is checked on
+every request, so a new value applies at once to sessions already signed in, kept signed in or not. A session
+minted before the server recorded use counts as last used when it signed in. `tix serve --session-idle-timeout`
+sets it.
+
+`session.remember_ttl` is how long a sign-in lasts, after it is made and after each use, when the person ticks
+Keep me signed in on the web sign-in screen or passes `tix login --remember`, `30d` by default. `0` stops
+offering it, and so does any value no longer than `session.ttl`, since remembering would grant nothing. A
+remembered browser session gets a persistent cookie whose `Max-Age` ends with the session, sent again with the
+new `Max-Age` whenever a request renews it; any other gets a cookie that ends when the browser closes. The
+idle timeout still applies to a remembered session: one left unused past it is ended like any other, so an
+operator who wants Keep me signed in to survive a weekend sets the idle timeout longer than that or leaves it
+off. `tix serve --session-remember-ttl` sets it.
+
+Each value is at least a minute. A tenant administrator can tighten all three for their tenant
+(`tix tenant edit --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl 7d`, or `off`, the tenant
+settings screen, the terminal tenant view, or `PATCH /v1/tenants/{ref}`) and loosen none: a value past the
+server's is refused with the server's named, and a tenant cannot turn Keep me signed in on where the server has it
+off. `""` inherits. `tix tenant session-policy` and `GET /v1/auth/session-policy`, which needs no credential,
+report what is in force with the server's values beside it.
 
 ### The SSH listener
 
@@ -503,7 +685,7 @@ parsing a timestamp must never have to guess which zone or format a deployment h
 ```console
 $ TIX_OUTPUT_TIME_FORMAT=short TIX_OUTPUT_TIMEZONE=Asia/Tokyo tix task ls
 ┌───────┬─────────────────┬────────┬──────────┬──────────┬──────┬──────────────┬─────────┐
-│ REF   │ TITLE           │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ UPDATED      │ BLOCKED │
+│ REF   │ TITLE           │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ UPDATED      │ WAITING │
 ├───────┼─────────────────┼────────┼──────────┼──────────┼──────┼──────────────┼─────────┤
 │ ENG-7 │ Wire the output │ doing  │ high     │ act_1    │ cli  │ 21 Sep 23:05 │ no      │
 └───────┴─────────────────┴────────┴──────────┴──────────┴──────┴──────────────┴─────────┘
@@ -594,6 +776,7 @@ retention:
   audit: 8760h
   events: 720h
   webhook_deliveries: 720h
+  idempotency_keys: 24h
 
 contexts:
   work:
@@ -646,6 +829,7 @@ target  server https://tix.internal.example.com (context work)
 tenant  acme
 user    ada (Ada Lovelace), admin
 token   yes, from context work
+theme   ocean (#0b7285, dark #67e8f9)
 ```
 
 Up to 0.43.0 that held only for some commands. `task ls` and `task add` read the configuration before

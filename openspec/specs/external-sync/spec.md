@@ -395,7 +395,8 @@ SHALL be refused as invalid before any other check, and credentials SHALL be rea
 ### Requirement: Stored settings win over the environment
 
 At run time a setting stored on the source SHALL be used in place of its `TIX_SYNC_<SOURCE>_*` variable, and
-a setting the source does not store SHALL be read from that variable as before.
+a setting the source does not store SHALL be read from that variable when the environment applies to the
+source.
 
 #### Scenario: Stored beats the environment
 
@@ -404,18 +405,18 @@ a setting the source does not store SHALL be read from that variable as before.
 
 #### Scenario: The environment fills the gaps
 
-- **WHEN** a source stores no mapping path and `TIX_SYNC_<SOURCE>_MAPPING` names one
+- **WHEN** a bound source stores no mapping path and `TIX_SYNC_<SOURCE>_MAPPING` names one
 - **THEN** the run uses the mapping the variable names
 
 ### Requirement: Stored credentials are sealed
 
 A credential stored on a source SHALL be encrypted with the server's sealing key, bound to its tenant, system and
-source name. Without a key the server SHALL refuse to store one, naming the key and the environment variable to
-use instead.
+source name. Without a key the server SHALL refuse to store one, naming the key, and naming the environment
+variable to use instead only when the environment applies to the source.
 
 #### Scenario: No sealing key
 
-- **WHEN** a credential is sent to a server with no `auth.totp_key`
+- **WHEN** a credential is sent to a direct command with no `auth.totp_key`
 - **THEN** it is refused with exit 6, naming `auth.totp_key` and `TIX_SYNC_<SOURCE>_TOKEN`, and nothing is stored
 
 ### Requirement: Stored values win over the environment
@@ -431,8 +432,8 @@ SHALL win as a set, never mixed with credentials from the environment. A stored 
 
 #### Scenario: Nothing stored
 
-- **WHEN** a source stores no credentials and the environment sets a token
-- **THEN** a run authenticates with the environment's token
+- **WHEN** a bound source stores no credentials or url and the environment sets a token and a url
+- **THEN** a run authenticates with the environment's token against the environment's url
 
 ### Requirement: Mapping document stored on the source
 
@@ -566,3 +567,109 @@ which SHALL validate once its `project` names a tix project and SHALL NOT preser
 
 - **WHEN** the default mapping, with `project` filled in, drives an import of OpenProject work packages
 - **THEN** titles, statuses, priorities, assignees and parents arrive without any other mapping edits
+
+### Requirement: A shared server reads no file a tenant names outside its directory
+
+On `tix serve` a source's stored `file` and `mapping_path` SHALL be read only from inside
+`<sync.file_root>/<tenant key>/`, with symbolic links resolved and required to stay inside. Without
+`sync.file_root` a shared server SHALL refuse to store either setting, naming the field.
+
+#### Scenario: An absolute path to a server file
+
+- **WHEN** a tenant admin on `tix serve` saves a generic source whose `file` is `/srv/keys/account.json`
+- **THEN** the save fails as invalid on `file`, and no run imports that file
+
+#### Scenario: A link out of the tenant directory
+
+- **WHEN** the tenant directory holds `rows.csv` as a link to a file outside it and a source names it
+- **THEN** the source reports the file missing and a run is refused without reading it
+
+#### Scenario: A file in the tenant directory
+
+- **WHEN** `sync.file_root` is `/srv/tix-sync` and a source in tenant acme stores `file: rows.csv`
+- **THEN** a run reads `/srv/tix-sync/acme/rows.csv`
+
+### Requirement: A refused server path discloses nothing
+
+A refusal of a stored path SHALL read the same whether the file exists, lies outside the tenant
+directory, is a link out of it or cannot be opened, and SHALL NOT quote the file's content.
+
+#### Scenario: Probing for a file
+
+- **WHEN** a tenant admin saves `mapping_path: /etc/passwd` and then `mapping_path: /nonexistent`
+- **THEN** both are refused with the same message
+
+### Requirement: The server environment applies only to bound sources
+
+On `tix serve` the `TIX_SYNC_<SOURCE>_*` variables SHALL apply only to sources `sync.env_sources` binds,
+each entry `TENANT/SOURCE` or `TENANT/*`. An unbound source SHALL read none of them, and nothing it is
+shown SHALL depend on which of them are set.
+
+#### Scenario: Same name in another tenant
+
+- **GIVEN** the server sets `TIX_SYNC_CORP_TOKEN` and binds only `default/corp`
+- **WHEN** tenant acme adds a jira source named corp and lists it
+- **THEN** its credentials read missing, no variable is named, and a run sends no token
+
+### Requirement: Environment credentials go only to the environment's url
+
+Credentials read from the environment SHALL be sent only to the url `TIX_SYNC_<SOURCE>_URL` names. A
+source that stores a different url SHALL be reported missing credentials, told to store its own.
+
+#### Scenario: A stored url beside environment credentials
+
+- **WHEN** a bound source stores `url: https://elsewhere.test` and the environment sets a token and another url
+- **THEN** the run is refused and `https://elsewhere.test` receives no request carrying the token
+
+### Requirement: A direct command is the operator's own
+
+A command run against the database directly SHALL read any file and any `TIX_SYNC_<SOURCE>_*` variable a
+source names, as the operator's own process, subject to the url rule for environment credentials.
+
+#### Scenario: A mapping path on a direct command
+
+- **WHEN** `tix sync source add generic ops --mapping /home/me/ops.yaml` runs against a local database
+- **THEN** the path is stored and a run reads it
+
+### Requirement: A shared server reaches no internal address for a sync source
+
+On `tix serve` every request a sync source makes SHALL be held to the operator's egress policy, checked on
+the address the connection is about to use and on every redirect hop. By default loopback, link-local,
+private, unique-local and other special-purpose addresses SHALL be refused, and only `http` and `https`
+urls accepted.
+
+#### Scenario: A source pointing at the metadata endpoint
+
+- **WHEN** a tenant admin on `tix serve` saves a jira source with `url: http://169.254.169.254/latest`
+- **THEN** the save fails as invalid on `url` with "address not allowed"
+
+#### Scenario: A name that resolves to loopback
+
+- **GIVEN** a bound source whose url is a name resolving to `127.0.0.1`
+- **WHEN** a run starts on `tix serve`
+- **THEN** the run fails with "address not allowed" and the loopback server receives no request
+
+#### Scenario: A redirect into the network
+
+- **WHEN** an allowed source answers with a redirect to a loopback address
+- **THEN** the hop is refused and the loopback address receives no request
+
+### Requirement: A sync refusal discloses nothing about the network
+
+A refused sync request SHALL say "address not allowed" and SHALL NOT name the address a host resolved to,
+and SHALL NOT be retried.
+
+#### Scenario: Probing an internal name
+
+- **WHEN** a run is refused because its host resolves to a private address
+- **THEN** the error names the system and the config key, and no address
+
+### Requirement: A direct command reaches what the operator can
+
+A command run against the database directly SHALL NOT hold sync sources to the egress policy, as the
+operator's own process.
+
+#### Scenario: An internal tracker from the operator's shell
+
+- **WHEN** the operator runs `tix sync run` without a server against a source at `http://10.1.2.3`
+- **THEN** the run reaches `10.1.2.3`

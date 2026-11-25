@@ -12,9 +12,7 @@ import (
 
 // profileView is the Profile section of the settings screen: who the reader
 // is, as WhoAmI answers it, email and memberships included where WhoAmI
-// gives them. An agent's answer carries no tenant key, which is then read
-// from the tenant record where the reader may, and left as the identifier
-// otherwise, so the section never shows more than the API tells the reader.
+// gives them, so the section never shows more than the API tells the reader.
 type profileView struct {
 	Actor      core.Actor
 	TenantKey  string
@@ -38,11 +36,6 @@ func (h *handler) buildProfile(r *http.Request) (profileView, error) {
 	out := profileView{Actor: *me, Scopes: grantedScopes(me),
 		ViaToken: me.TokenID != "", Token: me.TokenName}
 	out.TenantKey, out.TenantName = me.TenantKey, me.TenantName
-	if out.TenantKey == "" {
-		if tenant, err := h.svc.GetTenant(r.Context(), me.TenantID); err == nil && tenant != nil {
-			out.TenantKey, out.TenantName = tenant.Key, tenant.Name
-		}
-	}
 	return out, nil
 }
 

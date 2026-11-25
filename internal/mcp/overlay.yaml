@@ -12,6 +12,12 @@ operations:
   session.logout:
     hide: true
     reason: ends a browser session, which a bearer token does not have
+  session.list:
+    hide: true
+    reason: a person's browser and terminal sign-ins, which a model acting on their work has no use for
+  session.revoke:
+    hide: true
+    reason: signs a person out of a browser or terminal, which is theirs to decide, never an agent's
   session.ssh_challenge:
     hide: true
     reason: one step of an SSH key sign-in, which a bearer token never needs
@@ -36,12 +42,18 @@ operations:
   totp.remove:
     hide: true
     reason: a person removes their own second factor, never an agent on their behalf
+  sso.exchange:
+    hide: true
+    reason: the second half of a native app's browser sign-in, which only that app holds the verifier for
   invite.preview:
     hide: true
     reason: an invite link is opened by the person it was sent to, in a browser, before they hold any credential
   invite.accept:
     hide: true
     reason: accepting an invite chooses a person's password and signs them in, which is theirs to do
+  dav.password.create:
+    hide: true
+    reason: an app password is pasted by a person into their own phone or mail client, and is shown once
 
   # Plumbing rather than work.
   api.spec:
@@ -54,6 +66,12 @@ operations:
     hide: true
     reason: a readiness probe for a load balancer
 
+  # Polling the event log is useful to a model catching up on what happened
+  # since a cursor, but holding a tool call open for up to 25 seconds is not, so
+  # the wait parameter is left out and the poll always answers at once.
+  event.poll:
+    hide_params: [wait]
+
   task.list:
     hide_params: [format]
     description: |-
@@ -64,6 +82,9 @@ operations:
   task.unstar:
     destructive: false
     reason: unstarring is undone by starring
+  project.unstar:
+    destructive: false
+    reason: unstarring a project is undone by starring it
   task.unsnooze:
     destructive: false
     reason: waking a task early is undone by snoozing it again

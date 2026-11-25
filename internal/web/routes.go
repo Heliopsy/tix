@@ -27,7 +27,11 @@ type Exemption struct {
 type route struct {
 	Binding
 	Public bool
-	fn     func(http.ResponseWriter, *http.Request) error
+	// CrossSite marks a POST another site makes by design, the SAML
+	// assertion consumer service, which cannot carry the CSRF token; the
+	// flow cookie, the RelayState and the signed response are its proof.
+	CrossSite bool
+	fn        func(http.ResponseWriter, *http.Request) error
 }
 
 // Bindings returns every route the browser interface serves.
@@ -46,6 +50,8 @@ func Exemptions() []Exemption {
 	return []Exemption{
 		{"ResolveDomain", "hostname resolution runs in the request path before any screen is chosen and is not an operator action"},
 		{"GetUser", "the user administration list already shows every field a single user screen would show"},
+		{"ExchangeSSOCode", "the browser's own provider sign-in sets its session at the callback; the exchange is for the app the browser hands a code to"},
+		{"GetSSOProvider", "the single sign-on screen already shows every field of every provider, and its edit dialog each setting"},
 		{"ClaimTask", "claiming is the agent work queue; the lease token it returns belongs to the worker and is never displayed in a browser"},
 		{"ClaimNext", "claiming is the agent work queue; a browser operator picks a task by name instead"},
 		{"RenewLease", "a lease is renewed by the worker holding its token, which a browser session does not hold"},
@@ -53,6 +59,7 @@ func Exemptions() []Exemption {
 		{"SweepLeases", "lease sweeping is a background maintenance loop, not an operator action"},
 		{"WakeSnoozed", "waking snoozed tasks is a background loop beside the lease sweep, not an operator action"},
 		{"Subscribe", "the browser consumes the event stream over the WebSocket route rather than calling the method directly"},
+		{"PollEvents", "the browser follows events over the WebSocket; the poll is a fallback for clients whose network breaks WebSockets"},
 		{"Close", "closing the service is process lifecycle, not an operation"},
 		{"ReadCalendarFeed", "a feed is iCalendar a calendar app reads at its address with no session; the settings screen hands that address out"},
 		{"SSHLoginChallenge", "a browser cannot reach ssh-agent or a private key, so it has nothing to sign a challenge with"},
@@ -65,10 +72,14 @@ func Exemptions() []Exemption {
 func (h *handler) routes() []route {
 	var out []route
 	out = append(out, h.sessionRoutes()...)
+	out = append(out, h.ssoRoutes()...)
 	out = append(out, h.switchRoutes()...)
 	out = append(out, h.totpRoutes()...)
 	out = append(out, h.calendarRoutes()...)
+	out = append(out, h.sessionRevokeRoutes()...)
+	out = append(out, h.davRoutes()...)
 	out = append(out, h.activityRoutes()...)
+	out = append(out, h.liveEventsRoutes()...)
 	out = append(out, h.statsRoutes()...)
 	out = append(out, h.statusRoutes()...)
 	out = append(out, h.projectRoutes()...)
@@ -76,6 +87,7 @@ func (h *handler) routes() []route {
 	out = append(out, h.filterRoutes()...)
 	out = append(out, h.myWorkRoutes()...)
 	out = append(out, h.inboxRoutes()...)
+	out = append(out, h.devicePrefRoutes()...)
 	out = append(out, h.channelRoutes()...)
 	out = append(out, h.workflowRoutes()...)
 	out = append(out, h.templateRoutes()...)
@@ -90,9 +102,11 @@ func (h *handler) routes() []route {
 	out = append(out, h.taskIORoutes()...)
 	out = append(out, h.importRoutes()...)
 	out = append(out, h.syncRoutes()...)
+	out = append(out, h.scimRoutes()...)
 	out = append(out, h.bundleRoutes()...)
 	out = append(out, h.paletteRoutes()...)
 	out = append(out, h.connectRoutes()...)
+	out = append(out, h.pwaRoutes()...)
 	return out
 }
 
@@ -156,6 +170,13 @@ const (
 	RouteProjectArch     = "/projects/{key}/archive"
 	RouteProjectDel      = "/projects/{key}/delete"
 	RouteProjectIcon     = "/projects/{key}/icon"
+	// RouteTenantIcon is a tenant's uploaded icon image, which any member of
+	// it reads, so the switcher draws every tenant it lists.
+	RouteTenantIcon = "/tenants/{key}/icon"
+	// RouteProjectStar and RouteProjectUnstar set and clear the reader's own
+	// star on a project.
+	RouteProjectStar   = "/projects/{key}/star"
+	RouteProjectUnstar = "/projects/{key}/star/remove"
 	// RouteProjectHousekeeping saves a project's cleanup overrides and
 	// RouteProjectHousekeepingRun applies the rules to that project once.
 	RouteProjectHousekeeping    = "/projects/{key}/housekeeping"
@@ -179,8 +200,11 @@ const (
 	RouteTaskMove        = "/tasks/{ref}/transition"
 	RouteTaskComplete    = "/tasks/{ref}/complete"
 	RouteTaskPriority    = "/tasks/{ref}/priority"
+	RouteTaskAssign      = "/tasks/{ref}/assign"
+	RouteTaskDue         = "/tasks/{ref}/due"
 	RouteTaskDelete      = "/tasks/{ref}/delete"
 	RouteTaskRestore     = "/tasks/{ref}/restore"
+	RouteTaskPurge       = "/tasks/{ref}/purge"
 	RouteTaskReclaim     = "/tasks/{ref}/reclaim"
 	RouteTaskDeps        = "/tasks/{ref}/deps"
 	RouteTaskDepDel      = "/tasks/{ref}/deps/remove"
@@ -190,13 +214,17 @@ const (
 	RouteTaskChecklist   = "/tasks/{ref}/checklist"
 	RouteMarkdownPreview = "/markdown/preview"
 	RouteTaskCopy        = "/tasks/{ref}/copy"
+	RouteTaskRehome      = "/tasks/{ref}/move"
 	RouteTaskUnstar      = "/tasks/{ref}/star/remove"
 	RouteTaskSnooze      = "/tasks/{ref}/snooze"
 	RouteTaskUnsnooze    = "/tasks/{ref}/snooze/remove"
 	RouteTaskComments    = "/tasks/{ref}/comments"
 	RouteCommentEdit     = "/tasks/{ref}/comments/edit"
 	RouteCommentDel      = "/tasks/{ref}/comments/delete"
+	RouteCommentReact    = "/tasks/{ref}/comments/react"
+	RouteCommentUnreact  = "/tasks/{ref}/comments/unreact"
 	RouteTaskArts        = "/tasks/{ref}/artifacts"
+	RouteTaskArtFile     = "/tasks/{ref}/artifacts/{id}/file"
 	RouteTemplates       = "/templates"
 	RouteTemplateNew     = "/templates/new"
 	RouteTemplate        = "/templates/{id}"
@@ -222,7 +250,27 @@ const (
 	RouteChannelTest      = "/settings/notifications/{id}/test"
 	RouteChannelRedeliver = "/settings/notifications/{id}/redeliver"
 
-	RouteTenant       = "/admin/tenant"
+	RouteTenant = "/admin/tenant"
+	// RouteSSO is the tenant's single sign-on screen, and its create form;
+	// RouteSSOUpdate and RouteSSODelete change and remove a provider.
+	RouteSSO       = "/admin/sso"
+	RouteSSOUpdate = "/admin/sso/update"
+	RouteSSODelete = "/admin/sso/delete"
+	// RouteSSORefresh reads a SAML provider's IdP metadata again.
+	RouteSSORefresh = "/admin/sso/refresh"
+	// RouteSSOPassword saves whether the tenant takes passwords at all.
+	RouteSSOPassword = "/admin/sso/password" // #nosec G101 -- a url path, not a credential
+	// RouteSSOStart sends a browser to a provider, and RouteSSOCallback is
+	// where every provider sends it back.
+	RouteSSOStart    = "/login/sso/{key}"
+	RouteSSOCallback = "/login/sso/callback"
+	// RouteSSOApp is Open the app under the recovery codes of an app's
+	// sign-in that completed by enrolling.
+	RouteSSOApp = "/login/sso/app"
+	// RouteSAMLACS is where a SAML IdP posts its response, and
+	// RouteSAMLMetadata a SAML provider's service provider metadata.
+	RouteSAMLACS      = "/login/sso/saml/{key}/acs"
+	RouteSAMLMetadata = "/login/sso/saml/{key}/metadata"
 	RouteMembers      = "/admin/tenant/members"
 	RouteMemberRemove = "/admin/tenant/members/remove"
 	RouteRetention    = "/admin/tenant/retention"
@@ -261,6 +309,7 @@ const (
 	RouteInviteAccept  = "/invite/{token}"
 	RouteTokens        = "/admin/tokens"
 	RouteTokenRevoke   = "/admin/tokens/revoke" // #nosec G101 -- a url path, not a credential
+	RouteTokenRotate   = "/admin/tokens/rotate" // #nosec G101 -- a url path, not a credential
 	RouteStatus        = "/admin/status"
 	RouteConnections   = "/admin/connections"
 	RouteConnectionEnd = "/admin/connections/end"
@@ -268,6 +317,7 @@ const (
 	RouteSSHKeyRevoke  = "/admin/ssh-keys/revoke"
 	RouteWebhooks      = "/admin/webhooks"
 	RouteWebhookDelete = "/admin/webhooks/delete"
+	RouteWebhookPing   = "/admin/webhooks/ping"
 	RouteRedeliver     = "/admin/webhooks/deliveries/redeliver"
 
 	RouteTransfer = "/transfer"
@@ -287,6 +337,15 @@ const (
 	RouteSyncDelete        = "/sync/sources/delete"
 	RouteSyncRun           = "/sync/run"
 	RouteSyncRuns          = "/sync/runs"
+
+	// RouteSCIM is the SCIM provisioning screen; the routes under it turn
+	// provisioning on and off, mint its token and map groups to roles.
+	RouteSCIM        = "/admin/scim"
+	RouteSCIMEnable  = "/admin/scim/enable"
+	RouteSCIMDisable = "/admin/scim/disable"
+	RouteSCIMToken   = "/admin/scim/token" // #nosec G101 -- a url path, not a credential
+	RouteSCIMGroups  = "/admin/scim/groups"
+	RouteSCIMUnmap   = "/admin/scim/groups/remove"
 )
 
 // Route patterns for component sharing.
@@ -295,3 +354,6 @@ const (
 	RouteBundleExport = "/bundles/export"
 	RouteBundleImport = "/bundles/import"
 )
+
+// RouteWorkflowTemplateApply creates a workflow from a built-in template.
+const RouteWorkflowTemplateApply = "/workflow-templates/apply"

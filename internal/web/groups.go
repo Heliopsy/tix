@@ -38,6 +38,9 @@ type groupHead struct {
 	// Status the state it is added in. A project heading adds to itself.
 	Projects []core.Project
 	Status   string
+	// Filter is the screen narrowed to this group's tasks, for a lane that is
+	// not a project: "" when no filter term says the group exactly.
+	Filter string
 }
 
 // DOMID is a fragment safe for an element id, unique within one view.
@@ -385,19 +388,19 @@ func buildListGroups(by string, projects []core.Project, tasks []core.Task, move
 const tasksRegion = "#tasks-listing"
 
 // arrangeBoard draws the task screen's board as the reader arranged it.
-func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, self string) arrangement {
-	prefs := h.groupPrefs(r, core.ViewBoard)
+func (h *handler) arrangeBoard(r *http.Request, board *taskBoard, view, self string) arrangement {
+	prefs := h.groupPrefs(r, view)
 	makers := board.Groups[0].Projects
 	for i := range board.Columns {
 		c := &board.Columns[i]
-		c.Head = statusHead(c.State, len(c.Tasks), makers)
+		c.Head = statusHead(c.State, c.Total, makers)
 	}
 	board.Columns, _ = arrangeGroups(board.Columns, colHead, groupPrefIndex(prefs))
 	hidden := hiddenOf(prefs, stateNamer(board.Groups[0].Workflow.Definition))
-	return newArrangement(r, core.ViewBoard, self, tasksRegion, drawnOrder(board.Columns, colHead), hidden, prefs)
+	return newArrangement(r, view, self, tasksRegion, drawnOrder(board.Columns, colHead), hidden, prefs)
 }
 
-// arrangeLanes draws the lanes as the reader arranged them.
+// arrangeLanes draws the project lanes as the reader arranged them.
 func (h *handler) arrangeLanes(r *http.Request, lanes *taskLanes, projects []core.Project, self string) arrangement {
 	prefs := h.groupPrefs(r, core.ViewLanes)
 	for i := range lanes.Lanes {
@@ -407,6 +410,18 @@ func (h *handler) arrangeLanes(r *http.Request, lanes *taskLanes, projects []cor
 	lanes.Lanes, _ = arrangeGroups(lanes.Lanes, laneHead, groupPrefIndex(prefs))
 	hidden := hiddenOf(prefs, projectNamer(projects))
 	return newArrangement(r, core.ViewLanes, self, tasksRegion, drawnOrder(lanes.Lanes, laneHead), hidden, prefs)
+}
+
+// groupedLanes builds and arranges the lanes grouped by something other than
+// the project, under that grouping's own arrangement.
+func (h *handler) groupedLanes(r *http.Request, src laneSource, self string) (taskLanes, arrangement) {
+	view := core.LanesView(src.By)
+	prefs := h.groupPrefs(r, view)
+	src.Prefs = groupPrefIndex(prefs)
+	lanes := buildGroupedLanes(src)
+	lanes.Lanes, _ = arrangeGroups(lanes.Lanes, laneHead, src.Prefs)
+	hidden := hiddenOf(prefs, laneNamer(src.By, src.Label))
+	return lanes, newArrangement(r, view, self, tasksRegion, drawnOrder(lanes.Lanes, laneHead), hidden, prefs)
 }
 
 // arrangeList groups the list's rows and arranges the groups. A list grouped
@@ -428,19 +443,6 @@ func (h *handler) arrangeList(r *http.Request, by string, projects []core.Projec
 	a := newArrangement(r, view, self, tasksRegion, drawnOrder(groups, listHead), hiddenOf(prefs, name), prefs)
 	a.Vertical = true
 	return groups, a
-}
-
-// arrangeProjectBoard draws a project's own board as the reader arranged it.
-func (h *handler) arrangeProjectBoard(r *http.Request, p core.Project, def core.WorkflowDefinition, columns []column) ([]column, arrangement) {
-	view := core.ProjectView(p.Key)
-	prefs := h.groupPrefs(r, view)
-	for i := range columns {
-		c := &columns[i]
-		c.Head = statusHead(c.State, len(c.Tasks), []core.Project{p})
-	}
-	columns, _ = arrangeGroups(columns, colHead, groupPrefIndex(prefs))
-	self := strings.Replace(RouteProject, "{key}", p.Key, 1)
-	return columns, newArrangement(r, view, self, "#project-board", drawnOrder(columns, colHead), hiddenOf(prefs, stateNamer(def)), prefs)
 }
 
 // taskRow is what the "task-row" partial draws: one task and the page it is

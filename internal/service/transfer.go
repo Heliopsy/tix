@@ -1120,10 +1120,9 @@ func (i *importer) avoidSeqCollision(ctx context.Context, tx store.Tx, project *
 	if err != nil {
 		return err
 	}
-	// The project's own counter cannot be trusted to mint the replacement: it
-	// only advances when a task is created without an explicit number, and
-	// every task an import creates carries one, so the counter can still read
-	// zero in a project that already holds numbered tasks.
+	// The replacement is read from the highest number held rather than
+	// reserved from the project's counter, which the store raises to whatever
+	// number CreateTask writes.
 	fresh, err := nextAvailableSeq(ctx, tx, target.ProjectID)
 	if err != nil {
 		return err

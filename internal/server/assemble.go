@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/heliopsy/tix/internal/caldav"
 	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/connections"
 	"github.com/heliopsy/tix/internal/core"
@@ -16,7 +17,10 @@ import (
 	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/lease"
 	"github.com/heliopsy/tix/internal/presence"
+	"github.com/heliopsy/tix/internal/release"
 	"github.com/heliopsy/tix/internal/retention"
+	"github.com/heliopsy/tix/internal/samlrefresh"
+	"github.com/heliopsy/tix/internal/scim"
 	"github.com/heliopsy/tix/internal/store"
 	"github.com/heliopsy/tix/internal/store/migrations"
 	"github.com/heliopsy/tix/internal/version"
@@ -34,6 +38,10 @@ type Options struct {
 	TrustedProxies []string
 	// CookieSecurity overrides how the Secure attribute is decided.
 	CookieSecurity string
+	// PublicURL is server.public_url: the address links drawn from a request
+	// on a shared host, and channel messages, are built under. Empty keeps
+	// the request's own host.
+	PublicURL string
 	// AllowPrivateWebhookTargets lets webhook deliveries reach loopback and
 	// private network addresses. Off by default: a tenant-supplied URL
 	// reaching internal infrastructure is the classic request-forgery shape.
@@ -41,8 +49,14 @@ type Options struct {
 	// Egress is the operator's policy for tenant-supplied urls, strict when
 	// zero. AllowPrivateWebhookTargets widens it for deliveries only.
 	Egress egress.Policy
-	Logger *slog.Logger
-	Clock  clock.Clock
+	// CalDAV serves tasks over CalDAV under /dav/, caldav.enabled. Off, /dav/
+	// and /.well-known/caldav answer not found.
+	CalDAV bool
+	// Releases is the process's release check, shared with the browser
+	// interface so both report the same answer. Nil starts one for the API.
+	Releases *release.Watch
+	Logger   *slog.Logger
+	Clock    clock.Clock
 
 	// TenantID serves requests whose Host maps to no tenant. Leaving it empty
 	// answers an unknown host with not found instead.
@@ -70,8 +84,15 @@ type Options struct {
 	RequestTimeout time.Duration
 	// MaxImportBytes caps a task import in place of MaxBodyBytes, on the API's
 	// import route and on ImportRoutes, the web handler's own.
-	MaxImportBytes  int64
-	ImportRoutes    []string
+	MaxImportBytes int64
+	ImportRoutes   []string
+	// MaxArtifactBytes is artifacts.max_bytes. The API's artifact route and
+	// ArtifactRoutes, the web handler's own, take a body sized to carry it.
+	MaxArtifactBytes int64
+	ArtifactRoutes   []string
+	// Sessions are the server's session settings; the idle timeout and
+	// renewal are applied as each request authenticates.
+	Sessions        core.SessionPolicy
 	ShutdownTimeout time.Duration
 
 	SweepInterval    time.Duration
@@ -80,6 +101,11 @@ type Options struct {
 	DisableSweep     bool
 	DisablePrune     bool
 	DisableDispatch  bool
+
+	// SAMLRefreshInterval is auth.saml_metadata_refresh: how often every
+	// tenant's enabled SAML providers have their IdP metadata read again.
+	// Zero or less runs no refresher.
+	SAMLRefreshInterval time.Duration
 
 	// HeartbeatInterval is how often this process refreshes its registration.
 	// Zero uses the interval the staleness threshold is derived from, so the
@@ -106,6 +132,9 @@ func Assemble(opts Options) (*Server, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.New()
 	}
+	if opts.Releases == nil {
+		opts.Releases = release.NewWatch()
+	}
 
 	latest, err := migrations.Latest()
 	if err != nil {
@@ -119,22 +148,38 @@ func Assemble(opts Options) (*Server, error) {
 	pump := newPumps(context.Background(), hub, log, opts.EventPollInterval, opts.Logger)
 	hub.SetTenantHooks(pump.start, pump.stop)
 
+	var provisioning http.Handler
+	if p, ok := opts.Service.(core.Provisioner); ok {
+		provisioning = scim.New(p, httpapi.Origin)
+	}
+	var calDAV http.Handler
+	if collections, ok := opts.Service.(core.TaskCollections); ok && opts.CalDAV {
+		calDAV = caldav.New(collections, httpapi.Origin).WithLogger(opts.Logger)
+	}
 	router, err := httpapi.New(httpapi.Config{
-		Service:         opts.Service,
-		EventHandler:    httpapi.NewEventStream(hub, log),
-		WebHandler:      opts.WebHandler,
-		Authenticator:   NewAuthenticator(opts.Store, opts.Clock),
-		Logger:          opts.Logger,
-		DefaultTenantID: opts.TenantID,
-		MaxBodyBytes:    opts.MaxBodyBytes,
-		MaxImportBytes:  opts.MaxImportBytes,
-		ImportRoutes:    opts.ImportRoutes,
-		RequestTimeout:  opts.RequestTimeout,
-		SecureCookies:   opts.CertFile != "",
-		TrustedProxies:  opts.TrustedProxies,
-		CookieSecurity:  opts.CookieSecurity,
-		Probe:           opts.Store,
-		ExpectedSchema:  latest,
+		SCIM:             provisioning,
+		CalDAV:           calDAV,
+		DAVAuthenticator: NewDAVAuthenticator(opts.Store, opts.Clock, opts.Sessions),
+		Service:          opts.Service,
+		EventHandler:     httpapi.NewEventStream(hub, log),
+		WebHandler:       opts.WebHandler,
+		Authenticator:    NewAuthenticator(opts.Store, opts.Clock, opts.Sessions),
+		Logger:           opts.Logger,
+		Clock:            opts.Clock,
+		DefaultTenantID:  opts.TenantID,
+		MaxBodyBytes:     opts.MaxBodyBytes,
+		MaxImportBytes:   opts.MaxImportBytes,
+		ImportRoutes:     opts.ImportRoutes,
+		MaxArtifactBytes: opts.MaxArtifactBytes,
+		ArtifactRoutes:   opts.ArtifactRoutes,
+		RequestTimeout:   opts.RequestTimeout,
+		SecureCookies:    opts.CertFile != "",
+		TrustedProxies:   opts.TrustedProxies,
+		CookieSecurity:   opts.CookieSecurity,
+		PublicURL:        opts.PublicURL,
+		Probe:            opts.Store,
+		ExpectedSchema:   latest,
+		Releases:         opts.Releases,
 	})
 	if err != nil {
 		return nil, err
@@ -166,7 +211,8 @@ func Assemble(opts Options) (*Server, error) {
 		AllowInsecure:   opts.AllowInsecure,
 		ShutdownTimeout: opts.ShutdownTimeout,
 		SSH:             opts.SSH,
-		Workers:         append(workers, EventPumpWorker(pump)),
+		Workers: append(workers, EventPumpWorker(pump),
+			FuncWorker{WorkerName: "refusal-log", Fn: router.ReportHeldBackRefusals}),
 	})
 	return srv, err
 }
@@ -277,10 +323,58 @@ func workersFor(opts Options) []Worker {
 			// deny-by-default guard, which is safe but would also refuse a
 			// target an operator deliberately permitted.
 			webhook.WithGuard(webhookGuard(opts)),
+			webhook.WithPublicURL(opts.PublicURL),
 		)
 		workers = append(workers, DispatcherWorker(dispatcher))
 	}
+
+	if opts.SAMLRefreshInterval > 0 {
+		refresher := samlrefresh.New(opts.Service, liveTenants(opts.Store),
+			func(ctx context.Context, tenantID string) context.Context {
+				return systemContext(ctx, tenantID, JobSAMLRefresh)
+			},
+			opts.Clock, opts.SAMLRefreshInterval,
+			samlrefresh.WithErrorHandler(func(tenantID, key string, err error) {
+				opts.Logger.Warn("saml metadata refresh failed, the provider keeps its certificates",
+					"tenant", tenantID, "provider", key, "error", err.Error())
+			}),
+			samlrefresh.WithChangeHandler(func(tenantID string, p *core.SSOProvider) {
+				opts.Logger.Info("saml metadata refresh changed a provider", "tenant", tenantID, "provider", p.Key,
+					"certificates_added", p.MetadataRefresh.Added, "certificates_removed", p.MetadataRefresh.Removed)
+			}),
+		)
+		workers = append(workers, FuncWorker{WorkerName: "saml-metadata-refresher", Fn: refresher.Run})
+	}
 	return workers
+}
+
+// liveTenants lists every tenant not deleted, for the background work that
+// visits each one.
+func liveTenants(st store.Store) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		var ids []string
+		err := st.ViewUnscoped(ctx, func(u store.UnscopedTx) error {
+			page := core.Page{Limit: core.MaxPageLimit, Sort: "key", Direction: core.Ascending}
+			for {
+				found, err := u.ListTenants(ctx, page)
+				if err != nil {
+					return err
+				}
+				for _, t := range found {
+					if t.DeletedAt == nil {
+						ids = append(ids, t.ID)
+					}
+				}
+				if len(found) < page.Limit {
+					return nil
+				}
+				last := found[len(found)-1]
+				page.Cursor = core.Cursor{SortValue: last.Key, ID: last.ID, Sort: page.Sort,
+					Direction: page.Direction}.Encode()
+			}
+		})
+		return ids, err
+	}
 }
 
 // Background jobs, as the access channel of what they change names them.
@@ -289,6 +383,7 @@ const (
 	JobSnoozeWake   = "snooze-wake"
 	JobPrune        = "prune"
 	JobHousekeeping = "housekeeping"
+	JobSAMLRefresh  = "saml-refresh"
 )
 
 // systemContext gives background work the identity it has no request to

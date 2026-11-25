@@ -6,6 +6,11 @@ tix.
 
 `tix <command> --help` documents every flag, and `tix docs` emits the whole command tree as Markdown.
 
+**New to tix, or helping someone who is?** Start with the getting-started skill,
+[skills/tix-getting-started/SKILL.md](../skills/tix-getting-started/SKILL.md): it asks how the person wants to
+use tix, explains instances, tenants, projects and workflows, and walks the setup for each interface and a first
+task. The main [skills/tix/SKILL.md](../skills/tix/SKILL.md) is for an agent already working a queue.
+
 ## Guides
 
 | Guide | Covers |
@@ -16,18 +21,23 @@ tix.
 | [workflows.md](workflows.md) | Custom state machines, transitions, terminal states, custom fields, what a custom field filter costs |
 | [configuration.md](configuration.md) | Contexts, the five layers, `TIX_*` variables, per-directory discovery |
 | [tenancy.md](tenancy.md) | Tenants, domains, roles, and how isolation is enforced |
+| [scim.md](scim.md) | SCIM 2.0 provisioning from Entra ID, Okta, Authentik or JumpCloud: the token, group roles, deactivation |
 | [second-factor.md](second-factor.md) | TOTP per tenant and per surface, enrolment, recovery codes, the sealing key |
+| [sso.md](sso.md) | Single sign-on per tenant: OIDC, GitHub and SAML providers, linking, password policy, break-glass |
 | [api.md](api.md) | The HTTP API, the WebSocket event stream, and resuming with `since_seq` |
+| [examples.md](examples.md) | One API client in curl, Python, TypeScript and Go: a task from creation to its events, conflicts included |
 | [mcp.md](mcp.md) | `tix mcp`: the API as MCP tools for Claude Code and other clients, the overlay, scopes and destructive tools |
 | [audit-log.md](audit-log.md) | The audit log: what an entry records, the access channel of every change, what is never stored |
 | [filtering.md](filtering.md) | The filter expression language: negation, weak matching, and what each engine does |
 | [calendar.md](calendar.md) | Subscribing to your due dates from Google Calendar, Apple Calendar or Outlook, and what the feed carries |
+| [caldav.md](caldav.md) | Your tasks as read-only to-do lists in Apple Reminders, tasks.org through DAVx5, Thunderbird or Evolution: app passwords, collections, what each field maps to |
 | [scripting.md](scripting.md) | NDJSON everywhere, output formats, piping, exit codes |
 | [web-ui.md](web-ui.md) | The browser interface: lease badges, multi-step moves, the directory, per-browser preferences |
 | [tui.md](tui.md) | The terminal interface: the eighteen views, five keybinding schemes, the settings screen, what it does not do |
 | [deployment.md](deployment.md) | Running `tix serve`, TLS, reverse proxies, the non-loopback bind guard |
 | [deployment.md](deployment.md#containers) | The published container image: tags, what the image already decides, verifying the signature, Kubernetes |
 | [deployment.md](deployment.md#the-terminal-interface-over-ssh) | Serving the terminal interface over SSH: enrolling keys, the username as tenant, enrolled and demo modes |
+| [embedding.md](embedding.md) | Running tix inside an app with no server: the Go package, the C ABI, building the library per platform, loopback only |
 | [scaling.md](scaling.md) | SQLite versus PostgreSQL, keyset pagination, partitioning, when to move |
 | [import-export.md](import-export.md) | A project's tasks out as CSV, JSON, NDJSON or Markdown, and files from tix, Jira, GitHub, Trello or Linear in, with mapping |
 | [migrating.md](migrating.md) | Importing from Jira and OpenProject, mapping files, snapshots, bundles |
@@ -41,14 +51,16 @@ tix.
 
 ## Where to start
 
+- New to tix: [the getting-started skill](../skills/tix-getting-started/SKILL.md), then the guides below.
 - Running an AI agent against tix: [agents.md](agents.md), then [scripting.md](scripting.md), or
   [mcp.md](mcp.md) for an MCP client.
 - Building a queue view to replace a Jira filter: [filtering.md](filtering.md).
 - Setting up a team: [configuration.md](configuration.md), [workflows.md](workflows.md),
-  [deployment.md](deployment.md).
+  [deployment.md](deployment.md), and [scim.md](scim.md) to provision people from an identity provider.
 - Running the published image, in a container or on Kubernetes: [deployment.md](deployment.md#containers).
 - Coming from another tracker: [migrating.md](migrating.md).
-- Building a client: [api.md](api.md).
+- Building a client: [examples.md](examples.md) for a working one in four languages, then [api.md](api.md).
+- Seeing your tasks in Apple Reminders, tasks.org, Thunderbird or Evolution: [caldav.md](caldav.md).
 - Working in a terminal, or putting a team on a board over SSH: [tui.md](tui.md).
 - Showing tix to somebody: `tix demo seed` and [web-ui.md](web-ui.md).
 - Changing the code: [AGENTS.md](../AGENTS.md), then [testing.md](testing.md).

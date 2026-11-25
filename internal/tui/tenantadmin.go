@@ -62,11 +62,15 @@ type TenantAdminState struct {
 	// Handles maps an actor identifier to the handle a reader recognises, for
 	// every member the listing names.
 	Handles map[string]string
+	// Providers are the tenant's single sign-on providers, for a reader
+	// holding sso:admin; tix tenant sso configures them.
+	Providers []core.SSOProvider
 
 	TenantErr  string
 	TenantsErr string
 	DomainErr  string
 	MemberErr  string
+	SSOErr     string
 
 	// Selected indexes TenantRows, not any one listing.
 	Selected int
@@ -86,6 +90,24 @@ const tenantRowWidth = 28
 // The name is free text and is gathered by the prompt under attrName, which the
 // project screen already names.
 const attrTheme = "theme"
+
+// attrMFA and attrMFAGrace are the second factor policy and its grace, both
+// answered from lists: the policy has two values, and a grace is one of a few
+// lengths anybody actually picks. Any other length is for tix tenant edit.
+const (
+	attrMFA      = "second factor"
+	attrMFAGrace = "grace"
+
+	attrArtifactMax   = "artifact size"
+	attrArtifactTypes = "artifact types"
+
+	attrSessionTTL      = "sign-in lasts"
+	attrSessionIdle     = "idle timeout"
+	attrSessionRemember = "keep signed in"
+)
+
+// MFAGraceOptions are the grace lengths the edit form offers.
+var MFAGraceOptions = []string{"0", "1d", "3d", "7d", "14d", "30d"}
 
 // noTheme is what the theme list calls the absence of one. The service takes an
 // empty string, which no list of alternatives can show.
@@ -142,6 +164,8 @@ func TenantAdminView(state TenantAdminState) []TenantLine {
 	out = append(out, TenantLine{})
 	out = append(out, memberLines(state, rows)...)
 	out = append(out, TenantLine{})
+	out = append(out, providerLines(state)...)
+	out = append(out, TenantLine{})
 	if lines := membershipLines(state, rows); len(lines) > 0 {
 		out = append(out, lines...)
 		out = append(out, TenantLine{})
@@ -160,7 +184,14 @@ func tenantAttributes(state TenantAdminState) []TenantLine {
 	out = append(out,
 		tenantRow("key", t.Key),
 		tenantRow("name", orNone(t.Name)),
-		tenantRow(attrTheme, orNone(t.Theme)))
+		tenantRow(attrTheme, orNone(t.Theme)),
+		tenantRow(attrMFA, mfaLine(t)),
+		tenantRow("password sign-in", passwordLoginLine(t.PasswordLogin)),
+		tenantRow(attrArtifactMax, orInherit(artifactMaxLine(t))),
+		tenantRow(attrArtifactTypes, orInherit(strings.Join(t.ArtifactTypes, ", "))),
+		tenantRow(attrSessionTTL, orInherit(durationLine(t.SessionTTL))),
+		tenantRow(attrSessionIdle, orInherit(durationLine(t.SessionIdleTimeout))),
+		tenantRow(attrSessionRemember, orInherit(rememberLine(t))))
 	if state.Handle != "" {
 		out = append(out, tenantRow("actor", "@"+state.Handle))
 	}
@@ -215,8 +246,43 @@ func memberLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	return out
 }
 
-// membershipLines list the reader's tenants with the role held in each and
-// what choosing one does: switch, or the login or ssh command that reaches it.
+// passwordLoginLine states the tenant's password policy.
+func passwordLoginLine(p core.PasswordLogin) string {
+	if p.Disabled() {
+		return "disabled, single sign-on only (global admins excepted)"
+	}
+	return "allowed"
+}
+
+// providerLines list the tenant's single sign-on providers. They are read
+// here and configured with tix tenant sso, which the heading names.
+func providerLines(state TenantAdminState) []TenantLine {
+	out := []TenantLine{{Text: "sign-in providers (" + strconv.Itoa(len(state.Providers)) + "), tix tenant sso:",
+		Heading: true}}
+	if len(state.Providers) == 0 {
+		return append(out, tenantAbsent(state.SSOErr, state.Loaded)...)
+	}
+	for _, p := range state.Providers {
+		note := string(p.Kind) + " " + p.DisplayName
+		if !p.Enabled {
+			note += " (off)"
+		}
+		if p.AutoCreate {
+			note += ", creates accounts"
+		}
+		out = append(out, TenantLine{Text: "  " + pad(p.Key, tenantRowWidth) + note})
+	}
+	return out
+}
+
+// tenantMarkWidth is the column a tenant's icon or monogram takes, two cells
+// and a space.
+const tenantMarkWidth = 3
+
+// membershipLines list the reader's tenants, each key leading its row as on
+// every row of the screen and followed by the tenant's icon or monogram, with
+// the role held in each and what choosing one does: switch, or the login or
+// ssh command that reaches it.
 func membershipLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	listed := listedMemberships(state)
 	if len(listed) == 0 {
@@ -227,7 +293,7 @@ func membershipLines(state TenantAdminState, rows []TenantRow) []TenantLine {
 	for i, m := range listed {
 		selected := selectedRow(rows, state.Selected) == first+i
 		out = append(out, TenantLine{
-			Text: SelectionMarker(selected) + pad(m.TenantKey, tenantLabelWidth) +
+			Text: SelectionMarker(selected) + pad(m.TenantKey, tenantLabelWidth) + pad(m.IconText(), tenantMarkWidth) +
 				pad(string(m.Role), 8) + membershipNote(state, m.TenantKey),
 			Selected: selected,
 		})
@@ -343,7 +409,8 @@ func ThemeValue(option string) string {
 // answered here, from the palettes the build carries; the name is free text and
 // hands over to the single-line prompt, seeded with the value it would replace.
 func TenantEditForm(t core.Tenant) Form {
-	attributes := []string{attrName, attrTheme}
+	attributes := []string{attrName, attrTheme, attrMFA, attrMFAGrace, attrArtifactMax, attrArtifactTypes,
+		attrSessionTTL, attrSessionIdle, attrSessionRemember}
 	theme := t.Theme
 	if _, custom := core.CustomTheme(theme); custom {
 		theme = customColour
@@ -356,6 +423,10 @@ func TenantEditForm(t core.Tenant) Form {
 			{Key: "attribute", Label: "attribute", Options: attributes, Value: attributes[0]},
 			{Key: attrTheme, Label: "theme", Options: ThemeOptions(), Value: theme,
 				Needs: FieldCondition{Key: "attribute", Value: attrTheme}},
+			{Key: attrMFA, Label: "policy", Options: mfaPolicyOptions(), Value: mfaPolicyValue(t),
+				Needs: FieldCondition{Key: "attribute", Value: attrMFA}},
+			{Key: attrMFAGrace, Label: "grace", Options: MFAGraceOptions, Value: graceValue(t),
+				Needs: FieldCondition{Key: "attribute", Value: attrMFAGrace}},
 		},
 	}
 }
@@ -426,3 +497,86 @@ func MemberForm(actors []core.Actor) Form {
 // who needs a certificate learns it here rather than by finding the domain
 // serving none.
 const DomainNote = "a certificate is a pair of paths on the server; tix domain add takes them"
+
+// mfaPolicyOptions are the policies the edit form offers, in their wire form.
+func mfaPolicyOptions() []string {
+	out := make([]string, 0, len(core.MFAPolicies))
+	for _, p := range core.MFAPolicies {
+		out = append(out, string(p))
+	}
+	return out
+}
+
+// mfaPolicyValue is the policy the form starts on.
+func mfaPolicyValue(t core.Tenant) string {
+	if t.MFARequired() {
+		return string(core.MFAPolicyRequired)
+	}
+	return string(core.MFAPolicyOff)
+}
+
+// graceValue is the grace the form starts on, the nearest it offers.
+func graceValue(t core.Tenant) string {
+	if t.MFAGrace == 0 {
+		return MFAGraceOptions[0]
+	}
+	text := t.MFAGrace.Human()
+	for _, o := range MFAGraceOptions {
+		if o == text {
+			return o
+		}
+	}
+	return MFAGraceOptions[0]
+}
+
+// mfaLine states the tenant's second factor policy on the tenant screen.
+func mfaLine(t core.Tenant) string {
+	if !t.MFARequired() {
+		return "off"
+	}
+	if t.MFAGrace == 0 {
+		return "required"
+	}
+	return "required, grace " + t.MFAGrace.Human()
+}
+
+// artifactMaxLine is the tenant's own artifact size limit, empty when it
+// inherits the server's.
+func artifactMaxLine(t core.Tenant) string {
+	switch n := t.ArtifactMaxBytes; {
+	case n == 0:
+		return ""
+	case n%(1<<20) == 0:
+		return strconv.FormatInt(n>>20, 10) + "MiB"
+	case n%(1<<10) == 0:
+		return strconv.FormatInt(n>>10, 10) + "KiB"
+	default:
+		return strconv.FormatInt(n, 10)
+	}
+}
+
+// orInherit names an unset tenant limit as the server's.
+func orInherit(s string) string {
+	if s == "" {
+		return "server's"
+	}
+	return s
+}
+
+// durationLine is one of the tenant's own session durations, empty when it
+// inherits the server's.
+func durationLine(d core.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return d.Human()
+}
+
+// rememberLine is the tenant's own "keep me signed in" setting: off, a
+// duration, or empty when it inherits the server's.
+func rememberLine(t core.Tenant) string {
+	if t.SessionRememberOff {
+		return core.SessionRememberOff
+	}
+	return durationLine(t.SessionRememberTTL)
+}

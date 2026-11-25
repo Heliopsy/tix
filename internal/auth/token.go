@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/hex"
+	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -65,14 +66,15 @@ func MintAPIToken(clk clock.Clock, tenantID string, in core.CreateTokenInput) (*
 	return &MintedToken{
 		Issued: &core.IssuedToken{
 			APIToken: core.APIToken{
-				ID:        id.NewAt(now),
-				TenantID:  tenantID,
-				ActorID:   in.ActorID,
-				Name:      in.Name,
-				Scopes:    slices.Clone(in.Scopes),
-				ProjectID: in.ProjectID,
-				CreatedAt: now,
-				ExpiresAt: in.ExpiresAt,
+				ID:           id.NewAt(now),
+				TenantID:     tenantID,
+				ActorID:      in.ActorID,
+				Name:         in.Name,
+				Scopes:       slices.Clone(in.Scopes),
+				ProjectID:    in.ProjectID,
+				RequireClaim: in.RequireClaim,
+				CreatedAt:    now,
+				ExpiresAt:    in.ExpiresAt,
 			},
 			Token: value,
 		},
@@ -86,16 +88,20 @@ func ParseAPIToken(value string) (string, error) {
 	if !ok {
 		return "", core.Unauthenticated("invalid credentials")
 	}
-	if len(secret) != tokenEncoding.EncodedLen(tokenBytes) {
-		return "", core.Unauthenticated("invalid credentials")
-	}
-	if _, err := tokenEncoding.DecodeString(strings.ToUpper(secret)); err != nil {
-		return "", core.Unauthenticated("invalid credentials")
-	}
-	if strings.ToLower(secret) != secret {
+	if !wellFormedSecret(secret) {
 		return "", core.Unauthenticated("invalid credentials")
 	}
 	return secret, nil
+}
+
+// wellFormedSecret reports whether a value has the shape of a minted secret,
+// the part of a token after its prefix and the whole of a session cookie.
+func wellFormedSecret(s string) bool {
+	if len(s) != tokenEncoding.EncodedLen(tokenBytes) || strings.ToLower(s) != s {
+		return false
+	}
+	_, err := tokenEncoding.DecodeString(strings.ToUpper(s))
+	return err == nil
 }
 
 // HashToken returns the hex SHA-256 digest that is stored in place of a secret.
@@ -131,20 +137,49 @@ func NewTokenVerifier(lookup TokenLookup, clk clock.Clock) *TokenVerifier {
 
 // Verify returns the actor a valid token grants, or an unauthenticated error.
 func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, error) {
+	return v.verify(ctx, value, nil)
+}
+
+// verify is Verify with a check of its own on the stored token, run before the
+// token is recorded as used, so a token the caller refuses leaves no trace of
+// having signed anything in.
+func (v *TokenVerifier) verify(ctx context.Context, value string, accept func(*core.APIToken) error) (*core.Actor, error) {
 	if _, err := ParseAPIToken(value); err != nil {
+		NoteRefusal(ctx, Refusal{Reason: RefusedMalformedToken})
 		return nil, err
 	}
 	hash := HashToken(value)
 	tok, err := v.lookup.TokenByHash(ctx, hash)
+	if withdrawn := (*withdrawnError)(nil); errors.As(err, &withdrawn) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedActorDisabled, TokenID: withdrawn.tokenID, TokenName: withdrawn.tokenName})
+		return nil, core.Unauthenticated("invalid credentials")
+	}
 	if err != nil {
 		return nil, core.Internal("looking up api token").Wrap(err)
 	}
 	if tok == nil {
+		NoteRefusal(ctx, Refusal{Reason: RefusedUnknownToken, TokenRef: CredentialRef(value)})
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	now := v.clk.Now()
 	if !tok.Active(now) {
+		NoteRefusal(ctx, Refusal{Reason: inactiveTokenReason(*tok, now), TokenID: tok.ID, TokenName: tok.Name})
 		return nil, core.Unauthenticated("invalid credentials")
+	}
+	if accept != nil {
+		if err := accept(tok); err != nil {
+			return nil, err
+		}
+	}
+	if slices.Contains(tok.Scopes, core.ScopeCaldav) && !core.DAVRequestFrom(ctx) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedCaldavOnly, TokenID: tok.ID, TokenName: tok.Name})
+		return nil, core.Forbidden("a %s token is an app password and works only under %s, over Basic",
+			core.ScopeCaldav, core.DAVRoot)
+	}
+	if slices.Contains(tok.Scopes, core.ScopeSCIMProvision) && !core.SCIMRequestFrom(ctx) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedSCIMOnly, TokenID: tok.ID, TokenName: tok.Name})
+		return nil, core.Forbidden("a %s token works only on the SCIM endpoints, %s",
+			core.ScopeSCIMProvision, core.SCIMPath)
 	}
 	if toucher, ok := v.lookup.(TokenToucher); ok {
 		if err := toucher.TouchToken(ctx, tok.ID, now); err != nil {
@@ -161,4 +196,13 @@ func (v *TokenVerifier) Verify(ctx context.Context, value string) (*core.Actor, 
 		TokenName: tok.Name,
 		ProjectID: tok.ProjectID,
 	}, nil
+}
+
+// inactiveTokenReason tells a revoked token from an expired one. A token both
+// revoked and expired is named revoked, since revoking it was the later act.
+func inactiveTokenReason(tok core.APIToken, now time.Time) string {
+	if tok.Revoked(now) {
+		return RefusedTokenRevoked
+	}
+	return RefusedTokenExpired
 }

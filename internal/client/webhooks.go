@@ -11,8 +11,8 @@ import (
 )
 
 // PutWebhook registers or updates a delivery endpoint.
-func (c *Client) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
-	return call[core.WebhookEndpoint](ctx, c, http.MethodPut, wire.RouteWebhooks, nil, in)
+func (c *Client) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
+	return call[core.IssuedWebhook](ctx, c, http.MethodPut, wire.RouteWebhooks, nil, in)
 }
 
 // ListWebhooks returns the tenant's endpoints.
@@ -41,4 +41,9 @@ func (c *Client) ListDeliveries(ctx context.Context, f core.DeliveryFilter) ([]c
 func (c *Client) RedeliverWebhook(ctx context.Context, deliveryID string) error {
 	path := routePath(wire.RouteDeliveryRedeliver, "id", deliveryID)
 	return callVoid(ctx, c, http.MethodPost, path, nil, nil)
+}
+
+// PingWebhook sends a test delivery to one endpoint.
+func (c *Client) PingWebhook(ctx context.Context, id string) (*core.WebhookDelivery, error) {
+	return call[core.WebhookDelivery](ctx, c, http.MethodPost, routePath(wire.RouteWebhookPing, "id", id), nil, nil)
 }

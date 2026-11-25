@@ -580,3 +580,33 @@ The configuration SHALL have a cli.record_host boolean, default false, which add
 
 - **WHEN** TIX_CLI_RECORD_HOST=true and a local command creates a task
 - **THEN** the entry records the machine's host name and the OS user
+
+### Requirement: Egress allowances are operator keys
+
+`server.egress_allow` SHALL list the addresses, CIDR ranges, host names and `.suffix`es a tenant-supplied
+url may reach although they are internal, and `server.egress_allow_private` SHALL open every internal
+address. Both SHALL default to strict, and an entry that does not parse SHALL be refused at load.
+
+#### Scenario: An unreadable entry
+
+- **WHEN** `TIX_SERVER_EGRESS_ALLOW` is `10.0.0.0/8,http://jira`
+- **THEN** loading the configuration fails naming `server.egress_allow`
+
+#### Scenario: An allowed tracker
+
+- **WHEN** `server.egress_allow` is `[10.0.0.0/8]` and a tenant on `tix serve` saves a source at `http://10.1.2.3`
+- **THEN** the source is saved
+
+### Requirement: App redirects for single sign-on
+
+`auth.sso_app_redirects` (`TIX_AUTH_SSO_APP_REDIRECTS`) SHALL list the addresses an app sign-in may hand its result to, defaulting to `red.tix.mobile:/sso`. An empty list SHALL turn app sign-in off. An entry without a scheme, with a fragment, or with the `javascript`, `data`, `vbscript` or `file` scheme in any case SHALL be refused.
+
+#### Scenario: Turned off
+
+- **WHEN** the variable is set to nothing
+- **THEN** sign-in options answer `app_sign_in: false`
+
+#### Scenario: Script scheme
+
+- **WHEN** `auth.sso_app_redirects` lists `JavaScript:alert(1)`
+- **THEN** the configuration is refused naming `auth.sso_app_redirects`

@@ -32,6 +32,8 @@ var viaIcons = map[core.ViaKind]string{
 	core.ViaMCP:       "via-mcp",
 	core.ViaSync:      "sync",
 	core.ViaImport:    "transfer",
+	core.ViaSCIM:      "users",
+	core.ViaCalDAV:    "calendar",
 	core.ViaSystem:    "settings",
 	core.ViaUnknown:   "via-unknown",
 }
@@ -45,8 +47,10 @@ var viaLabels = map[core.ViaKind][2]string{
 	core.ViaCLIRemote: {"via CLI", "via CLI (token %s)"},
 	core.ViaSSH:       {"via SSH", "via SSH"},
 	core.ViaMCP:       {"via MCP", "via MCP (token %s)"},
-	core.ViaSync:      {"via sync", "via sync"},
-	core.ViaImport:    {"via import", "via import"},
+	core.ViaSync:      {"via sync", "via sync (token %s)"},
+	core.ViaImport:    {"via import", "via import (token %s)"},
+	core.ViaSCIM:      {"via SCIM", "via SCIM (token %s)"},
+	core.ViaCalDAV:    {"via CalDAV", "via CalDAV (app password %s)"},
 	core.ViaSystem:    {"via system", "via system (%s)"},
 	core.ViaUnknown:   {"via unknown channel", "via unknown channel"},
 }
@@ -61,6 +65,8 @@ var viaChoiceLabels = map[core.ViaKind]string{
 	core.ViaMCP:       "MCP",
 	core.ViaSync:      "Sync",
 	core.ViaImport:    "Import",
+	core.ViaSCIM:      "SCIM provisioning",
+	core.ViaCalDAV:    "CalDAV app",
 	core.ViaSystem:    "System",
 	core.ViaUnknown:   "Unknown (older entries)",
 }
@@ -117,3 +123,7 @@ func (r historyRow) Channel() viaView { return newViaView(r.Entry.Via) }
 // Channel is the access channel of the group's latest hop. Every hop of one
 // group came from one request, so they share it.
 func (g historyGroup) Channel() viaView { return g.Latest().Channel() }
+
+// ViaHref is the activity feed narrowed to the group's channel, and to its
+// token when the change was made with one, as an activity row's channel is.
+func (g historyGroup) ViaHref() string { return activityQuery{}.WithVia(g.Latest().Entry.Via) }

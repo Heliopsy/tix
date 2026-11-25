@@ -16,6 +16,10 @@ import (
 // list them. Credential names the context holding a token for the tenant, or
 // says the database is opened directly.
 type membershipRow struct {
+	// Mark is the tenant's icon as text: its emoji or monogram, a built-in
+	// icon's glyph, a fixed mark for an image, or a monogram of its name
+	// when it set no icon.
+	Mark       string    `json:"mark" yaml:"mark"`
 	Key        string    `json:"key" yaml:"key" show:"key"`
 	Name       string    `json:"name" yaml:"name"`
 	Role       core.Role `json:"role" yaml:"role"`
@@ -67,7 +71,7 @@ func membershipRows(who *core.Actor, creds map[string]string) []membershipRow {
 	rows := make([]membershipRow, 0, len(who.Memberships))
 	for _, m := range who.Memberships {
 		row := membershipRow{
-			Key: m.TenantKey, Name: m.TenantName, Role: m.Role, Handle: m.Handle, Host: m.Host,
+			Mark: m.IconText(), Key: m.TenantKey, Name: m.TenantName, Role: m.Role, Handle: m.Handle, Host: m.Host,
 			Current: m.TenantID == who.TenantID,
 		}
 		if creds == nil {

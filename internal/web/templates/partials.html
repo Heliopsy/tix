@@ -27,9 +27,9 @@
 
 {{define "nav"}}
 {{/* The entries in the order they are used: what came in, what is mine, every
-     task, the projects with the ones the reader pinned under them, then the
+     task, the projects with the ones the reader starred under them, then the
      tenant's history and figures. The reader's own views follow, and the
-     screens visited least go last, folded under Admin. */}}
+     screens visited least go last, folded under Manage. */}}
 <nav class="main">
   {{template "tenant-open" .}}
   <a href="/inbox" data-rail-name="{{t "Inbox"}}" {{if eq .Path "/inbox"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#inbox"/></svg>{{template "inbox-badge" .}}<span>{{t "Inbox"}}</span></a>
@@ -37,6 +37,10 @@
   <a href="/tasks" data-rail-name="{{t "Tasks"}}" {{if and (eq .Path "/tasks") (not .InTrash)}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tasks"/></svg><span>{{t "Tasks"}}</span></a>
   <a href="/projects" data-rail-name="{{t "Projects"}}" {{if eq .Path "/projects"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#projects"/></svg><span>{{t "Projects"}}</span></a>
   {{template "pinned-projects" .}}
+  {{/* Templates is drawn for anybody who can read tasks, the scope
+       /templates asks for, so it sits with Projects rather than behind
+       Advanced screens. */}}
+  <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/activity" data-rail-name="{{t "Activity"}}" {{if eq .Path "/activity"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Activity"}}</span></a>
   <a href="/stats" data-rail-name="{{t "Statistics"}}" {{if eq .Path "/stats"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#stats"/></svg><span>{{t "Statistics"}}</span></a>
   <a href="/connect" data-rail-name="{{t "Connect an agent"}}" {{if eq .Path "/connect"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connect"/></svg><span>{{t "Connect an agent"}}</span></a>
@@ -46,36 +50,39 @@
   <a href="/docs" data-rail-name="{{t "Docs"}}" target="_blank" rel="noopener" data-nav-docs><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#docs"/></svg><span>{{t "Docs"}}</span></a>
   {{template "saved-filters" .}}
   {{template "recent-tasks" .}}
-  {{/* Admin is what Configure, Data and the Trash entry were: the screens a
+  {{/* Manage is what Configure, Data and the Trash entry were: the screens a
        reader opens least, folded by default. Trash is the task list
        filtered by is:trashed, the only way the browser reaches a deleted
        task without already knowing its ref, and leaves with a tenant that
        deletes for good. The configuration screens need Advanced screens on.
        Global admin is drawn for a global admin whatever that preference
-       says. A reader with none of these gets no heading over nothing. */}}
+       says. A reader with none of these gets no heading over nothing. It was
+       called Admin; its id stays admin, so a fold kept in the cookie holds. */}}
   {{if or .Advanced (not .TrashOff) .GlobalAdmin}}
   {{$side := .Side}}
   <div class="navgroup{{if $side.Folded "admin"}} is-folded{{end}}" data-navgroup="admin">
-  {{template "navgroup-head" navGroup $side "admin" (t "Admin") ""}}
+  {{template "navgroup-head" navGroup $side "admin" (t "Manage") ""}}
   <div class="navgroup-body" id="navgroup-admin">
   {{if .GlobalAdmin}}<a href="/admin/global" data-rail-name="{{t "Global admin"}}" {{if hasPrefix .Path "/admin/global"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Global admin"}}</span></a>{{end}}
   {{if not .TrashOff}}<a href="/tasks?q=is:trashed" data-rail-name="{{t "Trash"}}" {{if .InTrash}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#trash"/></svg><span>{{t "Trash"}}</span></a>{{end}}
   {{if .Advanced}}
   <a href="/workflows" data-rail-name="{{t "Workflows"}}" {{if eq .Path "/workflows"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#workflows"/></svg><span>{{t "Workflows"}}</span></a>
-  <a href="/templates" data-rail-name="{{t "Templates"}}" {{if hasPrefix .Path "/templates"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#templates"/></svg><span>{{t "Templates"}}</span></a>
   <a href="/admin/tenant" data-rail-name="{{t "Tenant"}}" {{if eq .Path "/admin/tenant"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{t "Tenant"}}</span></a>
   <a href="/admin/domains" data-rail-name="{{t "Domains"}}" {{if eq .Path "/admin/domains"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#domains"/></svg><span>{{t "Domains"}}</span></a>
   <a href="/admin/users" data-rail-name="{{t "Users"}}" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "Users"}}</span></a>
+  <a href="/admin/sso" data-rail-name="{{t "Single sign-on"}}" {{if eq .Path "/admin/sso"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#keys"/></svg><span>{{t "Single sign-on"}}</span></a>
   <a href="/admin/tokens" data-rail-name="{{t "Tokens"}}" {{if eq .Path "/admin/tokens"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tokens"/></svg><span>{{t "Tokens"}}</span></a>
   <a href="/admin/ssh-keys" data-rail-name="{{t "SSH keys"}}" {{if eq .Path "/admin/ssh-keys"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#keys"/></svg><span>{{t "SSH keys"}}</span></a>
   <a href="/admin/status" data-rail-name="{{t "Status"}}" {{if eq .Path "/admin/status"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#status"/></svg><span>{{t "Status"}}</span></a>
   <a href="/admin/connections" data-rail-name="{{t "Connections"}}" {{if eq .Path "/admin/connections"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#connections"/></svg><span>{{t "Connections"}}</span></a>
   <a href="/admin/webhooks" data-rail-name="{{t "Webhooks"}}" {{if eq .Path "/admin/webhooks"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#webhooks"/></svg><span>{{t "Webhooks"}}</span></a>
+  <a href="/events" data-rail-name="{{t "Live events"}}" {{if eq .Path "/events"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#activity"/></svg><span>{{t "Live events"}}</span></a>
   {{/* One entry, because they are one screen now. Either tab's URL lights it,
        so landing on Components from a link does not leave the navigation
        looking like you are somewhere else. */}}
   <a href="/transfer" data-rail-name="{{t "Import and export"}}" {{if or (eq .Path "/transfer") (eq .Path "/bundles")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#transfer"/></svg><span>{{t "Import and export"}}</span></a>
   <a href="/sync" data-rail-name="{{t "Sync"}}" {{if or (eq .Path "/sync") (eq .Path "/sync/runs")}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#sync"/></svg><span>{{t "Sync"}}</span></a>
+  <a href="/admin/scim" data-rail-name="{{t "SCIM provisioning"}}" {{if eq .Path "/admin/scim"}}aria-current="page"{{end}}><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#users"/></svg><span>{{t "SCIM provisioning"}}</span></a>
   {{end}}
   </div>
   </div>
@@ -83,14 +90,16 @@
 </nav>
 {{end}}
 
-{{/* pinned-projects are the projects the reader pinned, under Projects: each
-     its icon, or its key's first letter, in its colour, and its name the way
-     the reader asked projects to be named. A link to its board like every
-     other entry, so the rail draws the mark and keeps the name. See
-     pinnedProjects in sidebar.go. */}}
+{{/* pinned-projects are the projects the reader starred, under Projects:
+     each its icon, or its key's first letter, in its colour, and its name the
+     way the reader asked projects to be named. A link to its board like every
+     other entry, so the rail draws the mark and keeps the name. Past twelve
+     the list ends with Show all, the projects screen filtered to the starred
+     ones. See pinnedProjects in sidebar.go. */}}
 {{define "pinned-projects"}}{{with .Pinned}}
-<ul class="side-pins" aria-label="{{t "Pinned projects"}}">
+<ul class="side-pins" aria-label="{{t "Starred projects"}}">
 {{range .}}  <li class="side-pin{{with .Class}} {{.}}{{end}}"{{with .Style}} style="{{.}}"{{end}}><a href="/projects/{{.Key}}" data-rail-name="{{.Label}}" {{if .Current}}aria-current="page"{{end}}><span class="side-pin-mark nav-icon" aria-hidden="true">{{if .Mark.Any}}{{template "proj-icon" .Mark}}{{else}}{{slice (key .Key) 0 1}}{{end}}</span><span>{{.Label}}</span></a></li>
+{{end}}{{if $.PinnedMore}}  <li class="side-pin side-pin-more"><a href="/projects?starred=1" data-rail-name="{{t "Show all starred projects"}}"><span class="side-pin-mark nav-icon" aria-hidden="true"><svg width="16" height="16"><use href="/assets/icons.svg#star-filled"/></svg></span><span>{{t "Show all"}}</span></a></li>
 {{end}}</ul>
 {{end}}{{end}}
 
@@ -258,9 +267,22 @@
 {{define "star"}}<form method="post" class="starform" action="{{.Action}}">
   {{template "csrf" .CSRF}}
   <input type="hidden" name="next" value="{{.Next}}">
-  <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
+  <button type="submit" class="star{{if .Starred}} is-starred{{end}}" data-focus="star" data-shortcut-target="star" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
           aria-label="{{if .Starred}}{{t "Unstar %s" (ref .Ref)}}{{else}}{{t "Star %s" (ref .Ref)}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}">
     <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#star"/></svg>
+  </button>
+</form>{{end}}
+
+{{/* project-star is the reader's own star on one project: an outline star
+     to star it, a filled one to unstar it. A plain form, so it works without
+     scripting; the page is boosted, so with htmx the answer swaps in place,
+     the sidebar's starred list with it. */}}
+{{define "project-star"}}<form method="post" class="projstar" action="{{.Action}}">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="next" value="{{.Next}}">
+  <button type="submit" class="star projstar-btn{{if .Starred}} is-starred{{end}}" data-focus="projstar" aria-pressed="{{if .Starred}}true{{else}}false{{end}}"
+          aria-label="{{if .Starred}}{{t "Unstar %s" .Name}}{{else}}{{t "Star %s" .Name}}{{end}}" title="{{if .Starred}}{{t "Unstar"}}{{else}}{{t "Star this project"}}{{end}}">
+    <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#{{if .Starred}}star-filled{{else}}star-outline{{end}}"/></svg>
   </button>
 </form>{{end}}
 
@@ -280,10 +302,45 @@
   {{end}}
   <label class="flowhead snooze-pick" for="{{.ID}}">{{t "Pick a date"}}</label>
   <span class="snooze-row">
-    <input type="datetime-local" id="{{.ID}}" name="at">
+    <input type="datetime-local" id="{{.ID}}" name="at"{{with .Target}} data-shortcut-target="{{.}}"{{end}}>
     <button type="submit" class="secondary">{{t "Snooze"}}</button>
   </span>
 </form>{{end}}
+
+{{/* assign-me is one press that makes the reader the task's assignee, on the
+     task screen, a list row's menu and a lane card's. It posts to the assign
+     route like any form; on a lane card only the card and the toast swap. */}}
+{{define "assign-me"}}{{if .Show}}<form method="post" action="/tasks/{{.Ref}}/assign" class="assignme"
+  {{- if .Card}} hx-post="/tasks/{{.Ref}}/assign" hx-target="{{.Card}}" hx-select="{{.Card}}" hx-select-oob="#toast" hx-swap="outerHTML"
+  hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
+  {{template "csrf" .CSRF}}
+  {{with .Next}}<input type="hidden" name="next" value="{{.}}">{{end}}
+  <input type="hidden" name="assignee" value="me">
+  <button type="submit" class="flowgo" data-focus="assignme">{{t "Assign to me"}}</button>
+</form>{{end}}{{end}}
+
+{{/* due-field sets or clears a task's due date from a menu: the field reads
+     what the task screen's Due field reads, and Clear is a form of its own so
+     its empty value is the only one posted. */}}
+{{define "due-field"}}<form method="post" action="/tasks/{{.Ref}}/due" class="lanemore-field duefield"
+  {{- if .Card}} hx-post="/tasks/{{.Ref}}/due" hx-target="{{.Card}}" hx-select="{{.Card}}" hx-select-oob="#toast" hx-swap="outerHTML"
+  hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
+  {{template "csrf" .CSRF}}
+  {{with .Next}}<input type="hidden" name="next" value="{{.}}">{{end}}
+  <label class="flowhead lanemore-sect" for="{{.ID}}" data-menu-item="due">{{t "Due date"}}</label>
+  <span class="lanemore-row">
+    <input id="{{.ID}}" name="due" value="{{dateValue .Due}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
+    <button type="submit" class="secondary">{{t "Save"}}</button>
+  </span>
+</form>
+{{if .Due}}<form method="post" action="/tasks/{{.Ref}}/due" class="duefield-clear"
+  {{- if .Card}} hx-post="/tasks/{{.Ref}}/due" hx-target="{{.Card}}" hx-select="{{.Card}}" hx-select-oob="#toast" hx-swap="outerHTML"
+  hx-indicator="{{.Card}}" hx-sync="closest .lane-card:drop" data-lane-control="more"{{end}}>
+  {{template "csrf" .CSRF}}
+  {{with .Next}}<input type="hidden" name="next" value="{{.}}">{{end}}
+  <input type="hidden" name="due" value="">
+  <button type="submit" class="flowgo">{{t "Clear the due date"}}</button>
+</form>{{end}}{{end}}
 
 {{/* field-info is the small "i" affordance a field's label carries when its
      meaning is not obvious from the label text alone: a workflow migration,
@@ -455,7 +512,7 @@
       <h2 id="shortcuts-help-title">{{t "Keyboard shortcuts"}}</h2>
       <button type="button" class="secondary" data-shortcuts-close>{{t "Close"}}</button>
     </div>
-    <dl class="shortcuts-help-list" id="shortcuts-help-list"></dl>
+    <div class="shortcuts-help-list" id="shortcuts-help-list"></div>
   </div>
 </div>
 {{end}}
@@ -659,7 +716,7 @@
      (raw-dialog), and with scripting it fetches only that dialog into the
      slot after the list and opens it as a modal one; a second press opens
      the one already fetched (assets/forms.js). Takes rawOpener. */}}
-{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{end}}
+{{define "raw-open"}}<a class="btn link small rawopen" href="{{.Href}}" data-dlg-open="{{.ID}}" aria-haspopup="dialog" hx-get="{{.Href}}" hx-select=".rawwrap" hx-target="next .rawslot" hx-swap="beforeend" hx-push-url="false"{{if .Dialog}} hx-headers='{"X-Tix-Dialog": "1"}'{{end}}><span class="btn-label">{{if gt .Steps 1}}{{tn "%d step" "%d steps" .Steps}}{{else}}{{t "Raw"}}{{end}}</span></a>{{with .JSON}}<button type="button" class="btn link small rawcopy" data-copy-text="{{.}}" title="{{t "Copy this entry as JSON"}}">{{t "Copy JSON"}}</button>{{end}}{{end}}
 
 {{/* raw-dialog shows one history row's audit entries as recorded: a table
      of who, what, when and how, the fields that changed side by side, and
@@ -731,13 +788,30 @@
 
      Previous is absent rather than disabled on the first page, and the three
      slots are placed explicitly on the grid, so a missing control leaves the
-     other two exactly where they were rather than sliding them across. */}}
+     other two exactly where they were rather than sliding them across.
+
+     A counted listing adds First and Last beside them, the numbered pages
+     with gaps under them, and a go-to field that is a plain GET form carrying
+     the listing's own parameters, so it works without scripting. */}}
 {{define "pager"}}
 {{if .Show}}
 <nav class="pager" aria-label="{{t "Pages of this list"}}">
-  {{if .HasPrev}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev">{{template "icon" "arrow-left"}}<span>{{t "Previous"}}</span></a>{{end}}
-  <span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>
-  {{if .HasNext}}<a class="pager-step pager-next" href="{{.NextHref}}" rel="next"><span>{{t "Next"}}</span>{{template "icon" "arrow-right"}}</a>{{end}}
+  {{if .HasPrev}}<span class="pager-back">{{if .Counted}}<a class="pager-step pager-first" href="{{.FirstHref}}">{{t "First"}}</a>{{end}}<a class="pager-step pager-prev" href="{{.PrevHref}}" rel="prev">{{template "icon" "arrow-left"}}<span>{{t "Previous"}}</span></a></span>{{end}}
+  {{if .Counted}}<span class="pager-at">{{t "Page %d of %s" .Page .PagesLabel}} <span class="pager-count">&middot; {{.TotalLabel}} {{t .Unit}}</span></span>
+  {{else}}<span class="pager-at">{{t "Page %d" .Page}}{{if .Count}} <span class="pager-count">&middot; {{.Count}} {{t .Unit}}</span>{{end}}</span>{{end}}
+  {{if .HasNext}}<span class="pager-forward"><a class="pager-step pager-next" href="{{.NextHref}}" rel="next"><span>{{t "Next"}}</span>{{template "icon" "arrow-right"}}</a>{{if .HasLast}}<a class="pager-step pager-last" href="{{.LastHref}}">{{t "Last"}}</a>{{end}}</span>{{end}}
+  {{if .Counted}}
+  <div class="pager-nums">
+  <ol class="pager-pages">
+    {{range .Links}}{{if .Gap}}<li class="pager-gap" aria-hidden="true">&hellip;</li>{{else if .Current}}<li><span class="pager-num" aria-current="page">{{.Number}}</span></li>{{else}}<li><a class="pager-num" href="{{.Href}}" aria-label="{{t "Page %d" .Number}}">{{.Number}}</a></li>{{end}}{{end}}
+  </ol>
+  <form class="pager-jump" method="get" action="{{.Base}}">
+    {{range .JumpFields}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+    <label>{{t "Go to page"}} <input type="number" name="page" min="1"{{if not .Capped}} max="{{.Pages}}"{{end}} value="{{.Page}}" inputmode="numeric" required></label>
+    <button type="submit" class="pager-step">{{t "Jump"}}</button>
+  </form>
+  </div>
+  {{end}}
 </nav>
 {{end}}
 {{end}}
@@ -796,7 +870,7 @@
 {{end}}
 
 {{define "themeglyph"}}
-{{- /* Drawn rather than lettered: the obvious glyphs for these four schemes
+{{- /* Drawn rather than lettered: the obvious glyphs for these schemes
       are emoji on most platforms and a missing box on some, and neither
       takes the sidebar's colour. aria-hidden because the button's own name
       already says the scheme. */ -}}
@@ -806,20 +880,28 @@
 <svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5a7.9 7.9 0 1 0 11.3 11.3Z"/></svg>
 {{else if eq . "dim"}}
 <svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 0 0 0 16.8Z" fill="currentColor" stroke="none"/></svg>
-{{else}}
+{{else if eq . "oled"}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5a7.9 7.9 0 1 0 11.3 11.3Z"/></svg>
+{{else if eq . "system-oled"}}
+<svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2"/><path d="M8.5 20.3h7M12 16.6v3.7"/><path d="M15.6 7.6a3.3 3.3 0 1 1-3.9 3.9 2.7 2.7 0 0 0 3.9-3.9Z" fill="currentColor" stroke="none"/></svg>{{else}}
 <svg class="theme-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2"/><path d="M8.5 20.3h7M12 16.6v3.7"/></svg>
 {{end}}
 {{end}}
 
-{{/* The dialog a task opens in, when this browser chose Dialog
+{{/* The dialog a task opens in, when this browser chose Dialog or Panel
      (taskopen.go). Empty until assets/taskopen.js asks for a task into it.
      Every request made from inside it targets its body, adds no history entry
      of its own and carries the header that makes the server answer with the
      task screen alone, so a save's redirect is drawn in place. */}}
 {{define "task-dialog-host"}}
-<dialog id="taskdlg" class="taskdlg" aria-labelledby="taskdlg-title"
+<dialog id="taskdlg" class="taskdlg" aria-labelledby="taskdlg-title"{{if .TaskPane}} data-task-pane{{end}}
         hx-target="#taskdlg-body" hx-swap="innerHTML show:none" hx-push-url="false"
         hx-headers='{"X-Tix-Dialog": "1"}'>
+  {{/* With Panel the same element opens beside the listing on a wide
+       window (assets/taskopen.js), and this is the line between them: a
+       separator, so it is focusable and announced with the panel's width,
+       which the script fills in. Hidden while the element is a dialog. */}}
+  {{if .TaskPane}}<div class="pane-resize" data-pane-resize role="separator" aria-orientation="vertical" aria-controls="taskdlg" aria-label="{{t "Resize task panel"}}" tabindex="0"></div>{{end}}
   <div id="taskdlg-body" class="taskdlg-body"></div>
 </dialog>
 {{end}}
@@ -834,10 +916,10 @@
      a built-in one from the sprite, an uploaded one through <img>, where an
      SVG runs no script and fetches nothing. Hidden is for an icon beside a
      text that already names the project. Takes projIcon's iconMark. */}}
-{{define "proj-icon"}}{{if .Image}}<img class="proj-icon proj-icon-img" src="/projects/{{.Key}}/icon?v={{.Image}}" width="16" height="16" alt="{{if not .Hidden}}{{.Name}}{{end}}"{{if .Hidden}} aria-hidden="true"{{else}} title="{{.Name}}"{{end}}>{{else if .Builtin}}<svg class="proj-icon proj-icon-svg" width="16" height="16"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}"{{end}}>{{if not .Hidden}}<title>{{.Name}}</title>{{end}}<use href="/assets/icons.svg#pi-{{.Builtin}}"/></svg>{{else if .Text}}<span class="proj-icon"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}" title="{{.Name}}"{{end}}>{{.Text}}</span>{{end}}{{end}}
+{{define "proj-icon"}}{{if .Image}}<img class="proj-icon proj-icon-img" src="{{if .Tenant}}/tenants{{else}}/projects{{end}}/{{.Key}}/icon?v={{.Image}}" width="16" height="16" alt="{{if not .Hidden}}{{.Name}}{{end}}"{{if .Hidden}} aria-hidden="true"{{else}} title="{{.Name}}"{{end}}>{{else if .Builtin}}<svg class="proj-icon proj-icon-svg" width="16" height="16"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}"{{end}}>{{if not .Hidden}}<title>{{.Name}}</title>{{end}}<use href="/assets/icons.svg#pi-{{.Builtin}}"/></svg>{{else if .Text}}<span class="proj-icon"{{if .Hidden}} aria-hidden="true"{{else}} role="img" aria-label="{{.Name}}" title="{{.Name}}"{{end}}>{{.Text}}</span>{{end}}{{end}}
 
 {{/* icon-picker is the icon field of the project creation and settings
-     forms: a kind chosen in a segmented control, one pane per kind, and a
+     forms and of the tenant settings form: a kind chosen in a segmented control, one pane per kind, and a
      preview of what the project will carry. The panes are switched by CSS
      alone (app.css, .iconpick) so the form works without script;
      assets/iconpick.js only keeps the preview current while choosing. The
@@ -846,7 +928,7 @@
 <fieldset class="iconpick" data-iconpick>
   <legend class="iconpick-legend">{{t "Icon"}}</legend>{{template "tip" (tip "Icon" "Emoji takes one emoji or one or two letters. Icon picks a symbol drawn in the interface's own style. Upload takes a PNG, JPEG, WebP or SVG of up to 64 KB, shown as an image; an SVG that carries script is refused. The terminal shows a text stand-in for the last two." "docs/web-ui.md")}}
   <div class="iconpick-head">
-    <span class="iconpick-preview{{with projClass .Project.Color}} {{.}}{{end}}"{{with projStyle .Project.Color}} style="{{.}}"{{end}} data-iconpick-preview aria-hidden="true">{{$mark := projIcon .Project true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{end}}</span>
+    <span class="iconpick-preview{{with projClass .Project.Color}} {{.}}{{end}}"{{with projStyle .Project.Color}} style="{{.}}"{{end}} data-iconpick-preview{{with .Fallback}} data-iconpick-fallback="{{.}}"{{end}} aria-hidden="true">{{if .Mark.Any}}{{template "proj-icon" .Mark}}{{end}}</span>
     <div class="segmented iconpick-kinds" role="radiogroup" aria-label="{{t "Icon kind"}}">
       <label class="segment"><input type="radio" name="icon_kind" value="text" {{if eq .Kind "text"}}checked{{end}}>{{t "Emoji"}}</label>
       <label class="segment"><input type="radio" name="icon_kind" value="builtin" {{if eq .Kind "builtin"}}checked{{end}}>{{t "Icon"}}</label>
@@ -880,7 +962,7 @@
     <p class="muted">{{t "PNG, JPEG, WebP or SVG, up to 64 KB."}}{{if .Project.IconImage}} {{t "Leave it empty to keep the current image."}}{{end}}</p>
   </div>
   <div class="iconpick-pane" data-pane="none">
-    <p class="muted">{{t "The project shows no icon. Saving removes the one it has."}}</p>
+    <p class="muted">{{if .Tenant}}{{t "The tenant shows a monogram of its name. Saving removes the icon it has."}}{{else}}{{t "The project shows no icon. Saving removes the one it has."}}{{end}}</p>
   </div>
 </fieldset>
 {{end}}
@@ -936,10 +1018,11 @@
       <input type="hidden" name="set" value="hidden">
       <button type="submit" name="value" value="1" class="flowgo">{{template "icon" "circle-slash"}}{{t "Hide"}}</button>
     </form>
-    {{if ne $g.Kind "due"}}
+    {{if eq $g.Kind "project" "status"}}
     <p class="flowhead lanemore-sect groupmenu-sect">{{if eq $g.Kind "project"}}{{t "Project"}}{{else}}{{t "Status"}}{{end}}</p>
     {{end}}
-    {{if eq $g.Kind "due"}}
+    {{if not (eq $g.Kind "project" "status")}}
+    {{with $g.Filter}}<a class="flowgo" href="{{.}}">{{template "icon" "filter"}}{{t "Show only these tasks"}}</a>{{end}}
     {{else if eq $g.Kind "project"}}
     <a class="flowgo" href="/projects/{{$g.Key}}">{{template "icon" "arrow-up-right"}}{{t "Open the project"}}</a>
     <a class="flowgo" href="/tasks?q=project:{{$g.Key}}">{{template "icon" "filter"}}{{t "Show only this project"}}</a>
@@ -1149,7 +1232,7 @@
      Without scripting it is the link to ?dialog=tenants, which draws the
      same list in place. A reader in one tenant gets nothing here; the
      tenant's name above is the whole story. Takes the view. */}}
-{{define "tenant-open"}}{{with .Switcher}}{{if .Many}}<a href="{{.Opener.Href}}" class="nav-tenant" data-dlg-open="tenants" aria-haspopup="dialog" data-rail-name="{{t "Switch tenant"}}" aria-label="{{t "Switch tenant, now %s" .Opener.Label}}"><svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg><span>{{.Opener.Label}}</span></a>{{end}}{{end}}{{end}}
+{{define "tenant-open"}}{{with .Switcher}}{{if .Many}}<a href="{{.Opener.Href}}" class="nav-tenant" data-dlg-open="tenants" aria-haspopup="dialog" data-rail-name="{{t "Switch tenant"}}" aria-label="{{t "Switch tenant, now %s" .Opener.Label}}">{{if .Mark.Any}}<span class="nav-icon tenant-mark" data-tenant-mark>{{template "proj-icon" .Mark}}</span>{{else}}<svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#tenant"/></svg>{{end}}<span>{{.Opener.Label}}</span></a>{{end}}{{end}}{{end}}
 
 {{/* tenant-switcher is the dialog tenant-open opens. Takes the view. */}}
 {{define "tenant-switcher"}}{{with .Switcher}}{{if .Many}}
@@ -1166,6 +1249,7 @@
 <ul class="rows tenantswitch-list">
 {{range .Rows}}{{$row := .}}
   <li class="tenantswitch-row">
+    <span class="tenantswitch-mark tenant-mark" data-tenant-mark>{{template "proj-icon" .Mark}}</span>
     <span class="tenantswitch-name">{{.Name}} <span class="mono muted">{{.Key}}</span></span>
     <span class="chip">{{.Role}}</span>
     {{if .Current}}<span class="tenantswitch-current" aria-current="true">{{t "Current"}}</span>
@@ -1175,4 +1259,217 @@
   </li>
 {{end}}
 </ul>
+{{end}}
+
+{{/* wfpick-template is one built-in workflow template as a picker draws it:
+     the purpose first, because that is what a reader chooses by, then the
+     name with its Built-in label, the states and the fields a project made
+     from it gets. Takes a templateCard. */}}
+{{define "wfpick-template"}}<span class="wfpick-text"><span class="wfpick-purpose">{{.Purpose}}</span><span class="wfpick-name">{{.Name}}<span class="pill wfpick-builtin">{{t "Built-in"}}</span></span><span class="wfpick-states">{{.States}}</span>{{with .Fields}}<span class="wfpick-fields">{{t "Fields"}}: {{join .}}</span>{{end}}{{if .Held}}<span class="wfpick-fields">{{t "Already in this tenant"}}</span>{{end}}</span>{{end}}
+
+{{/* live-details is the live connection indicator's dialog (assets/
+     livestatus.js): how live updates reach this page, what failed last and
+     what it may mean, with Reconnect now and Copy details. The labels are
+     drawn here; the values are the script's, since only the page knows
+     them. It is opened only by the indicator, which needs scripting. */}}
+{{define "live-details"}}
+<dialog id="live-details" class="actiondlg livedetails" aria-labelledby="live-details-title">
+<div class="actiondlg-head"><h2 id="live-details-title">{{t "Connection details"}}</h2><button type="button" class="actiondlg-x" data-live-close aria-label="{{t "Close"}}" title="{{t "Close"}}">{{template "icon" "x"}}</button></div>
+<p class="muted" data-live-field="summary"></p>
+<dl class="liveprops">
+  <dt>{{t "Server"}}</dt><dd data-live-field="host"></dd>
+  <dt>{{t "State"}}</dt><dd data-live-field="mode"></dd>
+  <dt>{{t "Carried over"}}</dt><dd data-live-field="transport"></dd>
+  <dt>{{t "Since"}}</dt><dd data-live-field="since"></dd>
+  <dt>{{t "Last reached the server"}}</dt><dd data-live-field="contact"></dd>
+  <dt>{{t "Last event"}}</dt><dd data-live-field="event"></dd>
+  <dt>{{t "Failures in a row"}}</dt><dd data-live-field="failures"></dd>
+  <dt>{{t "Next try"}}</dt><dd data-live-field="next"></dd>
+</dl>
+<h3>{{t "Last error"}}</h3>
+<p data-live-noerror>{{t "Nothing has failed since this page was loaded."}}</p>
+<dl class="liveprops" data-live-error hidden>
+  <dt>{{t "What"}}</dt><dd data-live-field="kind"></dd>
+  <dt>{{t "When"}}</dt><dd data-live-field="at"></dd>
+  <dt>{{t "During"}}</dt><dd data-live-field="source"></dd>
+  <dt>{{t "Close code"}}</dt><dd data-live-field="code"></dd>
+  <dt>{{t "HTTP status"}}</dt><dd data-live-field="status"></dd>
+  <dt>{{t "Message"}}</dt><dd data-live-field="message"></dd>
+</dl>
+<h3 data-live-hints-head hidden>{{t "What it may mean"}}</h3>
+<div data-live-hints></div>
+<h3>{{t "Recent changes"}}</h3>
+<p class="muted" data-live-history-empty>{{t "Nothing yet."}}</p>
+<ul class="plain livehistory" data-live-history></ul>
+<p class="livecopied" role="status" aria-live="polite" data-live-copied></p>
+<div class="actions">
+  <button type="button" class="secondary" data-live-copy>{{t "Copy details"}}</button>
+  <button type="button" data-live-reconnect>{{t "Reconnect now"}}</button>
+  <button type="button" class="secondary" data-live-close>{{t "Close"}}</button>
+</div>
+</dialog>
+{{end}}
+
+{{/* The task menu: the three dots a task carries wherever it is drawn, on a
+     lane card, a board card, a list row and the task screen, built by
+     taskMenu (taskmenu.go). Every place draws these same items in this same
+     order, each offered only within the reader's scopes, so the menu reads
+     the same everywhere (docs/web-ui.md#the-task-menu). Two items belong to
+     one place: Open the task, which the task screen does not need, and
+     Select, which only the list has; the task screen adds Reclaim the lease
+     beside a live lease and Also delete subtasks under a task that has some.
+
+     task-menu-button is the button and task-menu-start and task-menu-end the
+     popover's frame, which the trash row shares with its own two items.
+     Every entry is a form or a link to a route that already exists, so it
+     works without scripting. On a lane card each form swaps only the card
+     and the toast (taskMenu.HX, assets/lanes.js); in a list row, on a board
+     card and on the task screen the region's data-inplace does the same
+     (assets/feel.js). */}}
+{{define "task-menu-button"}}<button type="button" class="{{if eq .Place "lane"}}lanemore-btn{{else if eq .Place "page"}}taskmenu-open{{else}}rowmore-btn{{end}}" popovertarget="{{.ID}}" data-focus="more"
+        aria-label="{{t "More actions for %s" (ref .Task.Ref)}}" title="{{t "More actions"}}">
+  <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
+</button>{{end}}
+
+{{define "task-menu-start"}}<div id="{{.ID}}" class="flowmenu lanepop lanemore-menu task-menu" popover data-lane-menu data-task-menu="{{.Place}}"{{with .Inplace}} data-inplace="{{.}}"{{end}}>
+  <p class="flowhead"><span class="mono">{{ref .Task.Ref}}</span></p>{{end}}
+
+{{define "task-menu-end"}}  <button type="button" class="flowclose" popovertarget="{{.ID}}" popovertargetaction="hide">{{t "Close"}}</button>
+</div>{{end}}
+
+{{define "task-menu"}}{{$m := .}}{{$ref := .Task.Ref}}
+{{template "task-menu-start" $m}}
+  {{with .Open}}<a class="flowgo" href="{{.}}" data-menu-item="open">{{t "Open the task"}}</a>{{end}}
+  <button type="button" class="flowgo" data-copy-link="/tasks/{{$ref}}" data-menu-item="copy-link">{{t "Copy link"}}</button>
+  <button type="button" class="flowgo" data-copy-text="{{ref $ref}}" data-menu-item="copy-ref">{{t "Copy reference"}}</button>
+  {{template "share-card" .Task}}
+
+  {{if .Completes}}
+  <p class="flowhead lanemore-sect" data-menu-item="complete">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}}</p>
+  {{if .Tick}}
+  <form method="post" action="/tasks/{{$ref}}/transition"{{$m.HX (print "/tasks/" $ref "/transition")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Tick}}
+    <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+      <span class="flowto">{{.To.Label}}</span>
+      {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+    </button>
+    {{end}}
+  </form>
+  {{else}}
+  {{$why := t .Locked.Key}}{{if .Locked.Arg}}{{$why = t .Locked.Key .Locked.Arg}}{{end}}
+  <p class="flowwhy">{{t "Not from this menu: %s." $why}}</p>
+  {{end}}
+  {{end}}
+
+  {{if or .Moves .Commented}}
+  <p class="flowhead lanemore-sect" data-menu-item="move">{{t "Move"}} <span class="pill status {{categoryClass .Category}} flowfrom">{{.Label}}</span></p>
+  {{if .Moves}}
+  <form method="post" action="/tasks/{{$ref}}/transition" data-move-form="1"{{$m.HX (print "/tasks/" $ref "/transition")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Moves}}
+    <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
+      <span class="flowto">{{.To.Label}}</span>
+      {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
+      <span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
+    </button>
+    {{end}}
+  </form>
+  {{end}}
+  {{range .Commented}}
+  <a class="flowgo" href="{{$m.Comment}}" data-commented>
+    <span class="flowto">{{.To.Label}}</span>
+    <span class="flowhops">{{t "needs a comment"}}</span>
+  </a>
+  {{end}}
+  {{end}}
+
+  {{if .Prioritise}}
+  {{$p := prio .Task.Priority}}
+  <p class="flowhead lanemore-sect" data-menu-item="priority">{{t "Priority"}}</p>
+  <form method="post" action="/tasks/{{$ref}}/priority" class="lanemore-prio"{{$m.HX (print "/tasks/" $ref "/priority")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    {{range .Priorities}}
+    <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}"{{if eq .Label $p}} aria-current="true"{{end}}>
+      <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
+    </button>
+    {{end}}
+  </form>
+  {{end}}
+
+  {{if .Write}}
+  <form method="post" action="/tasks/{{$ref}}/assign" class="lanemore-field"{{$m.HX (print "/tasks/" $ref "/assign")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label class="flowhead lanemore-sect" for="{{.Field}}who-{{$ref}}" data-menu-item="assignee">{{t "Assignee"}}</label>
+    <span class="lanemore-row">
+      <input id="{{.Field}}who-{{$ref}}" name="assignee" list="{{.Handles}}" autocomplete="off" value="{{.Assignee}}" placeholder="{{t "unassigned"}}">
+      <button type="submit" class="secondary">{{t "Save"}}</button>
+    </span>
+  </form>
+  {{template "assign-me" .AssignMe}}
+  {{template "due-field" .Due}}
+  <p class="flowhead lanemore-sect" data-menu-item="tags">{{t "Tags"}}</p>
+  {{if .Task.Tags}}
+  <ul class="tagchips lanemore-tags">
+    {{range .Task.Tags}}
+    <li>
+      <form method="post" action="/tasks/{{$ref}}/tags/remove"{{$m.HX (print "/tasks/" $ref "/tags/remove")}}>
+        {{template "csrf" $m.CSRF}}
+        <input type="hidden" name="next" value="{{$m.Next}}">
+        <input type="hidden" name="tag" value="{{.}}">
+        <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove the tag %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}} {{template "icon" "x"}}</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  <form method="post" action="/tasks/{{$ref}}/tags" class="lanemore-field"{{$m.HX (print "/tasks/" $ref "/tags")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <span class="lanemore-row">
+      <input id="{{.Field}}tag-{{$ref}}" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
+      <button type="submit" class="secondary">{{t "Add"}}</button>
+    </span>
+  </form>
+
+  <a class="flowgo lanemore-sect" href="{{.Rename}}" data-rename="{{$ref}}" data-version="{{.Task.Version}}" data-no-press data-menu-item="rename">{{t "Rename"}}</a>
+  {{if snoozed .Task}}
+  <form method="post" action="/tasks/{{$ref}}/snooze/remove"{{$m.HX (print "/tasks/" $ref "/snooze/remove")}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <button type="submit" class="flowgo snoozebtn" data-focus="snooze" data-menu-item="snooze"{{if eq .Place "page"}} data-shortcut-target="snooze"{{end}}>{{t "Unsnooze"}}</button>
+  </form>
+  {{else}}
+  <p class="flowhead lanemore-sect" data-menu-item="snooze">{{t "Snooze"}}</p>
+  {{template "snooze-choices" .Snooze}}
+  {{end}}
+  {{end}}
+
+  {{if .Star}}
+  <form method="post" action="/tasks/{{$ref}}/star{{if .Task.Starred}}/remove{{end}}"{{if .Task.Starred}}{{$m.HX (print "/tasks/" $ref "/star/remove")}}{{else}}{{$m.HX (print "/tasks/" $ref "/star")}}{{end}}>
+    {{template "csrf" .CSRF}}
+    <input type="hidden" name="next" value="{{.Next}}">
+    <button type="submit" class="flowgo lanemore-sect" data-menu-item="star">{{if .Task.Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}</button>
+  </form>
+  {{end}}
+  {{if .Write}}
+  <a class="flowgo copyto" href="/tasks/{{$ref}}/copy{{if .Open}}?next={{.Next | urlquery}}{{end}}" data-dialog-load data-copy-to data-menu-item="copy-to">{{t "Copy to…"}}</a>
+  <a class="flowgo moveto" href="/tasks/{{$ref}}/move" data-dialog-load data-menu-item="move-to">{{t "Move to…"}}</a>
+  <a class="flowgo savetpl" href="/tasks/{{$ref}}/template" data-dialog-load data-menu-item="save-template">{{t "Save as template"}}</a>
+  {{end}}
+  {{with .Reclaim}}<button type="button" class="flowgo is-danger" popovertarget="{{.}}" data-menu-item="reclaim">{{t "Reclaim the lease…"}}</button>{{end}}
+  {{with .Select}}<a class="flowgo" href="{{.}}" data-select-row="{{$ref}}" data-no-press data-menu-item="select">{{t "Select"}}</a>{{end}}
+
+  {{if .Delete}}
+  <form method="post" action="/tasks/{{$ref}}/delete?next={{.Leave | urlquery}}" class="lanemore-delete"{{$m.HX (print "/tasks/" $ref "/delete?next=" (.Leave | urlquery))}}>
+    {{template "csrf" .CSRF}}
+    {{if .Subtasks}}<label class="task-menu-cascade" for="{{.Field}}cascade-{{$ref}}"><input id="{{.Field}}cascade-{{$ref}}" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>{{end}}
+    <button type="submit" class="flowgo is-danger" data-focus="delete" data-menu-item="delete">{{t "Delete task"}}</button>
+  </form>
+  {{end}}
+{{template "task-menu-end" $m}}
 {{end}}

@@ -78,6 +78,12 @@ test("viewTransitions is off for reduced motion and where unsupported", () => {
   assert.equal(tix.viewTransitions(null, media(false)), false);
 });
 
+test("viewTransitions is off when this browser chose Reduce motion", () => {
+  const still = { startViewTransition() {}, documentElement: { getAttribute: (n) => (n === "data-motion" ? "reduce" : null) } };
+  const media = () => ({ matches: false });
+  assert.equal(tix.viewTransitions(still, media), false, "Reduce motion on still faded between pages");
+});
+
 test("hexColour takes six hex digits with or without the hash, and nothing else", () => {
   const cases = [
     ["#1a7f5a", "#1a7f5a"],

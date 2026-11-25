@@ -70,17 +70,25 @@ func (s *Server) handle(sess ssh.Session) {
 		fatalf(sess, "tix needs a public key to know who you are; ssh with a key, not a password")
 		return
 	}
+	if wait := throttled(sess.Context()); wait > 0 {
+		s.log.Warn("refusing an ssh session over the rate limit", "reason", auth.RefusedSSHRateLimited,
+			"source", sourceOf(sess.RemoteAddr()), "retry_after", wait.String())
+		fatalf(sess, "%s", throttleMessage(wait))
+		return
+	}
 	fingerprint := auth.Fingerprint(key)
 	if err := s.live.reserve(fingerprint); err != nil {
-		s.log.Warn("refusing an ssh session over the concurrency cap",
+		s.log.Warn("refusing an ssh session over the concurrency cap", "reason", auth.RefusedSSHCapacity,
 			"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
 		fatalf(sess, "%s", message(err))
 		return
 	}
-	actor, err := s.verifier.Verify(sess.Context(), key)
+	verifyCtx, note := auth.WithRefusalNote(sess.Context())
+	actor, err := s.verifier.Verify(verifyCtx, key)
 	if err != nil {
 		s.live.cancel(fingerprint)
-		s.log.Warn("refusing an ssh session",
+		refusal, _ := note.Get()
+		s.log.Warn("refusing an ssh session", "reason", refusal.Reason,
 			"fingerprint", fingerprint,
 			"source", sourceOf(sess.RemoteAddr()),
 			"error", err.Error())
@@ -88,7 +96,7 @@ func (s *Server) handle(sess ssh.Session) {
 		return
 	}
 	if err := s.live.acquire(fingerprint); err != nil {
-		s.log.Warn("refusing an ssh session over the concurrency cap",
+		s.log.Warn("refusing an ssh session over the concurrency cap", "reason", auth.RefusedSSHCapacity,
 			"source", sourceOf(sess.RemoteAddr()), "error", err.Error())
 		fatalf(sess, "%s", message(err))
 		return
@@ -101,6 +109,7 @@ func (s *Server) handle(sess ssh.Session) {
 	command := s.isCommand(sess.Command())
 	if err := s.proveSecondFactor(sess, actor, command); err != nil {
 		s.log.Warn("refusing an ssh session that did not prove its second factor",
+			"reason", secondFactorReason(err),
 			"fingerprint", fingerprint,
 			"source", sourceOf(sess.RemoteAddr()),
 			"error", err.Error())
@@ -313,4 +322,12 @@ func printableUser(name string) string {
 		}
 	}
 	return name
+}
+
+// secondFactorReason names a refused second factor for the log.
+func secondFactorReason(err error) string {
+	if core.IsTOTPLocked(err) {
+		return auth.RefusedTOTPLocked
+	}
+	return auth.RefusedSSHSecondFactor
 }

@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-bugs
+name: Bug triage
+purpose: Confirm bugs before anyone fixes them.
+definition:
+  initial: new
+  states:
+    - {key: new, label: New, category: todo}
+    - {key: triaged, label: Triaged, category: todo}
+    - {key: confirmed, label: Confirmed, category: todo}
+    - {key: fixing, label: Fixing, category: in_progress}
+    - {key: fixed, label: Fixed, category: in_progress}
+    - {key: verified, label: Verified, category: done, terminal: true}
+    - {key: wontfix, label: Won't fix, category: cancelled, terminal: true}
+    - {key: duplicate, label: Duplicate, category: cancelled, terminal: true}
+  transitions:
+    - {from: new, to: triaged}
+    - {from: triaged, to: new}
+    - {from: triaged, to: confirmed}
+    - {from: confirmed, to: triaged}
+    - {from: confirmed, to: fixing}
+    - {from: fixing, to: confirmed}
+    - {from: fixing, to: fixed}
+    - {from: fixed, to: fixing, requires_comment: true}
+    - {from: fixed, to: verified}
+    - {from: new, to: wontfix, requires_comment: true}
+    - {from: triaged, to: wontfix, requires_comment: true}
+    - {from: confirmed, to: wontfix, requires_comment: true}
+    - {from: fixing, to: wontfix, requires_comment: true}
+    - {from: new, to: duplicate, requires_comment: true}
+    - {from: triaged, to: duplicate, requires_comment: true}
+    - {from: confirmed, to: duplicate, requires_comment: true}
+    - {from: verified, to: confirmed, requires_comment: true}
+    - {from: wontfix, to: triaged}
+    - {from: duplicate, to: triaged}
+fields:
+  - {key: severity, label: Severity, type: enum, enum_options: [critical, major, minor, trivial], position: 1}
+  - {key: affected_version, label: Affected version, type: string, position: 2}
+  - {key: reproducible, label: Reproducible, type: bool, position: 3}

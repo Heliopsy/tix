@@ -108,6 +108,7 @@ var boolColumns = map[string]bool{
 	"field_defs.indexed":             true,
 	"webhook_endpoints.active":       true,
 	"tenants.require_totp_web":       true,
+	"dav_passwords.read_only":        true,
 	"tenants.require_totp_cli":       true,
 	"tenants.require_totp_ssh":       true,
 	"tenants.trash_off":              true,
@@ -118,6 +119,12 @@ var boolColumns = map[string]bool{
 	"account_log.by_global_admin":    true,
 	"tenant_domains.shared":          true,
 	"sessions.second_factor":         true,
+	"sessions.remembered":            true,
+	"api_tokens.require_claim":       true,
+	"sso_providers.enabled":          true,
+	"sso_providers.auto_create":      true,
+	"sso_providers.trust_mfa":        true,
+	"sso_handoffs.second_factor":     true,
 }
 
 // jsonColumns are stored as TEXT in the portable schema and JSONB here.

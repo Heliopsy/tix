@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Tenant"}}</h1>{{template "tip" (tip "Tenant" "A tenant is a separate workspace. Its projects, tasks, members, tokens and history are invisible from every other tenant on the same installation." "docs/tenancy.md")}}{{template "help" $}}</div>
+<div class="headtip"><h1>{{t "Tenant"}}</h1>{{template "tip" (tip "Tenant" "A tenant is a separate workspace. Its projects, tasks, members, tokens and history are invisible from every other tenant on the same installation." "docs/tenancy.md")}}<span class="setscope" data-scope="tenant" title="{{t "Settings here apply to everyone in this tenant."}}">{{t "Whole tenant"}}</span>{{template "help" $}}</div>
 
 {{/* What sits under what.
 
@@ -30,7 +30,7 @@
   </li>
   {{end}}
 </ul>
-<form method="post" action="/admin/tenant">
+<form method="post" enctype="multipart/form-data" action="/admin/tenant">
   {{template "csrf" .CSRF}}
   <label for="name">{{t "Display name"}}</label>
   <input id="name" name="name" value="{{.Data.Tenant.Name}}" required>
@@ -56,6 +56,13 @@
   {{template "colour-field" (themeColours "theme" .Data.Tenant.Theme .Data.Themes)}}
   <p class="note">{{t "Applies to this tenant everywhere: the browser and the terminal interface both read it."}}</p>
 
+  {{/* The tenant's icon, drawn beside its name in the header and in every
+       list of tenants to switch between, so a person in several tells them
+       apart at a glance. The same picker a project uses; with no icon the
+       switcher draws a monogram of the name. */}}
+  {{template "icon-picker" .Data.Picker}}
+  <p class="note">{{t "Shown beside the tenant's name in the sidebar and wherever you switch between tenants."}}</p>
+
   {{/* The lease bounds. Until these existed the only way to change how long
        an agent may hold a task was to author a whole workflow document and
        put it through tix workflow put, because the workflow editor on this
@@ -77,6 +84,53 @@
          value="{{if .Data.Tenant.LeaseMax}}{{.Data.Tenant.LeaseMax}}{{end}}"
          placeholder="{{.Data.LeaseMax}}">
   <p class="note">{{t "Leave either empty to use the deployment setting, shown greyed. A claim may always ask for less."}}</p>
+
+  {{/* Artifact limits only tighten the server's: a figure above the
+       server's, or a type it does not accept, is refused with the server's
+       value named. Files already attached are never judged again. */}}
+  <div class="field-label">
+    <label for="artifact_max_bytes">{{t "Largest artifact file"}}</label>
+    {{template "field-info" "The largest file an artifact may carry on this tenant, such as 512KiB or 5MiB. It can be lower than the server's limit but not higher. Files already attached stay as they are."}}
+  </div>
+  <input id="artifact_max_bytes" name="artifact_max_bytes" class="mono"
+         value="{{if .Data.Tenant.ArtifactMaxBytes}}{{bytesize .Data.Tenant.ArtifactMaxBytes}}{{end}}"
+         placeholder="{{bytesize .Data.Artifacts.ServerMaxBytes}}">
+
+  <div class="field-label">
+    <label for="artifact_types">{{t "Accepted artifact types"}}</label>
+    {{template "field-info" "The media types an artifact file may have on this tenant, separated by commas, such as image/*, application/pdf. Only types the server accepts can be listed. Whatever the type, a file is always offered as a download and never opened in the browser."}}
+  </div>
+  <input id="artifact_types" name="artifact_types" class="mono"
+         value="{{range $i, $p := .Data.Tenant.ArtifactTypes}}{{if $i}}, {{end}}{{$p}}{{end}}"
+         placeholder="{{range $i, $p := .Data.Artifacts.ServerAllowedTypes}}{{if $i}}, {{end}}{{$p}}{{end}}">
+  <p class="note">{{t "Leave either empty to use the server's limit, shown greyed."}}</p>
+
+  {{/* Session settings only tighten the server's. A new lifetime applies to
+       the next sign-in; the idle timeout to every session at once. */}}
+  <div class="field-label">
+    <label for="session_ttl">{{t "Sign-in lasts"}}</label>
+    {{template "field-info" "How long a sign-in on this tenant lasts after it is made and again after each use, such as 8h, up to the server's maximum lifetime. It can be shorter than the server's but not longer. A new value applies from each session's next use."}}
+  </div>
+  <input id="session_ttl" name="session_ttl" class="mono"
+         value="{{if .Data.Tenant.SessionTTL}}{{.Data.Tenant.SessionTTL.Human}}{{end}}"
+         placeholder="{{.Data.Sessions.ServerTTL.Human}}">
+
+  <div class="field-label">
+    <label for="session_idle_timeout">{{t "Sign out when idle for"}}</label>
+    {{template "field-info" "End a session nobody has used for this long, such as 30m, kept signed in or not. It applies to sessions already signed in as soon as it is saved. It can be shorter than the server's but not longer; empty with no server setting means never."}}
+  </div>
+  <input id="session_idle_timeout" name="session_idle_timeout" class="mono"
+         value="{{if .Data.Tenant.SessionIdleTimeout}}{{.Data.Tenant.SessionIdleTimeout.Human}}{{end}}"
+         placeholder="{{if .Data.Sessions.ServerIdleTimeout}}{{.Data.Sessions.ServerIdleTimeout.Human}}{{else}}{{t "never"}}{{end}}">
+
+  <div class="field-label">
+    <label for="session_remember_ttl">{{t "Keep me signed in lasts"}}</label>
+    {{template "field-info" "How long a sign-in lasts when the person ticks Keep me signed in, such as 7d, or off to stop offering it. It can be shorter than the server's but not longer."}}
+  </div>
+  <input id="session_remember_ttl" name="session_remember_ttl" class="mono"
+         value="{{.Data.RememberText}}"
+         placeholder="{{.Data.ServerRemember}}">
+  <p class="note">{{t "Leave any empty to use the server's setting, shown greyed."}}</p>
 
   {{/* Whether a delete can be taken back. Off is permanent deletion
        everywhere: no undo toast, a confirmation instead, no Trash in the
@@ -114,6 +168,25 @@
     {{range .Data.DateZone.Choices}}<option value="{{.Value}}"{{if eq $.Data.DateZone.Held .Value}} selected{{end}}>{{template "time-choice" .}}</option>{{end}}
   </select>
   <p class="note" id="tenant-zone-help">{{t "Tenant default in use:"}} <strong class="timeeff">{{t .Data.DateZone.Effective}}</strong>, <span class="timesrc">{{t (printf "from %s" .Data.DateZone.Source)}}</span></p>
+
+  {{/* The hard second factor policy. It sits with the other tenant-wide
+       settings rather than on the Users screen because it is one: it changes
+       what every person and every token of theirs may do here. */}}
+  <h2 id="second-factor">{{t "Second factor"}}</h2>
+  <div class="field-label">
+    <label for="mfa_policy">{{t "Second factor policy"}}</label>
+    {{template "field-info" "Required: on every surface, a person with no second factor can only set one up, read their own account or sign out, with a session or with a token of theirs. Tokens of agents are not affected. You need a second factor yourself before you can turn it on."}}
+  </div>
+  <select id="mfa_policy" name="mfa_policy">
+    <option value="off"{{if not .Data.Tenant.MFARequired}} selected{{end}}>{{t "Off: each person chooses"}}</option>
+    <option value="required"{{if .Data.Tenant.MFARequired}} selected{{end}}>{{t "Required for everybody"}}</option>
+  </select>
+  <div class="field-label">
+    <label for="mfa_grace">{{t "Grace period"}}</label>
+    {{template "field-info" "How long people without a second factor may keep working after the policy is turned on, with a banner naming the deadline. Written as a duration: 7d, 48h. Empty or 0 applies it at once."}}
+  </div>
+  <input id="mfa_grace" name="mfa_grace" class="mono" value="{{if .Data.Tenant.MFAGrace}}{{.Data.Tenant.MFAGrace.Human}}{{end}}" placeholder="0">
+  {{with .Data.Tenant.MFADeadline}}<p class="note">{{tt "People without a second factor are refused from %s." (when .)}} <a href="/admin/users?without_totp=1">{{t "Who has none yet"}}</a></p>{{end}}
 
   <p><button type="submit">{{t "Save"}}</button></p>
 </form>

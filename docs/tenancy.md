@@ -19,6 +19,24 @@ tix tenant rm acme
 
 Keys must be valid and unique; a duplicate is exit 4. Creating a tenant needs a [global admin](#global-admins).
 
+### Tenant icon
+
+A tenant can carry an icon, drawn beside its name wherever tenants are listed to switch between: the browser's
+switcher, the apps, `tix tenant ls` and the terminal interface. It is one of the three kinds a project icon can
+be, and whoever may change the tenant's settings sets it:
+
+```sh
+tix tenant edit acme --icon 🚀            # an emoji or a one or two letter monogram
+tix tenant edit acme --icon-name rocket   # a built-in icon, the same set projects use
+tix tenant edit acme --icon-file logo.png # a PNG, JPEG, WebP or SVG of at most 64 KiB
+tix tenant edit acme --icon ""            # clear it
+tix tenant icon acme --out acme.png       # save the uploaded image again
+```
+
+Setting one kind replaces the others. A tenant with no icon is drawn with a monogram of its name, the first
+letter of its first two words. Every member of a tenant can read its icon, from a session or token in any tenant
+they belong to; see [api.md](api.md#tenant-icons).
+
 ### First admins
 
 A tenant created with no members is one nobody can sign in to, since every other call acts on the caller's own
@@ -55,6 +73,19 @@ works.
 A global admin administers the installation rather than one tenant: they create tenants, list, rename and delete
 any tenant, and manage the users of any tenant. Every other tenant admin stays confined to their own tenant.
 
+Being a global admin does not put you inside a tenant. It lets you list, create and delete tenants and manage
+their members (`tix tenant user ls`, `add`, `create`, `edit`, `rm`), but to see a tenant's tasks or reach it
+over ssh (`ssh TENANT@host`) you must be a member first. Add yourself and enrol your key there:
+
+```sh
+tix tenant user add TENANT you@example.com --role admin
+tix user key add --all-tenants
+```
+
+Until then ssh answers "this key is not enrolled here" for that tenant. A tenant can also end up with no
+members at all, for instance one created without a first admin. Nobody can sign in to it, and
+`tix tenant user ls TENANT` prints an empty list. The fix is the same `tix tenant user add`.
+
 ```sh
 tix --db /var/lib/tix/tix.db global-admin grant ada@example.com   # the first one, from the server's shell
 tix global-admin ls
@@ -87,10 +118,41 @@ the passwords a creation generated shown once with a copy button each, the globa
 Over MCP the global admin tools are offered only to a token naming `global:admin` whose actor is one; see
 [mcp.md](mcp.md).
 
+### The second factor policy
+
+A tenant can require a second factor of everybody: `tix tenant edit KEY --mfa-policy required`, optionally
+with `--mfa-grace 7d`. Once the grace is over a person with no factor can do nothing in this tenant but
+enrol, read their own account and sign out, whatever credential they present; agent tokens are not affected.
+It is set per tenant, so the same person can be gated in one tenant and work freely in another, and the
+enrolment that satisfies it is the account's, so enrolling once satisfies every tenant. A global admin
+follows the policy of the tenant they are in. The Tenant screen in the browser and `e` on the terminal's
+tenant screen set it too. See [second-factor.md](second-factor.md#the-tenant-policy).
+
+### How long a sign-in lasts
+
+A sign-in lasts the server's `session.ttl` (12h by default) from the moment it is made and again from each
+use, up to the server's `session.max_lifetime` (30d) after the sign-in. A tenant admin can
+shorten that, end sessions left unused, and shorten or turn off Keep me signed in, for their tenant only:
+
+```sh
+tix tenant edit acme --session-ttl 8h --session-idle-timeout 30m --session-remember-ttl 7d
+tix tenant edit acme --session-remember-ttl off   # no Keep me signed in on this tenant
+tix tenant edit acme --session-ttl ""             # back to the server's
+tix tenant session-policy                         # what is in force, beside the server's
+```
+
+The same settings are on the browser's Tenant screen, `e` on the terminal's tenant screen, and `session_ttl`,
+`session_idle_timeout` and `session_remember_ttl` on `PATCH /api/v1/tenants/{ref}`. None can go past the
+server's (`session.ttl`, `session.idle_timeout`, `session.remember_ttl`); a value that would is refused with
+the server's named. A new lifetime applies from each session's next use. The idle timeout is checked on every
+request, so it applies at once, to remembered sessions too. See
+[configuration.md](configuration.md#sign-in-sessions).
+
 ### The trash
 
 A tenant keeps deleted tasks in a trash by default, where `tix task restore` and the browser's Trash bring
-them back. A tenant admin can turn it off:
+them back, and `tix task purge` or the Trash's Delete permanently removes one for good before the
+housekeeping rule would. A tenant admin can turn it off:
 
 ```sh
 tix tenant edit acme --trash off       # deleting a task is permanent from now on
@@ -161,7 +223,9 @@ tix user invite revoke 01J0000000000000000000
 
 The account, its actor and its membership are created at once, with no password, so the person can be
 assigned work before they accept. The answer carries a single-use link, `https://HOST/invite/tix_inv_...`,
-shown once. It expires after 7 days unless `--expires` says otherwise, between one hour and 30 days.
+shown once. Over SSH or on a local database, HOST is `server.public_url` (or the tenant's own domain);
+without it only the path is printed, with a reminder to put the address in front. It expires after 7 days
+unless `--expires` says otherwise, between one hour and 30 days.
 Opening it shows a page to choose a password and a display name, and accepting signs the person in,
 second factor rules included. An address of this tenant's user who holds no membership is granted one and
 keeps their password, which they confirm on the page instead. An address that belongs to a member who can
@@ -191,6 +255,9 @@ tix tenant user add test villy@example.com --role admin
 The browser offers the same as Add an existing person on a tenant's users screen in the Global admin area,
 and `POST /api/v1/tenants/{ref}/members` on the API.
 
+That includes the global admin's own account: the flag alone makes them a member of no tenant, so they add
+themselves the same way before they can open a tenant's board or ssh into it.
+
 A tenant admin cannot add somebody else's account to their tenant. `tix user create` with such an address is
 refused as a conflict. `tix user invite` sends an invite instead, and the person holds no membership here
 until they accept it with their own password, and with a code when their account has a second factor. An
@@ -208,6 +275,11 @@ removing such a person work in this tenant alone: their sessions, tokens and
 SSH keys here stop at once, and their other tenants are untouched. Removing a person from their last tenant
 deletes the account, as before. A disabled account stops working in every tenant at once, because each
 request checks it.
+
+A removed person's actor stays in the tenant so history still names them, but they are no longer one of its
+users: the Users screens, the TUI people view, `tix user ls`, `tix tenant user ls` and the API listings leave
+them out. `--include-removed` on either command, or `include_removed=true` on the API, lists them too, each
+marked `removed`.
 
 A person's display name is per tenant: it lives on their actor there, and the Users screen, `tix user ls`
 and `show`, the API and the account menu all show that one. Renaming somebody changes the name in this
@@ -227,6 +299,14 @@ The person reads it on the Your account's history screen linked from Settings (`
 carry and which a person can only mint for themselves. A global admin reads anybody's from the Global admin
 area, with `tix global-admin account-log EMAIL`, or `GET /api/v1/accounts/{email}/log`. A tenant admin never
 reads it, because it names the person's other tenants. A deleted account's history is kept.
+
+Your own sessions, the browser and terminal sign-ins you hold in the current tenant, are listed by the
+Sessions section of Settings, `tix account sessions`, or `GET /api/v1/account/sessions`: identifier, when each
+signed in and expires, how, whether a second factor passed, the user agent, and `current` for the one the
+request presented. `tix account sessions revoke ID`, `DELETE /api/v1/account/sessions/ID` or the section's
+Revoke button ends one. Only your own are listed or revoked; another person's identifier answers not found.
+The session token and its hash are never returned. A token needs `account:read`, as for the account log, so
+the token `tix login --tenant` stores may and an agent's `*` token may not; `tix mcp` offers neither.
 
 Tokens carry explicit scopes instead of a role, and may additionally be pinned to one project with
 `tix token create ... --project infra`. See [agents.md](agents.md) for the scope vocabulary.
@@ -259,6 +339,19 @@ any credential is examined:
 A host bound to one tenant keeps the strict rule: `X-Tix-Tenant` must name that tenant or be absent, and a
 credential of another tenant is refused.
 
+A link to a screen, such as the one the task screen's Share menu copies, names no tenant: the browser
+interface refuses a request that names one. On a shared host it opens for whoever follows it in the tenant
+their session is in, so a member of the same tenant signed in to it there sees the task, and a person in
+several tenants switches first ([web-ui.md](web-ui.md#sharing-a-task)).
+
+With `server.public_url` set, a link is built for the tenant it belongs to. A tenant served on a domain of
+its own, one not marked shared, links under that domain, with the public address's scheme, port and path:
+`https://tix.example.com/tix` and tenant acme bound to `tix.acme.example` give
+`https://tix.acme.example/tix/tasks/acme-3`. Every other tenant links under the public address itself. This
+holds wherever the link is built: a page, the API's `web_url`, `tix task link` over SSH, the terminal
+interface and a notification channel message. Without the key, a page links under the host it was reached
+at, and nothing outside a request builds a link.
+
 Signing in on a shared host goes by the account. When the address is not a member of the host's own tenant,
 the sign-in goes to the first tenant, by key, it belongs to and that this host serves. After the password and
 any second factor, a person with more than one tenant here lands on Choose a tenant (`/switch`).
@@ -273,13 +366,16 @@ dialog links to.
 Switch posts to `/switch` (`POST /api/v1/auth/switch` with `{"tenant": "KEY"}` on the API). It mints a session
 for the person's actor in the target and ends the one presented. When the target requires a second factor on
 the web and the current session was signed in without one, a code is asked for first; an account with no
-second factor set up is refused with reason `second_factor_required` and sets one up under Settings. The
+second factor set up is refused with reason `second_factor_required` and sets one up under Settings; a target
+whose second factor policy is still inside its grace lets them in unasked. The
 switch is recorded in the target as `user.login` with method `switch`, and nothing is recorded in the tenant
 left. Only a browser session switches: a token stays in the tenant it was minted for.
 
-`GET /api/v1/whoami` reports `account_id`, `email`, `tenant_key` and `tenant_name`, and, for a session or a
-token carrying `account:read`, `memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`,
-`handle` and `host`, the tenant's own address or empty when it is served on a shared host alone. A token
+`GET /api/v1/whoami` reports `tenant_key`, `tenant_name` and `theme` (the tenant's resolved palette, see
+[theming.md](theming.md#reading-the-theme-from-a-client)) for every credential, an agent's token included.
+For a person it adds `account_id` and `email`, and, for a session or a token carrying `account:read`,
+`memberships`: each tenant's `tenant_key`, `tenant_name`, `role`, `actor_id`, `handle` and `host`, the
+tenant's own address or empty when it is served on a shared host alone. A token
 lists them only with `account:read`, whoever it was minted for; an SSH session lists them as a browser
 session does.
 
@@ -317,6 +413,10 @@ or where your role may not enrol keys, is passed over, and the answer lists the 
 Tenants are written one after another, so an error part way leaves the earlier ones enrolled and a second run
 passes over them. It takes no `--actor`, and a token needs `account:read` for it. Over HTTP it is
 `POST /api/v1/ssh-keys` with `"all_tenants": true`.
+
+"Every tenant you belong to" means memberships, not what a global admin can administer. A tenant you are not a
+member of is not touched, and `ssh TENANT@host` there still says "this key is not enrolled here". Run
+`tix tenant user add TENANT you@example.com --role admin` first, then `tix user key add --all-tenants` again.
 
 ## Domains
 
@@ -396,7 +496,7 @@ The exclusions are narrow and each carries its reason next to it in `.golangci.y
 | `internal/store/postgres/schema.go` | DDL, the RLS policies themselves, and monthly partition maintenance act on the schema, not on rows |
 | `internal/store/{postgres,sqlite}/tx.go` | Transaction lifecycle, plus `set_config` and `SET LOCAL ROLE`; these install the scope every later statement runs under |
 | `internal/store/postgres/listen.go` | `LISTEN` on a dedicated connection carries a channel name, no rows |
-| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known |
+| `internal/store/sqlite/sqlite.go` | `PRAGMA journal_mode` at open, before any tenant is known, and `PRAGMA wal_checkpoint` at an embedded stop |
 | `*_test.go` | Tests build ad-hoc unscoped queries on purpose, to prove the other layers hold |
 
 **Request scoping.** In the HTTP layer, the tenant is resolved from the `Host` header before authentication

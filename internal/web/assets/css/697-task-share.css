@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Sharing a task (templates/share.html). The header's Share button sits
+   beside Hand to an agent and, like it, is its icon alone on a phone. The
+   address at the foot of the menu is a plain link that selects whole, so
+   with scripting off it is still one gesture to copy. */
+.share-open { display: inline-flex; align-items: center; gap: var(--space-1); }
+.sharemenu { min-width: 15rem; }
+.sharemenu .flowgo { justify-content: flex-start; text-decoration: none; }
+.shareurl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.shareurl > a[data-share-url] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  user-select: all;
+}
+.shareurl > a[data-share-url]:hover { color: var(--ink); }
+.sharehelp { display: inline-flex; flex: 0 0 auto; color: var(--muted); }
+.sharehelp:hover, .sharehelp:focus-visible { color: var(--ink); }
+@media (max-width: 599px) {
+  .share-open .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+@media (pointer: coarse) {
+  .sharemenu .flowgo, .sharemenu .flowclose { min-height: 44px; }
+  .sharehelp { min-width: 40px; min-height: 40px; justify-content: center; align-items: center; }
+}

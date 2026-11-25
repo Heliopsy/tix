@@ -49,29 +49,6 @@ several sharing a pattern. No two operations SHALL be declared at the same addre
 - **WHEN** two operations declare the same method, pattern and discriminator
 - **THEN** the guard names both and the address they share
 
-### Requirement: A binding that reaches less far than the operation records the shortfall
-
-An operation whose binding on one surface is present but narrower than the same operation elsewhere SHALL
-record that shortfall against that surface with its reason. A shortfall SHALL name a surface the operation
-binds, and SHALL NOT be recorded against a surface the operation is exempted from.
-
-#### Scenario: The browser's subtask depth is recorded
-
-- **WHEN** the registry is read
-- **THEN** the task tree operation records that the browser asks for one level of depth
-
-#### Scenario: The browser's self-scoped credential lists are recorded
-
-- **WHEN** the registry is read
-- **THEN** the ssh key list records that the browser lists the signed-in actor's own only
-
-#### Scenario: The browser's token list records the scope that widens it
-
-- **WHEN** the registry is read
-- **THEN** the token list records that the browser reaches another actor's tokens only for a reader holding
-  the tenant administration scope, where the command line and the API reach them on the token
-  administration scope alone
-
 ### Requirement: A recorded shortfall describes the narrowing the code performs
 
 A recorded shortfall SHALL describe the narrowing the code actually performs. Where a narrowing is lifted
@@ -99,23 +76,6 @@ no view is hidden from every reader.
 
 - **WHEN** a view has operations bound to it and none of them reads
 - **THEN** the guard reports that no reader can ever be offered it
-
-### Requirement: Parity gaps are recorded where they stand
-
-The registry SHALL record a missing binding as a gap on the surface that lacks it, and the recorded count
-per surface SHALL be held by a guard so it can neither grow quietly nor be mistaken for zero. A browser
-route that calls an operation only for its error, or only to decorate another screen, SHALL be recorded as a
-gap rather than as a binding.
-
-#### Scenario: The browser's two gaps are stated
-
-- **WHEN** the recorded gaps are counted by surface
-- **THEN** the browser carries two and the terminal carries fifty-eight
-
-#### Scenario: Resolving an actor identifier in the terminal is not a gap
-
-- **WHEN** the registry is read
-- **THEN** the actor lookup is bound to the terminal's detail view
 
 ### Requirement: The registry records the terminal bindings the confirmation and the form made possible
 
@@ -245,18 +205,6 @@ count happen in one change and neither can drift from the other.
 - **THEN** the count is the number the gate records
 - **AND** a gap put back fails the gate
 
-### Requirement: The registry keeps the tenant creation and deletion gaps
-
-The registry SHALL go on recording a terminal gap against `tenant.create` and `tenant.delete`, each with the
-reason that a session pinned to one tenant is neither where another is made nor where the one in use is
-destroyed.
-
-#### Scenario: The two that stay are still recorded
-
-- **WHEN** the registry is asked for its terminal gaps
-- **THEN** `tenant.create` and `tenant.delete` are among them
-- **AND** each carries a reason
-
 ### Requirement: The terminal domain binding records what it cannot gather
 
 `domain.add` SHALL record a terminal limitation naming what the screen cannot gather, because a binding that
@@ -282,18 +230,6 @@ against the real service rather than taking on trust.
 - **WHEN** the registry is asked for the operation bound to `Status`
 - **THEN** exactly one operation names that method
 - **AND** it declares a command line binding, an HTTP route and a browser screen
-
-### Requirement: The status operation's terminal absence is recorded as a gap
-
-The status operation SHALL record a terminal gap rather than an exemption, because the terminal interface
-has no administration screen at all and the server is one more thing it cannot show, which is a parity
-defect kept visible rather than an operation a terminal cannot serve.
-
-#### Scenario: The terminal absence is recorded as a gap
-
-- **WHEN** the registry is asked for its terminal gaps
-- **THEN** the status operation is among them
-- **AND** its reason is marked as a gap rather than as an operation the terminal cannot serve
 
 ### Requirement: The status operation raises the gap count and the operation count by one
 
@@ -394,3 +330,180 @@ CLI, HTTP, web and terminal bindings.
 
 - **WHEN** the parity tests run
 - **THEN** every template method appears exactly once with a binding on every surface
+
+### Requirement: A narrower binding records its shortfall
+
+An operation whose binding on one surface is present but narrower than the same operation elsewhere SHALL
+record that shortfall against that surface with its reason. A shortfall SHALL name a surface the operation
+binds, and SHALL NOT be recorded against a surface the operation is exempted from.
+
+#### Scenario: The browser records no shortfall
+
+- **WHEN** the registry is read
+- **THEN** no operation records a shortfall against the browser
+- **AND** the task tree, token list and ssh key list operations bind the browser without one
+
+#### Scenario: A narrower terminal binding is recorded
+
+- **WHEN** the registry is read
+- **THEN** the domain add operation records that the terminal adds a hostname with no certificate of its own
+
+### Requirement: Parity gaps are recorded on the surface that lacks them
+
+The registry SHALL record a missing binding as a gap on the surface that lacks it, and the recorded count
+per surface SHALL be held by a guard so it can neither grow quietly nor be mistaken for zero. A browser
+route that calls an operation only for its error, or only to decorate another screen, SHALL be recorded as a
+gap rather than as a binding.
+
+#### Scenario: The browser carries no gap
+
+- **WHEN** the recorded gaps are counted by surface
+- **THEN** the browser carries none, and the identity and actor lookups bind browser screens
+
+#### Scenario: Resolving an actor identifier in the terminal is not a gap
+
+- **WHEN** the registry is read
+- **THEN** the actor lookup is bound to the terminal's detail view
+
+### Requirement: The registry binds the integrations operations to the terminal
+
+The capability registry SHALL bind `webhook.list`, `webhook.put`, `webhook.delete`, `webhook.deliveries`,
+`webhook.redeliver`, `sync.source.list`, `sync.source.put`, `sync.source.delete`, `sync.run`, `retention.get`,
+`retention.put` and `retention.prune` to the terminal integrations view, and SHALL record no terminal gap
+against any of them.
+
+#### Scenario: None of the twelve records a terminal gap
+
+- **WHEN** the registry is asked for its terminal gaps
+- **THEN** none of the twelve operations is among them
+- **AND** each of them names the integrations view
+
+### Requirement: The integrations view lowers the terminal gap count by twelve
+
+The recorded terminal gap count SHALL fall by exactly the twelve operations the integrations view binds, so that
+closing a gap and lowering the count happen in one change.
+
+#### Scenario: The recorded count matches the gaps that remain
+
+- **WHEN** the terminal gaps are counted
+- **THEN** the count is the number the gate records
+- **AND** a gap put back fails the gate
+
+### Requirement: The registry binds server and global administration to the terminal
+
+The registry SHALL bind `status.read`, `connection.list` and `connection.end` to the `server` terminal
+view, and `tenant.create`, `tenant.delete`, `tenant.user.list`, `tenant.user.create`, `tenant.user.update`,
+`tenant.user.delete`, `tenant.member.add`, `global_admin.list`, `global_admin.grant`, `global_admin.revoke`
+and `account.log.any` to the `globaladmin` view.
+
+#### Scenario: None of the fourteen records a terminal exemption
+
+- **WHEN** the registry is read
+- **THEN** each of the fourteen declares a terminal binding and no terminal exemption
+
+### Requirement: The terminal tenant deletion records what it does not delete
+
+`tenant.delete` SHALL record a terminal limitation saying the session's own tenant is not deleted from the
+terminal.
+
+#### Scenario: The shortfall is readable off the operation
+
+- **WHEN** `tenant.delete` is read from the registry
+- **THEN** it records a terminal limitation
+
+### Requirement: An operation needing global admin is permitted on the service's report
+
+`Operation.Permits` SHALL answer, for an operation whose scope is `global:admin`, whether the actor carries
+the service's global admin report, because the policy decides global admin from the store and not from a
+scope a session holds.
+
+#### Scenario: A reported global admin is permitted
+
+- **WHEN** an actor reported as a global admin and holding no scopes is asked about `ListGlobalAdmins`
+- **THEN** it is permitted, and an actor without the report is not
+
+### Requirement: Server and global administration lower the terminal gap count by five
+
+The recorded terminal gap count SHALL fall by five, for `status.read`, `connection.list`,
+`connection.end`, `tenant.create` and `tenant.delete`.
+
+#### Scenario: The count follows the bindings
+
+- **WHEN** the terminal gaps are counted
+- **THEN** the count is the number the gate records
+
+### Requirement: The registry records the account screen's bindings
+
+The capability registry SHALL bind `token.create`, `token.list`, `token.revoke`, `sshkey.enrol`, `sshkey.list`, `sshkey.revoke`, `totp.status`, `totp.enrol`, `totp.confirm`, `totp.codes` and `totp.remove` to the terminal account view, and SHALL no longer record a terminal gap against any of them.
+
+#### Scenario: None of the eleven records a terminal gap
+
+- **WHEN** the registry is asked for its terminal gaps
+- **THEN** none of the eleven operations is among them
+- **AND** the recorded terminal gap count is lower by eleven
+
+### Requirement: The account log reaches the terminal
+
+`account.log` SHALL be bound to the terminal account view rather than exempted, because the service decides who may read it and the browser reads it from any tenant session.
+
+#### Scenario: The exemption is gone
+
+- **WHEN** `account.log` is read from the registry
+- **THEN** it declares a terminal binding and no terminal exemption
+
+### Requirement: The terminal credential listings record that they list the reader's own
+
+`token.list` and `sshkey.list` SHALL record a terminal limitation stating that the account view lists the signed-in actor's own, where the command line and the API take another actor.
+
+#### Scenario: The partial binding says how far it reaches
+
+- **WHEN** `token.list` is read from the registry
+- **THEN** it declares a terminal binding and a terminal limitation
+
+### Requirement: SSH is a bound surface derived from the CLI
+
+`ssh` SHALL be a capability surface every operation reaches unless exempted with a reason. An
+operation SHALL bind SSH when it binds the CLI and carries no SSH exemption, and an operation the CLI
+does not bind SHALL carry no SSH exemption, since SSH hosts the CLI.
+
+#### Scenario: A new CLI-bound operation
+
+- **WHEN** an operation gains a CLI binding
+- **THEN** it is reachable over SSH, and the sshd parity test runs its command through the listener
+
+#### Scenario: An exemption without a reason
+
+- **WHEN** an SSH exemption carries an empty reason
+- **THEN** the parity test fails
+
+### Requirement: The sign-in surface of an SSH call is ssh
+
+The sign-in surface a call is judged on SHALL be `ssh` for every call that arrived over the SSH
+listener, whatever its source, and otherwise the surface its source maps to.
+
+#### Scenario: Removing a factor over SSH
+
+- **GIVEN** a tenant requiring a second factor for SSH only
+- **WHEN** a person runs `ssh acme@host user totp rm`
+- **THEN** the removal is refused as it is from a board session
+
+### Requirement: A view binding no read is offered by its scoped operations
+
+A terminal view whose operations are all writes SHALL be offered to an actor who may perform at least
+one of its operations that names a scope, since there is no read to offer it by. An operation whose
+scope varies by input SHALL NOT open such a view on its own.
+
+#### Scenario: An actor holding export only
+
+- **GIVEN** an actor holding `export` and not `import`
+- **WHEN** the terminal decides which views to offer
+- **THEN** the transfer view is offered, with its export rows only
+
+### Requirement: Token rotation reaches every surface
+
+The capability registry SHALL bind `token.rotate` to the command line as `tix token rotate`, to HTTP as `POST /api/v1/tokens/{id}/rotate`, to the browser's Tokens screen and to the terminal account view. It SHALL declare no single scope, because the service needs `token:admin` only for another actor's token.
+
+#### Scenario: Every binding is declared
+
+- **WHEN** `token.rotate` is read from the registry
+- **THEN** it declares command line, HTTP, web and terminal bindings and no exemption

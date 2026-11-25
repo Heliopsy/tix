@@ -43,8 +43,14 @@ func newLimiter(clk clock.Clock, interval time.Duration, burst, max int) *limite
 // allow reports whether a connection from source may proceed, spending a token
 // when it may.
 func (l *limiter) allow(source string) bool {
+	return l.take(source) == 0
+}
+
+// take spends a token for source and returns zero, or returns how long until
+// the next token refills when there is none to spend.
+func (l *limiter) take(source string) time.Duration {
 	if source == "" {
-		return true
+		return 0
 	}
 	now := l.clk.Now()
 	l.mu.Lock()
@@ -66,10 +72,14 @@ func (l *limiter) allow(source string) bool {
 	}
 	b.at = now
 	if b.tokens < 1 {
-		return false
+		if l.interval <= 0 {
+			return time.Hour
+		}
+		wait := time.Duration((1 - b.tokens) * float64(l.interval))
+		return max(wait, time.Second)
 	}
 	b.tokens--
-	return true
+	return 0
 }
 
 // evict drops the sources whose allowance has already refilled, because

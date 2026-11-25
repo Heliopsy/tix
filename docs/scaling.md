@@ -88,7 +88,7 @@ Point the DSN at PostgreSQL and every command works as it does on SQLite. The sc
 ```console
 $ tix --db 'postgres://tix:tix@127.0.0.1:55432/tix?sslmode=disable' task add "on postgres"
 ┌───────────┬─────────────┬────────┬──────────┬──────────┬──────┬─────┬──────────────────┬─────────┐
-│ REF       │ TITLE       │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ BLOCKED │
+│ REF       │ TITLE       │ STATUS │ PRIORITY │ ASSIGNEE │ TAGS │ DUE │ UPDATED          │ WAITING │
 ├───────────┼─────────────┼────────┼──────────┼──────────┼──────┼─────┼──────────────────┼─────────┤
 │ DEFAULT-1 │ on postgres │ todo   │ normal   │          │      │     │ 2026-09-21 00:30 │ no      │
 └───────────┴─────────────┴────────┴──────────┴──────────┴──────┴─────┴──────────────────┴─────────┘

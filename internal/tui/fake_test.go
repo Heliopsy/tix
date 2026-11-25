@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -13,6 +14,8 @@ import (
 // fakeService is a core.Service whose task methods are scripted by the test.
 type fakeService struct {
 	mu sync.Mutex
+
+	ssoProviders []core.SSOProvider
 
 	projects  []core.Project
 	deletions []core.DeleteProjectInput
@@ -27,6 +30,8 @@ type fakeService struct {
 	reclaimErr    error
 	transitionErr error
 	listErr       error
+	// listed is every filter ListTasks was asked with.
+	listed []core.TaskFilter
 
 	claimed     []core.TaskRef
 	released    []core.TaskRef
@@ -40,11 +45,14 @@ type fakeService struct {
 	untagged []string
 	deps     []core.TaskRef
 	starred  []core.TaskRef
-	snoozes  []core.SnoozeInput
-	unsnooze []core.TaskRef
-	unstars  []core.TaskRef
-	checks   []core.CheckItemInput
-	copies   []copyCall
+	// projectStars names every project StarProject or UnstarProject reached.
+	projectStars []string
+	snoozes      []core.SnoozeInput
+	unsnooze     []core.TaskRef
+	unstars      []core.TaskRef
+	checks       []core.CheckItemInput
+	copies       []copyCall
+	moves        []moveCall
 
 	groupPrefs map[string][]core.GroupPref
 	// savedFilters are the reader's saved filters, and savedInputs what
@@ -66,6 +74,7 @@ type fakeService struct {
 	routeFrom      string
 	commentsEdited [][2]string
 	commentsGone   []string
+	reactions      []string
 	thread         []core.Comment
 	dependencies   []core.Dependency
 	tags           []core.Tag
@@ -78,6 +87,7 @@ type fakeService struct {
 	claimedNext  bool
 	renewed      int
 	projectsMade []core.CreateProjectInput
+	templates    []core.WorkflowTemplate
 
 	actors        map[string]*core.Actor
 	actorsQueried []string
@@ -151,13 +161,44 @@ func (f *fakeService) ListWorkflows(context.Context) ([]core.Workflow, error) {
 	return f.workflows, nil
 }
 
-func (f *fakeService) ListTasks(context.Context, core.TaskFilter) (core.TaskPage, error) {
+func (f *fakeService) ListWorkflowTemplates(context.Context) ([]core.WorkflowTemplate, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	return f.templates, nil
+}
+
+func (f *fakeService) ApplyWorkflowTemplate(context.Context, string, core.ApplyWorkflowTemplateInput) (*core.Workflow, error) {
+	return nil, core.Invalid("the terminal applies templates through project creation")
+}
+
+// ListTasks answers the page a filter's limit and page number name, the
+// whole listing when it names no limit, and counts every task it holds.
+func (f *fakeService) ListTasks(_ context.Context, filter core.TaskFilter) (core.TaskPage, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.listed = append(f.listed, filter)
 	if f.listErr != nil {
 		return core.TaskPage{}, f.listErr
 	}
-	return core.TaskPage{Tasks: f.tasks}, nil
+	tasks := f.tasks
+	if len(filter.Statuses) > 0 || len(filter.Exclude.Statuses) > 0 {
+		tasks = nil
+		for _, t := range f.tasks {
+			if (len(filter.Statuses) == 0 || slices.Contains(filter.Statuses, t.Status)) &&
+				!slices.Contains(filter.Exclude.Statuses, t.Status) {
+				tasks = append(tasks, t)
+			}
+		}
+	}
+	page := core.TaskPage{Tasks: tasks, Total: len(tasks), Number: max(filter.PageNumber, 1)}
+	if size := filter.Page.Limit; size > 0 && len(tasks) > size {
+		page.Number = min(max(filter.PageNumber, 1), core.PagesOf(len(tasks), size))
+		start := (page.Number - 1) * size
+		page.Tasks = tasks[start:min(start+size, len(tasks))]
+	} else if page.Number > 1 {
+		page.Number = 1
+	}
+	return page, nil
 }
 
 func (f *fakeService) TaskLease(context.Context, core.TaskRef) (*core.LeaseGrant, error) {
@@ -223,6 +264,10 @@ func (f *fakeService) Subscribe(context.Context, core.EventFilter) (<-chan core.
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.events, nil
+}
+
+func (f *fakeService) PollEvents(context.Context, core.EventPollInput) (*core.EventPage, error) {
+	return &core.EventPage{Events: []core.Event{}}, nil
 }
 
 func (f *fakeService) WhoAmI(context.Context) (*core.Actor, error) {
@@ -325,6 +370,11 @@ func (f *fakeService) CreateProject(_ context.Context, in core.CreateProjectInpu
 
 // GetProjectIcon refuses: the terminal never reads an icon image.
 func (f *fakeService) GetProjectIcon(context.Context, string) (*core.ProjectIconImage, error) {
+	return nil, core.Internal("the terminal interface read an icon image")
+}
+
+// GetTenantIcon refuses: the terminal never reads an icon image.
+func (f *fakeService) GetTenantIcon(context.Context, string) (*core.TenantIconImage, error) {
 	return nil, core.Internal("the terminal interface read an icon image")
 }
 
@@ -458,6 +508,9 @@ func (f *fakeService) RestoreTask(_ context.Context, ref core.TaskRef) (*core.Ta
 	return &core.Task{ID: ref.ID}, nil
 }
 
+// PurgeTask is never reached: the board offers no purge.
+func (f *fakeService) PurgeTask(context.Context, core.TaskRef) error { return nil }
+
 // TrashStatus reports a trash that is on and empty.
 func (f *fakeService) TrashStatus(context.Context) (*core.TrashStatus, error) {
 	return &core.TrashStatus{Enabled: true}, nil
@@ -488,6 +541,18 @@ func (f *fakeService) CopyTask(_ context.Context, ref core.TaskRef, in core.Copy
 	defer f.mu.Unlock()
 	f.copies = append(f.copies, copyCall{ref: ref, in: in})
 	return &core.Task{ID: "copy", Ref: in.ProjectRef + "-99", Title: in.Title}, nil
+}
+
+type moveCall struct {
+	ref core.TaskRef
+	in  core.MoveTaskInput
+}
+
+func (f *fakeService) MoveTask(_ context.Context, ref core.TaskRef, in core.MoveTaskInput) (*core.TaskMove, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.moves = append(f.moves, moveCall{ref: ref, in: in})
+	return &core.TaskMove{Task: core.Task{ID: ref.ID, Ref: in.ProjectRef + "-7", Status: "todo"}}, nil
 }
 
 func (f *fakeService) SnoozeTask(_ context.Context, ref core.TaskRef, in core.SnoozeInput) (*core.Task, error) {
@@ -555,6 +620,41 @@ func (f *fakeService) UnstarTask(_ context.Context, ref core.TaskRef) error {
 	return nil
 }
 
+func (f *fakeService) ListStarredProjects(context.Context) ([]core.Project, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := []core.Project{}
+	for _, p := range f.projects {
+		if p.Starred {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeService) StarProject(_ context.Context, ref string) error {
+	return f.markProject(ref, true)
+}
+
+func (f *fakeService) UnstarProject(_ context.Context, ref string) error {
+	return f.markProject(ref, false)
+}
+
+// markProject sets a listed project's star, as the service's would be read
+// back on the next listing.
+func (f *fakeService) markProject(ref string, starred bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.projects {
+		if f.projects[i].Key == ref || f.projects[i].ID == ref {
+			f.projects[i].Starred = starred
+			f.projectStars = append(f.projectStars, ref)
+			return nil
+		}
+	}
+	return core.NotFound("project %q", ref)
+}
+
 func (f *fakeService) CheckTaskItem(_ context.Context, ref core.TaskRef, in core.CheckItemInput) (*core.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -590,6 +690,18 @@ func (f *fakeService) DeleteComment(_ context.Context, id string) error {
 	f.commentsGone = append(f.commentsGone, id)
 	return nil
 }
+func (f *fakeService) AddReaction(_ context.Context, id, emoji string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reactions = append(f.reactions, "+"+id+" "+emoji)
+	return &core.Comment{ID: id}, nil
+}
+func (f *fakeService) RemoveReaction(_ context.Context, id, emoji string) (*core.Comment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reactions = append(f.reactions, "-"+id+" "+emoji)
+	return &core.Comment{ID: id}, nil
+}
 func (f *fakeService) PutArtifact(_ context.Context, _ core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -601,6 +713,11 @@ func (f *fakeService) PutArtifact(_ context.Context, _ core.TaskRef, in core.Art
 }
 func (f *fakeService) ListArtifacts(context.Context, core.TaskRef) ([]core.Artifact, error) {
 	return nil, nil
+}
+
+func (f *fakeService) ArtifactLimits(context.Context) (*core.ArtifactLimits, error) {
+	l := core.EffectiveArtifactLimits(core.DefaultArtifactMaxBytes, core.DefaultArtifactTypes, core.Tenant{})
+	return &l, nil
 }
 
 func (f *fakeService) ClaimNext(context.Context, core.ClaimNextInput) (*core.Claim, error) {
@@ -635,6 +752,20 @@ func (f *fakeService) GetRetention(context.Context) (*core.RetentionPolicy, erro
 func (f *fakeService) PutRetention(context.Context, core.RetentionPolicy) (*core.RetentionPolicy, error) {
 	return nil, nil
 }
+
+func (f *fakeService) GetSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) EnableSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) DisableSCIM(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) RotateSCIMToken(context.Context) (*core.SCIMSettings, error) { return nil, nil }
+
+func (f *fakeService) MapSCIMGroup(context.Context, core.SCIMGroupRoleInput) (*core.SCIMGroupRole, error) {
+	return nil, nil
+}
+
+func (f *fakeService) UnmapSCIMGroup(context.Context, string) error { return nil }
 
 func (f *fakeService) GetHousekeeping(context.Context, string) (*core.HousekeepingView, error) {
 	return nil, nil
@@ -680,7 +811,7 @@ func (f *fakeService) ListActors(context.Context, core.Page) ([]core.Actor, stri
 	return f.directory, "", f.directoryErr
 }
 func (f *fakeService) GetUser(context.Context, string) (*core.User, error) { return nil, nil }
-func (f *fakeService) ListUsers(context.Context, core.Page) ([]core.User, string, error) {
+func (f *fakeService) ListUsers(context.Context, core.UserFilter) ([]core.User, string, error) {
 	return nil, "", nil
 }
 func (f *fakeService) UpdateUser(context.Context, string, core.UpdateUserInput) (*core.User, error) {
@@ -692,7 +823,7 @@ func (f *fakeService) GrantGlobalAdmin(context.Context, core.GlobalAdminInput) (
 }
 func (f *fakeService) RevokeGlobalAdmin(context.Context, string) error       { return nil }
 func (f *fakeService) ListGlobalAdmins(context.Context) ([]core.User, error) { return nil, nil }
-func (f *fakeService) ListTenantUsers(context.Context, string, core.Page) ([]core.TenantUser, string, error) {
+func (f *fakeService) ListTenantUsers(context.Context, string, core.UserFilter) ([]core.TenantUser, string, error) {
 	return nil, "", nil
 }
 func (f *fakeService) UpdateDomain(context.Context, string, core.UpdateDomainInput) (*core.Domain, error) {
@@ -719,6 +850,17 @@ func (f *fakeService) UpdateTenantUser(context.Context, string, string, core.Upd
 func (f *fakeService) DeleteTenantUser(context.Context, string, string) error { return nil }
 func (f *fakeService) Login(context.Context, core.LoginInput) (*core.LoginResult, error) {
 	return nil, nil
+}
+func (f *fakeService) SessionPolicy(context.Context) (*core.SessionPolicy, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var t core.Tenant
+	if f.tenant != nil {
+		t = *f.tenant
+	}
+	p := core.EffectiveSessionPolicy(core.SessionPolicy{TTL: core.DefaultSessionTTL,
+		RememberTTL: core.DefaultSessionRememberTTL}, t)
+	return &p, nil
 }
 func (f *fakeService) SSHLoginChallenge(context.Context) (*core.SSHChallenge, error) {
 	return nil, nil
@@ -748,6 +890,13 @@ func (f *fakeService) CreateToken(context.Context, core.CreateTokenInput) (*core
 }
 func (f *fakeService) ListTokens(context.Context, string) ([]core.APIToken, error) { return nil, nil }
 func (f *fakeService) RevokeToken(context.Context, string) error                   { return nil }
+func (f *fakeService) ListSessions(context.Context, core.Page) ([]core.SessionInfo, string, error) {
+	return nil, "", nil
+}
+func (f *fakeService) RevokeSession(context.Context, string) error { return nil }
+func (f *fakeService) RotateToken(context.Context, string, core.RotateTokenInput) (*core.IssuedToken, error) {
+	return nil, nil
+}
 
 func (f *fakeService) ListConnections(context.Context) (*core.ConnectionList, error) {
 	return nil, nil
@@ -762,7 +911,10 @@ func (f *fakeService) EnrolSSHKey(context.Context, core.EnrolSSHKeyInput) (*core
 func (f *fakeService) ListSSHKeys(context.Context, string) ([]core.SSHKey, error) { return nil, nil }
 func (f *fakeService) RevokeSSHKey(context.Context, string) error                 { return nil }
 
-func (f *fakeService) PutWebhook(context.Context, core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (f *fakeService) PutWebhook(context.Context, core.WebhookInput) (*core.IssuedWebhook, error) {
+	return nil, nil
+}
+func (f *fakeService) PingWebhook(context.Context, string) (*core.WebhookDelivery, error) {
 	return nil, nil
 }
 func (f *fakeService) ListWebhooks(context.Context) ([]core.WebhookEndpoint, error) { return nil, nil }
@@ -798,6 +950,50 @@ func (f *fakeService) ExportBundle(context.Context, core.BundleExportInput, io.W
 
 func (f *fakeService) ImportBundle(context.Context, io.Reader, core.BundleImportInput) (*core.BundleResult, error) {
 	return nil, nil
+}
+
+func (f *fakeService) ListSSOProviders(context.Context) ([]core.SSOProvider, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]core.SSOProvider(nil), f.ssoProviders...), nil
+}
+
+func (f *fakeService) GetSSOProvider(context.Context, string) (*core.SSOProvider, error) {
+	return nil, core.NotFound("sso provider")
+}
+
+func (f *fakeService) CreateSSOProvider(context.Context, core.CreateSSOProviderInput) (*core.SSOProvider, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) UpdateSSOProvider(context.Context, string, core.UpdateSSOProviderInput) (*core.SSOProvider, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) DeleteSSOProvider(context.Context, string) error { return nil }
+
+func (f *fakeService) RefreshSAMLMetadata(context.Context, string) (*core.SSOProvider, error) {
+	return &core.SSOProvider{}, nil
+}
+
+func (f *fakeService) SignInOptions(context.Context) (*core.SignInOptions, error) {
+	return &core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed}, nil
+}
+
+func (f *fakeService) BeginSSOLogin(context.Context, core.BeginSSOInput) (*core.SSOBegin, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (*core.LoginResult, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) ExchangeSSOCode(context.Context, core.SSOExchangeInput) (*core.LoginResult, error) {
+	return nil, core.Invalid("not supported by the fake")
+}
+
+func (f *fakeService) SAMLMetadata(context.Context, core.SAMLMetadataInput) (*core.SAMLMetadata, error) {
+	return nil, core.Invalid("not supported by the fake")
 }
 
 var _ core.Service = (*fakeService)(nil)

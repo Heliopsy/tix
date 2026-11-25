@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
@@ -119,7 +120,7 @@ func (l *Local) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*c
 	if err != nil {
 		return nil, err
 	}
-	admins, err := l.prepareAdmins(in.Admins, accounts)
+	admins, err := l.prepareAdmins(ctx, in.Admins, accounts)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +188,7 @@ func (l *Local) existingAccounts(ctx context.Context, in []core.TenantAdminInput
 // generating one where none was given. Hashing happens here, outside any
 // transaction, because it is deliberately slow. An existing account keeps its
 // password, so supplying one for it is refused rather than ignored.
-func (l *Local) prepareAdmins(in []core.TenantAdminInput, accounts map[string]*core.User) ([]pendingAdmin, error) {
+func (l *Local) prepareAdmins(ctx context.Context, in []core.TenantAdminInput, accounts map[string]*core.User) ([]pendingAdmin, error) {
 	out := make([]pendingAdmin, 0, len(in))
 	for _, a := range in {
 		p := pendingAdmin{
@@ -212,7 +213,7 @@ func (l *Local) prepareAdmins(in []core.TenantAdminInput, accounts map[string]*c
 			}
 			password, p.generated = generated, generated
 		}
-		hash, err := l.hasher.Hash(password)
+		hash, err := l.hasher.Hash(ctx, password)
 		if err != nil {
 			return nil, err
 		}
@@ -245,11 +246,23 @@ func emailFree(ctx context.Context, u store.UnscopedTx, email string) error {
 }
 
 // seedTenant gives a new tenant the builtin workflow, without which it could
-// hold no projects, and its admins, in one transaction scoped to it.
+// hold no projects, its Default project and its admins, in one transaction scoped to it.
 func (l *Local) seedTenant(ctx context.Context, tenant *core.Tenant, admins []pendingAdmin) (*core.CreatedTenant, error) {
 	out := &core.CreatedTenant{Tenant: *tenant}
 	err := l.write(ctx, core.SystemActor(tenant.ID), func(m *mutation) error {
-		if _, err := ensureBuiltinWorkflow(ctx, m); err != nil {
+		wf, err := ensureBuiltinWorkflow(ctx, m)
+		if err != nil {
+			return err
+		}
+		// A new tenant opens on its Default list, with the same icon and
+		// colour a fresh installation gives it, rather than on an empty
+		// sidebar.
+		switch _, err := m.tx.GetProject(ctx, DefaultProjectKey); {
+		case core.IsKind(err, core.KindNotFound):
+			if err := l.createStarterProjects(ctx, m, wf, starterProjects[:1]); err != nil {
+				return err
+			}
+		case err != nil:
 			return err
 		}
 		u, err := asUnscoped(m.tx)
@@ -537,9 +550,18 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
+	var icon tenantIcon
+	if in.IconChanged() {
+		if icon, err = resolveTenantIcon(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
+			return nil, core.OnField(err, "icon")
+		}
+	}
 
 	global, err := l.globalAllowed(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := l.passwordPolicyAllowed(ctx, actor, ref, global, in); err != nil {
 		return nil, err
 	}
 	var out *core.Tenant
@@ -570,6 +592,12 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 				"lease default %s is longer than the lease maximum %s",
 				t.LeaseDefault, t.LeaseMax)
 		}
+		if err := l.tightenArtifactLimits(t, in); err != nil {
+			return err
+		}
+		if err := l.tightenSessionSettings(t, in); err != nil {
+			return err
+		}
 		if in.RequireTOTPWeb != nil {
 			t.RequireTOTPWeb = *in.RequireTOTPWeb
 		}
@@ -578,6 +606,15 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		}
 		if in.RequireTOTPSSH != nil {
 			t.RequireTOTPSSH = *in.RequireTOTPSSH
+		}
+		if !before.MFARequired() {
+			if err := policyLeavesCallerIn(ctx, m.tx, actor, in); err != nil {
+				return err
+			}
+		}
+		applyMFAPolicy(t, in, m.now)
+		if in.PasswordLogin != nil {
+			t.PasswordLogin = *in.PasswordLogin
 		}
 		if in.TrashOff != nil {
 			t.TrashOff = *in.TrashOff
@@ -592,19 +629,37 @@ func (l *Local) UpdateTenant(ctx context.Context, ref string, in core.UpdateTena
 		if err != nil {
 			return err
 		}
+		if in.IconChanged() {
+			icon.apply(t)
+		}
 		if err := u.UpdateTenant(ctx, t); err != nil {
 			return err
+		}
+		if in.IconChanged() {
+			if err := icon.store(ctx, u, t.ID, before.IconImage); err != nil {
+				return err
+			}
 		}
 		out = t
 		meta := map[string]any{"key": t.Key}
 		if before.TrashOff != t.TrashOff {
 			meta["trash"] = trashWord(!t.TrashOff)
 		}
+		if before.MFARequired() != t.MFARequired() {
+			meta["mfa_policy"] = string(t.MFAPolicy)
+		}
+		if passwordLoginOf(before) != passwordLoginOf(*t) {
+			meta["password_login"] = string(passwordLoginOf(*t))
+		}
+		if before.MFAGrace != t.MFAGrace {
+			meta["mfa_grace"] = t.MFAGrace.String()
+		}
 		return m.Record(auditTenantUpdate, eventTenantUpdated, "tenant", t.ID, "", before, t, meta)
 	})
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	return out, nil
 }
 
@@ -746,6 +801,11 @@ func (l *Local) ResolveTheme(t *core.Tenant) core.Theme {
 // totpRequirementIsReachable refuses a requirement nobody could satisfy. Only
 // turning one on is checked: clearing one, or leaving it alone, needs no key.
 func (l *Local) totpRequirementIsReachable(in core.UpdateTenantInput) error {
+	if in.MFAPolicy != nil && *in.MFAPolicy == core.MFAPolicyRequired {
+		if _, err := l.sealer(); err != nil {
+			return err
+		}
+	}
 	for _, on := range []*bool{in.RequireTOTPWeb, in.RequireTOTPCLI, in.RequireTOTPSSH} {
 		if on != nil && *on {
 			if _, err := l.sealer(); err != nil {
@@ -755,4 +815,63 @@ func (l *Local) totpRequirementIsReachable(in core.UpdateTenantInput) error {
 		}
 	}
 	return nil
+}
+
+// applyMFAPolicy writes the policy and grace an update carries. The time the
+// policy turned required is stamped only on the change, so re-sending
+// required, or changing only the grace, moves the deadline without restarting
+// it; turning the policy off forgets it.
+func applyMFAPolicy(t *core.Tenant, in core.UpdateTenantInput, now time.Time) {
+	if in.MFAGrace != nil {
+		t.MFAGrace = *in.MFAGrace
+	}
+	if in.MFAPolicy == nil {
+		return
+	}
+	was := t.MFARequired()
+	t.MFAPolicy = *in.MFAPolicy
+	if t.MFAPolicy == "" {
+		t.MFAPolicy = core.MFAPolicyOff
+	}
+	switch {
+	case !t.MFARequired():
+		t.MFARequiredAt = nil
+	case !was || t.MFARequiredAt == nil:
+		at := now
+		t.MFARequiredAt = &at
+	}
+}
+
+// policyLeavesCallerIn refuses turning the second factor policy on for a
+// caller who would be the first person it shut out. A caller with no account
+// behind it, the machine-local actor, is not refused: the gate never applies
+// to it either. The account is global, so it is read in the caller's own
+// tenant even when a global admin edits another.
+func policyLeavesCallerIn(ctx context.Context, tx store.Tx, actor *core.Actor, in core.UpdateTenantInput) error {
+	if in.MFAPolicy == nil || *in.MFAPolicy != core.MFAPolicyRequired {
+		return nil
+	}
+	enrolled, person, err := callerFactor(ctx, tx, actor)
+	if err != nil {
+		return err
+	}
+	if person && !enrolled {
+		return core.Precondition("you hold no second factor, so requiring one would lock you out; "+
+			"enrol first with tix user totp enrol or under Settings in the browser, then turn the policy on").
+			WithDetail(core.DetailField, "mfa_policy")
+	}
+	return nil
+}
+
+// callerFactor reads whether the caller is a person and holds a factor.
+func callerFactor(ctx context.Context, tx store.Tx, actor *core.Actor) (enrolled, person bool, err error) {
+	user, err := accountOfActor(ctx, tx, actor.ID)
+	if core.IsKind(err, core.KindNotFound) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	enrolled, err = totpEnrolled(ctx, tx, user.ID)
+	return enrolled, true, err
 }

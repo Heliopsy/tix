@@ -305,6 +305,78 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "claim next and start in one call",
+		covers: []string{"CreateProject", "CreateTask", "ClaimNext"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			_, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "queued"})
+			mustf(t, tg, err, "creating the task")
+			claim, err := tg.svc.ClaimNext(tg.ctx, core.ClaimNextInput{ProjectRefs: []string{p.Key}, Start: true})
+			if err != nil {
+				return nil, err
+			}
+			return sig{"status": claim.Task.Status, "started_from": claim.StartedFrom}, nil
+		},
+	},
+	{
+		name:   "claim by ref with an unknown start status",
+		covers: []string{"CreateProject", "CreateTask", "ClaimTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{StartStatus: "bogus"})
+			return nil, err
+		},
+	},
+	{
+		name:   "a transition dry run refuses an unknown state",
+		covers: []string{"CreateProject", "CreateTask", "TransitionTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.TransitionTask(tg.ctx, core.TaskRef{ID: task.ID},
+				core.TransitionInput{To: "review", DryRun: true})
+			return nil, err
+		},
+	},
+	{
+		name:   "a route dry run writes nothing",
+		covers: []string{"CreateProject", "CreateTask", "TransitionRoute", "GetTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			out, err := tg.svc.TransitionRoute(tg.ctx, core.TaskRef{ID: task.ID},
+				core.RouteInput{To: "done", DryRun: true})
+			if err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the task back")
+			return sig{"dry_run": out.DryRun, "would_be": out.Task.Status, "status": after.Status}, nil
+		},
+	},
+	{
+		name:   "finishing under the lease releases it",
+		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "TransitionTask", "ReleaseLease"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			claim, err := tg.svc.ClaimTask(tg.ctx, core.TaskRef{ID: task.ID}, core.ClaimInput{Start: true})
+			mustf(t, tg, err, "claiming and starting the task")
+			done, err := tg.svc.TransitionTask(tg.ctx, core.TaskRef{ID: task.ID},
+				core.TransitionInput{To: "done", LeaseToken: claim.LeaseToken})
+			if err != nil {
+				return nil, err
+			}
+			err = tg.svc.ReleaseLease(tg.ctx, core.TaskRef{ID: task.ID}, claim.LeaseToken, core.ReleaseInput{})
+			return sig{"status": done.Status, "claimed_by": done.ClaimedByActorID, "late_release": err == nil}, nil
+		},
+	},
+	{
 		name:   "a forced reclaim frees the lease and leaves the status alone",
 		covers: []string{"CreateProject", "CreateTask", "ClaimTask", "ForceReclaim", "GetTask"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -401,6 +473,38 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "project star round-trip",
+		covers: []string{"CreateProject", "StarProject", "UnstarProject", "ListStarredProjects", "GetProject"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			for range 2 {
+				if err := tg.svc.StarProject(tg.ctx, p.Key); err != nil {
+					return nil, err
+				}
+			}
+			starred, err := tg.svc.ListStarredProjects(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			listed := 0
+			for _, s := range starred {
+				if s.ID == p.ID && s.Starred {
+					listed++
+				}
+			}
+			read, err := tg.svc.GetProject(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the starred project")
+			if err := tg.svc.UnstarProject(tg.ctx, p.Key); err != nil {
+				return nil, err
+			}
+			after, err := tg.svc.GetProject(tg.ctx, p.Key)
+			mustf(t, tg, err, "reading the project back")
+			missing := tg.svc.StarProject(tg.ctx, "no-such-project")
+			return sig{"listed": listed, "starred": read.Starred, "starred_after_unstar": after.Starred,
+				"missing": core.KindOf(missing)}, nil
+		},
+	},
+	{
 		name:   "project icon round-trip",
 		covers: []string{"CreateProject", "UpdateProject", "GetProjectIcon"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -426,6 +530,38 @@ var serviceScenarios = []svcScenario{
 				"digest_match": pictured.IconImage == img.Digest,
 				"type":         img.ContentType,
 				"bytes":        string(img.Data),
+			}, nil
+		},
+	},
+	{
+		name:   "tenant icon round-trip",
+		covers: []string{"UpdateTenant", "GetTenantIcon"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, missing := tg.svc.GetTenantIcon(tg.ctx, "")
+			name := "rocket"
+			named, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{IconName: &name})
+			mustf(t, tg, err, "setting a built-in tenant icon")
+			png := []byte("\x89PNG\r\n\x1a\ntenant matrix")
+			pictured, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{
+				IconFile: &core.ProjectIconFile{Data: png}})
+			if err != nil {
+				return nil, err
+			}
+			img, err := tg.svc.GetTenantIcon(tg.ctx, "")
+			if err != nil {
+				return nil, err
+			}
+			empty := ""
+			cleared, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{Icon: &empty})
+			mustf(t, tg, err, "clearing the tenant icon")
+			return sig{
+				"missing":      core.KindOf(missing),
+				"named":        named.IconName,
+				"kind":         string(pictured.IconKind()),
+				"digest_match": pictured.IconImage == img.Digest,
+				"type":         img.ContentType,
+				"bytes":        string(img.Data),
+				"cleared":      string(cleared.IconKind()),
 			}, nil
 		},
 	},
@@ -646,6 +782,40 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "app password round-trip",
+		covers: []string{"GetDAVInfo", "CreateDAVPassword", "ListDAVPasswords", "RevokeDAVPassword"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			info, err := tg.svc.GetDAVInfo(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			created, err := tg.svc.CreateDAVPassword(tg.ctx, core.CreateDAVPasswordInput{Name: "matrix phone"})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.CreateDAVPassword(tg.ctx, core.CreateDAVPasswordInput{Name: "Matrix Phone"})
+			mustf(t, tg, tg.svc.RevokeDAVPassword(tg.ctx, created.ID), "revoking")
+			listed, err := tg.svc.ListDAVPasswords(tg.ctx)
+			mustf(t, tg, err, "listing")
+			revoked := false
+			for _, p := range listed {
+				if p.ID == created.ID {
+					revoked = p.RevokedAt != nil
+				}
+			}
+			return sig{
+				"enabled":     info.Enabled,
+				"write":       info.Write,
+				"path":        info.Path,
+				"secret":      strings.HasPrefix(created.Password, "tix_pat_"),
+				"scopes":      created.Scopes,
+				"collections": created.Collections,
+				"again":       core.KindOf(again),
+				"revoked":     revoked,
+			}, nil
+		},
+	},
+	{
 		name:   "copy round-trip",
 		covers: []string{"CreateProject", "CreateTask", "AddComment", "CopyTask", "TaskTree", "ListComments"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -673,6 +843,34 @@ var serviceScenarios = []svcScenario{
 			return sig{
 				"titles": titles, "tags": cp.Tags, "comments": len(comments),
 				"linked": cp.CopiedFromID == root.ID, "moved": cp.ProjectID != root.ProjectID,
+			}, nil
+		},
+	},
+	{
+		name:   "move round-trip",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "MoveTask", "GetTask", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			from := h.newProject(t, tg)
+			to := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: from.Key, Title: "moving", Tags: []string{"x"}})
+			mustf(t, tg, err, "creating the task")
+			_, err = tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "note")
+			mustf(t, tg, err, "commenting")
+			moved, err := tg.svc.MoveTask(tg.ctx, core.TaskRef{ID: task.ID}, core.MoveTaskInput{ProjectRef: to.Key})
+			if err != nil {
+				return nil, err
+			}
+			old, err := core.ParseTaskRef(task.Ref)
+			mustf(t, tg, err, "parsing the old reference")
+			again, err := tg.svc.GetTask(tg.ctx, old)
+			mustf(t, tg, err, "reading the task by its old reference")
+			comments, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "reading the comments")
+			return sig{
+				"same_id": moved.Task.ID == task.ID, "old_ref_resolves": again.ID == task.ID,
+				"new_ref": again.Ref == moved.Task.Ref, "from_ref": moved.FromRef == task.Ref,
+				"in_target": moved.Project == to.Key, "status_kept": moved.StatusKept,
+				"tags": moved.Task.Tags, "comments": len(comments),
 			}, nil
 		},
 	},
@@ -850,6 +1048,63 @@ var serviceScenarios = []svcScenario{
 			"TestDirectDatabaseWriteReachesAConnectedWebSocketClient and its neighbours in " +
 			"outbox_test.go; duplicating that here would only add a second flaky-timing surface " +
 			"for the same coverage",
+	},
+	{
+		name:   "poll the events after a cursor",
+		covers: []string{"CreateProject", "CreateTask", "PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			start, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{})
+			if err != nil {
+				return nil, err
+			}
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "polled"})
+			mustf(t, tg, err, "creating the task")
+			page, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{
+				SinceSeq: start.NextSeq, Types: []core.EventType{"task.*"}, ProjectIDs: []string{p.ID},
+			})
+			if err != nil {
+				return nil, err
+			}
+			again, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{SinceSeq: page.NextSeq})
+			if err != nil {
+				return nil, err
+			}
+			out := sig{"events": len(page.Events), "caught_up": len(again.Events), "stays": again.NextSeq == page.NextSeq}
+			if len(page.Events) > 0 {
+				e := page.Events[0]
+				out["type"] = string(e.Type)
+				out["subject"] = e.SubjectID == task.ID
+				out["after_cursor"] = e.Seq > start.NextSeq
+				out["next_is_last"] = page.NextSeq == page.Events[len(page.Events)-1].Seq
+			}
+			return out, nil
+		},
+	},
+	{
+		name:   "a poll naming an unknown event type is invalid",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{Types: []core.EventType{"task.invented"}})
+			return nil, err
+		},
+	},
+	{
+		name:   "a poll waiting longer than the cap is invalid",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PollEvents(tg.ctx, core.EventPollInput{Wait: core.Duration(26 * time.Second)})
+			return nil, err
+		},
+	},
+	{
+		name:   "polling events without event:subscribe is forbidden",
+		covers: []string{"PollEvents"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			svc, ctx := h.scoped(tg, core.ScopeTaskRead)
+			_, err := svc.PollEvents(ctx, core.EventPollInput{})
+			return nil, err
+		},
 	},
 	{
 		name:   "read a project back by key",
@@ -1052,6 +1307,117 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "read the artifact limits in force",
+		covers: []string{"ArtifactLimits"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			lim, err := tg.svc.ArtifactLimits(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"max":    lim.MaxBytes,
+				"server": lim.ServerMaxBytes,
+				"types":  lim.AllowedTypes,
+			}, nil
+		},
+	},
+	{
+		name:   "read the session policy a tenant tightened",
+		covers: []string{"UpdateTenant", "SessionPolicy"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			ttl, idle, keep := core.Duration(8*time.Hour), core.Duration(30*time.Minute), "7d"
+			_, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{
+				SessionTTL: &ttl, SessionIdleTimeout: &idle, SessionRememberTTL: &keep,
+			})
+			mustf(t, tg, err, "tightening the session settings")
+			p, err := tg.svc.SessionPolicy(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return sig{
+				"ttl": p.TTL.String(), "idle": p.IdleTimeout.String(), "remember": p.RememberTTL.String(),
+				"server_ttl": p.ServerTTL.String(), "offered": p.RememberOffered(),
+			}, nil
+		},
+	},
+	{
+		name:   "refuse a tenant session lifetime past the server's",
+		covers: []string{"UpdateTenant"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			long := core.Duration(48 * time.Hour)
+			_, err := tg.svc.UpdateTenant(tg.ctx, "", core.UpdateTenantInput{SessionTTL: &long})
+			return nil, err
+		},
+	},
+	{
+		name:   "list the built-in workflow templates",
+		covers: []string{"ListWorkflowTemplates"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			all, err := tg.svc.ListWorkflowTemplates(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			first := all[0]
+			return sig{
+				"count":   len(all),
+				"key":     first.Key,
+				"purpose": first.Purpose,
+				"states":  first.States,
+				"fields":  len(all[1].Fields),
+			}, nil
+		},
+	},
+	{
+		name:   "apply a workflow template under a key of its own",
+		covers: []string{"ApplyWorkflowTemplate", "GetWorkflow"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "w" + randSuffix()
+			wf, err := tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-dev-review", core.ApplyWorkflowTemplateInput{As: key})
+			if err != nil {
+				return nil, err
+			}
+			got, err := tg.svc.GetWorkflow(tg.ctx, key)
+			mustf(t, tg, err, "reading the applied workflow back")
+			return sig{
+				"same":    wf.Key == key && got.ID == wf.ID,
+				"name":    got.Name,
+				"initial": got.Definition.Initial,
+				"states":  len(got.Definition.States),
+				"edges":   len(got.Definition.Transitions),
+			}, nil
+		},
+	},
+	{
+		name:   "applying a workflow template onto a taken key is a conflict",
+		covers: []string{"ApplyWorkflowTemplate"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "w" + randSuffix()
+			_, err := tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-kanban", core.ApplyWorkflowTemplateInput{As: key})
+			mustf(t, tg, err, "applying the template the first time")
+			_, err = tg.svc.ApplyWorkflowTemplate(tg.ctx, "tix-kanban", core.ApplyWorkflowTemplateInput{As: key})
+			return nil, err
+		},
+	},
+	{
+		name:   "a project created from a workflow template gets its fields",
+		covers: []string{"CreateProject", "ListFieldDefs"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			key := "p" + randSuffix()
+			p, err := tg.svc.CreateProject(tg.ctx, core.CreateProjectInput{Key: key, Name: "From a template",
+				WorkflowTemplate: "tix-sales"})
+			if err != nil {
+				return nil, err
+			}
+			fields, err := tg.svc.ListFieldDefs(tg.ctx, p.Key)
+			mustf(t, tg, err, "listing the template's fields")
+			keys := make([]string, 0, len(fields))
+			for _, f := range fields {
+				keys = append(keys, f.Key)
+			}
+			return sig{"fields": strings.Join(keys, ",")}, nil
+		},
+	},
+	{
 		name:   "a workflow whose initial state is undefined is rejected",
 		covers: []string{"PutWorkflow"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1076,6 +1442,31 @@ var serviceScenarios = []svcScenario{
 			after, err := tg.svc.GetTask(tg.ctx, core.TaskRef{ID: task.ID})
 			mustf(t, tg, err, "reading the restored task")
 			return sig{"title": restored.Title, "readable_again": after.Title}, nil
+		},
+	},
+	{
+		name:   "purge a task from the trash",
+		covers: []string{"CreateProject", "CreateTask", "DeleteTask", "PurgeTask", "RestoreTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			mustf(t, tg, tg.svc.DeleteTask(tg.ctx, core.TaskRef{ID: task.ID}, core.DeleteTaskInput{}), "deleting the task")
+			if err := tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID}); err != nil {
+				return nil, err
+			}
+			_, err = tg.svc.RestoreTask(tg.ctx, core.TaskRef{ID: task.ID})
+			return sig{"restorable": err == nil, "kind": string(core.KindOf(err))}, nil
+		},
+	},
+	{
+		name:   "purging a task that is not in the trash",
+		covers: []string{"CreateProject", "CreateTask", "PurgeTask"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			return nil, tg.svc.PurgeTask(tg.ctx, core.TaskRef{ID: task.ID})
 		},
 	},
 	{
@@ -1223,6 +1614,60 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "react to a comment and take it back",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "AddReaction", "RemoveReaction", "ListComments"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			comment, err := tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "ship it")
+			mustf(t, tg, err, "adding the comment")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "👍")
+			mustf(t, tg, err, "reacting")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "👍")
+			mustf(t, tg, err, "reacting again")
+			both, err := tg.svc.AddReaction(tg.ctx, comment.ID, "🎉")
+			if err != nil {
+				return nil, err
+			}
+			left, err := tg.svc.RemoveReaction(tg.ctx, comment.ID, "👍")
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListComments(tg.ctx, core.TaskRef{ID: task.ID})
+			mustf(t, tg, err, "listing comments")
+			emoji := func(rs []core.Reaction) []string {
+				out := []string{}
+				for _, r := range rs {
+					out = append(out, fmt.Sprintf("%s%d", r.Emoji, r.Count))
+				}
+				return out
+			}
+			return sig{"both": emoji(both.Reactions), "left": emoji(left.Reactions), "listed": emoji(listed[0].Reactions)}, nil
+		},
+	},
+	{
+		name:   "reacting with something that is not an emoji",
+		covers: []string{"CreateProject", "CreateTask", "AddComment", "AddReaction"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			p := h.newProject(t, tg)
+			task, err := tg.svc.CreateTask(tg.ctx, core.CreateTaskInput{ProjectRef: p.Key, Title: "t"})
+			mustf(t, tg, err, "creating the task")
+			comment, err := tg.svc.AddComment(tg.ctx, core.TaskRef{ID: task.ID}, "hi")
+			mustf(t, tg, err, "adding the comment")
+			_, err = tg.svc.AddReaction(tg.ctx, comment.ID, "ok")
+			return nil, err
+		},
+	},
+	{
+		name:   "taking back a reaction on an unknown comment",
+		covers: []string{"RemoveReaction"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.RemoveReaction(tg.ctx, "nosuchcomment00000", "👍")
+			return nil, err
+		},
+	},
+	{
 		name:   "editing an unknown comment",
 		covers: []string{"EditComment"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1365,6 +1810,46 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name: "scim is enabled, its token rotated, a group mapped and it is turned off",
+		covers: []string{"GetSCIM", "EnableSCIM", "RotateSCIMToken", "MapSCIMGroup", "UnmapSCIMGroup",
+			"DisableSCIM"},
+		run: func(t *testing.T, tg target, _ *matrixHarness) (sig, error) {
+			before, err := tg.svc.GetSCIM(tg.ctx)
+			if err != nil {
+				return nil, err
+			}
+			on, err := tg.svc.EnableSCIM(tg.ctx)
+			mustf(t, tg, err, "enabling scim")
+			again, err := tg.svc.EnableSCIM(tg.ctx)
+			mustf(t, tg, err, "enabling scim again")
+			rotated, err := tg.svc.RotateSCIMToken(tg.ctx)
+			mustf(t, tg, err, "rotating the scim token")
+			mapped, err := tg.svc.MapSCIMGroup(tg.ctx, core.SCIMGroupRoleInput{Group: "Engineering", Role: core.RoleMember})
+			mustf(t, tg, err, "mapping a group")
+			_, badRole := tg.svc.MapSCIMGroup(tg.ctx, core.SCIMGroupRoleInput{Group: "x", Role: "owner"})
+			listed, err := tg.svc.GetSCIM(tg.ctx)
+			mustf(t, tg, err, "reading scim")
+			mustf(t, tg, tg.svc.UnmapSCIMGroup(tg.ctx, "engineering"), "unmapping a group")
+			missing := tg.svc.UnmapSCIMGroup(tg.ctx, "engineering")
+			off, err := tg.svc.DisableSCIM(tg.ctx)
+			mustf(t, tg, err, "disabling scim")
+			return sig{
+				"before_enabled": before.Enabled,
+				"path":           before.Path,
+				"minted":         on.Token != "",
+				"reminted":       again.Token != "",
+				"rotated":        rotated.Token != "" && rotated.Token != on.Token,
+				"live_tokens":    len(rotated.Tokens),
+				"mapped":         mapped.Group + "=" + string(mapped.Role),
+				"bad_role":       core.KindOf(badRole),
+				"mappings":       len(listed.GroupRoles),
+				"unmap_missing":  core.KindOf(missing),
+				"off":            off.Enabled,
+				"kept_tokens":    len(off.Tokens),
+			}, nil
+		},
+	},
+	{
 		name:   "housekeeping is set per tenant and per project and previewed",
 		covers: []string{"GetHousekeeping", "PutHousekeeping", "RunHousekeeping"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1482,7 +1967,7 @@ var serviceScenarios = []svcScenario{
 			}
 			got, err := tg.svc.GetUser(tg.ctx, created.ID)
 			mustf(t, tg, err, "reading the user back")
-			users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: 50})
+			users, _, err := tg.svc.ListUsers(tg.ctx, core.UserFilter{Page: core.Page{Limit: 50}})
 			mustf(t, tg, err, "listing users")
 			return sig{"email": got.Email, "display_name": got.DisplayName, "count": len(users)}, nil
 		},
@@ -1550,6 +2035,27 @@ var serviceScenarios = []svcScenario{
 				"actor_matches": result.Session.ActorID == user.ID,
 				"has_token":     result.Session.Token != "",
 			}, nil
+		},
+	},
+	{
+		name:   "login asking to be kept signed in",
+		covers: []string{"CreateUser", "Login"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.CreateUser(tg.ctx, core.CreateUserInput{
+				Email: "kept@example.test", Handle: "kept", Password: "correct horse battery",
+			})
+			mustf(t, tg, err, "creating the user")
+			result, err := tg.svc.Login(tg.ctx, core.LoginInput{
+				Email: "kept@example.test", Password: "correct horse battery", Surface: core.SurfaceCLI,
+				Remember: true,
+			})
+			if err != nil {
+				return nil, err
+			}
+			if result.Session == nil {
+				return sig{"challenged": true}, nil
+			}
+			return sig{"remembered": result.Session.Remembered}, nil
 		},
 	},
 	{
@@ -1792,6 +2298,49 @@ var serviceScenarios = []svcScenario{
 		},
 	},
 	{
+		name:   "rotating a token replaces it under the same name",
+		covers: []string{"CreateToken", "RotateToken", "ListTokens"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.CreateToken(tg.ctx, core.CreateTokenInput{
+				Name: "rotor", ActorID: h.adminActor.ID, Scopes: []core.Scope{core.ScopeTaskRead, core.ScopeTaskClaim},
+			})
+			mustf(t, tg, err, "minting the token")
+			rotated, err := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{})
+			if err != nil {
+				return nil, err
+			}
+			_, again := tg.svc.RotateToken(tg.ctx, issued.ID, core.RotateTokenInput{})
+			_, unknown := tg.svc.RotateToken(tg.ctx, "nosuchtoken0000000", core.RotateTokenInput{})
+			_, tooLong := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{Grace: core.Duration(25 * time.Hour)})
+			_, wrongActor := tg.svc.RotateToken(tg.ctx, "rotor", core.RotateTokenInput{ActorID: "nosuchactor"})
+			tokens, err := tg.svc.ListTokens(tg.ctx, h.adminActor.ID)
+			mustf(t, tg, err, "listing tokens")
+			var live, revoked int
+			for _, tok := range tokens {
+				if tok.Name != "rotor" {
+					continue
+				}
+				if tok.RevokedAt != nil {
+					revoked++
+				} else {
+					live++
+				}
+			}
+			return sig{
+				"new_secret":  rotated.Token != "" && rotated.Token != issued.Token && rotated.ID != issued.ID,
+				"name":        rotated.Name,
+				"scopes":      rotated.Scopes,
+				"expires":     rotated.ExpiresAt != nil,
+				"live":        live,
+				"revoked":     revoked,
+				"again":       core.KindOf(again),
+				"unknown":     core.KindOf(unknown),
+				"too_long":    core.KindOf(tooLong),
+				"wrong_actor": core.KindOf(wrongActor),
+			}, nil
+		},
+	},
+	{
 		name:   "a token with no scopes is rejected",
 		covers: []string{"CreateToken"},
 		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
@@ -1972,6 +2521,55 @@ var serviceScenarios = []svcScenario{
 				"before":      len(listed),
 				"after":       len(after),
 			}, nil
+		},
+	},
+	{
+		name:   "a generated webhook secret is returned once",
+		covers: []string{"PutWebhook", "ListWebhooks"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			issued, err := tg.svc.PutWebhook(tg.ctx, core.WebhookInput{
+				URL: closedEndpoint, EventTypes: []string{"task.*"}, Active: true,
+			})
+			if err != nil {
+				return nil, err
+			}
+			listed, err := tg.svc.ListWebhooks(tg.ctx)
+			mustf(t, tg, err, "listing webhooks")
+			return sig{
+				"returned": len(issued.SigningSecret) > 0,
+				"stored":   issued.Secret,
+				"listed":   listed[0].Secret,
+			}, nil
+		},
+	},
+	{
+		name:   "pinging a webhook queues one delivery to it",
+		covers: []string{"PutWebhook", "PingWebhook", "ListDeliveries"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			endpoint, err := tg.svc.PutWebhook(tg.ctx, core.WebhookInput{
+				URL: closedEndpoint, EventTypes: []string{"task.*"}, Active: true,
+			})
+			mustf(t, tg, err, "registering the endpoint")
+			d, err := tg.svc.PingWebhook(tg.ctx, endpoint.ID)
+			if err != nil {
+				return nil, err
+			}
+			listed, _, err := tg.svc.ListDeliveries(tg.ctx, core.DeliveryFilter{EndpointID: endpoint.ID})
+			mustf(t, tg, err, "listing the endpoint's deliveries")
+			return sig{
+				"to_endpoint": d.EndpointID == endpoint.ID,
+				"status":      string(d.Status),
+				"attempts":    d.Attempts,
+				"listed":      len(listed),
+			}, nil
+		},
+	},
+	{
+		name:   "pinging an unknown webhook",
+		covers: []string{"PingWebhook"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			_, err := tg.svc.PingWebhook(tg.ctx, "nosuchendpoint00")
+			return nil, err
 		},
 	},
 	{
@@ -2258,7 +2856,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			users, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2292,14 +2890,14 @@ var serviceScenarios = []svcScenario{
 			if _, err := tg.svc.UpdateTenantUser(tg.ctx, key, u.ID, core.UpdateUserInput{Role: &role}); err != nil {
 				return nil, err
 			}
-			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			before, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
 			if err := tg.svc.DeleteTenantUser(tg.ctx, key, u.ID); err != nil {
 				return nil, err
 			}
-			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			after, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2323,7 +2921,7 @@ var serviceScenarios = []svcScenario{
 			if err != nil {
 				return nil, err
 			}
-			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.Page{})
+			listed, _, err := tg.svc.ListTenantUsers(tg.ctx, key, core.UserFilter{})
 			if err != nil {
 				return nil, err
 			}
@@ -2359,6 +2957,25 @@ var serviceScenarios = []svcScenario{
 			}
 			return sig{"actions": actions, "by_matrix": theirs[0].ByEmail == "matrix@example.test",
 				"own_is_list": own != nil}, nil
+		},
+	},
+	{
+		name:   "listing own sessions and revoking one that is not ours",
+		covers: []string{"ListSessions", "RevokeSession"},
+		run: func(t *testing.T, tg target, h *matrixHarness) (sig, error) {
+			own, _, err := tg.svc.ListSessions(tg.ctx, core.Page{})
+			if err != nil {
+				return nil, err
+			}
+			current := 0
+			for _, s := range own {
+				if s.Current {
+					current++
+				}
+			}
+			unknown := tg.svc.RevokeSession(tg.ctx, "nosuchsession00000")
+			return sig{"is_list": own != nil, "current": current,
+				"unknown": string(core.KindOf(unknown))}, nil
 		},
 	},
 	{

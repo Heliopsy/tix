@@ -49,3 +49,5 @@
 .via-link:hover .via, .via-link:focus-visible .via { color: var(--ink); text-decoration: underline; }
 .feed .via-link { margin-left: 8px; }
 
+.activityfilter .windowbound { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--muted); }
+.activityfilter .windowbound input { flex: 0 1 auto; }

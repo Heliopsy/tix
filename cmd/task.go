@@ -26,10 +26,10 @@ func newTaskCmd(g *globals) *cobra.Command {
 	}
 	cmd.AddCommand(
 		taskAddCmd(g), taskLsCmd(g), taskShowCmd(g), taskEditCmd(g),
-		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskTrashCmd(g), taskTreeCmd(g),
-		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskBulkCmd(g),
+		taskMvCmd(g), taskRmCmd(g), taskRestoreCmd(g), taskPurgeCmd(g), taskTrashCmd(g), taskTreeCmd(g),
+		taskStarCmd(g, true), taskStarCmd(g, false), taskCopyCmd(g), taskMoveCmd(g), taskBulkCmd(g),
 		taskCheckCmd(g, true), taskCheckCmd(g, false),
-		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g),
+		taskSnoozeCmd(g), taskUnsnoozeCmd(g), taskWakeCmd(g), taskLinkCmd(g),
 	)
 	return cmd
 }
@@ -177,7 +177,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 		projects, statuses, tags, assignees  []string
 		text, cursor, sort, expr             string
 		dueBefore, dueAfter                  string
-		limit                                int
+		limit, pageNumber                    int
 		desc, all, deleted                   bool
 		claimed, unclaimed, blocked, starred bool
 		overdue, recurring, trashed, mine    bool
@@ -204,6 +204,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 			"--saved NAME starts from one of your saved filters (see tix filter), with its sort; " +
 			"--filter and the other flags narrow it further. --mine is assignee:me, the tasks " +
 			"assigned to you; claimed-by:me in --filter selects the ones you hold.\n\n" +
+			"--page N lists one page by number instead of from a cursor, and says on standard error " +
+			"which page of how many it printed and how many tasks match; a number past the end prints " +
+			"the last page.\n\n" +
 			"Snoozed tasks are left out until they wake; --snoozed (is:snoozed) lists only them and " +
 			"--include-snoozed (snoozed:any) lists them beside the rest.\n\n" +
 			"Exit codes: 2 invalid filter, 3 unknown project, status, parent, actor or saved filter, 5 permission denied, " +
@@ -267,7 +270,16 @@ func taskLsCmd(g *globals) *cobra.Command {
 			if text != "" {
 				filter.Query = strings.TrimSpace(filter.Query + " " + text)
 			}
+			switch {
+			case pageNumber != 0 && cursor != "":
+				return usagef(cmd, "--page and --cursor are mutually exclusive")
+			case pageNumber != 0 && all:
+				return usagef(cmd, "--page and --all are mutually exclusive")
+			case pageNumber < 0:
+				return usagef(cmd, "--page counts from 1")
+			}
 			filter.Page.Cursor = cursor
+			filter.PageNumber = pageNumber
 			filter.Page.Direction = core.Ascending
 			if cmd.Flags().Changed("limit") {
 				filter.Page.Limit = limit
@@ -330,6 +342,9 @@ func taskLsCmd(g *globals) *cobra.Command {
 					}
 				}
 				if !all || page.NextCursor == "" {
+					if page.Number > 0 {
+						g.diag(cmd, "%s", pagePosition(page, filter.Page.Limit))
+					}
 					if page.NextCursor != "" {
 						g.diag(cmd, "more results available; next cursor %s", page.NextCursor)
 					}
@@ -347,6 +362,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.StringVar(&text, "query", "", "match title and body text")
 	f.StringVar(&expr, "filter", "", "filter expression, such as 'status:todo -tag:ops title~deploy'")
 	f.StringVar(&cursor, "cursor", "", "continue from a previous page")
+	f.IntVar(&pageNumber, "page", 0, "list page N of --limit tasks each, counting from 1")
 	f.StringVar(&sort, "sort", core.SortUrgency, "sort field")
 	f.IntVar(&limit, "limit", config.DefaultPageSize, "maximum records per page")
 	f.BoolVar(&desc, "desc", false, "sort descending")
@@ -355,7 +371,7 @@ func taskLsCmd(g *globals) *cobra.Command {
 	f.BoolVar(&trashed, "trashed", false, "only soft-deleted tasks, the trash")
 	f.BoolVar(&claimed, "claimed", false, "only tasks currently claimed")
 	f.BoolVar(&unclaimed, "unclaimed", false, "only tasks not currently claimed")
-	f.BoolVar(&blocked, "blocked", false, "only tasks blocked by a dependency")
+	f.BoolVar(&blocked, "blocked", false, "only tasks waiting on an unfinished dependency")
 	f.BoolVar(&recurring, "recurring", false, "only tasks carrying a repeat rule")
 	f.BoolVar(&starred, "starred", false, "only tasks you starred; --starred=false for the rest")
 	f.BoolVar(&snoozed, "snoozed", false, "only snoozed tasks; --snoozed=false for the tasks that are not")
@@ -368,6 +384,18 @@ func taskLsCmd(g *globals) *cobra.Command {
 	_ = cmd.RegisterFlagCompletionFunc("sort", fixedCompletion(core.TaskSortFields))
 	registerCompletions(g, cmd, "project", "status", "tag")
 	return cmd
+}
+
+// pagePosition says which page of how many a numbered listing printed.
+func pagePosition(page core.TaskPage, limit int) string {
+	if limit < 1 {
+		limit = core.DefaultPageLimit
+	}
+	plus := ""
+	if page.TotalCapped {
+		plus = "+"
+	}
+	return fmt.Sprintf("page %d of %d%s, %d%s tasks", page.Number, core.PagesOf(page.Total, limit), plus, page.Total, plus)
 }
 
 // savedExpression is a saved filter's expression with its sort, followed by
@@ -700,6 +728,10 @@ func taskMvCmd(g *globals) *cobra.Command {
 			"printed, and then applied one ordinary transition at a time, so the audit trail records every state the " +
 			"task passed through. Name the route yourself as doing>done when two routes are equally short.\n\n" +
 			"--version moves a single task only if it is still at that version, as tix task edit --version does.\n\n" +
+			"--dry-run makes every check the move makes, the state, the edge, its comment and scope, the lease " +
+			"token and the version, and writes nothing, so it fails exactly where the move would.\n\n" +
+			"Moving a task you hold into a finished state (done, cancelled) with --lease-token releases your " +
+			"lease in the same write; there is no claim release to run after it.\n\n" +
 			"Exit codes: 3 unknown reference, 4 lease expired or version conflict, 6 illegal transition.",
 		Example: "  tix task mv default-1 doing\n  tix task mv default-1 done --hops\n" +
 			"  tix task ls -o ndjson | jq -r .ref | tix task mv - done",
@@ -733,8 +765,12 @@ func taskMvCmd(g *globals) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				return g.dryBulk(cmd, conn, ctx, refs, "task.transition",
-					map[string]any{"to": status})
+				in.DryRun = true
+				return g.dryEach(cmd, refs, "task.transition", map[string]any{"to": status},
+					func(ref core.TaskRef) error {
+						_, err := conn.Service.TransitionTask(ctx, ref, in)
+						return err
+					})
 			}
 			return g.bulk(cmd, refs, func(ref core.TaskRef) error {
 				_, err := conn.Service.TransitionTask(ctx, ref, in)
@@ -832,6 +868,40 @@ func taskRestoreCmd(g *globals) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be restored without writing")
+	return cmd
+}
+
+func taskPurgeCmd(g *globals) *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "purge REF...",
+		Short: "Delete tasks in the trash permanently",
+		Long: "Delete tasks that are already in the trash for good, each with its subtasks that are in the\n" +
+			"trash too, the way the trash cleanup rule does when they expire. It cannot be undone. A live\n" +
+			"task is refused: delete it first, or use tix task rm --hard.\n\n" +
+			"Exit codes: 3 unknown reference, 5 permission denied, 6 the task is not in the trash or the\n" +
+			"tenant has its trash turned off.",
+		Example: "  tix task purge default-1\n  tix task purge default-1 default-4 --dry-run",
+		Args:    minArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			refs, err := readRefs(cmd, args)
+			if err != nil {
+				return err
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("task.purge", refsString(refs), nil))
+			}
+			return g.bulk(cmd, refs, func(ref core.TaskRef) error {
+				return conn.Service.PurgeTask(ctx, ref)
+			})
+		},
+		ValidArgsFunction: g.completeTaskRefs,
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be purged without writing")
 	return cmd
 }
 

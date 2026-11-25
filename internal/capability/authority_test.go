@@ -28,6 +28,8 @@ var scopeVariesByInput = map[string]string{
 		"project:write; the registry cannot name one scope for both",
 	"BulkTasks": "checks the scope of the action it is asked to apply, so a bulk move needs " +
 		"task:transition and a bulk delete task:delete; no one scope describes the operation",
+	"RotateToken": "lets a token's own actor rotate it on the scopes it holds and needs token:admin only " +
+		"for another actor's, so which scope it asks for depends on whose token it is handed",
 }
 
 // validArgs supplies the least input that gets past a method's own validation,
@@ -36,6 +38,8 @@ var scopeVariesByInput = map[string]string{
 var validArgs = map[string][]any{
 	"AddComment":      {core.TaskRef{ID: "t"}, "body"},
 	"EditComment":     {"c1", "body"},
+	"AddReaction":     {"c1", "👍"},
+	"RemoveReaction":  {"c1", "👍"},
 	"AddTag":          {core.TaskRef{ID: "t"}, "urgent"},
 	"RemoveTag":       {core.TaskRef{ID: "t"}, "urgent"},
 	"CreateTask":      {core.CreateTaskInput{Title: "a title"}},

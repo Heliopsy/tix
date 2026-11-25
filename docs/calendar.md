@@ -86,6 +86,11 @@ over CalDAV. An all-day `VEVENT` is drawn by all three. `VEVENT` has no `COMPLET
 task is marked in its summary instead, and `CANCELLED` is kept for work that was abandoned, since calendars
 draw a cancelled event struck through or hide it.
 
+The to-do lists people keep, Apple Reminders, Thunderbird's Tasks, tasks.org and jtx Board through DAVx5 and
+Evolution, read `VTODO` over CalDAV, and `tix serve` answers that too, signed in with an app password: see
+[caldav.md](caldav.md). The feed stays events, because the three calendars above still would not show a
+to-do from a subscription.
+
 ### Dates and time zones
 
 A bare due date, from any surface, is stored as midnight UTC, and the feed writes that UTC date as a

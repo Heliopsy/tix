@@ -1,5 +1,11 @@
 {{define "content"}}
-<div class="headtip"><h1>{{t "Workflows"}}</h1>{{template "tip" (tip "Workflows" "A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup." "docs/workflows.md")}}{{template "help" $}}</div>
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{t "Workflows"}}</h1>{{template "tip" (tip "Workflows" "A workflow is the set of states a task can be in and the moves allowed between them. Every project uses exactly one, and the built-in default works with no setup." "docs/workflows.md")}}</div>
+  </div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "workflow-template" (t "Add from template") "plus" "" .Here)}}</div>
+  {{template "help" $}}
+</div>
 <table class="rows">
   <thead><tr><th>{{t "Key"}}</th><th>{{t "Name"}}</th><th>{{t "States"}}</th><th>{{t "Builtin"}}</th></tr></thead>
   <tbody>
@@ -11,8 +17,51 @@
       <td>{{if .Builtin}}{{t "yes"}}{{else}}{{t "no"}}{{end}}</td>
     </tr>
   {{else}}
-    <tr><td colspan="4">{{t "No workflows."}}</td></tr>
+    <tr><td colspan="4"><div class="empty-action"><span>{{t "No workflows."}}</span>{{template "dlg-open" (opener "workflow-template" (t "Add from template") "plus" "" $.Here)}}</div></td></tr>
   {{end}}
   </tbody>
 </table>
+
+{{/* Add from template. Each choice leads with its purpose, which is what a
+     reader picks a workflow by; the name, the Built-in label and the states
+     follow. Without scripting the opener is a link to ?dialog=, which draws
+     this same form in place. */}}
+{{$d := .Dialog.For "workflow-template"}}
+{{$sh := shell "workflow-template" (t "Add from template") "wftpl-dlg" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/workflow-templates/apply">
+  {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <fieldset class="wfpick" id="template"{{$d.Errors.Attrs "template"}}>
+    <legend>{{t "Template"}}</legend>
+    {{with $d.Errors.On "template"}}{{template "field-error" .}}{{end}}
+    <div class="wfpick-list">
+    {{range $i, $c := .Data.Templates}}
+    <label class="wfpick-opt">
+      <input type="radio" name="template" value="{{$c.Key}}"{{if $d.Refused}}{{if $d.Chose "template" $c.Key}} checked{{end}}{{else if eq $i 0}} checked{{end}}>
+      {{template "wfpick-template" $c}}
+    </label>
+    {{end}}
+    </div>
+  </fieldset>
+  <div class="row">
+    <div>
+      <div class="field-label"><label for="wftpl-as">{{t "Key"}}</label>{{template "field-info" "The key the new workflow is created under. Leave it empty to use the template's own key, which starts with tix- and is reserved for the built-in templates."}}</div>
+      <input id="wftpl-as" class="mono" name="as" value="{{$d.Value "as"}}" placeholder="{{t "the template's key"}}" autocomplete="off" autocapitalize="none" spellcheck="false"{{$d.Errors.Attrs "as"}}>
+      {{with $d.Errors.On "as"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div>
+      <div class="field-label"><label for="wftpl-collision">{{t "If the key is taken"}}</label></div>
+      <select id="wftpl-collision" name="on_collision"{{$d.Errors.Attrs "on_collision"}}>
+        <option value=""{{if $d.Chose "on_collision" ""}} selected{{end}}>{{t "Refuse"}}</option>
+        <option value="rename"{{if $d.Chose "on_collision" "rename"}} selected{{end}}>{{t "Add it under the next free key"}}</option>
+        <option value="replace"{{if $d.Chose "on_collision" "replace"}} selected{{end}}>{{t "Replace the existing workflow"}}</option>
+        <option value="skip"{{if $d.Chose "on_collision" "skip"}} selected{{end}}>{{t "Keep the existing workflow"}}</option>
+      </select>
+    </div>
+  </div>
+  <p class="cfield-hint">{{t "The template's custom fields are added to a project when the project is created from the template."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Add workflow"}}</button></div>
+</form>
+{{template "dlg-end"}}
 {{end}}

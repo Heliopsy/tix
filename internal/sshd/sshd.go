@@ -209,8 +209,15 @@ func New(o Options) (*Server, error) {
 		// and an authentication offering nothing at all. Which keys are
 		// admitted is decided later, by the lookup, so a refusal is reported
 		// to the client rather than swallowed by the handshake.
+		//
+		// The rate limit is charged once per connection, not once per key
+		// the client offers, and a throttled connection is let through
+		// authentication so handle can tell the client why it is refused:
+		// a refusal here reads "Permission denied (publickey)", which is
+		// what an unknown key sees too. Nothing runs before handle checks.
 		PublicKeyHandler: func(ctx ssh.Context, _ ssh.PublicKey) bool {
-			return s.limiter.allow(sourceOf(ctx.RemoteAddr()))
+			s.throttle(ctx)
+			return true
 		},
 	}
 	return s, nil

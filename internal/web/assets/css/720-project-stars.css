@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* A project's star. It leads a projects row and follows the name on the
+   project page, always drawn, unlike the row's tools, because whether a
+   project is starred is a fact about the row and not something to hover for.
+   The look is the task star's (button.star in 420-lanes.css). */
+.projstar { display: inline-flex; flex: 0 0 auto; margin: 0; }
+.headtip .projstar { align-self: center; }
+
+/* All projects and Starred only, above the list. */
+.projfilter { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0 0 var(--space-3); }
+.projfilter a { display: inline-flex; align-items: center; gap: var(--space-1); }
+.projfilter a[aria-current="page"] { color: var(--ink); background: var(--row-hover); }
+
+.projsection-head { font-size: var(--text-sm); font-weight: 600; color: var(--muted); margin: var(--space-3) 0 var(--space-2); }

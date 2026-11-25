@@ -31,11 +31,9 @@ prints `using local database PATH` on standard error, `-q` included.
 #!/bin/sh
 set -eu
 
-claim=$(tix claim next -p infra -o json -q) || exit 0   # exit 3: empty queue, or a filter naming nothing
+claim=$(tix claim next -p infra --start -o json -q) || exit 0   # exit 3: empty queue, or a filter naming nothing
 ref=$(printf '%s' "$claim" | jq -r .task.ref)
 token=$(printf '%s' "$claim" | jq -r .lease_token)
-
-tix task mv "$ref" doing --lease-token "$token" -q
 
 # ... do the work, renewing on a ticker ...
 tix claim renew "$ref" --token "$token" --ttl 15m -q
@@ -45,6 +43,11 @@ tix claim release "$ref" --token "$token" --status done --result exit_code=0 --c
 
 Three things make this safe: the claim is atomic, the lease expires on its own, and every write after the claim
 requires the token the claim minted.
+
+`--start` moves the task to its first in-progress state (`doing` on the default workflow) in the claim's own
+transaction, so the loop is a claim, the work and a release. Finishing with `tix task mv "$ref" done
+--lease-token "$token"` instead of the release works too: a move into a terminal state under your own token
+releases the lease in the same write.
 
 ## Claiming
 
@@ -58,6 +61,8 @@ each get a different task, with no lock, no coordinator and no server process.
 | `-l, --tag` | restrict to tags |
 | `--ttl` | how long the lease holds; falls back to the task's lease, the project's, an authored workflow's `default_lease`, the tenant's, the deployment's, then 30m (see [How long a lease lasts](#how-long-a-lease-lasts)) |
 | `--actor` | claim on behalf of another actor |
+| `--start` | also move the task to the first in-progress state its workflow allows from where it is |
+| `--start-status` | the state `--start` moves the task to; implies `--start` |
 
 Claim eligibility covers every task that is not blocked by an unfinished dependency, not held by a live lease,
 not snoozed, and not already in a terminal state (`done`, `cancelled`). A queue whose tasks are all terminal
@@ -75,6 +80,24 @@ gives: a tag exists by being applied, so an unused tag and an unknown one are th
 
 `tix claim task REF` claims one named task instead of taking the next. It fails with exit 4 when the task is
 already held.
+
+### Claiming and starting in one call
+
+`--start` on `claim next` and `claim task`, and `start` / `start_status` on `POST /api/v1/claims/next` and
+`POST /api/v1/tasks/REF/claim` (so the MCP claim tools too), move the task in the same transaction as the claim.
+The state is `--start-status` when given, else the first state in the workflow's order whose category is in
+progress and which has an edge from where the task is. A task already there, or already in progress when no
+state is named, stays put. The audit trail holds the claim and then an ordinary transition, and the claim's
+JSON carries `started_from` with the status the task left.
+
+If the move is refused, nothing is claimed: a state the workflow lacks is exit 2 and lists its states, a state
+with no edge from here is exit 6. A worker is never left holding a task in a state it did not ask for.
+
+It is opt-in, and deliberately not the default. The worker shape this page used to show, and plenty of scripts
+written from it, claim and then run `tix task mv REF doing` themselves; a claim that had already moved the task
+would turn that second call into a refused `doing` to `doing` move. A tenant or workflow setting was considered
+and left out, because a claim whose behaviour depends on a setting the worker cannot see is the same surprise
+in another place.
 
 A snoozed task is not work anybody should start. `claim next` skips it until its wake time passes, and
 `tix claim task REF` refuses it with exit 6 (`precondition`) and the wake time in `details.snoozed_until`.
@@ -112,8 +135,9 @@ lease alone: the holder can still finish or release it.
 ```
 
 `lease_token` is the only field that is not derivable from a later read. Capture it before anything else can
-fail. `priority` is numeric: 1 highest, 3 normal, 5 lowest. Claiming does not by itself transition the task, so
-`status` is whatever it was; move it yourself, or let `claim exec --on-start` do it.
+fail. `priority` is numeric: 1 highest, 3 normal, 5 lowest. A claim without `--start` does not transition the
+task, so `status` is whatever it was; with `--start` it is the state the task was moved to, and `started_from`
+says where it was.
 
 ## Leases
 
@@ -219,6 +243,11 @@ that lease's token.
 - `tix task mv` needs `--lease-token` when the task is claimed
 - `tix artifact put` needs `--lease-token` when the task is claimed
 
+This holds for the holder too. The token proves the process that holds the lease, not the account it runs
+under: several workers often share one agent token, and a worker whose lease lapsed and whose task was then
+re-claimed by the same account is exactly the zombie the guard is for. So a holder that leaves the token out is
+refused like anybody else, and the message says it is the holder and names the flag and the field to pass.
+
 A token that is not the one currently held, and no token at all, both fail with exit 4 and a `lease_expired`
 error:
 
@@ -227,7 +256,7 @@ $ tix claim renew default-1 --token stale
 error: lease_expired: the lease on task "default-1" is no longer held under that token; claim it again
 
 $ tix task mv default-1 done
-error: lease_expired: task "default-1" is claimed; supply the lease token
+error: lease_expired: task "default-1" is claimed by you; pass the lease_token your claim printed (--lease-token TOKEN on the command line, lease_token over the API)
 
 $ tix artifact put default-1 --kind result --payload '{"stale":true}'
 error: lease_expired: task "default-1" is claimed; supply the lease token
@@ -276,7 +305,7 @@ tix claim exec --ref infra-42 --on-start doing --on-failure blocked -- make test
 
 | Flag | Effect |
 | --- | --- |
-| `--on-start` | status to move the task to before running the child |
+| `--on-start` | status to move the task to, in the same write as the claim, before running the child |
 | `--on-success` | status to release to when the child exits 0 (default `done`) |
 | `--on-failure` | status to release to when the child exits non-zero |
 | `--ref` | claim this task instead of the next eligible one |
@@ -342,7 +371,8 @@ can back off on 7 and page someone on 1.
 ## Tokens and scopes
 
 The browser's **Connect an agent** screen (`/connect`) issues a token and fills it into every command an
-agent needs: the CLI context, the MCP client of your choice, the skill and the REST API. See
+agent needs, one tab per way in: CLI, MCP (a tab per client), SSH, API and Skill. Each tab is a link, so
+`/connect?tab=mcp&client=codex` is the Codex setup for your server. See
 [web-ui.md](web-ui.md#connect-an-agent).
 
 Give an agent a token, not a user session:
@@ -358,20 +388,61 @@ The token value is printed once and cannot be retrieved again. Supply it with `-
 environment variable, or a named context (`tix ctx add NAME --server URL --token TOKEN --use`), which every
 command then presents. `tix whoami` says which one is in use.
 
-`tix token ls` lists what a tenant holds, with the name, scopes, creation time, expiry and last use of each;
-`tix token rm ID` revokes one, and a revoked token stops authenticating immediately.
+`tix token ls` lists what a tenant holds, with the name, scopes, claim requirement, creation time, expiry and
+last use of each; `tix token rm ID` revokes one, and a revoked token stops authenticating immediately.
+
+### Running AI agents
+
+Give every agent its own token, and do not share one admin token between agents. When several agents work
+through one token, history cannot tell them apart and nothing stops one from moving a task another is
+working. A setup that keeps them apart:
+
+```sh
+tix token create worker-1 --actor worker-1 --project infra --require-claim \
+  --scope task:read --scope task:claim --scope task:transition --scope comment:write
+```
+
+- **One token per agent.** Each agent's changes then carry its own token name in the audit trail.
+- **`--actor`** an agent actor of its own, if you want claims and history to name the agent rather than you.
+  A claim belongs to an actor, so two tokens acting as the same actor share their claims.
+- **`--project`** confines the token to the project the agent works in.
+- **Minimal scopes.** The four above work a queue; add others only when the agent needs them.
+- **`--require-claim`** refuses any change to a task the agent's actor has not claimed.
+
+### Tokens that require a claim
+
+A token minted with `--require-claim` (`require_claim` over the API, a checkbox on the browser's issue form,
+the "require a claim" field in the terminal's token form) changes a task only while its actor holds a live
+claim on it. Without one, these are refused as permission denied, exit `5` (HTTP `403`):
+
+- moving a task (`tix task mv`, `tix task done`, a route, a bulk move, the board), dry runs included;
+- editing its fields, ticking a checklist item, adding or removing a tag;
+- moving it to another project;
+- deleting it, and every subtask of a cascading delete;
+- each task of a bulk action, reported as that task's refusal while the rest are applied.
+
+The message says what to run:
+
+```console
+$ tix task mv infra-12 done
+error: forbidden: this token requires a claim on infra-12 before changing it; run: tix claim task infra-12 --start
+```
+
+Claiming is not affected, so `tix claim task REF --start` and `tix claim next --start` claim and move in one
+step. Nor are creating tasks, commenting, reactions, reading, renewing and releasing a claim. A claim held by
+another actor, or one whose lease has run out, does not count. Moving a claimed task still needs the lease
+token, as it always has, and a move into a finished state under it releases the lease.
+
+The setting is fixed when the token is minted. Tokens have no edit path; `tix token rotate` keeps it, and to
+change it you issue a new token and revoke the old one. People signed in, SSH sessions, a shell holding the
+database and tokens without the setting behave exactly as before.
 
 ### Names and expiry
 
 A token's name has to identify one token, because the name is what you choose by when you revoke: two
 credentials called `ci` make "revoke the one that leaked" a guess. Within a tenant, no two tokens that are
 still live may share a name, on every surface: the command line, the API and the browser. A revoked token
-keeps its name in the listing and releases it, so rotation is the obvious thing:
-
-```sh
-tix token rm 01J000000000000000000A
-tix token create ci --scope task:read --scope task:claim --scope task:transition
-```
+keeps its name in the listing and releases it, which is what lets a rotated token keep its name.
 
 Give a token an expiry. It is the only control that bounds what a leaked token can do while nobody has
 noticed, and an agent's credential is by definition held somewhere you do not watch.
@@ -401,6 +472,45 @@ caller sends and mints a non-expiring token when the field is absent, because an
 value rather than typing it, and a transport that quietly rewrites a field nobody set is worse than one that
 does what it was told. The ninety days belong to the two surfaces a person drives.
 
+### Rotating a token
+
+`tix token rotate ID|NAME` replaces a token in one step: it issues a new one with the same name, scopes,
+project, claim requirement and lifetime, prints its value once, and retires the old one.
+
+```sh
+tix token rotate ci                  # the old value stops at once
+tix token rotate ci --grace 10m      # the old value keeps working for ten minutes
+tix token rotate 01J000000000000000000A --actor ci-bot -o json
+```
+
+- **Lifetime.** The new token gets the old one's lifetime counted from now: a 90-day token rotated on day 80 is
+  good for another 90 days, and a token that never expired still does not. Rotating should not shorten a
+  credential each time it is done.
+- **Grace.** `--grace` keeps the old value working beside the new one for up to `24h`, so a running agent can
+  pick up the new value without a failed request. The default is `0`: after a leak, stop it now. The end of
+  the window is stored on the old token as its revocation time, so nothing has to run when it closes. Until
+  then the listings show the old token as *retiring*; `tix token rm` on it, or disabling its user, ends the
+  window at once. A retiring token cannot be rotated again: rotate its replacement.
+- **Who may.** A token's own actor may rotate it without `token:admin`, so an agent can rotate the token it
+  runs on. Anybody else's token needs `token:admin`. The new token never carries a scope the rotator does not
+  hold, by the same rules as `tix token create`, and a token pinned to a project rotates only tokens pinned to
+  the same project.
+- **Trail.** The audit entry is `token.rotate`, or `token.rotate_other` for somebody else's token, naming the
+  old and new token ids and never a value; the event is `token.rotated`.
+
+Over HTTP it is `POST /api/v1/tokens/{id}/rotate` with an optional `{"grace": "10m", "actor_id": "..."}`,
+answering `201` and the issued token, and so an MCP tool. The browser's Tokens screen has a Rotate button
+beside Revoke, and the terminal's account view rotates the selected token with `R`.
+
+An agent rotating its own token, without downtime:
+
+```sh
+new=$(tix token rotate "$TOKEN_NAME" --grace 10m -o json | jq -r .token)
+tix ctx add work --server "$SERVER" --token "$new" --use   # or update TIX_TOKEN wherever it lives
+```
+
+Store the new value before the window closes; it is not shown again.
+
 ### Revoking somebody else's token
 
 `token:admin` reaches every token of the tenant, not only your own, on every surface: `tix token ls --actor
@@ -424,6 +534,7 @@ two apart by filtering on the action. The entry names the token and the actor it
 | `task:transition` | move a task between states |
 | `task:claim` | claim, renew, release |
 | `task:reclaim` | end the lease another worker holds |
+| `task:approve` | cross a workflow edge that names it, such as approving or rejecting in the `tix-agent-review` and `tix-approval` templates. No role but `admin` carries it, so the worker doing the work cannot sign it off |
 | `task:delete` | delete and restore tasks |
 | `project:read` / `project:write` | read and change projects |
 | `workflow:read` / `workflow:write` | read and change workflows |
@@ -435,14 +546,15 @@ two apart by filtering on the action. The entry names the token and the actor it
 | `webhook:admin` | manage webhooks |
 | `tenant:admin` | manage the tenant, its members and its domains |
 | `global:admin` | act as a global admin: create tenants, reach every tenant. Not carried by `*`; see [tenancy.md](tenancy.md#global-admins) |
-| `account:read` | read the token owner's own account history, which names every tenant they belong to. Not carried by `*`; minted only for the owner's own actor; see [tenancy.md](tenancy.md#account-history) |
+| `account:read` | read the token owner's own account history, which names every tenant they belong to, and list or revoke the owner's own sessions. Not carried by `*`; minted only for the owner's own actor; see [tenancy.md](tenancy.md#account-history) |
+| `scim:provision` | answer the SCIM endpoints under `/scim/v2` for an identity provider, and nothing else. Not carried by `*`; carried alone, with no project; minted only by a tenant admin; refused outside `/scim/v2`; see [scim.md](scim.md#the-token) |
 | `sync:admin` | manage and run import sources |
 | `audit:read` | read the audit log |
 | `export` / `import` | stream a tenant snapshot out or in |
 
-`*` grants everything but `global:admin` and `account:read` and is what the `admin` role carries. Human roles
-map to scope sets: `viewer` gets the read scopes plus `event:subscribe` and `audit:read`; `member` adds task
-write, transition, claim, comments, artifacts and `export`; `admin` gets `*`.
+`*` grants everything but `global:admin`, `account:read` and `scim:provision`, and is what the `admin` role
+carries. Human roles map to scope sets: `viewer` gets the read scopes plus `event:subscribe` and `audit:read`;
+`member` adds task write, transition, claim, comments, artifacts and `export`; `admin` gets `*`.
 
 `--project` on a token pins it to one project. A project-scoped credential subscribing to the event stream has
 its subscription narrowed to that project, and naming a different project is refused.
@@ -464,8 +576,9 @@ enrolled in several. See [deployment.md](deployment.md#the-terminal-interface-ov
 the whole identity, and each new one is handed a seeded ephemeral tenant that is deleted after `--tenant-ttl`
 without a visit. That listener faces strangers, so it refuses to share a database with real work.
 
-An agent should still use a token. An enrolled key buys a terminal session and nothing else: the SSH listener
-serves the interactive interface, not the command tree, so there is no way to drive `tix claim` through it.
+An enrolled key also runs tix commands on the listener, `ssh acme@host task ls -o json`, with nothing
+configured on the client; see [deployment.md](deployment.md#commands-over-ssh). An agent should still use a
+token: it carries only the scopes you grant, where a key carries everything its person's role allows.
 
 ## Adding many tasks
 
@@ -494,7 +607,31 @@ tix claim release infra-42 --token "$TOKEN" --status done \
 ```
 
 `--result` takes repeatable `key=value` pairs, `--comment` records a comment with the release, and `--status`
-transitions the task if the workflow allows that edge from the current state.
+transitions the task if the workflow allows that edge from the current state. A status the workflow does not
+define is exit 2, and the message lists the states it does.
+
+### Finishing releases the lease
+
+`tix task mv REF done --lease-token TOKEN`, or any move into a terminal state (a `done` or `cancelled`
+category) under the caller's own live token, gives the lease up in the same write. The audit trail shows the
+transition and then a `task.release` with `reason: terminal`, and a `task.released` event follows the
+`task.transitioned` one. A move into a non-terminal state keeps the lease.
+
+A script that still runs `tix claim release REF --token TOKEN` afterwards keeps working: a release whose token
+no longer matches succeeds without writing anything when the task is unclaimed, finished, and the release
+carries no status, result or comment. One that carries something to write is refused with `lease_expired`, so
+a stale token cannot attach a result to finished work.
+
+A move into a terminal state while somebody else holds a live lease is refused for want of their token, as
+before.
+
+## Dry runs
+
+`tix task mv REF STATE --dry-run`, with or without `--hops`, and `dry_run` on `POST /api/v1/tasks/REF/transition`
+and `/route`, run the move inside its transaction and roll it back. Every check the move makes is made: the
+state exists, the edge exists, a required comment or scope, the lease token and `--version`. A refused dry run
+fails with the same error and exit code as the move, so `--dry-run` approving a state means the move will take
+it. A route dry run judges each hop against the state the hops before it would leave.
 
 ## Watching instead of polling
 

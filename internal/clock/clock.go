@@ -189,6 +189,13 @@ func (f *Fake) Tickers() int {
 	return len(f.tickers)
 }
 
+// Waiters reports how many After channels are still waiting to fire.
+func (f *Fake) Waiters() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.waiters)
+}
+
 // fakeTicker is registered with its Fake, whose mutex guards every field the
 // clock touches. Stop is called from the goroutine owning the ticker while the
 // test goroutine advances the clock, so it may not write without that lock.

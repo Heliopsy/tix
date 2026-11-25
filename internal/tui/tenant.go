@@ -146,9 +146,9 @@ func (m Model) adminState() TenantAdminState {
 	state.Loaded = true
 	state.Tenant, state.Tenants = m.admin.tenant, m.admin.tenants
 	state.Domains, state.Members, state.Handles = m.admin.domains, m.admin.members, m.admin.handles
-	state.Memberships = m.admin.memberships
+	state.Memberships, state.Providers = m.admin.memberships, m.admin.providers
 	state.TenantErr, state.TenantsErr = m.admin.tenantErr, m.admin.tenantsErr
-	state.DomainErr, state.MemberErr = m.admin.domainErr, m.admin.memberErr
+	state.DomainErr, state.MemberErr, state.SSOErr = m.admin.domainErr, m.admin.memberErr, m.admin.ssoErr
 	return state
 }
 
@@ -323,6 +323,30 @@ func (m Model) applyTenantEdit(form Form) (Model, tea.Cmd) {
 		return m, m.updateTenant(core.UpdateTenantInput{Theme: &theme}, attrTheme)
 	case attrName:
 		return m.startPrompt(promptTenantName, m.admin.tenant.Name), textinput.Blink
+	case attrArtifactMax:
+		return m.startPrompt(promptTenantArtifactMax, artifactMaxLine(*m.admin.tenant)), textinput.Blink
+	case attrArtifactTypes:
+		return m.startPrompt(promptTenantArtifactTypes, strings.Join(m.admin.tenant.ArtifactTypes, ",")), textinput.Blink
+	case attrSessionTTL:
+		return m.startPrompt(promptTenantSessionTTL, durationLine(m.admin.tenant.SessionTTL)), textinput.Blink
+	case attrSessionIdle:
+		return m.startPrompt(promptTenantSessionIdle, durationLine(m.admin.tenant.SessionIdleTimeout)), textinput.Blink
+	case attrSessionRemember:
+		return m.startPrompt(promptTenantSessionRemember, rememberLine(*m.admin.tenant)), textinput.Blink
+	case attrMFA:
+		policy := core.MFAPolicy(form.Value(attrMFA))
+		return m, m.updateTenant(core.UpdateTenantInput{MFAPolicy: &policy}, attrMFA)
+	case attrMFAGrace:
+		var grace core.Duration
+		if v := form.Value(attrMFAGrace); v != "0" {
+			parsed, err := core.ParseDuration(v)
+			if err != nil {
+				m.err = err.Error()
+				return m, nil
+			}
+			grace = parsed
+		}
+		return m, m.updateTenant(core.UpdateTenantInput{MFAGrace: &grace}, attrMFAGrace)
 	}
 	return m, nil
 }
@@ -466,4 +490,49 @@ func (m Model) submitTenant(text string) (Model, tea.Cmd) {
 	next := m.closePrompt()
 	next.status, next.err = "reaching tenant "+key+"...", ""
 	return next, next.switchTenant(key)
+}
+
+// updateArtifactLimit sends one of the tenant's artifact limits typed at the
+// prompt. Empty returns it to the server's; the service refuses one past it.
+func (m Model) updateArtifactLimit(kind promptKind, text string) tea.Cmd {
+	text = strings.TrimSpace(text)
+	if kind == promptTenantArtifactTypes {
+		types := strings.Split(text, ",")
+		return m.updateTenant(core.UpdateTenantInput{ArtifactTypes: &types}, attrArtifactTypes)
+	}
+	var n int64
+	if text != "" {
+		parsed, err := core.ParseByteSize(text)
+		if err != nil {
+			return func() tea.Msg {
+				return actionMsg{kind: actionEditTenant, label: m.tenantKey, err: err}
+			}
+		}
+		n = parsed
+	}
+	return m.updateTenant(core.UpdateTenantInput{ArtifactMaxBytes: &n}, attrArtifactMax)
+}
+
+// updateSessionSetting sends one of the tenant's session settings typed at
+// the prompt. Empty returns it to the server's; the service refuses one past
+// it.
+func (m Model) updateSessionSetting(kind promptKind, text string) tea.Cmd {
+	text = strings.TrimSpace(text)
+	if kind == promptTenantSessionRemember {
+		return m.updateTenant(core.UpdateTenantInput{SessionRememberTTL: &text}, attrSessionRemember)
+	}
+	var d core.Duration
+	if text != "" {
+		parsed, err := core.ParseDuration(text)
+		if err != nil {
+			return func() tea.Msg {
+				return actionMsg{kind: actionEditTenant, label: m.tenantKey, err: err}
+			}
+		}
+		d = parsed
+	}
+	if kind == promptTenantSessionIdle {
+		return m.updateTenant(core.UpdateTenantInput{SessionIdleTimeout: &d}, attrSessionIdle)
+	}
+	return m.updateTenant(core.UpdateTenantInput{SessionTTL: &d}, attrSessionTTL)
 }

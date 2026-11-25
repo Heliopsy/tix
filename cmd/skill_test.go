@@ -54,9 +54,16 @@ var terminators = map[string]bool{"|": true, "||": true, "&&": true, ";": true, 
 // it from the extractors.
 func skillSources(t *testing.T) map[string]string {
 	t.Helper()
+	return skillSourcesIn(t, skillDir)
+}
+
+// skillSourcesIn returns every Markdown file under one skill directory, keyed by
+// its path relative to that directory.
+func skillSourcesIn(t *testing.T, dir string) map[string]string {
+	t.Helper()
 
 	out := map[string]string{}
-	err := filepath.WalkDir(skillDir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -67,7 +74,7 @@ func skillSources(t *testing.T) map[string]string {
 		if rerr != nil {
 			return rerr
 		}
-		rel, rerr := filepath.Rel(skillDir, path)
+		rel, rerr := filepath.Rel(dir, path)
 		if rerr != nil {
 			return rerr
 		}
@@ -78,7 +85,7 @@ func skillSources(t *testing.T) map[string]string {
 		t.Fatalf("reading the skill: %v", err)
 	}
 	if _, ok := out["SKILL.md"]; !ok {
-		t.Fatalf("%s holds no SKILL.md; the skill changed shape", skillDir)
+		t.Fatalf("%s holds no SKILL.md; the skill changed shape", dir)
 	}
 	return out
 }
@@ -164,7 +171,15 @@ func TestSkillRecordsOneVersionMarker(t *testing.T) {
 }
 
 func TestSkillVerifiedAgainstIsAnAncestorOfHead(t *testing.T) {
-	m := verifiedAgainst.FindStringSubmatch(readSkill(t))
+	assertVerifiedAgainstIsAnAncestor(t, readSkill(t))
+}
+
+// assertVerifiedAgainstIsAnAncestor fails unless the one verified-against
+// marker in skill names a commit HEAD descends from.
+func assertVerifiedAgainstIsAnAncestor(t *testing.T, skill string) {
+	t.Helper()
+
+	m := verifiedAgainst.FindStringSubmatch(skill)
 	if m == nil {
 		t.Fatal("no verified-against marker")
 	}

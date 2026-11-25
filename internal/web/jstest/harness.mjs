@@ -207,11 +207,14 @@ export function fakeDocument({ byId = {}, bySelector = {}, bySelectorAll = {} } 
 }
 
 // keydown builds an event that records whether the handler claimed it.
-export function keydown(key, { target = element("DIV"), ctrlKey = false, shiftKey = false } = {}) {
+export function keydown(key, { target = element("DIV"), ctrlKey = false, shiftKey = false, altKey = false, metaKey = false, code } = {}) {
   return {
     key,
+    code,
     ctrlKey,
     shiftKey,
+    altKey,
+    metaKey,
     target,
     prevented: 0,
     stopped: 0,

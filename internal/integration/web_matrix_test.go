@@ -36,7 +36,7 @@ func localWebTarget(h *matrixHarness) (base string, svc core.Service, ctx contex
 // inside the web package ever sets that; it is put there by
 // `internal/httpapi.Router`'s authenticate/resolveTenant middleware, which is
 // only ever wired in by `internal/server.Assemble`, and only over
-// `server.NewAuthenticator(opts.Store, opts.Clock)` — a verifier that reads
+// `server.NewAuthenticator(opts.Store, opts.Clock, core.SessionPolicy{})` — a verifier that reads
 // tokens and sessions straight out of a `store.Store` (internal/server/auth.go),
 // not through `core.Service`. `cmd/serve.go`'s refusal to front a remote
 // target (`conn.Info.Target.Mode != connect.ModeLocal`) is therefore not

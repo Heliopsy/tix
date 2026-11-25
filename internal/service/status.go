@@ -86,6 +86,9 @@ func (l *Local) Status(ctx context.Context) (*core.StatusReport, error) {
 		out.Work.LeasesExpiredUnswept = counts.LeasesExpiredUnswept
 		out.Work.WebhooksPending = counts.WebhooksPending
 		out.Work.WebhooksFailed = counts.WebhooksFailed
+		if out.Work.NumberingBehind, err = tx.NumberingBehind(ctx); err != nil {
+			return err
+		}
 		return l.readSecondFactor(ctx, tx, tenant, &out.SecondFactor)
 	})
 	if err != nil {
@@ -160,6 +163,10 @@ func (l *Local) readSecondFactor(ctx context.Context, tx store.Tx, tenant *core.
 	out.RequireWeb = tenant.RequireTOTPWeb
 	out.RequireCLI = tenant.RequireTOTPCLI
 	out.RequireSSH = tenant.RequireTOTPSSH
+	out.Policy = tenant.MFAPolicy
+	if out.Policy == "" {
+		out.Policy = core.MFAPolicyOff
+	}
 
 	enrolments, err := tx.CountConfirmedTOTP(ctx)
 	if err != nil {

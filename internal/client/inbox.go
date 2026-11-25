@@ -16,6 +16,9 @@ func (c *Client) ListInbox(ctx context.Context, f core.InboxFilter) ([]core.Inbo
 	if f.Unread {
 		q.Set("unread", "true")
 	}
+	for _, k := range f.Kinds {
+		q.Add("kind", string(k))
+	}
 	return list[core.InboxItem](ctx, c, wire.RouteInbox, q)
 }
 

@@ -64,7 +64,14 @@ func (l *Local) ListComments(ctx context.Context, ref core.TaskRef) ([]core.Comm
 			return err
 		}
 		out, err = tx.ListComments(ctx, task.ID)
-		return err
+		if err != nil {
+			return err
+		}
+		ptrs := make([]*core.Comment, len(out))
+		for i := range out {
+			ptrs[i] = &out[i]
+		}
+		return withReactions(ctx, tx, ptrs)
 	})
 	if err != nil {
 		return nil, err
@@ -105,6 +112,9 @@ func (l *Local) EditComment(ctx context.Context, id, body string) (*core.Comment
 			return err
 		}
 		out = c
+		if err := withReactions(ctx, m.tx, []*core.Comment{c}); err != nil {
+			return err
+		}
 		if err := m.notifyMentions(ctx, inboxNote{task: task, commentID: c.ID}, c.Body, before.Body); err != nil {
 			return err
 		}
@@ -117,7 +127,7 @@ func (l *Local) EditComment(ctx context.Context, id, body string) (*core.Comment
 	return out, nil
 }
 
-// DeleteComment soft deletes a comment.
+// DeleteComment soft deletes a comment and removes its reactions.
 func (l *Local) DeleteComment(ctx context.Context, id string) error {
 	actor, err := l.authorize(ctx, authz.ActionCommentWrite, authz.Resource{})
 	if err != nil {
@@ -136,6 +146,9 @@ func (l *Local) DeleteComment(ctx context.Context, id string) error {
 			return err
 		}
 		if err := m.tx.DeleteComment(ctx, c.ID); err != nil {
+			return err
+		}
+		if err := m.tx.ClearReactions(ctx, c.ID); err != nil {
 			return err
 		}
 		return m.Record("comment.delete", core.EventTaskUpdated, "comment", c.ID, task.ProjectID,

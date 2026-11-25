@@ -22,6 +22,10 @@ const (
 
 	RouteWhoAmI = APIPrefix + "/whoami"
 
+	// RouteRelease reports the running version, the newest published
+	// release and the bundled changelog, as the browser's release screen does.
+	RouteRelease = APIPrefix + "/release"
+
 	// RouteOpenAPI serves the OpenAPI document of this API, without a
 	// credential.
 	RouteOpenAPI = APIPrefix + "/openapi.json"
@@ -30,8 +34,32 @@ const (
 	RouteLogout = APIPrefix + "/auth/logout"
 	RouteSwitch = APIPrefix + "/auth/switch"
 
+	// RouteSessionPolicy answers how long a sign-in on the tenant lasts. It
+	// needs no credential: a sign-in screen reads it.
+	RouteSessionPolicy = APIPrefix + "/auth/session-policy"
+
 	RouteSSHChallenge = APIPrefix + "/auth/ssh/challenge"
 	RouteSSHVerify    = APIPrefix + "/auth/ssh/verify"
+
+	// RouteSignInOptions, RouteSSOBegin and RouteSSOComplete serve a sign-in
+	// through one of the tenant's single sign-on providers. None needs a
+	// credential: they are how a person gets one.
+	RouteSignInOptions = APIPrefix + "/auth/sso/options"
+	RouteSSOBegin      = APIPrefix + "/auth/sso/begin"
+	RouteSSOComplete   = APIPrefix + "/auth/sso/complete"
+	// RouteSSOExchange trades the one-time code a native app's sign-in
+	// handed the app for a session, without a credential.
+	RouteSSOExchange = APIPrefix + "/auth/sso/exchange"
+	// RouteSAMLMetadata answers a SAML provider's service provider metadata,
+	// without a credential, as an IdP fetches it.
+	RouteSAMLMetadata = APIPrefix + "/auth/sso/providers/{id}/saml-metadata"
+
+	// RouteSSOProviders and RouteSSOProvider manage the tenant's sign-in
+	// providers, by key or identifier.
+	RouteSSOProviders = APIPrefix + "/sso/providers"
+	RouteSSOProvider  = APIPrefix + "/sso/providers/{id}"
+	// RouteSSOProviderRefresh reads a SAML provider's IdP metadata again.
+	RouteSSOProviderRefresh = APIPrefix + "/sso/providers/{id}/refresh"
 
 	RouteActors = APIPrefix + "/actors"
 	RouteActor  = APIPrefix + "/actors/{id}"
@@ -52,6 +80,8 @@ const (
 
 	RouteTokens = APIPrefix + "/tokens"
 	RouteToken  = APIPrefix + "/tokens/{id}"
+	// RouteTokenRotate replaces a token with a new one of the same name.
+	RouteTokenRotate = APIPrefix + "/tokens/{id}/rotate" // #nosec G101 -- a url path, not a credential
 
 	// The second factor of the caller's own account, and the one route that
 	// reaches another user's: an administrative clear.
@@ -66,6 +96,8 @@ const (
 
 	RouteTenants = APIPrefix + "/tenants"
 	RouteTenant  = APIPrefix + "/tenants/{ref}"
+	// The icon image of a tenant, which any member of it reads.
+	RouteTenantIcon = APIPrefix + "/tenants/{ref}/icon"
 	// The users of a named tenant, which only a global admin reaches.
 	RouteTenantUsers = APIPrefix + "/tenants/{ref}/users"
 	RouteTenantUser  = APIPrefix + "/tenants/{ref}/users/{id}"
@@ -73,6 +105,10 @@ const (
 	RouteTenantDomains = APIPrefix + "/tenants/{ref}/domains"
 	// RouteAccountLog is the caller's own account log.
 	RouteAccountLog = APIPrefix + "/account/log"
+	// RouteAccountSessions lists the caller's own sessions in this tenant.
+	RouteAccountSessions = APIPrefix + "/account/sessions"
+	// RouteAccountSession ends one of the caller's own sessions.
+	RouteAccountSession = APIPrefix + "/account/sessions/{id}"
 	// RouteAccountLogFor is any account's log, for a global admin.
 	RouteAccountLogFor = APIPrefix + "/accounts/{email}/log"
 	// RouteTenantMembers adds an existing account to a tenant.
@@ -89,15 +125,25 @@ const (
 	// RouteProjectDeletion plans a project's deletion without performing it.
 	RouteProjectDeletion = APIPrefix + "/projects/{ref}/deletion"
 	RouteProjectField    = APIPrefix + "/projects/{ref}/fields/{key}"
+	// RouteProjectStar sets (PUT) and clears (DELETE) the caller's own star.
+	RouteProjectStar = APIPrefix + "/projects/{ref}/star"
+	// RouteStarredProjects lists the projects the caller starred.
+	RouteStarredProjects = APIPrefix + "/me/starred-projects"
 
 	RouteWorkflows = APIPrefix + "/workflows"
 	RouteWorkflow  = APIPrefix + "/workflows/{key}"
+
+	// RouteWorkflowTemplates lists the built-in workflow templates.
+	RouteWorkflowTemplates = APIPrefix + "/workflow-templates"
+	// RouteWorkflowTemplateApply creates a workflow from one template.
+	RouteWorkflowTemplateApply = APIPrefix + "/workflow-templates/{key}/apply"
 
 	RouteTasks          = APIPrefix + "/tasks"
 	RouteTask           = APIPrefix + "/tasks/{ref}"
 	RouteTaskTransition = APIPrefix + "/tasks/{ref}/transition"
 	RouteTaskRoute      = APIPrefix + "/tasks/{ref}/route"
 	RouteTaskRestore    = APIPrefix + "/tasks/{ref}/restore"
+	RouteTaskTrash      = APIPrefix + "/tasks/{ref}/trash"
 	RouteTaskTree       = APIPrefix + "/tasks/{ref}/tree"
 	RouteTaskDeps       = APIPrefix + "/tasks/{ref}/deps"
 	RouteTaskDep        = APIPrefix + "/tasks/{ref}/deps/{dep}"
@@ -106,6 +152,7 @@ const (
 	RouteTaskStar       = APIPrefix + "/tasks/{ref}/star"
 	RouteTaskChecklist  = APIPrefix + "/tasks/{ref}/checklist"
 	RouteTaskCopy       = APIPrefix + "/tasks/{ref}/copy"
+	RouteTaskMove       = APIPrefix + "/tasks/{ref}/move"
 	RouteTaskBulk       = APIPrefix + "/tasks/bulk"
 	RouteTaskSnooze     = APIPrefix + "/tasks/{ref}/snooze"
 	RouteSnoozeWake     = APIPrefix + "/snoozes/wake"
@@ -113,11 +160,17 @@ const (
 	RouteTaskArtifacts  = APIPrefix + "/tasks/{ref}/artifacts"
 	RouteTaskAudit      = APIPrefix + "/tasks/{ref}/audit"
 
+	// RouteArtifactLimits answers the size and media types a new artifact
+	// blob is held to on the tenant.
+	RouteArtifactLimits = APIPrefix + "/artifact-limits"
+
 	// RouteTrash answers whether the tenant keeps deleted tasks.
 	RouteTrash = APIPrefix + "/trash"
 
 	RouteComment = APIPrefix + "/comments/{id}"
-	RouteLabels  = APIPrefix + "/tags"
+	// RouteCommentReaction is one emoji reaction of the caller's on a comment.
+	RouteCommentReaction = APIPrefix + "/comments/{id}/reactions/{emoji}"
+	RouteLabels          = APIPrefix + "/tags"
 
 	RouteTaskClaim        = APIPrefix + "/tasks/{ref}/claim"
 	RouteTaskClaimRenew   = APIPrefix + "/tasks/{ref}/claim/renew"
@@ -129,6 +182,7 @@ const (
 
 	RouteWebhooks          = APIPrefix + "/webhooks"
 	RouteWebhook           = APIPrefix + "/webhooks/{id}"
+	RouteWebhookPing       = APIPrefix + "/webhooks/{id}/ping"
 	RouteDeliveries        = APIPrefix + "/webhooks/deliveries"
 	RouteDeliveryRedeliver = APIPrefix + "/webhooks/deliveries/{id}/redeliver"
 
@@ -143,6 +197,15 @@ const (
 	RouteHousekeeping    = APIPrefix + "/housekeeping"
 	RouteHousekeepingRun = APIPrefix + "/housekeeping/run"
 
+	// RouteSCIM reads the tenant's SCIM provisioning settings; the routes
+	// under it turn provisioning on and off, mint its token and map groups.
+	RouteSCIM        = APIPrefix + "/scim"
+	RouteSCIMEnable  = APIPrefix + "/scim/enable"
+	RouteSCIMDisable = APIPrefix + "/scim/disable"
+	RouteSCIMToken   = APIPrefix + "/scim/token" // #nosec G101 -- a url path, not a credential
+	RouteSCIMGroups  = APIPrefix + "/scim/groups"
+	RouteSCIMGroup   = APIPrefix + "/scim/groups/{group}"
+
 	RouteExport = APIPrefix + "/export"
 	RouteImport = APIPrefix + "/import"
 
@@ -155,7 +218,8 @@ const (
 	RouteSyncSource  = APIPrefix + "/sync/sources/{id}"
 	RouteSyncRun     = APIPrefix + "/sync/run"
 
-	RouteEvents = APIPrefix + "/events"
+	RouteEvents     = APIPrefix + "/events"
+	RouteEventsPoll = APIPrefix + "/events/poll"
 
 	RouteConnections = APIPrefix + "/connections"
 	RouteConnection  = APIPrefix + "/connections/{id}"
@@ -169,6 +233,9 @@ const (
 	RouteFilterOrder    = APIPrefix + "/filters/order"
 	RouteCalendar       = APIPrefix + "/calendar"
 	RouteCalendarRotate = APIPrefix + "/calendar/rotate"
+	RouteDAV            = APIPrefix + "/dav"
+	RouteDAVPasswords   = APIPrefix + "/dav/passwords"
+	RouteDAVPassword    = APIPrefix + "/dav/passwords/{id}"
 	// RouteCalendarFeed is read by calendar apps with no credential. Its one
 	// segment is the feed secret followed by CalendarFeedSuffix, because some
 	// clients refuse an address that does not look like a file.
@@ -209,13 +276,17 @@ func CalendarFeedPath(token string) string { return CalendarFeedPrefix + token +
 const (
 	ContentJSON   = "application/json"
 	ContentNDJSON = "application/x-ndjson"
+	// ContentSAMLMetadata is SAML metadata, as an IdP imports it.
+	ContentSAMLMetadata = "application/samlmetadata+xml"
+	// ContentSCIM is the media type of every SCIM request and response.
+	ContentSCIM = "application/scim+json"
 )
 
-// IconPolicy is the content security policy a project icon image is served
+// IconPolicy is the content security policy a project or tenant icon image is served
 // under, so an SVG opened on its own runs no script and loads nothing.
 const IconPolicy = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
-// IconETag is the strong entity tag of a project icon image.
+// IconETag is the strong entity tag of a project or tenant icon image.
 func IconETag(digest string) string { return `"` + digest + `"` }
 
 // Header names.
@@ -224,6 +295,16 @@ const (
 	HeaderContentType = "Content-Type"
 	HeaderAccept      = "Accept"
 	SessionCookieName = "tix_session"
+)
+
+// Idempotency headers. A client sends HeaderIdempotencyKey on a write it may
+// retry; a response replayed from an earlier request with the same key carries
+// HeaderIdempotentReplayed, and a refusal because the first request is still
+// running carries HeaderRetryAfter in seconds.
+const (
+	HeaderIdempotencyKey     = "Idempotency-Key"
+	HeaderIdempotentReplayed = "Idempotent-Replayed"
+	HeaderRetryAfter         = "Retry-After"
 )
 
 // HeaderClient names the tix client making a request: cli or mcp. The server
@@ -253,6 +334,19 @@ type ErrorEnvelope struct {
 type Page[T any] struct {
 	Items      []T    `json:"items"`
 	NextCursor string `json:"next_cursor,omitempty"`
+	// Total is how many items the listing's filter selects, on a listing
+	// that counts (the task listing). It is absent where nothing is counted.
+	Total *int `json:"total,omitempty"`
+	// TotalCapped is true when the count stopped at its cap, 10000 tasks, so
+	// total is a floor rather than the whole.
+	TotalCapped bool `json:"total_capped,omitempty"`
+	// Page is the page number served, from one, when the request asked by
+	// page; a number past the end is served as the last page.
+	Page int `json:"page,omitempty"`
+	// Tally counts the whole selection on a task listing asked with
+	// tally=true: per project and status, waiting on a dependency, and held
+	// under a claim. It is absent otherwise.
+	Tally *core.TaskTally `json:"tally,omitempty"`
 }
 
 // Route patterns for component sharing, which moves reusable configuration

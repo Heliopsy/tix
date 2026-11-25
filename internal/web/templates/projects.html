@@ -32,41 +32,37 @@
      entire content was the same link text repeated once per project. None of
      it said anything about the work, which is the only reason to open this
      screen. The description is shown because it is the one field here a
-     person wrote, and the state only when it is not the ordinary one. */}}
-<ul class="projlist rows">
-  {{range .Data.Projects}}
-  <li class="projrow{{with projClass .Color}} {{.}}{{end}}{{if .Archived}} is-archived{{end}}"{{with projStyle .Color}} style="{{.}}"{{end}}>
-    <a class="projrow-main" href="/projects/{{.Key}}">
-      <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon . true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice (key .Key) 0 1}}{{end}}</span>
-      <span class="projrow-text">
-        <span class="projrow-title">{{.Name}}<span class="projrow-key mono">{{key .Key}}</span>{{if .Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}</span>
-        {{if .Description}}<span class="projrow-desc">{{.Description}}</span>{{end}}
-      </span>
-    </a>
-    <span class="projrow-tools">
-      {{/* Pinning is the per-reader star the lanes already keep on a
-           project (view "lanes"), so this and a lane's Star are one switch.
-           See pinnedProjects in sidebar.go. */}}
-      {{$pinned := $v.IsPinned .Key}}
-      <form method="post" action="/view/group" class="projpin">
-        {{template "csrf" $.CSRF}}
-        <input type="hidden" name="view" value="lanes">
-        <input type="hidden" name="group" value="{{.Key}}">
-        <input type="hidden" name="set" value="starred">
-        <input type="hidden" name="value" value="{{if $pinned}}0{{else}}1{{end}}">
-        <input type="hidden" name="next" value="{{$.Here}}">
-        <button type="submit" class="ghostlink projpin-btn" aria-pressed="{{if $pinned}}true{{else}}false{{end}}" aria-label="{{if $pinned}}{{t "Unpin %s from the sidebar" .Name}}{{else}}{{t "Pin %s to the sidebar" .Name}}{{end}}">{{if $pinned}}{{t "Unpin"}}{{else}}{{t "Pin to sidebar"}}{{end}}</button>
-      </form>
-      <a class="ghostlink" href="/tasks?q=project:{{.Key}}">{{t "Tasks"}}</a>
-      <a class="ghostlink" href="/projects/{{.Key}}/fields">{{t "Fields"}}</a>
-      <a class="ghostlink" href="/projects/{{.Key}}">{{t "Manage"}}</a>
-    </span>
-  </li>
-  {{else}}
-  <li class="empty muted">{{t "No projects yet. Use New project to make the first one."}}</li>
-  {{end}}
-</ul>
+     person wrote, and the state only when it is not the ordinary one.
+
+     Starred first, as its own section, then the rest without them, so a
+     project is listed once. Starred only (?starred=1) draws the first alone.
+     The star is the reader's own and the same mark as the project's lane
+     star; see pinnedProjects in sidebar.go. */}}
+<nav class="projfilter" aria-label="{{t "Show projects"}}">
+  <a class="ghostlink" href="/projects"{{if not $v.StarredOnly}} aria-current="page"{{end}}>{{t "All projects"}}</a>
+  <a class="ghostlink" href="/projects?starred=1"{{if $v.StarredOnly}} aria-current="page"{{end}}><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#star-filled"/></svg> {{t "Starred only"}}</a>
+</nav>
+{{if or $v.Starred $v.StarredOnly}}
+<section class="projsection" aria-labelledby="projs-starred">
+  <h2 id="projs-starred" class="projsection-head">{{t "Starred"}}</h2>
+  <ul class="projlist rows" data-projlist="starred">
+    {{range $v.Starred}}{{template "project-row" ((projectStar . $.Here $.CSRF).WithOpen $v.Open)}}
+    {{else}}<li class="empty muted">{{t "No starred projects yet. Star a project with the star beside its name."}}</li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{if not $v.StarredOnly}}
+<section class="projsection" aria-labelledby="projs-all">
+  {{if $v.Starred}}<h2 id="projs-all" class="projsection-head">{{t "Other projects"}}</h2>{{else}}<h2 id="projs-all" class="sr-only">{{t "Projects"}}</h2>{{end}}
+  <ul class="projlist rows" data-projlist="all">
+    {{range $v.Projects}}{{template "project-row" ((projectStar . $.Here $.CSRF).WithOpen $v.Open)}}
+    {{else}}{{if not $v.Starred}}<li class="empty muted">{{t "No projects yet. Use New project to make the first one."}}</li>{{end}}
+    {{end}}
+  </ul>
+</section>
 {{template "pager" .Data.Pager}}
+{{end}}
 
 {{end}}
 
@@ -90,21 +86,40 @@
         <input id="name" class="cform-lead" name="name" value="{{$f.Name}}" placeholder="{{t "For example, Website relaunch"}}" autocomplete="off" required autofocus data-key-source{{$e.Attrs "name"}}>
         {{with $e.On "name"}}{{template "field-error" .}}{{end}}
       </div>
-      <div class="cform-pair">
-        <div class="cfield">
-          <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "A short code for the project, such as INFRA. Every task reference starts with it, as in INFRA-5.")}}</div>
-          <input id="key" class="mono" name="key" value="{{$f.Key}}" placeholder="{{t "key"}}" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required data-key-target data-taken="{{range $i, $k := $v.Taken}}{{if $i}} {{end}}{{$k}}{{end}}" aria-describedby="key-hint{{with $e.On "key"}} {{.ID}}{{end}}"{{if $e.On "key"}} aria-invalid="true"{{end}}>
-          <p class="cfield-hint" id="key-hint">{{t "Letters, digits, - and _. Tasks are numbered"}} <span class="mono" data-key-preview>{{key (or $f.Key (t "key"))}}-1</span>.</p>
-          {{with $e.On "key"}}{{template "field-error" .}}{{end}}
-        </div>
-        <div class="cfield">
-          <div class="cfield-label"><label for="workflow_key">{{t "Workflow"}}</label>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</div>
-          <select id="workflow_key" name="workflow_key"{{$e.Attrs "workflow_key"}}>
-            {{range $v.Workflows}}<option value="{{.Key}}"{{if eq .Key $f.Workflow}} selected{{end}}>{{.Name}}</option>{{end}}
-          </select>
-          {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
-        </div>
+      <div class="cfield">
+        <div class="cfield-label"><label for="key">{{t "Key"}}</label>{{template "required-mark"}}{{template "tip" (tip "Key" "A short code for the project, such as INFRA. Every task reference starts with it, as in INFRA-5.")}}</div>
+        <input id="key" class="mono" name="key" value="{{$f.Key}}" placeholder="{{t "key"}}" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required data-key-target data-taken="{{range $i, $k := $v.Taken}}{{if $i}} {{end}}{{$k}}{{end}}" aria-describedby="key-hint{{with $e.On "key"}} {{.ID}}{{end}}"{{if $e.On "key"}} aria-invalid="true"{{end}}>
+        <p class="cfield-hint" id="key-hint">{{t "Letters, digits, - and _. Tasks are numbered"}} <span class="mono" data-key-preview>{{key (or $f.Key (t "key"))}}-1</span>.</p>
+        {{with $e.On "key"}}{{template "field-error" .}}{{end}}
       </div>
+      {{/* The workflow picker. A select could show a name and nothing else,
+           and a name says little about a template, so each choice is a row:
+           a template leads with its purpose, then its name, its Built-in
+           label and its states. Radios submit without scripting. */}}
+      {{$chosen := or $f.Workflow "default"}}
+      <fieldset class="cfield wfpick" id="workflow_key"{{$e.Attrs "workflow_key"}}>
+        <legend class="cfield-label"><span class="cfield-name">{{t "Workflow"}}</span>{{template "tip" (tip "Workflow" "A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow." "docs/workflows.md")}}</legend>
+        {{with $e.On "workflow_key"}}{{template "field-error" .}}{{end}}
+        {{with $e.On "workflow_template"}}{{template "field-error" .}}{{end}}
+        <div class="wfpick-list">
+          <p class="wfpick-group">{{t "Workflows in this tenant"}}</p>
+          {{range $v.Workflows}}
+          <label class="wfpick-opt">
+            <input type="radio" name="workflow_key" value="{{.Key}}"{{if eq .Key $chosen}} checked{{end}}>
+            <span class="wfpick-text"><span class="wfpick-name">{{.Name}}</span><span class="wfpick-states">{{.Definition.StatesSummary}}</span></span>
+          </label>
+          {{end}}
+          {{with $v.Templates}}
+          <p class="wfpick-group">{{t "Built-in templates"}}</p>
+          {{range .}}
+          <label class="wfpick-opt">
+            <input type="radio" name="workflow_key" value="{{.Choice}}"{{if eq .Choice $chosen}} checked{{end}}>
+            {{template "wfpick-template" .}}
+          </label>
+          {{end}}
+          {{end}}
+        </div>
+      </fieldset>
       <div class="cfield cfield-grow">
         <div class="cfield-label"><label for="description">{{t "Description"}}</label></div>
         <textarea id="description" name="description" rows="4" placeholder="{{t "What the project is for, in a sentence or two"}}">{{$f.Description}}</textarea>
@@ -133,4 +148,26 @@
     </div>
   </div>
 </form>
+{{end}}
+
+{{/* project-row is one row of the projects screen. A list of projects, not a
+     dump of their columns: the description is shown because it is the one
+     field here a person wrote, and the state only when it is not the
+     ordinary one. The star leads the row and is always drawn. */}}
+{{define "project-row"}}{{$p := .P}}
+  <li class="projrow{{with projClass $p.Color}} {{.}}{{end}}{{if $p.Archived}} is-archived{{end}}{{if $p.Starred}} is-starred{{end}}"{{with projStyle $p.Color}} style="{{.}}"{{end}} id="p-{{key $p.Key}}">
+    {{template "project-star" .}}
+    <a class="projrow-main" href="/projects/{{$p.Key}}">
+      <span class="projrow-mark" aria-hidden="true">{{$mark := projIcon $p true}}{{if $mark.Any}}{{template "proj-icon" $mark}}{{else}}{{slice (key $p.Key) 0 1}}{{end}}</span>
+      <span class="projrow-text">
+        <span class="projrow-title"><span class="projrow-name">{{$p.Name}}</span><span class="projrow-key mono">{{key $p.Key}}</span>{{if $p.Archived}}<span class="pill status cancelled">{{t "archived"}}</span>{{end}}{{if .Counted}}<span class="projrow-open" data-open="{{.Open}}">{{if .Open}}{{tn "%d open task" "%d open tasks" .Open}}{{else}}{{t "no open tasks"}}{{end}}</span>{{end}}</span>
+        {{if $p.Description}}<span class="projrow-desc" title="{{$p.Description}}">{{$p.Description}}</span>{{end}}
+      </span>
+    </a>
+    <span class="projrow-tools">
+      <a class="ghostlink" href="/tasks?q=project:{{$p.Key}}">{{t "Tasks"}}</a>
+      <a class="ghostlink" href="/projects/{{$p.Key}}/fields">{{t "Fields"}}</a>
+      <a class="ghostlink" href="/projects/{{$p.Key}}">{{t "Manage"}}</a>
+    </span>
+  </li>
 {{end}}

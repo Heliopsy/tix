@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,19 +37,69 @@ func (m Model) loadBoard(p core.Project) tea.Cmd {
 	if m.svc == nil {
 		return nil
 	}
-	svc, ctx, filter, arranges := m.svc, m.ctx, m.taskFilter(p.Key), m.arranges()
+	page := m.paged.number
+	if p.ID != m.project.ID {
+		page = 1
+	}
+	svc, ctx, filter, arranges := m.svc, m.ctx, m.taskFilterAt(p.Key, page), m.arranges()
 	return func() tea.Msg {
 		def, err := workflowOf(ctx, svc, p)
 		if err != nil {
 			return errMsg{err: err}
 		}
-		page, err := svc.ListTasks(ctx, filter)
+		page, err := listByColumn(ctx, svc, filter, def)
 		if err != nil {
 			return errMsg{err: err}
 		}
 		prefs, _ := readArrangement(ctx, svc, p.Key, arranges)
-		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs}
+		return boardMsg{project: p, workflow: def, tasks: page.Tasks, prefs: prefs, paged: pageOf(page)}
 	}
+}
+
+// listByColumn reads the board one column at a time, each column paged on its
+// own, so a column is never empty because its tasks sit on another page of a
+// listing the columns share. Page n is page n of every column; the board has
+// as many pages as its longest column needs. Tasks in a state the workflow no
+// longer has are read with the first page. Without a workflow it reads the
+// filter as one listing.
+func listByColumn(ctx context.Context, svc core.Service, filter core.TaskFilter, def *core.WorkflowDefinition) (core.TaskPage, error) {
+	if def == nil || len(def.States) == 0 {
+		return svc.ListTasks(ctx, filter)
+	}
+	asked := make(map[string]bool, len(filter.Statuses))
+	for _, s := range filter.Statuses {
+		asked[s] = true
+	}
+	out := core.TaskPage{Number: max(filter.PageNumber, 1)}
+	keys := make([]string, 0, len(def.States))
+	for _, state := range def.States {
+		keys = append(keys, state.Key)
+		if len(asked) > 0 && !asked[state.Key] {
+			continue
+		}
+		f := filter
+		f.Statuses = []string{state.Key}
+		page, err := svc.ListTasks(ctx, f)
+		if err != nil {
+			return core.TaskPage{}, err
+		}
+		if page.Number == f.PageNumber {
+			out.Tasks = append(out.Tasks, page.Tasks...)
+		}
+		if page.Total > out.Total {
+			out.Total, out.TotalCapped = page.Total, page.TotalCapped
+		}
+	}
+	if out.Number == 1 {
+		stray := filter
+		stray.Exclude.Statuses = append(append([]string(nil), stray.Exclude.Statuses...), keys...)
+		page, err := svc.ListTasks(ctx, stray)
+		if err != nil {
+			return core.TaskPage{}, err
+		}
+		out.Tasks = append(out.Tasks, page.Tasks...)
+	}
+	return out, nil
 }
 
 // workflowOf finds the workflow definition a project runs on.
@@ -71,25 +122,29 @@ func (m Model) loadTasks() tea.Cmd {
 	if m.svc == nil || m.project.ID == "" {
 		return nil
 	}
-	svc, ctx, filter, key, arranges := m.svc, m.ctx, m.taskFilter(m.project.Key), m.project.Key, m.arranges()
+	svc, ctx, filter, key, arranges, def := m.svc, m.ctx, m.taskFilterAt(m.project.Key, m.paged.number), m.project.Key, m.arranges(), m.workflow
 	return func() tea.Msg {
-		page, err := svc.ListTasks(ctx, filter)
+		page, err := listByColumn(ctx, svc, filter, def)
 		if err != nil {
 			return errMsg{err: err}
 		}
 		prefs, arranged := readArrangement(ctx, svc, key, arranges)
-		return tasksMsg{tasks: page.Tasks, prefs: prefs, arranged: arranged}
+		return tasksMsg{tasks: page.Tasks, prefs: prefs, arranged: arranged, paged: pageOf(page)}
 	}
 }
 
-// taskFilter scopes the active filter to one project.
-func (m Model) taskFilter(key string) core.TaskFilter {
+// taskFilter scopes the active filter to one project, read from its first page.
+func (m Model) taskFilter(key string) core.TaskFilter { return m.taskFilterAt(key, 1) }
+
+// taskFilterAt is taskFilter read from page number page.
+func (m Model) taskFilterAt(key string, page int) core.TaskFilter {
 	f := m.filter
 	if len(f.ProjectKeys) == 0 {
 		f.ProjectKeys = []string{key}
 	}
 	f.Page.Limit = core.MaxPageLimit
 	f.Page.Cursor = ""
+	f.PageNumber = max(page, 1)
 	return f
 }
 
@@ -225,6 +280,7 @@ func (m Model) transition(route string) tea.Cmd {
 		msg := actionMsg{kind: actionTransition, ref: ref, label: label, err: err}
 		if err == nil {
 			msg.sentence = routeSentence(label, from, result)
+			msg.released = in.LeaseToken != "" && result.Task != nil && result.Task.ClaimedByActorID == ""
 		}
 		return msg
 	}
@@ -477,22 +533,6 @@ func (m Model) reclaim(task core.Task) tea.Cmd {
 	}
 }
 
-// createProject adds a project from the project list.
-func (m Model) createProject(key, name string) tea.Cmd {
-	if m.svc == nil {
-		return nil
-	}
-	svc, ctx := m.svc, m.ctx
-	in := core.CreateProjectInput{Key: key, Name: name}
-	return func() tea.Msg {
-		project, err := svc.CreateProject(ctx, in)
-		if err != nil {
-			return actionMsg{kind: actionNewProject, err: err}
-		}
-		return actionMsg{kind: actionNewProject, label: output.ShowKey(project.Key)}
-	}
-}
-
 // deleteTask removes the task the reader agreed to remove, as far as they said
 // it should reach.
 func (m Model) deleteTask(c Confirm) tea.Cmd {
@@ -535,6 +575,36 @@ func (m Model) editComment(body string) tea.Cmd {
 		_, err := svc.EditComment(ctx, id, body)
 		return actionMsg{kind: actionEditComment, ref: ref, label: label, err: err}
 	}
+}
+
+// react toggles the reader's emoji on the selected comment: it adds one not
+// there yet and takes back one the reader already left.
+func (m Model) react(emoji string) tea.Cmd {
+	comment, ok := m.selectedComment()
+	if !ok || m.svc == nil {
+		return nil
+	}
+	task, _ := m.selectedTask()
+	svc, ctx, ref, label, id := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref), comment.ID
+	emoji = strings.TrimSpace(emoji)
+	act, kind := svc.AddReaction, actionReact
+	if reacted(comment, emoji, m.actorID()) {
+		act, kind = svc.RemoveReaction, actionUnreact
+	}
+	return func() tea.Msg {
+		_, err := act(ctx, id, emoji)
+		return actionMsg{kind: kind, ref: ref, label: label, err: err}
+	}
+}
+
+// reacted reports whether actorID already left emoji on the comment.
+func reacted(c core.Comment, emoji, actorID string) bool {
+	for _, r := range c.Reactions {
+		if r.Emoji == emoji {
+			return slices.Contains(r.ActorIDs, actorID)
+		}
+	}
+	return false
 }
 
 // undepend drops one of the tasks a task waits on, named the way the detail
@@ -758,6 +828,26 @@ func (m Model) copyTask(task core.Task, in core.CopyTaskInput) tea.Cmd {
 	}
 }
 
+// moveTask moves a task to another project and names its new reference on the
+// status bar, with the status it starts in when it could not keep its own.
+func (m Model) moveTask(task core.Task, in core.MoveTaskInput) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, ref, label := m.svc, m.ctx, core.TaskRef{ID: task.ID}, output.ShowRef(task.Ref)
+	return func() tea.Msg {
+		moved, err := svc.MoveTask(ctx, ref, in)
+		msg := actionMsg{kind: actionMove, ref: ref, label: label, err: err}
+		if err == nil {
+			msg.sentence = "moved " + label + " to " + output.ShowRef(moved.Task.Ref)
+			if !moved.StatusKept {
+				msg.sentence += ", now " + moved.Task.Status
+			}
+		}
+		return msg
+	}
+}
+
 // loadTemplates lists the templates the board's project can use, for the
 // template form to offer.
 func (m Model) loadTemplates() tea.Cmd {
@@ -902,6 +992,22 @@ func (m Model) toggleStar(task core.Task) tea.Cmd {
 	}
 }
 
+// toggleProjectStar sets the reader's own star on a project, or clears it when
+// the project already carries one.
+func (m Model) toggleProjectStar(p core.Project) tea.Cmd {
+	if m.svc == nil {
+		return nil
+	}
+	svc, ctx, key, label := m.svc, m.ctx, p.Key, output.ShowKey(p.Key)
+	call, kind := svc.StarProject, actionStarProject
+	if p.Starred {
+		call, kind = svc.UnstarProject, actionUnstarProject
+	}
+	return func() tea.Msg {
+		return actionMsg{kind: kind, label: label, err: call(ctx, key)}
+	}
+}
+
 // putArtifact records structured output on a task.
 func (m Model) putArtifact(task core.Task, in core.ArtifactInput) tea.Cmd {
 	if m.svc == nil {
@@ -965,6 +1071,11 @@ func (m Model) loadTenantInfo() tea.Cmd {
 			out.domainErr = err.Error()
 		} else {
 			out.domains = domains
+		}
+		if providers, err := svc.ListSSOProviders(ctx); err != nil {
+			out.ssoErr = err.Error()
+		} else {
+			out.providers = providers
 		}
 		if members, err := svc.ListMembers(ctx); err != nil {
 			out.memberErr = err.Error()

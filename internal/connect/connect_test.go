@@ -659,3 +659,28 @@ func TestOnlyAServingProcessHoldsSyncURLsToTheEgressPolicy(t *testing.T) {
 		})
 	}
 }
+
+// TestDialResolvesConfiguredThemes pins the service being built with the
+// configured registry: without it a configured name was refused by tenant
+// edit and never reached whoami.
+func TestDialResolvesConfiguredThemes(t *testing.T) {
+	home := t.TempDir()
+	writeConfig(t, home, "themes:\n  brand:\n    accent: \"#7c3aed\"\n    accent_soft: \"#f3eeff\"\n")
+	ctx := context.Background()
+	conn, err := Dial(ctx, load(t, home, nil), Overrides{Home: home})
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	brand := "brand"
+	if _, err := conn.Service.UpdateTenant(conn.Context(ctx), "", core.UpdateTenantInput{Theme: &brand}); err != nil {
+		t.Fatalf("naming a configured theme: %v", err)
+	}
+	me, err := conn.Service.WhoAmI(conn.Context(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if me.Theme == nil || me.Theme.Name != "brand" || me.Theme.Accent != "#7c3aed" || me.Theme.AccentDark != "#7c3aed" {
+		t.Errorf("whoami theme = %+v, want the configured brand with its light pair on dark", me.Theme)
+	}
+}

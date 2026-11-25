@@ -16,10 +16,33 @@
      swapped, keeping scroll and focus, and assets/inbox.js marks the rows
      that were not there before. */}}
 {{template "live-screen" $v.Live}}
+{{/* The numbers the app's inbox opens with: the reader's late and due-today
+     work, the tenant's open work and what was finished this week. Each links
+     to the screen that lists it. A half the service will not tell is left
+     out rather than drawn as zero. */}}
+<div id="inbox-summary">
+{{with $v.Summary}}
+<section class="card inbox-summary" aria-label="{{t "Summary"}}">
+  {{if .HasDue}}
+  <a class="inbox-stat{{if ne .Overdue "0"}} is-late{{end}}" href="/mine" data-stat="overdue"><span class="inbox-stat-n">{{.Overdue}}</span><span class="inbox-stat-l">{{t "Overdue"}}</span></a>
+  <a class="inbox-stat{{if ne .DueToday "0"}} is-soon{{end}}" href="/mine" data-stat="today"><span class="inbox-stat-n">{{.DueToday}}</span><span class="inbox-stat-l">{{t "Due today"}}</span></a>
+  {{end}}
+  {{if .HasTenant}}
+  <a class="inbox-stat" href="/tasks" data-stat="open"><span class="inbox-stat-n">{{.Open}}</span><span class="inbox-stat-l">{{t "Open"}}</span></a>
+  <a class="inbox-stat is-done" href="/stats?days=7" data-stat="done"><span class="inbox-stat-n">{{.DoneWeek}}</span><span class="inbox-stat-l">{{t "Done in 7 days"}}</span></a>
+  {{end}}
+</section>
+{{end}}
+</div>
 <div class="inbox-bar" id="inbox-bar">
   <nav class="segmented" aria-label="{{t "Which items to show"}}">
-    <a href="/inbox" class="segment{{if not $v.Unread}} is-on{{end}}" {{if not $v.Unread}}aria-current="page"{{end}}>{{t "All"}}</a>
-    <a href="/inbox?show=unread" class="segment{{if $v.Unread}} is-on{{end}}" {{if $v.Unread}}aria-current="page"{{end}}>{{t "Unread"}}{{if $v.Count}} <span class="count">{{$v.Count}}</span>{{end}}</a>
+    <a href="{{$v.AllHref}}" class="segment{{if not $v.Unread}} is-on{{end}}" {{if not $v.Unread}}aria-current="page"{{end}}>{{t "All"}}</a>
+    <a href="{{$v.UnreadHref}}" class="segment{{if $v.Unread}} is-on{{end}}" {{if $v.Unread}}aria-current="page"{{end}}>{{t "Unread"}}{{if $v.Count}} <span class="count">{{$v.Count}}</span>{{end}}</a>
+  </nav>
+  {{/* One chip per kind, each a link that adds its kind to the ones kept or
+       takes it away; none on keeps every kind. */}}
+  <nav class="inbox-kinds" aria-label="{{t "Kinds to show"}}">
+    {{range $v.Kinds}}<a href="{{.Href}}" class="chip inbox-kind{{if .On}} is-on{{end}}" data-kind="{{.Kind}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" role="button">{{t .Label}}</a>{{end}}
   </nav>
   {{if $v.Count}}
   <form method="post" class="inbox-readall" action="/inbox/read-all">
@@ -32,11 +55,13 @@
 
 <section id="inbox-list" class="card inbox" data-inplace aria-label="{{t "Inbox items"}}">
   {{if not $v.Items}}
-  <p class="empty">{{if $v.Unread}}{{t "Nothing unread."}}{{else}}{{t "Nothing here yet. When somebody mentions you, assigns you a task or comments on one you follow, it shows up here."}}{{end}}</p>
+  <p class="empty">{{if $v.Filtered}}{{t "Nothing of these kinds."}}{{else if $v.Unread}}{{t "Nothing unread."}}{{else}}{{t "Nothing here yet. When somebody mentions you, assigns you a task or comments on one you follow, it shows up here."}}{{end}}</p>
   {{else}}
-  <ul class="plain inbox-items rows">
-    {{range $v.Items}}
-    <li class="inbox-item{{if not .Read}} is-unread{{end}}" id="i-{{.ID}}">
+  {{range $v.Groups}}
+  <h2 class="inbox-day" id="inbox-day-{{.Key}}">{{t .Label}}</h2>
+  <ul class="plain inbox-items rows" aria-labelledby="inbox-day-{{.Key}}">
+    {{range .Items}}
+    <li class="inbox-item{{if not .Read}} is-unread{{end}}" id="i-{{.ID}}" data-kind="{{.Kind}}">
       <span class="inbox-dot" aria-hidden="true"></span>
       <div class="inbox-main">
         <p class="inbox-what">
@@ -54,15 +79,28 @@
         {{if and .Excerpt (ne (printf "%s" .Kind) "assigned")}}<p class="inbox-excerpt">{{.Excerpt}}</p>{{end}}
       </div>
       <span class="inbox-when muted">{{whenRel .CreatedAt}}</span>
-      <form method="post" class="inbox-mark" action="{{if .Read}}/inbox/unread{{else}}/inbox/read{{end}}">
-        {{template "csrf" $.CSRF}}
-        <input type="hidden" name="id" value="{{.ID}}">
-        <input type="hidden" name="next" value="{{$v.Here}}">
-        <button type="submit" class="ghost" data-focus="mark-{{.ID}}">{{if .Read}}{{t "Mark unread"}}{{else}}{{t "Mark read"}}{{end}}</button>
-      </form>
+      <div class="inbox-acts">
+        <form method="post" class="inbox-mark" action="{{if .Read}}/inbox/unread{{else}}/inbox/read{{end}}">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="id" value="{{.ID}}">
+          <input type="hidden" name="next" value="{{$v.Here}}">
+          <button type="submit" class="ghost" data-focus="mark-{{.ID}}">{{if .Read}}{{t "Mark unread"}}{{else}}{{t "Mark read"}}{{end}}</button>
+        </form>
+        {{/* Stops this kind reaching the inbox at all, the switch under
+             Settings, Inbox; the items already here stay. */}}
+        {{if .Stop}}<form method="post" class="inbox-stop" action="/settings/inbox">
+          {{template "csrf" $.CSRF}}
+          <input type="hidden" name="kind" value="{{.Kind}}">
+          <input type="hidden" name="receive" value="off">
+          <input type="hidden" name="stop" value="1">
+          <input type="hidden" name="next" value="{{$v.Here}}">
+          <button type="submit" class="ghost small" title="{{t "Items already in your inbox stay. Turn it back on under Settings, Inbox."}}">{{t .Stop}}</button>
+        </form>{{end}}
+      </div>
     </li>
     {{end}}
   </ul>
+  {{end}}
   {{end}}
 </section>
 {{template "pager" $v.Pager}}

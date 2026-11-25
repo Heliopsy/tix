@@ -25,22 +25,56 @@ type ctxKey int
 
 const ctxKeyRequestID ctxKey = iota
 
+// loggedTenantKey is the context key of the request record's tenant holder. It
+// has a type of its own so it cannot share a value with the ctxKey constants,
+// which are numbered in more than one block.
+type loggedTenantKey struct{}
+
+// loggedTenant is where resolveTenant leaves the tenant it pinned for the
+// request record. logRequest runs outside resolveTenant, so the context it
+// holds never carries the tenant itself.
+type loggedTenant struct{ id string }
+
+// noteTenant records the tenant a request was pinned to for its log record.
+func noteTenant(ctx context.Context, tenantID string) {
+	if lt, ok := ctx.Value(loggedTenantKey{}).(*loggedTenant); ok {
+		lt.id = tenantID
+	}
+}
+
 // RequestIDFrom returns the identifier assigned to the request, if any.
 func RequestIDFrom(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyRequestID).(string)
 	return v
 }
 
-// recorder captures the status a handler wrote so it can be logged.
+// StatusClientClosed is the status recorded for a request whose client went
+// away before it was answered, after nginx's 499. No client ever reads it.
+const StatusClientClosed = 499
+
+// clientClosed reports whether the request's own context was cancelled, which
+// net/http does when the client disconnects. A server deadline is not this.
+func clientClosed(ctx context.Context) bool {
+	return ctx != nil && errors.Is(ctx.Err(), context.Canceled)
+}
+
+// recorder captures the status a handler wrote so it can be logged. Given the
+// request's context, it records a server error written after the client left
+// as StatusClientClosed and drops its body.
 type recorder struct {
 	http.ResponseWriter
+	ctx     context.Context
 	status  int
 	written bool
+	swallow bool
 }
 
 func (rec *recorder) WriteHeader(status int) {
 	if rec.written {
 		return
+	}
+	if status >= http.StatusInternalServerError && clientClosed(rec.ctx) {
+		status, rec.swallow = StatusClientClosed, true
 	}
 	rec.status = status
 	rec.written = true
@@ -51,8 +85,21 @@ func (rec *recorder) Write(b []byte) (int, error) {
 	if !rec.written {
 		rec.WriteHeader(http.StatusOK)
 	}
+	if rec.swallow {
+		return len(b), nil
+	}
 	return rec.ResponseWriter.Write(b)
 }
+
+// isSCIMContentType reports whether a response is a SCIM document, whose
+// errors carry the SCIM error schema rather than the API envelope.
+func isSCIMContentType(ct string) bool {
+	media, _, _ := strings.Cut(ct, ";")
+	return strings.EqualFold(strings.TrimSpace(media), wire.ContentSCIM)
+}
+
+// IsSCIMPath reports whether a request is for the SCIM endpoints.
+func IsSCIMPath(path string) bool { return strings.HasPrefix(path, core.SCIMPath+"/") }
 
 // isHTMLContentType reports whether a response is a page a handler rendered.
 func isHTMLContentType(ct string) bool {
@@ -92,26 +139,45 @@ func (rt *Router) withRequestID(next http.Handler) http.Handler {
 	})
 }
 
-// logRequest emits one structured record per request. No credential material
-// is read here, so none can be logged.
+// logRequest emits one structured record per request, and a refusal record
+// when a credential or a sign-in was refused. No credential material is read
+// here, so none can be logged. A request the client abandoned is recorded as
+// StatusClientClosed rather than as the server error its handler made of the
+// cancelled context.
 func (rt *Router) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
-		rec := &recorder{ResponseWriter: w, status: http.StatusOK}
+		tenant := &loggedTenant{}
+		ctx, note := auth.WithRefusalNote(context.WithValue(r.Context(), loggedTenantKey{}, tenant))
+		r = r.WithContext(ctx)
+		rec := &recorder{ResponseWriter: w, ctx: r.Context(), status: http.StatusOK}
 		next.ServeHTTP(rec, r)
-
-		tenant := ""
-		if scope, ok := core.TenantFrom(r.Context()); ok {
-			tenant = scope.TenantID
+		if !rec.written && clientClosed(r.Context()) {
+			rec.status = StatusClientClosed
 		}
-		rt.cfg.Logger.Info("request",
+
+		attrs := []any{
 			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
 			"path", loggedPath(r.URL.Path),
 			"status", rec.status,
 			"duration_ms", time.Since(started).Milliseconds(),
-			"tenant", tenant,
-		)
+			"tenant", tenant.id,
+			"client_ip", clientAddr(r),
+			"user_agent", core.TruncateUserAgent(r.UserAgent()),
+		}
+		refusal, refused := note.Get()
+		refused = refused && refusalLogged(rec.status, refusal.Reason)
+		if refused {
+			attrs = append(attrs, "auth_reason", refusal.Reason)
+		}
+		if rec.status == StatusClientClosed {
+			attrs = append(attrs, "note", "client closed request")
+		}
+		rt.cfg.Logger.Info("request", attrs...)
+		if refused {
+			rt.logRefusal(r, rec.status, tenant.id, refusal)
+		}
 	})
 }
 
@@ -149,7 +215,8 @@ func (m *muxErrorWriter) WriteHeader(status int) {
 	}
 	m.written = true
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
-		if ct := m.Header().Get(wire.HeaderContentType); !isJSONContentType(ct) && !isHTMLContentType(ct) {
+		if ct := m.Header().Get(wire.HeaderContentType); !isJSONContentType(ct) && !isHTMLContentType(ct) &&
+			!isSCIMContentType(ct) {
 			m.swallow = true
 			m.Header().Set(wire.HeaderContentType, wire.ContentJSON)
 			m.ResponseWriter.WriteHeader(status)
@@ -184,8 +251,15 @@ func muxErrorBody(status int) []byte {
 
 // envelopeMuxErrors gives the mux's own not found and method not allowed
 // responses the same envelope every handler uses.
+//
+// CalDAV is left alone: its not found and method refusals are the protocol's
+// own answers, which a client reads by status and never as JSON.
 func (rt *Router) envelopeMuxErrors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rt.cfg.CalDAV != nil && core.IsDAVPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		next.ServeHTTP(&muxErrorWriter{ResponseWriter: w}, r)
 	})
 }
@@ -202,6 +276,9 @@ func (rt *Router) limitBody(next http.Handler) http.Handler {
 		if _, pattern := rt.imports.Handler(r); pattern != "" {
 			limit = rt.cfg.MaxImportBytes
 			r = withTooLargeMessage(r, config.ImportLimitRefusal(limit))
+		} else if _, pattern := rt.artifacts.Handler(r); pattern != "" {
+			limit = config.ArtifactBodyLimit(rt.cfg.MaxArtifactBytes, limit)
+			r = withTooLargeMessage(r, config.ArtifactLimitRefusal(rt.cfg.MaxArtifactBytes))
 		}
 		if r.ContentLength > limit {
 			writeStatusError(w, http.StatusRequestEntityTooLarge, core.KindInvalid, tooLargeMessage(r))
@@ -308,6 +385,7 @@ func (rt *Router) resolveTenant(next http.Handler) http.Handler {
 			WriteError(w, err)
 			return
 		}
+		noteTenant(r.Context(), served.tenant)
 		ctx := core.WithTenant(r.Context(), core.TenantScope{TenantID: served.tenant})
 		next.ServeHTTP(w, r.WithContext(core.WithServedHost(ctx, served.ServedHost)))
 	})
@@ -416,8 +494,20 @@ func (rt *Router) namedTenant(ctx context.Context, hosts SharedHosts, r *http.Re
 
 // credentialHash is the stored hash of the credential a request presents, a
 // bearer token before a session cookie as the authenticator chain tries them,
-// or "" when it presents neither.
+// or "" when it presents neither. Under /dav/ it is the Basic password and
+// nothing else, because that is the one credential read there, and only when
+// it has a token's shape.
 func credentialHash(r *http.Request) string {
+	if core.IsDAVPath(r.URL.Path) {
+		// Only a value shaped like a minted token is hashed: an account password
+		// typed into a client's password field never reaches the hasher.
+		if _, appToken, ok := r.BasicAuth(); ok {
+			if _, err := auth.ParseAPIToken(appToken); err == nil {
+				return auth.HashToken(appToken)
+			}
+		}
+		return ""
+	}
 	if scheme, value, ok := strings.Cut(r.Header.Get(wire.HeaderAuth), " "); ok && strings.EqualFold(scheme, "bearer") {
 		if v := strings.TrimSpace(value); v != "" {
 			return auth.HashToken(v)
@@ -460,9 +550,20 @@ func hostOf(r *http.Request) string {
 // tenant than the one the Host resolved to.
 func (rt *Router) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rt.cfg.CalDAV == nil && (core.IsDAVPath(r.URL.Path) || r.URL.Path == core.DAVWellKnownPath) {
+			WriteError(w, core.NotFound("no such route"))
+			return
+		}
 		if IsPublicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
+		}
+		if core.IsDAVPath(r.URL.Path) {
+			rt.authenticateDAV(next, w, r)
+			return
+		}
+		if IsSCIMPath(r.URL.Path) {
+			r = r.WithContext(core.WithSCIMRequest(r.Context()))
 		}
 		actor, err := rt.cfg.Authenticator.Authenticate(r.Context(), r)
 		if err != nil {
@@ -470,15 +571,26 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 			// anonymous visitor to its login page rather than answering with a
 			// JSON envelope. Carrying on without an actor is what lets it do
 			// that. Anything under the API prefix must present a credential.
-			if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
+			api := strings.HasPrefix(r.URL.Path, wire.APIPrefix)
+			switch {
+			case !errors.Is(err, auth.ErrNoCredential):
+			case api || IsSCIMPath(r.URL.Path):
+				auth.NoteRefusalUnlessNoted(r.Context(), auth.Refusal{Reason: auth.RefusedNoCredentials})
+			default:
+				auth.ClearRefusal(r.Context())
+			}
+			if api {
 				WriteError(w, err)
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
+		auth.ClearRefusal(r.Context())
 		scope, ok := core.TenantFrom(r.Context())
 		if ok && actor.TenantID != "" && actor.TenantID != scope.TenantID {
+			auth.NoteRefusal(r.Context(), auth.Refusal{Reason: auth.RefusedWrongTenant,
+				TokenID: actor.TokenID, TokenName: actor.TokenName, Session: actor.SessionID})
 			WriteError(w, core.Unauthenticated("credential is not valid for this host"))
 			return
 		}
@@ -493,9 +605,58 @@ func (rt *Router) authenticate(next http.Handler) http.Handler {
 		// one that was. Only a cookie identifies a session; a bearer token does not.
 		if c, err := r.Cookie(wire.SessionCookieName); err == nil && c.Value != "" {
 			ctx = service.WithSessionToken(ctx, c.Value)
+			if renewed := auth.RenewedSessionCookie(c.Value, actor.Term, rt.secureCookie(r)); renewed != nil {
+				http.SetCookie(w, renewed)
+			}
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// authenticateDAV resolves the app password a request under /dav/ presents,
+// with the Basic authenticator alone. Every refusal is a 401 carrying the
+// Basic challenge, which is what makes a client ask for credentials at all,
+// and names no tenant, person or project. With CalDAV off there is nothing
+// to sign in to, and authenticate has already answered not found.
+func (rt *Router) authenticateDAV(next http.Handler, w http.ResponseWriter, r *http.Request) {
+	if rt.cfg.DAVAuthenticator == nil {
+		WriteDAVChallenge(w)
+		return
+	}
+	ctx := core.WithDAVRequest(r.Context())
+	actor, err := rt.cfg.DAVAuthenticator.Authenticate(ctx, r.WithContext(ctx))
+	if err == nil {
+		scope, ok := core.TenantFrom(ctx)
+		if ok && actor.TenantID != "" && actor.TenantID != scope.TenantID {
+			auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedWrongTenant,
+				TokenID: actor.TokenID, TokenName: actor.TokenName})
+			err = core.Unauthenticated("credential is not valid for this host")
+		}
+	}
+	if err != nil {
+		if errors.Is(err, auth.ErrNoCredential) {
+			auth.NoteRefusalUnlessNoted(ctx, auth.Refusal{Reason: auth.RefusedNoCredentials})
+		}
+		if !core.IsKind(err, core.KindUnauthenticated) && !core.IsKind(err, core.KindForbidden) {
+			WriteError(w, err)
+			return
+		}
+		WriteDAVChallenge(w)
+		return
+	}
+	auth.ClearRefusal(ctx)
+	ctx = core.WithSource(core.WithActor(ctx, actor), core.SourceAPI)
+	ctx = core.WithVia(ctx, credentialVia(r, actor))
+	next.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// WriteDAVChallenge answers 401 with the Basic challenge and a body that
+// names nothing about the server's tenants or people.
+func WriteDAVChallenge(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", auth.DAVChallenge)
+	w.Header().Set(wire.HeaderContentType, "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = w.Write([]byte("sign in with your email and an app password\n"))
 }
 
 // isUnscopedPath reports whether a route runs before tenant resolution.
@@ -505,9 +666,11 @@ func isUnscopedPath(path string) bool {
 
 // IsPublicPath reports whether a route runs without a credential.
 func IsPublicPath(path string) bool {
-	return isUnscopedPath(path) || path == wire.RouteLogin ||
+	return isUnscopedPath(path) || path == wire.RouteLogin || path == wire.RouteSessionPolicy ||
 		path == wire.RouteSSHChallenge || path == wire.RouteSSHVerify || isCalendarFeedPath(path) ||
-		isInviteTokenPath(path)
+		path == wire.RouteSignInOptions || path == wire.RouteSSOBegin || path == wire.RouteSSOComplete ||
+		path == wire.RouteSSOExchange || path == core.DAVWellKnownPath ||
+		isInviteTokenPath(path) || isSAMLMetadataPath(path)
 }
 
 // Context keys for the values the forwarded-header and credential middleware
@@ -515,6 +678,7 @@ func IsPublicPath(path string) bool {
 const (
 	ctxKeyClientIP ctxKey = iota + 1
 	ctxKeyScheme
+	ctxKeyPublicURL
 	ctxKeyRevalidate
 )
 
@@ -555,6 +719,7 @@ func (rt *Router) withForwarded(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), ctxKeyClientIP, rt.proxies.ClientIP(r))
 		ctx = context.WithValue(ctx, ctxKeyScheme, rt.proxies.Scheme(r))
+		ctx = WithPublicURL(ctx, rt.publicURL)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r.WithContext(core.WithVia(ctx, baseVia(r))))
 	})
@@ -623,8 +788,13 @@ func (rt *Router) revalidator(r *http.Request) Revalidate {
 // trusted proxy policy has already resolved, and a truncated user agent.
 func baseVia(r *http.Request) core.Via {
 	v := core.Via{Kind: core.ViaWeb, UserAgent: core.TruncateUserAgent(r.UserAgent())}
-	if strings.HasPrefix(r.URL.Path, wire.APIPrefix) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, wire.APIPrefix):
 		v.Kind = core.ViaAPI
+	case IsSCIMPath(r.URL.Path):
+		v.Kind = core.ViaSCIM
+	case core.IsDAVPath(r.URL.Path):
+		v.Kind = core.ViaCalDAV
 	}
 	if ip := ClientIPFrom(r.Context()); ip.IsValid() {
 		v.ClientAddr = ip.String()
@@ -640,6 +810,12 @@ func baseVia(r *http.Request) core.Via {
 func credentialVia(r *http.Request, actor *core.Actor) core.Via {
 	v := baseVia(r)
 	switch {
+	case actor.TokenID != "" && IsSCIMPath(r.URL.Path):
+		v.Kind = core.ViaSCIM
+		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
+	case actor.TokenID != "" && core.IsDAVPath(r.URL.Path):
+		v.Kind = core.ViaCalDAV
+		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName
 	case actor.TokenID != "":
 		v.Kind = core.ViaAPI
 		v.TokenID, v.TokenName = actor.TokenID, actor.TokenName

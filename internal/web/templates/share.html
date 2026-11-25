@@ -1,0 +1,31 @@
+{{/* Sharing a task (docs/web-ui.md#sharing-a-task). Parsed into every
+     screen beside partials.html, so the task screen and a lane card draw
+     the same items.
+
+     share-open is the header's button and share-menu the popover it opens,
+     both taking shareView (share.go); share-card is a lane card's group. The popover needs no script: without
+     one the menu still opens and shows the address as a plain link, and
+     every control that needs a script is [data-needs-js]. Share… is drawn
+     hidden, and assets/share.js shows it where the browser has a share
+     sheet; a closed popover has nothing to flash. The address names no tenant on purpose: the tenant
+     comes from the reader's session, and a tenant in the request is
+     refused. */}}
+{{define "share-open"}}<button type="button" class="secondary small share-open" popovertarget="{{.ID}}"
+        aria-label="{{t "Share %s" .Ref}}" title="{{t "Share %s" .Ref}}">{{template "icon" "share"}}<span class="btn-label">{{t "Share"}}</span></button>{{end}}
+
+{{define "share-menu"}}<div id="{{.ID}}" class="flowmenu lanepop sharemenu" popover data-lane-menu data-share-task data-share-ref="{{.Ref}}" data-share-title="{{.Title}}" data-share-path="{{.Path}}">
+  <p class="flowhead">{{t "Share %s" .Ref}}</p>
+  <button type="button" class="flowgo share-native" data-share="native" data-needs-js hidden>{{t "Share…"}}</button>
+  <button type="button" class="flowgo" data-share="link" data-needs-js>{{t "Copy link"}}</button>
+  <button type="button" class="flowgo" data-share="markdown" data-needs-js>{{t "Copy as Markdown"}}</button>
+  <button type="button" class="flowgo" data-share="text" data-needs-js>{{t "Copy key and title"}}</button>
+  <p class="shareurl"><a href="{{.URL}}" class="mono" data-share-url>{{.URL}}</a><a class="sharehelp" href="{{.Help}}" target="_blank" rel="noopener" aria-label="{{t "Help: %s" (t "Sharing a task")}}" title="{{t "Help: %s" (t "Sharing a task")}}"><svg aria-hidden="true" width="14" height="14"><use href="/assets/icons.svg#help"/></svg></a></p>
+  <button type="button" class="flowclose" popovertarget="{{.ID}}" popovertargetaction="hide">{{t "Close"}}</button>
+</div>{{end}}
+
+{{/* share-card is a lane card's items, beside the card's own Copy link and
+     Copy reference. No wrapper: the card's menu is a flat list, so each
+     item carries the task itself (closest() includes the element). */}}
+{{define "share-card"}}<button type="button" class="flowgo share-native" data-share="native" data-share-task data-share-ref="{{ref .Ref}}" data-share-title="{{.Title}}" data-share-path="/tasks/{{.Ref}}" data-needs-js hidden>{{t "Share…"}}</button>
+          <button type="button" class="flowgo" data-share="markdown" data-share-task data-share-ref="{{ref .Ref}}" data-share-title="{{.Title}}" data-share-path="/tasks/{{.Ref}}" data-needs-js>{{t "Copy as Markdown"}}</button>
+          <button type="button" class="flowgo" data-share="text" data-share-task data-share-ref="{{ref .Ref}}" data-share-title="{{.Title}}" data-share-path="/tasks/{{.Ref}}" data-needs-js>{{t "Copy key and title"}}</button>{{end}}

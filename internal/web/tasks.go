@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 )
 
@@ -114,6 +115,19 @@ type tasksView struct {
 
 	Pager pager
 
+	// Scope is the project this screen is narrowed to, nil on the task list.
+	// Route is the screen's own path, which every link it writes back to
+	// itself uses, and Views the view switch: one link per drawing, each
+	// carrying the query the screen was drawn under.
+	Scope *taskScope
+	Route string
+	Views []viewLink
+	// ViewAsked is the view the address named, "" when it named none, which
+	// the filter form carries so Apply keeps the drawing. ClearHref drops the
+	// filter and keeps the sort and the view.
+	ViewAsked string
+	ClearHref string
+
 	// Self is this screen's own URL, query string and all, so a row action
 	// can return to the list the reader was actually looking at.
 	Self string
@@ -121,6 +135,13 @@ type tasksView struct {
 	// Summary is the one line under the heading. A tracker that only ever
 	// shows rows tells you nothing about the shape of your day.
 	Summary taskSummary
+	// WaitingHref is this view narrowed to the tasks waiting on another task,
+	// which is where the summary's waiting count leads.
+	WaitingHref string
+	// LanesMore is how many more tasks the lanes' Show more draws, and
+	// LanesMoreHref the address that draws them; zero when all are drawn.
+	LanesMore     int
+	LanesMoreHref string
 
 	// CompleteState maps a project id to the state a one click complete moves
 	// its tasks into, so the list can offer a tick box without the reader
@@ -157,6 +178,10 @@ type tasksView struct {
 	// Lanes are the same page drawn one lane per project, built only when
 	// that is the view being drawn.
 	Lanes taskLanes
+	// LanesAsked is the grouping the address named, which the filter form
+	// carries like ViewAsked, and LanesForm the Group lanes by control.
+	LanesAsked string
+	LanesForm  lanesControl
 
 	// ListGroup is how the list groups its rows, and ListGroups the groups
 	// it draws, only when the list is drawn grouped.
@@ -225,11 +250,34 @@ type tasksView struct {
 	// have done to it in one request.
 	Bulk bulkBar
 
+	// Selecting is set when the address turns select mode on, and SelectHref
+	// is the Select toggle's link, which turns it the other way.
+	Selecting  bool
+	SelectHref string
+
+	// Chips are the terms the screen answers, each with the link that drops
+	// it, and Pickers what the Filters popover draws. Order is the sort direction the address names, and
+	// PageSize the page size it names, "" for the default.
+	Chips    []filterChip
+	Pickers  filterPickers
+	Order    string
+	PageSize string
+	AllAsked bool
+	// PageSizes are the sizes the More menu offers, and DefaultSize the
+	// one an address that names none gets.
+	PageSizes   []int
+	DefaultSize int
+
 	// Quick is what the one-line box shows under itself: what its line will
 	// set, and why a refused line was refused. QuickLine is that line, kept
 	// in the box after a refusal.
 	Quick     quickPreview
 	QuickLine string
+	// QuickAnother draws Add another ticked. QuickFocus focuses the box on
+	// arrival, which the listing an Add another redirect lands on, a share
+	// and the Quick add shortcut ask for.
+	QuickAnother bool
+	QuickFocus   bool
 }
 
 // filterFault reports whether an error is the filter expression's fault.
@@ -321,12 +369,59 @@ func summarise(tasks []core.Task, complete map[string]string, now time.Time) tas
 	return out
 }
 
+// summaryOf counts the whole selection when the listing tallied it, and the
+// page it holds otherwise, so the heading never counts one page as the whole.
+func summaryOf(page core.TaskPage, complete map[string]string, now time.Time) taskSummary {
+	if page.Tally == nil {
+		return summarise(page.Tasks, complete, now)
+	}
+	out := taskSummary{Blocked: page.Tally.Blocked, Held: page.Tally.Held}
+	seen := map[string]bool{}
+	for _, c := range page.Tally.States {
+		if c.Status == complete[c.ProjectID] {
+			out.Done += c.Count
+		} else {
+			out.Open += c.Count
+		}
+		if c.ProjectID != "" && !seen[c.ProjectID] {
+			seen[c.ProjectID] = true
+			out.Projects++
+		}
+	}
+	return out
+}
+
+// waitingHref is the screen narrowed to tasks waiting on another task, the
+// reader's own filter kept. An is:waiting-on already there is not repeated.
+func waitingHref(r *http.Request, route string) string {
+	query := r.URL.Query()
+	for _, k := range []string{CursorParam, TrailParam, PageParam, MoreParam, "flash", "flashref", FlashUndoParam} {
+		query.Del(k)
+	}
+	q := strings.TrimSpace(query.Get("q"))
+	if !strings.Contains(" "+q+" ", " is:waiting-on ") && !strings.Contains(" "+q+" ", " is:blocked ") {
+		q = strings.TrimSpace(q + " is:waiting-on")
+	}
+	query.Set("q", q)
+	return route + "?" + query.Encode()
+}
+
 // showTasks renders the filterable task list.
 func (h *handler) showTasks(w http.ResponseWriter, r *http.Request) error {
+	if redirectPicks(w, r, RouteTasks) {
+		return nil
+	}
+	r, line, adding := quickAddPrefill(r)
 	data, err := h.buildTasksView(r)
 	if err != nil {
 		return err
 	}
+	if adding && !data.Trash {
+		data.QuickLine, data.QuickFocus, data.Quick = line, true, h.previewLine(r, line)
+	}
+	h.rememberTaskView(w, r)
+	h.rememberLanesGroup(w, r)
+	data.QuickFocus = h.takeQuickFocus(w, r) || data.QuickFocus
 	title := "Tasks"
 	if data.Trash {
 		title = "Trash"
@@ -415,7 +510,7 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 	filter.Page = core.Page{
 		Cursor:    query.Get(CursorParam),
 		Sort:      query.Get("sort"),
-		Direction: core.Ascending,
+		Direction: sortDirection(query),
 		Limit:     h.rowsPerPage(r),
 	}
 	if filter.Page.Sort == "" {
@@ -427,20 +522,24 @@ func (h *handler) listingFilter(r *http.Request, view string) (filter core.TaskF
 // buildTasksView answers one request for the task screen, for the page and
 // for its live fragment alike.
 func (h *handler) buildTasksView(r *http.Request) (tasksView, error) {
-	return h.buildTaskScreen(r, false)
+	return h.buildTaskScreen(r, false, nil)
 }
 
 // buildTaskScreen answers the task screen, or with mine the reader's own
 // work: the tasks assigned to them, and with held=1 the ones they hold too,
 // grouped by deadline. My work asks its fixed question through the same
 // listingFilter, on a copy of the request that carries it.
-func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error) {
+func (h *handler) buildTaskScreen(r *http.Request, mine bool, scope *taskScope) (tasksView, error) {
 	held := mine && r.URL.Query().Get(HeldParam) != ""
 	asked := r
-	view := taskViewOf(r)
-	if mine {
+	view := screenView(r, scope)
+	switch {
+	case mine:
 		asked, view = myWorkRequest(r), TaskViewList
+	case scope != nil:
+		asked = scopedRequest(r, scope.Project.Key)
 	}
+	route := scope.route()
 	query := asked.URL.Query()
 	filter, due, refused, openOnly, err := h.listingFilter(asked, view)
 	if err != nil {
@@ -455,6 +554,16 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 			filter.Page.Sort = core.SortDueAt
 		}
 		filter.Page.Cursor, filter.Page.Limit = "", myWorkLimit
+	} else {
+		filter.Tally = true
+		switch view {
+		case TaskViewBoard:
+			filter.Page.Cursor = ""
+		case TaskViewLanes:
+			filter.Page.Cursor, filter.Page.Limit = "", shownOf(r, moreLanes, lanesStep)
+		default:
+			filter.PageNumber = requestedPage(asked)
+		}
 	}
 	expression := foldControls(query.Get("q"), due, projectPick(query))
 	projects, whole, err := h.allProjects(r, false)
@@ -506,38 +615,72 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 	// looking at, and what the board would have said is on the board.
 	var board taskBoard
 	if view == TaskViewBoard {
-		if board, err = h.taskBoardFor(r, projects, filter, page.Tasks, moves); err != nil {
+		if board, err = h.taskBoardFor(r, route, projects, filter, page.Tasks, moves); err != nil {
 			return tasksView{}, err
 		}
 	}
+	lanesBy := lanesGroupOf(r, scope)
 	var lanes taskLanes
-	if view == TaskViewLanes {
+	if view == TaskViewLanes && lanesBy == core.LanesByProject {
 		lanes = buildLanes(projects, filter, page.Tasks, laneMoves{Workflows: moves, HasScope: readerHasScope(r)})
 	}
-	self := screenHref(r, RouteTasks)
+	var named []string
+	if view == TaskViewLanes && lanesBy == core.LanesByAssignee {
+		named = h.namedAssignees(r, filter)
+	}
+	names := h.resolveActors(r, append(rowActors(page.Tasks), named...)...)
+	selfRoute := route
 	group := listGroupOf(r)
 	if mine {
-		self, group = screenHref(r, RouteMine), ListGroupDue
+		selfRoute, group = RouteMine, ListGroupDue
 	}
+	self := screenHref(r, selfRoute)
 	var listGroups []listGroup
 	var arrange arrangement
 	switch {
 	case view == TaskViewBoard && board.Agreed:
-		arrange = h.arrangeBoard(r, &board, self)
-	case view == TaskViewLanes:
+		arrange = h.arrangeBoard(r, &board, scope.boardView(), self)
+	case view == TaskViewLanes && lanesBy == core.LanesByProject:
 		arrange = h.arrangeLanes(r, &lanes, projects, self)
+	case view == TaskViewLanes:
+		lanes, arrange = h.groupedLanes(r, h.laneSource(r, lanesBy, route, filter, page.Tasks, moves, named, names), self)
 	case mine && refused == "":
 		listGroups, arrange = h.arrangeMine(r, page.Tasks, self)
 	case view == TaskViewList && group != ListGroupNone && refused == "":
 		listGroups, arrange = h.arrangeList(r, group, candidateProjects(projects, filter), page.Tasks, moves, self)
 	}
+	lanes.By = lanesBy
 	live := h.liveTasks(r, liveProjectIDs(projects, filter))
-	pageNav := newPager(r, RouteTasks, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", DueParam, ProjectParam, SizeParam, AllParam)
+	if scope != nil {
+		live.Href = fragmentHref(r, scope.liveRoute())
+	}
+	pageNav := newPager(r, route, page.NextCursor, len(page.Tasks), "tasks", "q", "sort", OrderParam, DueParam, ProjectParam, SizeParam, AllParam, ViewParam, LanesParam, SelectParam).
+		counted(position{Number: page.Number, Total: page.Total, Capped: page.TotalCapped}, filter.Page.Limit)
+	var lanesMore int
+	var lanesMoreHref string
 	if mine {
 		live.Href = fragmentHref(r, RouteMineLive)
 		pageNav = pager{}
+	} else if view != TaskViewList {
+		pageNav = pager{}
+		if view == TaskViewLanes && page.Total > len(page.Tasks) && filter.Page.Limit < core.MaxPageLimit {
+			lanesMore = min(lanesStep, page.Total-len(page.Tasks))
+			lanesMoreHref = moreHref(r, route, moreLanes)
+		}
+	}
+	pickers := newFilterPickers(query.Get("q"), projects, moves)
+	var chips []filterChip
+	if !mine {
+		chips = filterChips(r, route, scope != nil)
 	}
 	return tasksView{
+		Chips:         chips,
+		Pickers:       pickers,
+		Order:         query.Get(OrderParam),
+		PageSize:      r.URL.Query().Get(SizeParam),
+		AllAsked:      r.URL.Query().Get(AllParam) != "",
+		PageSizes:     pageSizes,
+		DefaultSize:   h.pageSize,
 		Mine:          mine,
 		Held:          held,
 		HeldHref:      heldHref(r, !held),
@@ -546,40 +689,67 @@ func (h *handler) buildTaskScreen(r *http.Request, mine bool) (tasksView, error)
 		Projects:      projects,
 		Tags:          tags,
 		Templates:     h.addTemplates(r),
+		QuickAnother:  addAnother(r),
 		Priorities:    priorityChoices,
 		SortFields:    core.TaskSortFields,
 		Query:         query.Get("q"),
 		Sort:          filter.Page.Sort,
 		Due:           due,
 		DueWindows:    FilterDueWindows,
+		Scope:         scope,
+		Route:         route,
+		Views:         viewLinks(r, route, view),
+		ViewAsked:     viewParam(r),
+		ClearHref:     clearHref(r, route),
 		Project:       strings.Join(projectPick(query), ","),
 		ProjectPicks:  projectPickOptions(projects, projectPick(query)),
 		Pager:         pageNav,
 		Self:          self,
 		CompleteState: complete,
 		Accent:        projectAccents(projects),
-		Summary:       summarise(page.Tasks, complete, time.Now()),
+		Summary:       summaryOf(page, complete, time.Now()),
+		WaitingHref:   waitingHref(r, route),
+		LanesMore:     lanesMore,
+		LanesMoreHref: lanesMoreHref,
 		FilterError:   refused,
-		Names:         h.resolveActors(r, rowActors(page.Tasks)...),
+		Names:         names,
 		Moves:         moves,
 		Prefs:         prefs,
 		View:          view,
 		Board:         board,
 		Lanes:         lanes,
+		LanesAsked:    lanesParam(r, scope),
+		LanesForm:     newLanesControl(r, route, lanesBy, scope),
 		ListGroup:     group,
 		ListGroups:    listGroups,
 		Arrange:       arrange,
 		Hidden:        hidden,
 		Filtered:      filtered && hidden > 0,
 		OpenOnly:      openOnly,
-		AllHref:       showAllHref(r),
+		AllHref:       showAllHref(r, route),
 		Trash:         trash,
 		Empty:         hidden > 0 && hidden == len(prefs.Projects.Choices),
 		Live:          live,
 		Form:          taskForm{Project: soleProject(filter.ProjectKeys)},
 		Bulk:          bulkBarUnlessTrash(r, page.Tasks, moves, trash),
+		Selecting:     selecting(r),
+		SelectHref:    selectToggleHref(r, selfRoute),
 		ExportHref:    csvHref(asked),
 	}, nil
+}
+
+// laneSource is what grouping this page into lanes other than projects
+// needs: the reader's time zone for the deadline buckets, their language for
+// the fixed headings, and the people the filter names.
+func (h *handler) laneSource(r *http.Request, by, route string, filter core.TaskFilter, tasks []core.Task,
+	moves map[string]core.WorkflowDefinition, named []string, names actorNames) laneSource {
+	lang, now, zone := langOf(r), time.Now(), h.readerZone(r)
+	return laneSource{
+		By: by, Route: route, Tasks: tasks, Filter: filter, Named: named, Names: names,
+		Moves:  laneMoves{Workflows: moves, HasScope: readerHasScope(r)},
+		Bucket: func(t core.Task) string { return core.DueBucketOf(t.DueAt, now, zone) },
+		Label:  func(text string) string { return i18n.T(lang, text) },
+	}
 }
 
 // inTrash reports whether a request is for the task list showing the trash,
@@ -672,6 +842,9 @@ func doneState(d core.WorkflowDefinition) string {
 // createTask creates a task from the list screen's form.
 func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	form := readTaskForm(r)
+	if form.Quick {
+		h.rememberAddAnother(w, r, form.Another)
+	}
 	in, err := form.input(r, h.readerNow(r), h.readerStyle(r).DateOrder())
 	if err == nil && form.Quick {
 		in, err = h.quickInput(r, in)
@@ -682,6 +855,13 @@ func (h *handler) createTask(w http.ResponseWriter, r *http.Request) error {
 	task, err := h.svc.CreateTask(r.Context(), in)
 	if err != nil {
 		return h.refuseTask(w, r, form, err)
+	}
+	// Add another is the choice made on the row itself, so it wins over the
+	// preference: the reader is typing a run of tasks and wants the box back.
+	if form.Quick && form.Another {
+		h.markQuickFocus(w, r)
+		redirectTo(w, r, listingReferer(r), "t-"+task.Ref, "task created")
+		return nil
 	}
 	// Both add paths land here, the one-line box and Add with details, so the
 	// preference governs both rather than one of them. Staying returns to the
@@ -711,6 +891,7 @@ func (h *handler) refuseTask(w http.ResponseWriter, r *http.Request, form taskFo
 	}
 	if form.Quick {
 		data.Form.Project, data.QuickLine = form.Project, form.Title
+		data.QuickAnother = form.Another
 		data.Quick = h.previewLine(r, form.Title)
 		data.Quick.Error = refusalMessage(err)
 		return h.renderStatus(w, r, core.KindOf(err).HTTPStatus(), "tasks.html", "Tasks", data)
@@ -747,10 +928,12 @@ func listingReferer(r *http.Request) string {
 // withoutFlash is a listing address minus the message a previous redirect
 // left on it. Adding twice in a row would otherwise carry the first task's
 // flash into the second redirect, and the toast would name the wrong task.
+// A shared line goes too, or staying after adding it would put it back.
 func withoutFlash(path string, query url.Values) string {
 	query.Del("flash")
 	query.Del("flashref")
 	query.Del(FlashUndoParam)
+	query.Del(QuickAddParam)
 	if len(query) == 0 {
 		return path
 	}
@@ -795,7 +978,8 @@ func (h *handler) setPriority(w http.ResponseWriter, r *http.Request) error {
 // straight from the opening state to a terminal one, so this walks the
 // shortest legal path and applies each transition. Doing it any other way
 // would mean the tick box works only for tasks that happen to be one step
-// from done.
+// from done. The toast offers the way back to the state it left, when the
+// workflow has one, as a move's does.
 func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 	ref, err := taskRefOf(r)
 	if err != nil {
@@ -844,7 +1028,8 @@ func (h *handler) completeTask(w http.ResponseWriter, r *http.Request) error {
 		// the plain list.
 		back = RouteTasks
 	}
-	redirectTo(w, r, back, "t-"+task.Ref, done+output.ShowRef(task.Ref))
+	undo := undoRoute(flow.Definition, target, task.Status)
+	redirectTo(w, r, withUndo(back, undo), "t-"+task.Ref, done+output.ShowRef(task.Ref))
 	return nil
 }
 
@@ -935,7 +1120,7 @@ func (h *handler) unfinishedStatuses(ctx context.Context) ([]string, error) {
 // its trail go, for narrowHref's reason in reverse: they address positions in
 // the narrowed walk, and carrying one onto the wider set names rows this
 // reader was never on.
-func showAllHref(r *http.Request) string {
+func showAllHref(r *http.Request, route string) string {
 	query := r.URL.Query()
 	query.Del(CursorParam)
 	query.Del(TrailParam)
@@ -944,7 +1129,7 @@ func showAllHref(r *http.Request) string {
 	query.Del("flashref")
 	query.Del(FlashUndoParam)
 	query.Set(AllParam, "1")
-	return RouteTasks + "?" + query.Encode()
+	return route + "?" + query.Encode()
 }
 
 // projectPickOption is one option of the project control.
@@ -998,4 +1183,25 @@ func liveProjectIDs(projects []core.Project, filter core.TaskFilter) []string {
 		ids = append(ids, found)
 	}
 	return ids
+}
+
+// Filtering reports whether the filter bar narrows the screen. The project a
+// project page is scoped to is the screen, not a filter on it.
+func (v tasksView) Filtering() bool {
+	return v.Query != "" || v.Due != "" || (v.Project != "" && v.Scope == nil)
+}
+
+// clearHref is the screen with the filter dropped: the sort stays, because a
+// sort is not a filter, and so does the view the address named.
+func clearHref(r *http.Request, route string) string {
+	query := url.Values{}
+	for _, k := range []string{"sort", OrderParam, SizeParam, ViewParam, LanesParam, SelectParam} {
+		if v := r.URL.Query().Get(k); v != "" {
+			query.Set(k, v)
+		}
+	}
+	if len(query) == 0 {
+		return route
+	}
+	return route + "?" + query.Encode()
 }

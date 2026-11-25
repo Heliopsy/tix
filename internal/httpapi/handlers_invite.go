@@ -29,10 +29,10 @@ func isInviteTokenPath(path string) bool {
 	return ok && rest != "" && !strings.Contains(rest, "/")
 }
 
-// InviteURL is the absolute address of an invite link as this request reached
-// the deployment.
+// InviteURL is the absolute address of an invite link under this request's
+// Origin.
 func InviteURL(r *http.Request, token string) string {
-	return origin(r) + core.InvitePath(token)
+	return Origin(r) + core.InvitePath(token)
 }
 
 // handleCreateInvite invites an address and answers its link once.
@@ -109,8 +109,7 @@ func (rt *Router) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Session != nil {
-		http.SetCookie(w, auth.NewSessionCookie(
-			result.Session.Token, result.Session.ExpiresAt, rt.secureCookie(r)))
+		http.SetCookie(w, auth.SessionCookie(*result.Session, rt.secureCookie(r)))
 	}
 	WriteJSON(w, http.StatusOK, result)
 }

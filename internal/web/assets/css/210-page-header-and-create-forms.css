@@ -57,7 +57,7 @@ details.panel.columns { margin-bottom: 18px; }
 }
 
 /* The create and settings forms: Add with details, New project and a
-   project's settings (templates/tasks.html, projects.html, board.html).
+   project's settings (templates/tasks.html, projects.html).
 
    One layout for all three. What a person writes -- a title, a name, a
    description -- runs down the left; what they pick sits in a column on the
@@ -113,6 +113,11 @@ details.panel.columns { margin-bottom: 18px; }
   list-style: none;
 }
 .cform-more > summary::-webkit-details-marker { display: none; }
+/* On a phone the list of what is folded inside ran the summary onto a second
+   line in Bulgarian; the fold names them itself once it is open. */
+@media (max-width: 599px) {
+  .cform-more > summary .muted { display: none; }
+}
 .cform-more > summary::before { --mark: var(--mark-chevron-right); color: var(--muted); transition: transform 120ms ease; }
 .cform-more[open] > summary::before { transform: rotate(90deg); }
 .cform-more > summary .muted { font-weight: 400; font-size: var(--text-xs); }
@@ -241,7 +246,9 @@ div.formsheet:popover-open:not(.is-inplace) { inset: 0; height: fit-content; mar
 }
 .delform-lead { margin: 0 0 var(--space-1); font-size: var(--text-md); font-weight: 500; }
 .delform > .cfield-hint { margin-bottom: var(--space-4); }
-.delchoices { display: flex; flex-direction: column; gap: var(--space-3); max-width: none; margin: 0; padding: 0; border: 0; background: none; }
+/* A fieldset is min-content wide by default, so the widest project name in
+   the target select pushed the whole form past a phone's edge. */
+.delchoices { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; max-width: none; margin: 0; padding: 0; border: 0; background: none; }
 .delchoices > legend { margin-bottom: var(--space-2); padding: 0; font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
 .delchoice {
   min-width: 0;

@@ -96,3 +96,36 @@ func TestAChannelDeliveryWhoseChannelIsOffFailsWithoutAnAttempt(t *testing.T) {
 		t.Fatalf("delivery = %+v, receiver saw %d", got, rec.count())
 	}
 }
+
+// domainTx answers ListDomains and nothing else, which is all channelBase asks.
+type domainTx struct {
+	store.Tx
+	domains []core.Domain
+}
+
+func (d domainTx) ListDomains(context.Context) ([]core.Domain, error) { return d.domains, nil }
+
+// A channel message links under the tenant's own domain, else the public
+// address, and with neither it carries no link, exactly as before.
+func TestChannelBaseFollowsTheTenantsDomainAndThePublicAddress(t *testing.T) {
+	own := core.Domain{Hostname: "tix.acme.example"}
+	shared := core.Domain{Hostname: "tix.shared.example", Shared: true}
+	cases := []struct {
+		name, public string
+		domains      []core.Domain
+		want         string
+	}{
+		{"nothing", "", nil, ""},
+		{"a domain, no public address", "", []core.Domain{shared}, "https://tix.shared.example"},
+		{"public address, no domain", "https://tix.example.com/tix", nil, "https://tix.example.com/tix"},
+		{"public address, a shared domain", "https://tix.example.com", []core.Domain{shared}, "https://tix.example.com"},
+		{"public address, its own domain", "https://tix.example.com:8443/tix", []core.Domain{shared, own}, "https://tix.acme.example:8443/tix"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := channelBase(context.Background(), domainTx{domains: tc.domains}, tc.public); got != tc.want {
+				t.Errorf("channelBase = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

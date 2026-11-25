@@ -66,7 +66,7 @@ func newUserCmd(g *globals) *cobra.Command {
 }
 
 func userCreateCmd(g *globals) *cobra.Command {
-	var password, display, handle, role string
+	var pass, display, handle, role string
 	var dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "create EMAIL",
@@ -80,8 +80,12 @@ func userCreateCmd(g *globals) *cobra.Command {
 			"  tix user create ada@example.com --password - --require-password-change",
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			secret, err := passwordArg(cmd, pass)
+			if err != nil {
+				return err
+			}
 			in := core.CreateUserInput{
-				Email: args[0], Password: password, DisplayName: display,
+				Email: args[0], Password: secret, DisplayName: display,
 				Handle: handle, Role: core.Role(role), RequirePasswordChange: mustChange,
 			}
 			if err := in.Validate(); err != nil {
@@ -102,7 +106,7 @@ func userCreateCmd(g *globals) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&password, "password", "", "initial password")
+	f.StringVar(&pass, "password", "", "initial password, or - to read standard input")
 	f.StringVar(&display, "display-name", "", "display name")
 	f.StringVar(&handle, "handle", "", "actor handle")
 	f.StringVar(&role, "role", "", "role in the current tenant")
@@ -114,12 +118,15 @@ func userCreateCmd(g *globals) *cobra.Command {
 func userLsCmd(g *globals) *cobra.Command {
 	var limit int
 	var cursor string
+	var removed, without2FA bool
 	cmd := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List users",
-		Long:    "List users.\n\nExit codes: 5 permission denied.",
-		Example: "  tix user ls -o json",
+		Long: "List the tenant's users. People removed from the tenant keep their actor for history but are left\n" +
+			"out; --include-removed lists them too, marked removed. The 2FA column says who holds a second\n" +
+			"factor, and --without-2fa lists only those who do not.\n\nExit codes: 5 permission denied.",
+		Example: "  tix user ls -o json\n  tix user ls --include-removed\n  tix user ls --without-2fa",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			size, err := g.pageSize(cmd, limit)
@@ -130,7 +137,9 @@ func userLsCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			users, next, err := conn.Service.ListUsers(ctx, core.Page{Limit: size, Cursor: cursor})
+			users, next, err := conn.Service.ListUsers(ctx, core.UserFilter{
+				IncludeRemoved: removed, WithoutTOTP: without2FA, Page: core.Page{Limit: size, Cursor: cursor},
+			})
 			if err != nil {
 				return err
 			}
@@ -140,6 +149,8 @@ func userLsCmd(g *globals) *cobra.Command {
 			return g.render(cmd, users)
 		},
 	}
+	cmd.Flags().BoolVar(&removed, "include-removed", false, "include people removed from the tenant")
+	cmd.Flags().BoolVar(&without2FA, "without-2fa", false, "list only people who hold no second factor")
 	cmd.Flags().IntVar(&limit, "limit", config.DefaultPageSize, "maximum records to return")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue from a previous page")
 	return cmd
@@ -167,7 +178,7 @@ func userShowCmd(g *globals) *cobra.Command {
 }
 
 func userEditCmd(g *globals) *cobra.Command {
-	var display, password, role string
+	var display, pass, role string
 	var disabled, dryRun, mustChange bool
 	cmd := &cobra.Command{
 		Use:   "edit ID",
@@ -185,7 +196,11 @@ func userEditCmd(g *globals) *cobra.Command {
 				in.DisplayName = &display
 			}
 			if cmd.Flags().Changed("password") {
-				in.Password = &password
+				secret, err := passwordArg(cmd, pass)
+				if err != nil {
+					return err
+				}
+				in.Password = &secret
 			}
 			if cmd.Flags().Changed("role") {
 				r := core.Role(role)
@@ -213,7 +228,7 @@ func userEditCmd(g *globals) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&display, "display-name", "", "new display name")
-	f.StringVar(&password, "password", "", "new password")
+	f.StringVar(&pass, "password", "", "new password, or - to read standard input")
 	f.StringVar(&role, "role", "", "new role")
 	f.BoolVar(&disabled, "disabled", false, "disable or re-enable the user")
 	f.BoolVar(&mustChange, "require-password-change", false,
@@ -258,14 +273,14 @@ func newTokenCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(tokenCreateCmd(g), tokenLsCmd(g), tokenRmCmd(g))
+	cmd.AddCommand(tokenCreateCmd(g), tokenLsCmd(g), tokenRmCmd(g), tokenRotateCmd(g))
 	return cmd
 }
 
 func tokenCreateCmd(g *globals) *cobra.Command {
 	var actor, project, expires string
 	var scopes []string
-	var dryRun bool
+	var dryRun, requireClaim bool
 	cmd := &cobra.Command{
 		Use:   "create NAME",
 		Short: "Mint an API token",
@@ -273,9 +288,16 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 			"The token expires after " + DefaultTokenExpiry + " unless --expires says otherwise, " +
 			"matching the browser form. Pass --expires never for a token that does not expire; " +
 			"nothing else produces one.\n\n" +
+			"--require-claim mints a token that changes a task only while its actor holds a live claim on it: " +
+			"moves, edits, tag changes, project moves and deletes of an unclaimed task are refused with exit 5. " +
+			"Claiming (with --start too), creating, commenting and reading are not affected. It is fixed for the " +
+			"token's life and kept by tix token rotate. For an AI agent, give each agent its own token and " +
+			"actor (--actor), confine it with --project and grant only the scopes it needs.\n\n" +
 			"Exit codes: 2 unknown scope or unreadable expiry, 3 unknown project or actor, 5 permission denied.",
-		Example: "  tix token create agent --scope task:read --scope task:claim",
-		Args:    exactArgs(1),
+		Example: "  tix token create agent --scope task:read --scope task:claim\n" +
+			"  tix token create worker-1 --actor worker-1 --project infra --require-claim \\\n" +
+			"    --scope task:read --scope task:claim --scope task:transition --scope comment:write",
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			expiry, err := parseExpiry(expires, time.Now())
 			if err != nil {
@@ -283,13 +305,14 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 			}
 			in := core.CreateTokenInput{
 				Name: args[0], ActorID: actor, ProjectID: project,
-				Scopes: toScopes(scopes), ExpiresAt: expiry,
+				Scopes: toScopes(scopes), ExpiresAt: expiry, RequireClaim: requireClaim,
 			}
 			if err := in.Validate(); err != nil {
 				return err
 			}
 			if dryRun {
-				return g.render(cmd, newPlan("token.create", in.Name, map[string]any{"scopes": scopes}))
+				return g.render(cmd, newPlan("token.create", in.Name,
+					map[string]any{"scopes": scopes, "require_claim": requireClaim}))
 			}
 			conn, ctx, err := g.dial(cmd)
 			if err != nil {
@@ -310,6 +333,8 @@ func tokenCreateCmd(g *globals) *cobra.Command {
 	f.StringVar(&expires, "expires", DefaultTokenExpiry,
 		"when the token stops working: a duration such as 90d, a date, an RFC3339 timestamp, "+
 			"or never for a token that does not expire")
+	f.BoolVar(&requireClaim, "require-claim", false,
+		"refuse changes to a task unless the token's actor holds a live claim on it")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be created without writing")
 	_ = cmd.RegisterFlagCompletionFunc("scope", fixedCompletion(scopeNames()))
 	return cmd
@@ -367,18 +392,76 @@ func tokenRmCmd(g *globals) *cobra.Command {
 	return cmd
 }
 
+func tokenRotateCmd(g *globals) *cobra.Command {
+	var actor, grace string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "rotate ID|NAME",
+		Short: "Replace an API token with a new one",
+		Long: "Issue a new token with the same name, scopes, project, claim requirement and lifetime counted " +
+			"from now, and retire " +
+			"the old one. The new secret is shown exactly once.\n\n" +
+			"--grace keeps the old token working for up to 24h beside the new one, so whatever holds it can " +
+			"swap without a failed request; the default stops it at once. A token may rotate itself, so an " +
+			"agent can replace its own credential; another actor's token needs token:admin.\n\n" +
+			"Exit codes: 2 invalid grace, 3 unknown token, 4 token already rotated or no longer working, " +
+			"5 permission denied.",
+		Example: "  tix token rotate ci-agent --grace 10m\n  tix token rotate 01J000000000000000000A -o json",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			in := core.RotateTokenInput{ActorID: actor}
+			if grace != "" {
+				d, err := core.ParseDuration(grace)
+				if err != nil {
+					return core.Invalid("--grace %q is not a duration such as 10m or 1h", grace).
+						WithDetail(core.DetailField, "grace")
+				}
+				in.Grace = d
+			}
+			if err := in.Validate(); err != nil {
+				return err
+			}
+			if dryRun {
+				return g.render(cmd, newPlan("token.rotate", args[0], map[string]any{"grace": in.Grace.String()}))
+			}
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			issued, err := conn.Service.RotateToken(ctx, args[0], in)
+			if err != nil {
+				return err
+			}
+			g.diag(cmd, "the new token value is shown once and cannot be retrieved again")
+			return g.render(cmd, issued)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&grace, "grace", "", "how long the old token keeps working beside the new one, such as 10m (0 to 24h); empty stops it at once")
+	f.StringVar(&actor, "actor", "", "the actor the token must belong to, by handle or identifier")
+	f.BoolVar(&dryRun, "dry-run", false, "report what would be rotated without writing")
+	return cmd
+}
+
 // newLoginCmd builds the login command.
 func newLoginCmd(g *globals) *cobra.Command {
-	var email, password, sshKey, contextName string
+	var email, password, sshKey, contextName, ssoKey string
+	var remember, noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Exchange a password or an SSH key for a session",
+		Short: "Exchange a password, an SSH key or a single sign-on for a session",
 		Long: "Log in and print the session token.\n\n" +
 			"--ssh-key signs a challenge from the server with an SSH key enrolled for you (tix user key add) " +
 			"instead of sending a password. Alone it tries every key in ssh-agent, then ~/.ssh/id_ed25519, " +
 			"id_ecdsa and id_rsa; --ssh-key=PATH uses only that private key and asks for its passphrase " +
 			"without echo. The signature is made under the namespace tix-login@HOST, so it can only be " +
 			"used to sign in to this server.\n\n" +
+			"--sso signs in through one of the tenant's single sign-on providers (tix tenant sso): alone, " +
+			"the tenant's only provider; --sso=KEY, that one. It listens on 127.0.0.1, opens the provider " +
+			"in the browser and prints the address too, for a machine with no browser to open; the provider " +
+			"sends the browser back to the listener, and the session printed is the same as a password " +
+			"sign-in's. --no-browser only prints the address. The tenant's second factor still applies " +
+			"unless the provider is trusted for it.\n\n" +
 			"Where a second factor is required, the code is asked for on the terminal after the password. " +
 			"No flag and no environment variable carries it: a live code passed as an argument lands in " +
 			"shell history and in the process table. An unattended caller uses an API token instead, which " +
@@ -393,18 +476,39 @@ func newLoginCmd(g *globals) *cobra.Command {
 			"the token on the context --context names, or on the current context, or on a new context named " +
 			"after the tenant. Run it once per tenant to hold one context for each; tix tenant ls marks which " +
 			"of your tenants have one.\n\n" +
-			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials, " +
-			"6 no terminal to prompt for a code or a new password.",
+			"Under a tenant's second factor policy (tix tenant edit --mfa-policy required), an account " +
+			"with no second factor is taken through enrolment here on a terminal; without one the sign-in " +
+			"is refused with exit code 5 and reason second_factor_enrollment_required, naming the web " +
+			"enrolment screen. During the policy's grace the sign-in completes with a warning naming the " +
+			"deadline.\n\n" +
+			"--remember asks for a keep me signed in session, which lasts the tenant's session remember_ttl " +
+			"(30d unless the server or tenant says otherwise) instead of its ttl (12h). Where the tenant " +
+			"does not offer it the session is an ordinary one; the printed expires_at says which you got. " +
+			"An idle timeout still ends a remembered session left unused. It applies to a password sign-in " +
+			"and cannot be combined with --ssh-key.\n\n" +
+			"Exit codes: 2 missing credentials or a refused new password, 5 invalid credentials or a second " +
+			"factor to enrol with no terminal, 6 no terminal to prompt for a code or a new password.",
 		Example: "  tix login --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --tenant test --context test --email ada@example.com --password -\n" +
 			"  tix --server https://tix.example login --ssh-key\n" +
+			"  tix --server https://tix.example login --sso\n" +
+			"  tix --server https://tix.example login --sso=github --no-browser\n" +
 			"  tix --server https://tix.example login --ssh-key=~/.ssh/work_ed25519",
 		GroupID: "setup",
 		Args:    noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("sso") {
+				if email != "" || password != "" || cmd.Flags().Changed("ssh-key") {
+					return usagef(cmd, "--sso replaces --email, --password and --ssh-key; pass one way to sign in")
+				}
+				return g.loginWithSSO(cmd, strings.ToLower(strings.TrimSpace(ssoKey)), contextName, remember, noBrowser)
+			}
 			if cmd.Flags().Changed("ssh-key") {
 				if email != "" || password != "" {
 					return usagef(cmd, "--ssh-key replaces --email and --password; pass one or the other")
+				}
+				if remember {
+					return usagef(cmd, "--remember applies to a password sign-in, not --ssh-key")
 				}
 				return g.loginWithSSHKey(cmd, sshKey, contextName)
 			}
@@ -424,7 +528,7 @@ func newLoginCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI}
+			in := core.LoginInput{Email: email, Password: secret, Surface: core.SurfaceCLI, Remember: remember}
 			result, err := svc.Login(ctx, in)
 			if err != nil {
 				return err
@@ -437,14 +541,20 @@ func newLoginCmd(g *globals) *cobra.Command {
 					return err
 				}
 			}
-			return g.finishLogin(cmd, svc, ctx, result, tl)
+			return g.finishLogin(cmd, svc, ctx, result, tl, remember)
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "account email address")
 	cmd.Flags().StringVar(&password, "password", "", "password, or - to read standard input")
+	cmd.Flags().BoolVar(&remember, "remember", false,
+		"keep me signed in: the session lasts the tenant's remember_ttl rather than its ttl")
 	cmd.Flags().StringVar(&sshKey, "ssh-key", "",
 		"sign in with an enrolled SSH key: alone, ssh-agent then the default keys; =PATH, that private key")
 	cmd.Flags().Lookup("ssh-key").NoOptDefVal = sshKeyDiscover
+	cmd.Flags().StringVar(&ssoKey, "sso", "",
+		"sign in through a single sign-on provider: alone, the tenant's only one; =KEY, that one")
+	cmd.Flags().Lookup("sso").NoOptDefVal = ssoAuto
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "with --sso, print the sign-in address without opening a browser")
 	cmd.Flags().StringVar(&contextName, "context", "",
 		"with --tenant, the context to store the token on; defaults to the current one, else the tenant key")
 	return cmd
@@ -484,11 +594,11 @@ func (g *globals) askNewPassword(cmd *cobra.Command, server string) (string, err
 // finishLogin takes a first step's answer through the second factor, when
 // there is one, and prints the session.
 func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.Context,
-	result *core.LoginResult, tl *tenantLogin,
+	result *core.LoginResult, tl *tenantLogin, remember bool,
 ) error {
 	var err error
 	if result.Challenge != nil {
-		if result, err = g.answerChallenge(cmd, svc, ctx, result.Challenge); err != nil {
+		if result, err = g.answerChallenge(cmd, svc, ctx, result.Challenge, remember); err != nil {
 			return err
 		}
 	}
@@ -496,6 +606,10 @@ func (g *globals) finishLogin(cmd *cobra.Command, svc core.Service, ctx context.
 		return core.Internal("the sign-in finished without a session")
 	}
 	showRecoveryCodes(cmd, result.RecoveryCodes)
+	if due := result.SecondFactorDue; due != nil {
+		g.diag(cmd, "this tenant requires a second factor from %s and you have none yet; "+
+			"enrol with tix user totp enrol, or under Settings in the browser", due.UTC().Format(time.RFC3339))
+	}
 	if tl != nil {
 		return g.storeTenantLogin(cmd, ctx, tl, result.Session)
 	}
@@ -531,7 +645,7 @@ func (g *globals) loginWithSSHKey(cmd *cobra.Command, path, contextName string) 
 	if err != nil {
 		return err
 	}
-	return g.finishLogin(cmd, svc, ctx, result, tl)
+	return g.finishLogin(cmd, svc, ctx, result, tl, false)
 }
 
 // audienceOf is the host a signature is bound to: the server this invocation
@@ -562,9 +676,12 @@ func expandTilde(path, home string) string {
 // flag or as an environment variable, so a caller with no terminal is refused
 // here rather than hanging on a question nobody can answer.
 func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx context.Context,
-	challenge *core.TOTPChallenge,
+	challenge *core.TOTPChallenge, remember bool,
 ) (*core.LoginResult, error) {
 	if !onATerminal(cmd) {
+		if challenge.Kind == core.ChallengeEnrol {
+			return nil, errEnrolElsewhere()
+		}
 		return nil, errNoTerminal("this tenant requires a second factor on the command line, which")
 	}
 	if challenge.Kind == core.ChallengeEnrol {
@@ -579,8 +696,18 @@ func (g *globals) answerChallenge(cmd *cobra.Command, svc core.Service, ctx cont
 		return nil, err
 	}
 	return svc.Login(ctx, core.LoginInput{
-		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code,
+		Surface: core.SurfaceCLI, Ticket: challenge.Ticket, Code: code, Remember: remember,
 	})
+}
+
+// errEnrolElsewhere refuses a sign-in that has to enrol a second factor when
+// there is no terminal to show the enrolment on. It is the policy's own
+// refusal, so a script reads the same reason and exit code a refused request
+// gives.
+func errEnrolElsewhere() error {
+	return core.Forbidden("this tenant requires a second factor and this account has none yet; "+
+		"sign in to the web interface and open /settings/totp, or run tix login on a terminal to enrol here").
+		WithDetail("reason", core.ReasonSecondFactorEnrollmentRequired)
 }
 
 // toScopes converts flag strings to scopes.

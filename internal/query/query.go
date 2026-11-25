@@ -80,6 +80,12 @@ func ParseAt(expr string, now time.Time) (core.TaskFilter, error) {
 			continue
 		}
 		text, negate := strings.CutPrefix(tok.text, NegationPrefix)
+		if handle, at := atHandle(text); at {
+			if err := applyTerm(&f, "assignee", handle, ":", negate, now); err != nil {
+				return core.TaskFilter{}, err
+			}
+			continue
+		}
 		key, value, op, ok := cutTerm(text)
 		if !ok {
 			if err := applyWord(&f, &words, text, negate); err != nil {
@@ -104,6 +110,20 @@ func ParseAt(expr string, now time.Time) (core.TaskFilter, error) {
 	}
 	f.Query = strings.Join(words, " ")
 	return f.Validate()
+}
+
+// AssigneePrefix marks a word as an assignee term: "@raj" is "assignee:raj",
+// the way quick add reads it.
+const AssigneePrefix = "@"
+
+// atHandle reports whether a word is "@handle", and the handle. A lone "@"
+// and a word carrying an operator are not.
+func atHandle(text string) (string, bool) {
+	handle, ok := strings.CutPrefix(text, AssigneePrefix)
+	if !ok || handle == "" || strings.ContainsAny(handle, ":"+WeakOperator) {
+		return "", false
+	}
+	return handle, true
 }
 
 // cutTerm splits a term on the first operator, reporting which one it was.
@@ -456,7 +476,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		f.Claimed = yes
 	case "unclaimed", "free":
 		f.Claimed = no
-	case "blocked":
+	case "blocked", "waiting-on":
 		f.Blocked = yes
 	case "unblocked", "ready":
 		f.Blocked = no
@@ -480,7 +500,7 @@ func applyIs(f *core.TaskFilter, value string, negate bool) error {
 		}
 		f.ParentIsNull = true
 	default:
-		return core.Invalid("unknown is: value %q; try claimed, unclaimed, blocked, unblocked, recurring, starred, unstarred, snoozed, awake, deleted, trashed or root", value)
+		return core.Invalid("unknown is: value %q; try claimed, unclaimed, waiting-on (or blocked), unblocked, recurring, starred, unstarred, snoozed, awake, deleted, trashed or root", value)
 	}
 	return nil
 }

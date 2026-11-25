@@ -123,7 +123,7 @@ func (f *adminFake) RevokeGlobalAdmin(_ context.Context, email string) error {
 	return nil
 }
 
-func (f *adminFake) ListTenantUsers(_ context.Context, tenant string, _ core.Page) ([]core.TenantUser, string, error) {
+func (f *adminFake) ListTenantUsers(_ context.Context, tenant string, _ core.UserFilter) ([]core.TenantUser, string, error) {
 	f.amu.Lock()
 	defer f.amu.Unlock()
 	return f.users[tenant], "", nil

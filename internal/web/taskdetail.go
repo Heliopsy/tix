@@ -3,12 +3,17 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,17 +38,22 @@ func (h *handler) taskRoutes() []route {
 		// rather than the whole page. See showTasksLive and showTaskLive.
 		get(RouteTasksLive, "tasks.html", h.showTasksLive, "ListTasks", "ListProjects", "ListTags"),
 		get(RouteTask, "task.html", h.showTask, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease",
+			"ArtifactLimits"),
 		get(RouteTaskLive, "task.html", h.showTaskLive, "GetTask", "TaskTree",
-			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease"),
+			"ListDependencies", "ListComments", "ListArtifacts", "ListFieldDefs", "GetActor", "TaskLease",
+			"ArtifactLimits"),
 		get(RouteTaskHistory, "task.html", h.showTaskHistory, "GetTask", "ListAudit", "GetActor"),
 		get(RouteTaskTree, "task.html", h.showTaskTree, "TaskTree"),
 		post(RouteTask, h.updateTask, "UpdateTask"),
 		post(RouteTaskMove, h.transitionTask, "TransitionRoute"),
 		post(RouteTaskComplete, h.completeTask, "TransitionTask"),
 		post(RouteTaskPriority, h.setPriority, "UpdateTask"),
+		post(RouteTaskAssign, h.assignTask, "UpdateTask", "GetTask"),
+		post(RouteTaskDue, h.setDue, "UpdateTask", "GetTask"),
 		post(RouteTaskDelete, h.deleteTask, "DeleteTask"),
 		post(RouteTaskRestore, h.restoreTask, "RestoreTask"),
+		post(RouteTaskPurge, h.purgeTask, "PurgeTask"),
 		post(RouteTaskReclaim, h.reclaimTask, "ForceReclaim"),
 		post(RouteTaskDeps, h.addDependency, "AddDependency"),
 		post(RouteTaskDepDel, h.removeDependency, "RemoveDependency"),
@@ -51,6 +61,8 @@ func (h *handler) taskRoutes() []route {
 		post(RouteTaskTagDel, h.removeTag, "RemoveTag"),
 		get(RouteTaskCopy, "taskcopy.html", h.showCopyTask, "GetTask", "ListProjects"),
 		post(RouteTaskCopy, h.copyTask, "CopyTask"),
+		get(RouteTaskRehome, "taskmove.html", h.showMoveTask, "GetTask", "ListProjects"),
+		post(RouteTaskRehome, h.moveTask, "MoveTask"),
 		post(RouteTaskStar, h.starTask, "StarTask"),
 		post(RouteTaskUnstar, h.unstarTask, "UnstarTask"),
 		post(RouteTaskSnooze, h.snoozeTask, "SnoozeTask"),
@@ -60,7 +72,10 @@ func (h *handler) taskRoutes() []route {
 		post(RouteMarkdownPreview, h.previewMarkdown, "UpdateTask", "AddComment", "EditComment"),
 		post(RouteCommentEdit, h.editComment, "EditComment"),
 		post(RouteCommentDel, h.deleteComment, "DeleteComment"),
+		post(RouteCommentReact, h.reactComment, "AddReaction"),
+		post(RouteCommentUnreact, h.unreactComment, "RemoveReaction"),
 		post(RouteTaskArts, h.putArtifact, "PutArtifact"),
+		getFile(RouteTaskArtFile, h.downloadArtifact, "ListArtifacts"),
 	}
 }
 
@@ -132,12 +147,24 @@ type taskView struct {
 	HistoryNext   string
 	Names         actorNames
 	Routes        []flowRoute
+	// Workflow is the task's project's workflow, which decides what its
+	// three dots menu offers; HaveWorkflow is false when it could not be read.
+	Workflow     core.WorkflowDefinition
+	HaveWorkflow bool
+	// Renaming draws the title field open, where a menu's Rename leads
+	// without scripting.
+	Renaming      bool
 	Priorities    []priorityChoice
 	ArtifactKinds []core.ArtifactKind
-	CanWrite      bool
-	CanComment    bool
-	CanDelete     bool
-	CanAudit      bool
+	// ArtifactLimits are what a file attached here is held to, stated beside
+	// the file input; nil when they could not be read.
+	ArtifactLimits *core.ArtifactLimits
+	CanWrite       bool
+	CanComment     bool
+	// ViewerID is the reader, whose own reactions are drawn pressed.
+	ViewerID  string
+	CanDelete bool
+	CanAudit  bool
 	// CanReclaim is the reader's authority to end somebody else's lease. The
 	// control is drawn only when a lease is live, so the field alone does not
 	// decide whether it appears.
@@ -187,6 +214,9 @@ type taskView struct {
 
 	// Handoff is the text that hands this task to a coding agent.
 	Handoff handoffView
+
+	// Share is the header's Share menu.
+	Share shareView
 }
 
 // backTo resolves where this screen's back link points.
@@ -284,6 +314,9 @@ func (v taskView) actorIDs() []string {
 		v.Task.ClaimedByActorID, v.Task.LeaseExpiredByActorID, v.Task.SnoozedByActorID}
 	for _, c := range v.Comments {
 		out = append(out, c.AuthorActorID)
+		for _, r := range c.Reactions {
+			out = append(out, r.ActorIDs...)
+		}
 	}
 	for _, g := range v.History {
 		for _, h := range g.Hops {
@@ -349,13 +382,16 @@ func (h *handler) buildTaskView(r *http.Request) (taskView, error) {
 		ArtifactKinds: core.ArtifactKinds,
 		CanWrite:      actor.HasScope(core.ScopeTaskWrite),
 		CanComment:    actor.HasScope(core.ScopeCommentWrite),
+		ViewerID:      actor.ID,
 		CanDelete:     actor.HasScope(core.ScopeTaskDelete),
 		CanReclaim:    actor.HasScope(core.ScopeTaskReclaim),
 		CanAudit:      actor.HasScope(core.ScopeAuditRead),
 		Back:          backTo(r),
+		Renaming:      r.URL.Query().Get(RenameParam) != "",
 	}
 	data.BackLabel = backLabel(data.Back)
 	data.Handoff = newHandoff(r, *task)
+	data.Share = newShare(r, *task)
 	if err := h.attachRelations(r, ref, &data); err != nil {
 		return taskView{}, err
 	}
@@ -414,7 +450,11 @@ func (h *handler) attachRelations(r *http.Request, ref core.TaskRef, data *taskV
 		return err
 	}
 	data.Artifacts, err = h.svc.ListArtifacts(r.Context(), ref)
-	return err
+	if err != nil {
+		return err
+	}
+	data.ArtifactLimits, _ = h.svc.ArtifactLimits(r.Context())
+	return nil
 }
 
 // namedDependencies resolves each dependency to the reference and title a
@@ -449,6 +489,7 @@ func (h *handler) attachProject(r *http.Request, ref core.TaskRef, data *taskVie
 		return err
 	}
 	data.Routes = flowRoutes(workflow.Definition, data.Task.Status)
+	data.Workflow, data.HaveWorkflow = workflow.Definition, true
 
 	defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
 	if err != nil {
@@ -997,6 +1038,24 @@ func (h *handler) restoreTask(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// purgeTask permanently deletes a task in the trash. Only the confirm
+// dialog on a trash row posts here.
+func (h *handler) purgeTask(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	if err := h.svc.PurgeTask(r.Context(), ref); err != nil {
+		return err
+	}
+	back := backTo(r)
+	if next := field(r, "next"); next != "" {
+		back = safeNext(next)
+	}
+	redirect(w, r, back, "task deleted permanently")
+	return nil
+}
+
 // reclaimTask ends the lease another worker holds. The screen offers it only
 // beside a live lease, and only to a reader holding task:reclaim, but the
 // service decides both again: an affordance the template hides is not a check.
@@ -1058,10 +1117,15 @@ func (h *handler) addTag(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.AddTag(r.Context(), ref, field(r, "tag")); err != nil {
+	tag := field(r, "tag")
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && !slices.Contains(before.Tags, tag) {
+		undo = undoUntagPrefix + tag
+	}
+	if err := h.svc.AddTag(r.Context(), ref, tag); err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, "tag added", "")
+	h.afterTransition(w, r, ref, "tag added", undo)
 	return nil
 }
 
@@ -1071,31 +1135,43 @@ func (h *handler) removeTag(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.RemoveTag(r.Context(), ref, field(r, "tag")); err != nil {
+	tag := field(r, "tag")
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && slices.Contains(before.Tags, tag) {
+		undo = undoTagPrefix + tag
+	}
+	if err := h.svc.RemoveTag(r.Context(), ref, tag); err != nil {
 		return err
 	}
-	h.afterTransition(w, r, ref, "tag removed", "")
+	h.afterTransition(w, r, ref, "tag removed", undo)
 	return nil
 }
 
 // starTask sets the reader's own star on a task and returns them to the screen
 // the button was on.
 func (h *handler) starTask(w http.ResponseWriter, r *http.Request) error {
-	return h.toggleStar(w, r, h.svc.StarTask, "starred ")
+	return h.toggleStar(w, r, h.svc.StarTask, "starred ", true)
 }
 
 // unstarTask clears the reader's own star on a task.
 func (h *handler) unstarTask(w http.ResponseWriter, r *http.Request) error {
-	return h.toggleStar(w, r, h.svc.UnstarTask, "unstarred ")
+	return h.toggleStar(w, r, h.svc.UnstarTask, "unstarred ", false)
 }
 
 // toggleStar applies one star call and sends the reader back where they were,
 // at the row they pressed. safeNext refuses anything but a relative path, and
 // its projects fallback is replaced by the task's own screen.
-func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(context.Context, core.TaskRef) error, verb string) error {
+func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(context.Context, core.TaskRef) error, verb string, star bool) error {
 	ref, err := taskRefOf(r)
 	if err != nil {
 		return err
+	}
+	undo := ""
+	if before, err := h.svc.GetTask(r.Context(), ref); err == nil && before.Starred != star {
+		undo = undoUnstarPrefix
+		if !star {
+			undo = undoStarPrefix
+		}
 	}
 	if err := call(r.Context(), ref); err != nil {
 		return err
@@ -1104,7 +1180,7 @@ func (h *handler) toggleStar(w http.ResponseWriter, r *http.Request, call func(c
 	if back == RouteProjects && field(r, "next") != RouteProjects {
 		back = taskPath(r)
 	}
-	redirectTo(w, r, back, "t-"+ref.String(), verb+ref.String())
+	redirectToUndo(w, r, back, "t-"+ref.String(), verb+ref.String(), undo)
 	return nil
 }
 
@@ -1139,6 +1215,44 @@ func (h *handler) deleteComment(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// reactComment adds the reader's emoji reaction to one comment.
+func (h *handler) reactComment(w http.ResponseWriter, r *http.Request) error {
+	if _, err := h.svc.AddReaction(r.Context(), field(r, "id"), field(r, "emoji")); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r), "reaction added")
+	return nil
+}
+
+// unreactComment removes the reader's emoji reaction from one comment.
+func (h *handler) unreactComment(w http.ResponseWriter, r *http.Request) error {
+	if _, err := h.svc.RemoveReaction(r.Context(), field(r, "id"), field(r, "emoji")); err != nil {
+		return err
+	}
+	redirect(w, r, taskPath(r), "reaction removed")
+	return nil
+}
+
+// QuickReactions are the emoji the add-reaction picker offers in one press.
+var QuickReactions = []string{"👍", "👎", "❤️", "🎉", "😄", "😕", "👀", "🚀"}
+
+// Reacted reports whether the reader is among a reaction's actors.
+func (v taskView) Reacted(r core.Reaction) bool {
+	return slices.Contains(r.ActorIDs, v.ViewerID)
+}
+
+// Reactors names everyone behind a reaction, for its tooltip.
+func (v taskView) Reactors(r core.Reaction) string {
+	names := make([]string, len(r.ActorIDs))
+	for i, id := range r.ActorIDs {
+		names[i] = v.Names.Label(id)
+	}
+	return strings.Join(names, ", ")
+}
+
+// QuickReactions are the emoji the picker offers.
+func (v taskView) QuickReactions() []string { return QuickReactions }
+
 // putArtifact attaches structured output to the task.
 func (h *handler) putArtifact(w http.ResponseWriter, r *http.Request) error {
 	ref, err := taskRefOf(r)
@@ -1150,9 +1264,70 @@ func (h *handler) putArtifact(w http.ResponseWriter, r *http.Request) error {
 		Name:    field(r, "name"),
 		Payload: pairs(field(r, "payload")),
 	}
+	if err := attachedFile(r, &in); err != nil {
+		return err
+	}
 	if _, err := h.svc.PutArtifact(r.Context(), ref, in); err != nil {
 		return err
 	}
 	redirect(w, r, taskPath(r), "artifact attached")
 	return nil
+}
+
+// attachedFile reads the artifact form's file, if one was chosen, into the
+// blob. Its type is the browser's, or the extension's when the browser sent
+// none; the service decides whether it is accepted.
+func attachedFile(r *http.Request, in *core.ArtifactInput) error {
+	if r.MultipartForm == nil || len(r.MultipartForm.File["file"]) == 0 {
+		return nil
+	}
+	part := r.MultipartForm.File["file"][0]
+	if part.Size == 0 && part.Filename == "" {
+		return nil
+	}
+	f, err := part.Open()
+	if err != nil {
+		return core.Invalid("the attached file could not be read: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	if in.Blob, err = io.ReadAll(f); err != nil {
+		return core.Invalid("the attached file could not be read: %v", err)
+	}
+	in.ContentType = part.Header.Get("Content-Type")
+	if t := mime.TypeByExtension(filepath.Ext(part.Filename)); t != "" &&
+		(in.ContentType == "" || in.ContentType == core.UntypedArtifact) {
+		in.ContentType = t
+	}
+	if in.Name == "" {
+		in.Name = filepath.Base(part.Filename)
+	}
+	return nil
+}
+
+// downloadArtifact answers an artifact's blob as a file to save, never as a
+// page: whatever type it claims, it is sent as an attachment, nosniff, under
+// a policy that runs nothing, so an HTML or SVG file cannot act on the site.
+func (h *handler) downloadArtifact(w http.ResponseWriter, r *http.Request) error {
+	ref, err := taskRefOf(r)
+	if err != nil {
+		return err
+	}
+	list, err := h.svc.ListArtifacts(r.Context(), ref)
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(list, func(a core.Artifact) bool { return a.ID == r.PathValue("id") })
+	if i < 0 || len(list[i].Blob) == 0 {
+		return core.NotFound("artifact file %q", r.PathValue("id"))
+	}
+	a := list[i]
+	contentType := core.UntypedArtifact
+	if media := core.ArtifactMediaType(a.ContentType); media != "" {
+		contentType = media
+	}
+	name := a.Name
+	if name == "" {
+		name = "artifact-" + a.ID
+	}
+	return writeAttachment(w, contentType, name, bytes.NewReader(a.Blob))
 }

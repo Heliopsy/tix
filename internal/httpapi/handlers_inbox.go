@@ -35,7 +35,12 @@ func (rt *Router) handleListInbox(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	items, next, err := rt.cfg.Service.ListInbox(r.Context(), core.InboxFilter{Unread: boolParam(r, "unread"), Page: page})
+	var kinds []core.InboxKind
+	for _, k := range r.URL.Query()["kind"] {
+		kinds = append(kinds, core.InboxKind(k))
+	}
+	items, next, err := rt.cfg.Service.ListInbox(r.Context(), core.InboxFilter{Unread: boolParam(r, "unread"),
+		Kinds: kinds, Page: page})
 	if err != nil {
 		WriteError(w, err)
 		return

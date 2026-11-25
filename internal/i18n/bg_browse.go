@@ -56,7 +56,6 @@ func init() {
 		"lowest":  "най-нисък",
 
 		// Board.
-		"%s board":                        "Табло на %s",
 		"Workflow %s":                     "Работен процес %s",
 		"Field definitions":               "Дефиниции на полета",
 		"Workflow editor":                 "Редактор на работния процес",
@@ -72,8 +71,10 @@ func init() {
 		"No icon":                              "Без икона",
 		"Upload":                               "Качване",
 		"PNG, JPEG, WebP or SVG, up to 64 KB.": "PNG, JPEG, WebP или SVG, до 64 KB.",
-		"Leave it empty to keep the current image.":                 "Оставете празно, за да запазите текущото изображение.",
-		"The project shows no icon. Saving removes the one it has.": "Проектът няма да показва икона. Запазването премахва текущата.",
+		"Leave it empty to keep the current image.":                                              "Оставете празно, за да запазите текущото изображение.",
+		"The project shows no icon. Saving removes the one it has.":                              "Проектът няма да показва икона. Запазването премахва текущата.",
+		"The tenant shows a monogram of its name. Saving removes the icon it has.":               "Тенантът показва монограм от името си. Запазването премахва текущата икона.",
+		"Shown beside the tenant's name in the sidebar and wherever you switch between tenants.": "Показва се до името на тенанта в страничната лента и навсякъде, където превключвате между тенанти.",
 		"Emoji takes one emoji or one or two letters. Icon picks a symbol drawn in the interface's own style. Upload takes a PNG, JPEG, WebP or SVG of up to 64 KB, shown as an image; an SVG that carries script is refused. The terminal shows a text stand-in for the last two.": "„Емоджи“ приема едно емоджи или една-две букви. „Икона“ избира символ, нарисуван в стила на интерфейса. „Качване“ приема PNG, JPEG, WebP или SVG до 64 KB, показано като изображение; SVG, съдържащ скрипт, се отказва. Терминалът показва текстов заместител за последните две.",
 		"Folder":          "Папка",
 		"Briefcase":       "Куфарче",
@@ -97,13 +98,10 @@ func init() {
 		"Danger zone":     "Опасна зона",
 		"Archive project": "Архивирай проекта",
 		"Delete project":  "Изтрий проекта",
-		"Priority: %s":    "Приоритет: %s",
 		"Move %s":         "Премести %s",
-		"Move %s to":      "Премести %s в",
 		"No tasks.":       "Няма задачи.",
 		"Board":           "Табло",
-		"Each column is one state of this project's workflow, in the workflow's order. Drag a card to another column, or use its Move control: only the moves the workflow allows are offered.": "Всяка колона е едно състояние от работния процес на проекта, в реда на процеса. Плъзнете карта в друга колона или използвайте бутона „Премести“: предлагат се само преходите, които процесът позволява.",
-		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.":            "Всеки проект използва точно един работен процес. Той задава състоянията на задачите, колоните на таблото и позволените преходи между тях. Няколко проекта могат да споделят един процес.",
+		"A project uses exactly one workflow. It sets the states a task can be in, the board's columns and the moves allowed between them. Several projects can share one workflow.": "Всеки проект използва точно един работен процес. Той задава състоянията на задачите, колоните на таблото и позволените преходи между тях. Няколко проекта могат да споделят един процес.",
 
 		// Deleting a project.
 		"Delete project %s":  "Изтриване на проекта %s",

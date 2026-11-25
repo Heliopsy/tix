@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -17,13 +18,15 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/i18n"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/quickadd"
+	"github.com/heliopsy/tix/internal/version"
 )
 
 // layoutFiles are parsed into every screen.
-var layoutFiles = []string{"templates/layout.html", "templates/partials.html"}
+var layoutFiles = []string{"templates/layout.html", "templates/partials.html", "templates/share.html"}
 
 // held passes a service read through, turning the one answer core.Service says
 // it never gives -- no record and no error -- into the fault it is.
@@ -135,7 +138,10 @@ type view struct {
 	// its scripts need; see i18n.go.
 	Lang   string
 	JSText template.JS
-	Flash  string
+	// Build is the release this server runs, drawn on <body data-build> for
+	// assets/deploy.js to compare with /healthz.
+	Build string
+	Flash string
 	// FlashRef is the task the flash is about, when it is about one. The
 	// toast used to name a ref as plain text ("links-4 moved to doing") on a
 	// screen the reader had just been returned to, so the one thing they
@@ -150,12 +156,20 @@ type view struct {
 	Brand      branding
 	Actor      *core.Actor
 	Advanced   bool
+	// FactorDue is when the tenant's second factor policy starts refusing a
+	// reader who holds no factor, and FactorGated whether it already does.
+	// Either draws the banner that sends them to enrolment.
+	FactorDue   *time.Time
+	FactorGated bool
 	// GlobalAdmin is whether the reader may act as a global admin, which is
 	// the only reader the sidebar offers the global admin area to.
 	GlobalAdmin bool
 	// Switcher is the reader's tenants, for a reader in more than one; see
 	// switcher.go.
 	Switcher *tenantSwitcher
+	// TenantMark is the current tenant's own icon, drawn in place of the
+	// logo beside its name; empty when the tenant set none.
+	TenantMark iconMark
 	// Side is the sidebar as this browser left it; see sidebar.go.
 	Side     sidebarState
 	DragMove bool
@@ -163,9 +177,18 @@ type view struct {
 	OpenAfterAdd bool
 	// Hover is whether rows, cards and controls respond to the pointer.
 	Hover bool
+	// ReduceMotion keeps the interface still whatever the system allows.
+	ReduceMotion bool
+	// ShareOrigin is the public web address assets/share.js builds a copied
+	// link under in place of the page's own origin, set only where the
+	// configured address applies (httpapi.PublicOrigin).
+	ShareOrigin string
 	// TaskDialog is whether this page carries the dialog a task opens in.
 	// Never on the task screen itself, which is what the dialog would show.
 	TaskDialog bool
+	// TaskPane is whether the dialog is shown beside the listing on a wide
+	// window rather than over it.
+	TaskPane bool
 	// TitleEdit is whether a click on a listed task's title edits it.
 	TitleEdit bool
 	// InDialog is whether this answer is the task screen drawn for the
@@ -189,9 +212,11 @@ type view struct {
 	ShortcutsJSON   template.JS
 	// PaletteJSON is the command palette's fixed entries; see palette.go.
 	PaletteJSON template.JS
-	Columns     columnPrefs
-	ColumnPage  string
-	Here        string
+	// LiveWords is the live connection indicator's texts; see livestatus.go.
+	LiveWords  template.JS
+	Columns    columnPrefs
+	ColumnPage string
+	Here       string
 	// Dialog is which of the screen's dialogs is drawn open, and what a
 	// refused submission from it was sent with. See actiondlg.go.
 	Dialog  dialogState
@@ -203,9 +228,11 @@ type view struct {
 	// Overdue is how many of the reader's open tasks are late, which My
 	// work's badge shows; see sidebar.go.
 	Overdue int
-	// Pinned are the projects the reader pinned under Projects.
-	Pinned []pinnedProject
-	Data   any
+	// Pinned are the projects the reader starred, listed under Projects, and
+	// PinnedMore says the reader starred more than the sidebar draws.
+	Pinned     []pinnedProject
+	PinnedMore bool
+	Data       any
 }
 
 // ColumnForm is this screen's own column picker, built by the same
@@ -242,7 +269,7 @@ func parseTemplates(style output.TimeStyle, lang string) map[string]*template.Te
 	out := make(map[string]*template.Template, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || name == "layout.html" || name == "partials.html" {
+		if entry.IsDir() || slices.Contains(layoutFiles, "templates/"+name) {
 			continue
 		}
 		files := append(append([]string{}, layoutFiles...), "templates/"+name)
@@ -270,6 +297,8 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"stamp":            style.FormatPtr,
 		"absolute":         style.Absolute,
 		"join":             joinValues,
+		"ssoForm":          newSSOForm,
+		"bytesize":         core.ByteSize,
 		"scopes":           joinScopes,
 		"counts":           formatCounts,
 		"envName":          envName,
@@ -294,13 +323,17 @@ func funcs(style output.TimeStyle) template.FuncMap {
 		"age":              humanDuration,
 		"claim":            claimState,
 		"star":             newStarControl,
+		"projectStar":      newProjectStar,
 		"titleLink":        newTitleLink,
 		"groupMenu":        newGroupMenu,
 		"groupHeadNone":    noGroupHead,
 		"taskRow":          newTaskRow,
+		"taskMenu":         newTaskMenu,
 		"due":              dueState,
 		"snoozed":          snoozedNow,
 		"snoozeForm":       newSnoozeForm,
+		"assignMe":         newAssignMe,
+		"dueField":         newDueField,
 		"expiredAgo":       expiredAgo,
 		"stateLabel":       core.StateLabel,
 		"category":         categoryLabel,
@@ -330,7 +363,7 @@ func savedNext(what, section string) string {
 }
 
 // tokenState names whether a token still authenticates, as the one word its
-// row is keyed on: revoked, expired, or active.
+// row is keyed on: revoked, expired, retiring or active.
 //
 // The listing returns revoked and expired tokens as well as live ones, and
 // said nothing about either: a revoked token was a row identical to a working
@@ -338,12 +371,18 @@ func savedNext(what, section string) string {
 // three to get wrong. core.APIToken.Active is the same answer the
 // authentication path reaches, so the badge cannot disagree with whether the
 // credential works.
+//
+// A rotated token inside its grace window is "retiring": it still works, and
+// says so, rather than reading as revoked while whatever holds it swaps over.
 func tokenState(t core.APIToken) string {
-	if t.RevokedAt != nil {
+	now := time.Now()
+	switch {
+	case t.Revoked(now):
 		return "revoked"
-	}
-	if !t.Active(time.Now()) {
+	case !t.Active(now):
 		return "expired"
+	case t.Retiring(now):
+		return "retiring"
 	}
 	return "active"
 }
@@ -449,20 +488,23 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 	actor, _ := core.ActorFrom(r.Context())
 	scheme := keySchemeOf(r)
 	me := h.whoAmI(r)
+	pinned, pinnedMore := h.pinnedProjects(r)
 	return view{
 		Title:           title,
 		Lang:            langOf(r),
 		JSText:          jsMessagesFor(langOf(r)),
+		Build:           version.Version,
 		Path:            r.URL.Path,
 		Help:            h.helpFor(r),
 		Dialog:          dialogOf(r),
 		InTrash:         inTrash(r),
 		TrashOff:        h.trashOff(r),
 		Here:            here(r),
-		Upgrade:         h.releases.state(),
+		Upgrade:         h.releases.State(),
 		Inbox:           h.unreadCount(r),
 		Overdue:         h.overdueCount(r),
-		Pinned:          h.pinnedProjects(r),
+		Pinned:          pinned,
+		PinnedMore:      pinnedMore,
 		ColumnPage:      columnPage(name),
 		Columns:         columnsOf(r),
 		Flash:           r.URL.Query().Get("flash"),
@@ -474,12 +516,18 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		Actor:           actor,
 		Advanced:        advancedMode(r),
 		GlobalAdmin:     me != nil && me.GlobalAdmin,
+		FactorDue:       factorDue(me),
+		FactorGated:     me != nil && me.SecondFactorEnrollmentRequired,
 		Switcher:        h.switcherFor(r, me, here(r)),
+		TenantMark:      brandMark(me),
 		Side:            sidebarOf(r),
 		DragMove:        dragMoveMode(r),
 		OpenAfterAdd:    openAfterAdd(r),
 		Hover:           hoverEffects(r),
+		ReduceMotion:    reduceMotion(r),
+		ShareOrigin:     httpapi.PublicOrigin(r),
 		TaskDialog:      taskDialogMode(r) && !dialogScreens[name],
+		TaskPane:        taskPaneMode(r),
 		TitleEdit:       titleEditMode(r),
 		Theme:           themeOf(r),
 		Tint:            tintOf(r),
@@ -491,6 +539,7 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 		LanguageChoices: languageChoices(r),
 		ShortcutsJSON:   shortcutsJSON(scheme, langOf(r)),
 		PaletteJSON:     paletteJSON(langOf(r), advancedMode(r), tenantAdmin(r)),
+		LiveWords:       liveWordsJSON(langOf(r)),
 		Data:            data,
 	}
 }
@@ -499,8 +548,8 @@ func (h *handler) newView(r *http.Request, name, title string, data any) view {
 const undoPriorityPrefix = "priority:"
 
 // UndoAction is where the toast's Undo posts: the restore route for a soft
-// delete, the priority route for a priority change, the transition route
-// for a move. Empty when there is nothing to undo.
+// delete, the route its undoKind names for a quick action, the transition
+// route for a move. Empty when there is nothing to undo.
 func (v view) UndoAction() string {
 	if v.UndoBulk() != nil {
 		return RouteTasksBulk
@@ -509,27 +558,30 @@ func (v view) UndoAction() string {
 		return ""
 	}
 	base := "/tasks/" + url.PathEscape(v.FlashRef)
-	switch {
-	case v.FlashUndo == UndoRestore:
+	if v.FlashUndo == UndoRestore {
 		return base + "/restore"
-	case strings.HasPrefix(v.FlashUndo, undoPriorityPrefix):
-		return base + "/priority"
-	default:
-		return base + "/transition"
 	}
+	if kind, _, ok := undoKindOf(v.FlashUndo); ok {
+		return strings.Replace(kind.route, "{ref}", url.PathEscape(v.FlashRef), 1)
+	}
+	return base + "/transition"
 }
 
 // UndoField is the one field the Undo form submits besides the token and
-// the page to come back to: the priority or the route, by name and value.
+// the page to come back to: the value a quick action had, or the route, by
+// name and value. A kind that needs no value submits none.
 func (v view) UndoField() [2]string {
 	if v.UndoBulk() != nil {
 		return [2]string{"action", string(core.BulkRestore)}
 	}
-	if p, ok := strings.CutPrefix(v.FlashUndo, undoPriorityPrefix); ok {
-		return [2]string{"priority", p}
-	}
 	if v.FlashUndo == UndoRestore {
 		return [2]string{}
+	}
+	if kind, value, ok := undoKindOf(v.FlashUndo); ok {
+		if kind.field == "" {
+			return [2]string{}
+		}
+		return [2]string{kind.field, value}
 	}
 	return [2]string{"route", v.FlashUndo}
 }
@@ -624,7 +676,7 @@ func advancedChoiceOf(r *http.Request) advancedChoice {
 	return advancedUnset
 }
 
-// advancedPaths are the configuration screens of the sidebar's Admin group.
+// advancedPaths are the configuration screens of the sidebar's Manage group.
 // Being on one of them draws them whatever the preference says, so a reader
 // is never on a page the navigation beside them denies exists.
 var advancedPaths = []string{
@@ -632,7 +684,7 @@ var advancedPaths = []string{
 }
 
 // OnAdvancedPath reports whether a path is one of the configuration screens
-// of the sidebar's Admin group.
+// of the sidebar's Manage group.
 //
 // The global admin area sits under /admin/ and is not one of them: its entry
 // is drawn for a global admin whatever the preference says.
@@ -649,7 +701,7 @@ func OnAdvancedPath(path string) bool {
 }
 
 // advancedMode reports whether this page shows the configuration screens of
-// the Admin group in its navigation.
+// the Manage group in its navigation.
 //
 // The default follows the reader rather than being off for everybody. A
 // tenant administrator arriving for the first time could not find the tenant
@@ -688,7 +740,7 @@ func tenantAdmin(r *http.Request) bool {
 }
 
 // advancedScopes are the scopes that make at least one configuration screen
-// of the Admin group reachable. Holding none of them means every
+// of the Manage group reachable. Holding none of them means every
 // one of those screens ends in a refusal.
 //
 // workflow:read is in the list because it is the scope the workflow screens
@@ -697,13 +749,13 @@ func tenantAdmin(r *http.Request) bool {
 // invariant above read backwards.
 var advancedScopes = []core.Scope{
 	core.ScopeTenantAdmin, core.ScopeUserAdmin, core.ScopeTokenAdmin,
-	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin,
+	core.ScopeTOTPAdmin, core.ScopeWebhookAdmin, core.ScopeSyncAdmin, core.ScopeSSOAdmin,
 	core.ScopeWorkflowRead, core.ScopeWorkflowWrite, core.ScopeAuditRead,
 	core.ScopeExport, core.ScopeImport,
 }
 
 // AdvancedNavigation reports whether holding one scope reaches any screen in
-// the Admin group's configuration screens, and so is shown their navigation.
+// the Manage group's configuration screens, and so is shown their navigation.
 func AdvancedNavigation(scope core.Scope) bool {
 	return slices.Contains(advancedScopes, scope)
 }
@@ -767,18 +819,22 @@ func hoverEffects(r *http.Request) bool {
 // ThemeCookie remembers the colour scheme this browser asked for.
 const ThemeCookie = "tix_theme"
 
-// Themes are the schemes on offer. An empty value follows the system, and
-// "dim" is a low contrast scheme for people who find the default too stark.
-var Themes = []string{"", "light", "dark", "dim"}
+// Themes are the schemes on offer, in the order the sidebar switch cycles. An
+// empty value follows the system, "oled" is a black page for OLED screens,
+// "dim" is a low contrast scheme for people who find the default too stark,
+// and "system-oled" follows the system but draws OLED where it would draw dark.
+var Themes = []string{"", "light", "dark", "oled", "dim", "system-oled"}
 
 // themeLabels names each scheme in the words the reader sees. The empty
 // scheme is what a browser that has never chosen gets, and reads as the
 // system's own preference rather than as a palette of ours.
 var themeLabels = map[string]string{
-	"":      "System",
-	"light": "Light",
-	"dark":  "Dark",
-	"dim":   "Low contrast",
+	"":            "System",
+	"light":       "Light",
+	"dark":        "Dark",
+	"oled":        "OLED",
+	"dim":         "Low contrast",
+	"system-oled": "System, OLED when dark",
 }
 
 // ThemeLabel names one scheme, falling back to the system wording for a
@@ -794,9 +850,9 @@ func ThemeLabel(theme string) string {
 
 // nextTheme is the scheme one press of the sidebar switch moves to.
 //
-// The switch cycles rather than offering four positions, because without
+// The switch cycles rather than offering six positions, because without
 // scripting a select needs an Apply button beside it and that is a form, not
-// a button, in a 224px column. Cycling costs a reader at most three presses
+// a button, in a 224px column. Cycling costs a reader at most five presses
 // to reach any scheme and needs one control.
 func nextTheme(current string) string {
 	for i, t := range Themes {
@@ -1025,8 +1081,15 @@ func (e errorView) BackLabel() string {
 
 // fail renders the error screen, disclosing the domain message only. An
 // internal failure is reported generically, so no query text or stack trace
-// can reach a browser.
+// can reach a browser. A browser that left before the answer gets none, and
+// its cancelled context is not logged as a fault.
 func (h *handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
+	if enrolmentOwed(err) && h.toEnrolment(w, r) {
+		return
+	}
 	kind := core.KindOf(err)
 	message := safeMessage(err, kind)
 	if kind == core.KindInternal {

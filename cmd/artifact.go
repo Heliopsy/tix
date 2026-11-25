@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -26,7 +28,7 @@ func newArtifactCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(artifactPutCmd(g), artifactLsCmd(g))
+	cmd.AddCommand(artifactPutCmd(g), artifactLsCmd(g), artifactLimitsCmd(g))
 	return cmd
 }
 
@@ -38,7 +40,9 @@ func artifactPutCmd(g *globals) *cobra.Command {
 		Short: "Attach structured output to a task",
 		Long: "Attach an artifact to a task.\n" +
 			"The payload is a JSON object given with --payload, or - to read standard input.\n" +
-			"--file attaches the bytes of a file as the artifact blob, or - to read standard input.\n\n" +
+			"--file attaches the bytes of a file as the artifact blob, or - to read standard input.\n" +
+			"Without --content-type the type comes from the file's extension. The file must fit the\n" +
+			"tenant's artifact limits, which tix artifact limits shows.\n\n" +
 			"An artifact is the holder's work product, so a task holding a live lease needs that lease's " +
 			"token in --lease-token. A task nobody holds needs none, and refuses one that is offered.\n\n" +
 			fmt.Sprintf("Exit codes: %d invalid input, %d unknown reference, %d lease expired, %d permission denied.",
@@ -90,6 +94,31 @@ func artifactPutCmd(g *globals) *cobra.Command {
 	f.BoolVar(&dryRun, "dry-run", false, "report what would be attached without writing")
 	_ = cmd.RegisterFlagCompletionFunc("kind", fixedCompletion(artifactKinds))
 	return cmd
+}
+
+func artifactLimitsCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "limits",
+		Short: "Show the size and types an artifact file may have",
+		Long: "Show the largest file and the media types a new artifact may carry on this\n" +
+			"tenant: the server's artifacts.max_bytes and artifacts.allowed_types, narrowed\n" +
+			"by the tenant's own settings (tix tenant edit --artifact-max-bytes and\n" +
+			"--artifact-types).\n\n" +
+			fmt.Sprintf("Exit codes: %d permission denied.", core.KindForbidden.ExitCode()),
+		Example: "  tix artifact limits\n  tix artifact limits -o json",
+		Args:    noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			limits, err := conn.Service.ArtifactLimits(ctx)
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, limits)
+		},
+	}
 }
 
 func artifactLsCmd(g *globals) *cobra.Command {
@@ -166,6 +195,9 @@ func artifactInput(cmd *cobra.Command, f artifactFlags) (core.ArtifactInput, err
 			return in, err
 		}
 		in.Blob = blob
+		if in.ContentType == "" && f.file != StdinMarker {
+			in.ContentType = mime.TypeByExtension(filepath.Ext(f.file))
+		}
 	}
 	return in, nil
 }

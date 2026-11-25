@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Settings search and the label saying where each setting is kept
+   (templates/settings.html, assets/settingsfind.js). */
+.setfind { margin: 0 0 var(--space-4); }
+.setfind input[type="search"] { width: 100%; max-width: 420px; }
+.setfind-none { margin: var(--space-3) 0 0; }
+.setfind-none[hidden], .setgroup[hidden], .setrow[hidden], .setnav a[hidden] { display: none; }
+
+.setscope {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+.setscope[data-scope="account"] { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.setscope[data-scope="tenant"] { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.sechead > .setscope { margin-inline-end: auto; }
+
+/* ---------------------------------------------------------------------------
+   Reduce motion (deviceprefs.go): data-motion="reduce" on <html> does what
+   prefers-reduced-motion: reduce does, for a reader whose system allows
+   animation. */
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion="reduce"] .column .card:hover,
+:root[data-motion="reduce"] .lane .lane-card:hover,
+:root[data-motion="reduce"] nav.main a:hover .nav-icon { transform: none; }
+:root[data-motion="reduce"]::view-transition-group(*),
+:root[data-motion="reduce"]::view-transition-old(*),
+:root[data-motion="reduce"]::view-transition-new(*) { animation: none !important; }

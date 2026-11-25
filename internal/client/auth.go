@@ -37,8 +37,8 @@ func (c *Client) GetUser(ctx context.Context, id string) (*core.User, error) {
 }
 
 // ListUsers returns one page of users.
-func (c *Client) ListUsers(ctx context.Context, page core.Page) ([]core.User, string, error) {
-	return list[core.User](ctx, c, wire.RouteUsers, pageQuery(page))
+func (c *Client) ListUsers(ctx context.Context, f core.UserFilter) ([]core.User, string, error) {
+	return list[core.User](ctx, c, wire.RouteUsers, userQuery(f))
 }
 
 // UpdateUser changes a user.
@@ -124,6 +124,11 @@ func (c *Client) ClearUserTOTP(ctx context.Context, userID string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteUserTOTP, "id", userID), nil, nil)
 }
 
+// SessionPolicy reads how long a sign-in on the tenant lasts.
+func (c *Client) SessionPolicy(ctx context.Context) (*core.SessionPolicy, error) {
+	return call[core.SessionPolicy](ctx, c, http.MethodGet, wire.RouteSessionPolicy, nil, nil)
+}
+
 // Logout ends the current session.
 func (c *Client) Logout(ctx context.Context) error {
 	return callVoid(ctx, c, http.MethodPost, wire.RouteLogout, nil, nil)
@@ -151,4 +156,19 @@ func (c *Client) ListTokens(ctx context.Context, actorID string) ([]core.APIToke
 // RevokeToken revokes an API token.
 func (c *Client) RevokeToken(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteToken, "id", id), nil, nil)
+}
+
+// RotateToken replaces an API token with a new one and returns its value once.
+func (c *Client) RotateToken(ctx context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	return call[core.IssuedToken](ctx, c, http.MethodPost, routePath(wire.RouteTokenRotate, "id", id), nil, in)
+}
+
+// ListSessions returns one page of the caller's own sessions.
+func (c *Client) ListSessions(ctx context.Context, page core.Page) ([]core.SessionInfo, string, error) {
+	return list[core.SessionInfo](ctx, c, wire.RouteAccountSessions, pageQuery(page))
+}
+
+// RevokeSession ends one of the caller's own sessions.
+func (c *Client) RevokeSession(ctx context.Context, id string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteAccountSession, "id", id), nil, nil)
 }

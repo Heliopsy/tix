@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-incident
+name: Incident
+purpose: Restore service first, learn from it after.
+definition:
+  initial: detected
+  states:
+    - {key: detected, label: Detected, category: todo}
+    - {key: investigating, label: Investigating, category: in_progress}
+    - {key: mitigated, label: Mitigated, category: in_progress}
+    - {key: resolved, label: Resolved, category: in_progress}
+    - {key: postmortem_done, label: Post-mortem done, category: done, terminal: true}
+  transitions:
+    - {from: detected, to: investigating}
+    - {from: investigating, to: mitigated}
+    - {from: investigating, to: resolved}
+    - {from: mitigated, to: investigating}
+    - {from: mitigated, to: resolved}
+    - {from: resolved, to: investigating}
+    - {from: resolved, to: postmortem_done}
+fields:
+  - {key: severity, label: Severity, type: enum, enum_options: [sev1, sev2, sev3, sev4], position: 1}
+  - {key: impact, label: Impact, type: text, position: 2}
+  - {key: started_at, label: Started at, type: datetime, position: 3}

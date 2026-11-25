@@ -60,7 +60,8 @@ var liveTaskTypes = []core.EventType{
 
 // liveDetailTypes add the records one task's own screen draws beside it.
 var liveDetailTypes = append([]core.EventType{
-	core.EventCommentAdded, core.EventArtifactAdded,
+	core.EventCommentAdded, core.EventCommentReacted, core.EventCommentUnreacted,
+	core.EventArtifactAdded,
 }, liveTaskTypes...)
 
 // liveFilter renders a subscription filter the way the event stream's
@@ -133,19 +134,6 @@ func (h *handler) liveTasks(r *http.Request, projectIDs []string) liveScreen {
 		Href:    fragmentHref(r, RouteTasksLive),
 		Filter:  liveFilter(projectIDs, liveTaskTypes),
 		Regions: "tasks-summary tasks-listing",
-		Window:  liveListWindow,
-	}
-}
-
-// liveBoard is the binding one project's board renders. The board shows that
-// project and nothing else, so the subscription says so and an event from
-// another project never reaches it.
-func (h *handler) liveBoard(project core.Project) liveScreen {
-	return liveScreen{
-		Events:  h.eventsPath,
-		Href:    boardLiveRoute(project.Key),
-		Filter:  liveFilter([]string{project.ID}, liveTaskTypes),
-		Regions: "project-board",
 		Window:  liveListWindow,
 	}
 }

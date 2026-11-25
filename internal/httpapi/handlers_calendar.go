@@ -41,15 +41,10 @@ func isCalendarFeedPath(path string) bool {
 	return ok && rest != "" && !strings.Contains(rest, "/")
 }
 
-// origin is the scheme and host the request reached the deployment at.
-func origin(r *http.Request) string {
-	return SchemeFrom(r.Context()) + "://" + r.Host
-}
-
 // addressed fills in the feed's path and its absolute address.
 func addressed(r *http.Request, f *core.IssuedCalendarFeed) *core.IssuedCalendarFeed {
 	f.Path = wire.CalendarFeedPath(f.Token)
-	f.URL = origin(r) + f.Path
+	f.URL = Origin(r) + f.Path
 	return f
 }
 
@@ -123,7 +118,7 @@ func (rt *Router) handleReadCalendarFeed(w http.ResponseWriter, r *http.Request)
 		WriteError(w, err)
 		return
 	}
-	base := origin(r)
+	base := Origin(r)
 	body := ical.Render(*entries, ical.Options{
 		Name:    "tix: " + entries.OwnerHandle,
 		TaskURL: func(ref string) string { return base + TaskPagePrefix + url.PathEscape(ref) },

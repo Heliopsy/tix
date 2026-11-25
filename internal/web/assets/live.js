@@ -83,6 +83,18 @@
     var deferred = null;
     var live = false;
     var again = false;
+    var dropped = false;
+    var latest = null;
+
+    // note tells the shell's connection indicator (assets/livestatus.js)
+    // what this stream just went through. It only reports; nothing here
+    // waits on it or reads it back.
+    function note(what) {
+      if (tix.liveNote) {
+        what.stream = spec.id;
+        tix.liveNote(what);
+      }
+    }
 
     // A refresh asked for while one is still on its way is run again when
     // that one lands, never dropped. The coalescer's trailing run used to
@@ -114,7 +126,15 @@
       }
       var target = bound;
       pending = fetch(spec.href(target), { credentials: "same-origin" })
-        .then(function (resp) { return resp.ok ? resp.text() : null; })
+        .then(function (resp) {
+          note(resp.ok ? { kind: "fetched" } : { kind: "fetch-failed", status: resp.status });
+          return resp.ok ? resp.text() : null;
+        }, function (err) {
+          // Only a request that never got an answer is the server out of
+          // reach; a failure drawing the answer is caught further down.
+          note({ kind: "fetch-failed", message: err && err.message ? String(err.message) : "" });
+          return null;
+        })
         .then(function (html) {
           // A boosted navigation can swap the page in before htmx:load moves
           // the binding, so the element this was asked for may already be
@@ -194,6 +214,9 @@
     }
 
     function announce() {
+      if (document.documentElement) {
+        document.documentElement.setAttribute("data-live", live ? "on" : "off");
+      }
       setStale(live ? "" : tix.staleNotice(poll !== null));
     }
 
@@ -210,6 +233,7 @@
       attempt++;
       startPolling();
       announce();
+      note({ kind: "retrying", attempt: attempt, wait: wait });
       retry = window.setTimeout(connect, wait);
     }
 
@@ -219,7 +243,16 @@
       }
       socket = null;
       live = false;
+      dropped = true;
       later();
+    }
+
+    // reconnected tells assets/deploy.js the socket came back after a drop,
+    // which is what a server restart for a new release looks like from here.
+    function reconnected() {
+      if (typeof window.CustomEvent === "function" && document.dispatchEvent) {
+        document.dispatchEvent(new window.CustomEvent("tix:live-reconnected"));
+      }
     }
 
     function connect() {
@@ -236,15 +269,24 @@
         return;
       }
       socket = opening;
+      latest = opening;
+      note({ kind: "connecting" });
+      var opened = false;
       opening.addEventListener("open", function () {
         if (socket !== opening) {
           return;
         }
+        opened = true;
+        note({ kind: "open" });
         attempt = 0;
         live = true;
         stopPolling();
         announce();
         subscribe(opening);
+        if (dropped) {
+          dropped = false;
+          reconnected();
+        }
       });
       opening.addEventListener("message", function (message) {
         if (socket !== opening) {
@@ -252,7 +294,16 @@
         }
         received(opening, message);
       });
-      opening.addEventListener("close", function () {
+      // The close is reported whether or not an error got here first: the
+      // error event carries nothing, and the close code is the only thing a
+      // browser says about why.
+      opening.addEventListener("close", function (event) {
+        if (latest === opening) {
+          note({
+            kind: "closed", opened: opened,
+            code: event && event.code, reason: event && event.reason ? String(event.reason) : ""
+          });
+        }
         if (socket === opening) {
           closed();
         }
@@ -295,6 +346,9 @@
       // cursor, subscribe from now, and re-fetch the fragment whole: the
       // server's rendering is the answer, so a refresh is always correct
       // however much was missed.
+      if (parsed.type === "error") {
+        note({ kind: "refused", message: parsed.error && parsed.error.message ? String(parsed.error.message) : "" });
+      }
       if (parsed.type === "error" && tix.resumeRefused(parsed.error)) {
         seq = 0;
         subscribe(conn);
@@ -307,6 +361,7 @@
       if (parsed.event.seq > seq) {
         seq = parsed.event.seq;
       }
+      note({ kind: "event", seq: parsed.event.seq });
       if (!spec.wants(bound, parsed.event)) {
         return;
       }
@@ -329,6 +384,7 @@
         window.clearTimeout(deferred);
         deferred = null;
       }
+      latest = null;
       if (socket) {
         var going = socket;
         socket = null;
@@ -338,6 +394,7 @@
       bound = next;
       seq = 0;
       attempt = 0;
+      note({ kind: bound ? "bound" : "unbound" });
       trigger = bound ? tix.coalescer(spec.window(bound), refresh, null, spec.cap) : null;
       setStale("");
       connect();
@@ -356,7 +413,28 @@
       schedule();
     }
 
-    return { rebind: rebind, woken: woken, poke: schedule, settled: settled };
+    // retryNow is Reconnect now: a socket that is down is opened at once,
+    // whatever the backoff was waiting for, and the screen is fetched again.
+    function retryNow() {
+      if (!bound || live) {
+        return;
+      }
+      attempt = 0;
+      connect();
+      schedule();
+    }
+
+    // now redraws at once, for the refresh shortcut, and answers whether
+    // this stream has a region on the page to redraw.
+    function now() {
+      if (!bound) {
+        return false;
+      }
+      refresh();
+      return true;
+    }
+
+    return { rebind: rebind, woken: woken, poke: schedule, settled: settled, retryNow: retryNow, now: now };
   }
 
   // The activity feed. Its fragment is the row list itself, so the response
@@ -453,6 +531,11 @@
         tix.applyBadge(el, fresh, document.querySelectorAll("[data-inbox-mirror]"));
       }
       tix.applyBadge(document.getElementById("mywork-badge"), doc.getElementById("mywork-badge"), [], "data-badge-count");
+      if (fresh && typeof window.CustomEvent === "function") {
+        document.dispatchEvent(new window.CustomEvent("tix:inbox-badge", {
+          detail: { count: parseInt(fresh.getAttribute("data-inbox-count"), 10) || 0 }
+        }));
+      }
     },
     window: function () { return 500; },
     cap: 2000
@@ -568,11 +651,26 @@
     return screen.settled() && feed.settled();
   };
 
+  // liveRefresh is the refresh shortcut (assets/shortcuts.js): the screen's
+  // regions and the activity feed redraw in place. False when the page has
+  // neither, and the shortcut reloads it instead.
+  tix.liveRefresh = function () {
+    var drawn = screen.now();
+    return feed.now() || drawn;
+  };
+
   function rebindAll() {
     feed.rebind();
     screen.rebind();
     badge.rebind();
   }
+
+  // liveRetry is the connection details' Reconnect now, for every stream.
+  tix.liveRetry = function () {
+    feed.retryNow();
+    screen.retryNow();
+    badge.retryNow();
+  };
 
   rebindAll();
   document.addEventListener("htmx:load", rebindAll);
@@ -664,9 +762,9 @@
     }
   }
 
-  // The set of states the dragged card may legally move to, read from its
-  // own Move disclosure's <select> -- the same list the server already
-  // computed for that card (projects.go flowRoutes) -- so a column outside
+  // The set of states the dragged card may legally move to, read from the
+  // Move section of its own three dots menu -- the same list the server
+  // already computed for that card (tasklanes.go statusMoves) -- so a column outside
   // it never lights up as a drop target and a drop on one is refused before
   // any request is made, not just after the server says no.
   var dragged = null;
@@ -678,15 +776,15 @@
       return;
     }
     var card = event.target.closest(".card");
-    var select = card && card.querySelector("form select[name=route]");
-    if (!card || !select) {
+    var moves = card && card.querySelector("form[data-move-form]");
+    if (!card || !moves) {
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = "none";
       }
       return;
     }
     dragged = card;
-    legal = tix.legalStates(select.options);
+    legal = tix.legalStates(moves.querySelectorAll("button[name=route]"));
     card.classList.add("is-dragging");
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
@@ -740,21 +838,21 @@
 
     // The Move form, not the card's first form: the star button is a form
     // too and comes first, so taking the first one posted the move to /star.
-    var select = card.querySelector("form select[name=route]");
-    var form = select && select.closest("form");
-    if (!form || !select) {
+    var form = card.querySelector("form[data-move-form]");
+    if (!form) {
       return;
     }
     var wanted = column.getAttribute("data-state");
     var ref = (card.getAttribute("data-task") || "").toUpperCase() || "the card";
     var destination = columnLabel(column);
-    select.value = wanted;
+    var fields = new FormData(form);
+    fields.set("route", wanted);
 
     fetch(form.getAttribute("action"), {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(new FormData(form)).toString()
+      body: new URLSearchParams(fields).toString()
     }).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (html) {

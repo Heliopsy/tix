@@ -51,6 +51,14 @@ const (
 	// so an on-call operator can be given it without being given the tenant.
 	ScopeTaskReclaim Scope = "task:reclaim"
 
+	// ScopeTaskApprove is the authority a workflow edge names when moving a
+	// task across it is a decision rather than progress: approving work or a
+	// request, or rejecting it. It is separate from task:transition because
+	// every member holds that one, and the point of a sign-off edge is that
+	// the person doing the work is not the one who approves it. No role but
+	// admin carries it; a reviewer's token is given it by name.
+	ScopeTaskApprove Scope = "task:approve"
+
 	ScopeProjectRead  Scope = "project:read"
 	ScopeProjectWrite Scope = "project:write"
 
@@ -73,6 +81,10 @@ const (
 	ScopeWebhookAdmin Scope = "webhook:admin"
 	ScopeTenantAdmin  Scope = "tenant:admin"
 	ScopeSyncAdmin    Scope = "sync:admin"
+	// ScopeSSOAdmin manages the tenant's single sign-on providers. It is
+	// separate from tenant:admin because a provider decides who can sign in
+	// as whom, which is more than any other tenant setting reaches.
+	ScopeSSOAdmin Scope = "sso:admin"
 
 	// ScopeGlobalAdmin lets a token act for a global admin across tenants. "*"
 	// does not imply it: it is carried only when named, and only by a token
@@ -89,19 +101,42 @@ const (
 	ScopeAccountRead Scope = "account:read"
 	ScopeExport      Scope = "export"
 	ScopeImport      Scope = "import"
+
+	// ScopeSCIMProvision lets an identity provider create, update, deactivate
+	// and remove the tenant's users and groups over SCIM. "*" and roles do not
+	// imply it, a token carrying it carries nothing else, and such a token is
+	// refused everywhere but the SCIM endpoints.
+	ScopeSCIMProvision Scope = "scim:provision"
+
+	// ScopeCaldav is an app password: a token a calendar or reminders app
+	// presents over HTTP Basic under /dav/. "*" and roles do not imply it, a
+	// token carrying it carries nothing else, and such a token is refused
+	// everywhere but /dav/.
+	ScopeCaldav Scope = "caldav"
 )
+
+// NamedOnly reports whether a scope is held only when named, never through
+// "*" or a role.
+func (s Scope) NamedOnly() bool {
+	return s == ScopeGlobalAdmin || s == ScopeAccountRead || s == ScopeSCIMProvision || s == ScopeCaldav
+}
+
+// Alone reports whether a scope is carried only by itself, with no other
+// scope, no project and no claim requirement.
+func (s Scope) Alone() bool { return s == ScopeSCIMProvision || s == ScopeCaldav }
 
 // AllScopes is the complete vocabulary, excluding ScopeAll.
 var AllScopes = []Scope{
 	ScopeTaskRead, ScopeTaskWrite, ScopeTaskTransition, ScopeTaskClaim, ScopeTaskDelete,
-	ScopeTaskReclaim,
+	ScopeTaskReclaim, ScopeTaskApprove,
 	ScopeProjectRead, ScopeProjectWrite,
 	ScopeWorkflowRead, ScopeWorkflowWrite,
 	ScopeCommentWrite, ScopeArtifactWrite,
 	ScopeEventSubscribe,
 	ScopeUserAdmin, ScopeTOTPAdmin, ScopeTokenAdmin, ScopeWebhookAdmin, ScopeTenantAdmin, ScopeSyncAdmin,
+	ScopeSSOAdmin,
 	ScopeAuditRead, ScopeExport, ScopeImport,
-	ScopeGlobalAdmin, ScopeAccountRead,
+	ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision, ScopeCaldav,
 }
 
 // Role is a named bundle of scopes granted to a human within one tenant.
@@ -167,6 +202,12 @@ type Actor struct {
 	// SessionID is the stored browser session the request authenticated
 	// with, never the cookie value. It is never serialised.
 	SessionID string `json:"-" yaml:"-"`
+	// Term is that session's expiry as this request left it. It is never
+	// serialised; WhoAmI reports it as SessionExpiresAt.
+	Term *SessionTerm `json:"-" yaml:"-"`
+	// SessionExpiresAt is when the session the request authenticated with
+	// ends unless it is used again, on the answer to WhoAmI.
+	SessionExpiresAt *time.Time `json:"session_expires_at,omitempty" yaml:"session_expires_at,omitempty"`
 	// ProjectID restricts the actor to one project when set, as a
 	// project-scoped token does.
 	ProjectID string `json:"project_id,omitempty" yaml:"project_id,omitempty"`
@@ -192,9 +233,28 @@ type Actor struct {
 	// WhoAmI.
 	TenantKey  string `json:"tenant_key,omitempty" yaml:"tenant_key,omitempty"`
 	TenantName string `json:"tenant_name,omitempty" yaml:"tenant_name,omitempty"`
+	// TenantIcon is the text icon of the actor's tenant, on the answer to
+	// WhoAmI. At most one of the three tenant icon fields is set.
+	TenantIcon string `json:"tenant_icon,omitempty" yaml:"tenant_icon,omitempty"`
+	// TenantIconName is the built-in icon of the actor's tenant, on the
+	// answer to WhoAmI.
+	TenantIconName string `json:"tenant_icon_name,omitempty" yaml:"tenant_icon_name,omitempty"`
+	// TenantIconImage is the digest of the uploaded icon image of the actor's
+	// tenant, on the answer to WhoAmI, read from GET /api/v1/tenants/{ref}/icon.
+	TenantIconImage string `json:"tenant_icon_image,omitempty" yaml:"tenant_icon_image,omitempty"`
+	// Theme is the palette the actor's tenant resolves to, as the browser
+	// renders it, on the answer to WhoAmI.
+	Theme *Theme `json:"theme,omitempty" yaml:"theme,omitempty"`
 	// Memberships are every tenant the account is a member of, on the answer
 	// to WhoAmI for a session or a token carrying account:read.
 	Memberships []AccountMembership `json:"memberships,omitempty" yaml:"memberships,omitempty"`
+	// SecondFactorDue is when the tenant's second factor policy starts
+	// refusing this person, on the answer to WhoAmI, set while they hold no
+	// factor under it.
+	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
+	// SecondFactorEnrollmentRequired is true, on the answer to WhoAmI, while
+	// the policy refuses this person everything but enrolment.
+	SecondFactorEnrollmentRequired bool `json:"second_factor_enrollment_required,omitempty" yaml:"second_factor_enrollment_required,omitempty"`
 }
 
 // HasScope reports whether the actor holds the scope, directly or by role.
@@ -202,7 +262,7 @@ func (a *Actor) HasScope(s Scope) bool {
 	if a == nil {
 		return false
 	}
-	if s == ScopeGlobalAdmin || s == ScopeAccountRead {
+	if s.NamedOnly() {
 		return slices.Contains(a.Scopes, s)
 	}
 	if slices.Contains(a.Scopes, ScopeAll) {
@@ -367,6 +427,15 @@ type AccountMembership struct {
 	// Host is the tenant's own address, a domain not marked shared; empty when
 	// it is served only on a shared host.
 	Host string `json:"host" yaml:"host"`
+	// Icon is the tenant's text icon, one emoji or a one or two letter
+	// monogram. At most one of Icon, IconName and IconImage is set; with none
+	// a surface draws a monogram of the tenant's name.
+	Icon string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName names the tenant's built-in icon, from the set projects use.
+	IconName string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconImage is the digest of the tenant's uploaded icon image, whose
+	// bytes are read from GET /api/v1/tenants/{ref}/icon.
+	IconImage string `json:"icon_image,omitempty" yaml:"icon_image,omitempty"`
 }
 
 // Membership grants a human a role within one tenant.

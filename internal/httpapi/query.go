@@ -25,6 +25,16 @@ type PageQuery struct {
 // TaskListQuery is the task filter a task listing reads.
 type TaskListQuery struct {
 	PageQuery
+	// Page reads the listing from page N, counting from one, of limit tasks
+	// each, instead of from a cursor; the two cannot be combined. A number
+	// past the end answers the last page, and the response says which page it
+	// served. The cursor stays the way to walk a listing; this is for landing
+	// on a page a person asked for.
+	Page int `query:"page"`
+	// Tally is true to have the response count the whole selection, every
+	// page of it, in tally: tasks per project and status, tasks waiting on a
+	// dependency and tasks under a live claim. It costs one grouped count.
+	Tally bool `query:"tally"`
 	// Project keeps tasks in a project, named by key, not case sensitive;
 	// repeat it for several. An unknown key is an error.
 	Project []string `query:"project"`
@@ -145,8 +155,8 @@ type AuditQuery struct {
 	// system; repeat it for several.
 	Source []string `query:"source"`
 	// Via keeps entries that arrived through an access channel: web, api,
-	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
-	// it for several.
+	// cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav, system or
+	// unknown; repeat it for several.
 	Via []string `query:"via"`
 	// Token keeps entries made with an API token, named by the token's name;
 	// repeat it for several.
@@ -173,8 +183,8 @@ type TaskAuditQuery struct {
 	// system; repeat it for several.
 	Source []string `query:"source"`
 	// Via keeps entries that arrived through an access channel: web, api,
-	// cli-local, cli-remote, ssh, mcp, sync, import, system or unknown; repeat
-	// it for several.
+	// cli-local, cli-remote, ssh, mcp, sync, import, scim, caldav, system or
+	// unknown; repeat it for several.
 	Via []string `query:"via"`
 	// Token keeps entries made with an API token, named by the token's name;
 	// repeat it for several.
@@ -221,6 +231,8 @@ type InboxQuery struct {
 	PageQuery
 	// Unread is true to keep unread items only.
 	Unread bool `query:"unread"`
+	// Kind keeps items of one kind: mention, assigned, status or comment; repeat it for several.
+	Kind []string `query:"kind"`
 }
 
 // ProjectListQuery is the filter a project listing reads.
@@ -230,6 +242,17 @@ type ProjectListQuery struct {
 	Key []string `query:"key"`
 	// IncludeArchived is true to list archived projects too.
 	IncludeArchived bool `query:"include_archived"`
+}
+
+// UserListQuery is the filter a user listing reads.
+type UserListQuery struct {
+	PageQuery
+	// IncludeRemoved is true to list people removed from the tenant too,
+	// each marked removed.
+	IncludeRemoved bool `query:"include_removed"`
+	// WithoutTOTP is true to list only people who hold no confirmed second
+	// factor.
+	WithoutTOTP bool `query:"without_totp"`
 }
 
 // ProjectDeleteQuery is how a project deletion is asked for.
@@ -267,6 +290,23 @@ type StatsQuery struct {
 	// Oldest is how many of the oldest open tasks the report lists: default
 	// 5, at most 100.
 	Oldest int `query:"oldest"`
+}
+
+// EventPollQuery is what a poll of the event log reads.
+type EventPollQuery struct {
+	// SinceSeq is the exclusive cursor: events after this sequence number are
+	// returned. Absent or 0 starts at the newest event.
+	SinceSeq int64 `query:"since_seq"`
+	// Types keeps events of these types, comma separated or repeated; a
+	// trailing * matches a prefix, as in task.*.
+	Types []string `query:"types"`
+	// ProjectIDs keeps events of these projects, comma separated or repeated.
+	ProjectIDs []string `query:"project_ids"`
+	// Limit is how many events to return at most: default 200, at most 1000.
+	Limit int `query:"limit"`
+	// Wait is how long to hold the request when no event is available yet, a
+	// duration such as 25s or a number of seconds: default 0, at most 25s.
+	Wait string `query:"wait"`
 }
 
 // TemplateListQuery is the filter a template listing reads.

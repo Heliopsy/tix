@@ -1,10 +1,26 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Bulk selection. The box leads the row, before the tick, and the bar sits
    under the list frame as the last item of the screen's column, so it stays
-   in view however far the list inside the frame is scrolled. select.js hides
-   it while nothing is selected; without scripting it is always there. */
-input.rowpick { flex: 0 0 auto; width: 18px; height: 18px; margin: 0 var(--space-1) 0 0; accent-color: var(--accent); cursor: pointer; }
-li.task:has(input.rowpick:checked) { background: var(--accent-soft); }
+   in view however far the list inside the frame is scrolled.
+
+   Both are drawn always and shown only in select mode, which is the Select
+   toggle's aria-pressed: the server presses it for ?select=1, select.js in
+   place. The toggle is outside every region a swap redraws, so a live
+   refresh or a row's own swap never drops the mode. The box is square and
+   the done control round, so the two never read as the same thing. */
+input.rowpick { display: none; flex: 0 0 auto; width: 18px; height: 18px; margin: 0 var(--space-1) 0 0; border-radius: 3px; accent-color: var(--accent); cursor: pointer; }
+.wrap:has([data-select-toggle][aria-pressed="true"]) input.rowpick { display: inline-block; }
+.wrap:has([data-select-toggle][aria-pressed="true"]) .card input.rowpick { float: left; margin: 2px var(--space-2) 0 0; }
+.wrap:has([data-select-toggle][aria-pressed="true"]) .lane .lane-card input.rowpick { float: none; margin: 2px 0 0; }
+.wrap:has([data-select-toggle][aria-pressed="true"]) button.check { opacity: 0.45; }
+.wrap:has([data-select-toggle][aria-pressed="true"]) button.check:hover,
+.wrap:has([data-select-toggle][aria-pressed="true"]) button.check:focus-visible { opacity: 1; }
+.wrap:not(:has([data-select-toggle][aria-pressed="true"])) .bulkbar { display: none; }
+li.task:has(input.rowpick:checked), .card:has(input.rowpick:checked) { background: var(--accent-soft); }
+a.selecttoggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+@media (pointer: coarse) {
+  [data-shortcut-row] { -webkit-touch-callout: none; }
+}
 .bulkbar {
   position: sticky;
   bottom: 0;
@@ -28,7 +44,7 @@ li.task:has(input.rowpick:checked) { background: var(--accent-soft); }
 .bulkpair { display: flex; gap: var(--space-2); justify-content: flex-end; }
 .viewexport { margin-top: var(--space-2); }
 @media (pointer: coarse) {
-  input.rowpick { width: 24px; height: 24px; }
+  .wrap input.rowpick { width: 24px; height: 24px; }
   .bulkactions > button { min-height: 40px; }
 }
 @media (max-width: 640px) {

@@ -20,21 +20,22 @@ import (
 // State category and priority keep their own, because a tenant that themes
 // itself red should not lose the red that means blocked.
 type Theme struct {
+	// Name is the theme's name, or the #rrggbb a custom accent was named as.
 	Name string `json:"name" yaml:"name"`
 	// Accent is the brand colour, as #rrggbb.
 	Accent string `json:"accent" yaml:"accent"`
 	// AccentSoft is the tint it sits on, as #rrggbb.
 	AccentSoft string `json:"accent_soft" yaml:"accent_soft"`
-	// AccentDark and AccentSoftDark are the same two colours for the dark and
-	// dim schemes.
+	// AccentDark is the accent for the dark and dim schemes, as #rrggbb.
 	//
-	// They exist because an accent picked to read on white is usually too dark
+	// The dark pair exists because an accent picked to read on white is usually too dark
 	// to read on near-black, and the browser defaults to the dark scheme: a
 	// theme with only a light accent renders as a barely visible smear on the
 	// scheme most people actually see. Empty falls back to the light pair, so
 	// a configured theme that names only an accent still applies everywhere
 	// rather than being ignored on half the schemes.
-	AccentDark     string `json:"accent_dark,omitempty" yaml:"accent_dark,omitempty"`
+	AccentDark string `json:"accent_dark,omitempty" yaml:"accent_dark,omitempty"`
+	// AccentSoftDark is the tint it sits on in those schemes, as #rrggbb.
 	AccentSoftDark string `json:"accent_soft_dark,omitempty" yaml:"accent_soft_dark,omitempty"`
 	// BuiltIn reports whether this theme ships with tix rather than coming
 	// from configuration. Listing says which, so an operator can tell what

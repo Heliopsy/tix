@@ -71,6 +71,13 @@
     <path d="M4 20V7l7-3 7 3v13"/><path d="M9 20v-5h4v5"/>
   </symbol>
 
+  <!-- Two opposing arrows: the tenant switcher in the sidebar. The house above
+       is the Tenant administration page; on the switcher it read as "home". -->
+  <symbol id="tenant-switch" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 4 3 8l4 4"/><path d="M3 8h14"/><path d="m17 20 4-4-4-4"/><path d="M21 16H7"/>
+  </symbol>
+
   <symbol id="domains" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8"/><path d="M4 12h16"/>
@@ -322,6 +329,11 @@
     <path d="M3 5h18l-7 8.5V20l-4-2v-4.5z"/>
   </symbol>
 
+  <symbol id="sort" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 4v16"/><path d="M3 16l4 4 4-4"/><path d="M17 20V4"/><path d="M13 8l4-4 4 4"/>
+  </symbol>
+
   <symbol id="filter-shared" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M2 5h14l-5.5 6.5V18l-3-1.5v-5z"/>
@@ -413,6 +425,15 @@
     <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>
   </symbol>
 
+  <symbol id="snooze" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="13" r="8"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M10 10h4l-4 5h4"/>
+  </symbol>
+
+  <symbol id="hourglass" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3h12"/><path d="M6 21h12"/><path d="M7 3c0 5 10 5 10 9s-10 4-10 9"/><path d="M17 3c0 5-10 5-10 9s10 4 10 9"/>
+  </symbol>
   <symbol id="repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>
@@ -492,6 +513,10 @@
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 17l6-6-6-6"/><path d="M12 19h8"/>
   </symbol>
+  <symbol id="share" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>
+  </symbol>
 
   <!-- Access channels: how a recorded change reached tix. The sync, import
        and system channels reuse sync, transfer and settings. -->
@@ -523,5 +548,10 @@
   <symbol id="via-unknown" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17h.01"/>
+  </symbol>
+
+  <symbol id="clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
   </symbol>
 </svg>

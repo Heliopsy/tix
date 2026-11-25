@@ -16,7 +16,7 @@
    shadow, never the lift or the transition, whatever this preference says.
    ------------------------------------------------------------------------ */
 :root { --shadow-hover: 0 2px 8px rgba(16, 24, 40, 0.10); }
-:root[data-theme="dark"], :root[data-theme="dim"] { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
+:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.45); }
 }

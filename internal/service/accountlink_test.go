@@ -18,7 +18,7 @@ import (
 func seedLinkedPerson(t *testing.T, l *Local, scope core.TenantScope, email string) (*core.User, *core.Actor) {
 	t.Helper()
 	ctx := context.Background()
-	hash, err := l.hasher.Hash(testPassword)
+	hash, err := l.hasher.Hash(t.Context(), testPassword)
 	if err != nil {
 		t.Fatalf("hashing: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestAnActorWhoseIdentifierIsNotItsAccountsIsAdministered(t *testing.T) {
 		t.Errorf("GetUser(account identifier) = %v, want not found: a tenant names its users by actor", err)
 	}
 
-	listed, _, err := l.ListUsers(ctx, core.Page{Limit: 50})
+	listed, _, err := l.ListUsers(ctx, core.UserFilter{Page: core.Page{Limit: 50}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
@@ -64,7 +63,9 @@ func newDoctorCmd(g *globals) *cobra.Command {
 				return g.reportChecks(cmd, checks)
 			}
 			checks = append(checks, check{Name: "identity", Status: checkOK, Detail: actor.Handle})
-			checks = append(checks, secondFactorChecks(ctx, conn)...)
+			report, err := conn.Service.Status(ctx)
+			checks = append(checks, secondFactorChecks(report, err)...)
+			checks = append(checks, numberingCheck(report, err))
 			return g.reportChecks(cmd, checks)
 		},
 	}
@@ -386,7 +387,7 @@ func newWebhookCmd(g *globals) *cobra.Command {
 		RunE:    helpRunner,
 	}
 	cmd.AddCommand(webhookPutCmd(g), webhookLsCmd(g), webhookRmCmd(g),
-		webhookDeliveriesCmd(g), webhookRedeliverCmd(g))
+		webhookDeliveriesCmd(g), webhookRedeliverCmd(g), webhookPingCmd(g))
 	return cmd
 }
 
@@ -419,9 +420,6 @@ func webhookPutCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if endpoint.Secret != "" {
-				return g.render(cmd, registered(*endpoint))
-			}
 			return g.render(cmd, endpoint)
 		},
 	}
@@ -432,28 +430,6 @@ func webhookPutCmd(g *globals) *cobra.Command {
 	f.BoolVar(&inactive, "inactive", false, "register the endpoint without enabling it")
 	f.BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
-}
-
-// webhookRegistration carries a newly registered endpoint together with the
-// signing secret the service disclosed exactly once. core.WebhookEndpoint
-// keeps its secret out of every serialised form, so the create path renders
-// this instead of making the stored field serialisable.
-type webhookRegistration struct {
-	ID         string    `json:"id" yaml:"id"`
-	TenantID   string    `json:"tenant_id" yaml:"tenant_id"`
-	URL        string    `json:"url" yaml:"url"`
-	EventTypes []string  `json:"event_types" yaml:"event_types"`
-	Active     bool      `json:"active" yaml:"active"`
-	CreatedAt  time.Time `json:"created_at" yaml:"created_at"`
-	Secret     string    `json:"secret" yaml:"secret"`
-}
-
-// registered pairs an endpoint with the secret only a registration returns.
-func registered(e core.WebhookEndpoint) webhookRegistration {
-	return webhookRegistration{
-		ID: e.ID, TenantID: e.TenantID, URL: e.URL, EventTypes: e.EventTypes,
-		Active: e.Active, CreatedAt: e.CreatedAt, Secret: e.Secret,
-	}
 }
 
 func webhookLsCmd(g *globals) *cobra.Command {
@@ -573,6 +549,31 @@ func webhookRedeliverCmd(g *globals) *cobra.Command {
 	return cmd
 }
 
+func webhookPingCmd(g *globals) *cobra.Command {
+	return &cobra.Command{
+		Use:   "ping ID",
+		Short: "Send a test delivery to one endpoint",
+		Long: "Queue a signed webhook.ping event to one active endpoint, whatever its event filter, and " +
+			"print the delivery. When this process delivers inline the attempt has already been made; " +
+			"otherwise the server sends it on its next pass. The delivery shows in tix webhook deliveries " +
+			"and can be redelivered.\n\nExit codes: 3 unknown endpoint, 5 permission denied, " +
+			"6 endpoint inactive or delivery turned off.",
+		Example: "  tix webhook ping 01J000000000000000000A",
+		Args:    exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			d, err := conn.Service.PingWebhook(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, d)
+		},
+	}
+}
+
 // deliveryStatuses converts flag values to delivery statuses.
 func deliveryStatuses(values []string) []core.DeliveryStatus {
 	out := make([]core.DeliveryStatus, 0, len(values))
@@ -582,6 +583,27 @@ func deliveryStatuses(values []string) []core.DeliveryStatus {
 	return out
 }
 
+// numberingCheck reports the projects whose task number counter is behind
+// the numbers their tasks hold. Creating a task there still works, because
+// the next number steps past the highest one held, so this warns rather than
+// fails.
+func numberingCheck(report *core.StatusReport, err error) check {
+	const name = "task-numbering"
+	if err != nil {
+		return check{Name: name, Status: checkOK, Detail: "not visible to this account: " + err.Error()}
+	}
+	behind := report.Work.NumberingBehind
+	if len(behind) == 0 {
+		return check{Name: name, Status: checkOK, Detail: "every project's counter is at or above its highest task number"}
+	}
+	parts := make([]string, len(behind))
+	for i, b := range behind {
+		parts[i] = fmt.Sprintf("%s counter %d, highest task %d", b.Project, b.Counter, b.Highest)
+	}
+	return check{Name: name, Status: checkWarn, Detail: "project counters behind their tasks: " + strings.Join(parts, "; ") +
+		"; the next task created in each still steps past the highest number"}
+}
+
 // secondFactorChecks reports the state of TOTP: whether a key is configured,
 // how many enrolments depend on it, and whether this tenant is one restart
 // away from having nobody able to sign in.
@@ -589,8 +611,7 @@ func deliveryStatuses(values []string) []core.DeliveryStatus {
 // It reads the status report rather than a diagnostic of its own, so there is
 // one place the facts come from and doctor cannot drift from what `tix status`
 // says.
-func secondFactorChecks(ctx context.Context, conn *connect.Conn) []check {
-	report, err := conn.Service.Status(ctx)
+func secondFactorChecks(report *core.StatusReport, err error) []check {
 	if err != nil {
 		// Not a failure of the installation. A reader without server:read
 		// cannot see this, and doctor is useful to them for everything else.
@@ -636,6 +657,10 @@ func secondFactorKeyCheck(f core.TOTPReport) check {
 
 // requiredSurfaces names the surfaces a tenant demands a factor on.
 func requiredSurfaces(f core.TOTPReport) string {
+	if f.Policy == core.MFAPolicyRequired {
+		return "every surface under its policy, which also refuses tokens minted for a person without one " +
+			"(agent tokens are exempt)"
+	}
 	var on []string
 	if f.RequireWeb {
 		on = append(on, "the browser")

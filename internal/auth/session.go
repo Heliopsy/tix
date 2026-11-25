@@ -33,11 +33,67 @@ type StoredSession struct {
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	RevokedAt *time.Time
+	// LastSeenAt is when the session last authenticated a request, recorded
+	// at most once a minute.
+	LastSeenAt time.Time
+	// IdleTimeout ends the session once unused this long; zero is off.
+	IdleTimeout time.Duration
+	// Remembered marks a "keep me signed in" session.
+	Remembered bool
+	// Window is how far past a use the session's expiry is pushed, and Limit
+	// how long after CreatedAt it may be pushed to. A zero Limit is no renewal.
+	Window time.Duration
+	Limit  time.Duration
 }
 
 // Active reports whether the session may still authenticate at time now.
 func (s StoredSession) Active(now time.Time) bool {
+	if s.IdleTimeout > 0 && !s.LastSeenAt.IsZero() && now.Sub(s.LastSeenAt) > s.IdleTimeout {
+		return false
+	}
 	return s.RevokedAt == nil && s.ExpiresAt.After(now)
+}
+
+// inactiveReason names why Active refused the session at now, in the order
+// Active tests: a session gone idle, one ended, then one past its expiry.
+func (s StoredSession) inactiveReason(now time.Time) string {
+	switch {
+	case s.IdleTimeout > 0 && !s.LastSeenAt.IsZero() && now.Sub(s.LastSeenAt) > s.IdleTimeout:
+		return RefusedSessionIdle
+	case s.RevokedAt != nil:
+		return RefusedUnknownSession
+	default:
+		return RefusedSessionExpired
+	}
+}
+
+// stale reports whether the session's last-seen time is old enough to record
+// again, so a busy session costs one write a minute rather than one a request.
+func (s StoredSession) stale(now time.Time) bool {
+	return now.Sub(s.LastSeenAt) >= core.SessionTouchInterval
+}
+
+// Renewed is the expiry a use at now moves the session to, or the zero time
+// when it would not move it later. It never passes CreatedAt plus the larger
+// of Limit and Window, so a Limit below Window renews nothing.
+func (s StoredSession) Renewed(now time.Time) time.Time {
+	if s.Window <= 0 || s.Limit <= 0 {
+		return time.Time{}
+	}
+	next := now.Add(s.Window)
+	if ceiling := s.CreatedAt.Add(max(s.Limit, s.Window)); next.After(ceiling) {
+		next = ceiling
+	}
+	if !next.After(s.ExpiresAt) {
+		return time.Time{}
+	}
+	return next
+}
+
+// SessionToucher records the time a session last authenticated a request
+// and, when expires is not zero, the expiry that use renewed it to.
+type SessionToucher interface {
+	TouchSession(ctx context.Context, hash string, at, expires time.Time) error
 }
 
 // String renders the session without its hash or token value.
@@ -53,6 +109,11 @@ type SessionInput struct {
 	Handle   string
 	Role     core.Role
 	TTL      time.Duration
+	// SignedInAt is when the person signed in, for a session that continues
+	// an earlier one, as a tenant switch does; zero is now. Limit bounds such
+	// a session's expiry as it bounds the earlier one's renewal.
+	SignedInAt time.Time
+	Limit      time.Duration
 }
 
 // MintedSession carries the session returned to the caller and the row to store.
@@ -81,12 +142,20 @@ func MintSession(clk clock.Clock, in SessionInput) (*MintedSession, error) {
 		return nil, err
 	}
 	now := clk.Now()
+	signedIn := now
+	if !in.SignedInAt.IsZero() && in.SignedInAt.Before(now) {
+		signedIn = in.SignedInAt
+	}
 	expires := now.Add(in.TTL)
+	if ceiling := signedIn.Add(max(in.Limit, in.TTL)); in.Limit > 0 && ceiling.Before(expires) && ceiling.After(now) {
+		expires = ceiling
+	}
 	return &MintedSession{
 		Session: core.Session{
 			Token:     secret,
 			ActorID:   in.ActorID,
 			TenantID:  in.TenantID,
+			CreatedAt: now,
 			ExpiresAt: expires,
 		},
 		Stored: StoredSession{
@@ -96,7 +165,7 @@ func MintSession(clk clock.Clock, in SessionInput) (*MintedSession, error) {
 			TenantID:  in.TenantID,
 			Handle:    in.Handle,
 			Role:      in.Role,
-			CreatedAt: now,
+			CreatedAt: signedIn,
 			ExpiresAt: expires,
 		},
 	}, nil
@@ -118,24 +187,51 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 	if token == "" {
 		return nil, core.Unauthenticated("invalid credentials")
 	}
+	unknown := Refusal{Reason: RefusedUnknownSession}
+	if wellFormedSecret(token) {
+		unknown.Session = SessionRef(HashToken(token))
+	}
 	stored, err := v.lookup.SessionByHash(ctx, HashToken(token))
+	if IsWithdrawn(err) {
+		NoteRefusal(ctx, Refusal{Reason: RefusedActorDisabled, Session: unknown.Session})
+		return nil, core.Unauthenticated("invalid credentials")
+	}
 	if err != nil {
 		return nil, core.Internal("looking up session").Wrap(err)
 	}
-	if stored == nil {
+	if stored == nil || !EqualHash(stored.TokenHash, HashToken(token)) {
+		NoteRefusal(ctx, unknown)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
-	if !EqualHash(stored.TokenHash, HashToken(token)) {
+	known := Refusal{Session: SessionRef(stored.TokenHash)}
+	now := v.clk.Now()
+	if !stored.Active(now) {
+		known.Reason = stored.inactiveReason(now)
+		NoteRefusal(ctx, known)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
-	if !stored.Active(v.clk.Now()) {
-		return nil, core.Unauthenticated("invalid credentials")
+	term := core.SessionTerm{ExpiresAt: stored.ExpiresAt, Remembered: stored.Remembered, CheckedAt: now}
+	if toucher, ok := v.lookup.(SessionToucher); ok && stored.stale(now) {
+		renewed := stored.Renewed(now)
+		if err := toucher.TouchSession(ctx, stored.TokenHash, now, renewed); err != nil {
+			if core.IsKind(err, core.KindNotFound) {
+				known.Reason = RefusedUnknownSession
+				NoteRefusal(ctx, known)
+				return nil, core.Unauthenticated("invalid credentials")
+			}
+			return nil, core.Internal("recording session use").Wrap(err)
+		}
+		if !renewed.IsZero() {
+			term.ExpiresAt, term.Renewed = renewed, true
+		}
 	}
 	// The role is the caller's authority and it belongs to the membership, so
 	// a lookup reporting no role is reporting no membership: the actor keeps
 	// its identity and holds no scope. A role that is set but unknown is not
 	// that case, it is a row nobody can reason about, and it ends the session.
 	if stored.Role != "" && !stored.Role.Valid() {
+		known.Reason = RefusedSessionInvalid
+		NoteRefusal(ctx, known)
 		return nil, core.Unauthenticated("invalid credentials")
 	}
 	return &core.Actor{
@@ -145,6 +241,7 @@ func (v *SessionVerifier) Verify(ctx context.Context, token string) (*core.Actor
 		Handle:    stored.Handle,
 		Role:      stored.Role,
 		SessionID: SessionRef(stored.TokenHash),
+		Term:      &term,
 	}, nil
 }
 
@@ -173,6 +270,37 @@ func NewSessionCookie(token string, expires time.Time, secure bool) *http.Cookie
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	}
+}
+
+// SessionCookie builds the cookie a minted session travels in. A "keep me
+// signed in" session gets a persistent cookie whose Max-Age ends with the
+// session; any other gets a browser-session cookie, gone when the browser
+// closes, which the server still refuses after the session's expiry.
+//
+// Max-Age is the session's lifetime as minted, so it agrees with the expiry
+// the server holds whatever the clock of the machine setting the cookie says.
+func SessionCookie(s core.Session, secure bool) *http.Cookie {
+	// #nosec G124 -- delegates to NewSessionCookie, which sets HttpOnly and SameSite.
+	c := NewSessionCookie(s.Token, time.Time{}, secure)
+	if s.Remembered {
+		c.Expires = s.ExpiresAt
+		c.MaxAge = max(1, int(s.ExpiresAt.Sub(s.CreatedAt)/time.Second))
+	}
+	return c
+}
+
+// RenewedSessionCookie is the cookie a remembered session is sent again in
+// once a use renewed it, so the browser keeps it as long as the server does.
+// It answers nil for any other session, whose cookie ends with the browser
+// and needs no renewing.
+func RenewedSessionCookie(token string, term *core.SessionTerm, secure bool) *http.Cookie {
+	if token == "" || term == nil || !term.Renewed || !term.Remembered {
+		return nil
+	}
+	// #nosec G124 -- delegates to NewSessionCookie, which sets HttpOnly and SameSite.
+	c := NewSessionCookie(token, term.ExpiresAt, secure)
+	c.MaxAge = max(1, int(term.ExpiresAt.Sub(term.CheckedAt)/time.Second))
+	return c
 }
 
 // ClearSessionCookie builds the cookie that removes a session from the browser.

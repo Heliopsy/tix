@@ -2,12 +2,18 @@
 {{/* The sidebar's rail and width are drawn from the tix_sidebar cookie
      (sidebar.go), on the root where assets/sidebar.js keeps them, so the
      first paint is the sidebar the reader left. */}}
-<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}{{if .Side.Rail}} class="side-collapsed"{{end}}{{with .Side.Width}} style="--side-w: {{.}}px"{{end}}>
+<html lang="{{.Lang}}"{{if .Theme}} data-theme="{{.Theme}}"{{end}}{{if not .Hover}} data-hover="off"{{end}}{{if .ReduceMotion}} data-motion="reduce"{{end}}{{with .ShareOrigin}} data-share-origin="{{.}}"{{end}}{{if .Side.Rail}} class="side-collapsed"{{end}}{{with .Side.Width}} style="--side-w: {{.}}px"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{t .Title}} &middot; {{.Brand.Title}}</title>
 <link rel="icon" href="/assets/tix.svg" type="image/svg+xml">
+{{/* The installable app (pwa.go). The manifest is fetched with the
+     session and language cookies, so it carries the tenant's name and the
+     reader's language. The theme colours are the light and dark --bg. */}}
+<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171b" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/assets/app.css">
 {{/* The scheme rules in app.css are written as :root[data-theme="dark"] and
      :root:not([data-theme="light"]), which outrank a plain :root however late
@@ -15,10 +21,11 @@
      light scheme and was silently ignored in dark and dim, which is the scheme
      a browser defaults to: the feature looked like it did nothing. These
      blocks match those selectors exactly and sit after the stylesheet, so they
-     win on source order. */}}
+     win on source order. OLED and system-oled take the dark accent: the media
+     rule matches both on a dark device, and the explicit list names oled. */}}
 <style>
 :root { --accent: {{.Brand.Accent}}; --accent-soft: {{.Brand.AccentSoft}}; }
-:root[data-theme="dark"], :root[data-theme="dim"] { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
+:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dim"]) { --accent: {{.Brand.AccentDark}}; --accent-soft: {{.Brand.AccentSoftDark}}; }
 }
@@ -37,18 +44,22 @@
 <script src="/assets/sidebar.js"></script>
 <script src="/assets/decide.js" defer></script>
 <script src="/assets/htmx.min.js" defer></script>
+<script src="/assets/livestatus.js" defer></script>
 <script src="/assets/live.js" defer></script>
+<script src="/assets/deploy.js" defer></script>
 <script src="/assets/shortcuts.js" defer></script>
 <script src="/assets/tasktabs.js" defer></script>
 <script src="/assets/tasktree.js" defer></script>
 <script src="/assets/copy.js" defer></script>
 <script src="/assets/handoff.js" defer></script>
+<script src="/assets/share.js" defer></script>
 <script src="/assets/busy.js" defer></script>
 <script src="/assets/forms.js" defer></script>
 <script src="/assets/markdown.js" defer></script>
 <script src="/assets/taskopen.js" defer></script>
 <script src="/assets/feel.js" defer></script>
 <script src="/assets/tipplace.js" defer></script>
+<script src="/assets/tocspy.js" defer></script>
 <script src="/assets/iconpick.js" defer></script>
 <script src="/assets/groups.js" defer></script>
 <script src="/assets/palette.js" defer></script>
@@ -57,15 +68,25 @@
 <script src="/assets/inbox.js" defer></script>
 <script src="/assets/timetip.js" defer></script>
 <script src="/assets/mention.js" defer></script>
+<script src="/assets/filterbar.js" defer></script>
+<script src="/assets/quickadd.js" defer></script>
 <script src="/assets/richtext.js" defer></script>
 <script src="/assets/datepick.js" defer></script>
 <script src="/assets/scopes.js" defer></script>
 <script src="/assets/connect.js" defer></script>
+<script src="/assets/swipe.js" defer></script>
+<script src="/assets/settingsfind.js" defer></script>
+<script src="/assets/notify.js" defer></script>
+<script src="/assets/pwa.js" defer></script>
+<script src="/assets/diagnostics.js" defer></script>
 </head>
-<body hx-boost="true">
+{{/* data-build is the release that drew the page; assets/deploy.js reloads
+     the tab when /healthz reports a different one. */}}
+<body hx-boost="true"{{with .Build}} data-build="{{.}}"{{end}}>
 {{if .Actor}}
 <script id="tix-shortcuts-data" type="application/json">{{.ShortcutsJSON}}</script>
 <script id="tix-palette-data" type="application/json">{{.PaletteJSON}}</script>
+<script id="tix-live-words" type="application/json">{{.LiveWords}}</script>
 <div class="shell">
   {{/* The aside paints the sidebar's background and is left to the grid,
        which stretches it to whatever the content beside it needs. Only its
@@ -90,7 +111,12 @@
            desktop the button is hidden and display:contents dissolves this
            wrapper, so the sidebar is the column it has always been. */}}
       <div class="side-head">
-        <a class="brand" href="/" data-rail-name="{{.Brand.Title}}"><img class="logo" src="/assets/tix.svg" alt="" width="28" height="28"><span class="brand-name">{{.Brand.Title}}</span></a>
+        <a class="brand" href="/" data-rail-name="{{.Brand.Title}}">{{if .TenantMark.Any}}<span class="logo tenant-mark tenant-logo" data-tenant-mark>{{template "proj-icon" .TenantMark}}</span>{{else}}<img class="logo" src="/assets/tix.svg" alt="" width="28" height="28">{{end}}<span class="brand-name">{{.Brand.Title}}</span></a>
+        {{/* Whether changes made elsewhere reach this page: a dot when live,
+             a dot and a word when not, opening the connection details
+             (assets/livestatus.js). Drawn hidden, and shown by the script
+             once a stream reports, since without scripting nothing is live. */}}
+        <button type="button" class="livestatus" data-live-status data-live-mode="connecting" aria-haspopup="dialog" aria-label="{{t "Live updates"}}" hidden><span class="livedot" aria-hidden="true"></span><span class="livelabel" data-live-label></span></button>
         {{/* Collapses the desktop column to a rail and back. Shown only with
              scripting, since it does nothing without it. These controls are
              not rendered hidden for a script to reveal: on every boosted
@@ -137,11 +163,16 @@
     {{- if .UndoAction}}<form id="flash-undo" method="post" action="{{.UndoAction}}" hidden>{{template "csrf" .CSRF}}{{with .UndoField}}{{if index . 0}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}{{end}}{{range .UndoBulk}}<input type="hidden" name="ref" value="{{.}}">{{end}}<input type="hidden" name="next" value="{{.Here}}"></form>{{end}}{{end -}}
     </div>
     {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
+    {{/* The second factor policy's banner. During the grace it names the
+         deadline; once the gate applies it says why every screen leads to
+         enrolment. The enrolment screen itself says so at more length. */}}
+    {{if and .FactorDue (ne .Path "/settings/totp")}}<p class="flash factorbanner" role="status">{{if .FactorGated}}{{t "This tenant requires a second factor. Set one up to go on."}}{{else}}{{tt "This tenant requires a second factor from %s." (when .FactorDue)}}{{end}} <a href="/settings/totp">{{t "Set up a second factor"}}</a></p>{{end}}
     {{block "content" .}}{{end}}
   </main>
 </div>
 {{template "shortcuts-help" .}}
 {{template "palette" .}}
+{{template "live-details" .}}
 {{template "tenant-switcher" .}}
 {{if .TaskDialog}}{{template "task-dialog-host" .}}{{end}}
 {{else}}

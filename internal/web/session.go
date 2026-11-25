@@ -19,14 +19,14 @@ import (
 func (h *handler) sessionRoutes() []route {
 	return []route{
 		get(RouteRoot, "", h.showRoot, "WhoAmI"),
-		public(get(RouteLogin, "login.html", h.showLogin)),
+		public(get(RouteLogin, "login.html", h.showLogin, "SessionPolicy", "SignInOptions")),
 		public(post(RouteLogin, h.doLogin, "Login")),
 		public(get(RouteInviteAccept, inviteTemplate, h.showInvite, "PreviewInvite")),
 		public(post(RouteInviteAccept, h.acceptInvite, "AcceptInvite")),
 		post(RouteLogout, h.doLogout, "Logout"),
 		get(RouteAccount, accountLogTemplate, h.showAccountLog, "GetAccountLog"),
-		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
-		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings"),
+		get(RouteSettings, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions", "GetDAVInfo", "ListDAVPasswords"),
+		get(RouteChannels, "settings.html", h.showSettings, "WhoAmI", "TOTPStatus", "GetCalendarFeed", "GetInboxPrefs", "ListInboxChannels", "GetTimeSettings", "ListSessions", "GetDAVInfo", "ListDAVPasswords"),
 		get(RouteRelease, "release.html", h.showRelease, "WhoAmI"),
 		post(RouteAdvanced, h.toggleAdvanced, "Logout"),
 		post(RouteTheme, h.setTheme, "Logout"),
@@ -56,7 +56,7 @@ func (h *handler) showRoot(w http.ResponseWriter, r *http.Request) error {
 	if _, err := h.svc.WhoAmI(r.Context()); err != nil {
 		return err
 	}
-	http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
+	http.Redirect(w, r, startScreenOf(r).Route, http.StatusSeeOther)
 	return nil
 }
 
@@ -70,16 +70,32 @@ type loginView struct {
 	// carried in the form so a deep link survives sign-in, second step and
 	// all.
 	Next string
+	// RememberFor is how long "keep me signed in" keeps a browser signed in,
+	// zero when the tenant does not offer it and the box is not drawn.
+	RememberFor core.Duration
+	// Options are the tenant's providers and whether it takes passwords.
+	Options core.SignInOptions
+	// BreakGlass draws the password form on a tenant that turned passwords
+	// off, for the global admin who is the one exception.
+	BreakGlass bool
 }
 
 // showLogin renders the sign-in screen.
 func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 	if _, ok := core.ActorFrom(r.Context()); ok {
-		http.Redirect(w, r, RouteProjects, http.StatusSeeOther)
+		http.Redirect(w, r, startScreenOf(r).Route, http.StatusSeeOther)
 		return nil
 	}
-	return h.render(w, r, "login.html", "Sign in",
-		loginView{TargetHint: h.targetHint, Next: safeNext(r.URL.Query().Get("next"))})
+	v := loginView{TargetHint: h.targetHint, Next: safeNext(orElse(r.URL.Query().Get("next"), RouteRoot))}
+	if policy, err := h.svc.SessionPolicy(r.Context()); err == nil && policy.RememberOffered() {
+		v.RememberFor = policy.RememberTTL
+	}
+	v.BreakGlass = r.URL.Query().Get("password") == "1"
+	v.Options = core.SignInOptions{PasswordLogin: core.PasswordLoginAllowed}
+	if options, err := h.svc.SignInOptions(r.Context()); err == nil {
+		v.Options = *options
+	}
+	return h.render(w, r, "login.html", "Sign in", v)
 }
 
 // doLogin is both steps of a browser sign-in: the password, and the second
@@ -92,14 +108,15 @@ func (h *handler) showLogin(w http.ResponseWriter, r *http.Request) error {
 func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 	next := safeNext(field(r, "next"))
 	ticket := field(r, "ticket")
-	in := core.LoginInput{Surface: core.SurfaceWeb}
+	remember := field(r, "remember") == "on"
+	in := core.LoginInput{Surface: core.SurfaceWeb, Remember: remember}
 	_, changing := sent(r, "new_password")
 	if ticket != "" {
 		in.Ticket, in.Code = ticket, field(r, "code")
 	} else {
 		in.Email, in.Password = field(r, "email"), r.PostFormValue("password")
 	}
-	change := passwordChangeView{Email: in.Email, Next: next}
+	change := passwordChangeView{Email: in.Email, Next: next, Remember: remember}
 	if changing && ticket == "" {
 		in.NewPassword = r.PostFormValue("new_password")
 		if in.NewPassword != r.PostFormValue("confirm") {
@@ -121,12 +138,16 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 		if ticket == "" {
 			return err
 		}
+		if appTarget(err) != "" {
+			return h.refusedForApp(w, r, err)
+		}
 		// A refused code redraws the step it was typed on, refusal and all.
 		// The error screen would lose the ticket and send the reader back to
 		// the password, and an expired ticket says so on this screen beside
 		// the way to start again.
-		return h.renderTOTP(w, r, core.KindOf(err).HTTPStatus(),
-			signInChallenge(ticket, next, field(r, "uri"), totpRefusal(err)))
+		v := signInChallenge(ticket, next, field(r, "uri"), totpRefusal(err))
+		v.Remember = remember
+		return h.renderTOTP(w, r, core.KindOf(err).HTTPStatus(), v)
 	}
 	if result.Challenge != nil && result.Challenge.Kind == core.ChallengePasswordChange {
 		return h.renderPasswordChange(w, r, http.StatusOK, change)
@@ -138,9 +159,12 @@ func (h *handler) doLogin(w http.ResponseWriter, r *http.Request) error {
 // lands on. No session exists yet, so the page carries the address and asks
 // for the current password again beside the new one.
 type passwordChangeView struct {
-	Email  string
-	Next   string
-	Errors fieldErrors
+	Email string
+	Next  string
+	// Remember carries the "keep me signed in" choice to the step that mints
+	// the session.
+	Remember bool
+	Errors   fieldErrors
 }
 
 // passwordChangeTemplate is the Choose a new password page.
@@ -161,11 +185,16 @@ func (h *handler) finishSignIn(w http.ResponseWriter, r *http.Request, result *c
 		if challenge.Enrolment != nil {
 			uri = challenge.Enrolment.URI
 		}
-		return h.renderTOTP(w, r, http.StatusOK, signInChallenge(challenge.Ticket, next, uri, nil))
+		v := signInChallenge(challenge.Ticket, next, uri, nil)
+		v.Remember = field(r, "remember") == "on"
+		return h.renderTOTP(w, r, http.StatusOK, v)
 	}
 
+	if result.AppRedirect != "" || result.AppHandoff != "" {
+		return h.backToApp(w, r, result)
+	}
 	session := result.Session
-	http.SetCookie(w, auth.NewSessionCookie(session.Token, session.ExpiresAt, h.secureCookie(r)))
+	http.SetCookie(w, auth.SessionCookie(*session, h.secureCookie(r)))
 	if len(result.RecoveryCodes) > 0 {
 		// A sign-in that completed by enrolling issues the codes, and nothing
 		// can produce them again, so they are shown before the reader goes on
@@ -233,13 +262,21 @@ type settingsView struct {
 	// recovery codes are left, and whether this tenant requires it here.
 	TOTP totpSection
 
+	// Sessions is the reader's own sign-ins, the one in use marked.
+	Sessions sessionsView
+
 	// Calendar is the reader's own feed of due dates.
 	Calendar calendarView
+	// DAV is the CalDAV address and the reader's own app passwords.
+	DAV davView
 	// InboxKinds are the switches that mute a kind of inbox item.
 	InboxKinds []inboxKindChoice
 
 	// Notifications is the reader's own channels and the form adding one.
 	Notifications notificationsSection
+
+	// StartChoices is the picker for the screen / opens on.
+	StartChoices []startChoice
 }
 
 // showSettings renders the settings screen: every per-browser display
@@ -273,6 +310,14 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 	if err != nil {
 		return err
 	}
+	sessions, err := h.sessionsFor(r)
+	if err != nil {
+		return err
+	}
+	dav, err := h.davFor(r)
+	if err != nil {
+		return err
+	}
 	return h.renderStatus(w, r, status, "settings.html", "Settings", settingsView{
 		Profile:        profile,
 		TargetDescribe: h.targetDescribe,
@@ -282,9 +327,12 @@ func (h *handler) renderSettings(w http.ResponseWriter, r *http.Request, status 
 		DateZone:       zone,
 		Prefs:          settingsPrefs(h.prefsFor(r, projects, whole)),
 		TOTP:           totp,
+		Sessions:       sessions,
 		Calendar:       calendar,
+		DAV:            dav,
 		InboxKinds:     inboxKindChoices(h.inboxPrefs(r)),
 		Notifications:  notes,
+		StartChoices:   startChoices(r),
 	})
 }
 
@@ -314,7 +362,7 @@ func settingsPrefs(p prefsView) prefsView {
 // finds it empty, which is the same state in which the footer offers no link
 // to it.
 func (h *handler) showRelease(w http.ResponseWriter, r *http.Request) error {
-	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.state(), changelog.Entries()))
+	return h.render(w, r, "release.html", "Release", newReleaseView(h.releases.State(), changelog.Entries()))
 }
 
 // doLogout ends the session the browser presented.

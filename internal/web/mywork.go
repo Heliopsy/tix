@@ -51,7 +51,7 @@ func (h *handler) myWorkRoutes() []route {
 
 // showMyWork renders the reader's own work.
 func (h *handler) showMyWork(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildTaskScreen(r, true)
+	data, err := h.buildTaskScreen(r, true, nil)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (h *handler) showMyWork(w http.ResponseWriter, r *http.Request) error {
 
 // showMyWorkLive renders the regions a live update of My work replaces.
 func (h *handler) showMyWorkLive(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildTaskScreen(r, true)
+	data, err := h.buildTaskScreen(r, true, nil)
 	if err != nil {
 		return err
 	}

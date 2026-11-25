@@ -26,6 +26,10 @@ type RouteInput struct {
 	// Version is the task version the move was based on, checked on the first
 	// hop; a stale one is a conflict and omitted skips the check.
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
+	// DryRun walks the route in one transaction and rolls it back: each hop is
+	// judged against the state the hops before it would leave, and nothing is
+	// written.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Validate checks the input.
@@ -67,6 +71,8 @@ type RouteResult struct {
 	Stopped string `json:"stopped,omitempty" yaml:"stopped,omitempty"`
 	// Reason is why that hop was refused.
 	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
+	// DryRun is true when the route was judged and nothing was written.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Partial reports whether the route stopped before the end.

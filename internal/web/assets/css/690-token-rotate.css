@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   Rotating an API token (tokens.html). Rotate and Revoke share a row's
+   action cell and wrap rather than push the table wider on a phone. A
+   rotated token inside its grace window still works, so its badge is the
+   warning tone an expiring credential gets rather than the revoked red.
+   ------------------------------------------------------------------------ */
+.tok-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); justify-content: flex-end; }
+.badge.tok-retiring { background: var(--warn-soft); color: var(--warn); border-color: transparent; }

@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Tasks in other apps: the address and username stack in the row's control
+   column, and an app password's name may run to 64 characters, so both wrap
+   rather than push the Revoke button off a phone-width screen. */
+.dav-account {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.dav-row .setname {
+  overflow-wrap: anywhere;
+}
+
+.dav-choices {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  border: 0;
+  padding: 0;
+}
+
+.dav-choices legend {
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.dav-issued h3 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 1em;
+}

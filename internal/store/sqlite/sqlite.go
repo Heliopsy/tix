@@ -33,6 +33,7 @@ type Store struct {
 	writer *sql.DB
 	clock  clock.Clock
 	path   string
+	mode   JournalMode
 
 	// wakers carries a commit to the readers in this process. SQLite has no
 	// cross-process notification, so this covers the single-binary case and
@@ -41,9 +42,35 @@ type Store struct {
 	wakers *store.Wakers
 }
 
+// JournalMode is the SQLite journal mode a store runs in.
+type JournalMode string
+
+// Journal modes Open accepts.
+const (
+	// JournalWAL is write-ahead logging, what every tix process runs in unless
+	// an embedding app asks otherwise.
+	JournalWAL JournalMode = "wal"
+	// JournalDelete is the rollback journal, deleted at each commit, so the
+	// main file alone holds every committed change.
+	JournalDelete JournalMode = "delete"
+)
+
+// ParseJournalMode reads a journal mode, empty meaning JournalWAL.
+func ParseJournalMode(s string) (JournalMode, error) {
+	switch m := JournalMode(strings.ToLower(strings.TrimSpace(s))); m {
+	case "":
+		return JournalWAL, nil
+	case JournalWAL, JournalDelete:
+		return m, nil
+	default:
+		return "", core.Invalid("journal mode %q is not one of wal or delete", s)
+	}
+}
+
 // openConfig holds the options Open accepts.
 type openConfig struct {
 	allowNetworkFS bool
+	journalMode    string
 }
 
 // Option configures Open.
@@ -57,6 +84,13 @@ type Option func(*openConfig)
 // dedicated flag or configuration key.
 func WithAllowNetworkFS(allow bool) Option {
 	return func(c *openConfig) { c.allowNetworkFS = allow }
+}
+
+// WithJournalMode opens the database in the named journal mode, wal or
+// delete; empty means wal. Delete mode runs with synchronous=FULL, since a
+// rollback journal at NORMAL can be corrupted by a power loss.
+func WithJournalMode(mode string) Option {
+	return func(c *openConfig) { c.journalMode = mode }
 }
 
 // Open opens, creating if needed, a SQLite database at path.
@@ -78,6 +112,10 @@ func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	mode, err := ParseJournalMode(cfg.journalMode)
+	if err != nil {
+		return nil, err
+	}
 	if dec := storeloc.CheckNetworkFS(path, cfg.allowNetworkFS); dec.Refuse {
 		return nil, core.Precondition(
 			"sqlite database %q is on a %s, which corrupts a SQLite database rather than merely running it slowly; "+
@@ -89,14 +127,14 @@ func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 		c = clock.New()
 	}
 
-	writer, err := sql.Open(driverName, dsn(path))
+	writer, err := sql.Open(driverName, dsn(path, mode))
 	if err != nil {
 		return nil, core.Internal("opening sqlite writer at %q", path).Wrap(err)
 	}
 	writer.SetMaxOpenConns(1)
 	writer.SetMaxIdleConns(1)
 
-	reader, err := sql.Open(driverName, dsn(path))
+	reader, err := sql.Open(driverName, dsn(path, mode))
 	if err != nil {
 		_ = writer.Close()
 		return nil, core.Internal("opening sqlite reader at %q", path).Wrap(err)
@@ -104,7 +142,7 @@ func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 	reader.SetMaxOpenConns(readerConns())
 	reader.SetMaxIdleConns(readerConns())
 
-	s := &Store{reader: reader, writer: writer, clock: c, path: path, wakers: store.NewWakers()}
+	s := &Store{reader: reader, writer: writer, clock: c, path: path, mode: mode, wakers: store.NewWakers()}
 	if err := s.verifyJournalMode(context.Background()); err != nil {
 		_ = s.Close()
 		return nil, err
@@ -114,12 +152,16 @@ func Open(path string, c clock.Clock, opts ...Option) (*Store, error) {
 
 // dsn builds a connection string whose pragmas are applied to every connection
 // the pool opens, not only the first.
-func dsn(path string) string {
+func dsn(path string, mode JournalMode) string {
+	synchronous := "NORMAL"
+	if mode == JournalDelete {
+		synchronous = "FULL"
+	}
 	return "file:" + path +
 		"?_pragma=busy_timeout(" + fmt.Sprint(BusyTimeoutMillis) + ")" +
-		"&_pragma=journal_mode(WAL)" +
+		"&_pragma=journal_mode(" + strings.ToUpper(string(mode)) + ")" +
 		"&_pragma=foreign_keys(1)" +
-		"&_pragma=synchronous(NORMAL)"
+		"&_pragma=synchronous(" + synchronous + ")"
 }
 
 func readerConns() int {
@@ -136,10 +178,31 @@ func (s *Store) verifyJournalMode(ctx context.Context) error {
 	if err := s.writer.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&mode); err != nil {
 		return core.Internal("reading journal mode for %q", s.path).Wrap(err)
 	}
-	if !strings.EqualFold(mode, "wal") {
+	if !strings.EqualFold(mode, string(s.mode)) {
 		return core.Precondition(
-			"sqlite at %q is in %q journal mode; write-ahead logging could not be established, which usually means the file or its directory is not writable",
-			s.path, mode)
+			"sqlite at %q is in %q journal mode; %s journal mode could not be established, which usually means the file or its directory is not writable",
+			s.path, mode, s.mode)
+	}
+	return nil
+}
+
+// JournalMode reports the journal mode the store was opened in.
+func (s *Store) JournalMode() JournalMode { return s.mode }
+
+// Checkpoint copies every committed change from the write-ahead log into the
+// main database file and truncates the log, so the main file alone is
+// complete. It does nothing in delete mode, and is a conflict error when a
+// reader elsewhere keeps the checkpoint from finishing.
+func (s *Store) Checkpoint(ctx context.Context) error {
+	if s.mode != JournalWAL {
+		return nil
+	}
+	var busy, logFrames, moved int
+	if err := s.writer.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &logFrames, &moved); err != nil {
+		return core.Internal("checkpointing sqlite at %q", s.path).Wrap(err)
+	}
+	if busy != 0 {
+		return core.Conflict("checkpointing sqlite at %q: another connection is still reading; %d of %d log frames were copied", s.path, moved, logFrames)
 	}
 	return nil
 }

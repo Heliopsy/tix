@@ -22,6 +22,7 @@ const (
 	promptNewTask
 	promptComment
 	promptCommentEdit
+	promptReact
 	promptTag
 	promptUntag
 	promptDependency
@@ -41,6 +42,11 @@ const (
 	promptSaveFilter
 	promptCheck
 	promptSnooze
+	promptTenantArtifactMax
+	promptTenantArtifactTypes
+	promptTenantSessionTTL
+	promptTenantSessionIdle
+	promptTenantSessionRemember
 )
 
 // PromptSpec is how one input introduces itself.
@@ -73,6 +79,7 @@ var promptSpecs = map[promptKind]PromptSpec{
 	// field rather than one clipped line.
 	promptComment:     {Prompt: "comment: ", Placeholder: "what you want to record", Limit: 4096, Field: "comment", Multiline: true},
 	promptCommentEdit: {Prompt: "edit comment: ", Placeholder: "what the comment should say", Limit: 4096, Field: "comment", Multiline: true},
+	promptReact:       {Prompt: "react: ", Placeholder: "one emoji, such as 👍; one you already left is taken back", Limit: 64, Field: "emoji"},
 
 	promptSnooze:     {Prompt: "snooze until: ", Placeholder: "later, tomorrow, next-week, 3d or 2026-12-01 14:00", Limit: 64, Field: "time"},
 	promptTag:        {Prompt: "add tag: ", Placeholder: "tag to attach", Limit: 128, Field: "tag"},
@@ -112,6 +119,22 @@ var promptSpecs = map[promptKind]PromptSpec{
 	promptProjectColour: {Prompt: "custom colour: ", Placeholder: "#rrggbb, such as #1a7f5a", Limit: 7, Field: "colour"},
 	promptTenantAccent:  {Prompt: "custom accent: ", Placeholder: "#rrggbb, such as #7a3ef0", Limit: 7, Field: "accent"},
 
+	// The tenant's artifact limits, each seeded with its current value; empty
+	// hands the limit back to the server.
+	promptTenantArtifactMax: {Prompt: "largest artifact file: ", Placeholder: "such as 5MiB; empty uses the server's",
+		Limit: 32, Field: "size"},
+	promptTenantArtifactTypes: {Prompt: "accepted artifact types: ", Placeholder: "such as image/*,application/pdf; empty uses the server's",
+		Limit: 1024, Field: "types"},
+
+	// The tenant's session settings, each seeded with its current value;
+	// empty hands the setting back to the server.
+	promptTenantSessionTTL: {Prompt: "sign-in lasts: ", Placeholder: "such as 8h; empty uses the server's",
+		Limit: 32, Field: "duration"},
+	promptTenantSessionIdle: {Prompt: "sign out when idle for: ", Placeholder: "such as 30m; empty uses the server's",
+		Limit: 32, Field: "duration"},
+	promptTenantSessionRemember: {Prompt: "keep me signed in lasts: ", Placeholder: "such as 7d, or off; empty uses the server's",
+		Limit: 32, Field: "duration"},
+
 	// The name the board's filter is kept under, listed in the browser's
 	// sidebar and in s here.
 	promptSaveFilter: {Prompt: "save filter as: ", Placeholder: "a name, such as my overdue work", Limit: core.MaxSavedFilterName, Field: "name"},
@@ -129,7 +152,9 @@ func (k promptKind) NeedsTask() bool {
 	switch k {
 	case promptNone, promptFilter, promptActivityFilter, promptTenant, promptNewTask, promptNewProject,
 		promptProjectName, promptProjectKey, promptProjectDesc, promptProjectIcon, promptNewField,
-		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent, promptSaveFilter:
+		promptTenantName, promptDomain, promptProjectColour, promptTenantAccent, promptSaveFilter,
+		promptTenantArtifactMax, promptTenantArtifactTypes,
+		promptTenantSessionTTL, promptTenantSessionIdle, promptTenantSessionRemember:
 		return false
 	default:
 		return true
@@ -144,6 +169,7 @@ const (
 	choiceNone choiceKind = iota
 	choiceTransition
 	choicePriority
+	choiceShare
 )
 
 // Prompt introduces a picker.
@@ -153,6 +179,8 @@ func (k choiceKind) Prompt() string {
 		return "transition to: "
 	case choicePriority:
 		return "set priority: "
+	case choiceShare:
+		return "share: "
 	default:
 		return ""
 	}
@@ -166,6 +194,8 @@ func (k choiceKind) Field() string {
 		return "state"
 	case choicePriority:
 		return "priority"
+	case choiceShare:
+		return "copy"
 	default:
 		return "value"
 	}

@@ -108,6 +108,26 @@ func TestSSHHostsEveryCLIBindingNotExempted(t *testing.T) {
 				op.Name, op.CLI)
 		}
 	}
+	derived := map[string]bool{}
+	for _, op := range capability.Operations() {
+		if !op.Binds(capability.SurfaceSSH) {
+			continue
+		}
+		for _, cli := range append([]string{op.CLI}, op.Formats...) {
+			derived[cli] = true
+			if !hosted[cli] {
+				t.Errorf("%s: %q formats or binds an ssh-bound operation and is not on the ssh allowlist", op.Name, cli)
+			}
+		}
+	}
+	for path := range hosted {
+		if !derived[path] {
+			t.Errorf("%q is on the ssh allowlist and no ssh-bound operation binds or formats it", path)
+		}
+	}
+	if !hosted["tix task link"] {
+		t.Error("tix task link formats task.show and is not hosted over ssh")
+	}
 	for _, path := range []string{"tix login", "tix logout"} {
 		if hosted[path] {
 			t.Errorf("%q signs a local command line in or out and must not be hosted", path)
@@ -129,6 +149,11 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		if op.CLI != "" && !strings.HasPrefix(op.CLI, "tix ") {
 			t.Errorf("%s: cli binding %q is not a tix command path", op.Name, op.CLI)
 		}
+		for _, f := range op.Formats {
+			if !strings.HasPrefix(f, "tix ") || op.CLI == "" || f == op.CLI {
+				t.Errorf("%s: format %q is not a further tix command beside a cli binding", op.Name, f)
+			}
+		}
 		for _, route := range []capability.Route{op.HTTP, op.Web} {
 			if route.Zero() {
 				continue
@@ -140,7 +165,9 @@ func TestOperationsAreWellFormed(t *testing.T) {
 		if op.HTTP.Template != "" {
 			t.Errorf("%s: an http route renders no template", op.Name)
 		}
-		if op.Web.Method == http.MethodGet && op.Web.Template == "" && !op.Web.Asset {
+		// The start of a single sign-on only redirects to the identity
+		// provider, as the root redirects to the start screen.
+		if op.Web.Method == http.MethodGet && op.Web.Template == "" && !op.Web.Asset && op.Web.Pattern != web.RouteSSOStart {
 			t.Errorf("%s: a browser screen names no template", op.Name)
 		}
 		if op.Web.Query != "" {
@@ -326,6 +353,37 @@ type stubService struct{ core.Service }
 // one before it can draw anything.
 func (stubService) PreviewInvite(context.Context, string) (*core.InvitePreview, error) {
 	return nil, core.Invalid("no invite")
+}
+
+// SessionPolicy answers for the sign-in screen, the third public route that
+// asks the service something before anybody signed in.
+func (stubService) SessionPolicy(context.Context) (*core.SessionPolicy, error) {
+	return nil, core.Invalid("no policy")
+}
+
+// SignInOptions answers for the same screen, which offers the tenant's
+// providers beside the password form.
+func (stubService) SignInOptions(context.Context) (*core.SignInOptions, error) {
+	return nil, core.Invalid("no options")
+}
+
+// BeginSSOLogin and CompleteSSOLogin answer for the two public routes a
+// single sign-on passes through.
+func (stubService) BeginSSOLogin(context.Context, core.BeginSSOInput) (*core.SSOBegin, error) {
+	return nil, core.Invalid("no provider")
+}
+
+func (stubService) CompleteSSOLogin(context.Context, core.CompleteSSOInput) (*core.LoginResult, error) {
+	return nil, core.Unauthenticated("no flow")
+}
+
+func (stubService) ExchangeSSOCode(context.Context, core.SSOExchangeInput) (*core.LoginResult, error) {
+	return nil, core.Unauthenticated("invalid credentials")
+}
+
+// SAMLMetadata answers for the public metadata address a SAML IdP imports.
+func (stubService) SAMLMetadata(context.Context, core.SAMLMetadataInput) (*core.SAMLMetadata, error) {
+	return nil, core.Invalid("no saml provider")
 }
 
 func (stubService) AcceptInvite(context.Context, string, core.AcceptInviteInput) (*core.LoginResult, error) {
@@ -614,7 +672,8 @@ func TestGapsStandWhereTheyAreRecorded(t *testing.T) {
 // what stops one being deleted along with the surface behaviour it described,
 // which a count of "more than none" would not notice.
 var recordedShortfalls = map[string][]capability.Surface{
-	"PutArtifact": {capability.SurfaceTUI},
+	"PutArtifact":           {capability.SurfaceTUI},
+	"ApplyWorkflowTemplate": {capability.SurfaceTUI},
 	// Over SSH the transfer view names the ssh command instead of a path.
 	"ExportTo":     {capability.SurfaceTUI},
 	"ImportFrom":   {capability.SurfaceTUI},

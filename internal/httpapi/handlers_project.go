@@ -19,6 +19,9 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("DELETE "+wire.RouteProject, rt.handleDeleteProject)
 	rt.mux.HandleFunc("GET "+wire.RouteProjectIcon, rt.handleGetProjectIcon)
 	rt.mux.HandleFunc("GET "+wire.RouteProjectDeletion, rt.handlePlanProjectDeletion)
+	rt.mux.HandleFunc("GET "+wire.RouteStarredProjects, rt.handleListStarredProjects)
+	rt.mux.HandleFunc("PUT "+wire.RouteProjectStar, rt.handleStarProject)
+	rt.mux.HandleFunc("DELETE "+wire.RouteProjectStar, rt.handleUnstarProject)
 
 	rt.mux.HandleFunc("GET "+wire.RouteProjectFields, rt.handleListFieldDefs)
 	rt.mux.HandleFunc("PUT "+wire.RouteProjectFields, rt.handlePutFieldDef)
@@ -29,6 +32,8 @@ func (rt *Router) registerProjectRoutes() {
 	rt.mux.HandleFunc("GET "+wire.RouteWorkflow, rt.handleGetWorkflow)
 	rt.mux.HandleFunc("PUT "+wire.RouteWorkflow, rt.handlePutWorkflowByKey)
 	rt.mux.HandleFunc("DELETE "+wire.RouteWorkflow, rt.handleDeleteWorkflow)
+	rt.mux.HandleFunc("GET "+wire.RouteWorkflowTemplates, rt.handleListWorkflowTemplates)
+	rt.mux.HandleFunc("POST "+wire.RouteWorkflowTemplateApply, rt.handleApplyWorkflowTemplate)
 }
 
 // handleListProjects returns a page of projects.
@@ -49,6 +54,34 @@ func (rt *Router) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeList(w, r, projects, next)
+}
+
+// handleListStarredProjects returns the projects the caller starred.
+func (rt *Router) handleListStarredProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := rt.cfg.Service.ListStarredProjects(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, projects, "")
+}
+
+// handleStarProject sets the caller's own star on a project.
+func (rt *Router) handleStarProject(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.StarProject(r.Context(), r.PathValue("ref")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
+// handleUnstarProject clears the caller's own star on a project.
+func (rt *Router) handleUnstarProject(w http.ResponseWriter, r *http.Request) {
+	if err := rt.cfg.Service.UnstarProject(r.Context(), r.PathValue("ref")); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
 }
 
 // handleCreateProject creates a project.
@@ -83,7 +116,13 @@ func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	etag := wire.IconETag(img.Digest)
+	writeIcon(w, r, img.Digest, img.ContentType, img.Data)
+}
+
+// writeIcon answers with an icon image, typed and fingerprinted, under a
+// sandboxing policy, or 304 when the reader already holds it.
+func writeIcon(w http.ResponseWriter, r *http.Request, digest, contentType string, data []byte) {
+	etag := wire.IconETag(digest)
 	h := w.Header()
 	h.Set("ETag", etag)
 	h.Set("Cache-Control", "private, no-cache")
@@ -93,10 +132,10 @@ func (rt *Router) handleGetProjectIcon(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	h.Set(wire.HeaderContentType, img.ContentType)
-	h.Set("Content-Length", strconv.Itoa(len(img.Data)))
+	h.Set(wire.HeaderContentType, contentType)
+	h.Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(img.Data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
+	_, _ = w.Write(data) // #nosec G705 -- a checked image, served nosniff under a sandboxing CSP
 }
 
 // handleUpdateProject changes one project.
@@ -239,4 +278,29 @@ func (rt *Router) handleDeleteWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeNoContent(w)
+}
+
+// handleListWorkflowTemplates returns the built-in workflow templates.
+func (rt *Router) handleListWorkflowTemplates(w http.ResponseWriter, r *http.Request) {
+	templates, err := rt.cfg.Service.ListWorkflowTemplates(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeList(w, r, templates, "")
+}
+
+// handleApplyWorkflowTemplate creates a workflow from the template the path
+// names.
+func (rt *Router) handleApplyWorkflowTemplate(w http.ResponseWriter, r *http.Request) {
+	var in core.ApplyWorkflowTemplateInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	workflow, err := rt.cfg.Service.ApplyWorkflowTemplate(r.Context(), r.PathValue("key"), in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, workflow)
 }

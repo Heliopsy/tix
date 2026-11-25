@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -242,6 +243,11 @@ func (l *Local) ListInbox(ctx context.Context, f core.InboxFilter) ([]core.Inbox
 	if err != nil {
 		return nil, "", err
 	}
+	kinds, err := listedInboxKinds(f.Kinds)
+	if err != nil {
+		return nil, "", err
+	}
+	f.Kinds = kinds
 	f.Page.Sort, f.Page.Direction = core.SortCreatedAt, core.Descending
 	page, err := f.Page.Normalize()
 	if err != nil {
@@ -264,6 +270,24 @@ func (l *Local) ListInbox(ctx context.Context, f core.InboxFilter) ([]core.Inbox
 		return nil, "", err
 	}
 	return out, nextInboxCursor(page, out), nil
+}
+
+// listedInboxKinds reads the kinds a listing keeps, lower-cased and without
+// repeats, refusing one tix does not have.
+func listedInboxKinds(kinds []core.InboxKind) ([]core.InboxKind, error) {
+	out := []core.InboxKind{}
+	for _, k := range kinds {
+		k = core.InboxKind(strings.ToLower(strings.TrimSpace(string(k))))
+		if k == "" || slices.Contains(out, k) {
+			continue
+		}
+		if !k.Valid() {
+			return nil, core.Invalid("unknown inbox kind %q: use mention, assigned, status or comment", k).
+				WithDetail(core.DetailField, "kind")
+		}
+		out = append(out, k)
+	}
+	return out, nil
 }
 
 // nextInboxCursor returns the cursor for the page after these items.

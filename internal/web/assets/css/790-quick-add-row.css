@@ -1,0 +1,60 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* ===== Quick add: Add another and the clipboard (templates/tasks.html) == */
+/* Add another is a checkbox with its words beside it, as tall as the row's
+   other controls so the row keeps one height. */
+.quickadd .quickanother {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+  gap: 6px;
+  height: var(--control-h);
+  margin: 0;
+}
+
+/* The paste button is an icon beside the box, drawn hidden until
+   quickadd.js finds a readable clipboard. */
+.quickadd .quickpaste {
+  flex: 0 0 auto;
+  padding-inline: var(--space-2);
+}
+
+.quickadd .quickpaste[hidden] { display: none; }
+
+/* Add carries a plus before its word; the word goes on a phone. */
+.quickadd .quicksubmit { align-items: center; display: inline-flex; gap: 6px; }
+
+/* A phone: the words go and the box keeps the width; the checkbox keeps its
+   accessible name from the hidden words. */
+@media (max-width: 599px) {
+  .quickadd .quickanother span {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+}
+
+/* Below a laptop the row holds the paste button and Add another besides,
+   so Add with details and From template keep only their icons, as on a
+   phone; with their words From template ran past a tablet's edge. */
+@media (max-width: 899px) {
+  .quickadd .addmore-open, .quickadd .addtpl-open { padding-inline: var(--space-2); }
+  .quickadd .addmore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+
+/* A phone's row has no room for the paste button without pushing Add with
+   details onto a second line, and a phone pastes into the box from its own
+   menu. Add keeps only its plus, and the room its word took goes to the box. */
+@media (max-width: 639px) {
+  .quickadd .quickpaste { display: none; }
+  .quickadd .quicksubmit { flex: 0 0 auto; padding-inline: var(--space-2); }
+  .quickadd .quicksubmit-label {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+}

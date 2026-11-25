@@ -2,6 +2,7 @@
 {{$t := .Data.Task}}
 {{$held := claim $t}}
 {{$in := not .InDialog}}
+{{$menu := taskMenu $ $t "page"}}
 {{/* The way back to the listing the reader came from, filters and all. In
      the dialog there is nowhere to go back to: the listing is under it, and
      the way out is closing it, which assets/taskopen.js turns into Back. */}}
@@ -19,7 +20,7 @@
      the dialog's own body is what its forms swap already. */}}
 <header class="titlebar taskhead"{{if $in}} data-inplace="main.wrap"{{end}} data-recent-task="{{$t.Ref}}" data-recent-title="{{$t.Title}}">
   <div class="taskhead-line">
-    <span class="ref">{{ref $t.Ref}}</span>
+    <span class="ref" data-shortcut-target="copyRef" data-shortcut-ref="{{ref $t.Ref}}">{{ref $t.Ref}}</span>
     {{if .Data.Parent}}<span class="taskhead-parent">{{t "in"}} <a class="mono" href="/tasks/{{.Data.Parent.Ref}}" title="{{.Data.Parent.Title}}">{{ref .Data.Parent.Ref}}</a></span>{{end}}
   </div>
   <div class="taskhead-title">
@@ -28,7 +29,7 @@
          closes with scripting off; open, the heading gives way to the field
          and the same summary reads Cancel. */}}
     {{if .Data.CanWrite}}
-    <details class="titleedit">
+    <details class="titleedit"{{if .Data.Renaming}} open{{end}}>
       <summary class="editswitch"><span class="when-shut">{{t "Rename"}}</span><span class="when-open">{{t "Cancel"}}</span></summary>
       <form method="post" class="titleform" action="/tasks/{{$t.Ref}}">
         {{template "csrf" .CSRF}}
@@ -41,57 +42,22 @@
     <span class="taskhead-tools">
       {{if .CanStar}}{{template "star" (star $t.Ref $t.Starred .Here .CSRF)}}{{template "tip" (tip "Stars" "A star is yours alone: your starred tasks come first in every listing you see, and is:starred finds them. Nobody else's order changes." "docs/filtering.md")}}{{end}}
       {{template "dlg-open" (opener (print .IDPrefix "handoff") (t "Hand to an agent") "agent" "secondary small handoff-open" .Here)}}
-      <button type="button" class="taskmenu-open" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}"
-              aria-label="{{t "Actions for %s" (ref $t.Ref)}}" title="{{t "Actions for %s" (ref $t.Ref)}}">
-        <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
-      </button>
+      {{template "share-open" .Data.Share}}
+      {{template "task-menu-button" $menu}}
       {{template "help" $}}
     </span>
   </div>
 </header>
 
-{{/* The one menu. Copy link and Copy id copy without leaving; Copy to and
-     Save as template are links, so they open in a new tab and work with
-     scripting off, and data-dialog-load keeps them inside the dialog when
-     the task is open in one (assets/taskopen.js). */}}
-<div id="{{.IDPrefix}}taskmenu-{{$t.Ref}}" class="flowmenu taskmenu" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Actions for %s" (ref $t.Ref)}}</p>
-  <button type="button" class="flowgo" data-copy-link="/tasks/{{$t.Ref}}">{{t "Copy link"}}</button>
-  <button type="button" class="flowgo" data-copy-text="{{$t.ID}}">{{t "Copy the task id"}}</button>
-  {{if .Data.CanWrite}}
-  <a class="flowgo copyto" href="/tasks/{{$t.Ref}}/copy" data-dialog-load>{{t "Copy to…"}}</a>
-  <a class="flowgo savetpl" href="/tasks/{{$t.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>
-  {{/* Snooze opens its own menu over this one. A snoozed task offers
-       Unsnooze instead, one press, since there is nothing to choose. */}}
-  {{if snoozed $t}}
-  <form method="post" class="snoozeform" action="/tasks/{{$t.Ref}}/snooze/remove">
-    {{template "csrf" $.CSRF}}
-    <input type="hidden" name="next" value="{{$.Here}}">
-    <button type="submit" class="flowgo snoozebtn" data-focus="snooze">{{t "Unsnooze"}}</button>
-  </form>
-  {{else}}<button type="button" class="flowgo snoozebtn" data-focus="snooze" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}"
-          aria-label="{{t "Snooze %s" (ref $t.Ref)}}" title="{{t "Hide it from every listing until later"}}">{{t "Snooze…"}}</button>{{end}}
-  {{end}}
-  {{/* Offered only beside a live lease and only to a reader who holds
-       task:reclaim. It ends the lease and nothing else. */}}
-  {{if and .Data.CanReclaim (eq $held "held")}}
-  <button type="button" class="flowgo is-danger" popovertarget="{{.IDPrefix}}reclaim-{{$t.Ref}}">{{t "Reclaim the lease…"}}</button>
-  {{end}}
-  {{if .Data.CanDelete}}
-  <form method="post" class="taskmenu-delete" action="/tasks/{{$t.Ref}}/delete">
-    {{template "csrf" .CSRF}}
-    <p class="flowhead">{{t "Delete"}}</p>
-    <label for="{{.IDPrefix}}hard"><input id="{{.IDPrefix}}hard" type="checkbox" name="hard" value="1"> {{t "Delete permanently"}}</label>
-    <label for="{{.IDPrefix}}cascade"><input id="{{.IDPrefix}}cascade" type="checkbox" name="cascade" value="1"> {{t "Also delete subtasks"}}</label>
-    <button class="flowgo is-danger" type="submit">{{t "Delete task"}}</button>
-  </form>
-  <form method="post" action="/tasks/{{$t.Ref}}/restore">
-    {{template "csrf" .CSRF}}
-    <button class="flowgo" type="submit">{{t "Restore task"}}</button>
-  </form>
-  {{end}}
-  <button type="button" class="flowclose" popovertarget="{{.IDPrefix}}taskmenu-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
-</div>
+{{/* The one menu, the task menu every view draws (partials.html
+     task-menu), with Reclaim the lease beside a live lease and Also delete
+     subtasks under a task that has some. Copy to, Move to and Save as
+     template are links, so they open in a new tab and work with scripting
+     off, and data-dialog-load keeps them inside the dialog when the task is
+     open in one (assets/taskopen.js). */}}
+{{template "task-menu" $menu}}
+
+{{template "share-menu" .Data.Share}}
 
 {{template "handoff-dlg" .}}
 
@@ -134,14 +100,6 @@
   <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
 </div>
 {{end}}
-{{if and .Data.CanWrite (not (snoozed $t))}}
-<div id="{{$.IDPrefix}}snooze-{{$t.Ref}}" class="flowmenu snoozepop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
-  <p class="flowhead">{{t "Snooze"}} <span class="mono">{{ref $t.Ref}}</span></p>
-  {{template "tip" (tip "Snooze" "A snoozed task leaves every listing, for everybody, until the time you pick, then comes back by itself. Agents cannot claim it meanwhile. is:snoozed finds it." "docs/web-ui.md")}}
-  {{template "snooze-choices" (snoozeForm $t.Ref $.Here $.CSRF (print $.IDPrefix "snoozeat-" $t.Ref) "")}}
-  <button type="button" class="flowclose" popovertarget="{{$.IDPrefix}}snooze-{{$t.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
-</div>
-{{end}}
 {{if and .Data.CanReclaim (eq $held "held")}}
 <div id="{{.IDPrefix}}reclaim-{{$t.Ref}}" class="flowmenu reclaimpop" popover{{if $in}} data-inplace="main.wrap"{{end}}>
   <p class="flowhead">{{t "Reclaim the lease"}}</p>
@@ -181,7 +139,7 @@
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}assignee" name="assignee" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}"{{with $t.AssigneeActorID}} title="{{.}}"{{end}} placeholder="{{t "unassigned"}}">
+          <input id="{{.IDPrefix}}assignee" name="assignee" data-shortcut-target="assign" list="actor-handles" autocomplete="off" value="{{$.Data.Names.Label $t.AssigneeActorID}}"{{with $t.AssigneeActorID}} title="{{.}}"{{end}} placeholder="{{t "unassigned"}}">
           <datalist id="actor-handles">{{range $.Data.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
@@ -194,7 +152,7 @@
           {{template "csrf" .CSRF}}
           <input type="hidden" name="version" value="{{$t.Version}}">
           <input type="hidden" name="title" value="{{$t.Title}}">
-          <input id="{{.IDPrefix}}due" name="due_at" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
+          <input id="{{.IDPrefix}}due" name="due_at" data-shortcut-target="due" value="{{dateValue $t.DueAt}}" autocomplete="off" placeholder="{{dueDate}}" data-date-pattern="{{datePattern}}">
           {{template "date-pick" (print .IDPrefix "due")}}
           <button type="submit" class="propsave">{{t "Save"}}</button>
         </form>
@@ -227,7 +185,7 @@
         {{if .Data.CanWrite}}
         <form method="post" action="/tasks/{{$t.Ref}}/tags" class="tagadd propform">
           {{template "csrf" .CSRF}}
-          <input id="{{.IDPrefix}}tag" name="tag" required placeholder="{{t "Add a tag"}}">
+          <input id="{{.IDPrefix}}tag" name="tag" data-shortcut-target="tag" required placeholder="{{t "Add a tag"}}">
           <button class="propsave" type="submit">{{t "Add"}}</button>
         </form>
         {{end}}
@@ -318,7 +276,7 @@
         <div class="field-label"><label class="sr-only" for="{{.IDPrefix}}body">{{t "Description"}}</label>
           {{template "tip" (tip "Description" "Written in Markdown: **bold**, lists, tables, `code`, links, and - [ ] for a checklist the task screen can tick. A reference such as INFRA-8 and an @handle become links. HTML is shown as typed, and images are linked rather than loaded." "docs/features.md")}}
           {{template "md-preview" (print .IDPrefix "body")}}</div>
-        <textarea id="{{.IDPrefix}}body" name="body" data-mention="actor-handles" data-md-editor placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
+        <textarea id="{{.IDPrefix}}body" name="body" data-shortcut-target="editDescription" data-mention="actor-handles" data-md-editor placeholder="{{t "Add a description"}}">{{$t.Body}}</textarea>
         <div class="md mdpreview" id="{{.IDPrefix}}body-preview" aria-live="polite" hidden></div>
         <div class="actions"><button type="submit">{{t "Save"}}</button></div>
       </form>
@@ -337,7 +295,7 @@
   </section>
 
   <section class="tsec" id="{{.IDPrefix}}dependencies">
-    <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It counts as blocked, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
+    <div class="tsec-head"><h2>{{t "Dependencies"}}</h2>{{with .Data.Dependencies}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Dependencies" "This task waits for the tasks listed here. It is shown as waiting on them, and claim next never hands it out, until each of them reaches a terminal state of its own workflow." "docs/workflows.md")}}</div>
     {{if .Data.Dependencies}}
     <ul class="rellist rows">
       {{/* Named the way the field below asks for one, a reference rather
@@ -412,7 +370,7 @@
       <div class="tsec-head ttab-head"><h2>{{t "Artifacts"}}</h2>{{with .Data.Artifacts}}<span class="tsec-count">{{len .}}</span>{{end}}{{template "tip" (tip "Artifacts" "An artifact is a record of work product kept on the task: a result, a log, a file reference or a metric, usually written by an agent. While the task is claimed only the lease holder can attach one." "docs/agents.md")}}</div>
       <ul class="rellist rows" id="task-artifacts">{{template "task-artifacts" .}}</ul>
       {{if .Data.CanComment}}
-      <form method="post" action="/tasks/{{$t.Ref}}/artifacts">
+      <form method="post" action="/tasks/{{$t.Ref}}/artifacts" enctype="multipart/form-data">
         {{template "csrf" .CSRF}}
         <div class="row">
           <div>
@@ -425,6 +383,9 @@
         </div>
         <label for="{{.IDPrefix}}artifact-payload">{{t "Payload, one key=value per line"}}</label>
         <textarea id="{{.IDPrefix}}artifact-payload" name="payload"></textarea>
+        <label for="{{.IDPrefix}}artifact-file">{{t "File"}}</label>
+        <input id="{{.IDPrefix}}artifact-file" name="file" type="file"{{with .Data.ArtifactLimits}}{{with .Accept}} accept="{{.}}"{{end}}{{end}}{{with .Data.ArtifactLimits}} aria-describedby="{{$.IDPrefix}}artifact-limits"{{end}}>
+        {{with .Data.ArtifactLimits}}<p class="note" id="{{$.IDPrefix}}artifact-limits">{{t "Files up to %s. Accepted types: %s." (bytesize .MaxBytes) (join .AllowedTypes)}}</p>{{end}}
         <div class="actions"><button class="secondary" type="submit">{{t "Attach artifact"}}</button></div>
       </form>
       {{end}}
@@ -489,7 +450,7 @@
 {{define "task-count-artifacts"}}<span class="tsec-count{{if not .Data.Artifacts}} is-zero{{end}}" id="task-count-artifacts">{{len .Data.Artifacts}}</span>{{end}}
 
 {{define "task-artifacts"}}
-      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span></li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
+      {{range .Data.Artifacts}}<li id="artifact-{{.ID}}">{{t (print .Kind)}} {{.Name}} <span class="muted">{{when .CreatedAt}}</span>{{if .Blob}} <a href="/tasks/{{$.Data.Task.Ref}}/artifacts/{{.ID}}/file" download>{{t "Download"}}</a>{{end}}</li>{{else}}<li class="empty quiet">{{t "None."}}</li>{{end}}
 {{end}}
 
 {{/* task-pills is the top of the properties: status, priority and the state
@@ -510,14 +471,14 @@
         </button>
       </span>
       {{else}}<span class="pill status {{slug $t.Status}}">{{$t.Status}}</span>{{end}}
-      {{if $t.Blocked}}<span class="pill status blocked">{{t "blocked"}}</span>{{end}}</dd>
+      {{if $t.Blocked}}<span class="pill status blocked">{{t "waiting on another task"}}</span>{{end}}</dd>
   </div>
   {{$p := prio $t.Priority}}
   <div class="prop" data-prop="priority">
     <dt>{{t "Priority"}}</dt>
     <dd>{{if .Data.CanWrite}}
       <span class="priomenu">
-        <button type="button" class="priobtn" data-focus="prio" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
+        <button type="button" class="priobtn" data-focus="prio" data-shortcut-target="priority" popovertarget="{{$.IDPrefix}}prio-{{$t.Ref}}"
                 aria-label="{{t "Priority %s; change it" (t $p)}}" title="{{t "Change the priority"}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
@@ -580,6 +541,45 @@
         {{$eid := printf "%scedit-%s" $.IDPrefix .ID}}
         <p class="byline"><span class="avatar" aria-hidden="true">{{monogram ($.Data.Names.Label .AuthorActorID)}}</span><a class="who-name" href="{{actorHref .AuthorActorID}}" title="{{.AuthorActorID}}">{{$.Data.Names.Label .AuthorActorID}}</a> <span class="muted">&middot; {{when .CreatedAt}}</span>{{if $.Data.CanComment}} <button type="button" class="link comment-editopen" popovertarget="{{$eid}}">{{t "Edit"}}</button>{{end}}</p>
         <div class="comment-body md">{{index $.Data.CommentHTML .ID}}</div>
+        {{/* Reactions sit under the comment they answer. Each chip is its
+             own form, so pressing one toggles the reader's reaction without
+             scripting; the picker is a popover, like the comment editor, so
+             it opens over the thread rather than pushing it down. */}}
+{{$root := $}}{{$c := .}}
+{{$pid := printf "%sreact-%s" $root.IDPrefix $c.ID}}
+{{if or $c.Reactions $root.Data.CanComment}}
+<div class="reactions" role="group" aria-label="{{t "Reactions"}}">
+  {{range $c.Reactions}}{{$mine := $root.Data.Reacted .}}
+  <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/{{if $mine}}unreact{{else}}react{{end}}" class="reaction-form">
+    {{template "csrf" $root.CSRF}}
+    <input type="hidden" name="id" value="{{$c.ID}}">
+    <input type="hidden" name="emoji" value="{{.Emoji}}">
+    <button type="submit" class="reaction{{if $mine}} mine{{end}}" aria-pressed="{{if $mine}}true{{else}}false{{end}}" title="{{$root.Data.Reactors .}}" aria-label="{{.Emoji}} {{.Count}}: {{$root.Data.Reactors .}}"{{if not $root.Data.CanComment}} disabled{{end}}><span class="reaction-emoji" aria-hidden="true">{{.Emoji}}</span> <span class="reaction-count" aria-hidden="true">{{.Count}}</span></button>
+  </form>
+  {{end}}
+  {{if $root.Data.CanComment}}
+  <button type="button" class="reaction-add" popovertarget="{{$pid}}" title="{{t "Add reaction"}}" aria-label="{{t "Add reaction"}}">{{template "icon" "plus"}}</button>
+  <div id="{{$pid}}" class="flowmenu reactpop" popover>
+    <p class="flowhead">{{t "Add reaction"}}</p>
+    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/react" class="reaction-quick">
+      {{template "csrf" $root.CSRF}}
+      <input type="hidden" name="id" value="{{$c.ID}}">
+      {{range $root.Data.QuickReactions}}<button type="submit" name="emoji" value="{{.}}" class="reaction-pick" aria-label="{{t "React with %s" .}}">{{.}}</button>{{end}}
+    </form>
+    <form method="post" action="/tasks/{{$.Data.Task.Ref}}/comments/react" class="reaction-free">
+      {{template "csrf" $root.CSRF}}
+      <input type="hidden" name="id" value="{{$c.ID}}">
+      <label for="{{$pid}}-emoji">{{t "Any emoji"}}</label>
+      <input id="{{$pid}}-emoji" name="emoji" required maxlength="64" autocomplete="off" inputmode="text">
+      <div class="actions">
+        <button type="submit">{{t "React"}}</button>
+        <button type="button" class="secondary flowclose" popovertarget="{{$pid}}" popovertargetaction="hide">{{t "Cancel"}}</button>
+      </div>
+    </form>
+  </div>
+  {{end}}
+</div>
+{{end}}
         {{if $.Data.CanComment}}
         {{/* A textarea, and the reason is data loss rather than taste. This
              was an <input>, whose value attribute cannot hold a newline: the
@@ -670,7 +670,7 @@
                 {{sentence ($.Data.Names.Label $latest.Entry.ActorID) .}}
                 {{template "raw-open" ($.Data.RawOpener . $.IDPrefix $.InDialog)}}
               </td>
-              <td data-label="{{t "Channel"}}">{{template "via" .Channel}}</td>
+              <td data-label="{{t "Channel"}}"><a class="via-link" href="{{.ViaHref}}">{{template "via" .Channel}}</a></td>
             </tr>
             {{end}}
           {{else}}
@@ -712,3 +712,4 @@
 {{/* subtask-fragment is what /tasks/REF/tree answers: that task's subtree,
      drawn by the same block, under the id the page asked for. */}}
 {{define "subtask-fragment"}}{{template "subtask-tree" (.Data.Tree.List .Data.ID)}}{{end}}
+

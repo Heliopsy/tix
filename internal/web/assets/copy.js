@@ -42,7 +42,9 @@
   }
 
   // legacyCopy supports a browser without the async Clipboard API, using a
-  // hidden textarea only for the moment of the copy itself.
+  // hidden textarea only for the moment of the copy itself. assets/share.js
+  // copies through it too.
+  tix.legacyCopy = legacyCopy;
   function legacyCopy(text) {
     var area = document.createElement("textarea");
     area.value = text;

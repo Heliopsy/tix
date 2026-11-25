@@ -36,6 +36,7 @@ type KeyMap struct {
 	Depend        key.Binding
 	Undepend      key.Binding
 	CommentEdit   key.Binding
+	React         key.Binding
 	Delete        key.Binding
 	Restore       key.Binding
 	Star          key.Binding
@@ -47,9 +48,14 @@ type KeyMap struct {
 	ColumnLeft    key.Binding
 	ColumnRight   key.Binding
 	ShowColumns   key.Binding
+	NextPage      key.Binding
+	PrevPage      key.Binding
 	SavedFilters  key.Binding
 	SaveFilter    key.Binding
 	Copy          key.Binding
+	Move          key.Binding
+	Share         key.Binding
+	CopyEntry     key.Binding
 	Templates     key.Binding
 	SaveTemplate  key.Binding
 	Artifact      key.Binding
@@ -126,7 +132,10 @@ func DefaultKeyMap() KeyMap {
 		Depend:      key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "add dependency")),
 		Undepend:    key.NewBinding(key.WithKeys("-"), key.WithHelp("-", "remove dependency")),
 		CommentEdit: key.NewBinding(key.WithKeys("M"), key.WithHelp("M", "edit comment")),
-		Delete:      key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "delete")),
+		// & adds an emoji to the selected comment, or takes back one already
+		// left. Every letter near m was taken.
+		React:  key.NewBinding(key.WithKeys("&"), key.WithHelp("&", "react to comment")),
+		Delete: key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "delete")),
 		// u, for undoing the deletion. It is the one key on a deleted card, and
 		// vim's own undo, which is the reflex a reader arrives with.
 		Restore: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "restore")),
@@ -150,6 +159,10 @@ func DefaultKeyMap() KeyMap {
 		ColumnLeft:  key.NewBinding(key.WithKeys("<"), key.WithHelp("<", "move column left")),
 		ColumnRight: key.NewBinding(key.WithKeys(">"), key.WithHelp(">", "move column right")),
 		ShowColumns: key.NewBinding(key.WithKeys("="), key.WithHelp("=", "show hidden columns")),
+		// The page keys, which nothing else was on. One read of the board is
+		// core.MaxPageLimit tasks, so these only matter on a project past that.
+		NextPage: key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "next page of tasks")),
+		PrevPage: key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "previous page of tasks")),
 		// s, for saved, which nothing on the board was on; K keeps the filter
 		// the board is showing under a name.
 		SavedFilters: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "saved filters")),
@@ -157,6 +170,16 @@ func DefaultKeyMap() KeyMap {
 		// Y, vim's yank, which is the copy a reader of these schemes already
 		// knows. Lowercase y is Agree, the answer to a confirmation.
 		Copy: key.NewBinding(key.WithKeys("Y"), key.WithHelp("Y", "copy task")),
+		// d, for dispatch: m and M are the comment keys and t moves a task
+		// along its workflow. It only opens a project picker, so a reader
+		// arriving with vim's dd deletes nothing.
+		Move: key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "move to project")),
+		// ^, the arrow a share glyph draws. Every letter worth having is
+		// spoken for, and Y already copies the task itself, not its link.
+		Share: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "share task")),
+		// ^ again on the activity view, where no task is selected to share:
+		// the copy there is the selected event itself, as JSON.
+		CopyEntry: key.NewBinding(key.WithKeys("^"), key.WithHelp("^", "copy as JSON")),
 		// B, for a blueprint, since t, T and the obvious capitals are spoken
 		// for. E keeps the selected task as an exemplar to make more from; K
 		// went to saving the filter.
@@ -297,6 +320,7 @@ const (
 	doAssign
 	doComment
 	doCommentEdit
+	doReact
 	doTag
 	doUntag
 	doTags
@@ -308,6 +332,8 @@ const (
 	doCheck
 	doSnooze
 	doCopy
+	doMove
+	doShare
 	doTemplates
 	doSaveTemplate
 	doArtifact
@@ -323,6 +349,9 @@ const (
 
 	doSavedFilters
 	doSaveFilter
+
+	doNextPage
+	doPrevPage
 )
 
 // Action is one thing the interface can be asked to do: what performs it, what
@@ -356,6 +385,10 @@ type Action struct {
 	needsHidden bool
 	// needsFilter is a filter on the board to keep.
 	needsFilter bool
+	// needsNextPage and needsPrevPage are a page of the board's tasks past or
+	// before the one it holds.
+	needsNextPage bool
+	needsPrevPage bool
 	// hidden keeps an action out of the palette while leaving it in the help
 	// overlay. Only the palette's own key is hidden: an entry for the door the
 	// reader is already standing in is a row that teaches nothing.
@@ -373,6 +406,7 @@ func (a Action) Keys() string { return a.binding.Help().Key }
 // the ones that act on something, since both live in the same list.
 func (a Action) opensView() bool {
 	return !a.always && !a.hidden && !a.needsTask && !a.needsProject && !a.needsColumn && !a.needsHidden && !a.needsFilter &&
+		!a.needsNextPage && !a.needsPrevPage &&
 		len(a.gate.methods) == 0 && len(a.gate.needs) == 0
 }
 
@@ -409,7 +443,29 @@ func (k KeyMap) globalKeys() []Action {
 // already prints, which is what keeps the palette reading the same way down the
 // page as the overlay a reader may have learnt it from.
 func (k KeyMap) Actions() []Action {
-	return append(append(append(k.globalKeys(), k.taskBindings()...), k.columnBindings()...), k.filterBindings()...)
+	return append(append(append(append(k.globalKeys(), k.taskBindings()...), k.columnBindings()...),
+		k.filterBindings()...), k.pageBindings()...)
+}
+
+// pageBindings read the board's next or previous page of tasks by number.
+func (k KeyMap) pageBindings() []Action {
+	return []Action{
+		{id: doNextPage, binding: k.NextPage, needsProject: true, needsNextPage: true,
+			gate: gatedAction{binding: k.NextPage, methods: []string{"ListTasks"}}},
+		{id: doPrevPage, binding: k.PrevPage, needsProject: true, needsPrevPage: true,
+			gate: gatedAction{binding: k.PrevPage, methods: []string{"ListTasks"}}},
+	}
+}
+
+// pageHelp lists the page keys this reader's authority reaches.
+func (k KeyMap) pageHelp(may func(string) bool) []HelpEntry {
+	out := make([]HelpEntry, 0, 2)
+	for _, a := range k.pageBindings() {
+		if a.gate.permitted(may) {
+			out = append(out, entry(a.binding))
+		}
+	}
+	return out
 }
 
 // filterBindings are the board's saved filter actions: pick one to apply,
@@ -562,6 +618,8 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"AddComment"}}},
 		{id: doCommentEdit, binding: k.CommentEdit, needsTask: true,
 			gate: gatedAction{methods: []string{"EditComment"}}},
+		{id: doReact, binding: k.React, needsTask: true,
+			gate: gatedAction{methods: []string{"AddReaction"}, needs: []string{"RemoveReaction"}}},
 		{id: doTag, binding: k.Tag, needsTask: true,
 			gate: gatedAction{methods: []string{"AddTag"}}},
 		{id: doUntag, binding: k.Untag, needsTask: true,
@@ -584,6 +642,10 @@ func (k KeyMap) taskBindings() []Action {
 			gate: gatedAction{methods: []string{"CheckTaskItem"}}},
 		{id: doCopy, binding: k.Copy, needsTask: true,
 			gate: gatedAction{methods: []string{"CopyTask"}}},
+		{id: doMove, binding: k.Move, needsTask: true,
+			gate: gatedAction{methods: []string{"MoveTask"}}},
+		{id: doShare, binding: k.Share, needsTask: true,
+			gate: gatedAction{methods: []string{"GetTask"}}},
 		{id: doTemplates, binding: k.Templates, needsProject: true,
 			gate: gatedAction{methods: []string{"UseTemplate", "GetTemplate", "UpdateTemplate", "DeleteTemplate"},
 				needs: []string{"ListTemplates"}}},
@@ -617,15 +679,16 @@ func (k KeyMap) taskActions(may func(string) bool) []HelpEntry {
 func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	switch v {
 	case viewProjects:
-		return []HelpEntry{
+		return append([]HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
 			entry(k.Enter), entry(k.NewProject),
-		}
+		}, k.projectStarHelp(may)...)
 	case viewBoard:
 		return append([]HelpEntry{
 			entry(k.Left), entry(k.Right), entry(k.Up), entry(k.Down), entry(k.Enter),
 			entry(k.Filter), entry(k.ClearFltr),
-		}, append(append(append(k.filterHelp(may), k.taskActions(may)...), k.columnHelp(may)...), entry(k.Back))...)
+		}, append(append(append(append(k.filterHelp(may), k.taskActions(may)...), k.columnHelp(may)...),
+			k.pageHelp(may)...), entry(k.Back))...)
 	case viewDetail:
 		return append(append([]HelpEntry{entry(k.Up), entry(k.Down)}, k.commentHelp()...),
 			append(k.taskActions(may), entry(k.Back))...)
@@ -635,7 +698,7 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	case viewActivity:
 		return []HelpEntry{
 			entry(k.Up), entry(k.Down), entry(k.Top), entry(k.Bottom),
-			entry(k.Filter), entry(k.ClearFltr), entry(k.Pause), entry(k.Back),
+			entry(k.Filter), entry(k.ClearFltr), entry(k.Pause), entry(k.CopyEntry), entry(k.Back),
 		}
 	case viewMenu:
 		return []HelpEntry{
@@ -678,6 +741,18 @@ func (k KeyMap) ViewHelp(v viewKind, may func(string) bool) []HelpEntry {
 	default:
 		return []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Back)}
 	}
+}
+
+// projectStarHelp is the projects view's star and starred filter. The filter
+// reads stars the listing already carries, so it is always offered; the star
+// only to a reader who may set one.
+func (k KeyMap) projectStarHelp(may func(string) bool) []HelpEntry {
+	out := []HelpEntry{{Keys: k.Filter.Help().Key, Desc: "starred only"}}
+	star := gatedAction{binding: k.Star, methods: []string{"StarProject", "UnstarProject"}}
+	if star.permitted(may) {
+		out = append([]HelpEntry{{Keys: k.Star.Help().Key, Desc: "star project"}}, out...)
+	}
+	return out
 }
 
 // viewAction is one of a configuration screen's bindings: the key it borrows
@@ -832,6 +907,10 @@ type ActionContext struct {
 	// HasFilter reports a filter in force on the board, which is what saving
 	// one needs.
 	HasFilter bool
+	// HasNextPage and HasPrevPage report a page of the board's tasks after or
+	// before the one it holds.
+	HasNextPage bool
+	HasPrevPage bool
 	// Integ describes the integrations view's open tab and the row under its
 	// cursor.
 	Integ IntegrationsContext
@@ -854,7 +933,8 @@ func (k KeyMap) ShortHelp(v viewKind, ctx ActionContext) []HelpEntry {
 	var short []HelpEntry
 	switch v {
 	case viewProjects:
-		short = []HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.NewProject)}
+		short = append([]HelpEntry{entry(k.Up), entry(k.Down), entry(k.Enter), entry(k.NewProject)},
+			k.projectStarHelp(ctx.May)...)
 	case viewSettings:
 		short = append([]HelpEntry{entry(k.Up), entry(k.Down)},
 			append(k.settingHelp(), entry(k.Back))...)
@@ -974,8 +1054,9 @@ func (k KeyMap) accountBindings() []viewAction {
 	return []viewAction{
 		{gatedAction{binding: k.New, methods: []string{"CreateToken", "EnrolSSHKey",
 			"BeginTOTPEnrolment", "RegenerateRecoveryCodes"}}, "issue a token, enrol a key or a second factor"},
-		{gatedAction{binding: k.Delete, methods: []string{"RevokeToken", "RevokeSSHKey", "RemoveTOTP"}},
+		{gatedAction{binding: k.Delete, methods: []string{"RevokeToken", "RevokeSSHKey", "RevokeSession", "RemoveTOTP"}},
 			"revoke or remove the selected row"},
+		{gatedAction{binding: k.Renew, methods: []string{"RotateToken"}}, "rotate the selected token"},
 	}
 }
 

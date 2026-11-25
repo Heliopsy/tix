@@ -14,22 +14,145 @@
   var tix = global.tix = global.tix || {};
 
   // comboOf renders a keydown event the same way the binding table names a
-  // key, so a lookup is a single map access. Ctrl and a Mac's command key
-  // are represented: none of the shipped schemes use alt or a bare shift
-  // chord. Command used to read as the bare key, so command+g jumped to the
-  // top of a list on a Mac instead of doing what the browser does with it.
+  // key, so a lookup is a single map access. Ctrl, a Mac's command key and
+  // alt are represented, and Shift on a named key (Shift+ArrowDown extends
+  // the selection). Command used to read as the bare key, so command+g jumped
+  // to the top of a list on a Mac instead of doing what the browser does
+  // with it. Ctrl and alt together are AltGr on many layouts, which is how
+  // "#" or "@" is typed there, so a symbol typed that way reads as itself;
+  // ctrl+alt with a letter or digit is nobody's shortcut here.
   tix.comboOf = function (event) {
     var key = event && event.key;
     if (typeof key !== "string") {
       return "";
     }
+    if (event.ctrlKey && event.altKey) {
+      return key.length === 1 && !/^[a-z0-9]$/i.test(key) ? key : "";
+    }
+    if (event.ctrlKey && key === " ") {
+      return "ctrl+space";
+    }
+    // Shift on a chord is named, so ctrl+shift+v is not ctrl+v.
+    var shift = event.shiftKey ? "shift+" : "";
     if (event.ctrlKey && key.length === 1) {
-      return "ctrl+" + key.toLowerCase();
+      return "ctrl+" + shift + key.toLowerCase();
     }
     if (event.metaKey && key.length === 1) {
-      return "meta+" + key.toLowerCase();
+      return "meta+" + shift + key.toLowerCase();
+    }
+    if (event.altKey) {
+      var typed = altKey(key, event.code, event.shiftKey);
+      return typed ? "alt+" + typed : "";
+    }
+    // A letter carries its shift in its case; a named key says so.
+    if (event.shiftKey && key.length > 1) {
+      return "shift+" + key;
     }
     return key;
+  };
+
+  // altKey is the key an alt chord names. A Mac's option key types a
+  // different character (option+x is "≈"), so a key outside plain ASCII is
+  // read from the physical key instead: KeyX is x, shifted Comma is "<".
+  var altCodes = { Comma: [",", "<"], Period: [".", ">"] };
+  function altKey(key, code, shift) {
+    if (key.length === 1 && key.charCodeAt(0) > 32 && key.charCodeAt(0) < 127) {
+      return key.toLowerCase();
+    }
+    if (typeof code !== "string") {
+      return "";
+    }
+    if (/^Key[A-Z]$/.test(code)) {
+      return code.charAt(3).toLowerCase();
+    }
+    var pair = altCodes[code];
+    return pair ? pair[shift ? 1 : 0] : "";
+  }
+
+  // sequencePrefixes names every key that starts a two-key sequence in one
+  // scheme's combo table ("g" for "g i"), so a press can tell at once whether
+  // to wait for a second key.
+  tix.sequencePrefixes = function (byCombo) {
+    var out = {};
+    for (var combo in byCombo || {}) {
+      if (!Object.prototype.hasOwnProperty.call(byCombo, combo)) {
+        continue;
+      }
+      var gap = combo.indexOf(" ");
+      if (gap > 0) {
+        out[combo.slice(0, gap)] = true;
+      }
+    }
+    return out;
+  };
+
+  // keyStep decides what one key press does, given the key still waiting for
+  // a second one (pending, "" for none). It answers the action to run now
+  // ("" for none), the key now waiting, and for a waiting key the action to
+  // run if no second key comes in time (lone): a lone g is the top of the
+  // list in the default scheme once the wait is over. A second key that
+  // completes nothing drops the wait and is read on its own, and Escape only
+  // drops it.
+  tix.keyStep = function (byCombo, prefixes, pending, combo) {
+    var table = byCombo || {};
+    var starts = prefixes || {};
+    var own = Object.prototype.hasOwnProperty;
+    if (pending) {
+      var seq = pending + " " + combo;
+      if (own.call(table, seq)) {
+        return { action: table[seq], pending: "", lone: "" };
+      }
+      if (combo === "Escape") {
+        return { action: "", pending: "", lone: "" };
+      }
+    }
+    if (own.call(starts, combo)) {
+      return { action: "", pending: combo, lone: own.call(table, combo) ? table[combo] : "" };
+    }
+    return { action: own.call(table, combo) ? table[combo] : "", pending: "", lone: "" };
+  };
+
+  // pageIndex is the row a page down (delta 1) or up (-1) moves the
+  // selection to: perPage rows on from the focused one (at), or the first or
+  // last row when none is focused, never past either end. -1 means there is
+  // no row, and the key keeps its native scroll.
+  tix.pageIndex = function (at, count, perPage, delta) {
+    if (!(count > 0)) {
+      return -1;
+    }
+    if (at < 0 || at >= count) {
+      return delta > 0 ? 0 : count - 1;
+    }
+    var step = Math.max(1, Math.floor(perPage) || 1);
+    return Math.min(count - 1, Math.max(0, at + delta * step));
+  };
+
+  // nextView is the view the switch moves to: the one after the current, and
+  // the first after the last. -1 when there is nothing to switch to.
+  tix.nextView = function (count, current) {
+    if (!(count > 1)) {
+      return -1;
+    }
+    return current >= 0 && current < count - 1 ? current + 1 : 0;
+  };
+
+  // refOfRow is the reference a task row stands for, read from the address
+  // it opens, drawn upper case the way the server draws a reference.
+  tix.refOfRow = function (href) {
+    return tix.taskRefOf(href, "").toUpperCase();
+  };
+
+  // targetPress is what a key bound to a control does with it: a field takes
+  // focus, so the reader types into it, and anything else is pressed.
+  tix.targetPress = function (el) {
+    if (!el) {
+      return "";
+    }
+    if (el.isContentEditable) {
+      return "focus";
+    }
+    var tag = el.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ? "focus" : "click";
   };
 
   // pressesNatively reports whether a key is the focused control's own way of
@@ -418,8 +541,8 @@
     return !!(query && query.matches);
   };
 
-  // legalStates reads the states a card may move to out of its own Move
-  // disclosure's options, which is the list the server already computed for
+  // legalStates reads the states a card may move to out of the route
+  // buttons of its menu's Move section, which is the list the server already computed for
   // that card. A prototype-free object so a state named like an Object member
   // cannot pass canDrop by accident.
   //
@@ -628,6 +751,91 @@
     return state.over === under ? "reopen" : "reload";
   };
 
+  // The task panel: Task opens in set to Panel shows the task dialog beside
+  // the listing on a window at least paneLimits.from wide (taskopen.js). The
+  // widths are tix-mobile's task panel's (lib/src/core/theme/layout.dart);
+  // the breakpoint is higher than its 840 because the web's sidebar is a
+  // 224px column from 900px up, not a rail.
+  var PANE = { from: 1100, min: 360, max: 720, def: 460, share: 0.6, step: 16, bigStep: 64 };
+  tix.paneLimits = PANE;
+
+  // paneOpensIn is where a task followed from a listing opens when the page
+  // carries the task dialog: "pane" beside it, or "dialog" over it, which is
+  // also what Panel falls back to on a narrow window.
+  tix.paneOpensIn = function (paneChosen, windowWidth) {
+    return paneChosen && Number(windowWidth) >= PANE.from ? "pane" : "dialog";
+  };
+
+  // paneMax is the widest the panel may be with space beside the sidebar:
+  // 60% of it, within the panel's own bounds.
+  tix.paneMax = function (space) {
+    var n = Number(space);
+    if (!isFinite(n) || n <= 0) {
+      return PANE.max;
+    }
+    return Math.max(PANE.min, Math.min(PANE.max, Math.round(n * PANE.share)));
+  };
+
+  // paneClamp bounds a width to what the panel may be; null for no number.
+  tix.paneClamp = function (px, space) {
+    if (px === null || px === undefined || px === "") {
+      return null;
+    }
+    var n = Math.round(Number(px));
+    if (!isFinite(n)) {
+      return null;
+    }
+    return Math.min(tix.paneMax(space), Math.max(PANE.min, n));
+  };
+
+  // paneKey is the width a key on the divider asks for: a number, "reset",
+  // or null for a key it ignores. The panel is right of the divider, so Left
+  // widens it.
+  tix.paneKey = function (key, shift, width, space) {
+    var step = shift ? PANE.bigStep : PANE.step;
+    switch (key) {
+      case "ArrowLeft":
+        return tix.paneClamp(width + step, space);
+      case "ArrowRight":
+        return tix.paneClamp(width - step, space);
+      case "Home":
+        return PANE.min;
+      case "End":
+        return tix.paneMax(space);
+      case "Enter":
+        return "reset";
+      default:
+        return null;
+    }
+  };
+
+  // paneDrop is the width a drag of the divider to clientX asks for, the
+  // panel running to the window's right edge.
+  tix.paneDrop = function (clientX, windowWidth, space) {
+    return tix.paneClamp(Number(windowWidth) - Number(clientX), space);
+  };
+
+  // paneParse reads the tix_pane cookie's value, "w=NNN": the width, or null
+  // for the default or anything unreadable.
+  tix.paneParse = function (value) {
+    var m = /(?:^|&)w=(\d+)(?:&|$)/.exec(String(value || ""));
+    if (!m || Number(m[1]) <= 0) {
+      return null;
+    }
+    return Math.min(PANE.max, Math.max(PANE.min, Number(m[1])));
+  };
+
+  // paneFormat writes a width as the cookie's value: "" for the default,
+  // which removes the cookie.
+  tix.paneFormat = function (width) {
+    var n = width === null || width === undefined ? null : Math.round(Number(width));
+    if (n === null || !isFinite(n) || n <= 0) {
+      return "";
+    }
+    n = Math.min(PANE.max, Math.max(PANE.min, n));
+    return n === PANE.def ? "" : "w=" + n;
+  };
+
   // titleStep decides what finishing a title edit does. refused is the value
   // last refused, passed only when the field lost focus, so leaving a refused
   // value does not send it again; Enter always does.
@@ -727,6 +935,249 @@
     return { value: head + rest, caret: head.length };
   };
 
+  // The filter box's suggestions. filterTokenAt finds the word the caret is
+  // in: its span, a leading minus, and the key it names ("" for a bare word,
+  // "@" for an @handle), with the part typed after the key. A word inside an
+  // open quote is free text and gets nothing.
+  var filterAliases = { p: "project", s: "status", a: "assignee", prio: "priority" };
+  tix.filterTokenAt = function (text, caret) {
+    var value = String(text || "");
+    var at = typeof caret === "number" ? caret : value.length;
+    if ((value.slice(0, at).match(/"/g) || []).length % 2 === 1) {
+      return null;
+    }
+    var start = value.lastIndexOf(" ", at - 1) + 1;
+    var end = value.indexOf(" ", at);
+    if (end < 0) {
+      end = value.length;
+    }
+    var word = value.slice(start, end);
+    var neg = word.charAt(0) === "-";
+    if (neg) {
+      word = word.slice(1);
+    }
+    if (word.charAt(0) === "@") {
+      return { start: start, end: end, neg: neg, key: "@", typed: word.slice(1) };
+    }
+    var colon = word.indexOf(":");
+    if (colon < 0) {
+      return { start: start, end: end, neg: neg, key: "", typed: word };
+    }
+    var key = word.slice(0, colon).toLowerCase();
+    return { start: start, end: end, neg: neg, key: filterAliases[key] || key, typed: word.slice(colon + 1) };
+  };
+
+  function rank(values, typed, show) {
+    var q = String(typed || "").toLowerCase();
+    var starts = [];
+    var inside = [];
+    for (var i = 0; i < values.length; i++) {
+      var v = values[i];
+      var hay = (v.match || v.value).toLowerCase();
+      var at = hay.indexOf(q);
+      if (at === 0 || (q && hay.indexOf(" " + q) > 0)) {
+        starts.push(show(v));
+      } else if (q && at > 0) {
+        inside.push(show(v));
+      }
+    }
+    return starts.concat(inside);
+  }
+
+  // filterSuggest lists what a token completes to, from the data the page
+  // carries: each a label and the text that replaces the word. A word that is
+  // already exactly its only suggestion gets nothing, so Enter applies it.
+  tix.filterSuggest = function (data, tok, limit) {
+    if (!data || !tok) {
+      return [];
+    }
+    var list = function (name) {
+      return (data[name] || []).map(function (v) { return { value: String(v) }; });
+    };
+    var out;
+    var keyed = function (key) {
+      return function (v) { return { label: key + ":" + v.value, insert: key + ":" + quoted(v.value), note: v.note || "" }; };
+    };
+    if (tok.key === "") {
+      if (!tok.typed) {
+        return [];
+      }
+      out = rank(list("keys"), tok.typed, function (v) { return { label: v.value + ":", insert: v.value + ":", note: "" }; });
+    } else if (tok.key === "@") {
+      out = rank(list("person"), tok.typed, function (v) { return { label: "@" + v.value, insert: "@" + v.value, note: "" }; });
+    } else if (tok.key === "project") {
+      var projects = (data.project || []).map(function (p) {
+        return { value: p.k, note: p.n, match: p.k + " " + p.n };
+      });
+      out = rank(projects, tok.typed, keyed("project"));
+    } else if (tok.key === "assignee" || tok.key === "creator" || tok.key === "claimed-by") {
+      out = rank(list("person").concat([{ value: "me" }]), tok.typed, keyed(tok.key));
+    } else if (data[tok.key]) {
+      out = rank(list(tok.key), tok.typed, keyed(tok.key));
+    } else {
+      return [];
+    }
+    out = out.slice(0, limit || 8);
+    var word = (tok.key === "" ? "" : tok.key === "@" ? "@" : tok.key + ":") + tok.typed;
+    if (out.length === 1 && out[0].insert.toLowerCase() === word.toLowerCase()) {
+      return [];
+    }
+    return out;
+  };
+
+  function quoted(v) {
+    return /[\s"]/.test(v) ? '"' + v.replace(/"/g, "") + '"' : v;
+  }
+
+  // filterInsert is the box once a suggestion is taken: the word replaced,
+  // its minus kept, a space after a whole term but not after a bare key, and
+  // the caret at the end of what was inserted.
+  tix.filterInsert = function (text, tok, insert) {
+    var value = String(text || "");
+    var term = (tok.neg ? "-" : "") + insert;
+    var tail = value.slice(tok.end).replace(/^\s/, "");
+    var gap = /:$/.test(insert) ? "" : " ";
+    var head = value.slice(0, tok.start) + term + gap;
+    return { value: head + tail, caret: head.length };
+  };
+
+  // filterKey decides what a key press in the box does while suggestions are
+  // listed: move, take, close or nothing. Enter takes only an option an arrow
+  // reached, so Enter on its own still applies the filter.
+  tix.filterKey = function (key, open, count, index) {
+    if (!open || !count) {
+      return key === "ArrowDown" && count ? { act: "move", index: 0 } : { act: "none" };
+    }
+    switch (key) {
+    case "ArrowDown":
+      return { act: "move", index: index < 0 ? 0 : (index + 1) % count };
+    case "ArrowUp":
+      return { act: "move", index: index <= 0 ? count - 1 : index - 1 };
+    case "Enter":
+      return index >= 0 ? { act: "take", index: index } : { act: "none" };
+    case "Tab":
+      return { act: "take", index: index >= 0 ? index : 0 };
+    case "Escape":
+      return { act: "close" };
+    }
+    return { act: "none" };
+  };
+
+  // The quick-add box's suggestions, drawn by the same filterbar.js under
+  // data-suggest-mode="quick". quickTokenAt finds the word the caret is in
+  // when it opens with #, @ or +, the sigils quick add completes. A bare
+  // word is the title and gets nothing, and so does a word inside an open
+  // quote, which the parser keeps as title text.
+  tix.quickTokenAt = function (text, caret) {
+    var value = String(text || "");
+    var at = typeof caret === "number" ? caret : value.length;
+    if ((value.slice(0, at).match(/["„“]/g) || []).length % 2 === 1) {
+      return null;
+    }
+    var start = at;
+    while (start > 0 && !/\s/.test(value.charAt(start - 1))) {
+      start--;
+    }
+    var end = at;
+    while (end < value.length && !/\s/.test(value.charAt(end))) {
+      end++;
+    }
+    var sigil = value.charAt(start);
+    if ("#@+".indexOf(sigil) < 0 || end === start) {
+      return null;
+    }
+    return { start: start, end: end, neg: false, key: sigil, typed: value.slice(start + 1, end) };
+  };
+
+  // quickTag and quickHandle mirror internal/quickadd's validTag and
+  // validHandle: what may follow # or @ and still be read as a token.
+  var quickTag = /^(?=.*\p{L})[\p{L}\p{N}][\p{L}\p{N}_\-/.]*$/u;
+  var quickHandle = /^[\p{L}\p{N}]([\p{L}\p{N}_.+-]*[\p{L}\p{N}])?$/u;
+
+  // quickWord is how a value is written into the line: the sigil form when
+  // the parser reads it as one, the keyed form when only that carries it,
+  // and nothing for a value with whitespace, which no quick-add word holds.
+  function quickWord(sigil, key, valid, value) {
+    if (/[\s"„“”«»]/.test(value)) {
+      return "";
+    }
+    return valid.test(value) && !/[-/.]$/.test(value) ? sigil + value : key + ":" + value;
+  }
+
+  // quickSuggest lists what a quick-add token completes to: tags after #,
+  // handles after @, projects (noted with their names) after +.
+  tix.quickSuggest = function (data, tok, limit) {
+    if (!data || !tok) {
+      return [];
+    }
+    var values;
+    var show;
+    if (tok.key === "#") {
+      values = (data.tag || []).map(function (v) { return { value: String(v) }; });
+      show = function (v) { return { label: "#" + v.value, insert: quickWord("#", "tag", quickTag, v.value), note: "" }; };
+    } else if (tok.key === "@") {
+      values = (data.person || []).map(function (v) { return { value: String(v) }; });
+      show = function (v) { return { label: "@" + v.value, insert: quickWord("@", "assignee", quickHandle, v.value), note: "" }; };
+    } else if (tok.key === "+") {
+      values = (data.project || []).map(function (p) { return { value: p.k, note: p.n, match: p.k + " " + p.n }; });
+      show = function (v) { return { label: "+" + v.value, insert: "+" + v.value, note: v.note || "" }; };
+    } else {
+      return [];
+    }
+    var out = rank(values, tok.typed, show).filter(function (s) { return s.insert !== ""; });
+    out = out.slice(0, limit || 8);
+    if (out.length === 1 && out[0].insert.toLowerCase() === (tok.key + tok.typed).toLowerCase()) {
+      return [];
+    }
+    return out;
+  };
+
+  // firstLine is what Quick add from the clipboard puts in the box: the
+  // first line with anything on it, trimmed, or "" when there is none.
+  tix.firstLine = function (text) {
+    var lines = String(text == null ? "" : text).split(/\r\n|\r|\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line) {
+        return line;
+      }
+    }
+    return "";
+  };
+
+  // filterParams is what the box's in-place filter asks for: the form's
+  // fields less the empty ones and the pickers nobody touched, whose
+  // pick_KEY still equals the was_KEY it was drawn with. A changed picker
+  // keeps both, which the server folds into the expression.
+  tix.filterParams = function (pairs) {
+    var was = {};
+    var pick = {};
+    for (var i = 0; i < pairs.length; i++) {
+      var name = pairs[i][0];
+      if (name.indexOf("was_") === 0) {
+        was[name.slice(4)] = pairs[i][1];
+      } else if (name.indexOf("pick_") === 0) {
+        pick[name.slice(5)] = pairs[i][1];
+      }
+    }
+    var out = [];
+    for (var j = 0; j < pairs.length; j++) {
+      var n = pairs[j][0];
+      var v = pairs[j][1];
+      var key = n.indexOf("pick_") === 0 ? n.slice(5) : n.indexOf("was_") === 0 ? n.slice(4) : null;
+      if (key !== null && (pick[key] === undefined ? true : pick[key] === (was[key] === undefined ? "" : was[key]))) {
+        continue;
+      }
+      if (String(v).trim() === "") {
+        if (key === null) {
+          continue;
+        }
+      }
+      out.push([n, v]);
+    }
+    return out;
+  };
+
   // freshIDs lists the identifiers in after that were not in before, in the
   // order after holds them: the rows a redraw brought.
   tix.freshIDs = function (before, after) {
@@ -739,6 +1190,82 @@
       if (!seen[after[j]]) {
         out.push(after[j]);
       }
+    }
+    return out;
+  };
+
+  // -- swipe ---------------------------------------------------------------
+  // A list row on a touch screen swipes the way the app's rows do: towards
+  // the end of the line (right, left to right) completes the task, towards
+  // its start snoozes it, and a release short of swipeThreshold of the row's
+  // width does nothing. assets/swipe.js keeps only the wiring.
+
+  // swipeThreshold is the share of the row's width a swipe must cross, the
+  // app's dismiss threshold.
+  tix.swipeThreshold = 0.3;
+
+  // swipeSlop is how far a finger moves before the gesture is read as a
+  // swipe or a scroll; under it, it is still a tap.
+  tix.swipeSlop = 10;
+
+  // swipesWith reports whether a pointer swipes rows: a finger or a pen. A
+  // mouse drags across a row to select text, as it always has.
+  tix.swipesWith = function (pointerType) {
+    return pointerType === "touch" || pointerType === "pen";
+  };
+
+  // swipeAxis reads which way a gesture is going once it has moved past
+  // slop: "x" for a swipe, "y" for a scroll, "" while it could still be a
+  // tap. A diagonal counts as a scroll, so the list is never held back.
+  tix.swipeAxis = function (dx, dy, slop) {
+    var ax = Math.abs(dx);
+    var ay = Math.abs(dy);
+    if (Math.max(ax, ay) < slop) {
+      return "";
+    }
+    return ax > ay ? "x" : "y";
+  };
+
+  // swipeSide is the action a horizontal drag of dx is revealing, when the
+  // row offers it: "complete" towards the line's end, "snooze" towards its
+  // start, "" otherwise. offers is {complete: bool, snooze: bool}.
+  tix.swipeSide = function (dx, rtl, offers) {
+    if (!dx) {
+      return "";
+    }
+    var forward = rtl ? dx < 0 : dx > 0;
+    var side = forward ? "complete" : "snooze";
+    return offers && offers[side] ? side : "";
+  };
+
+  // swipeAction is what letting go after a drag of dx across a row width
+  // wide does: the side it reveals once it has crossed the threshold, and
+  // nothing short of it.
+  tix.swipeAction = function (dx, width, rtl, offers) {
+    var side = tix.swipeSide(dx, rtl, offers);
+    if (!side || !(width > 0) || Math.abs(dx) < width * tix.swipeThreshold) {
+      return "";
+    }
+    return side;
+  };
+
+  // swipeOffset is how far the row follows the finger: not at all towards
+  // an action it does not offer, and never past its own width.
+  tix.swipeOffset = function (dx, width, rtl, offers) {
+    if (!tix.swipeSide(dx, rtl, offers)) {
+      return 0;
+    }
+    var w = width > 0 ? width : Math.abs(dx);
+    return Math.max(-w, Math.min(w, dx));
+  };
+
+  // swipeFields is what a swiped row posts: the token and the page to come
+  // back to, which its tick form already carries, and for a snooze the wake
+  // time the row names. The route is the row's own data-swipe-* address.
+  tix.swipeFields = function (action, csrf, next, until) {
+    var out = [["csrf_token", csrf || ""], ["next", next || ""]];
+    if (action === "snooze") {
+      out.push(["until", until || ""]);
     }
     return out;
   };

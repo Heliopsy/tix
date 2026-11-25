@@ -21,14 +21,17 @@ const (
 	BulkStar      BulkAction = "star"
 	BulkUnstar    BulkAction = "unstar"
 	BulkCopy      BulkAction = "copy"
-	BulkDelete    BulkAction = "delete"
-	BulkRestore   BulkAction = "restore"
+	// BulkMoveProject moves each task to another project, keeping its
+	// identifier; BulkMove changes its status.
+	BulkMoveProject BulkAction = "move_project"
+	BulkDelete      BulkAction = "delete"
+	BulkRestore     BulkAction = "restore"
 )
 
 // BulkActions lists every bulk action in the order the surfaces offer them.
 var BulkActions = []BulkAction{
 	BulkMove, BulkPriority, BulkTagAdd, BulkTagRemove, BulkAssign,
-	BulkStar, BulkUnstar, BulkCopy, BulkDelete, BulkRestore,
+	BulkStar, BulkUnstar, BulkCopy, BulkMoveProject, BulkDelete, BulkRestore,
 }
 
 // Valid reports whether a is a known bulk action.
@@ -39,8 +42,8 @@ const MaxBulkRefs = 500
 
 // BulkTaskInput is one action applied to many tasks. Only the argument the
 // action needs is read: To for a move, Priority for priority, Tag for the tag
-// actions, AssigneeActorID for assign (empty clears), ProjectRef for a copy
-// and Cascade for a delete.
+// actions, AssigneeActorID for assign (empty clears), ProjectRef for a copy or a
+// move to another project, and Cascade for a delete.
 type BulkTaskInput struct {
 	// Action is what to do to each task.
 	Action BulkAction `json:"action" yaml:"action"`
@@ -55,7 +58,7 @@ type BulkTaskInput struct {
 	Tag string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	// AssigneeActorID is the actor to assign; empty clears the assignee.
 	AssigneeActorID string `json:"assignee_actor_id,omitempty" yaml:"assignee_actor_id,omitempty"`
-	// ProjectRef is the project a copy goes to, by key or id.
+	// ProjectRef is the project a copy or a move_project goes to, by key or id.
 	ProjectRef string `json:"project_ref,omitempty" yaml:"project_ref,omitempty"`
 	// Cascade lets a delete take a task's subtasks with it.
 	Cascade bool `json:"cascade,omitempty" yaml:"cascade,omitempty"`
@@ -112,6 +115,10 @@ func (in BulkTaskInput) Validate() error {
 		if in.ProjectRef == "" {
 			return Invalid("a copy needs the project to copy to").WithDetail(DetailField, "project_ref")
 		}
+	case BulkMoveProject:
+		if in.ProjectRef == "" {
+			return Invalid("a move to another project needs the project").WithDetail(DetailField, "project_ref")
+		}
 	}
 	return nil
 }
@@ -136,6 +143,8 @@ type BulkOutcome struct {
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 	// CopyRef names the new task a copy created.
 	CopyRef string `json:"copy_ref,omitempty" yaml:"copy_ref,omitempty"`
+	// MovedRef is the reference a task moved to another project now has.
+	MovedRef string `json:"moved_ref,omitempty" yaml:"moved_ref,omitempty"`
 }
 
 // BulkResult reports a bulk action, one outcome per distinct reference in the

@@ -19,6 +19,10 @@ other command does: `--server` and `--token`, `TIX_SERVER_URL` and `TIX_TOKEN`, 
 tix token create mcp-agent --scope task:read --scope task:write --scope task:transition --scope task:claim --scope comment:write
 ```
 
+Add `--require-claim` when the agent should change only tasks it has claimed. Its tools then refuse a move,
+edit or delete of an unclaimed task with a `403` naming the claim to take, and `claim_task` with `start`
+claims and moves in one call. See [agents.md](agents.md#running-ai-agents).
+
 The browser's Connect an agent screen (`/connect`, [web-ui.md](web-ui.md#connect-an-agent)) shows every
 snippet below already filled in with your server's address and a token it can issue for you. A test keeps
 that screen and this page in step.
@@ -218,7 +222,7 @@ In Zed's `settings.json`, opened with `zed: open settings file` ([docs](https://
 | --- | --- |
 | Name | The operationId with dots as underscores: `task.create` is `task_create` |
 | Description | The operation's description from the document, then its method and path |
-| Input | One object: path parameters, query parameters and the JSON body's properties side by side; when a body property collides with a parameter, or the body is not an object, the body goes whole under `body` |
+| Input | One object: path parameters, query parameters and the JSON body's properties side by side; when a body property collides with a parameter, or the body is not an object, the body goes whole under `body`. Header parameters such as `Idempotency-Key` are not arguments: a tool call is not replayed from a queue, so the tools send no key |
 | Result | The JSON response as text, and as structured content when it is an object; `204` is `{"status":"ok"}` |
 | Error | A tool error carrying the API's envelope, `{"error":{"code":"not_found","message":"..."}}`, so a model reads the same kinds a script does ([scripting.md](scripting.md)) |
 | Annotations | `GET` is read-only; `PUT` and `DELETE` are idempotent; destructive tools carry the destructive hint |
@@ -234,6 +238,8 @@ Operations that do not speak JSON are left out, whatever the overlay says. Use t
 | `project_icon` | answers an image |
 | `snapshot_export` | answers NDJSON (`tix export`) |
 | `snapshot_import` | reads NDJSON (`tix import`) |
+| `sso_saml_metadata` | answers SAML metadata XML (`tix tenant sso metadata`) |
+| `tenant_icon` | answers an image |
 
 `tix mcp --list` prints every operation, its tool name, the scope it needs and what became of it, without
 contacting a server. `-o json` makes it a table a script can read.

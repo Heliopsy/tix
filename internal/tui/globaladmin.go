@@ -495,7 +495,7 @@ func (m Model) loadGlobalUsers(tenant string) tea.Cmd {
 	}
 	svc, ctx := m.svc, m.ctx
 	return func() tea.Msg {
-		users, next, err := svc.ListTenantUsers(ctx, tenant, core.Page{Limit: globalLimit})
+		users, next, err := svc.ListTenantUsers(ctx, tenant, core.UserFilter{Page: core.Page{Limit: globalLimit}})
 		return globalUsersMsg{tenant: tenant, users: users, more: next != "", err: err}
 	}
 }

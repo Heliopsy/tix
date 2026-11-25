@@ -115,6 +115,9 @@ func (h *handler) checkCSRF(r *http.Request, b Binding) error {
 	if b.Method == http.MethodPost && b.Pattern == RouteProjectImport {
 		limit, refusal = h.importLimit, config.ImportLimitRefusal(h.importLimit)
 	}
+	if b.Method == http.MethodPost && b.Pattern == RouteTaskArts {
+		limit, refusal = config.ArtifactBodyLimit(h.artifactLimit, limit), config.ArtifactLimitRefusal(h.artifactLimit)
+	}
 	if err := ensureForm(r, limit, refusal); err != nil {
 		return err
 	}

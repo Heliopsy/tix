@@ -104,6 +104,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `status:NAME`, `s:NAME` | workflow state, in any case | yes | no |
 | `tag:NAME` | carries the tag | yes | no |
 | `assignee:REF`, `a:REF` | assigned actor, by handle or id, or `me` | yes | no |
+| `@HANDLE` | the same as `assignee:HANDLE`, the way quick add writes it; `"@raj"` in quotes is free text | yes (`-@raj`) | no |
 | `creator:REF` | who created it, by handle or id, or `me` | yes | no |
 | `claimed-by:REF` | who holds the lease, by handle or id, or `me` | yes | no |
 | `priority:NAME` | `highest`…`lowest`, or 1 to 5 | yes | no |
@@ -114,7 +115,7 @@ is what makes a large PostgreSQL install fast. If you need an answer that does n
 | `due:<DATE`, `due:>DATE` | the same bounds, spelled with the comparison | no | no |
 | `due-before:DATE`, `due-after:DATE` | due bounds | no | no |
 | `parent:REF`, `parent:none` | subtasks of, or roots | no | no |
-| `is:claimed`, `is:unclaimed`, `is:blocked`, `is:unblocked`, `is:recurring`, `is:root` | state predicates | yes (except `is:root`) | no |
+| `is:claimed`, `is:unclaimed`, `is:waiting-on` (alias `is:blocked`), `is:unblocked`, `is:recurring`, `is:root` | state predicates; `is:waiting-on` is a task waiting on an unfinished dependency, not one in a blocked workflow state | yes (except `is:root`) | no |
 | `is:deleted` | also list soft-deleted tasks, alongside the rest; it widens, it does not narrow | yes | no |
 | `is:trashed` | only soft-deleted tasks, the trash; `-is:trashed` is live tasks only | yes | no |
 | `is:starred`, `is:unstarred`, `starred:true`, `starred:false` | tasks you starred, or did not | yes | no |
@@ -341,7 +342,7 @@ leading `-` for negation), so only the vocabulary changes.
 | `kind:TYPE` | what kind of record it happened to: `task`, `comment`, `project`, `workflow`, `user`, … |
 | `action:NAME`, `type:NAME` | the recorded action, such as `task.created` |
 | `source:NAME` | the surface it arrived through: `cli`, `web`, `api`, `tui`, `system` |
-| `via:CHANNEL` | the access channel: `web`, `api`, `cli-local`, `cli-remote`, `ssh`, `mcp`, `sync`, `import`, `system`, `unknown` |
+| `via:CHANNEL` | the access channel: `web`, `api`, `cli-local`, `cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim`, `caldav`, `system`, `unknown` |
 | `token:NAME` | the API token the change was made with, by name |
 | `text:VALUE`, `q:VALUE`, bare word | free text over the action, the kind, the source and the before and after snapshots |
 

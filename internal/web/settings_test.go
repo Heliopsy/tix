@@ -73,7 +73,7 @@ func TestTheSidebarCarriesTheColourSchemeSwitch(t *testing.T) {
 // The switch says what the scheme is and what pressing it does, in its
 // accessible name rather than in a title attribute, which never reaches a
 // keyboard user who does not hover. One press moves to the next scheme and
-// four presses come back to where they started.
+// six presses come back to where they started.
 func TestTheColourSchemeSwitchCyclesAndNamesBothHalves(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
@@ -83,8 +83,10 @@ func TestTheColourSchemeSwitchCyclesAndNamesBothHalves(t *testing.T) {
 	want := []struct{ scheme, label, next string }{
 		{"", "System", "Light"},
 		{"light", "Light", "Dark"},
-		{"dark", "Dark", "Low contrast"},
-		{"dim", "Low contrast", "System"},
+		{"dark", "Dark", "OLED"},
+		{"oled", "OLED", "Low contrast"},
+		{"dim", "Low contrast", "System, OLED when dark"},
+		{"system-oled", "System, OLED when dark", "System"},
 		{"", "System", "Light"},
 	}
 	for i, step := range want {
@@ -222,7 +224,7 @@ func TestSettingsPageNeedsNoScripting(t *testing.T) {
 	}
 }
 
-// All four schemes have to render the settings page, including the one an
+// Every scheme have to render the settings page, including the one an
 // untouched browser gets and the low contrast one.
 func TestSettingsPageRendersInEveryScheme(t *testing.T) {
 	t.Parallel()
@@ -348,8 +350,9 @@ func TestSettingsPageComparesEveryScheme(t *testing.T) {
 		for _, action := range web.ShortcutActionNames() {
 			for _, key := range table[action] {
 				// html/template's text-node escaper renders "+" as "&#43;",
-				// which every emacs ctrl chord carries.
-				escaped := strings.ReplaceAll(key, "+", "&#43;")
+				// which every chord carries, and the angle brackets of
+				// emacs's alt+< and alt+> as entities.
+				escaped := strings.NewReplacer("+", "&#43;", "<", "&lt;", ">", "&gt;").Replace(key)
 				if !strings.Contains(page, "<kbd>"+escaped+"</kbd>") {
 					t.Errorf("the settings page does not show %q's %q binding %q:\n%s",
 						scheme, action, key, page)
@@ -495,7 +498,7 @@ func TestATenantAccentReachesEveryScheme(t *testing.T) {
 	// pinned dark and dim schemes, and the system preference.
 	for _, want := range []string{
 		`:root { --accent:`,
-		`:root[data-theme="dark"], :root[data-theme="dim"] { --accent:`,
+		`:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent:`,
 		`:root:not([data-theme="light"]):not([data-theme="dim"]) { --accent:`,
 	} {
 		if !strings.Contains(page, want) {
@@ -507,10 +510,10 @@ func TestATenantAccentReachesEveryScheme(t *testing.T) {
 	}
 }
 
-// Since one Admin group replaced Configure and Data, the row that adds the
+// Since one Manage group replaced Configure and Data, the row that adds the
 // configuration screens to the sidebar names the group they appear in, in
 // its line and in its (i) note alike.
-func TestAdvancedScreensNamesTheAdminGroup(t *testing.T) {
+func TestAdvancedScreensNamesTheManageGroup(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	row := prefForm(t, contentOf(t, f.as("alice").page("/settings")), "/advanced")
@@ -519,10 +522,10 @@ func TestAdvancedScreensNamesTheAdminGroup(t *testing.T) {
 		between(t, row, `<details class="field-info">`, "</details>"),
 	} {
 		if strings.Contains(part, "Configure") || strings.Contains(part, "Data group") || strings.Contains(part, "data screens") {
-			t.Errorf("the Advanced screens row names the groups Admin replaced: %s", part)
+			t.Errorf("the Advanced screens row names the groups Manage replaced: %s", part)
 		}
-		if !strings.Contains(part, "Admin group") {
-			t.Errorf("the Advanced screens row does not name the Admin group: %s", part)
+		if !strings.Contains(part, "Manage group") || strings.Contains(part, "Admin") {
+			t.Errorf("the Advanced screens row does not name the Manage group: %s", part)
 		}
 	}
 }
@@ -534,7 +537,7 @@ func TestSettingsSectionsShareOneShape(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 	page := contentOf(t, f.as("alice").page("/settings"))
-	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "database"} {
+	for _, id := range []string{"appearance", "listings", "dates", "inbox", "notifications", "second-factor", "calendar", "dav", "database"} {
 		section := between(t, page, `id="`+id+`">`, "</section>")
 		head, after, found := strings.Cut(section, "</h2>")
 		head = strings.TrimPrefix(strings.TrimSpace(head), `<div class="sechead">`)

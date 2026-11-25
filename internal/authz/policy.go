@@ -91,6 +91,19 @@ func (p Policy) CanGlobal(actor *core.Actor, standing GlobalStanding) error {
 // tenant must learn nothing about the person's other tenants. A token pinned
 // to a project is confined to it and never reads the account.
 func (p Policy) CanReadAccount(actor *core.Actor) error {
+	return p.ownAccount(actor, "reading your account log with a token needs the account:read scope")
+}
+
+// CanManageSessions decides whether the caller may list and revoke their own
+// sessions, by CanReadAccount's rule: the token tix login stores names
+// account:read and may, while an agent's "*" token may not sign its person out.
+func (p Policy) CanManageSessions(actor *core.Actor) error {
+	return p.ownAccount(actor, "managing your sessions with a token needs the account:read scope")
+}
+
+// ownAccount admits a session, and a token naming account:read that is not
+// pinned to a project, refusing anything else with missing as the reason.
+func (p Policy) ownAccount(actor *core.Actor, missing string) error {
 	if actor == nil {
 		return core.Unauthenticated("no authenticated actor")
 	}
@@ -101,8 +114,27 @@ func (p Policy) CanReadAccount(actor *core.Actor) error {
 		return p.deny(ActionAccountRead, Resource{}, "token is pinned to a project and this action is not confined to one")
 	}
 	if !actor.HasScope(core.ScopeAccountRead) {
-		return p.deny(ActionAccountRead, Resource{},
-			"reading your account log with a token needs the account:read scope")
+		return p.deny(ActionAccountRead, Resource{}, missing)
+	}
+	return nil
+}
+
+// CanRotateToken decides whether the actor may rotate a token held by owner
+// and pinned to project, which is empty for an unpinned token. The token's own
+// actor may, so an agent rotates its credential without token:admin; a pinned
+// caller only a token pinned to its own project, or it could mint itself an
+// unpinned one through a sibling. Anybody else needs token:admin. Which scopes
+// the new token may carry is the caller's ceiling, decided by the service.
+func (p Policy) CanRotateToken(actor *core.Actor, owner, project string) error {
+	if actor == nil {
+		return core.Unauthenticated("no authenticated actor")
+	}
+	if owner != actor.ID {
+		return p.Can(actor, ActionTokenAdmin, Resource{ProjectID: project, OwnerID: owner})
+	}
+	if actor.ScopedToProject() && project != actor.ProjectID {
+		return p.deny(ActionTokenAdmin, Resource{ProjectID: project, OwnerID: owner},
+			"a token pinned to a project may rotate only a token pinned to the same project")
 	}
 	return nil
 }

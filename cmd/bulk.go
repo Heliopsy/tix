@@ -34,7 +34,8 @@ func taskBulkCmd(g *globals) *cobra.Command {
 			"outcome per task is printed and the exit status is non-zero when any task was refused.\n\n" +
 			"move takes --to and walks the shortest route of each task's workflow, priority takes " +
 			"--priority, tag-add and tag-remove take --tag, assign takes --assignee (empty clears), " +
-			"copy takes --project and links each copy to its original, delete is a soft delete and " +
+			"copy takes --project and links each copy to its original, move-project takes --project and " +
+			"moves each task there under a new number, delete is a soft delete and " +
 			"takes --cascade. Pass - as a reference to read references from standard input; at most " +
 			"500 tasks per request.\n\n" +
 			"Exit codes: 2 invalid input, 3 unknown reference, 5 permission denied, 6 illegal transition.",
@@ -80,7 +81,7 @@ func taskBulkCmd(g *globals) *cobra.Command {
 	f.StringVar(&priority, "priority", "", "priority to set, for priority")
 	f.StringVar(&in.Tag, "tag", "", "tag to add or remove, for tag-add and tag-remove")
 	f.StringVar(&in.AssigneeActorID, "assignee", "", "actor handle or id to assign, empty to clear, for assign")
-	f.StringVar(&in.ProjectRef, "project", "", "project to copy into, for copy")
+	f.StringVar(&in.ProjectRef, "project", "", "project to copy or move into, for copy and move-project")
 	f.BoolVar(&in.Cascade, "cascade", false, "also delete each task's subtasks, for delete")
 	registerCompletions(g, cmd, "tag", "project")
 	_ = cmd.RegisterFlagCompletionFunc("to", flagCompletion(g.completeStatuses))
@@ -93,7 +94,7 @@ func (g *globals) renderBulk(cmd *cobra.Command, result *core.BulkResult) error 
 	rows := make([]taskOutcome, 0, len(result.Outcomes))
 	var failure error
 	for _, o := range result.Outcomes {
-		row := taskOutcome{Ref: o.Ref, Status: statusOK, Copy: o.CopyRef}
+		row := taskOutcome{Ref: o.Ref, Status: statusOK, Copy: o.CopyRef, Moved: o.MovedRef}
 		if !o.Applied {
 			row.Status, row.Code, row.Error = statusFailed, o.Code, o.Error
 			if failure == nil {

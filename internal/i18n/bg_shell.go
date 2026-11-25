@@ -37,18 +37,20 @@ func init() {
 		"Sources":            "Източници",
 		"Runs":               "Изпълнения",
 		"Keyboard shortcuts": "Клавишни комбинации",
-		"Admin":              "Администрация",
-		"Pinned projects":    "Закачени проекти",
+		"Starred projects":   "Проекти със звезда",
 		"overdue tasks":      "просрочени задачи",
 
 		// The account menu at the foot of the sidebar.
 		"Account menu for %s": "Меню на профила на %s",
 
-		// Pinning a project to the sidebar, on the projects screen.
-		"Pin to sidebar":            "Закачи в страничната лента",
-		"Unpin":                     "Откачи",
-		"Pin %s to the sidebar":     "Закачи %s в страничната лента",
-		"Unpin %s from the sidebar": "Откачи %s от страничната лента",
+		// Starring a project, on the projects screen, the project page and
+		// the sidebar.
+		"Star this project":         "Отбележи проекта със звезда",
+		"Show projects":             "Покажи проекти",
+		"Starred only":              "Само със звезда",
+		"Other projects":            "Други проекти",
+		"Show all starred projects": "Покажи всички проекти със звезда",
+		"No starred projects yet. Star a project with the star beside its name.": "Още няма проекти със звезда. Отбележете проект със звездата до името му.",
 
 		// Info tips and field notes.
 		"About %s":            "За „%s“",
@@ -142,8 +144,10 @@ func init() {
 		"runs":       "изпълнения",
 
 		// Flashes.
-		"task created":                 "задачата е създадена",
-		"task copied":                  "задачата е копирана",
+		"task created": "задачата е създадена",
+		"task copied":  "задачата е копирана",
+		"task moved":   "задачата е преместена",
+		"task moved; it starts in the project's first status": "задачата е преместена; започва от първия статус на проекта",
 		"task saved":                   "задачата е запазена",
 		"task deleted":                 "задачата е изтрита",
 		"task restored":                "задачата е възстановена",
@@ -219,12 +223,14 @@ func init() {
 		"Certificate": "Сертификат",
 
 		// View and colour scheme switches.
-		"List":         "Списък",
-		"Board":        "Табло",
-		"Lanes":        "Ленти",
-		"System":       "Система",
-		"Light":        "Светла",
-		"Dark":         "Тъмна",
-		"Low contrast": "Нисък контраст",
+		"List":                   "Списък",
+		"Board":                  "Табло",
+		"Lanes":                  "Ленти",
+		"System":                 "Система",
+		"Light":                  "Светла",
+		"Dark":                   "Тъмна",
+		"Low contrast":           "Нисък контраст",
+		"OLED":                   "OLED",
+		"System, OLED when dark": "Система, OLED на тъмно",
 	})
 }

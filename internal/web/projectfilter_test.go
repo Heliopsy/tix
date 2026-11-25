@@ -71,9 +71,10 @@ func TestTheProjectControlNarrowsTheListTheBoardAndTheLanes(t *testing.T) {
 			if !strings.Contains(projectControl(t, page), `value="web" selected`) {
 				t.Errorf("the %s's project control does not show the project it is answering", view)
 			}
-			next := html.UnescapeString(between(t, viewSwitch(t, page), `name="next" value="`, `"`))
-			if !strings.Contains(next, "project=web") {
-				t.Errorf("the view switch on the %s returns to %q, dropping the project", view, next)
+			for _, next := range switchHrefs(t, page) {
+				if !strings.Contains(next, "project=web") {
+					t.Errorf("the view switch on the %s links to %q, dropping the project", view, next)
+				}
 			}
 			if got := liveFilterOf(t, page).ProjectIDs; !slices.Equal(got, []string{web1.ID}) {
 				t.Errorf("the %s subscribes to projects %v, want only %s", view, got, web1.ID)

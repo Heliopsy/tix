@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/store"
 )
 
 // selectedRole finds which option the role control for one account is opened
@@ -102,23 +104,26 @@ func TestAnAccountWithNoMembershipProposesNoRole(t *testing.T) {
 		"password": {"correct-horse-battery"}, "role": {"member"}})
 	_ = created.Body.Close()
 	wantStatus(t, created, http.StatusSeeOther)
+	id := userIDFor(t, b.page("/admin/users"), "stray@example.test")
 
-	page := b.page("/admin/users")
-	id := userIDFor(t, page, "stray@example.test")
-
-	removed := b.post("/admin/tenant/members/remove", url.Values{"actor_id": {id}})
-	_ = removed.Body.Close()
-	wantStatus(t, removed, http.StatusSeeOther)
-
-	after := b.page("/admin/users")
+	// user:admin lists the accounts but may not read memberships, which needs
+	// tenant:admin, so the screen cannot tell what role the account holds.
+	after := f.as("useradmin").page("/admin/users")
 	if got := selectedRole(t, after, id); got != "" {
-		t.Fatalf("a role was proposed for an account holding none: %q", got)
+		t.Fatalf("a role was proposed for an account whose role is unknown: %q", got)
 	}
 	if !strings.Contains(after, "leave unchanged") {
 		t.Errorf("the control does not offer to leave the role alone:\n%s", after)
 	}
-	if !strings.Contains(after, `class="role role-none"`) {
-		t.Errorf("the row does not say the account has no role:\n%s", after)
+	if !strings.Contains(personRow(t, after, id), `class="role role-none"`) {
+		t.Errorf("the row does not say the account has no role:\n%s", personRow(t, after, id))
+	}
+
+	removed := b.post("/admin/tenant/members/remove", url.Values{"actor_id": {id}})
+	_ = removed.Body.Close()
+	wantStatus(t, removed, http.StatusSeeOther)
+	if listsUser(b.page("/admin/users"), id) {
+		t.Error("an account whose membership was revoked is still listed as a user")
 	}
 }
 
@@ -210,6 +215,13 @@ func TestOnlyTheReadersOwnAccountIsMarkedAsTheirs(t *testing.T) {
 func TestTheUserListingCountsActiveAndDisabledAccounts(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
+	// The fixture seeds alice's actor without the membership every signed-in
+	// person holds, and the listing leaves out an account with none.
+	if err := f.store.Update(context.Background(), core.TenantScope{TenantID: f.tenantA.ID}, func(tx store.Tx) error {
+		return tx.AddMember(context.Background(), &core.Membership{TenantID: f.tenantA.ID, ActorID: f.actorA.ID, Role: core.RoleAdmin})
+	}); err != nil {
+		t.Fatalf("making alice a member: %v", err)
+	}
 	b := f.as("alice")
 	for _, email := range []string{"one@example.test", "two@example.test", "three@example.test"} {
 		created := b.post("/admin/users", url.Values{"email": {email},

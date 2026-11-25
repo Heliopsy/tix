@@ -117,7 +117,10 @@ still work; an unknown value is exit `2`. `--desc` reverses it.
 
 `--cursor`/`--limit` (default 25) page manually; `--all` does it for you. All
 listings are keyset-paginated, so a cursor is stable while rows change under
-it.
+it. `--page N` lists one page by number and prints `page N of M, T tasks` on
+stderr; over HTTP the task listing answers `total` (a floor when
+`total_capped`) and takes `page=N`. Walk with the cursor; a numbered page
+shifts when tasks are added ahead of it.
 
 ## Who is who
 

@@ -340,6 +340,35 @@ func (b *Builder) CountQuery() (string, []any) {
 	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
 }
 
+// CappedCountQuery renders a COUNT over the same predicates that stops reading
+// after limit rows, so its answer is min(rows, limit) and a large selection
+// costs no more than limit index entries. Ordering is irrelevant to a count
+// and is not rendered.
+func (b *Builder) CappedCountQuery(limit int) (string, []any) {
+	var sb strings.Builder
+	sb.WriteString("SELECT COUNT(*) FROM (SELECT 1 FROM " + b.table)
+	for _, j := range b.joins {
+		sb.WriteString(" " + j)
+	}
+	b.writeWhere(&sb)
+	sb.WriteString(" LIMIT " + strconv.Itoa(max(limit, 1)) + ") AS counted")
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
+}
+
+// GroupCountQuery renders the grouping columns and a COUNT(*) per group over
+// the same predicates, ordered by the grouping columns.
+func (b *Builder) GroupCountQuery(cols ...string) (string, []any) {
+	group := strings.Join(cols, ", ")
+	var sb strings.Builder
+	sb.WriteString("SELECT " + group + ", COUNT(*) FROM " + b.table)
+	for _, j := range b.joins {
+		sb.WriteString(" " + j)
+	}
+	b.writeWhere(&sb)
+	sb.WriteString(" GROUP BY " + group + " ORDER BY " + group)
+	return b.rebind(sb.String()), concat(b.joinArgs, b.args)
+}
+
 func (b *Builder) writeWhere(sb *strings.Builder) {
 	if len(b.wheres) > 0 {
 		sb.WriteString(" WHERE " + strings.Join(b.wheres, " AND "))
@@ -430,13 +459,15 @@ func IsScoped(table string) bool {
 func ScopedTables() []string {
 	all := []string{
 		"actors", "sessions", "api_tokens", "workflows", "projects", "field_defs",
-		"tasks", "task_deps", "tags", "task_tags", "comments", "artifacts",
+		"tasks", "task_deps", "tags", "task_tags", "comments", "comment_reactions", "artifacts",
 		"events", "audit_entries", "webhook_endpoints", "webhook_deliveries",
 		"retention_policies", "external_refs", "sync_sources", "tenant_members",
-		"ssh_keys", "tenant_domains", "task_stars", "project_icons", "project_key_aliases",
+		"ssh_keys", "tenant_domains", "task_stars", "project_icons", "project_key_aliases", "task_key_aliases",
 		"group_prefs", "saved_filters", "calendar_feeds", "inbox_items", "inbox_mutes",
-		"inbox_channels", "inbox_deliveries",
-		"task_templates", "housekeeping_policies", "user_invites",
+		"inbox_channels", "inbox_deliveries", "dav_passwords", "dav_sync_states", "dav_objects", "dav_object_props",
+		"task_templates", "housekeeping_policies", "user_invites", "idempotency_keys",
+		"sso_providers", "user_identities", "sso_assertions", "sso_handoffs",
+		"scim_config", "scim_users", "scim_groups", "scim_group_members", "scim_group_roles",
 	}
 	return all
 }

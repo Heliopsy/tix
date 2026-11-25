@@ -3,6 +3,58 @@
 /* The tenant switcher: the sidebar entry naming the current tenant, and the
    dialog and Choose a tenant screen listing the reader's tenants. */
 
+/* A tenant's icon, or a monogram of its name when it set none: a small tile
+   in the tenant's accent, so tenants read apart before their names do. */
+.tenant-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tenant-mark .proj-icon {
+  font-size: inherit;
+}
+
+.nav-tenant .tenant-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.nav-tenant .tenant-mark .proj-icon-svg,
+.nav-tenant .tenant-mark .proj-icon-img {
+  width: 14px;
+  height: 14px;
+}
+
+.tenantswitch-mark {
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-sm);
+}
+
+.tenantswitch-mark .proj-icon-svg,
+.tenantswitch-mark .proj-icon-img {
+  width: 20px;
+  height: 20px;
+}
+
+.tenant-logo {
+  font-size: 16px;
+}
+
+.tenant-logo .proj-icon-svg,
+.tenant-logo .proj-icon-img {
+  width: 22px;
+  height: 22px;
+}
+
 .nav-tenant span {
   min-width: 0;
   overflow-wrap: anywhere;

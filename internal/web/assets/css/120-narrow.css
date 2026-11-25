@@ -11,7 +11,7 @@
   /* Three controls side by side do not fit a phone, so the pager stacks and
      each slot takes the single column. */
   .pager { grid-template-columns: 1fr; justify-items: center; gap: 8px; }
-  .pager-prev, .pager-at, .pager-next { grid-column: 1; justify-self: center; }
+  .pager-back, .pager-at, .pager-forward, .pager-nums { grid-column: 1; justify-self: center; }
 
   /* The board keeps being a board. It used to collapse to display: block at
      this width, which turned five columns into one 2,800px page nobody could

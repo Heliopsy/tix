@@ -58,6 +58,14 @@ func (l *Local) SwitchTenant(ctx context.Context, in core.SwitchTenantInput) (*c
 	if err != nil {
 		return nil, err
 	}
+	if core.IsSSOMethod(origin.Method) {
+		return nil, core.Forbidden("a session signed in through single sign-on stays in its tenant; sign in to %q "+
+			"on its own sign-in screen", key).WithDetail("reason", ReasonSSOSessionConfined)
+	}
+	if err := l.passwordSignInAllowed(ctx, scope, target.user, origin.Method); err != nil {
+		return nil, err
+	}
+	ctx = withSignedIn(withRemember(ctx, origin.Remembered), origin.SignedInAt)
 	var attempt *core.UserTOTP
 	if required && !origin.SecondFactor {
 		if !enrolment.Confirmed() {
@@ -184,13 +192,17 @@ func (l *Local) switchFactor(ctx context.Context, actor, target *core.Actor, use
 		if err != nil {
 			return err
 		}
-		required = t.RequiresTOTP(surface)
 		e, err := tx.GetUserTOTP(ctx, user.ID)
-		if core.IsKind(err, core.KindNotFound) {
-			return nil
+		if err != nil && !core.IsKind(err, core.KindNotFound) {
+			return err
 		}
 		enrolment = e
-		return err
+		// Under the policy an enrolled person proves the factor to come in,
+		// and an unenrolled one is refused once the grace is over; inside it
+		// they come in as they would sign in, unasked.
+		required = t.RequiresTOTP(surface) ||
+			t.MFARequired() && (t.MFAEnforced(l.clock.Now()) || enrolment.Confirmed())
+		return nil
 	})
 	return origin, required, enrolment, err
 }

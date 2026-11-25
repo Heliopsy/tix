@@ -54,8 +54,10 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskTransition, rt.handleTransitionTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRoute, rt.handleTransitionRoute)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskRestore, rt.handleRestoreTask)
+	rt.mux.HandleFunc("DELETE "+wire.RouteTaskTrash, rt.handlePurgeTask)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskTree, rt.handleTaskTree)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskCopy, rt.handleCopyTask)
+	rt.mux.HandleFunc("POST "+wire.RouteTaskMove, rt.handleMoveTask)
 	rt.mux.HandleFunc("POST "+wire.RouteTaskBulk, rt.handleBulkTasks)
 	rt.mux.HandleFunc("GET "+wire.RouteTrash, rt.handleTrashStatus)
 
@@ -78,8 +80,11 @@ func (rt *Router) registerTaskRoutes() {
 	rt.mux.HandleFunc("POST "+wire.RouteTaskComments, rt.handleAddComment)
 	rt.mux.HandleFunc("PATCH "+wire.RouteComment, rt.handleEditComment)
 	rt.mux.HandleFunc("DELETE "+wire.RouteComment, rt.handleDeleteComment)
+	rt.mux.HandleFunc("PUT "+wire.RouteCommentReaction, rt.handleAddReaction)
+	rt.mux.HandleFunc("DELETE "+wire.RouteCommentReaction, rt.handleRemoveReaction)
 
 	rt.mux.HandleFunc("GET "+wire.RouteTaskArtifacts, rt.handleListArtifacts)
+	rt.mux.HandleFunc("GET "+wire.RouteArtifactLimits, rt.handleArtifactLimits)
 	rt.mux.HandleFunc("PUT "+wire.RouteTaskArtifacts, rt.handlePutArtifact)
 	rt.mux.HandleFunc("GET "+wire.RouteTaskAudit, rt.handleTaskAudit)
 }
@@ -100,7 +105,9 @@ func (rt *Router) handleListTasks(w http.ResponseWriter, r *http.Request) {
 		rt.writeTaskCSV(w, r, page)
 		return
 	}
-	writeList(w, r, page.Tasks, page.NextCursor)
+	total := page.Total
+	writePage(w, r, wire.Page[core.Task]{Items: page.Tasks, NextCursor: page.NextCursor,
+		Total: &total, TotalCapped: page.TotalCapped, Page: page.Number, Tally: page.Tally})
 }
 
 // wantsCSV reports whether the client asked for the listing as CSV, by the
@@ -184,7 +191,15 @@ func taskFilterFrom(r *http.Request) (core.TaskFilter, error) {
 		Query:          q.Get("q"),
 		IncludeDeleted: boolParam(r, "include_deleted"),
 		Trashed:        triState(q.Get("trashed")),
+		Tally:          boolParam(r, "tally"),
 		Page:           page,
+	}
+	if raw := q.Get("page"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			return core.TaskFilter{}, core.Invalid("page %q is not a page number from 1", raw)
+		}
+		f.PageNumber = n
 	}
 	if f.Snoozed, f.IncludeSnoozed, err = snoozedParam(q.Get("snoozed")); err != nil {
 		return core.TaskFilter{}, err
@@ -536,6 +551,20 @@ func (rt *Router) handleRestoreTask(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, task)
 }
 
+// handlePurgeTask permanently deletes a task in the trash.
+func (rt *Router) handlePurgeTask(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	if err := rt.cfg.Service.PurgeTask(r.Context(), ref); err != nil {
+		WriteError(w, err)
+		return
+	}
+	writeNoContent(w)
+}
+
 // handleTrashStatus answers whether the tenant keeps deleted tasks.
 func (rt *Router) handleTrashStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := rt.cfg.Service.TrashStatus(r.Context())
@@ -563,6 +592,25 @@ func (rt *Router) handleCopyTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusCreated, task)
+}
+
+// handleMoveTask moves a task to another project and answers with what moved.
+func (rt *Router) handleMoveTask(w http.ResponseWriter, r *http.Request) {
+	ref, err := taskRef(r)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	var in core.MoveTaskInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	moved, err := rt.cfg.Service.MoveTask(r.Context(), ref, in)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, moved)
 }
 
 // handleTaskTree returns a task and its descendants.
@@ -830,6 +878,26 @@ func (rt *Router) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 	writeNoContent(w)
 }
 
+// handleAddReaction adds the caller's emoji reaction to a comment.
+func (rt *Router) handleAddReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.AddReaction)
+}
+
+// handleRemoveReaction removes the caller's emoji reaction from a comment.
+func (rt *Router) handleRemoveReaction(w http.ResponseWriter, r *http.Request) {
+	rt.reactionAction(w, r, rt.cfg.Service.RemoveReaction)
+}
+
+func (rt *Router) reactionAction(w http.ResponseWriter, r *http.Request,
+	act func(context.Context, string, string) (*core.Comment, error)) {
+	comment, err := act(r.Context(), r.PathValue("id"), r.PathValue("emoji"))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, comment)
+}
+
 // handleListArtifacts returns a task's artifacts.
 func (rt *Router) handleListArtifacts(w http.ResponseWriter, r *http.Request) {
 	ref, err := taskRef(r)
@@ -843,6 +911,16 @@ func (rt *Router) handleListArtifacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeList(w, r, artifacts, "")
+}
+
+// handleArtifactLimits reports the bounds a new artifact blob is held to.
+func (rt *Router) handleArtifactLimits(w http.ResponseWriter, r *http.Request) {
+	limits, err := rt.cfg.Service.ArtifactLimits(r.Context())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, limits)
 }
 
 // handlePutArtifact records structured output on a task.

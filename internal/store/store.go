@@ -63,12 +63,16 @@ type Tx interface {
 	ViewTx
 	SavedFilterTx
 	CalendarTx
+	DAVTx
 	InviteTx
 	InboxTx
 	InboxChannelTx
 	TemplateTx
 	HousekeepingTx
 	TimePrefsTx
+	IdempotencyTx
+	SSOTx
+	SCIMTx
 
 	Commit() error
 	Rollback() error
@@ -93,6 +97,12 @@ type UnscopedTx interface {
 	CreateTenant(ctx context.Context, t *core.Tenant) error
 	UpdateTenant(ctx context.Context, t *core.Tenant) error
 	DeleteTenant(ctx context.Context, id string) error
+	// PutTenantIcon, GetTenantIcon and DeleteTenantIcon keep a tenant's icon
+	// image on its row. They reach across tenants because a person's
+	// switcher draws the icon of every tenant they belong to.
+	PutTenantIcon(ctx context.Context, img *core.TenantIconImage) error
+	GetTenantIcon(ctx context.Context, tenantID string) (*core.TenantIconImage, error)
+	DeleteTenantIcon(ctx context.Context, tenantID string) error
 	GetUserByEmail(ctx context.Context, email string) (*core.User, string, error)
 	// ListMemberships returns every tenant an account holds a membership in.
 	// An account is global, so deciding whether a change to it reaches past
@@ -188,11 +198,23 @@ type TaskTx interface {
 	CreateTask(ctx context.Context, t *core.Task) error
 	GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error)
 	ListTasks(ctx context.Context, f core.TaskFilter) ([]core.Task, error)
+	// CountTasks counts what ListTasks would select under f, stopping at
+	// limit; the page, its cursor and its ordering are ignored.
+	CountTasks(ctx context.Context, f core.TaskFilter, limit int) (int, error)
+	// TallyTasks counts what ListTasks would select under f, per project and
+	// status; the page, its cursor and its ordering are ignored.
+	TallyTasks(ctx context.Context, f core.TaskFilter) ([]core.StateCount, error)
+	// SeekTask returns the n-th task, from one, of f's walk from its cursor,
+	// without its relations or body, or nil when the walk holds fewer than n.
+	SeekTask(ctx context.Context, f core.TaskFilter, n int) (*core.Task, error)
 	UpdateTask(ctx context.Context, t *core.Task) error
 	DeleteTask(ctx context.Context, id string, hard bool) error
 	RestoreTask(ctx context.Context, id string) error
 	// MoveTask puts a task into another project under a new number and status.
 	MoveTask(ctx context.Context, id, projectID string, seq int64, status string) error
+	// AddTaskAlias keeps a number a task had in a project it moved out of, so
+	// GetTask still resolves the old reference.
+	AddTaskAlias(ctx context.Context, projectID string, seq int64, taskID string) error
 	// NextSeq reserves the next per-project task number.
 	NextSeq(ctx context.Context, projectID string) (int64, error)
 	Children(ctx context.Context, parentID string) ([]core.Task, error)
@@ -214,6 +236,16 @@ type TaskTx interface {
 	ListComments(ctx context.Context, taskID string) ([]core.Comment, error)
 	UpdateComment(ctx context.Context, c *core.Comment) error
 	DeleteComment(ctx context.Context, id string) error
+	// AddReaction records an actor's emoji on a comment, reporting whether it
+	// was new.
+	AddReaction(ctx context.Context, commentID, actorID, emoji string) (bool, error)
+	// RemoveReaction removes an actor's emoji on a comment, reporting whether
+	// there was one.
+	RemoveReaction(ctx context.Context, commentID, actorID, emoji string) (bool, error)
+	// ClearReactions removes every reaction on a comment.
+	ClearReactions(ctx context.Context, commentID string) error
+	// ListReactions returns the reactions on the given comments, oldest first.
+	ListReactions(ctx context.Context, commentIDs []string) ([]core.CommentReaction, error)
 
 	PutArtifact(ctx context.Context, a *core.Artifact) error
 	ListArtifacts(ctx context.Context, taskID string) ([]core.Artifact, error)
@@ -245,6 +277,53 @@ type ViewTx interface {
 	DeleteGroupPrefs(ctx context.Context, actorID, view, group string) (int64, error)
 }
 
+// Idempotency key states. A row is reserved while its request runs, executed
+// once that request's write has committed, and done once its response is kept.
+const (
+	IdempotencyReserved = "reserved"
+	IdempotencyExecuted = "executed"
+	IdempotencyDone     = "done"
+)
+
+// IdempotencyRecord is one client retry key and what its request answered.
+type IdempotencyRecord struct {
+	ID          string
+	ActorID     string
+	Key         string
+	Fingerprint string
+	State       string
+	Status      int
+	ContentType string
+	Body        []byte
+	CreatedAt   time.Time
+	// LeaseExpiresAt bounds how long a reserved or executed row counts as
+	// still running.
+	LeaseExpiresAt time.Time
+	// ExpiresAt is when the key stops answering and may be pruned.
+	ExpiresAt time.Time
+}
+
+// IdempotencyTx covers the keys clients send to retry a write safely.
+type IdempotencyTx interface {
+	// GetIdempotencyKey returns an actor's row for a key, or not found.
+	GetIdempotencyKey(ctx context.Context, actorID, key string) (*IdempotencyRecord, error)
+	// CreateIdempotencyKey inserts a row, assigning its identifier when empty.
+	// A key the actor already holds is a conflict.
+	CreateIdempotencyKey(ctx context.Context, r *IdempotencyRecord) error
+	// MarkIdempotencyExecuted moves a reserved row to executed. A row in any
+	// other state, or no row, is left alone.
+	MarkIdempotencyExecuted(ctx context.Context, id string) error
+	// FinishIdempotencyKey writes a row's state, response and expiry.
+	FinishIdempotencyKey(ctx context.Context, r *IdempotencyRecord) error
+	// DeleteIdempotencyKey removes one row.
+	DeleteIdempotencyKey(ctx context.Context, id string) error
+	// PruneIdempotencyKeys deletes at most limit rows that expired before the
+	// cutoff, oldest expiry first.
+	PruneIdempotencyKeys(ctx context.Context, before time.Time, limit int) (int64, error)
+	// CountExpiredIdempotencyKeys counts the rows that expired before the cutoff.
+	CountExpiredIdempotencyKeys(ctx context.Context, before time.Time) (int, error)
+}
+
 // SavedFilterTx covers each actor's named task filters.
 type SavedFilterTx interface {
 	// SavedFilters lists the filters an actor owns and the ones shared with
@@ -262,6 +341,75 @@ type SavedFilterTx interface {
 // MaxListedFilters bounds one SavedFilters read: a reader's own, at most
 // core.MaxSavedFilters, and the tenant's shared ones.
 const MaxListedFilters = 2000
+
+// DAVTx covers app passwords and the CalDAV sync tokens answered for them.
+type DAVTx interface {
+	// CreateDAVPassword stores what an app password exposes, beside the
+	// api_tokens row whose identifier is p.ID.
+	CreateDAVPassword(ctx context.Context, p *core.DAVPassword) error
+	// GetDAVPassword returns the settings of the app password behind a token.
+	GetDAVPassword(ctx context.Context, tokenID string) (*core.DAVPassword, error)
+	// ListDAVPasswords returns an actor's app password settings, oldest first.
+	// Revocation, expiry and last use are the tokens', read separately.
+	ListDAVPasswords(ctx context.Context, actorID string) ([]core.DAVPassword, error)
+	// GetDAVSyncState returns the snapshot a sync token names.
+	GetDAVSyncState(ctx context.Context, tokenID, collection, setHash string) (*DAVSyncState, error)
+	// PutDAVSyncState stores a snapshot, replacing the one of the same set.
+	PutDAVSyncState(ctx context.Context, s *DAVSyncState) error
+	// PruneDAVSyncStates removes an app password's snapshots of a collection
+	// seen before the given instant, except the keep most recently seen.
+	PruneDAVSyncStates(ctx context.Context, tokenID, collection string, keep int, before time.Time) (int64, error)
+	// InvalidateDAVSyncStates spends the "nothing changed" short cut of every
+	// snapshot an actor's app passwords hold, so the next sync lists again.
+	InvalidateDAVSyncStates(ctx context.Context, actorID string) error
+
+	// CreateDAVObject records the UID and resource name a client gave a task
+	// it created. A UID or a name already in the tenant is a conflict.
+	CreateDAVObject(ctx context.Context, o *DAVObjectName) error
+	// GetDAVObjectByName and GetDAVObjectByUID find a client-created task.
+	GetDAVObjectByName(ctx context.Context, name string) (*DAVObjectName, error)
+	GetDAVObjectByUID(ctx context.Context, uid string) (*DAVObjectName, error)
+	// ListDAVObjects returns the client names of those of the tasks that have one.
+	ListDAVObjects(ctx context.Context, taskIDs []string) ([]DAVObjectName, error)
+	// GetDAVProps returns what is kept for an actor, by task, for those of
+	// the tasks that have any.
+	GetDAVProps(ctx context.Context, actorID string, taskIDs []string) (map[string]string, error)
+	// PutDAVProps replaces what is kept for an actor and a task; empty props
+	// removes it.
+	PutDAVProps(ctx context.Context, actorID, taskID, props string, at time.Time) error
+}
+
+// DAVObjectName is a client's UID and resource name for a task it created
+// over CalDAV.
+type DAVObjectName struct {
+	TaskID    string
+	UID       string
+	Name      string
+	CreatedAt time.Time
+}
+
+// DAVSyncState is one snapshot a CalDAV sync token stands for. It is a cache
+// of what was answered, not domain state, so writing it is never audited.
+type DAVSyncState struct {
+	TokenID    string
+	ActorID    string
+	Collection string
+	// SetHash names the set of members, and is the sync token.
+	SetHash string
+	// Members are the names and entity tags the collection held.
+	Members []core.DAVMember
+	// EventSeq is the tenant's latest event sequence when it was taken, and
+	// EventMark the count of events in the span below it that the short cut
+	// compares, so a write committing out of sequence order is not missed.
+	EventSeq  int64
+	EventMark int64
+	// Config names what else the rendering depended on.
+	Config string
+	// ValidUntil is the first moment the set could change with no event: a
+	// finished task ageing out of the window, or a snooze passing.
+	ValidUntil time.Time
+	SeenAt     time.Time
+}
 
 // CalendarTx covers each actor's calendar feed.
 type CalendarTx interface {
@@ -462,14 +610,30 @@ type AuthTx interface {
 	DeleteUser(ctx context.Context, id string) error
 
 	// CreateSession stores a session token hash for an actor, with how the
-	// sign-in that minted it went.
+	// sign-in that minted it went. Its created_at is origin.SignedInAt when
+	// set.
 	CreateSession(ctx context.Context, actorID, tokenHash string, expiresAt time.Time, origin core.SessionOrigin) error
-	// GetSessionOrigin returns how the session behind a hash was minted.
+	// GetSessionOrigin returns how the session behind a hash was minted,
+	// SignedInAt being its created_at.
 	GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error)
 	// DeleteActorSessions ends every session an actor holds, so removing or
 	// disabling a user takes effect immediately rather than at expiry.
 	DeleteActorSessions(ctx context.Context, actorID string) (int64, error)
+	// ListActorSessions returns a page of an actor's sessions that expire
+	// after now, each with its token hash so the caller can tell which one
+	// was presented.
+	ListActorSessions(ctx context.Context, actorID string, now time.Time, page core.Page) ([]SessionRecord, error)
+	// DeleteActorSession removes one of an actor's sessions by identifier. A
+	// session of another actor, or none, is not found.
+	DeleteActorSession(ctx context.Context, actorID, id string) error
 	GetSessionByHash(ctx context.Context, tokenHash string) (actorID string, expiresAt time.Time, err error)
+	// GetSessionLastSeen returns when the session behind a hash last
+	// authenticated a request, its sign-in time when it never has since.
+	GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error)
+	// TouchSession records that the session behind a hash authenticated a
+	// request at the given time and, when expiresAt is not zero, moves its
+	// expiry there.
+	TouchSession(ctx context.Context, tokenHash string, at, expiresAt time.Time) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 
@@ -478,13 +642,17 @@ type AuthTx interface {
 	// GetToken returns one token of this tenant by identifier, so a caller
 	// that is about to change it can record whose it was.
 	GetToken(ctx context.Context, id string) (*core.APIToken, error)
+	// GetLiveTokenByName returns the unrevoked token of this tenant carrying
+	// the name, so a token can be addressed the way people remember it.
+	GetLiveTokenByName(ctx context.Context, name string) (*core.APIToken, error)
 	ListTokens(ctx context.Context, actorID string) ([]core.APIToken, error)
 	// TokenNameInUse reports whether an unrevoked token of this tenant already
 	// carries the given name, whichever actor holds it. Revoked names are free
 	// again, which is the same window the unique index enforces.
 	TokenNameInUse(ctx context.Context, name string) (bool, error)
 	RevokeToken(ctx context.Context, id string, at time.Time) error
-	// RevokeActorTokens revokes every token an actor holds.
+	// RevokeActorTokens revokes every token an actor holds, ending a rotated
+	// token's grace window as well.
 	RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error)
 	TouchToken(ctx context.Context, id string, at time.Time) error
 
@@ -567,6 +735,9 @@ type EventTx interface {
 	AppendEvent(ctx context.Context, e *core.Event) error
 	ReadEvents(ctx context.Context, sinceSeq int64, limit int) ([]core.Event, error)
 	LatestEventSeq(ctx context.Context) (int64, error)
+	// CountEventsAfter counts this tenant's events with a sequence number
+	// above afterSeq.
+	CountEventsAfter(ctx context.Context, afterSeq int64) (int64, error)
 
 	AppendAudit(ctx context.Context, e *core.AuditEntry) error
 	ListAudit(ctx context.Context, f core.AuditFilter) ([]core.AuditEntry, error)
@@ -599,10 +770,10 @@ type HousekeepingTx interface {
 	ExpiredTrash(ctx context.Context, projectID string, before time.Time, limit int) ([]core.Task, error)
 	CountExpiredTrash(ctx context.Context, projectID string, before time.Time) (int, error)
 	// TrashedChildren returns a task's children soft deleted before the
-	// cutoff.
+	// cutoff, or at any time when the cutoff is zero.
 	TrashedChildren(ctx context.Context, parentID string, before time.Time) ([]core.Task, error)
 	// PurgeTrashed permanently deletes one task if it is still in the trash
-	// and was deleted before the cutoff.
+	// and was deleted before the cutoff, or at any time when it is zero.
 	PurgeTrashed(ctx context.Context, taskID string, before time.Time) (bool, error)
 }
 
@@ -659,6 +830,9 @@ type StatsTx interface {
 	// CountTrashed counts the soft-deleted tasks, in one project when
 	// projectID is set.
 	CountTrashed(ctx context.Context, projectID string) (int, error)
+	// NumberingBehind lists the projects, by key, whose task number counter
+	// reads below the highest number one of their tasks holds.
+	NumberingBehind(ctx context.Context) ([]core.NumberingLag, error)
 }
 
 // WorkCounts totals one tenant's work.
@@ -704,4 +878,137 @@ type StatsRows struct {
 	Created      int
 	StatusCounts map[string]int
 	Oldest       []core.Task
+}
+
+// SessionRecord is a stored session as a listing reads it: what a person may
+// see of it, and the token hash that never leaves the service.
+type SessionRecord struct {
+	core.SessionInfo
+	TokenHash string
+}
+
+// SSOTx covers the tenant's single sign-on providers and the identities linked
+// through them.
+type SSOTx interface {
+	ListSSOProviders(ctx context.Context) ([]core.SSOProvider, error)
+	// GetSSOProvider finds a provider by identifier or key.
+	GetSSOProvider(ctx context.Context, ref string) (*core.SSOProvider, error)
+	CreateSSOProvider(ctx context.Context, p *core.SSOProvider) error
+	UpdateSSOProvider(ctx context.Context, p *core.SSOProvider) error
+	// RecordSSOProviderRefresh rewrites a provider's settings after a read of
+	// its IdP metadata without touching updated_at.
+	RecordSSOProviderRefresh(ctx context.Context, p *core.SSOProvider) error
+	DeleteSSOProvider(ctx context.Context, id string) error
+	GetUserIdentity(ctx context.Context, providerID, subject string) (*core.UserIdentity, error)
+	// GetUserIdentityByUser finds the identity a provider links to a user.
+	GetUserIdentityByUser(ctx context.Context, providerID, userID string) (*core.UserIdentity, error)
+	CreateUserIdentity(ctx context.Context, i *core.UserIdentity) error
+	// TouchUserIdentity records a sign-in and the email it reported.
+	TouchUserIdentity(ctx context.Context, id, email string, at time.Time) error
+	// ConsumeSSOAssertion records a SAML assertion id as used until
+	// expiresAt, after deleting the tenant's rows that expired before now. An
+	// id already recorded for the provider is a conflict.
+	ConsumeSSOAssertion(ctx context.Context, providerID, assertionID string, expiresAt, now time.Time) error
+	// CreateSSOHandoff records the code an app sign-in hands the app, after
+	// deleting the tenant's rows that expired before now.
+	CreateSSOHandoff(ctx context.Context, h *SSOHandoff, now time.Time) error
+	// TakeSSOHandoff deletes and returns the code whose hash is codeHash,
+	// after deleting the tenant's rows that expired before now. A code that
+	// is unknown, already taken or expired at now is not found; of two takes
+	// of one code, only one finds it.
+	TakeSSOHandoff(ctx context.Context, codeHash string, now time.Time) (*SSOHandoff, error)
+}
+
+// SSOHandoff is the one-time code an app sign-in through a provider handed
+// the app, as the store holds it: hashed, bound to the PKCE challenge, the
+// account and the provider.
+type SSOHandoff struct {
+	ID            string
+	ProviderID    string
+	CodeHash      string
+	CodeChallenge string
+	UserID        string
+	// Method is the session's sign-in method, sso:KEY.
+	Method string
+	// SecondFactor reports that a second factor was passed in the browser,
+	// or vouched for by the provider.
+	SecondFactor bool
+	ExpiresAt    time.Time
+}
+
+// SCIMConfig is a tenant's SCIM provisioning switch as the store holds it.
+type SCIMConfig struct {
+	Enabled        bool
+	AgentID        string
+	LastActivityAt *time.Time
+	UpdatedAt      time.Time
+}
+
+// SCIMUserRow is what a provider pushed about one member, keyed by actor.
+type SCIMUserRow struct {
+	ActorID    string
+	UserName   string
+	ExternalID string
+	Email      string
+	GivenName  string
+	FamilyName string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// SCIMGroupRow is one group a provider pushed, without its members.
+type SCIMGroupRow struct {
+	ID          string
+	DisplayName string
+	ExternalID  string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// SCIMTx holds what SCIM provisioning stores: the switch, the provider's view
+// of each member, its groups and the group to role mappings.
+type SCIMTx interface {
+	// GetSCIMConfig returns the tenant's switch, zero when it was never set.
+	GetSCIMConfig(ctx context.Context) (SCIMConfig, error)
+	PutSCIMConfig(ctx context.Context, c SCIMConfig) error
+	// TouchSCIM records a provider's change at the given time.
+	TouchSCIM(ctx context.Context, at time.Time) error
+
+	GetSCIMUser(ctx context.Context, actorID string) (*SCIMUserRow, error)
+	// SCIMUsersByName, SCIMUsersByExternalID and SCIMUsersByEmail find rows
+	// by the userName ignoring case, the externalId exactly and the address
+	// ignoring case.
+	SCIMUsersByName(ctx context.Context, userName string) ([]SCIMUserRow, error)
+	SCIMUsersByExternalID(ctx context.Context, externalID string) ([]SCIMUserRow, error)
+	SCIMUsersByEmail(ctx context.Context, email string) ([]SCIMUserRow, error)
+	// PutSCIMUser writes a member's row, creating it when absent.
+	PutSCIMUser(ctx context.Context, r SCIMUserRow) error
+	DeleteSCIMUser(ctx context.Context, actorID string) error
+	CountSCIMUsers(ctx context.Context) (int, error)
+
+	// ListSCIMGroups returns every group, ordered by identifier.
+	ListSCIMGroups(ctx context.Context) ([]SCIMGroupRow, error)
+	GetSCIMGroup(ctx context.Context, id string) (*SCIMGroupRow, error)
+	// SCIMGroupsByName and SCIMGroupsByExternalID find groups by display name
+	// ignoring case and by externalId exactly.
+	SCIMGroupsByName(ctx context.Context, name string) ([]SCIMGroupRow, error)
+	SCIMGroupsByExternalID(ctx context.Context, externalID string) ([]SCIMGroupRow, error)
+	CreateSCIMGroup(ctx context.Context, g SCIMGroupRow) error
+	UpdateSCIMGroup(ctx context.Context, g SCIMGroupRow) error
+	DeleteSCIMGroup(ctx context.Context, id string) error
+	// SCIMGroupMembers lists a group's members by actor, ordered.
+	SCIMGroupMembers(ctx context.Context, groupID string) ([]string, error)
+	// SetSCIMGroupMembers replaces a group's members.
+	SetSCIMGroupMembers(ctx context.Context, groupID string, actorIDs []string) error
+	// SCIMGroupsOf lists the groups an actor belongs to.
+	SCIMGroupsOf(ctx context.Context, actorID string) ([]SCIMGroupRow, error)
+	// DropSCIMMember removes an actor from every group.
+	DropSCIMMember(ctx context.Context, actorID string) error
+
+	// SCIMGroupRoles lists the group to role mappings by group name.
+	SCIMGroupRoles(ctx context.Context) ([]core.SCIMGroupRole, error)
+	// PutSCIMGroupRole maps a group name, ignoring case, to a role.
+	PutSCIMGroupRole(ctx context.Context, r core.SCIMGroupRole) error
+	// DeleteSCIMGroupRole removes a mapping, reporting whether there was one.
+	DeleteSCIMGroupRole(ctx context.Context, group string) (bool, error)
 }

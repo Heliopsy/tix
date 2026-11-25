@@ -19,17 +19,20 @@ import (
 type accountFake struct {
 	*fakeService
 
-	tokens  []core.APIToken
-	keys    []core.SSHKey
-	totp    *core.TOTPStatus
-	log     []core.AccountLogEntry
-	logErr  error
-	totpErr error
+	tokens   []core.APIToken
+	keys     []core.SSHKey
+	totp     *core.TOTPStatus
+	log      []core.AccountLogEntry
+	logErr   error
+	totpErr  error
+	sessions []core.SessionInfo
 
 	createdTokens []core.CreateTokenInput
 	revokedTokens []string
+	rotatedTokens map[string]core.RotateTokenInput
 	enrolledKeys  []core.EnrolSSHKeyInput
 	revokedKeys   []string
+	revokedSess   []string
 	codes         []string
 	began         int
 	removed       int
@@ -50,6 +53,15 @@ func (f *accountFake) GetAccountLog(context.Context, core.Page) ([]core.AccountL
 	return f.log, "", f.logErr
 }
 
+func (f *accountFake) ListSessions(context.Context, core.Page) ([]core.SessionInfo, string, error) {
+	return f.sessions, "", nil
+}
+
+func (f *accountFake) RevokeSession(_ context.Context, id string) error {
+	f.revokedSess = append(f.revokedSess, id)
+	return nil
+}
+
 func (f *accountFake) CreateToken(_ context.Context, in core.CreateTokenInput) (*core.IssuedToken, error) {
 	f.createdTokens = append(f.createdTokens, in)
 	return &core.IssuedToken{APIToken: core.APIToken{ID: "tok-new", Name: in.Name, Scopes: in.Scopes},
@@ -59,6 +71,14 @@ func (f *accountFake) CreateToken(_ context.Context, in core.CreateTokenInput) (
 func (f *accountFake) RevokeToken(_ context.Context, id string) error {
 	f.revokedTokens = append(f.revokedTokens, id)
 	return nil
+}
+
+func (f *accountFake) RotateToken(_ context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	if f.rotatedTokens == nil {
+		f.rotatedTokens = map[string]core.RotateTokenInput{}
+	}
+	f.rotatedTokens[id] = in
+	return &core.IssuedToken{APIToken: core.APIToken{ID: "tok-rotated", Name: "rotated"}, Token: "tix_rotatedvalue"}, nil
 }
 
 func (f *accountFake) EnrolSSHKey(_ context.Context, in core.EnrolSSHKeyInput) (*core.SSHKey, error) {
@@ -101,13 +121,16 @@ func (f *accountFake) RegenerateRecoveryCodes(context.Context) (*core.TOTPRecove
 func accountService() *accountFake {
 	at := time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
 	later := at.AddDate(1, 0, 0)
+	gone := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 	return &accountFake{
 		fakeService: newFakeService(),
 		tokens: []core.APIToken{
 			{ID: "tok-ci", Name: "ci-bot", Scopes: []core.Scope{core.ScopeTaskRead}, CreatedAt: at, ExpiresAt: &later},
-			{ID: "tok-old", Name: "old-bot", Scopes: []core.Scope{core.ScopeTaskWrite}, CreatedAt: at, RevokedAt: &at},
+			{ID: "tok-old", Name: "old-bot", Scopes: []core.Scope{core.ScopeTaskWrite}, CreatedAt: gone, RevokedAt: &gone},
 		},
 		keys: []core.SSHKey{{ID: "key-laptop", Label: "laptop", Fingerprint: "SHA256:abc", CreatedAt: at}},
+		sessions: []core.SessionInfo{{ID: "sess-firefox", CreatedAt: at, ExpiresAt: later, Method: "password",
+			SecondFactor: true, UserAgent: "Firefox/140"}},
 		totp: &core.TOTPStatus{RequiredSSH: true},
 		log: []core.AccountLogEntry{
 			{Seq: 2, Action: core.AccountMemberAdded, TenantKey: "acme", ByEmail: "root@example.test",
@@ -180,6 +203,8 @@ func TestTheAccountScreenListsWhatItRead(t *testing.T) {
 		{"tokens (2):", "task:read"},
 		{"tokens (2):", "revoked"},
 		{"ssh keys (1):", "SHA256:abc"},
+		{"sessions (1):", "password + second factor"},
+		{"sessions (1):", "Firefox/140"},
 		{"account log, newest first:", "account.membership_added  in acme  by root@example.test as global admin  via web  role=admin"},
 		{"account log, newest first:", "by the system  via cli-local"},
 	} {
@@ -336,6 +361,7 @@ func TestRevokingNamesTheTokenOrKeyAndWaitsForAgreement(t *testing.T) {
 	}{
 		{accountRowToken, "tok-ci", "revoke token ci-bot?", func(f *accountFake) []string { return f.revokedTokens }},
 		{accountRowKey, "key-laptop", "revoke key laptop,", func(f *accountFake) []string { return f.revokedKeys }},
+		{accountRowSession, "sess-firefox", "revoke session sess-firefox,", func(f *accountFake) []string { return f.revokedSess }},
 	} {
 		m, svc := accountModel(t)
 		m = selectRow(t, m, tc.kind, tc.id)
@@ -567,7 +593,7 @@ func TestRemovingRefusesARowWithNothingToRemove(t *testing.T) {
 		kind AccountRowKind
 		want string
 	}{
-		{"a log entry", accountRowLog, "select a token, a key or the second factor"},
+		{"a log entry", accountRowLog, "select a token, a key, a session or the second factor"},
 		{"a factor that is off", accountRowFactor, "no second factor is on"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -585,5 +611,78 @@ func TestRemovingRefusesARowWithNothingToRemove(t *testing.T) {
 				t.Errorf("the refusal says %q, want %q", m.err, tc.want)
 			}
 		})
+	}
+}
+
+func TestRotatingATokenAsksForAGraceConfirmsAndShowsTheValueOnce(t *testing.T) {
+	m, svc := accountModel(t)
+	m = selectRow(t, m, accountRowToken, "tok-ci")
+	m, _ = m.reduce(pressKey("R"))
+	if m.form.Kind != formRotateToken {
+		t.Fatalf("R opened %v, want the rotate form", m.form.Kind)
+	}
+	if got := m.form.Value("grace"); got != "Stop the old token now" {
+		t.Errorf("the rotate form proposes %q, want the old token stopped at once", got)
+	}
+	m, _ = fill(t, m, map[string]string{"grace": "Keep it working for 10 minutes"})
+	if q := m.confirm.Question(); !strings.Contains(q, "rotate token ci-bot") || !strings.Contains(q, "10 minutes") {
+		t.Fatalf("the confirmation asks %q, want it to name the token and the grace", q)
+	}
+	if len(svc.rotatedTokens) != 0 {
+		t.Fatal("the rotation ran before agreement")
+	}
+	m, cmd := m.reduce(pressKey("y"))
+	m = drainAccount(t, m, cmd)
+	in, ok := svc.rotatedTokens["tok-ci"]
+	if !ok || len(svc.rotatedTokens) != 1 || in.Grace.D() != 10*time.Minute {
+		t.Fatalf("RotateToken got %v, want tok-ci with a 10 minute grace", svc.rotatedTokens)
+	}
+	frame := m.Frame()
+	if !strings.Contains(adminSection(t, frame, "token rotated, rotated and shown once; copy it now:"), "tix_rotatedvalue") {
+		t.Errorf("the rotated value is not drawn:\n%s", frame)
+	}
+	if strings.Contains(m.statusBar(), "tix_rotatedvalue") {
+		t.Error("the rotated value went to the status bar")
+	}
+}
+
+func TestATokenThatCannotBeRotatedIsNotOffered(t *testing.T) {
+	future := time.Now().Add(time.Hour)
+	for _, tc := range []struct {
+		name, id, says string
+		token          *core.APIToken
+	}{
+		{"revoked", "tok-old", "no longer works", nil},
+		{"retiring", "tok-retiring", "already rotated",
+			&core.APIToken{ID: "tok-retiring", Name: "swap", Scopes: []core.Scope{core.ScopeTaskRead}, RevokedAt: &future}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, svc := accountModel(t)
+			if tc.token != nil {
+				svc.tokens = append(svc.tokens, *tc.token)
+				m = drainAccount(t, m, m.loadAccount())
+			}
+			m = selectRow(t, m, accountRowToken, tc.id)
+			m, _ = m.reduce(pressKey("R"))
+			if m.form.Open() || m.confirm.Open() || len(svc.rotatedTokens) != 0 {
+				t.Fatal("a token with nothing to replace was offered for rotation")
+			}
+			if !strings.Contains(m.err, tc.says) {
+				t.Errorf("the refusal says %q, want %q", m.err, tc.says)
+			}
+		})
+	}
+}
+
+func TestTheRotateKeyIsDocumentedAndGated(t *testing.T) {
+	t.Parallel()
+	has := func(help []HelpEntry) bool {
+		return slices.ContainsFunc(help, func(e HelpEntry) bool { return e.Desc == "rotate the selected token" })
+	}
+	if !has(DefaultKeyMap().ViewHelp(viewAccount, permitAll)) {
+		t.Error("the account help does not list the rotate key")
+	}
+	if has(DefaultKeyMap().ViewHelp(viewAccount, permitOnly())) {
+		t.Error("a reader who may rotate nothing is offered the rotate key")
 	}
 }

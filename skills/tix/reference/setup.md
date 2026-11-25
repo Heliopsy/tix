@@ -40,6 +40,7 @@ target  server https://tix.example.com (context work)
 tenant  default
 user    ci-agent
 token   yes, from context work
+theme   default (#0f766e, dark #2dd4bf)
 ```
 
 ### Connecting to a server
@@ -122,7 +123,8 @@ call `dep add` or `task add` (so, if it writes its own plan down, it needs
 `task:write`), `artifact:write` if it records artifacts, `task:delete` to
 remove tasks, `event:subscribe` for `tix watch`, and `task:reclaim` only for a
 supervisor that takes leases away from dead workers. `task:reclaim` is not
-implied by `task:claim`. An unknown scope is `invalid`, exit `2`:
+implied by `task:claim`. `task:approve` is for a reviewer who signs off work on
+an edge that names it, never for the agent doing that work. An unknown scope is `invalid`, exit `2`:
 
 ```console
 $ tix token create x --scope nosuch
@@ -144,6 +146,19 @@ nothing is created. An admin email that already has an account becomes an admin
 of the new tenant with its own password and second factor, so no password is
 printed for it.
 
+For an agent, mint one token per agent with `--require-claim`, and if you
+want history to name the agent, `--actor` an agent actor of its own:
+
+```sh
+tix token create worker-1 --actor worker-1 --project infra --require-claim \
+  --scope task:read --scope task:claim --scope task:transition --scope comment:write
+```
+
+Such a token changes a task (move, edit, tag, project move, delete) only
+while its actor holds a live claim on it; anything else is exit `5`, with a
+message naming `tix claim task REF --start`. Claiming, `task add`, comments
+and reads are unaffected. `tix token rotate` keeps the setting.
+
 `--project` on `token create` takes either the project's key or its id, same
 as `-p`/`--project` everywhere else (`--project infra` works); an unknown key
 or id is a clean `not_found`, exit `3`.
@@ -156,8 +171,23 @@ $ tix token create ci-agent --scope task:read
 error: conflict: a token named "ci-agent" already exists; revoke it or choose another name
 ```
 
-That is exit `4`. Revoking frees the name, so rotation is `tix token rm ID`
-then the same `token create` again.
+That is exit `4`. Revoking frees the name.
+
+To replace a token, rotate it: `tix token rotate NAME` issues a new one with
+the same name, scopes, project, claim requirement and lifetime (counted from
+now), prints it once,
+and retires the old one. You may rotate the token you run on without
+`token:admin`. `--grace 10m` (up to `24h`) keeps the old value working while you
+swap, so nothing fails mid-run:
+
+```sh
+new=$(tix token rotate ci-agent --grace 10m -o json | jq -r .token)
+tix ctx add work --server "$SERVER" --token "$new" --use
+```
+
+Save the printed value before the window closes; it is not shown again. A
+token already rotated and still in its window is exit `4`: rotate its
+replacement. Leave `--grace` off after a leak, so the old value stops at once.
 
 `--expires` (default 90d) bounds the token: a duration such as `90d`, a date,
 an RFC 3339 timestamp, or `never`. **A token you mint without saying anything
@@ -177,6 +207,104 @@ tix token create ci-agent --expires never --scope task:read
 them. Revoking a token that is not yours is recorded as `token.revoke_other`
 in the audit trail, so it can be told apart from somebody rotating their own.
 
+### Your own sessions
+
+`tix account sessions` lists your browser and terminal sign-ins in this tenant
+(identifier, created, expires, method, second factor, user agent, current);
+`tix account sessions revoke ID` ends one. Only your own: another person's
+identifier exits `3`. A token needs `account:read`, which `*` lacks (exit `5`);
+the token `tix login --tenant` stores has it. Session tokens are never printed.
+
+### App passwords for calendar and reminders apps
+
+`tix dav password create iPhone` issues an app password, a token carrying only
+the `caldav` scope, that a person types into Apple Reminders, DAVx5 (tasks.org),
+Thunderbird or Evolution with their sign-in email as the username. It prints
+once. `--collections` picks `assigned` (the default), `projects` or `all`, and
+`--expires` defaults to `never`; `--read-only` keeps that client from changing
+tasks. `tix dav show` prints the address and
+username, `tix dav password list` and `tix dav password revoke ID` manage them.
+Any person who reads tasks may create one; an agent is refused, exit `5`.
+`tix token create --scope caldav` is refused too. The password works only under
+`/dav/` and is refused on the API, so it is never a token for `tix ctx add`.
+A client can tick off, edit, add and cancel tasks as its owner, within their
+current role; deleting a reminder cancels the task and never trashes it, and
+the change is recorded on the `caldav` channel (`tix audit ls --via caldav`).
+The project's `docs/caldav.md` owns the details.
+
+### The second factor policy
+
+`tix tenant edit KEY --mfa-policy required --mfa-grace 7d` makes a second
+factor compulsory in that tenant on every surface; `--mfa-policy off` lifts it.
+Once the grace is over, a person with no factor, and every token minted for
+them, is refused everything but enrolment with exit `5`, reason
+`second_factor_enrollment_required` (HTTP 403). Tokens of actors with no
+account behind them, agents and the machine-local actor, are exempt. Turning
+the policy on is refused, exit `6`, while you hold no factor yourself, so enrol
+first (`tix user totp enrol`, on a terminal). `tix user ls --without-2fa` lists
+who still has to enrol; `tix user ls` shows a 2FA column (`--include-removed`
+adds people removed from the tenant). The older per-surface switches
+`--require-totp-web`, `--require-totp-cli` and `--require-totp-ssh` only ask
+for a code at sign-in on that surface; they gate no token and no live session. `tix whoami -o json`
+carries `second_factor_due` while you owe one, and `tix login` warns with the
+deadline during the grace and, without a terminal, exits `5` naming
+`/settings/totp`.
+
+```sh
+tix user ls --without-2fa
+tix tenant edit acme --mfa-policy required --mfa-grace 7d
+```
+
+### Single sign-on
+
+A tenant admin (scope `sso:admin`) adds sign-in providers per tenant: OIDC
+(`--kind oidc --issuer URL`), GitHub (`--kind oauth_github`) or SAML
+(`--kind saml --idp-metadata-url URL`, or `--idp-metadata-file FILE`). The
+secret is read from standard input and never printed again; SAML has none. `--auto-create` makes an
+account for a verified email nobody holds, and `--trust-mfa` skips the
+tenant's second factor when the ID token says one was passed; both are off
+by default. Register
+`PUBLIC_URL/login/sso/callback` with an OIDC or GitHub provider. A SAML IdP
+takes `PUBLIC_URL/login/sso/saml/KEY/acs` as its ACS URL and
+`PUBLIC_URL/login/sso/saml/KEY/metadata` as the SP entity id; `tix tenant sso
+metadata KEY` prints that metadata. `tix serve` rereads a SAML provider's
+metadata URL every 12h (`auth.saml_metadata_refresh`) so a certificate
+rollover needs nothing; `tix tenant sso refresh KEY` rereads it now, exit `7`
+when the IdP cannot be reached, and the old certificates keep working. Sign-ins started at the IdP's own portal
+are refused unless the provider is added with `--allow-idp-initiated`, off by
+default because nothing ties such a response to the browser that posts it.
+SAML signs in only in the browser, so an
+agent on a SAML tenant uses a token. `tix login --sso` (or
+`--sso=KEY` when there are several) signs in through one on a terminal and
+prints the same session as a password sign-in; `--no-browser` only prints
+the address. `tix tenant edit KEY
+--password-login disabled` turns passwords off once a provider is enabled;
+global admins keep password sign-in, and tokens and SSH keys keep working. A
+refused provider sign-in is exit `5` with reason `sso_...`; the details are in
+the audit log as `sso.denied`. The tix mobile app signs in through any kind,
+SAML included, in the system browser, for the addresses
+`auth.sso_app_redirects` lists; nothing changes at the IdP. See docs/sso.md.
+
+```sh
+tix tenant sso add kc --kind oidc --name Keycloak --issuer https://id.example.com/realms/acme --client-id tix-web --client-secret -
+tix tenant sso add okta --kind saml --name Okta --idp-metadata-url https://acme.okta.com/app/exk1abc/sso/saml/metadata
+tix tenant sso metadata okta
+tix tenant sso refresh okta
+tix tenant sso ls
+tix login --sso
+```
+
+### How long a sign-in lasts
+
+A sign-in lasts the server's `session.ttl` (12h) past its last use, for up to
+`session.max_lifetime` (30d); `tix login --remember`, or Keep me signed in on
+the web, asks for `session.remember_ttl` (30d, up to 90d) instead. A tenant
+admin can only tighten them: `tix tenant edit KEY --session-ttl 8h
+--session-idle-timeout 30m --session-remember-ttl off`, `""` to use the
+server's again. A longer value than the server's is refused, exit `2`. The idle
+timeout applies at once to live sessions; a new lifetime only to new sign-ins.
+`tix tenant session-policy` prints what is in force and needs no sign-in.
+
 ## People: invites and password changes
 
 Bring a person in without choosing their password: `tix user invite EMAIL
@@ -195,6 +323,15 @@ edit --disabled` locks an account out instead, ending its sessions and tokens.
 tix user invite ada@example.com --role member --expires 48h
 tix user edit 01J000000000000000000A --require-password-change
 ```
+
+A tenant whose people come from an identity provider (Entra ID, Okta,
+Authentik, JumpCloud) uses SCIM instead: `tix tenant scim enable` turns it on
+and prints a token carrying `scim:provision` once, `tix tenant scim show`
+prints the `/scim/v2` endpoint to give the provider, and `tix tenant scim
+map-group NAME --role member` maps a provider group to a role. That scope is
+never carried by `*`, comes alone, and works nowhere but `/scim/v2`, so never
+ask for it for an agent. `tix audit ls --via scim` lists what the provider
+changed; the project's `docs/scim.md` owns the details.
 
 ## Workflows and custom fields
 
@@ -216,6 +353,25 @@ TTL a claim gets when it does not ask for one. The built-in workflow ships
 30m there, but that figure is a template nobody chose, so it is ignored in
 favour of the tenant's own `lease_default`; author a workflow of your own and
 its `default_lease` outranks the tenant again.
+
+Twelve built-in templates cover the common shapes (kanban, GTD, development
+with review, bug triage, releases, an agent queue with human sign-off,
+incidents, support, approvals, sales, hiring, editorial). List them before
+writing a workflow by hand; each row leads with its one-line purpose:
+
+```sh
+tix workflow template ls -o json
+tix workflow template apply tix-agent-review            # exit 4 if the key is taken
+tix workflow template apply tix-sales --as deals --on-collision rename
+tix project create q "Agent queue" --workflow-template tix-agent-review
+```
+
+`--workflow-template` also adds the template's custom fields to the project;
+applying a template on its own creates only the workflow. Keys starting with
+`tix-` are reserved for templates, so `tix workflow put` refuses a new one
+(exit 2). In `tix-agent-review` and `tix-approval`, approving and rejecting
+need the `task:approve` scope, which an agent's token should not carry: move
+the task to `needs_review` and leave the decision to a human.
 
 Custom fields are per-project typed slots on a task:
 
@@ -243,7 +399,7 @@ tix audit ls --via mcp --token ci-agent
 ```
 
 Each entry's `via` says how the change arrived: `web`, `api`, `cli-local`,
-`cli-remote`, `ssh`, `mcp`, `sync`, `import` or `system`, with the token's
+`cli-remote`, `ssh`, `mcp`, `sync`, `import`, `scim`, `caldav` or `system`, with the token's
 name, never its secret. Filter on it with `--via` and `--token`, or `via:` and
 `token:` in `--filter`.
 
@@ -265,6 +421,14 @@ between a crashed task coming back to `todo` on its own and sitting in `doing`
 until somebody sweeps. `tix serve --ssh-listen <addr>` adds the SSH listener
 beside it; see [ssh.md](ssh.md). `tix serve --help` has the deployment flags,
 and the project's `docs/deployment.md` owns that subject.
+
+A script calling the HTTP API that may resend a write after a dropped
+connection sends an `Idempotency-Key` header, one UUID per logical write, on
+every attempt. A repeat with the same key and body answers the first response
+with `Idempotent-Replayed: true` instead of creating a second task; the same
+key with a different body is `422`, and one still running is `409` with
+`Retry-After`. The CLI and the MCP tools do not retry and send no key. The
+project's `docs/api.md`, "Retrying safely", owns the details.
 
 `tix tui` is the terminal interface over the same store. It is what a human
 watching your queue will be looking at.
@@ -464,8 +628,13 @@ tix webhook ls -o json
 tix webhook put https://example.test/hook --event task.released
 tix webhook put https://example.test/hook --event task.released --inactive
 tix webhook redeliver DELIVERYID
+tix webhook ping ENDPOINTID
 ```
 
-`--inactive` registers the endpoint without arming it. `tix status` reports
+`--inactive` registers the endpoint without arming it. A `put` without
+`--secret` prints the generated signing secret once, as `secret`; nothing
+shows it again. `ping` sends one signed `webhook.ping` delivery to that
+endpoint only and prints the delivery, so you can check a receiver before
+any real event; an inactive endpoint is exit `6`. `tix status` reports
 pending and failed deliveries, and `tix serve` is what dispatches them: with
 no server running, a registered webhook fires nothing.

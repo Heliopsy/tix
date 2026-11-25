@@ -10,6 +10,7 @@ import (
 
 	"github.com/heliopsy/tix/internal/core"
 	"github.com/heliopsy/tix/internal/id"
+	"github.com/heliopsy/tix/internal/store"
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
@@ -119,7 +120,7 @@ func (t *tx) ListActors(ctx context.Context, page core.Page) ([]core.Actor, erro
 
 var userColumns = []string{
 	"id", "email", "display_name", "created_at", "updated_at", "disabled_at",
-	"sso_provider", "sso_subject", "global_admin", "require_password_change",
+	"global_admin", "require_password_change",
 }
 
 func scanUser(s scanner) (core.User, error) {
@@ -130,7 +131,7 @@ func scanUser(s scanner) (core.User, error) {
 		disabled sql.NullTime
 	)
 	if err := s.Scan(&u.ID, &u.Email, &u.DisplayName, &created, &updated, &disabled,
-		&u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &u.RequirePasswordChange); err != nil {
+		&u.GlobalAdmin, &u.RequirePasswordChange); err != nil {
 		return core.User{}, mapErr(err, "scanning user")
 	}
 	u.CreatedAt = scanTime(created)
@@ -158,8 +159,6 @@ func (t *tx) CreateUser(ctx context.Context, u *core.User, passwordHash string) 
 		Set("created_at", timeArg(u.CreatedAt)).
 		Set("updated_at", timeArg(u.UpdatedAt)).
 		Set("disabled_at", nullTimeArg(u.DisabledAt)).
-		Set("sso_provider", u.SSOProvider).
-		Set("sso_subject", u.SSOSubject).
 		Set("require_password_change", u.RequirePasswordChange)
 	_, err := t.execInsert(ctx, ins, "creating user %q", u.Email)
 	return err
@@ -193,7 +192,7 @@ func (t *tx) GetUserByEmail(ctx context.Context, email string) (*core.User, stri
 		hash     string
 	)
 	err := t.ex.QueryRowContext(ctx, q, args...).Scan(&u.ID, &u.Email, &u.DisplayName,
-		&created, &updated, &disabled, &u.SSOProvider, &u.SSOSubject, &u.GlobalAdmin, &u.RequirePasswordChange, &hash)
+		&created, &updated, &disabled, &u.GlobalAdmin, &u.RequirePasswordChange, &hash)
 	if err != nil {
 		if mapped := mapErr(err, "reading user %q", email); core.IsKind(mapped, core.KindNotFound) {
 			return nil, "", core.NotFound("user %q", email)
@@ -242,8 +241,6 @@ func (t *tx) UpdateUser(ctx context.Context, u *core.User, passwordHash string) 
 		Set("display_name", u.DisplayName).
 		Set("updated_at", timeArg(u.UpdatedAt)).
 		Set("disabled_at", nullTimeArg(u.DisabledAt)).
-		Set("sso_provider", u.SSOProvider).
-		Set("sso_subject", u.SSOSubject).
 		Set("require_password_change", u.RequirePasswordChange)
 	if passwordHash != "" {
 		b.Set("password_hash", passwordHash)
@@ -300,10 +297,12 @@ func (t *tx) CreateSession(ctx context.Context, actorID, tokenHash string, expir
 		Set("id", id.New()).
 		Set("actor_id", actorID).
 		Set("token_hash", tokenHash).
-		Set("created_at", t.now()).
+		Set("created_at", t.signedIn(origin.SignedInAt)).
 		Set("expires_at", timeArg(expiresAt)).
 		Set("method", origin.Method).
-		Set("second_factor", origin.SecondFactor)
+		Set("user_agent", origin.UserAgent).
+		Set("second_factor", origin.SecondFactor).
+		Set("remembered", origin.Remembered)
 	_, err := t.execInsert(ctx, ins, "creating session for actor %q", actorID)
 	return err
 }
@@ -332,22 +331,88 @@ func (t *tx) GetSessionByHash(ctx context.Context, tokenHash string) (string, ti
 // GetSessionOrigin returns how the session behind a hash was minted.
 func (t *tx) GetSessionOrigin(ctx context.Context, tokenHash string) (core.SessionOrigin, error) {
 	b := t.builder("sessions").
-		Select("method", "second_factor").
+		Select("method", "second_factor", "remembered", "created_at").
 		Where("token_hash = ?", tokenHash).
 		Limit(1)
 	q, args := b.SelectQuery()
 	var (
-		out    core.SessionOrigin
-		factor bool
+		out     core.SessionOrigin
+		factor  bool
+		created sql.NullTime
 	)
-	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor); err != nil {
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&out.Method, &factor, &out.Remembered, &created); err != nil {
 		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
 			return core.SessionOrigin{}, core.NotFound("session not found")
 		}
 		return core.SessionOrigin{}, mapErr(err, "reading session")
 	}
 	out.SecondFactor = factor
+	out.SignedInAt = scanTime(created)
 	return out, nil
+}
+
+// signedIn is the created_at a session is stored with: at, or now when zero.
+func (t *tx) signedIn(at time.Time) time.Time {
+	if at.IsZero() {
+		return t.now()
+	}
+	return at.UTC()
+}
+
+var sessionColumns = []string{"id", "created_at", "expires_at", "method", "second_factor", "user_agent", "token_hash",
+	"remembered"}
+
+func scanSession(s scanner) (store.SessionRecord, error) {
+	var (
+		r       store.SessionRecord
+		created sql.NullTime
+		expires sql.NullTime
+		factor  bool
+	)
+	if err := s.Scan(&r.ID, &created, &expires, &r.Method, &factor, &r.UserAgent, &r.TokenHash, &r.Remembered); err != nil {
+		return store.SessionRecord{}, mapErr(err, "scanning session")
+	}
+	r.CreatedAt, r.ExpiresAt, r.SecondFactor = scanTime(created), scanTime(expires), factor
+	return r, nil
+}
+
+// ListActorSessions returns a page of an actor's sessions that expire after now.
+func (t *tx) ListActorSessions(ctx context.Context, actorID string, now time.Time, page core.Page,
+) ([]store.SessionRecord, error) {
+	spec, err := resolvePage(page, core.SortCreatedAt, map[string]string{core.SortCreatedAt: "created_at"})
+	if err != nil {
+		return nil, err
+	}
+	b := t.builder("sessions").Select(sessionColumns...).
+		Where("actor_id = ?", actorID).
+		Where("expires_at > ?", timeArg(now))
+	rows, err := t.query(ctx, spec.apply(b, "id"), "listing sessions of actor %q", actorID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []store.SessionRecord{}
+	for rows.Next() {
+		r, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, mapRowsErr(rows, "listing sessions")
+}
+
+// DeleteActorSession removes one of an actor's sessions by identifier.
+func (t *tx) DeleteActorSession(ctx context.Context, actorID, sessionID string) error {
+	b := t.builder("sessions").Where("id = ?", sessionID).Where("actor_id = ?", actorID)
+	n, err := t.execDelete(ctx, b, "deleting session %q", sessionID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("session %q", sessionID)
+	}
+	return nil
 }
 
 // DeleteSession removes one session.
@@ -371,7 +436,7 @@ func (t *tx) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, e
 
 var tokenColumns = []string{
 	"id", "tenant_id", "actor_id", "name", "scopes", "project_id",
-	"created_at", "expires_at", "last_used_at", "revoked_at",
+	"created_at", "expires_at", "last_used_at", "revoked_at", "require_claim",
 }
 
 func scanToken(s scanner) (core.APIToken, error) {
@@ -385,7 +450,7 @@ func scanToken(s scanner) (core.APIToken, error) {
 		revoked  sql.NullTime
 	)
 	if err := s.Scan(&tk.ID, &tk.TenantID, &tk.ActorID, &tk.Name, &scopes, &project,
-		&created, &expires, &lastUsed, &revoked); err != nil {
+		&created, &expires, &lastUsed, &revoked, &tk.RequireClaim); err != nil {
 		return core.APIToken{}, mapErr(err, "scanning api token")
 	}
 	tk.ProjectID = text(project)
@@ -422,7 +487,8 @@ func (t *tx) CreateToken(ctx context.Context, tk *core.APIToken, tokenHash strin
 		Set("created_at", timeArg(tk.CreatedAt)).
 		Set("expires_at", nullTimeArg(tk.ExpiresAt)).
 		Set("last_used_at", nullTimeArg(tk.LastUsedAt)).
-		Set("revoked_at", nullTimeArg(tk.RevokedAt))
+		Set("revoked_at", nullTimeArg(tk.RevokedAt)).
+		Set("require_claim", tk.RequireClaim)
 	_, err = t.execInsert(ctx, ins, "creating api token %q", tk.Name)
 	return err
 }
@@ -449,6 +515,24 @@ func (t *tx) GetToken(ctx context.Context, id string) (*core.APIToken, error) {
 	if err != nil {
 		if core.IsKind(err, core.KindNotFound) {
 			return nil, core.NotFound("api token %q", id)
+		}
+		return nil, err
+	}
+	return &tk, nil
+}
+
+// GetLiveTokenByName returns the unrevoked token of this tenant carrying a
+// name, which the live-name unique index makes at most one.
+func (t *tx) GetLiveTokenByName(ctx context.Context, name string) (*core.APIToken, error) {
+	b := t.builder("api_tokens").Select(tokenColumns...).
+		Where("name = ?", name).
+		Where("revoked_at IS NULL").
+		Limit(1)
+	q, args := b.SelectQuery()
+	tk, err := scanToken(t.ex.QueryRowContext(ctx, q, args...))
+	if err != nil {
+		if core.IsKind(err, core.KindNotFound) {
+			return nil, core.NotFound("api token %q", name)
 		}
 		return nil, err
 	}
@@ -531,14 +615,55 @@ func (t *tx) DeleteActorSessions(ctx context.Context, actorID string) (int64, er
 	return t.execDelete(ctx, b, "deleting sessions for actor %q", actorID)
 }
 
-// RevokeActorTokens revokes every token an actor holds that is not already revoked.
+// RevokeActorTokens revokes every token an actor holds that is not already
+// revoked, a rotated one still inside its grace window included.
 func (t *tx) RevokeActorTokens(ctx context.Context, actorID string, at time.Time) (int64, error) {
 	if strings.TrimSpace(actorID) == "" {
 		return 0, core.Invalid("actor id must not be empty")
 	}
 	b := t.builder("api_tokens").
 		Where("actor_id = ?", actorID).
-		Where("revoked_at IS NULL").
+		Where("(revoked_at IS NULL OR revoked_at > ?)", timeArg(at)).
 		Set("revoked_at", timeArg(at))
 	return t.execUpdate(ctx, b, "revoking tokens for actor %q", actorID)
+}
+
+// GetSessionLastSeen returns when the session behind a hash last
+// authenticated a request, or when it signed in if it has not since.
+func (t *tx) GetSessionLastSeen(ctx context.Context, tokenHash string) (time.Time, error) {
+	b := t.builder("sessions").
+		Select("created_at", "last_seen_at").
+		Where("token_hash = ?", tokenHash).
+		Limit(1)
+	q, args := b.SelectQuery()
+	var created, seen sql.NullTime
+	if err := t.ex.QueryRowContext(ctx, q, args...).Scan(&created, &seen); err != nil {
+		if mapped := mapErr(err, "reading session"); core.IsKind(mapped, core.KindNotFound) {
+			return time.Time{}, core.NotFound("session not found")
+		}
+		return time.Time{}, mapErr(err, "reading session")
+	}
+	if seen.Valid {
+		return scanTime(seen), nil
+	}
+	return scanTime(created), nil
+}
+
+// TouchSession records that the session behind a hash authenticated a
+// request, and the expiry that use renewed it to when expiresAt is not zero.
+func (t *tx) TouchSession(ctx context.Context, tokenHash string, at, expiresAt time.Time) error {
+	b := t.builder("sessions").
+		Where("token_hash = ?", tokenHash).
+		Set("last_seen_at", timeArg(at))
+	if !expiresAt.IsZero() {
+		b = b.Set("expires_at", timeArg(expiresAt))
+	}
+	n, err := t.execUpdate(ctx, b, "touching session")
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return core.NotFound("session not found")
+	}
+	return nil
 }

@@ -1,5 +1,367 @@
 # Changelog
 
+## [0.69.0](https://github.com/Heliopsy/tix/compare/v0.68.3...v0.69.0) (2026-11-25)
+
+
+### Features
+
+* **caldav:** serve tasks as VTODO over CalDAV, read only ([3ebb5d5](https://github.com/Heliopsy/tix/commit/3ebb5d5a92b77c694b1e8d327f01381c7d68e606))
+* **caldav:** write tasks back over PUT and DELETE ([e64fce9](https://github.com/Heliopsy/tix/commit/e64fce96cb40c3c7c5ab88d545f1e0d12f70b74a))
+* **ical:** read a client's VTODO back, with its dates and what tix keeps ([87fdf48](https://github.com/Heliopsy/tix/commit/87fdf482cf13730aaf2cf8837e96aee73bda036a))
+* **store:** keep client UIDs, names and kept properties for CalDAV ([a12699a](https://github.com/Heliopsy/tix/commit/a12699aca036f6cd9acb5ee3a38c5f8c36859bb3))
+
+
+### Bug Fixes
+
+* **caldav:** hash a Basic password for tenant lookup only when it is shaped like a token ([903434e](https://github.com/Heliopsy/tix/commit/903434e12407e41df500972b1ca5dc58111ebdce))
+
+## [0.68.3](https://github.com/Heliopsy/tix/compare/v0.68.2...v0.68.3) (2026-11-24)
+
+
+### Documentation
+
+* list the API examples in the README ([0e1d8d8](https://github.com/Heliopsy/tix/commit/0e1d8d8a6e519697490af96e58c8eb11737f3a56))
+
+## [0.68.2](https://github.com/Heliopsy/tix/compare/v0.68.1...v0.68.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **auth:** report held-back refusal counts and keep the refusal log bounded ([2eae245](https://github.com/Heliopsy/tix/commit/2eae2451ddbb5ec50647ea053e12fa639472e2ee))
+* **sso:** close the edges of native app sign-in ([d7f2db2](https://github.com/Heliopsy/tix/commit/d7f2db22522d76b23a816f088daa8d2529862e8a))
+
+## [0.68.1](https://github.com/Heliopsy/tix/compare/v0.68.0...v0.68.1) (2026-11-23)
+
+
+### Dependencies
+
+* **deps:** bump playwright ([d8880e2](https://github.com/Heliopsy/tix/commit/d8880e2489efd8f94b903a7ea90ceda116a89d84))
+* **deps:** bump the go-modules group across 1 directory with 13 updates ([92cfc1f](https://github.com/Heliopsy/tix/commit/92cfc1f9c9fc9da02f3489e0d3d82613a1b81b17))
+
+## [0.68.0](https://github.com/Heliopsy/tix/compare/v0.67.0...v0.68.0) (2026-11-20)
+
+
+### Features
+
+* **sso:** sign in from a native app through the system browser ([e8f8e8a](https://github.com/Heliopsy/tix/commit/e8f8e8a63c57aa8b5ed4cc01576888d806d50085))
+
+## [0.67.0](https://github.com/Heliopsy/tix/compare/v0.66.0...v0.67.0) (2026-11-19)
+
+
+### Features
+
+* **auth:** log why a credential was refused, and which client sent it ([107df94](https://github.com/Heliopsy/tix/commit/107df94b3e3d0362f17e0a889aaa092c7f78a760))
+
+## [0.66.0](https://github.com/Heliopsy/tix/compare/v0.65.0...v0.66.0) (2026-11-19)
+
+
+### Features
+
+* **web:** one three dots task menu on every view ([aceb42b](https://github.com/Heliopsy/tix/commit/aceb42bd1607a11f87131d9f7862c28c4fff3b94))
+
+
+### Bug Fixes
+
+* **web:** say why the lane card's htmx attributes are safe to gosec ([bf6eb17](https://github.com/Heliopsy/tix/commit/bf6eb1711daac0ed3ae496b9997cee155557f188))
+
+## [0.65.0](https://github.com/Heliopsy/tix/compare/v0.64.0...v0.65.0) (2026-11-19)
+
+
+### Features
+
+* single sign-on through SAML 2.0 identity providers ([9e855b8](https://github.com/Heliopsy/tix/commit/9e855b80990ded98f4230c166a18babbc8d7f442))
+* **sso:** reread SAML IdP metadata on a schedule ([496479a](https://github.com/Heliopsy/tix/commit/496479ae4e50aa3d2c43c2701a457cb8f4f054ed))
+
+
+### Bug Fixes
+
+* **sso:** drop the summed capacity hint when merging IdP certificates ([ed590f6](https://github.com/Heliopsy/tix/commit/ed590f64fdf04cecc06b65bde648db49b1a5b0e6))
+* **sso:** vet the IdP metadata URL before reading it ([e335916](https://github.com/Heliopsy/tix/commit/e3359165a4174c8edf8055d8f255bb250212acff))
+
+## [0.64.0](https://github.com/Heliopsy/tix/compare/v0.63.0...v0.64.0) (2026-11-17)
+
+
+### Features
+
+* single sign-on per tenant with OIDC and GitHub ([#356](https://github.com/Heliopsy/tix/issues/356)) ([d451da2](https://github.com/Heliopsy/tix/commit/d451da2aab71623f0655ba94f37bb7f2081458ab))
+
+## [0.63.0](https://github.com/Heliopsy/tix/compare/v0.62.0...v0.63.0) (2026-11-17)
+
+
+### Features
+
+* provision users and groups from an identity provider over SCIM 2.0 ([8d134c3](https://github.com/Heliopsy/tix/commit/8d134c3fa3dbc51b6a9d3b20e8e71f7112c98bf9))
+
+## [0.62.0](https://github.com/Heliopsy/tix/compare/v0.61.0...v0.62.0) (2026-11-14)
+
+
+### Features
+
+* a token can require a claim before it changes a task ([1dd77ee](https://github.com/Heliopsy/tix/commit/1dd77eeedbddd481840637c9541fee6861832ebb))
+
+
+### Bug Fixes
+
+* **i18n:** mark the token claim strings as interface text for gosec ([fe4d69e](https://github.com/Heliopsy/tix/commit/fe4d69ec4cb4ec86357086354c65e09ddc1eceb3))
+
+## [0.61.0](https://github.com/Heliopsy/tix/compare/v0.60.0...v0.61.0) (2026-11-14)
+
+
+### Features
+
+* a tenant can carry an icon, shown wherever tenants are switched ([6a09c0f](https://github.com/Heliopsy/tix/commit/6a09c0fb8874604959c4fc092fbc15aca003b40a))
+
+
+### Bug Fixes
+
+* read the tenant icon membership through membershipsOf, cover it in the matrix ([5ee2fb9](https://github.com/Heliopsy/tix/commit/5ee2fb9113a8ba31020b27e786797705d4bf5b00))
+
+## [0.60.0](https://github.com/Heliopsy/tix/compare/v0.59.0...v0.60.0) (2026-11-13)
+
+
+### Features
+
+* **api:** answer the task listing's tally when asked ([79b2cec](https://github.com/Heliopsy/tix/commit/79b2cec503a4ebd48580bd7f19c6ef5231cb1943))
+* **auth:** renew a session on use, up to a maximum lifetime ([40b3602](https://github.com/Heliopsy/tix/commit/40b360252e8dd4375aa2f83c25b6fe6e42f637c2))
+* **i18n:** French catalog for the web, worded after the app ([af75a49](https://github.com/Heliopsy/tix/commit/af75a49b68761b7bef2ed4f774ddad7429825539))
+* **i18n:** German and French text for the diagnostics section ([f106fac](https://github.com/Heliopsy/tix/commit/f106facb0d944cd7781c5781f6993317c8ce17ad))
+* **i18n:** German catalog for the web, worded after the app ([3fd64a9](https://github.com/Heliopsy/tix/commit/3fd64a991eb77c2db30c182111bd7560c747a1b4))
+* **service:** list the inbox by kind ([2f64bdd](https://github.com/Heliopsy/tix/commit/2f64bdd57eab599353bb2ff2cb9f1a447be2ef82))
+* **web:** a Live events screen that follows the tenant's event stream ([066ae1e](https://github.com/Heliopsy/tix/commit/066ae1e58060b974384014d8d8f59c639b13d38d))
+* **web:** copy diagnostics for a bug report from the release screen ([902382f](https://github.com/Heliopsy/tix/commit/902382fc14cb1384ad6df5f47b866897732c11db))
+* **web:** inbox by day, kind chips, a summary card and Stop on each item ([7649029](https://github.com/Heliopsy/tix/commit/7649029ca0ed9205e43970f47b9dd8a26c045c39))
+* **web:** install the web interface as an app, with launcher shortcuts and a share target ([7adf54b](https://github.com/Heliopsy/tix/commit/7adf54bb3c19880853c4543b50be2e29ce5b9a8a))
+* **web:** offer Deutsch and Français, keep Bulgarian complete and the others above 95% ([8f5c074](https://github.com/Heliopsy/tix/commit/8f5c074ee0b9ca4b90a8439d2455041bf18740bf))
+* **web:** offer Undo after completing or snoozing from the list ([134ab78](https://github.com/Heliopsy/tix/commit/134ab782a4eb142db8c4575f12e4705f1b997d1b))
+* **web:** one keyboard table with the app: go-to chords, task keys and an Off scheme ([9cdbff3](https://github.com/Heliopsy/tix/commit/9cdbff319f555137179f4701edd801401309ca51))
+* **web:** open a task in a resizable panel beside the list ([5a8c0c0](https://github.com/Heliopsy/tix/commit/5a8c0c078aa58c3069bf86143628f8e0552dc363))
+* **web:** palette creates from templates, switches tenant, picks a scheme and acts on the open task ([94f570d](https://github.com/Heliopsy/tix/commit/94f570d81024ad25ff1f31eb3d98942a9a74485e))
+* **web:** quick add completes #tag, [@handle](https://github.com/handle) and +project, adds another and pastes ([bd69574](https://github.com/Heliopsy/tix/commit/bd69574a1eb95b5d69c15381ab82f92972e8d9af))
+* **web:** row actions menu, assign to me, due date on lane cards and undo for every quick action ([85ae13a](https://github.com/Heliopsy/tix/commit/85ae13a530f49957d650c592b68dda0824273a8c))
+* **web:** settings search, where each setting is kept, start screen, reduce motion and browser notifications ([0c4f62c](https://github.com/Heliopsy/tix/commit/0c4f62ca92f759dc4d4bdb2832cc582dadd740b8))
+* **web:** show the live connection state in the shell, with its details ([2743c89](https://github.com/Heliopsy/tix/commit/2743c89b71c4deac7c3be7f50cade3f30a4ba0ef))
+* **web:** swipe a task row on a touch screen to complete or snooze it ([5df86e5](https://github.com/Heliopsy/tix/commit/5df86e5638d9eb1458d9dddada7fd3b03f1a4a99))
+
+
+### Bug Fixes
+
+* **i18n:** cover the new web strings in German and French ([3fc77a3](https://github.com/Heliopsy/tix/commit/3fc77a353dc5508c1ad39e4cec405e9355cdab5d))
+* **i18n:** follow session renewal and the task panel in German and French ([3b9c409](https://github.com/Heliopsy/tix/commit/3b9c409726de275ae474dc409595d93cd2624cb7))
+* **i18n:** follow the Manage group and waiting-on keys in German and French ([0a4f890](https://github.com/Heliopsy/tix/commit/0a4f8902e6096504df54349948ea7bc0033dec6b))
+* **i18n:** mark the diagnostics catalog as interface text for gosec ([dd2c831](https://github.com/Heliopsy/tix/commit/dd2c831861e49476f8b167f9910151d1c5a3f95a))
+* **i18n:** mark the live status catalog as interface text for gosec ([7500991](https://github.com/Heliopsy/tix/commit/7500991f58136c21e35ed80f1a838fd3bb214804))
+* **web:** file Live events under Manage and let its cells wrap ([d995fda](https://github.com/Heliopsy/tix/commit/d995fda265f2952456a63168dec0e0c42b3dc8d5))
+* **web:** give the live events table the standard row states ([dd617d5](https://github.com/Heliopsy/tix/commit/dd617d5fd772f042464803a1e7267bf98ad29875))
+* **web:** give the quick add box back its room on a phone ([e15884c](https://github.com/Heliopsy/tix/commit/e15884ce6e15e7dd39beffe78279118e182d9d25))
+* **web:** keep quick add from the clipboard in the shared key table, and follow the new key labels in German and French ([89569f1](https://github.com/Heliopsy/tix/commit/89569f19780329d4530558818b5b65a794d79af9))
+* **web:** keep the quick add row on one line on a phone and a tablet ([c9a972c](https://github.com/Heliopsy/tix/commit/c9a972c5f6aee3731e633639a576a3f901083e46))
+* **web:** label the live event link Show, since the inbox already owns Open in Bulgarian ([eba81f3](https://github.com/Heliopsy/tix/commit/eba81f3a573cd1c67d8afcf40fb2425ec898d357))
+* **web:** tell the row menu's current status apart from the status column ([07805d7](https://github.com/Heliopsy/tix/commit/07805d73592dae2aab62ba16398ad3137913dbda))
+* **web:** wrap a long tag inside the row menu's chips ([9f8908c](https://github.com/Heliopsy/tix/commit/9f8908c910813ddd39f07de8137ab500eb8a8b95))
+
+
+### Dependencies
+
+* **lint:** keep misspell off the German and French catalogs ([8521507](https://github.com/Heliopsy/tix/commit/8521507e1477625a254510cb279b8150cc31a099))
+
+## [0.59.0](https://github.com/Heliopsy/tix/compare/v0.58.0...v0.59.0) (2026-11-12)
+
+
+### Features
+
+* **api:** report the release check and bundled changelog at GET /release ([49081ec](https://github.com/Heliopsy/tix/commit/49081ec1fa319d235e6d5ba9ab015652fb50c562))
+* **claim:** claim and start in one call, finish releases the lease, honest mv --dry-run ([47caa9f](https://github.com/Heliopsy/tix/commit/47caa9f55b39b38ba0cde6e05877c786bb17c32f))
+* **web:** call the folded group Manage and give Templates a main entry ([e386c85](https://github.com/Heliopsy/tix/commit/e386c85c67ec94cc4799e77c23245a86ab184495))
+* **web:** count each project's open tasks on the projects screen ([3388a50](https://github.com/Heliopsy/tix/commit/3388a505fc845f0b150a8e5bb39b56dd593d0950))
+* **web:** narrow Activity to a time window and an action ([1747fc3](https://github.com/Heliopsy/tix/commit/1747fc3740889f7063fab673915f32c6e918891a))
+
+## [0.58.0](https://github.com/Heliopsy/tix/compare/v0.57.0...v0.58.0) (2026-11-11)
+
+
+### Features
+
+* **service:** configurable session lifetime, idle timeout and keep me signed in ([3219ce5](https://github.com/Heliopsy/tix/commit/3219ce5c3ec971a9d9bb5309295208437b5b1797))
+* **web:** keep me signed in on sign-in and session settings on every surface ([5acd5c9](https://github.com/Heliopsy/tix/commit/5acd5c9870bf77d97369b7a53508f65306e9d33b))
+
+## [0.57.0](https://github.com/Heliopsy/tix/compare/v0.56.1...v0.57.0) (2026-11-11)
+
+
+### Features
+
+* **cli:** tix task move and bulk move-project ([e9f4033](https://github.com/Heliopsy/tix/commit/e9f403330bfcbc600afd493b5299f62904f36bd0))
+* copy an audit entry as JSON from the web UI and the TUI ([6c940de](https://github.com/Heliopsy/tix/commit/6c940de9417031adce89124f5f175088ccc33425))
+* emoji reactions on comments ([45a41a3](https://github.com/Heliopsy/tix/commit/45a41a3e6610a09450ced7e3defad76737afe414))
+* **service:** move a task to another project, keeping its old reference ([dc8fb9d](https://github.com/Heliopsy/tix/commit/dc8fb9d8e63f335daca1f60b2a8033ea4acbe626))
+* **tui:** d moves the selected task to another project ([586f811](https://github.com/Heliopsy/tix/commit/586f811f899ae005d9a4b995c3e7278ced66b425))
+* **web:** link a task history row's channel to that token's activity ([195b86f](https://github.com/Heliopsy/tix/commit/195b86f9c3e57cb1faa7e2b9882cf27cfba9a2c3))
+* **web:** Move to on the task screen and in the bulk bar ([b378c4c](https://github.com/Heliopsy/tix/commit/b378c4c43c3cfb0a1779147a924e3847d272d9d7))
+* **web:** show the token a sync run was started with beside who ran it ([bab9e05](https://github.com/Heliopsy/tix/commit/bab9e051027c33f286434f1354e51715a8611746))
+
+
+### Bug Fixes
+
+* **web:** draw the blocked state in red, board column headings included ([10a3234](https://github.com/Heliopsy/tix/commit/10a3234f16f1ca34d016635d17cc54e8506c13ea))
+* **web:** name the token an import or sync ran with instead of printing EXTRA ([4645824](https://github.com/Heliopsy/tix/commit/464582415690e55823b7a7a8bdb7a0f2e48401e4))
+* **web:** say waiting on other tasks for dependency waits and stop paging board columns ([#319](https://github.com/Heliopsy/tix/issues/319)) ([b75d2fa](https://github.com/Heliopsy/tix/commit/b75d2fa9450f3c4595fc854871f1516d1e35af02))
+
+
+### Dependencies
+
+* go 1.27.4 for GO-2026-6859 in net/http ([f7ffe6d](https://github.com/Heliopsy/tix/commit/f7ffe6ddec8621d77f9fa4aa33cd4dc44ef60f6e))
+
+## [0.56.1](https://github.com/Heliopsy/tix/compare/v0.56.0...v0.56.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **sshd:** tell a throttled connection why instead of failing its key ([bbdd6d4](https://github.com/Heliopsy/tix/commit/bbdd6d4f0df351c8a20354ec94f589241ed05fb9))
+
+## [0.56.0](https://github.com/Heliopsy/tix/compare/v0.55.0...v0.56.0) (2026-11-10)
+
+
+### Features
+
+* **cli:** tenant artifact limits, tix artifact limits and serve flags for them ([c6d58a4](https://github.com/Heliopsy/tix/commit/c6d58a4030119456dd6c868371f461f75b192c27))
+* **service:** configurable artifact size and type limits, tightened per tenant ([8c72a26](https://github.com/Heliopsy/tix/commit/8c72a266a2addfab5d81689a96ac80fd579ef95a))
+* **tui:** show and edit the tenant's artifact limits ([6f2f49f](https://github.com/Heliopsy/tix/commit/6f2f49f909d29c0533ccbeabb19f21abedf68918))
+* **web:** attach artifact files within the limits and download them as attachments ([953af40](https://github.com/Heliopsy/tix/commit/953af408936573d4968342f7ee5d0610586cd3f1))
+* **web:** reload an open tab into a new release when it is safe ([1bd9879](https://github.com/Heliopsy/tix/commit/1bd98791704f723ea05796676a42ad9dc4649a52))
+
+## [0.55.0](https://github.com/Heliopsy/tix/compare/v0.54.0...v0.55.0) (2026-11-10)
+
+
+### Features
+
+* **service:** give a new tenant its Default project with an icon and colour ([62bc7f2](https://github.com/Heliopsy/tix/commit/62bc7f206e73a09c2b61369d46c9e403e3731208))
+* **web:** a compact header on the task screens ([#300](https://github.com/Heliopsy/tix/issues/300)) ([26e7b4b](https://github.com/Heliopsy/tix/commit/26e7b4b1c6828bc1459714535cbd0b6f06219018))
+
+## [0.54.0](https://github.com/Heliopsy/tix/compare/v0.53.0...v0.54.0) (2026-11-09)
+
+
+### Features
+
+* **query:** read [@handle](https://github.com/handle) as an assignee term ([54fe936](https://github.com/Heliopsy/tix/commit/54fe936a12a048829c02318bcea4829354e30879))
+* **web:** make row selection a mode so the done circle is the only tick by default ([c4f7c54](https://github.com/Heliopsy/tix/commit/c4f7c54ed44cff5e958a5d94245e5a9edb281383))
+* **web:** one compact filter toolbar with chips, pickers and suggestions on the task screens ([9c7b0ea](https://github.com/Heliopsy/tix/commit/9c7b0eaf1b18699b875c3da60f3d065553a36756))
+* **web:** put the Select toggle in the filter toolbar and keep select mode through a filter ([d9cea16](https://github.com/Heliopsy/tix/commit/d9cea1635a3c12bf4c7872777e423d92d73e55ac))
+
+
+### Bug Fixes
+
+* **loadtest:** stop the seed workers copying the pool while it grows ([d8825eb](https://github.com/Heliopsy/tix/commit/d8825eb393d4f975ea8210808010fe96fbd40529))
+* **web:** keep the Bulgarian toolbar to two rows on a phone; lint the spec ([f72ffc8](https://github.com/Heliopsy/tix/commit/f72ffc8d17fa87a66b9ebb39035b3e93e2a7a06f))
+* **web:** point the hidden projects notice at the More menu, larger chip targets on touch ([2eb7ba4](https://github.com/Heliopsy/tix/commit/2eb7ba4ddc2770a543040006bd8d15f00550bd82))
+* **web:** settle the toolbar's CI findings: row count, view tip on a phone, suggestion rows, lint ([0ac169b](https://github.com/Heliopsy/tix/commit/0ac169bf0a5bbc5b554dbd348e575995ccb7eeb9))
+
+## [0.53.0](https://github.com/Heliopsy/tix/compare/v0.52.1...v0.53.0) (2026-11-09)
+
+
+### Features
+
+* **cmd:** list one page of tasks by number with tix task ls --page ([a0d219a](https://github.com/Heliopsy/tix/commit/a0d219a7198cd7bf49f1889c03be332ed35a39f1))
+* **service:** count a task listing and start it at a page number ([1b8363d](https://github.com/Heliopsy/tix/commit/1b8363d65386d4b6d7bd337daf52d7aae4e4fda6))
+* **tui:** say which page of a long project the board holds and page it with pgdown and pgup ([b52c1dd](https://github.com/Heliopsy/tix/commit/b52c1dde791ce37653af7a30f108ff63d41c2ced))
+* **web:** number the pager, say how many pages there are and jump to one ([710d4ef](https://github.com/Heliopsy/tix/commit/710d4efae14665610f0820dc3afb909f46e30aa9))
+* **workflows:** ship twelve built-in workflow templates ([0e8ea6a](https://github.com/Heliopsy/tix/commit/0e8ea6af85fc913b526ccd116c424de94aaddc14))
+
+
+### Bug Fixes
+
+* **auth:** bound concurrent argon2id hashing by memory and refuse when busy ([#295](https://github.com/Heliopsy/tix/issues/295)) ([7589509](https://github.com/Heliopsy/tix/commit/758950958d9007c3e63c4c23d1141e1868368d71))
+* **cli:** give an invite's absolute link over SSH when the public address is set ([585ffc2](https://github.com/Heliopsy/tix/commit/585ffc26267da30e8b609c5f2ad8410891fa0135))
+* **cli:** read --password - from standard input on user and tenant user commands ([df262c9](https://github.com/Heliopsy/tix/commit/df262c96e3dba3aafd1dbfe639f061d34708de50))
+* **httpapi:** give the logged tenant holder a context key of its own ([d2938ce](https://github.com/Heliopsy/tix/commit/d2938ce82a1efc30452a22190667d2e2aa37e011))
+* **httpapi:** log the tenant a request was served in ([f904ea5](https://github.com/Heliopsy/tix/commit/f904ea5d851ae1c9dd6bc78ec0e10f3bcd0f3edb))
+* keep task numbering ahead of imported tasks ([29cf92f](https://github.com/Heliopsy/tix/commit/29cf92f24a8bb71e5b9d0045b6f225554ef769d0))
+* stop the overdue badge parsing every task's markdown, and set GOMEMLIMIT from the container ([#289](https://github.com/Heliopsy/tix/issues/289)) ([d7771f9](https://github.com/Heliopsy/tix/commit/d7771f9d062163eb0f28a2acd6b8f4d08992e209))
+* **web:** close an open (i) tip on a press outside it, Escape or another tip ([ad61f04](https://github.com/Heliopsy/tix/commit/ad61f0402c8c57da6555fab25757af311384a361))
+* **web:** draw the tenant switcher with a switch icon, not the house ([e3f99f9](https://github.com/Heliopsy/tix/commit/e3f99f9e195cefd695058df8743cead292948b6c))
+
+
+### Dependencies
+
+* **api:** regenerate the OpenAPI document for the template listing's page fields ([8dd8241](https://github.com/Heliopsy/tix/commit/8dd8241f58fcb4da2888f380cad1510bf82a00b2))
+
+## [0.52.1](https://github.com/Heliopsy/tix/compare/v0.52.0...v0.52.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **httpapi:** log a request the client abandoned as 499, not 500 ([2cfce72](https://github.com/Heliopsy/tix/commit/2cfce72e2d90ebdfcde3ccc3b09f6df247862b93))
+
+## [0.52.0](https://github.com/Heliopsy/tix/compare/v0.51.0...v0.52.0) (2026-11-09)
+
+
+### Features
+
+* **view:** arrange lanes grouped by assignee, priority, tag or due ([2f28862](https://github.com/Heliopsy/tix/commit/2f288623e226373aaee61102a0a2643db4207826))
+* **web:** group lanes by assignee, priority, tag or due ([c494ef1](https://github.com/Heliopsy/tix/commit/c494ef189299e04777960034033c629da2c25d49))
+
+
+### Bug Fixes
+
+* **web:** clip a long lane name with an ellipsis instead of breaking it ([27e27f1](https://github.com/Heliopsy/tix/commit/27e27f18c8f5fdb0afe501632f28ea4cde3e8926))
+* **web:** keep a lane heading's name and count whole ([3331081](https://github.com/Heliopsy/tix/commit/3331081bc0922e6ab449678dab8f597afb7c8cf6))
+* **web:** let a task property label fit its column instead of spilling ([fba6e94](https://github.com/Heliopsy/tix/commit/fba6e94c043887f857ffc6471d9609b18cc9ca72))
+
+## [0.51.0](https://github.com/Heliopsy/tix/compare/v0.50.0...v0.51.0) (2026-11-09)
+
+
+### Features
+
+* **account:** list and revoke your own sessions ([e3036cd](https://github.com/Heliopsy/tix/commit/e3036cd2b642a6dfaac723842b98ef9eee5f95b3))
+* **api:** accept an Idempotency-Key on writes so a retry replays the first answer ([265f444](https://github.com/Heliopsy/tix/commit/265f4448d00d0be5e1e0daaad08adee74c9eb4f6))
+* **api:** long-poll the event log over plain HTTP ([84305d3](https://github.com/Heliopsy/tix/commit/84305d33c0f9fafa9a1e1a18a4f2b8bc63433c45))
+* **embedded:** choose the journal mode and checkpoint at stop ([fe6aed2](https://github.com/Heliopsy/tix/commit/fe6aed29572eb0ddfc157a4f1a15bc9704838c6d))
+* purge one task from the trash for good ([19c76f3](https://github.com/Heliopsy/tix/commit/19c76f3371a5df08290aa1b1c2b38c573f7ef935))
+* **server:** server.public_url gives tasks a web_url and links a public address ([818a293](https://github.com/Heliopsy/tix/commit/818a2933a303cc660a8a8cc84ccdda41320d3146))
+* **service:** tenant and resolved theme on whoami for every credential ([9df1862](https://github.com/Heliopsy/tix/commit/9df18621e1758151e8db3c4e6f032dc113925f4b))
+* **ssh:** run tix task link over ssh, from the task's web_url ([3eb967f](https://github.com/Heliopsy/tix/commit/3eb967f4eb4af43de1a4e1b9d87c8be7e2045cd0))
+* **store:** open SQLite in delete journal mode on request ([04f7045](https://github.com/Heliopsy/tix/commit/04f7045af9c5d4fb82f16bfbea6f79dff86016f9))
+* **tui:** share a task to the terminal clipboard with ^ ([3128503](https://github.com/Heliopsy/tix/commit/3128503d6a1ace2485c6652eeb60b488cb558751))
+* **web:** add an OLED colour scheme and System, OLED when dark ([1fda2ea](https://github.com/Heliopsy/tix/commit/1fda2eaf778526b788d5cd4fc4d8927477604a70))
+* **webhook:** ping one endpoint with a signed test delivery ([72e87d4](https://github.com/Heliopsy/tix/commit/72e87d405c467cd71036cc0e33a85839d6a15c0b))
+* **web:** list, board and lanes on the project page, with the filter kept across views ([2cdf666](https://github.com/Heliopsy/tix/commit/2cdf666db4158358f4221c5bfe9dda63361ee838))
+* **web:** share a task from its screen and a lane card, and print its link with tix task link ([53f75de](https://github.com/Heliopsy/tix/commit/53f75de520f8712dbbb7ba03f53de109caca80fe))
+* **web:** tabs on the Connect an agent screen ([8bc3e2b](https://github.com/Heliopsy/tix/commit/8bc3e2b84974e4da2e805243b1c33466732f3bc8))
+
+
+### Bug Fixes
+
+* **config:** read the themes block from the configuration file ([f1baec4](https://github.com/Heliopsy/tix/commit/f1baec4b83b58907abb188aa4d7412f2e5916c21))
+* **connect:** build the service with the configured themes ([0ed40af](https://github.com/Heliopsy/tix/commit/0ed40af2b815d39b579087bbcad5ee067434e5a9))
+* **i18n:** mark the session strings as interface text for gosec ([4b7fa92](https://github.com/Heliopsy/tix/commit/4b7fa92696658b62ec93bbd650fb263453d705ac))
+* leave people removed from a tenant out of its user listings ([3e07e07](https://github.com/Heliopsy/tix/commit/3e07e07ba93951edc59f1e4ab50989612ec3851d))
+* report how many tasks a project deletion removed ([9aa7659](https://github.com/Heliopsy/tix/commit/9aa7659f895d0641dad34ab25c643d8be6e087c2))
+* **webhook:** return a generated signing secret over HTTP ([7df0722](https://github.com/Heliopsy/tix/commit/7df07229c5b137bbd803522eb9f64cb59e41c4f3))
+* **web:** keep list and table words whole, and follow the scroll in the settings navigation ([#275](https://github.com/Heliopsy/tix/issues/275)) ([10ec5bb](https://github.com/Heliopsy/tix/commit/10ec5bb76ea0874af68c8d226749b654623da0ec))
+
+## [0.50.0](https://github.com/Heliopsy/tix/compare/v0.49.0...v0.50.0) (2026-11-08)
+
+
+### Features
+
+* **token:** rotate an API token with an optional grace window ([bb66093](https://github.com/Heliopsy/tix/commit/bb660931425ff5440c3e9e244eb80d7690a45504))
+
+## [0.49.0](https://github.com/Heliopsy/tix/compare/v0.48.0...v0.49.0) (2026-11-08)
+
+
+### Features
+
+* **embedded:** a C ABI for dart:ffi ([6191dbd](https://github.com/Heliopsy/tix/commit/6191dbd6b9bb8d1653b9bf56d1ddb7c0a7c04451))
+* **embedded:** run tix inside another process ([72296a8](https://github.com/Heliopsy/tix/commit/72296a8350da1a9993d9345a7bbd4b0b1c838d8a))
+
+
+### Bug Fixes
+
+* **embedded:** point the macOS build at the SDK and list the docs page ([b66e8b4](https://github.com/Heliopsy/tix/commit/b66e8b4456251a2086d50e07514f30b724d51d72))
+* **store:** let PostgreSQL migrations reach every tenant's rows ([1c72f0e](https://github.com/Heliopsy/tix/commit/1c72f0e6d593ee2ab3948cefa2385385556dfc70))
+
+
+### Dependencies
+
+* **embedded:** generate the library's licence notices ([c7a94b8](https://github.com/Heliopsy/tix/commit/c7a94b8ea75e73d15d5107ce275b98143805d413))
+
 ## [0.48.0](https://github.com/Heliopsy/tix/compare/v0.47.0...v0.48.0) (2026-11-08)
 
 

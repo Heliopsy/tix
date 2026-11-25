@@ -162,3 +162,57 @@ func sourceEntry(t *testing.T, out, key string) struct {
 	t.Fatalf("config show does not report %q:\n%s", key, out)
 	return entries[0]
 }
+
+// webhook ping prints the delivery it queued. With the server mode nothing is
+// attempted from the test, so the delivery is pending and no network is used.
+func TestWebhookPingPrintsTheQueuedDelivery(t *testing.T) {
+	c := newCLI(t)
+	server := []string{"TIX_WEBHOOKS_DRAIN_MODE=server"}
+	put := runEnv(c, server, "webhook", "put", "https://hooks.example.com/tix", "--event", "task.*", "-o", "json")
+	if put.code != core.ExitOK {
+		t.Fatalf("webhook put exited %d: %s", put.code, put.err)
+	}
+	id := endpointIDFromJSON(t, put.out)
+
+	got := runEnv(c, server, "webhook", "ping", id, "-o", "json")
+	if got.code != core.ExitOK {
+		t.Fatalf("webhook ping exited %d: %s", got.code, got.err)
+	}
+	var d core.WebhookDelivery
+	if err := json.Unmarshal([]byte(got.out), &d); err != nil {
+		t.Fatalf("webhook ping is not a json delivery: %v\n%s", err, got.out)
+	}
+	if d.ID == "" || d.EndpointID != id || d.Status != core.DeliveryPending {
+		t.Fatalf("webhook ping printed %+v, want a pending delivery to %s", d, id)
+	}
+	table := runEnv(c, server, "webhook", "ping", id)
+	if table.code != core.ExitOK || !strings.Contains(table.out, "STATUS") || !strings.Contains(table.out, id) {
+		t.Errorf("webhook ping as a table is not a delivery row:\n%s%s", table.out, table.err)
+	}
+
+	listed := runEnv(c, server, "webhook", "deliveries", "--endpoint", id, "-o", "json")
+	if !strings.Contains(listed.out, d.ID) {
+		t.Errorf("webhook deliveries does not list the ping %s:\n%s", d.ID, listed.out)
+	}
+}
+
+func TestWebhookPingRefusesAnInactiveEndpoint(t *testing.T) {
+	c := newCLI(t)
+	put := c.mustRun("webhook", "put", "https://hooks.example.com/tix", "--inactive", "-o", "json")
+	got := c.run("webhook", "ping", endpointIDFromJSON(t, put.out))
+	if got.code != core.ExitPrecondtion {
+		t.Fatalf("pinging an inactive endpoint exited %d, want %d\n%s", got.code, core.ExitPrecondtion, got.err)
+	}
+}
+
+// endpointIDFromJSON reads the identifier out of a webhook put rendered as json.
+func endpointIDFromJSON(t *testing.T, out string) string {
+	t.Helper()
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil || payload.ID == "" {
+		t.Fatalf("webhook put printed no identifier (%v):\n%s", err, out)
+	}
+	return payload.ID
+}

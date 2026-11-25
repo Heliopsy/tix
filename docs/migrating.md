@@ -399,6 +399,11 @@ that reference is a per-project counter, and two databases can independently min
 unrelated tasks. A record with no identifier, or whose identifier belongs to a task in a different project, is
 never merged into anything; it is created as its own task, renumbered if its sequence number is already taken.
 
+An imported task keeps its number, and each project's counter is raised to the highest number its tasks hold,
+trashed ones included, in the same transaction. The next task created there continues above them. Imports made
+before this was fixed left the counter behind; the upgrade repairs it, and `tix doctor` names any project whose
+counter still reads below its tasks.
+
 Every matched record is compared against what is already there by its `updated_at`. An import never lets an
 older record overwrite something newer:
 
@@ -493,14 +498,14 @@ supplied with `tix webhook put`.
 The bundle format is NDJSON: a header record, then one record per component. It is readable, diffable and
 reviewable in a pull request, which is the point of keeping it separate from a tenant snapshot.
 
-## Upgrading to 0.48.1 on PostgreSQL
+## Upgrading to 0.49.0 on PostgreSQL
 
-The 0.48.1 migration repairs accounts that predate 0.46.0. No operator action is needed.
+The 0.49.0 migration repairs accounts that predate 0.46.0. No operator action is needed.
 
 On PostgreSQL with a login role that is not a superuser and has no `BYPASSRLS`, the 0.46.0 migration that links
 each person's actor to their account, and the 0.48.0 one that copies the account's name onto it, changed no rows.
 Accounts created before 0.46.0 then failed browser sign-in with "invalid credentials", were missing from
-`tix user ls`, and lost their global admin standing. 0.48.1 runs both again on its first start and leaves alone
+`tix user ls`, and lost their global admin standing. 0.49.0 runs both again on its first start and leaves alone
 any actor already linked, including one linked by hand. SQLite was not affected and the migration changes nothing
 there. See [the engine notes](../internal/store/postgres/README.md#migrations-run-outside-the-policies-they-create).
 

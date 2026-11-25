@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
-	"github.com/heliopsy/tix/internal/httpapi"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -75,12 +74,13 @@ func (h *handler) calendarFor(r *http.Request) (calendarView, error) {
 	}
 }
 
-// feedAddress is the absolute address of a feed secret as this request
-// reached the deployment, and the same address under webcal:, which asks the
-// operating system's calendar to subscribe.
+// feedAddress is the absolute address of a feed secret under the request's
+// origin, and the same address under webcal:, which asks the operating
+// system's calendar to subscribe.
 func feedAddress(r *http.Request, token string) (string, string) {
-	path := wire.CalendarFeedPath(token)
-	return httpapi.SchemeFrom(r.Context()) + "://" + r.Host + path, "webcal://" + r.Host + path
+	address := baseURL(r) + wire.CalendarFeedPath(token)
+	_, rest, _ := strings.Cut(address, "://")
+	return address, "webcal://" + rest
 }
 
 // createCalendarFeed issues the reader a feed and shows its address once.

@@ -5,8 +5,10 @@ package service
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/authz"
@@ -16,6 +18,7 @@ import (
 	"github.com/heliopsy/tix/internal/egress"
 	"github.com/heliopsy/tix/internal/id"
 	"github.com/heliopsy/tix/internal/lease"
+	"github.com/heliopsy/tix/internal/sso"
 	"github.com/heliopsy/tix/internal/store"
 	extsync "github.com/heliopsy/tix/internal/sync"
 )
@@ -56,10 +59,32 @@ type Local struct {
 	// off the shipped default is pruned by.
 	retentionDefaults core.RetentionPolicy
 
+	// idempotencyWindow is how long a kept idempotency key answers repeats.
+	idempotencyWindow time.Duration
+
+	// samlRefresh is how often the server reads SAML IdP metadata again,
+	// zero when it does not; it dates the next refresh a provider shows.
+	samlRefresh time.Duration
+	// appRedirects are the native app redirects a sign-in through a
+	// provider may hand its result to, auth.sso_app_redirects.
+	appRedirects []string
+
 	// leaseDefaults are the configured lease bounds for this deployment, laid
 	// under whatever the tenant has chosen for itself. A tenant narrows them;
 	// see lease.Policy.Narrow for which way each bound moves.
 	leaseDefaults lease.Policy
+
+	// artifactMaxBytes and artifactTypes are the server's artifact limits,
+	// which a tenant may tighten and never loosen.
+	artifactMaxBytes int64
+	artifactTypes    []string
+
+	// dav is the deployment's CalDAV settings.
+	dav davSettings
+
+	// sessionDefaults are the server's session settings, which a tenant may
+	// tighten and never loosen.
+	sessionDefaults core.SessionPolicy
 
 	// timeDefaults are the deployment's date format and timezone, under the
 	// tenant's and each person's own.
@@ -89,13 +114,26 @@ type Local struct {
 	// operator's policy, strict by default.
 	egress egress.Policy
 
+	// publicURL is server.public_url without its trailing slash, the base
+	// every task's web_url is built under; empty sets none.
+	publicURL string
+
 	dummyOnce sync.Once
 	dummy     string
+	dummyErr  error
 
 	// The key SSH sign-in challenges are signed under, derived on first use.
 	nonceOnce     sync.Once
 	nonceKeyBytes []byte
 	nonceKeyErr   error
+
+	// sso builds single sign-on adapters over the egress policy, caching
+	// each issuer's discovery and keys; made on first use.
+	ssoOnce   sync.Once
+	ssoClient *sso.Client
+
+	// gates throttles how often a second factor policy refusal is audited.
+	gates gateLog
 }
 
 // HookMode selects who delivers webhooks after a mutation commits.
@@ -137,15 +175,64 @@ func WithRetentionDefaults(p core.RetentionPolicy) Option {
 	return func(l *Local) { l.retentionDefaults = p }
 }
 
+// WithIdempotencyWindow sets how long a kept idempotency key answers repeats.
+// A non-positive window keeps DefaultIdempotencyWindow.
+func WithIdempotencyWindow(d time.Duration) Option {
+	return func(l *Local) {
+		if d > 0 {
+			l.idempotencyWindow = d
+		}
+	}
+}
+
+// WithSAMLMetadataRefresh sets how often the server reads a SAML provider's
+// IdP metadata again, so a provider can show when that happens next. Zero or
+// less is never.
+func WithSAMLMetadataRefresh(d time.Duration) Option {
+	return func(l *Local) { l.samlRefresh = max(d, 0) }
+}
+
+// WithSSOAppRedirects sets the native app redirects a sign-in through a
+// provider may hand its result to, matched exactly. An empty list turns
+// signing in from an app off.
+func WithSSOAppRedirects(redirects []string) Option {
+	return func(l *Local) { l.appRedirects = slices.Clone(redirects) }
+}
+
 // WithLeaseDefaults sets the deployment-wide lease bounds that a tenant's own
 // settings are layered over.
 func WithLeaseDefaults(p lease.Policy) Option {
 	return func(l *Local) { l.leaseDefaults = p }
 }
 
+// WithArtifactLimits sets the server's artifact size limit and accepted media
+// types. Zero and an empty list keep the built-in defaults.
+func WithArtifactLimits(maxBytes int64, types []string) Option {
+	return func(l *Local) {
+		if maxBytes > 0 {
+			l.artifactMaxBytes = maxBytes
+		}
+		if len(types) > 0 {
+			l.artifactTypes = slices.Clone(types)
+		}
+	}
+}
+
 // WithHasher sets the password hasher. Tests use cheaper parameters; production
 // must not.
 func WithHasher(h *auth.Hasher) Option { return func(l *Local) { l.hasher = h } }
+
+// WithPasswordParams sets the argon2id policy new hashes are minted at, and
+// that a successful sign-in migrates a stored hash to. Under
+// UseCheapHashingInTests it is ignored, so wiring a test reaches through
+// cannot put production cost back.
+func WithPasswordParams(p auth.Params) Option {
+	return func(l *Local) {
+		if !cheapHashing.Load() {
+			l.hasher = auth.NewHasherWithParams(p)
+		}
+	}
+}
 
 // cheapHashing makes New start every service with auth.TestParams. Only
 // UseCheapHashingInTests sets it, and TestNewHashesAtProductionCost and the
@@ -182,7 +269,8 @@ func WithTOTPKey(encoded string) Option {
 	}
 }
 
-// WithThemes supplies the registry a tenant's theme name is validated against.
+// WithThemes supplies the registry a tenant's theme name is validated against
+// and WhoAmI resolves the tenant's palette from.
 //
 // Without it the built-in themes are the whole vocabulary, which is what a
 // deployment that configures no palettes gets.
@@ -223,6 +311,13 @@ func New(st store.Store, opts ...Option) *Local {
 		hooks:  HookInline,
 		hasher: defaultHasher(),
 		conns:  connections.Default,
+
+		idempotencyWindow: DefaultIdempotencyWindow,
+		artifactMaxBytes:  core.DefaultArtifactMaxBytes,
+		artifactTypes:     core.DefaultArtifactTypes,
+		sessionDefaults:   defaultSessionPolicy(),
+		appRedirects:      slices.Clone(core.DefaultSSOAppRedirects),
+		dav:               defaultDAVSettings(),
 	}
 	for _, opt := range opts {
 		opt(l)
@@ -239,7 +334,10 @@ func New(st store.Store, opts ...Option) *Local {
 }
 
 // Close releases the underlying store.
-func (l *Local) Close() error { return l.store.Close() }
+func (l *Local) Close() error {
+	l.gates.pending.Wait()
+	return l.store.Close()
+}
 
 // WhoAmI returns the authenticated actor.
 func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
@@ -253,6 +351,10 @@ func (l *Local) WhoAmI(ctx context.Context) (*core.Actor, error) {
 	}
 	out := *actor
 	out.GlobalAdmin = global
+	if actor.Term != nil {
+		expires := actor.Term.ExpiresAt
+		out.SessionExpiresAt = &expires
+	}
 	if err := l.describeAccount(ctx, &out); err != nil {
 		return nil, err
 	}
@@ -270,6 +372,10 @@ func (l *Local) authorize(ctx context.Context, action authz.Action, res authz.Re
 		res.TenantID = actor.TenantID
 	}
 	if err := l.policy.Can(actor, action, res); err != nil {
+		noteDenied(ctx, actor, err)
+		return nil, err
+	}
+	if err := l.requireFactor(ctx, actor); err != nil {
 		return nil, err
 	}
 	return actor, nil

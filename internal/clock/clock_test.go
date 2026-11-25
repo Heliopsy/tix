@@ -355,3 +355,21 @@ func TestFakeStopLeavesOtherTickersRunning(t *testing.T) {
 		t.Errorf("live tickers = %d, want 2", got)
 	}
 }
+
+// Waiters counts an After until it fires, so a test can wait for a goroutine
+// to start waiting before it moves the clock.
+func TestFakeWaitersCountsPendingAfters(t *testing.T) {
+	f := NewFakeAt()
+	if got := f.Waiters(); got != 0 {
+		t.Fatalf("waiters on a new clock = %d, want 0", got)
+	}
+	ch := f.After(time.Minute)
+	if got := f.Waiters(); got != 1 {
+		t.Fatalf("waiters with one After pending = %d, want 1", got)
+	}
+	f.Advance(time.Minute)
+	<-ch
+	if got := f.Waiters(); got != 0 {
+		t.Fatalf("waiters after the After fired = %d, want 0", got)
+	}
+}

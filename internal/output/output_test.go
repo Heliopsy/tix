@@ -195,7 +195,7 @@ func TestTableTaskGolden(t *testing.T) {
 	got := render(t, FormatTable, []core.Task{sampleTask()})
 	want := "" +
 		"┌───────┬─────────────────────────┬─────────────┬──────────┬──────────┬─────────────┬──────────────────┬────────────┬──────────────────┬─────────┐\n" +
-		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ TAGS        │ DUE              │ REPEAT     │ UPDATED          │ BLOCKED │\n" +
+		"│ REF   │ TITLE                   │ STATUS      │ PRIORITY │ ASSIGNEE │ TAGS        │ DUE              │ REPEAT     │ UPDATED          │ WAITING │\n" +
 		"├───────┼─────────────────────────┼─────────────┼──────────┼──────────┼─────────────┼──────────────────┼────────────┼──────────────────┼─────────┤\n" +
 		"│ ENG-7 │ Wire the output package │ in_progress │ high     │ act_1    │ cli, output │ 2026-04-05 06:07 │ every week │ 2026-03-04 05:06 │ no      │\n" +
 		"└───────┴─────────────────────────┴─────────────┴──────────┴──────────┴─────────────┴──────────────────┴────────────┴──────────────────┴─────────┘\n"
@@ -625,6 +625,31 @@ func TestTenantRowNamesTheThemeOrSaysItIsDerived(t *testing.T) {
 			out := render(t, FormatTable, []core.Tenant{tenant})
 			if got := cellAt(t, out, "THEME", 0); got != c.want {
 				t.Errorf("THEME = %q, want %q\n%s", got, c.want, out)
+			}
+		})
+	}
+}
+
+// TestTenantRowShowsTheIconAsText pins the ICON column: a terminal draws no
+// image or sprite, so each kind is named in text, and no icon is empty.
+func TestTenantRowShowsTheIconAsText(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(*core.Tenant)
+		want   string
+	}{
+		{"text", func(t *core.Tenant) { t.Icon = "A" }, "A"},
+		{"built-in", func(t *core.Tenant) { t.IconName = "rocket" }, "\U0001F680 rocket"},
+		{"image", func(t *core.Tenant) { t.IconImage = "abc" }, core.ProjectImageGlyph + " image"},
+		{"none", func(*core.Tenant) {}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tenant := sampleTenant()
+			c.mutate(&tenant)
+			out := render(t, FormatTable, []core.Tenant{tenant})
+			if got := cellAt(t, out, "ICON", 0); got != c.want {
+				t.Errorf("ICON = %q, want %q\n%s", got, c.want, out)
 			}
 		})
 	}

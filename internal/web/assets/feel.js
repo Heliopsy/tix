@@ -72,6 +72,9 @@
     if (!doc || typeof doc.startViewTransition !== "function") {
       return false;
     }
+    if (doc.documentElement && doc.documentElement.getAttribute("data-motion") === "reduce") {
+      return false;
+    }
     var reduce = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
     return !(reduce && reduce.matches);
   };
@@ -454,7 +457,16 @@
   var filterLast = null;
   var filterRequest = 0;
   function runFilter(form) {
-    var query = new global.URLSearchParams(new global.FormData(form)).toString();
+    var pairs = [];
+    new global.FormData(form).forEach(function (value, name) {
+      if (typeof value === "string") {
+        pairs.push([name, value]);
+      }
+    });
+    if (tix.filterParams) {
+      pairs = tix.filterParams(pairs);
+    }
+    var query = new global.URLSearchParams(pairs).toString();
     if (query === filterLast) {
       return;
     }
@@ -473,7 +485,10 @@
           return;
         }
         var doc = new global.DOMParser().parseFromString(html, "text/html");
-        ["tasks-summary", "tasks-listing"].forEach(function (id) {
+        // The view switch is redrawn with them, so each of its links carries
+        // the filter just typed: switching after an in-place filter kept the
+        // query the page was first drawn under and dropped the new one.
+        ["tasks-summary", "tasks-listing", "tasks-views", "tasks-lanesby", "tasks-chips", "tasks-filtercount"].forEach(function (id) {
           var fresh = doc.getElementById(id);
           var here = document.getElementById(id);
           if (fresh && here) {
@@ -524,7 +539,7 @@
   });
   document.addEventListener("change", function (event) {
     var form = filterForm(event.target);
-    if (form && event.target.tagName === "SELECT") {
+    if (form && event.target.tagName === "SELECT" && !event.target.closest("[popover]")) {
       runFilter(form);
     }
   });

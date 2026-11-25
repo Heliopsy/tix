@@ -23,6 +23,21 @@ func (c *Client) GetProject(ctx context.Context, ref string) (*core.Project, err
 	return call[core.Project](ctx, c, http.MethodGet, routePath(wire.RouteProject, "ref", ref), nil, nil)
 }
 
+// ListStarredProjects returns the projects the caller starred.
+func (c *Client) ListStarredProjects(ctx context.Context) ([]core.Project, error) {
+	return listAll[core.Project](ctx, c, wire.RouteStarredProjects, nil)
+}
+
+// StarProject sets the caller's own star on a project.
+func (c *Client) StarProject(ctx context.Context, ref string) error {
+	return callVoid(ctx, c, http.MethodPut, routePath(wire.RouteProjectStar, "ref", ref), nil, nil)
+}
+
+// UnstarProject clears the caller's own star on a project.
+func (c *Client) UnstarProject(ctx context.Context, ref string) error {
+	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteProjectStar, "ref", ref), nil, nil)
+}
+
 // GetProjectIcon fetches a project's uploaded icon image.
 func (c *Client) GetProjectIcon(ctx context.Context, ref string) (*core.ProjectIconImage, error) {
 	ctx, cancel := c.withTimeout(ctx)

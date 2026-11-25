@@ -443,6 +443,9 @@ type syncRun struct {
 	Skipped  int
 	Warnings []string
 	ActorID  string
+	// Token is the name the API token that started the run had then, empty
+	// when no token did.
+	Token string
 }
 
 // syncRunsView is what the run history screen renders.
@@ -462,15 +465,21 @@ type syncRunsView struct {
 // stands now, and it is the only thing that reports a run that failed --
 // see the note the template carries, and syncRun's own comment, for why.
 func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
-	cursor := r.URL.Query().Get(CursorParam)
-	entries, next, err := h.svc.ListAudit(r.Context(), core.AuditFilter{
-		SubjectType: syncSubjectType,
-		Actions:     []string{auditSyncRunAction},
-		Page: core.Page{
-			Cursor: cursor, Sort: "seq",
-			Direction: core.Descending, Limit: syncRunsPageSize,
-		},
-	})
+	read := func(cursor string, limit int) ([]core.AuditEntry, string, error) {
+		return h.svc.ListAudit(r.Context(), core.AuditFilter{
+			SubjectType: syncSubjectType,
+			Actions:     []string{auditSyncRunAction},
+			Page: core.Page{
+				Cursor: cursor, Sort: "seq",
+				Direction: core.Descending, Limit: limit,
+			},
+		})
+	}
+	pos, err := locate(r, syncRunsPageSize, walkOf(read))
+	if err != nil {
+		return err
+	}
+	entries, next, err := read(pos.Cursor, syncRunsPageSize)
 	if err != nil {
 		return err
 	}
@@ -481,7 +490,7 @@ func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
 
 	data := syncRunsView{
 		Runs: make([]syncRun, 0, len(entries)), Sources: sources.Sources,
-		Pager: newPager(r, RouteSyncRuns, next, len(entries), "runs"),
+		Pager: newPager(r, RouteSyncRuns, next, len(entries), "runs").counted(pos, syncRunsPageSize),
 	}
 	actors := make([]string, 0, len(entries))
 	for _, entry := range entries {
@@ -498,7 +507,7 @@ func (h *handler) showSyncRuns(w http.ResponseWriter, r *http.Request) error {
 // its snapshot did not parse would hide the very thing this screen exists to
 // show.
 func syncRunOf(entry core.AuditEntry) syncRun {
-	out := syncRun{At: entry.OccurredAt, ActorID: entry.ActorID}
+	out := syncRun{At: entry.OccurredAt, ActorID: entry.ActorID, Token: entry.Via.TokenName}
 	var result core.SyncResult
 	if len(entry.After) == 0 || json.Unmarshal(entry.After, &result) != nil {
 		return out

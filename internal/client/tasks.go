@@ -24,11 +24,16 @@ func (c *Client) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, err
 
 // ListTasks returns one page of tasks.
 func (c *Client) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
-	items, next, err := list[core.Task](ctx, c, wire.RouteTasks, taskFilterQuery(f))
+	page, err := call[wire.Page[core.Task]](ctx, c, http.MethodGet, wire.RouteTasks, taskFilterQuery(f), nil)
 	if err != nil {
 		return core.TaskPage{}, err
 	}
-	return core.TaskPage{Tasks: items, NextCursor: next}, nil
+	out := core.TaskPage{Tasks: page.Items, NextCursor: page.NextCursor, TotalCapped: page.TotalCapped,
+		Number: page.Page, Tally: page.Tally}
+	if page.Total != nil {
+		out.Total = *page.Total
+	}
+	return out, nil
 }
 
 // UpdateTask changes a task.
@@ -54,6 +59,11 @@ func (c *Client) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delet
 	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTask, ref), q, nil)
 }
 
+// PurgeTask permanently deletes a task in the trash.
+func (c *Client) PurgeTask(ctx context.Context, ref core.TaskRef) error {
+	return callVoid(ctx, c, http.MethodDelete, taskPath(wire.RouteTaskTrash, ref), nil, nil)
+}
+
 // RestoreTask undoes a soft delete.
 func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	return call[core.Task](ctx, c, http.MethodPost, taskPath(wire.RouteTaskRestore, ref), nil, nil)
@@ -62,6 +72,11 @@ func (c *Client) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task,
 // TrashStatus asks whether the tenant keeps deleted tasks.
 func (c *Client) TrashStatus(ctx context.Context) (*core.TrashStatus, error) {
 	return call[core.TrashStatus](ctx, c, http.MethodGet, wire.RouteTrash, nil, nil)
+}
+
+// MoveTask moves a task to another project.
+func (c *Client) MoveTask(ctx context.Context, ref core.TaskRef, in core.MoveTaskInput) (*core.TaskMove, error) {
+	return call[core.TaskMove](ctx, c, http.MethodPost, taskPath(wire.RouteTaskMove, ref), nil, in)
 }
 
 // CopyTask creates a copy of a task.
@@ -186,6 +201,16 @@ func (c *Client) DeleteComment(ctx context.Context, id string) error {
 	return callVoid(ctx, c, http.MethodDelete, routePath(wire.RouteComment, "id", id), nil, nil)
 }
 
+// AddReaction adds the caller's emoji reaction to a comment.
+func (c *Client) AddReaction(ctx context.Context, id, emoji string) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodPut, routePath(wire.RouteCommentReaction, "id", id, "emoji", emoji), nil, nil)
+}
+
+// RemoveReaction removes the caller's emoji reaction from a comment.
+func (c *Client) RemoveReaction(ctx context.Context, id, emoji string) (*core.Comment, error) {
+	return call[core.Comment](ctx, c, http.MethodDelete, routePath(wire.RouteCommentReaction, "id", id, "emoji", emoji), nil, nil)
+}
+
 // PutArtifact records structured output on a task.
 func (c *Client) PutArtifact(ctx context.Context, ref core.TaskRef, in core.ArtifactInput) (*core.Artifact, error) {
 	return call[core.Artifact](ctx, c, http.MethodPut, taskPath(wire.RouteTaskArtifacts, ref), nil, in)
@@ -196,12 +221,20 @@ func (c *Client) ListArtifacts(ctx context.Context, ref core.TaskRef) ([]core.Ar
 	return listAll[core.Artifact](ctx, c, taskPath(wire.RouteTaskArtifacts, ref), nil)
 }
 
+// ArtifactLimits reads the bounds a new artifact blob is held to.
+func (c *Client) ArtifactLimits(ctx context.Context) (*core.ArtifactLimits, error) {
+	return call[core.ArtifactLimits](ctx, c, http.MethodGet, wire.RouteArtifactLimits, nil, nil)
+}
+
 func taskPath(pattern string, ref core.TaskRef) string {
 	return routePath(pattern, "ref", ref.String())
 }
 
 func taskFilterQuery(f core.TaskFilter) url.Values {
 	q := pageQuery(f.Page)
+	if f.PageNumber > 0 {
+		q.Set("page", strconv.Itoa(f.PageNumber))
+	}
 	setStrings(q, "project_id", f.ProjectIDs)
 	setStrings(q, "project", f.ProjectKeys)
 	setStrings(q, "status", f.Statuses)
@@ -242,6 +275,7 @@ func taskFilterQuery(f core.TaskFilter) url.Values {
 	setJSON(q, "custom_fields", f.CustomFields)
 	setBool(q, "include_deleted", f.IncludeDeleted)
 	setTriState(q, "trashed", f.Trashed)
+	setBool(q, "tally", f.Tally)
 	switch {
 	case f.Snoozed != core.Either:
 		setTriState(q, "snoozed", f.Snoozed)

@@ -28,12 +28,33 @@ type rawOpener struct {
 	// Dialog asks for the screen as the task dialog draws it, so the
 	// fetched dialog carries the ids of the dialog it opens from.
 	Dialog bool
+	// JSON is the row's audit entries as the API returns them,
+	// pretty-printed, which the row's copy button copies.
+	JSON string
 }
 
 // newRawOpener is the Raw control of one history row on the screen at here.
 func newRawOpener(here, prefix string, g historyGroup, inDialog bool) rawOpener {
 	id := prefix + rawPrefix + strconv.FormatInt(g.Latest().Entry.Seq, 10)
-	return rawOpener{ID: id, Href: dialogHref(here, id), Steps: len(g.Hops), Dialog: inDialog}
+	return rawOpener{ID: id, Href: dialogHref(here, id), Steps: len(g.Hops), Dialog: inDialog, JSON: groupJSON(g)}
+}
+
+// groupJSON is a history row's audit entries as one pretty-printed JSON
+// document: the entry itself for a single one, an array for several.
+func groupJSON(g historyGroup) string {
+	entries := make([]core.AuditEntry, len(g.Hops))
+	for i, hop := range g.Hops {
+		entries[i] = hop.Entry
+	}
+	var all any = entries
+	if len(entries) == 1 {
+		all = entries[0]
+	}
+	raw, err := json.Marshal(all)
+	if err != nil {
+		return ""
+	}
+	return prettyJSON(raw)
 }
 
 // rawEntry is the dialog that shows one history row's audit entries as they
@@ -111,10 +132,8 @@ func newRawEntry(id, here string, g historyGroup, names actorNames, subject, sub
 		Subject: subject, SubjectHref: subjectHref, At: latest.OccurredAt,
 		Hops: make([]rawHop, len(g.Hops)), Steps: len(g.Hops),
 	}
-	entries := make([]core.AuditEntry, len(g.Hops))
 	for i, hop := range g.Hops {
 		e := hop.Entry
-		entries[i] = e
 		out.Hops[i] = rawHop{
 			Entry: e, ID: id + "-" + strconv.Itoa(i+1), Step: i + 1,
 			Actor: names.Label(e.ActorID), ActorHref: actorFeedHref(e.ActorID),
@@ -122,13 +141,7 @@ func newRawEntry(id, here string, g historyGroup, names actorNames, subject, sub
 			Diff: diffSnapshots(e.Before, e.After), Channel: hop.Channel(),
 		}
 	}
-	var all any = entries
-	if len(entries) == 1 {
-		all = entries[0]
-	}
-	if raw, err := json.Marshal(all); err == nil {
-		out.All = prettyJSON(raw)
-	}
+	out.All = groupJSON(g)
 	return out
 }
 

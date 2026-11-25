@@ -562,3 +562,24 @@ func TestTheTenantEditAsksForACustomAccent(t *testing.T) {
 		t.Fatalf("the custom accent sent %+v", svc.tenantsEdited)
 	}
 }
+
+func TestTheTenantEditSetsTheSecondFactorPolicy(t *testing.T) {
+	m, svc := adminModel(t)
+	m, _ = m.reduce(pressKey("e"))
+	m, _ = m.reduce(pressKey("right"))
+	m, _ = m.reduce(pressKey("right"))
+	if got := formRow(t, m.Frame(), "edit tenant default", "attribute"); !strings.Contains(got, attrMFA) {
+		t.Fatalf("the attribute row says %q, want %s", got, attrMFA)
+	}
+	m, _ = m.reduce(pressKey("down"))
+	m, _ = m.reduce(pressKey("right"))
+	if got := formRow(t, m.Frame(), "edit tenant default", "policy"); !strings.Contains(got, "required") {
+		t.Fatalf("the policy row says %q, want required", got)
+	}
+	m, cmd := m.reduce(pressKey("enter"))
+	runCmd(t, m, cmd)
+	if len(svc.tenantsEdited) != 1 || svc.tenantsEdited[0].MFAPolicy == nil ||
+		*svc.tenantsEdited[0].MFAPolicy != core.MFAPolicyRequired {
+		t.Fatalf("edits sent = %+v, want one requiring a second factor", svc.tenantsEdited)
+	}
+}

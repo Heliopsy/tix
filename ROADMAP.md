@@ -252,6 +252,28 @@ Calendar, Apple Calendar or Outlook to subscribe to. Every unfinished task assig
 date becomes an all-day event, or whatever a filter expression selects. The address reads as you and
 stops working when it is rotated or revoked. See [docs/calendar.md](docs/calendar.md).
 
+#### Tasks over CalDAV
+
+`tix serve` answers CalDAV under `/dav/`, with `/.well-known/caldav` redirecting there, so Apple Reminders,
+tasks.org and jtx Board through DAVx5, Thunderbird and Evolution show tasks as to-do lists: Assigned to me, and
+one list per readable project. A client signs in with an app password from `tix dav password create`, Settings
+or `POST /api/v1/dav/passwords`: a token carrying only the named-only `caldav` scope, refused everywhere but
+`/dav/`, which any person can create, people who sign in only through SSO included, and which reads with its
+owner's current role. Phase 1 of the `caldav-tasks` change served lists, objects, ETags and sync; phase 2 adds
+write-back: `PUT` with `If-Match` applies only what changed through the ordinary task update, a stale ETag is
+`412`, a tick moves the task through its workflow's multi-hop route, a new reminder becomes a task keeping the
+client's UID and name, and `DELETE` cancels an open task and leaves a done one alone. Alarms and other
+properties tix has no field for are kept per person, up to 8 KiB.
+
+Where it came out different from the contract shared with tix-mobile: which lists a client sees is chosen per
+app password (`assigned`, `projects` or `all`) instead of being fixed; `STATUS:CANCELLED` is never written,
+because a cancelled task leaves its list, which is also what lets a `DELETE` mean cancel rather than a
+removal; sync tokens are snapshots of a list's members rather than positions in the event log, since a
+task can leave a list with no event about it; the operations are `dav.*` at `/api/v1/dav`, with the CLI
+`tix dav`; and writes have their own access channel, `caldav`. In phase 2, a move with two equally short routes
+is refused rather than guessed, and a task added to Assigned to me needs a `default` project. See
+[docs/caldav.md](docs/caldav.md).
+
 #### Screens that keep themselves current
 
 The task list, the board and a task's own screen update when something commits, from another tab, the
@@ -331,7 +353,7 @@ adding a task can leave you on the list you were adding to.
 #### A sidebar that fits how it is used
 
 The sidebar resizes, collapses to a rail and folds its groups, and it is ordered by use: Search, Inbox,
-My work, Tasks and Projects first, with pinned projects under Projects and the configuration screens in
+My work, Tasks and Projects first, with starred projects under Projects and the configuration screens in
 one folded group.
 
 #### A settings screen
@@ -441,6 +463,39 @@ enrolled no longer holds a session slot while it is looked up.
 A tenant can require a time-based code in the browser, for `tix login` and over SSH, each on its own.
 Recovery codes cover a lost phone, an administrator can clear an enrolment, and API tokens are exempt.
 See [docs/second-factor.md](docs/second-factor.md).
+
+#### Single sign-on with OIDC and GitHub
+
+A tenant's own admins add sign-in providers: any OpenID Connect identity provider (Keycloak, Authentik,
+Entra ID, Google, Okta) or a GitHub OAuth app. People sign in with a button in the browser or `tix login
+--sso`, are linked by subject or a verified email, and can be created on first sign-in with a role their
+groups map to. A tenant can turn passwords off, with global admins kept as the way back in. External identities
+live in `user_identities` per tenant and provider, which SAML reuses. See [docs/sso.md](docs/sso.md).
+
+#### Single sign-on with SAML 2.0
+
+A tenant's admins add a SAML identity provider (Entra ID, Okta, Keycloak, Authentik, Google Workspace, ADFS)
+from its metadata, by URL or file, with `tix tenant sso add --kind saml` or the Single sign-on screen. Sign-in
+starts at tix with an AuthnRequest over HTTP-Redirect and the response comes back to a per-provider assertion
+consumer service; tix serves its SP metadata beside it. The response has to be signed by one of the provider's
+certificates, addressed to tix, inside its validity window and an answer to the request this browser made, and
+each assertion is taken once. The NameID is the subject and the attributes are mapped per provider, then the
+linking, roles, second factor and password policy are the OIDC ones. IdP-initiated sign-in is there behind a
+setting, off by default.
+
+**What differs from the plan:** AuthnRequests are not signed and encrypted assertions are not read, since both
+need an SP key pair; the provider's sealed secret slot is where one would go. SAML does not sign in on the
+command line, which would need a loopback ACS registered at the IdP. Single logout is not implemented. See
+[docs/sso.md](docs/sso.md#saml-providers).
+
+#### SCIM provisioning
+
+An identity provider creates, updates, deactivates and removes a tenant's people and groups over SCIM 2.0, at
+`/scim/v2` on `tix serve`. A tenant admin turns it on with `tix tenant scim enable`, which mints a token that
+carries only `scim:provision` and works nowhere else. Deactivation disables the person in the tenant and ends
+their sessions; their tokens and keys stop working until they are reactivated. A provider's group names map to
+roles. It is provisioning only: sign-in is OIDC, GitHub and SAML above. See
+[docs/scim.md](docs/scim.md).
 
 ### Running it
 
@@ -562,12 +617,14 @@ a `Syncer` adding `Push` extends it.
 tracking so a pushed change does not echo back as an inbound change, inbound webhook
 receivers for Jira and OpenProject, and per-field sync direction.
 
-### SSO / OIDC
+### SAML follow-ups
 
-**Seam in v1:** `users.sso_subject` and `users.sso_provider` exist and are never read.
-`internal/auth` defines an `Authenticator` interface with a local implementation, and the
-middleware holds a chain. Adding a provider is a new implementation plus a config block,
-with no schema migration and no signature change.
+SAML sign-in has shipped (see above), and so has rereading IdP metadata on a schedule: `tix serve` reads each
+enabled provider's metadata URL every `auth.saml_metadata_refresh` (12h), adds new signing certificates, keeps
+one the metadata dropped for seven days, and leaves settings an admin pinned; `tix tenant sso refresh KEY` reads
+it on demand. Left for later: signed AuthnRequests and encrypted assertions, which need an SP key pair kept
+sealed in the provider's secret slot; single logout; and following a change of the IdP's entity id, which still
+takes an edit.
 
 ### ACME / automatic certificates
 
@@ -710,6 +767,61 @@ Two things it has to get right, because getting them wrong is embarrassing later
   problem with backups, so a stale target is a `doctor` failure and an event on the stream, not
   a line in a log nobody reads.
 
+### Time machine
+
+Take back one change, or see a task or a project the way it was at a given moment, and put it back
+that way if needed. Today undo is narrow: the browser's toast takes back a move, a priority change or a
+soft delete for ten seconds, and everywhere else the way back is doing the opposite by hand, which
+assumes you remember what the field said before.
+
+Four pieces, roughly in the order they would be built:
+
+- **Revert one change.** A task's History row gets a Revert, and `tix task revert REF --entry SEQ` does
+  the same from the command line: a field edit, a status move, a reassignment, a rewritten
+  description, a tag or a dependency put back the way that entry found it. The revert is a new change
+  with its own audit entry and event, naming the entry it reverts. Nothing is erased, so the history
+  still shows the mistake and the correction, and a revert can itself be reverted.
+- **Read a task or a project as of a time.** `tix task show REF --at 2026-03-01T09:00` and the same
+  `--at` on a project's list or board, drawn read-only with a banner saying when, and no forms.
+- **Restore to a time.** Everything that changed on the task or the project since T, put back in one
+  request. Each record restored writes its own audit entry and event, the way a bulk action does, so
+  "who rolled this back, and from where" has the answer it has for any other change.
+- **A point-in-time view of a tenant.** Possibly. The audit log already holds enough to replay it, but
+  it is the same code at a larger scale and the least obviously useful of the four.
+
+Some rules it has to keep:
+
+- **Permissions are the change's, not the history's.** Reverting a status move needs the right to move
+  that task, and a revert on a claimed task is held to whatever an edit there is held to. Reading
+  history is `audit:read`; changing anything is not.
+- **Later changes win unless you say otherwise.** If a field was changed again after the entry being
+  reverted, the revert is refused with a conflict that names the later entry, the way a stale
+  `version` is refused today, and offers to revert both or to overwrite. A workflow with no way back
+  from the current state refuses the move, as `tix task mv` would.
+- **It reaches as far as retention does.** The time machine reads the audit log, and
+  `retention.audit` (a year by default, per tenant with `tix retention set`) prunes it. Before the
+  oldest kept entry, the answer is "not recorded", never a guess. Events are no help here: they keep
+  thirty days and carry field names, not values.
+- **Every surface or none.** Revert and `--at` are service methods with registry entries, so the CLI,
+  the API, MCP, the browser and the terminal get them together. An agent undoing its own bad edit
+  over MCP is one of the better reasons to build it.
+
+**Seam in v1:** every mutation already writes an audit entry in the same transaction, and for tasks
+and projects that entry carries the whole record before and after (`before_state`, `after_state`),
+which is what a History row's Raw dialog shows. A revert of a task field is therefore a read of one
+entry and an ordinary update, with no schema change. Tags, dependencies and comments are their own
+entries (`tag.add`, `dependency.remove`, `comment.edit`), so a point-in-time task is the task row
+plus those, replayed. `version` already refuses a stale write. The trash already brings back a soft
+delete, and a hard-deleted task's last state survives in its `task.delete` entry. The `via` channel
+already records where a change came from, so a revert from MCP is told apart from one in the browser.
+
+**Still to design:** the audit snapshot is redacted, so a value that looked like a credential was
+stored scrubbed and cannot be put back; a revert has to refuse that field and say why. Snapshot
+export carries no audit log, so a tenant imported from a snapshot has no history before the import.
+Workflows, custom field definitions and tenant settings would need their own before and after in the
+same shape before a project restore can cover them. And replaying a busy project's year of history
+to answer one `--at` may need periodic checkpoints rather than a scan from the first entry.
+
 ### Rate limiting and security headers
 
 Two things a server facing the internet needs. Part of the groundwork has shipped; the two
@@ -759,18 +871,91 @@ install time.
 command answers `-o json`, exit codes are documented, and `internal/connect` already resolves the target
 a plugin would be handed.
 
-### Desktop application
+### iOS app
 
-A thin wrapper around the browser interface, not a second client: the same
-server-rendered screens in a native window, so there is one interface to build and one to
-test. A wrapper keeps the multiplatform cost near zero compared with a native rewrite, and
-the CLI already covers the scripted path.
+[tix-mobile](https://github.com/heliopsy/tix-mobile) is the Flutter client, and its iOS build exists
+but is not published: there is no signing yet, so it is built from source. Today it is a client of a tix
+server over the HTTP API. The app also has screens to create or open a local `.db` file, behind a build
+flag, waiting for the engine.
 
-**Seam in v1:** the browser interface is server rendered with no JavaScript build step, and
-`tix serve` binds a local address by default. A desktop build starts the server on a
-loopback port and points a webview at it, so it needs no new product surface. The open
-question is bundling: a webview per platform is small but ties the build to each platform's
-toolchain, while shipping a browser engine is large but uniform.
+**What exists:** `just lib-ios` builds `Tix.xcframework`, a static archive the app links into its own
+binary and calls through the C ABI from `dart:ffi`, so tix runs in the app's process on a loopback port
+with no second process, which iOS would not allow. See [docs/embedding.md](docs/embedding.md). The
+libraries are built and tested in CI but not attached to releases.
+
+**Still needed:**
+
+- Release wiring for the xcframework, so the app pins a tix version and verifies a checksum instead of
+  building tix itself.
+- Signing in CI, TestFlight, App Store Connect, a privacy manifest and the review.
+- iOS suspends the app in the background, and the embedded instance with it, so a local database does
+  no lease sweeps or webhook deliveries while the app is closed. That is fine for a personal file and
+  wrong for one agents also work on.
+- Notifications need a sender on the server side through APNs, which is a tix change before it is an
+  app change, and has to work for a self-hosted server without a hosted relay.
+
+### Android app
+
+The Android build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released on GitHub as an APK
+per ABI and an AAB, as a pre-release client of a tix server. Local databases are behind a build flag.
+
+**What exists:** `just lib-android` builds `libtix.so` for all four ABIs with the NDK, aligned for 16 KB
+pages as Google Play requires, and CI checks the alignment on every change. The app loads it from
+`jniLibs` with `DynamicLibrary.open`. The library carries the whole server, about 32 MB per ABI before
+compression.
+
+**Still needed:**
+
+- Release wiring for the libraries, and the embedded engine in the app's release build.
+- A Google Play listing and review. F-Droid needs a reproducible build from source with no proprietary
+  dependencies.
+- Android limits background work too, so the embedded instance stops with the app, as on iOS.
+- Notifications through FCM, needing the same server-side sender as iOS.
+
+### Windows app
+
+The Windows build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.zip` for
+Windows 10 x64, a client of a tix server, with the token kept by DPAPI. This replaces the earlier plan
+of a webview wrapped around the browser interface: the native client shares one codebase with the phones.
+
+**What exists:** `just lib-windows` builds `libtix.dll` with mingw-w64, loaded from beside the executable,
+so a local database needs no `tix` binary installed or supervised. Loopback is not private on a shared
+machine, so the app keeps the token it mints in the platform's secure storage.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the DLL.
+- Code signing, so SmartScreen opens the app without a warning, and an installer or a store package in
+  place of a `.zip`.
+
+### Linux app
+
+The Linux build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.tar.gz` for x64
+and arm64 on GTK 3, a client of a tix server, with the token in libsecret.
+
+**What exists:** `just lib` builds `libtix.so` for the host, installed under `lib/` beside the executable.
+CI builds it and drives it through the C ABI from a C program on every change.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the library.
+- Packaging beyond a tarball: a Flatpak manifest building from source for Flathub, and possibly an
+  AppImage or a `.deb`. Which ones is undecided.
+
+### macOS app
+
+The macOS build of [tix-mobile](https://github.com/heliopsy/tix-mobile) is released as a `.zip`, ad-hoc
+signed only, a client of a tix server with the token in the Keychain.
+
+**What exists:** `just lib-macos` builds a universal `libtix.dylib`, arm64 and x86_64, with the install
+name `@rpath/libtix.dylib`, embedded in `Contents/Frameworks`. CI builds it and drives it through the C
+ABI on macOS.
+
+**Still needed:**
+
+- The embedded engine in the release build, and release wiring for the dylib.
+- Developer ID signing and notarization, so Gatekeeper opens the app without a right-click, which the
+  embedded dylib has to pass as well.
 
 ### Tests on arm64 as well as amd64
 

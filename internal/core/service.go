@@ -38,11 +38,14 @@ type Service interface {
 	ViewService
 	SavedFilterService
 	CalendarService
+	DAVService
 	InviteService
 	InboxService
 	InboxChannelService
 	TemplateService
 	TimeService
+	SSOService
+	SCIMService
 
 	// Close releases the service's resources, such as the underlying store.
 	Close() error
@@ -67,7 +70,7 @@ type TenantService interface {
 	// to one tenant.
 	ListTenants(ctx context.Context, page Page) ([]Tenant, string, error)
 	// UpdateTenant changes the caller's tenant, or for a global admin any
-	// tenant: its name, theme, lease bounds,
+	// tenant: its name, theme, icon, lease bounds,
 	// second-factor requirements and trash setting. Fields left out are
 	// unchanged. A lease default longer than the maximum, an unknown theme, or a
 	// second-factor requirement with no sealing key configured is refused.
@@ -76,11 +79,20 @@ type TenantService interface {
 	// tenant, so its data stops being reachable and its domains stop
 	// resolving. No row is destroyed.
 	DeleteTenant(ctx context.Context, ref string) error
+	// GetTenantIcon returns a tenant's uploaded icon image, by identifier or
+	// key; an empty reference means the caller's tenant. Any member of the
+	// tenant may read it, from a credential in any tenant they belong to, so
+	// a tenant switcher can draw every tenant it lists; a token reaches
+	// another tenant's icon only when it carries account:read. A tenant
+	// without an image, or one the caller does not belong to, is not found.
+	GetTenantIcon(ctx context.Context, ref string) (*TenantIconImage, error)
 
 	// ListTenantUsers lists the users of any tenant, with each one's role
-	// there, keyset paginated. Only a global admin may call it; for anybody
-	// else it is forbidden whatever the tenant.
-	ListTenantUsers(ctx context.Context, tenant string, page Page) ([]TenantUser, string, error)
+	// there, keyset paginated. People removed from the tenant are left out
+	// unless include_removed asks for them, marked removed and with no role.
+	// Only a global admin may call it; for anybody else it is forbidden
+	// whatever the tenant.
+	ListTenantUsers(ctx context.Context, tenant string, f UserFilter) ([]TenantUser, string, error)
 	// CreateTenantUser creates a user, its actor and its membership in any
 	// tenant, as CreateUser does in the caller's own. Global admin only.
 	CreateTenantUser(ctx context.Context, tenant string, in CreateUserInput) (*User, error)
@@ -167,6 +179,18 @@ type ProjectService interface {
 	// PlanProjectDeletion reports what DeleteProject would do, writing nothing.
 	PlanProjectDeletion(ctx context.Context, ref string, in DeleteProjectInput) (*ProjectDeletion, error)
 
+	// ListStarredProjects lists the projects the caller starred, in the order
+	// their lanes are drawn. A star is the caller's own: nobody else's is ever
+	// listed, and a project the caller can no longer read is left out.
+	ListStarredProjects(ctx context.Context) ([]Project, error)
+	// StarProject stars a project for the caller alone, which lists it first on
+	// the projects screen and in the sidebar and leads its lane. Starring a
+	// starred project writes nothing.
+	StarProject(ctx context.Context, ref string) error
+	// UnstarProject clears the caller's own star on a project. A project that is
+	// not starred is left as it is, with nothing written.
+	UnstarProject(ctx context.Context, ref string) error
+
 	// PutFieldDef creates or replaces a custom field definition on a project,
 	// keyed by its field key. A default value must fit the field's type.
 	PutFieldDef(ctx context.Context, projectRef string, in FieldDefInput) (*FieldDef, error)
@@ -191,6 +215,14 @@ type WorkflowService interface {
 	// workflow, and a workflow any project still uses, cannot be deleted and
 	// answer conflict.
 	DeleteWorkflow(ctx context.Context, key string) error
+	// ListWorkflowTemplates lists the built-in workflow templates: each one's
+	// key, name, one-line purpose, a summary of its states, its definition and
+	// the custom fields a project created from it gets.
+	ListWorkflowTemplates(ctx context.Context) ([]WorkflowTemplate, error)
+	// ApplyWorkflowTemplate creates a workflow from a built-in template, under
+	// the template's key or the one the input names. A key already taken is a
+	// conflict unless the input says to skip, rename or replace.
+	ApplyWorkflowTemplate(ctx context.Context, key string, in ApplyWorkflowTemplateInput) (*Workflow, error)
 }
 
 // TaskService covers tasks and everything attached to them.
@@ -226,6 +258,11 @@ type TaskService interface {
 	// RestoreTask brings a task back out of the trash and returns it. It is
 	// refused with precondition_failed when the tenant keeps no trash.
 	RestoreTask(ctx context.Context, ref TaskRef) (*Task, error)
+	// PurgeTask permanently deletes a task already in the trash, with its
+	// trashed subtasks, the way the trash rule does when it expires them. A
+	// live task is refused with precondition_failed and reason not_trashed,
+	// and a tenant whose trash is off refuses it with reason trash_off.
+	PurgeTask(ctx context.Context, ref TaskRef) error
 	// TrashStatus reports whether the tenant keeps deleted tasks in a trash, and
 	// how many it holds.
 	TrashStatus(ctx context.Context) (*TrashStatus, error)
@@ -236,6 +273,14 @@ type TaskService interface {
 	// CopyTask creates a copy of a task, in its own project or another one,
 	// and returns the copy. See CopyTaskInput for what travels.
 	CopyTask(ctx context.Context, ref TaskRef, in CopyTaskInput) (*Task, error)
+	// MoveTask moves a task into another project. It keeps its identifier,
+	// comments, artifacts, history, links, tags and assignee, takes the
+	// target's next number, and its old reference keeps resolving to it. The
+	// status is kept when the target's workflow has it, else the target's
+	// initial state; custom fields the target does not define are dropped.
+	// Needs edit rights on the task and create rights in the target; a task
+	// claimed by somebody else is refused.
+	MoveTask(ctx context.Context, ref TaskRef, in MoveTaskInput) (*TaskMove, error)
 	// BulkTasks applies one action to many tasks, each in its own transaction,
 	// and reports an outcome per task rather than failing on the first refusal.
 	BulkTasks(ctx context.Context, in BulkTaskInput) (*BulkResult, error)
@@ -289,6 +334,13 @@ type TaskService interface {
 	EditComment(ctx context.Context, id, body string) (*Comment, error)
 	// DeleteComment soft deletes a comment, so it no longer lists.
 	DeleteComment(ctx context.Context, id string) error
+	// AddReaction adds the caller's emoji reaction to a comment and returns the
+	// comment with its reactions. The emoji is one emoji grapheme; reacting
+	// again with the same emoji changes nothing.
+	AddReaction(ctx context.Context, id, emoji string) (*Comment, error)
+	// RemoveReaction removes the caller's emoji reaction from a comment and
+	// returns the comment with its reactions. A reaction not there is no error.
+	RemoveReaction(ctx context.Context, id, emoji string) (*Comment, error)
 
 	// PutArtifact attaches a new piece of structured output, such as a result or
 	// a log, to a task. While the task is claimed it needs the current lease
@@ -296,6 +348,10 @@ type TaskService interface {
 	PutArtifact(ctx context.Context, ref TaskRef, in ArtifactInput) (*Artifact, error)
 	// ListArtifacts lists a task's artifacts, oldest first.
 	ListArtifacts(ctx context.Context, ref TaskRef) ([]Artifact, error)
+	// ArtifactLimits reports the size and media types a new artifact blob is
+	// held to on the current tenant: the server's artifacts.max_bytes and
+	// artifacts.allowed_types, narrowed by the tenant's own settings.
+	ArtifactLimits(ctx context.Context) (*ArtifactLimits, error)
 }
 
 // ClaimService covers the agent work queue.
@@ -336,6 +392,14 @@ type HistoryService interface {
 	// Subscribe streams committed events matching the filter, from the given
 	// sequence number or from now. A sequence number already pruned is invalid.
 	Subscribe(ctx context.Context, f EventFilter) (<-chan Event, error)
+	// PollEvents returns the committed events after since_seq that match the
+	// types and project_ids filters, in sequence order and at most limit
+	// (default 200, at most 1000), with next_seq to pass back as since_seq.
+	// next_seq is the last sequence number read, which is past the last event
+	// returned when later ones were filtered out. since_seq is exclusive; absent or 0 starts at the newest event. wait, up
+	// to 25s, holds an empty answer until an event commits or the wait runs out.
+	// A cursor older than the oldest retained event is invalid.
+	PollEvents(ctx context.Context, in EventPollInput) (*EventPage, error)
 	// Prune deletes events, audit entries and webhook deliveries older than the
 	// retention policy allows. A dry run reports the counts and writes nothing,
 	// not even an audit entry.
@@ -375,8 +439,10 @@ type AuthService interface {
 	// GetUser returns a user of this tenant by identifier.
 	GetUser(ctx context.Context, id string) (*User, error)
 	// ListUsers lists the users of this tenant, keyset paginated, with the cursor
-	// for the next page.
-	ListUsers(ctx context.Context, page Page) ([]User, string, error)
+	// for the next page. People removed from the tenant, whose actor stays for
+	// history, are left out unless include_removed asks for them, each then
+	// marked removed.
+	ListUsers(ctx context.Context, f UserFilter) ([]User, string, error)
 	// UpdateUser changes a user's display name, password, role or disabled state;
 	// fields left out are unchanged. Disabling a user also revokes its API
 	// tokens.
@@ -408,6 +474,13 @@ type AuthService interface {
 	// Logout ends the session the caller presented. With no session to end it
 	// answers unauthenticated.
 	Logout(ctx context.Context) error
+	// SessionPolicy reports how long a new sign-in on the current tenant
+	// lasts, how long a session may sit unused, and how long a "keep me
+	// signed in" sign-in lasts: the server's session.ttl,
+	// session.idle_timeout and session.remember_ttl, tightened by the
+	// tenant's own settings. It needs no sign-in, since the sign-in screen
+	// reads it to decide whether to offer "keep me signed in".
+	SessionPolicy(ctx context.Context) (*SessionPolicy, error)
 	// SwitchTenant moves the caller's browser session to another tenant they
 	// are a member of, served on the same host. The answer carries a session
 	// for the person's actor there, and the session presented stops working.
@@ -417,6 +490,16 @@ type AuthService interface {
 	// member of is not found, the same answer as one that does not exist. A
 	// token cannot switch: tokens stay in the tenant they were minted for.
 	SwitchTenant(ctx context.Context, in SwitchTenantInput) (*LoginResult, error)
+	// ListSessions lists the caller's own unexpired sessions in this tenant,
+	// browser and terminal sign-ins, newest first and keyset paginated. Each
+	// names when it began and expires, how it signed in and the user agent it
+	// signed in with, and marks the one the caller presented; never its token.
+	// A token needs account:read, which "*" does not carry.
+	ListSessions(ctx context.Context, page Page) ([]SessionInfo, string, error)
+	// RevokeSession ends one of the caller's own sessions by identifier, so
+	// it stops signing anybody in. Another person's session is not found. A
+	// token needs account:read, which "*" does not carry.
+	RevokeSession(ctx context.Context, id string) error
 
 	// SSHLoginChallenge issues a short-lived nonce for an SSH key sign-in,
 	// bound to this tenant and to the host the request was made to. Nothing
@@ -464,6 +547,13 @@ type AuthService interface {
 	// RevokeToken revokes an API token of this tenant. Revoking a revoked token
 	// changes nothing.
 	RevokeToken(ctx context.Context, id string) error
+	// RotateToken replaces a live API token, addressed by identifier or name,
+	// with a new one of the same name, scopes and project and the same
+	// lifetime counted from now, and returns its value once. The old token
+	// stops at once, or after a grace of up to 24h so whatever holds it can
+	// swap. A token's own actor may rotate it; another actor's needs
+	// token:admin, and the new token never carries a scope its rotator lacks.
+	RotateToken(ctx context.Context, id string, in RotateTokenInput) (*IssuedToken, error)
 
 	// EnrolSSHKey registers a public key against an actor of this tenant, so
 	// that key can reach the terminal interface over SSH.
@@ -480,8 +570,9 @@ type AuthService interface {
 type WebhookService interface {
 	// PutWebhook registers an https delivery endpoint, or updates one by
 	// identifier. A registration with no secret gets a generated one, returned
-	// only in this response.
-	PutWebhook(ctx context.Context, in WebhookInput) (*WebhookEndpoint, error)
+	// as secret in this response and never again; a supplied or kept secret is
+	// not returned.
+	PutWebhook(ctx context.Context, in WebhookInput) (*IssuedWebhook, error)
 	// ListWebhooks lists this tenant's delivery endpoints, without their secrets.
 	ListWebhooks(ctx context.Context) ([]WebhookEndpoint, error)
 	// DeleteWebhook removes a delivery endpoint and its pending deliveries.
@@ -493,6 +584,11 @@ type WebhookService interface {
 	// the same endpoint with the same event. The attempt happens on the next
 	// delivery run, not inside this call.
 	RedeliverWebhook(ctx context.Context, deliveryID string) error
+	// PingWebhook sends one active endpoint a signed webhook.ping test event,
+	// whatever its event type filter; no other endpoint receives it. It answers
+	// the queued delivery, already attempted when this process drains inline,
+	// which the delivery log lists and redeliver repeats like any other.
+	PingWebhook(ctx context.Context, id string) (*WebhookDelivery, error)
 }
 
 // TransferService covers snapshot export and import.
@@ -706,8 +802,35 @@ type Session struct {
 	ActorID string `json:"actor_id" yaml:"actor_id"`
 	// TenantID is the tenant the session belongs to.
 	TenantID string `json:"tenant_id" yaml:"tenant_id"`
+	// CreatedAt is when the session was minted, in RFC 3339.
+	CreatedAt time.Time `json:"created_at,omitzero" yaml:"created_at,omitempty"`
 	// ExpiresAt is when the session stops working, in RFC 3339.
 	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+	// Remembered reports a "keep me signed in" session. A browser keeps its
+	// cookie until ExpiresAt; otherwise the cookie ends with the browser.
+	Remembered bool `json:"remembered,omitempty" yaml:"remembered,omitempty"`
+}
+
+// SessionInfo describes one of the caller's sessions without its secret.
+type SessionInfo struct {
+	// ID identifies the session for revoking it. It is not a credential.
+	ID string `json:"id" yaml:"id"`
+	// CreatedAt is when the sign-in happened.
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// ExpiresAt is when the session stops working.
+	ExpiresAt time.Time `json:"expires_at" yaml:"expires_at"`
+	// Method is how it signed in: password, ssh-key or switch.
+	Method string `json:"method" yaml:"method"`
+	// SecondFactor reports that the sign-in passed a second factor.
+	SecondFactor bool `json:"second_factor" yaml:"second_factor"`
+	// UserAgent is the user agent the sign-in request sent, truncated, or
+	// empty for a session that predates recording it.
+	UserAgent string `json:"user_agent" yaml:"user_agent"`
+	// Remembered reports a "keep me signed in" sign-in, which lasts the
+	// tenant's remember_ttl rather than its ttl.
+	Remembered bool `json:"remembered" yaml:"remembered"`
+	// Current marks the session the caller presented with this request.
+	Current bool `json:"current" yaml:"current"`
 }
 
 // SnapshotHeader is the first record of a streamed snapshot.
@@ -827,9 +950,59 @@ type PruneResult struct {
 	AuditEntries int64 `json:"audit_entries" yaml:"audit_entries"`
 	// WebhookDeliveries counts the webhook delivery records removed.
 	WebhookDeliveries int64 `json:"webhook_deliveries" yaml:"webhook_deliveries"`
+	// IdempotencyKeys counts the expired idempotency keys removed.
+	IdempotencyKeys int64 `json:"idempotency_keys" yaml:"idempotency_keys"`
 	// RetainedForSubscribers counts events past their window kept because a
 	// subscriber has not consumed them yet.
 	RetainedForSubscribers int64 `json:"retained_for_subscribers" yaml:"retained_for_subscribers"`
 	// DryRun is true when nothing was removed.
 	DryRun bool `json:"dry_run" yaml:"dry_run"`
+}
+
+// SSOService covers a tenant's single sign-on providers and signing in
+// through them.
+type SSOService interface {
+	// ListSSOProviders lists the tenant's sign-in providers. No client
+	// secret is ever returned, only whether one is set.
+	ListSSOProviders(ctx context.Context) ([]SSOProvider, error)
+	// GetSSOProvider returns one of the tenant's providers by key or
+	// identifier.
+	GetSSOProvider(ctx context.Context, ref string) (*SSOProvider, error)
+	// CreateSSOProvider adds a sign-in provider to the tenant. The client
+	// secret is sealed with the server's key and never shown again.
+	CreateSSOProvider(ctx context.Context, in CreateSSOProviderInput) (*SSOProvider, error)
+	// UpdateSSOProvider changes a provider by key or identifier. Disabling
+	// the last enabled provider is refused while password sign-in is off.
+	UpdateSSOProvider(ctx context.Context, ref string, in UpdateSSOProviderInput) (*SSOProvider, error)
+	// DeleteSSOProvider removes a provider and every identity linked through
+	// it. Removing the last enabled provider is refused while password
+	// sign-in is off.
+	DeleteSSOProvider(ctx context.Context, ref string) error
+	// RefreshSAMLMetadata reads a SAML provider's IdP metadata again from its
+	// stored address, as the server does on a schedule. New signing
+	// certificates are added, one the metadata dropped is kept for an overlap
+	// window, and settings an admin set stay. A failed read is recorded on
+	// the provider and returned, and the current certificates keep working.
+	RefreshSAMLMetadata(ctx context.Context, ref string) (*SSOProvider, error)
+	// SignInOptions reports, without a credential, whether this tenant takes
+	// passwords and which providers its sign-in screen offers.
+	SignInOptions(ctx context.Context) (*SignInOptions, error)
+	// BeginSSOLogin starts a sign-in through one of the tenant's providers:
+	// it answers the address to open and the sealed flow to complete it with.
+	// The redirect URI is the browser callback or a loopback address; a SAML
+	// provider signs in through the browser only.
+	BeginSSOLogin(ctx context.Context, in BeginSSOInput) (*SSOBegin, error)
+	// CompleteSSOLogin finishes a sign-in with the code the provider
+	// returned, or the response a SAML IdP posted. It answers as Login does:
+	// a session, or the second factor still to pass.
+	CompleteSSOLogin(ctx context.Context, in CompleteSSOInput) (*LoginResult, error)
+	// ExchangeSSOCode trades the one-time code a native app's sign-in handed
+	// the app, with the PKCE verifier of the challenge it started with, for a
+	// session. It answers as Login does for a completed sign-in. An unknown,
+	// used or expired code, or a wrong verifier, is invalid credentials.
+	ExchangeSSOCode(ctx context.Context, in SSOExchangeInput) (*LoginResult, error)
+	// SAMLMetadata answers, without a credential, a SAML provider's service
+	// provider metadata: the entity id and assertion consumer service address
+	// to register with the IdP, as the IdP imports them.
+	SAMLMetadata(ctx context.Context, in SAMLMetadataInput) (*SAMLMetadata, error)
 }

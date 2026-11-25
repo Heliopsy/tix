@@ -24,7 +24,7 @@ was the only way to tell where you were.
 | View | Opened by | Shows |
 | --- | --- | --- |
 | start | `~`, and a hosted SSH session that named nothing starts here | one row per interface a session can host: Boards and Watch, Watch with a project picker |
-| projects | `W`, and every local session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in) |
+| projects | `W`, and every local session starts here | every project this tenant has, with its colour and icon (a built-in or uploaded icon as a text stand-in), the ones you starred marked `★` |
 | board | `enter` on a project | one project's tasks in columns, one column per workflow state |
 | project | `w` | one project's attributes, the workflow it runs on, and its custom field definitions |
 | detail | `enter` on a card | one task in full: body, custom fields, subtasks, dependencies, artifacts, comments |
@@ -37,7 +37,7 @@ was the only way to tell where you were.
 | integrations | `J` | webhooks and their deliveries, external sync sources, and retention, one tab each, as far as your scopes reach |
 | server | `%` | the installation, the servers registered against it, the tenant's work and second factor, and its live connections |
 | globaladmin | `!`, offered to a global admin only | every tenant and the global admins; a tenant's users; any account's log |
-| account | `$` | who you are signed in as, your second factor, your API tokens and SSH keys, and your account log |
+| account | `$` | who you are signed in as, your second factor, your API tokens, SSH keys and sessions, and your account log |
 | settings | `,` | display preferences, and what this session is connected to |
 | transfer | `V` | exports and imports of the open project's tasks, a bundle or a snapshot, by file path; over SSH, the `ssh` commands that do them instead |
 | help | `?` | the bindings of the view underneath, and the legends |
@@ -76,7 +76,7 @@ than the first half of it:
 | `*` | starred by you, which leads the meta line |
 | `@` | claimed, by somebody |
 | `@me` | claimed by you |
-| `!` | blocked |
+| `!` | waiting on another task |
 | `+` | has dependencies |
 | `↻` | repeats when done |
 | `†` | deleted, revealed by `is:deleted` or `is:trashed` |
@@ -92,6 +92,10 @@ set it with `tix task edit --repeat` or in the browser.
 the same task unstarred and in its usual place, while on your board a starred card leads its column ahead of
 the priority order. It is stored on the server, so the star you set here is the one `tix task ls` and the
 browser show you too, and `is:starred` in the filter narrows the board to them.
+
+On the projects view `★` leads a project you starred, `*` stars or unstars the selected one and `/`
+lists only the starred ones, saying so in the count above the list. A project star is the one the
+browser's projects screen and sidebar draw and `tix project star` sets, yours alone like a task's.
 
 `zz` marks a snoozed task. Snoozed tasks are off the board until they wake, so the marker shows only
 under `is:snoozed` or `snoozed:any`. `b` on a card asks when it should wake (`later`, `tomorrow`,
@@ -175,17 +179,17 @@ an action unbound.
 | `←`/`h`, `→`/`l` | previous, next column | board; steps a value on settings, switches the tab on integrations, moves the cursor inside a text field |
 | `tab`, `shift+tab` | next, previous field | wherever a form is open |
 | `g`/`home`, `G`/`end` | first, last | lists |
-| `enter` | open, or apply an input; inserts a newline inside a multi-line field; redelivers, runs a source or prunes on integrations | everywhere |
+| `enter` | open, or apply an input; inserts a newline inside a multi-line field; pings an endpoint, redelivers, runs a source or prunes on integrations | everywhere |
 | `ctrl+s` | apply an input, including from a multi-line field | wherever one is open |
 | `esc`/`backspace` | back one level | everywhere |
-| `/` | filter | board, activity; cycles the window on statistics; asks for an email whose account log to read on global admin |
+| `/` | filter; shows only your starred projects, and again every project, on projects | board, activity, projects; cycles the window on statistics; asks for an email whose account log to read on global admin; on people, toggles the list to those without a second factor |
 | `C` | clear the filter, and on activity the project the start menu picked | board, activity |
 | `space` | pause the tail, holding new events back; again to resume and draw them | activity |
 | `s` | apply one of your saved filters, or one shared with the tenant | board |
 | `K` | keep the board's filter as a saved filter, under a name | board |
 | `c` | claim | board, detail |
 | `x` | release | board, detail |
-| `R` | renew the lease; re-issues the selected invite on people | board, detail, people |
+| `R` | renew the lease; re-issues the selected invite on people; rotates the selected token on account | board, detail, people, account |
 | `F` | reclaim the lease another worker holds, leaving the task where it is; clears the selected user's second factor on people | board, detail, people |
 | `N` | claim next from the queue | board, detail |
 | `t` | transition | board, detail |
@@ -196,24 +200,28 @@ an action unbound.
 | `A` | assign, from the tenant's directory | board, detail |
 | `m` | comment | board, detail |
 | `M` | edit the selected comment | detail |
+| `&` | react to the selected comment with an emoji, or take back one you already left | detail |
 | `#`, `U` | add tag, remove tag, by name | board, detail |
 | `L` | pick a tag from the ones the tenant has | board, detail |
 | `D` | add a dependency, by reference | board, detail |
 | `-` | remove one of the dependencies the task waits on | detail |
 | `O` | record an artifact | board, detail |
 | `u` | restore a deleted task | board, detail |
-| `*` | star the task, or unstar a starred one; starred cards lead their column | board, detail |
+| `*` | star the task, or unstar a starred one; starred cards lead their column; stars the selected project on projects | board, detail, projects |
 | `[` | tick a checklist item of the description by its number, or clear a ticked one | board, detail |
 | `b` | snooze the task until a time you type, or unsnooze a snoozed one | board, detail |
 | `Y` | copy the task to any project, this one included, with a form for the title and what travels | board, detail |
+| `d` | move the task to another project, picked from a list; it keeps everything and takes a new number there | board, detail |
+| `^` | share the task: copy its link, a Markdown link or its key and title to the terminal's clipboard; on activity, copy the selected event as JSON | board, detail, activity |
 | `B` | pick a task template: create a task from it, show it, rename it or delete it | board, detail |
 | `E` | save the task as a template, for this project or the whole tenant | board, detail |
-| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token or key | board, detail, project, tenant, people, integrations, server, global admin, account |
+| `X` | delete the task or the selected comment; removes the selected domain or member; deletes the selected user or revokes the selected invite; removes the selected endpoint or source; ends a connection; deletes a tenant or user, revokes a global admin; revokes the selected token, key or session | board, detail, project, tenant, people, integrations, server, global admin, account |
 | `Z` | hide the selected column, for you, on this project's board everywhere | board |
 | `+` | star the selected column, or unstar it; starred columns lead | board |
 | `z` | collapse the selected column to its name and count, or expand it | board |
 | `<`, `>` | move the selected column left, right | board |
 | `=` | show every hidden column again | board |
+| `pgdown`, `pgup` | next, previous page of the project's tasks, when it holds more than one read | board |
 | `space` | mark the selected item read, or unread; tick a scope in the token scope picker | inbox, account |
 | `a` | mark every item read; tick or clear a whole group in the token scope picker | inbox, account |
 | `V` | import and export: tasks, bundles and snapshots, by file path, or the `ssh` commands over SSH | everywhere |
@@ -223,7 +231,7 @@ an action unbound.
 | `~` | the start menu | everywhere |
 | `W`, `,`, `v`, `H`, `I`, `S`, `T`, `@` | projects, settings, activity, history, inbox, statistics, tenant, people | everywhere |
 | `J` | integrations: webhooks, external sync and retention | everywhere |
-| `$` | your account: tokens, SSH keys, second factor and account log | everywhere |
+| `$` | your account: tokens, SSH keys, sessions, second factor and account log | everywhere |
 | `%`, `!` | the server, global admin | everywhere they are offered |
 | `ctrl+k`, `:` | the command palette: every action by name | everywhere |
 | `r` | refresh | everywhere |
@@ -439,6 +447,35 @@ Description, priority, tags, the custom fields the target defines, the repeat ru
 assignee always travel. Stars, claims, history and artifacts never do. The status bar names the new task,
 since it may have landed in a project the board is not showing.
 
+### Moving a task
+
+`d` moves the selected task to another project, the same operation as `tix task move`. A picker offers every
+project but the task's own; `enter` moves it. The task keeps its identifier, comments, artifacts, history,
+dependencies, tags and assignee, and takes the next number in the target, so the status bar names its new
+reference. The old reference keeps finding it, from the palette, the command line or a link.
+
+The status stays when the target workflow has a state of that name, else the task starts in the target's
+initial state and the status bar says which. Custom fields the target does not define are left behind. A
+task somebody else holds a claim on is refused until the claim is released. `m` was taken by comments, hence
+`d`, for dispatch; it only opens the picker, so nothing happens on a stray press.
+
+### Sharing a task
+
+`^` shares the selected card, or the task on screen, the way the web's Share menu does. A picker offers
+`1` the link, `2` the Markdown link, `[INFRA-12 Fix the build](https://tix.example.com/tasks/infra-12)`,
+with `\`, `[` and `]` escaped, and `3` the key and title, `INFRA-12 Fix the build`. The pick goes to the
+clipboard of the terminal you are sitting at, through the OSC 52 escape sequence, so it works the same in a
+local terminal and over SSH, where the clipboard is still your own.
+
+Not every terminal honours OSC 52 (some ask first, some need it turned on, tmux needs `set-clipboard on`),
+and nothing reports whether it arrived. So the copied text is also drawn in full under the board, wrapped
+rather than cut, and stays until the next key: select it with the mouse if the clipboard stayed empty.
+
+The link is the task's `web_url`, which a server configured with `server.public_url` sets on every task
+([configuration.md](configuration.md#the-public-web-address)), else the server a remote context talks to.
+A local database or an SSH listener without the key has no web address, so the picker offers the key and
+title and the Markdown label without a link, and says it has no link and why.
+
 ### Task templates
 
 `E` keeps the selected task as a template. The form asks for a name (the task's title to start with),
@@ -488,6 +525,22 @@ heading carries `▸` and a starred one `★`, so neither depends on colour.
 
 A reader without the authority to read the arrangement gets the board in workflow order, and the keys are
 neither drawn nor sent.
+
+### Paging a long project
+
+The board reads each column on its own, up to 500 tasks a column, the most one page of a listing holds. A
+single listing paged across the columns would cut every column at the same row, leaving a column empty on
+page 2 while its tasks sat on page 1. A project whose longest column holds more says where you are in the
+status bar: `500 tasks in 5 columns, page 1/3`, counted by that column. A count that stopped at its cap of
+10,000 is written as a floor, `page 1/20+`. `pgdown` reads the next 500 of every column that has them and
+`pgup` the previous, by page number; both are offered only where there is a page to go to, and in the
+palette.
+
+A card marked `!` is waiting on another task: it depends on a task that is not finished. That is not
+the same as a card in a workflow state named Blocked, which is a column. A new filter or
+another project starts on page 1, and a live refresh rereads the page you are on. A project that fits one
+read draws no indicator and offers neither key. There is no typed jump: at 500 a page, a project that needs
+one is rare.
 
 ### Rebinding one action
 
@@ -642,6 +695,10 @@ is never mistaken for a quiet tenant. The empty state distinguishes the three ca
 a filter that matches nothing, a subscription that has actually dropped, and a tenant with nothing
 happening are three different problems, and a long silence must not look like a stalled program.
 
+`^` copies the selected event as pretty-printed JSON, the shape `tix watch -o json` prints, to the
+terminal's clipboard with OSC 52, the same way sharing a task does, and draws it too in case the terminal
+ignored the request.
+
 The title bar carries `● live` or `○ disconnected, retrying`. A dropped subscription is reopened from the
 last sequence seen, so reconnecting does not skip events.
 
@@ -681,6 +738,14 @@ Muting a kind is a setting kept with your account, set from the browser's Settin
 the terminal has no screen for it, which the registry records as an exemption rather than a gap. The
 same holds for notification channels (`tix inbox channel`).
 
+## Creating a project
+
+On the project list `n` asks for a key and a name. When the tenant has more than one workflow, or built-in
+templates to offer, a form follows that picks the workflow: the tenant's own first, then the templates. While
+a template is selected the form says what it is for first, then its name marked `[Built-in]`, its states and
+the fields the project will get. Applying a template under another key, or over one that is taken, is `tix
+workflow template apply`.
+
 ## The project screen
 
 `w` opens the project the board is on. `e` edits it: the colour and, when there is another one to move to,
@@ -701,7 +766,14 @@ a named subject rather than a typed identifier. The confirmation says the hostna
 
 `e` edits the tenant: the theme from the palettes the build carries, including the word for having none
 and `custom`, which asks for a `#rrggbb` accent at the single-line input, and the name from the
-single-line input seeded with the name it would replace. `n` asks whether a domain or a member is being
+single-line input seeded with the name it would replace, the second factor policy (`off` or `required`)
+and its grace (from `0` to `30d`; any other length is for `tix tenant edit --mfa-grace`), the artifact
+limits, and the session settings: sign-in lasts, idle timeout and keep signed in, each typed at the
+single-line input seeded with the tenant's own value, empty to use the server's, `off` to stop offering
+keep signed in. The screen lists all three beside the other attributes, `server's` where the tenant sets none.
+The account screen's sessions say `kept signed in` on a remembered one. The screen states
+the policy beside the theme. Turning it on is refused while you hold no second factor yourself; see
+[second-factor.md](second-factor.md#the-tenant-policy). `n` asks whether a domain or a member is being
 added. A domain takes its hostname at the prompt and is added carrying no certificate
 of its own, because a certificate is a pair of paths on the server that no control here can gather;
 `tix domain add` takes them. A member is picked from the tenant's own directory, read at the keystroke
@@ -749,7 +821,12 @@ way to dial another tenant, which is what an SSH session is, says that plainly a
 whether they are active or disabled, whether they hold a second factor and whether their next sign-in must
 choose a new password. The pending invites follow, expired ones included so they can be re-issued, each with
 its role, when it stops working and who issued it. One cursor runs over both lists. It is the browser's
-Admin > Users screen and `tix user` in one place.
+Admin > Users screen and `tix user` in one place. `/` narrows the users to those holding no second factor,
+the list to work through before turning the tenant's policy on, and pressing it again lists everybody.
+
+Over SSH, a person the tenant's second factor policy gates is taken through enrolment in the terminal
+before any screen is drawn, and the session ends if they do not finish it; see
+[second-factor.md](second-factor.md#the-tenant-policy).
 
 `enter` reads the selected user in full, the way `tix user show` does. `n` opens one form for a new person,
 with a choice of how they sign in. With a password, the password is masked as it is typed and as it is
@@ -863,15 +940,27 @@ The view has three parts, and `esc` walks out of a part before it leaves the vie
 ## The account screen
 
 `$` opens what the browser spreads over Settings, Tokens, SSH keys and Your account: who this session is
-signed in as, your second factor, your own API tokens and SSH keys, and the newest page of your account
-log. Each section is its own read, so a refused one says why and the rest of the screen still draws. An
-agent's session, for one, has no second factor and no account log to show.
+signed in as, your second factor, your own API tokens and SSH keys, your sessions in this tenant, and the
+newest page of your account log. Each section is its own read, so a refused one says why and the rest of
+the screen still draws. An agent's session, for one, has no second factor and no account log to show.
 
-One cursor runs over the second factor, the tokens, the keys and the log entries. `X` on a token or a key
-revokes it and on the second factor removes it, each behind a confirmation naming what goes; a revoked
-token or key has nothing left to revoke and is not offered. The service decides whether the factor may be
-removed from the surface you came in on: a tenant that requires one over SSH refuses it there, and the
-status bar carries that refusal.
+One cursor runs over the second factor, the tokens, the keys, the sessions and the log entries. `X` on a
+token, a key or a session revokes it and on the second factor removes it, each behind a confirmation naming
+what goes; a revoked token or key has nothing left to revoke and is not offered. The service decides
+whether the factor may be removed from the surface you came in on: a tenant that requires one over SSH
+refuses it there, and the status bar carries that refusal.
+
+The sessions are your browser and terminal sign-ins in this tenant, newest first, each with how and when it
+signed in, when it expires and its user agent. Revoking one signs whatever holds it out at once. The
+terminal itself runs on a token or an SSH key, so none of them is marked as this one; a token needs
+`account:read` to see them, which the token `tix login` stores carries.
+
+`R` on a live token rotates it: a form asks how long the old value keeps working, from the browser's choices
+(stop it now, proposed, or 10 minutes, 1 hour or 24 hours), a confirmation names the token and the window,
+and the new value, same name, scopes and lifetime, is drawn once at the top of the screen the way an issued
+token is. A token already rotated and still in its window is listed as `rotated, stops ...` and offers `X`
+but not `R`. Rotating the token this session runs on with no window ends the session's own credential, so
+pick a window and point the context at the new value first.
 
 `n` asks what to add, offering only what your authority reaches: an API token, an SSH key, and either a
 second factor while none is on or new recovery codes once one is.
@@ -962,6 +1051,9 @@ session belonging to a listener rather than to a shell:
 - **Colour comes from what the client said its terminal is.** Each session builds its own renderer from
   its own environment, so one client's colour depth cannot be applied to another's.
 
+The clipboard is the same as locally: `^` copies through your own terminal with OSC 52, so a link copied
+from a board on a server lands on the machine you are typing at ([sharing a task](#sharing-a-task)).
+
 A demo sandbox prints one line on disconnect, after the alternate screen is gone: the board is owned by
 that key, reconnecting with the same key finds it as it was, and it is deleted after a period without a
 visit.
@@ -975,7 +1067,7 @@ move files over SSH, since the listener never reads or writes a path on your mac
 ## What the terminal does not do
 
 The registry records, for every operation, either a terminal binding or a reason there is none, and marks
-a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 174
+a reason as a gap when the binding ought to exist. As of this writing there are 0 such gaps against 212
 operations: everything the terminal ought to do, it does, and what it does only in part is recorded as a
 limitation on the binding. A test asserts the exact number, so a new operation that arrives without a
 binding or a written reason fails it rather than growing the count quietly. Treat
@@ -1004,7 +1096,7 @@ over them now. And the tenant itself: the screen that stated only which tenant a
 now reads the tenant, the tenants the session can see, its domains and its memberships, and edits all
 three, which closed nine. The people screen closed ten more: users, their invites and clearing somebody
 else's second factor. And the parts of a tenant that talk to the world outside it: the integrations view
-lists, registers, edits and deletes webhook endpoints and redelivers from their log, configures, checks,
+lists, registers, edits, pings and deletes webhook endpoints and redelivers from their log, configures, checks,
 runs and deletes external sync sources, and edits the retention windows and prunes, which closed twelve.
 
 The server and the installation have closed too. The server view reads the status report and the

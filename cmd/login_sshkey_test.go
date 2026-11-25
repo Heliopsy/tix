@@ -84,6 +84,12 @@ func (c *cli) enrolLoginKey(k loginKey) {
 // returns its address.
 func (c *cli) loginServer() string {
 	c.t.Helper()
+	return c.loginServerWith()
+}
+
+// loginServerWith is loginServer over a service built with further options.
+func (c *cli) loginServerWith(with ...service.Option) string {
+	c.t.Helper()
 	ctx := context.Background()
 	st, err := sqlite.Open(c.dbPath(), clock.New())
 	if err != nil {
@@ -102,8 +108,8 @@ func (c *cli) loginServer() string {
 		c.t.Fatalf("reading migrations: %v", err)
 	}
 	router, err := httpapi.New(httpapi.Config{
-		Service:         service.New(st),
-		Authenticator:   server.NewAuthenticator(st, clock.New()),
+		Service:         service.New(st, with...),
+		Authenticator:   server.NewAuthenticator(st, clock.New(), core.SessionPolicy{}),
 		DefaultTenantID: tenant.ID,
 		Probe:           st,
 		ExpectedSchema:  latest,

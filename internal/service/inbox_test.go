@@ -351,3 +351,40 @@ func anyStrings(v any) []string {
 	}
 	return nil
 }
+
+func TestInboxListsOnlyTheKindsAsked(t *testing.T) {
+	f := newInboxFixture(t)
+	task := mustCreateTask(t, f.l, f.adaC, core.CreateTaskInput{ProjectRef: "infra", Title: "cut over",
+		AssigneeActorID: "bob"})
+	for _, body := range []string{"@bob ping", "status update"} {
+		if _, err := f.l.AddComment(f.adaC, core.TaskRef{ID: task.ID}, body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cases := []struct {
+		kinds []core.InboxKind
+		want  []string
+	}{
+		{nil, []string{"comment " + task.Ref, "mention " + task.Ref, "assigned " + task.Ref}},
+		{[]core.InboxKind{core.InboxMention}, []string{"mention " + task.Ref}},
+		{[]core.InboxKind{" Assigned ", "assigned"}, []string{"assigned " + task.Ref}},
+		{[]core.InboxKind{core.InboxStatus, core.InboxComment}, []string{"comment " + task.Ref}},
+	}
+	for _, tc := range cases {
+		items, _, err := f.l.ListInbox(f.bobC, core.InboxFilter{Kinds: tc.kinds})
+		if err != nil {
+			t.Fatalf("kinds %v: %v", tc.kinds, err)
+		}
+		got := []string{}
+		for _, it := range items {
+			got = append(got, string(it.Kind)+" "+it.TaskRef)
+		}
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("kinds %v = %v, want %v", tc.kinds, got, tc.want)
+		}
+	}
+	_, _, err := f.l.ListInbox(f.bobC, core.InboxFilter{Kinds: []core.InboxKind{"likes"}})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("an unknown kind = %v, want invalid", err)
+	}
+}

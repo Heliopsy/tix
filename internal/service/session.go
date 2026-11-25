@@ -5,7 +5,6 @@ package service
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -29,24 +28,17 @@ const (
 // required to change.
 const eventUserPasswordChanged core.EventType = "user.password_changed"
 
-// SessionTTL is how long a password login stays valid.
-const SessionTTL = 12 * time.Hour
-
 // errInvalidCredentials is the single answer every failed login gives, so that
 // a wrong password, an unknown email and a disabled account are one outcome.
 func errInvalidCredentials() error { return core.Unauthenticated("invalid credentials") }
 
 // dummyHash is verified against when no account matches, so that a login for an
 // address nobody holds costs the same as a login with the wrong password. It is
-// per service because the hasher's cost is configurable.
-func (l *Local) dummyHash() string {
-	l.dummyOnce.Do(func() {
-		h, err := l.hasher.Hash(strings.Repeat("tix-absent-", 4))
-		if err == nil {
-			l.dummy = h
-		}
-	})
-	return l.dummy
+// per service because the hasher's cost is configurable. It is minted without
+// a derivation, so the first sign-in does not pay for two.
+func (l *Local) dummyHash() (string, error) {
+	l.dummyOnce.Do(func() { l.dummy, l.dummyErr = l.hasher.Dummy() })
+	return l.dummy, l.dummyErr
 }
 
 // sessionCtxKey carries the session token a caller presented.
@@ -220,8 +212,16 @@ func (l *Local) Login(ctx context.Context, in core.LoginInput) (*core.LoginResul
 	if !surface.Valid() {
 		return nil, core.Invalid("%q is not a sign-in surface", in.Surface)
 	}
+	ctx = withRemember(ctx, in.Remember)
+	if in.AppHandoff != "" {
+		return l.resumeHandoff(ctx, scope, in.AppHandoff)
+	}
 	if in.Ticket != "" {
-		return l.completeLogin(ctx, scope, surface, in)
+		out, err := l.completeLogin(ctx, scope, surface, in)
+		if err != nil {
+			return nil, l.ticketRefusal(ctx, err, in.Ticket)
+		}
+		return out, nil
 	}
 	return l.beginLogin(ctx, scope, surface, in)
 }
@@ -242,16 +242,24 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 		}
 		scope = core.TenantScope{TenantID: cand.tenant}
 	}
-	stored := l.dummyHash()
-	if cand.hash != "" {
-		stored = cand.hash
+	stored := cand.hash
+	if stored == "" {
+		if stored, err = l.dummyHash(); err != nil {
+			return nil, err
+		}
 	}
-	verified := auth.Verify(stored, in.Password) == nil
-	if !verified || !cand.usable() {
+	if err := auth.Verify(ctx, stored, in.Password); err != nil || !cand.usable() {
+		if auth.IsHashBusy(err) {
+			return nil, err
+		}
+		noteLoginRefused(ctx, cand.usable())
 		return nil, errInvalidCredentials()
 	}
 
-	changed, err := l.replacementPassword(cand.user, in)
+	if err := l.passwordSignInAllowed(ctx, scope, cand.user, core.LoginMethodPassword); err != nil {
+		return nil, err
+	}
+	changed, err := l.replacementPassword(ctx, cand.user, in)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +269,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 
 	rehashed := ""
 	if changed == "" && auth.NeedsRehash(cand.hash, l.hasher.Params()) {
-		if rehashed, err = l.hasher.Hash(in.Password); err != nil {
+		if rehashed, err = l.hasher.Hash(ctx, in.Password); err != nil {
 			return nil, err
 		}
 	}
@@ -296,7 +304,7 @@ func (l *Local) beginLogin(ctx context.Context, scope core.TenantScope, surface 
 // one was accepted. It answers "" when none was sent. A new password is taken
 // only from an account required to change it: this is not a general way to
 // change a password, and accepting one here would make it one.
-func (l *Local) replacementPassword(user *core.User, in core.LoginInput) (string, error) {
+func (l *Local) replacementPassword(ctx context.Context, user *core.User, in core.LoginInput) (string, error) {
 	if in.NewPassword == "" {
 		return "", nil
 	}
@@ -312,7 +320,7 @@ func (l *Local) replacementPassword(user *core.User, in core.LoginInput) (string
 		return "", core.Invalid("the new password must differ from the current one").
 			WithDetail(core.DetailField, "new_password")
 	}
-	return l.hasher.Hash(in.NewPassword)
+	return l.hasher.Hash(ctx, in.NewPassword)
 }
 
 // recordPasswordChange stores a required password change and clears the
@@ -346,13 +354,28 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 	var (
 		required bool
 		enrolled bool
+		enrolNow bool
+		signIn   bool
+		app      = appSignInFrom(ctx)
 	)
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		tenant, err := tx.GetTenant(ctx)
 		if err != nil {
 			return err
 		}
-		required = tenant.RequiresTOTP(surface)
+		// An app's sign-in runs on the web but mints the session the app's
+		// password sign-in gets on the cli surface, so either requirement
+		// asks for the factor.
+		onSurface := tenant.RequiresTOTP(surface) || (app != nil && tenant.RequiresTOTP(core.SurfaceCLI))
+		required = onSurface || tenant.MFARequired()
+		enrolNow = onSurface || tenant.MFAEnforced(l.clock.Now())
+		// Under the policy the browser signs an unenrolled person in to a
+		// session the gate confines to enrolment, rather than enrolling them
+		// inside the sign-in: one path then serves a new sign-in, a session
+		// that was live when the policy went on and one whose factor was
+		// cleared since. An app's sign-in has no such screen to land on, so
+		// it enrols inside the sign-in as the command line does.
+		signIn = tenant.MFARequired() && surface == core.SurfaceWeb && app == nil
 		enrolment, err := tx.GetUserTOTP(ctx, user.ID)
 		if core.IsKind(err, core.KindNotFound) {
 			return nil
@@ -368,6 +391,9 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 	if !required && !enrolled {
 		return nil, nil
 	}
+	if !enrolled && (signIn || !enrolNow) {
+		return nil, nil
+	}
 
 	ticket, err := auth.MintTicket(l.totpKey, auth.Ticket{
 		UserID:    user.ID,
@@ -375,6 +401,7 @@ func (l *Local) secondFactorFor(ctx context.Context, scope core.TenantScope, sur
 		Surface:   surface,
 		ExpiresAt: l.clock.Now().Add(auth.TicketTTL),
 		Method:    method,
+		App:       app,
 	})
 	if err != nil {
 		return nil, err
@@ -399,14 +426,20 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 ) (*core.LoginResult, error) {
 	ticket, err := auth.ParseTicket(l.totpKey, in.Ticket, l.clock.Now())
 	if err != nil {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
+		return nil, err
+	}
+	if err := appOnlyInBrowser(ctx, ticket.App, "ticket"); err != nil {
 		return nil, err
 	}
 	if ticket.TenantID != scope.TenantID && l.servedHere(ctx, ticket.TenantID) {
 		scope = core.TenantScope{TenantID: ticket.TenantID}
 	}
 	if ticket.TenantID != scope.TenantID || ticket.Surface != surface {
-		return nil, core.Unauthenticated("this sign-in has expired; start again")
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedSignInExpired})
+		return nil, auth.ErrSignInExpired()
 	}
+	ctx = withAppSignIn(ctx, ticket.App)
 
 	var (
 		user      *core.User
@@ -432,11 +465,13 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 		return err
 	}); err != nil {
 		if core.IsKind(err, core.KindNotFound) {
+			auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedUnknownAccount})
 			return nil, errInvalidCredentials()
 		}
 		return nil, err
 	}
 	if user.DisabledAt != nil || !cand.member() {
+		auth.NoteRefusal(ctx, auth.Refusal{Reason: auth.RefusedUnknownAccount})
 		return nil, errInvalidCredentials()
 	}
 	sessionActor := cand.sessionActor(scope)
@@ -452,6 +487,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 			// A pending enrolment has no recovery codes to fall back on, and
 			// a locked enrolment accepts nothing at all, so neither gets the
 			// extra round trip a recovery attempt costs.
+			noteCodeRefused(ctx, verifyErr)
 			return nil, verifyErr
 		}
 		return l.loginWithRecoveryCode(ctx, scope, sessionActor, user, method, in.Code, verifyErr)
@@ -474,7 +510,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	for _, h := range hashes {
 		rows = append(rows, core.RecoveryCode{UserID: user.ID, CodeHash: h})
 	}
-	out, err := l.mintSession(ctx, scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
+	out, err := l.mintSession(enrolling(ctx), scope, sessionActor, user, "", factorOrigin(method), func(m *mutation) error {
 		if err := m.tx.SaveUserTOTPAttempt(ctx, user.ID, attempt); err != nil {
 			return err
 		}
@@ -503,6 +539,7 @@ func (l *Local) completeLogin(ctx context.Context, scope core.TenantScope, surfa
 	if err != nil {
 		return nil, err
 	}
+	l.gates.forget()
 	out.RecoveryCodes = plain
 	return out, nil
 }
@@ -538,6 +575,7 @@ func (l *Local) loginWithRecoveryCode(ctx context.Context, scope core.TenantScop
 		return nil, err
 	}
 	if result == nil {
+		noteCodeRefused(ctx, codeErr)
 		return nil, codeErr
 	}
 	return result, nil
@@ -594,12 +632,27 @@ func (l *Local) mintSession(ctx context.Context, scope core.TenantScope, actor *
 func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor *core.Actor, origin core.SessionOrigin,
 	also func(*mutation) (bool, error),
 ) (*core.LoginResult, error) {
+	if app := appSignInFrom(ctx); app != nil {
+		return l.handOff(ctx, scope, actor, origin, app, also)
+	}
+	policy, err := l.sessionPolicyFor(ctx, scope.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	ttl, remembered := policy.Lifetime(rememberFrom(ctx))
+	origin.Remembered = remembered
+	_, limit := policy.Renewal(remembered)
+	if origin.SignedInAt.IsZero() {
+		origin.SignedInAt = signedInFrom(ctx)
+	}
 	minted, err := auth.MintSession(l.clock, auth.SessionInput{
-		ActorID:  actor.ID,
-		TenantID: scope.TenantID,
-		Handle:   actor.Handle,
-		Role:     actor.Role,
-		TTL:      SessionTTL,
+		ActorID:    actor.ID,
+		TenantID:   scope.TenantID,
+		Handle:     actor.Handle,
+		Role:       actor.Role,
+		TTL:        ttl.D(),
+		SignedInAt: origin.SignedInAt,
+		Limit:      limit.D(),
 	})
 	if err != nil {
 		return nil, err
@@ -609,12 +662,15 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 		if ok, err = also(m); err != nil || !ok {
 			return err
 		}
+		origin.UserAgent = core.TruncateUserAgent(m.via.UserAgent)
+		origin.SignedInAt = minted.Stored.CreatedAt
 		if err := m.tx.CreateSession(ctx, actor.ID, minted.Stored.TokenHash, minted.Session.ExpiresAt,
 			origin); err != nil {
 			return err
 		}
 		return m.Record(auditUserLogin, eventSessionCreated, "session", actor.ID, "", nil,
-			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": origin.Method},
+			map[string]any{"actor_id": actor.ID, "expires_at": minted.Session.ExpiresAt, "method": origin.Method,
+				"remembered": remembered},
 			map[string]any{"actor_id": actor.ID, "handle": actor.Handle, "method": origin.Method})
 	}); err != nil {
 		return nil, err
@@ -622,7 +678,12 @@ func (l *Local) mintSessionIf(ctx context.Context, scope core.TenantScope, actor
 	if !ok {
 		return nil, nil
 	}
-	return &core.LoginResult{Session: &minted.Session}, nil
+	minted.Session.Remembered = remembered
+	out := &core.LoginResult{Session: &minted.Session}
+	if standing, err := l.factorStandingOf(ctx, actor); err == nil {
+		out.SecondFactorDue = standing.due()
+	}
+	return out, nil
 }
 
 // Logout ends the session the caller presented. It needs no authorization

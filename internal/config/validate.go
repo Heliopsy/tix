@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"net"
 	"net/url"
 	"strconv"
@@ -41,6 +42,9 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"output.time_format", cfg.Output.TimeFormat, OutputTimeFormats, nil},
 		{"tui.motion", cfg.TUI.Motion, TUIMotions, nil},
 		{"server.cookie_security", cfg.Server.CookieSecurity, CookieSecurities, nil},
+	}
+	if hint, ok := RedirectedAuthModes[cfg.Auth.Mode]; ok {
+		return redirectedKey("auth.mode", cfg.Auth.Mode, hint, sources)
 	}
 	for _, check := range checks {
 		if allowed(check.value, check.set) {
@@ -96,6 +100,11 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", cfg.SSH.PublicAddress).
 			WithDetail("reason", err.Error())
 	}
+	if err := checkPublicURL(cfg.Server.PublicURL); err != nil {
+		return invalidKey("server.public_url", sources).
+			WithDetail("value", cfg.Server.PublicURL).
+			WithDetail("reason", err.Error())
+	}
 	// The sealing key is checked here so a malformed value fails at start-up
 	// rather than at the first enrolment, which is months later and is the
 	// moment the operator least wants to learn about it.
@@ -103,6 +112,9 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		if _, err := auth.ParseTOTPKey(cfg.Auth.TOTPKey); err != nil {
 			return invalidKey("auth.totp_key", sources).WithDetail("reason", err.Error())
 		}
+	}
+	if err := validatePasswordHashing(cfg.Auth, sources); err != nil {
+		return err
 	}
 	if cfg.Server.URL != "" {
 		if _, err := url.Parse(cfg.Server.URL); err != nil {
@@ -130,6 +142,7 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 		{"retention.audit", cfg.Retention.Audit},
 		{"retention.events", cfg.Retention.Events},
 		{"retention.webhook_deliveries", cfg.Retention.WebhookDeliveries},
+		{"retention.idempotency_keys", cfg.Retention.IdempotencyKeys},
 	} {
 		if window.d < 0 {
 			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
@@ -201,6 +214,42 @@ func Validate(cfg *Config, sources map[string]Layer) error {
 			WithDetail("value", strconv.FormatInt(cfg.Server.MaxImportBytes, 10)).
 			WithDetail("reason", "an import limit must be a positive number of bytes")
 	}
+	if cfg.Artifacts.MaxBytes < 1 {
+		return invalidKey("artifacts.max_bytes", sources).
+			WithDetail("value", strconv.FormatInt(cfg.Artifacts.MaxBytes, 10)).
+			WithDetail("reason", "an artifact size limit must be a positive number of bytes")
+	}
+	if _, err := core.ParseArtifactTypes(cfg.Artifacts.AllowedTypes); err != nil {
+		return invalidKey("artifacts.allowed_types", sources).
+			WithDetail("value", strings.Join(cfg.Artifacts.AllowedTypes, ",")).
+			WithDetail("reason", err.Error())
+	}
+	if w := cfg.CalDAV.CompletedWindow.D(); w < 0 || w > MaxCalDAVCompletedWindow {
+		return invalidKey("caldav.completed_window", sources).WithDetail("value", cfg.CalDAV.CompletedWindow.String()).
+			WithDetail("reason", "a finished task stays in a collection for between 0 and 365d")
+	}
+	if n := cfg.CalDAV.MaxObjects; n < 1 || n > MaxCalDAVMaxObjects {
+		return invalidKey("caldav.max_objects", sources).WithDetail("value", strconv.Itoa(n)).
+			WithDetail("reason", "a collection holds between 1 and "+strconv.Itoa(MaxCalDAVMaxObjects)+" tasks")
+	}
+	if cfg.Session.TTL < core.MinSessionDuration {
+		return invalidKey("session.ttl", sources).WithDetail("value", cfg.Session.TTL.String()).
+			WithDetail("reason", "a session lifetime must be at least a minute")
+	}
+	for _, window := range []struct {
+		key string
+		d   core.Duration
+	}{
+		{"session.idle_timeout", cfg.Session.IdleTimeout},
+		{"session.remember_ttl", cfg.Session.RememberTTL},
+		{"session.max_lifetime", cfg.Session.MaxLifetime},
+		{"session.remember_max_lifetime", cfg.Session.RememberMaxLifetime},
+	} {
+		if window.d < 0 || (window.d > 0 && window.d < core.MinSessionDuration) {
+			return invalidKey(window.key, sources).WithDetail("value", window.d.String()).
+				WithDetail("reason", "zero turns it off; otherwise it must be at least a minute")
+		}
+	}
 	for name, ctx := range cfg.Contexts {
 		if err := ctx.validate(name); err != nil {
 			return err
@@ -250,6 +299,17 @@ func unimplementedKey(key, value string, sources map[string]Layer) *core.Error {
 	return err.WithDetail("key", key).WithDetail("value", value).WithDetail("layer", string(layer))
 }
 
+// redirectedKey refuses a value that names a setting made somewhere else.
+func redirectedKey(key, value, hint string, sources map[string]Layer) *core.Error {
+	layer := sources[key]
+	if layer == "" {
+		layer = LayerDefault
+	}
+	err := core.Invalid("%s %q is refused: %s; supported: %s (set from the %s layer, %s)",
+		key, value, hint, strings.Join(supportedFor(key), ", "), layer, EnvName(key))
+	return err.WithDetail("key", key).WithDetail("value", value).WithDetail("layer", string(layer))
+}
+
 // supportedFor returns the implemented value set of an enumerated key.
 func supportedFor(key string) []string {
 	switch key {
@@ -290,6 +350,10 @@ func (c Context) validate(name string) error {
 		if field.value == "" || allowed(field.value, field.set) {
 			continue
 		}
+		if hint, ok := RedirectedAuthModes[field.value]; ok && field.name == "auth_mode" {
+			return core.Invalid("context %q sets %s %q: %s; supported: %s", name, field.name, field.value, hint,
+				strings.Join(field.set, ", ")).WithDetail("context", name).WithDetail("supported", field.set)
+		}
 		if allowed(field.value, field.unimplemented) {
 			return core.Invalid("context %q sets %s %q, which is not implemented by this build; supported: %s",
 				name, field.name, field.value, strings.Join(field.set, ", ")).
@@ -324,6 +388,33 @@ func checkPublicAddress(addr string) error {
 	return nil
 }
 
+// checkPublicURL accepts an absolute http or https address with at most a
+// base path. Every task link is built by appending to it, so a query, a
+// fragment or a user would end up inside links people paste elsewhere.
+func checkPublicURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	switch {
+	case err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Opaque != "":
+		return errors.New("want an absolute http or https address, such as https://tix.example.com")
+	case u.User != nil:
+		return errors.New("the address must not carry a user or password")
+	case u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(raw, "#"):
+		return errors.New("the address must not carry a query or fragment")
+	case u.Port() != "" && !validPort(u.Port()):
+		return errors.New("the port must be a number from 1 to 65535")
+	}
+	return nil
+}
+
+// validPort reports whether p is a port number in range.
+func validPort(p string) bool {
+	n, err := strconv.Atoi(p)
+	return err == nil && n >= 1 && n <= 65535
+}
+
 // bindingReason is a binding error's message without its kind.
 func bindingReason(err error) string {
 	var domain *core.Error
@@ -331,4 +422,65 @@ func bindingReason(err error) string {
 		return domain.Message
 	}
 	return err.Error()
+}
+
+// validatePasswordHashing refuses a negative setting, and a cost an operator
+// configured below the OWASP floor: lowering the hash cost is a decision a
+// typo must not make.
+func validatePasswordHashing(a Auth, sources map[string]Layer) error {
+	for _, n := range []struct {
+		key string
+		v   int
+		max int64
+	}{
+		{"auth.max_concurrent_hashes", a.MaxConcurrentHashes, math.MaxInt32},
+		{"auth.argon2_memory_kib", a.Argon2MemoryKiB, math.MaxUint32},
+		{"auth.argon2_time", a.Argon2Time, math.MaxUint32},
+		{"auth.argon2_threads", a.Argon2Threads, math.MaxUint8},
+	} {
+		if n.v < 0 || int64(n.v) > n.max {
+			return invalidKey(n.key, sources).WithDetail("value", strconv.Itoa(n.v)).
+				WithDetail("reason", "must be between 0 and "+strconv.FormatInt(n.max, 10))
+		}
+	}
+	if a.SAMLMetadataRefresh < 0 {
+		return invalidKey("auth.saml_metadata_refresh", sources).WithDetail("value", a.SAMLMetadataRefresh.String()).
+			WithDetail("reason", "must not be negative; 0 turns the scheduled read off")
+	}
+	if err := validateAppRedirects(a.SSOAppRedirects, sources); err != nil {
+		return err
+	}
+	if a.Argon2MemoryKiB == 0 && a.Argon2Time == 0 && a.Argon2Threads == 0 {
+		return nil
+	}
+	if err := a.PasswordParams().CheckPolicy(); err != nil {
+		key := "auth.argon2_memory_kib"
+		if a.Argon2MemoryKiB == 0 {
+			key = "auth.argon2_time"
+		}
+		return invalidKey(key, sources).WithDetail("reason", err.Error())
+	}
+	return nil
+}
+
+// validateAppRedirects refuses an app redirect that is not an absolute
+// address with a scheme, that carries a fragment the code would be lost in,
+// or whose scheme would run in the browser rather than open an app.
+func validateAppRedirects(redirects []string, sources map[string]Layer) error {
+	for _, raw := range redirects {
+		if core.AppSchemeRefused(raw) {
+			return invalidKey("auth.sso_app_redirects", sources).WithDetail("value", raw).
+				WithDetail("reason", "an app redirect may not use the "+strings.Join(core.RefusedAppSchemes, ", ")+
+					" schemes: the browser would run or read it instead of opening an app")
+		}
+		u, err := url.Parse(raw)
+		if err == nil && u.Scheme != "" && u.Fragment == "" && !strings.HasSuffix(raw, "#") && u.User == nil &&
+			(u.Opaque != "" || u.Path != "" || u.Host != "") {
+			continue
+		}
+		return invalidKey("auth.sso_app_redirects", sources).WithDetail("value", raw).
+			WithDetail("reason", "each entry must be an absolute address with a scheme, such as "+
+				"red.tix.mobile:/sso, without a fragment")
+	}
+	return nil
 }

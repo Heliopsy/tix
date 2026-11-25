@@ -423,7 +423,7 @@ func TestResetKeepsTheAccountsItCannotRecreate(t *testing.T) {
 	if err := Reset(tg.ctx, tg.svc); err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
-	users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: core.MaxPageLimit})
+	users, _, err := tg.svc.ListUsers(tg.ctx, core.UserFilter{Page: core.Page{Limit: core.MaxPageLimit}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestSeedRejectsAPasswordTheServiceWouldRefuse(t *testing.T) {
 func TestSeedRefusesAHandleHeldByAnAccountlessActor(t *testing.T) {
 	tg := newTarget(t)
 	tg.seed(t, DefaultDays)
-	users, _, err := tg.svc.ListUsers(tg.ctx, core.Page{Limit: core.MaxPageLimit})
+	users, _, err := tg.svc.ListUsers(tg.ctx, core.UserFilter{Page: core.Page{Limit: core.MaxPageLimit}})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}

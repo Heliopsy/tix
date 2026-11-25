@@ -50,6 +50,9 @@ type Options struct {
 	SavePrefs PreferenceWriter
 	// Session is what the settings screen states about this run.
 	Session SessionInfo
+	// WebBase is the browser interface's address the share key links a task
+	// under when the task carries no web_url; see Config.WebBase.
+	WebBase string
 	// TimeStyle renders every timestamp the interface draws. The zero value
 	// still works: it renders the compact layout in the machine's local zone,
 	// so a caller that has not wired configuration through yet is not broken.
@@ -78,6 +81,7 @@ func Run(o Options) int {
 		Scheme: o.Scheme, Overrides: o.Overrides, TimeStyle: o.TimeStyle, Brand: o.Brand,
 		Tenant: o.Tenant, Dial: o.Dial, Reachable: o.Reachable,
 		Prefs: o.Prefs, Sources: o.Sources, SavePrefs: o.SavePrefs, Session: o.Session,
+		WebBase: o.WebBase,
 	})
 	final, err := tea.NewProgram(model, programOptions(ctx, o)...).Run()
 	return exitStatus(final, err, errw)

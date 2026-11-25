@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Swiping a task list row on a touch screen (assets/swipe.js). The row keeps
+   vertical panning for the browser, so the list still scrolls under a
+   finger, and gives the sideways drag to the script. While it is dragged its
+   contents slide by --swipe-x and the strip they uncover shows the action in
+   the app's colours: the ok green and a tick for Complete, the warning amber
+   and a clock for Snooze, on the page background (white in the light
+   themes, as the app writes on it). Past the threshold the strip's label is bold. */
+li.task[data-swipe-complete],
+li.task[data-swipe-snooze] {
+  touch-action: pan-y;
+}
+
+li.task.is-swiping {
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+li.task.is-swiping > :not(.swipe-behind) {
+  transform: translateX(var(--swipe-x, 0px));
+  transition: transform 160ms ease;
+}
+
+li.task.is-swipe-dragging > :not(.swipe-behind) {
+  transition: none;
+}
+
+.swipe-behind {
+  position: absolute;
+  inset-block: 0;
+  width: var(--swipe-w, 0px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.swipe-behind .icon { width: 20px; height: 20px; flex: none; }
+.swipe-behind.is-complete { inset-inline-start: 0; background: var(--ok); color: var(--on-ok); }
+.swipe-behind.is-snooze { inset-inline-end: 0; background: var(--warn); color: var(--bg); }
+.swipe-behind.is-armed { font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  li.task.is-swiping > :not(.swipe-behind) { transition: none; }
+}

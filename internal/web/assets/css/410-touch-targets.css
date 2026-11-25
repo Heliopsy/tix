@@ -24,11 +24,11 @@
   label:has(> input[type="radio"]) { min-height: 44px; }
 
   /* Controls that act as a row's one button: Raw on a history entry,
-     Move on a board card, and the per-project links on the project list. */
+     and the per-project links on the project list. */
   a.btn.rawopen,
   details.note > summary,
-  details.card-move > summary,
   .pager-step,
+  .pager-num,
   .ghostlink {
     min-height: 44px;
     display: inline-flex;

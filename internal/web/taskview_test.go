@@ -4,7 +4,6 @@ package web_test
 
 import (
 	"context"
-	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -58,18 +57,24 @@ func (b *browser) chooseBoard(next string) string {
 	return resp.Header.Get("Location")
 }
 
-// viewSwitch is the switch's own form and nothing else, so an assertion about
-// the control cannot pass on a button belonging to another form on the page.
+// viewSwitch is the switch and nothing else, so an assertion about the
+// control cannot pass on a button or link belonging to something else on the
+// page. On a task screen it is the row of links (a nav), on settings the form
+// that sets the remembered view.
 func viewSwitch(t *testing.T, page string) string {
 	t.Helper()
-	start := strings.Index(page, `class="viewswitch"`)
+	start := strings.Index(page, `class="viewswitch`)
 	if start < 0 {
 		t.Fatalf("the task screen carries no view switch:\n%s", page)
 	}
 	block := page[start:]
-	end := strings.Index(block, "</form>")
+	closer := "</form>"
+	if strings.HasPrefix(block, `class="viewswitch viewlinks"`) {
+		closer = "</nav>"
+	}
+	end := strings.Index(block, closer)
 	if end < 0 {
-		t.Fatal("the view switch is not a closed form")
+		t.Fatalf("the view switch is not closed by %s", closer)
 	}
 	return block[:end]
 }
@@ -104,27 +109,16 @@ func cardBlock(t *testing.T, page, ref string) string {
 	return page[open : start+end]
 }
 
-// moveOptions are the route values one card's Move control offers.
-var optionPattern = regexp.MustCompile(`<option value="([^"]*)"`)
-
+// moveOptions are the route values one card's menu offers in its Move
+// section.
 func moveOptions(t *testing.T, page, ref string) []string {
 	t.Helper()
-	card := cardBlock(t, page, ref)
-	from := strings.Index(card, `<select id="to-`+ref+`"`)
-	if from < 0 {
+	menu := popover(t, page, "bmore-"+ref)
+	form := menuForm(t, menu, "/tasks/"+ref+"/transition\" data-move-form=\"1")
+	if form == "" {
 		return nil
 	}
-	block := card[from:]
-	if end := strings.Index(block, "</select>"); end >= 0 {
-		block = block[:end]
-	}
-	out := []string{}
-	for _, m := range optionPattern.FindAllStringSubmatch(block, -1) {
-		// The route separator is escaped in the attribute, so what the option
-		// actually submits is the unescaped value.
-		out = append(out, html.UnescapeString(m[1]))
-	}
-	return out
+	return routeButtons(form)
 }
 
 // The switch is a preference, so it survives the request it was made on.
@@ -141,12 +135,12 @@ func TestTaskViewSwitchPersistsAcrossRequests(t *testing.T) {
 	// The control itself, on the screen it switches. A preference reachable
 	// only by posting to its route is a preference nobody has.
 	switchForm := viewSwitch(t, list)
-	for _, want := range []string{`name="view" value="list"`, `name="view" value="board"`} {
+	for _, want := range []string{`data-view="list"`, `data-view="board"`} {
 		if !strings.Contains(switchForm, want) {
 			t.Errorf("the view switch offers no %q:\n%s", want, switchForm)
 		}
 	}
-	if !strings.Contains(switchForm, `segment is-on`) || !strings.Contains(switchForm, `aria-current="true"`) {
+	if !strings.Contains(switchForm, `segment is-on`) || !strings.Contains(switchForm, `aria-current="page"`) {
 		t.Errorf("the switch does not say which view is current:\n%s", switchForm)
 	}
 	b.chooseBoard("/tasks")

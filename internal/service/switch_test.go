@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
 	"github.com/heliopsy/tix/internal/core"
@@ -326,5 +327,28 @@ func TestSignInOnASharedHostGoesByTheAccount(t *testing.T) {
 	if _, err := f.l.Login(core.WithServedHost(core.WithTenant(ctx, f.home), f.sharedHost()),
 		core.LoginInput{Email: "olly@example.com", Password: "wrong-password-entirely", Surface: core.SurfaceWeb}); !core.IsKind(err, core.KindUnauthenticated) {
 		t.Errorf("a wrong password on a shared host = %v, want invalid credentials", err)
+	}
+}
+
+// A switch keeps the original sign-in time, so moving between tenants does not
+// restart the maximum lifetime a session may be renewed to.
+func TestASwitchKeepsTheSignInTimeAndItsCap(t *testing.T) {
+	f := newTwoTenants(t)
+	from, err := signIn(f.l, f.home, patEmail, testPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signedIn := f.origin(t, from).SignedInAt
+	f.clk.Advance(core.DefaultSessionMaxLifetime.D() - time.Hour)
+
+	result, err := f.l.SwitchTenant(f.sessionContext(t, from, f.sharedHost()), core.SwitchTenantInput{Tenant: "other"})
+	if err != nil {
+		t.Fatalf("SwitchTenant = %v", err)
+	}
+	if got := f.origin(t, result.Session).SignedInAt; !got.Equal(signedIn) {
+		t.Errorf("switched session signed in at %v, want the original %v", got, signedIn)
+	}
+	if want := signedIn.Add(core.DefaultSessionMaxLifetime.D()); !result.Session.ExpiresAt.Equal(want) {
+		t.Errorf("switched session expires %v, want the original sign-in's cap %v", result.Session.ExpiresAt, want)
 	}
 }

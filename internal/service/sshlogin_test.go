@@ -103,8 +103,8 @@ func TestSSHLoginIssuesASessionAndRecordsTheMethod(t *testing.T) {
 	if result.Session == nil || result.Session.ActorID != user.ID || result.Session.TenantID != scope.TenantID {
 		t.Fatalf("result = %+v, want a session for the key's person in this tenant", result)
 	}
-	if got := result.Session.ExpiresAt.Sub(l.clock.Now()); got != SessionTTL {
-		t.Errorf("session lives %v, want %v like a password sign-in", got, SessionTTL)
+	if got := result.Session.ExpiresAt.Sub(l.clock.Now()); got != core.DefaultSessionTTL.D() {
+		t.Errorf("session lives %v, want %v like a password sign-in", got, core.DefaultSessionTTL.D())
 	}
 	var logins []string
 	for _, e := range auditEntries(t, l, admin) {

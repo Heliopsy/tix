@@ -14,6 +14,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/service"
 	"github.com/heliopsy/tix/internal/wire"
 )
 
@@ -40,11 +41,6 @@ const (
 	replayBatch         = 256
 	maxClientMessage    = 64 << 10
 )
-
-// knownEventTypes is the closed set a subscription filter may name. It is
-// derived from the contract package, never copied: a copy would refuse
-// subscriptions to an event type the outbox already emits.
-var knownEventTypes = core.EventTypes()
 
 // ClientMessage is one message sent by a client on the event stream.
 type ClientMessage struct {
@@ -246,22 +242,21 @@ func (s *EventStream) resolveFilter(ctx context.Context, actor *core.Actor, m Cl
 	if filter.SinceSeq < 0 {
 		return filter, core.Invalid("since_seq must not be negative")
 	}
-	if err := validateEventTypes(filter.Types); err != nil {
+	if err := service.ValidateEventTypes(filter.Types); err != nil {
 		return filter, err
 	}
-	if actor.ScopedToProject() {
-		if len(filter.ProjectIDs) > 0 && !containsProject(filter.ProjectIDs, actor.ProjectID) {
-			return filter, core.Forbidden("this credential may only subscribe to project %q", actor.ProjectID)
-		}
-		filter.ProjectIDs = []string{actor.ProjectID}
+	projects, err := service.NarrowEventProjects(actor, filter.ProjectIDs)
+	if err != nil {
+		return filter, err
 	}
+	filter.ProjectIDs = projects
 	if filter.SinceSeq > 0 {
 		oldest, err := s.log.OldestSeq(ctx, actor.TenantID)
 		if err != nil {
 			return filter, err
 		}
-		if oldest > 0 && filter.SinceSeq+1 < oldest {
-			return filter, core.Invalid("cursor %d is no longer available; the oldest retained event is %d", filter.SinceSeq, oldest)
+		if err := service.CheckCursorRetained(filter.SinceSeq, oldest); err != nil {
+			return filter, err
 		}
 	}
 	return filter, nil
@@ -362,43 +357,6 @@ func errorMessage(subID string, err error) ServerMessage {
 		body = wire.ErrorBody{Code: core.KindInternal, Message: "internal error"}
 	}
 	return ServerMessage{Type: MsgError, ID: subID, Error: &body}
-}
-
-// validateEventTypes rejects a filter naming a type outside the closed set.
-func validateEventTypes(types []core.EventType) error {
-	for _, t := range types {
-		if !knownEventType(t) {
-			return core.Invalid("unknown event type %q", t)
-		}
-	}
-	return nil
-}
-
-// knownEventType reports whether a literal or wildcard pattern can ever match.
-func knownEventType(pattern core.EventType) bool {
-	if pattern == "*" {
-		return true
-	}
-	prefix, wildcard := strings.CutSuffix(string(pattern), "*")
-	for _, known := range knownEventTypes {
-		if wildcard && strings.HasPrefix(string(known), prefix) {
-			return true
-		}
-		if !wildcard && known == pattern {
-			return true
-		}
-	}
-	return false
-}
-
-// containsProject reports whether the list names the project.
-func containsProject(ids []string, id string) bool {
-	for _, got := range ids {
-		if got == id {
-			return true
-		}
-	}
-	return false
 }
 
 // truncateReason keeps a close reason inside the protocol's 123 byte limit.

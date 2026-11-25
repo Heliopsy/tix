@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-support
+name: Support tickets
+purpose: Answer people and close the loop.
+definition:
+  initial: new
+  states:
+    - {key: new, label: New, category: todo}
+    - {key: open, label: Open, category: in_progress}
+    - {key: waiting, label: Waiting on customer, category: waiting}
+    - {key: resolved, label: Resolved, category: done}
+    - {key: closed, label: Closed, category: done, terminal: true}
+  transitions:
+    - {from: new, to: open}
+    - {from: new, to: closed}
+    - {from: open, to: waiting}
+    - {from: waiting, to: open}
+    - {from: open, to: resolved}
+    - {from: waiting, to: resolved}
+    - {from: resolved, to: open}
+    - {from: resolved, to: closed}
+    - {from: closed, to: open}
+fields:
+  - {key: customer, label: Customer, type: string, position: 1}
+  - {key: channel, label: Channel, type: enum, enum_options: [email, chat, phone, web], position: 2}
+  - {key: urgency, label: Urgency, type: enum, enum_options: [urgent, high, normal, low], default: normal, position: 3}

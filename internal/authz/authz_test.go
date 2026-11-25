@@ -73,8 +73,8 @@ func TestActionsAreUniqueAndNamed(t *testing.T) {
 
 func TestRoleActionMatrix(t *testing.T) {
 	viewer := []Action{
-		ActionTaskRead, ActionTaskStar, ActionViewArrange, ActionFilterSave, ActionCalendarFeed, ActionInboxRead,
-		ActionProjectRead, ActionWorkflowRead,
+		ActionTaskRead, ActionTaskStar, ActionViewArrange, ActionFilterSave, ActionCalendarFeed, ActionDAVPassword,
+		ActionInboxRead, ActionProjectRead, ActionWorkflowRead,
 		ActionEventSubscribe, ActionAuditRead,
 	}
 	member := append([]Action{
@@ -342,7 +342,7 @@ func TestAllowedMirrorsCan(t *testing.T) {
 func TestProjectPinnedTokenCannotReachTenantWideActions(t *testing.T) {
 	p := New()
 	tenantWide := []Action{
-		ActionExport, ActionImport, ActionAuditRead, ActionEventSubscribe,
+		ActionExport, ActionImport, ActionAuditRead,
 		ActionTokenAdmin, ActionUserAdmin, ActionWebhookAdmin, ActionTenantAdmin,
 		ActionSyncAdmin, ActionRetentionWrite, ActionWorkflowWrite,
 	}
@@ -436,7 +436,27 @@ func TestClearingAnotherUsersSecondFactorIsAdminOnly(t *testing.T) {
 // CanGlobal and Can refuses it outright, which TestCanNeverGrantGlobalAdmin
 // pins.
 func scopedActions() []Action {
-	return slices.DeleteFunc(Actions(), func(a Action) bool { return a == ActionGlobalAdmin || a == ActionAccountRead })
+	return slices.DeleteFunc(Actions(), func(a Action) bool {
+		return a == ActionGlobalAdmin || a == ActionAccountRead || a == ActionSCIMProvision || a == ActionDAVSync
+	})
+}
+
+// TestSCIMProvisionIsHeldOnlyWhenNamed: neither the wildcard, the system
+// actor nor the admin role provisions over SCIM; only a token naming the scope.
+func TestSCIMProvisionIsHeldOnlyWhenNamed(t *testing.T) {
+	p := New()
+	for name, actor := range map[string]*core.Actor{
+		"system":     core.SystemActor(tenantA),
+		"admin role": roleActor(core.RoleAdmin),
+		"wildcard":   scopeActor(core.ScopeAll),
+	} {
+		if err := p.Can(actor, ActionSCIMProvision, resource()); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("Can(%s, scim provision) = %v, want forbidden", name, err)
+		}
+	}
+	if err := p.Can(scopeActor(core.ScopeSCIMProvision), ActionSCIMProvision, resource()); err != nil {
+		t.Errorf("a scim:provision token is refused: %v", err)
+	}
 }
 
 func TestCanNeverGrantGlobalAdmin(t *testing.T) {
@@ -516,8 +536,72 @@ func TestCanReadAccount(t *testing.T) {
 		if err := p.CanReadAccount(tc.actor); (err == nil) != tc.want {
 			t.Errorf("%s: CanReadAccount = %v, want allowed=%v", tc.name, err, tc.want)
 		}
+		if err := p.CanManageSessions(tc.actor); (err == nil) != tc.want {
+			t.Errorf("%s: CanManageSessions = %v, want allowed=%v", tc.name, err, tc.want)
+		}
 	}
 	if err := p.Can(token(core.ScopeAccountRead), ActionAccountRead, resource()); !core.IsKind(err, core.KindForbidden) {
 		t.Errorf("Can deciding account.read = %v, want it refused to the dedicated check", err)
+	}
+}
+
+func TestCanRotateToken(t *testing.T) {
+	p := New()
+	agent := scopeActor(core.ScopeTaskRead)
+	pinned := scopeActor(core.ScopeTaskRead)
+	pinned.ProjectID = projA
+	for _, tc := range []struct {
+		name           string
+		actor          *core.Actor
+		owner, project string
+		want           bool
+	}{
+		{"own token without token:admin", agent, agent.ID, "", true},
+		{"another actor's token without token:admin", agent, "someone", "", false},
+		{"another actor's token with token:admin", scopeActor(core.ScopeTokenAdmin), "someone", "", true},
+		{"admin role on another actor's token", roleActor(core.RoleAdmin), "someone", "", true},
+		{"member role on another actor's token", roleActor(core.RoleMember), "someone", "", false},
+		{"pinned caller, sibling pinned to the same project", pinned, pinned.ID, projA, true},
+		{"pinned caller, unpinned sibling", pinned, pinned.ID, "", false},
+		{"pinned caller, sibling pinned elsewhere", pinned, pinned.ID, projB, false},
+	} {
+		err := p.CanRotateToken(tc.actor, tc.owner, tc.project)
+		if (err == nil) != tc.want {
+			t.Errorf("%s: CanRotateToken = %v, want allowed=%v", tc.name, err, tc.want)
+		}
+		if err != nil && !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("%s: refusal %v is not forbidden", tc.name, err)
+		}
+	}
+	if err := p.CanRotateToken(nil, "x", ""); !core.IsKind(err, core.KindUnauthenticated) {
+		t.Errorf("nil actor: %v, want unauthenticated", err)
+	}
+}
+
+// TestDAVSyncIsHeldOnlyByAnAppPassword: neither the wildcard, the system actor
+// nor the admin role reads over CalDAV; only a token naming caldav. Managing
+// app passwords needs task:read and is not confinable to a project.
+func TestDAVSyncIsHeldOnlyByAnAppPassword(t *testing.T) {
+	p := New()
+	for name, actor := range map[string]*core.Actor{
+		"system":     core.SystemActor(tenantA),
+		"admin role": roleActor(core.RoleAdmin),
+		"wildcard":   scopeActor(core.ScopeAll),
+	} {
+		if err := p.Can(actor, ActionDAVSync, resource()); !core.IsKind(err, core.KindForbidden) {
+			t.Errorf("%s: %v, want forbidden", name, err)
+		}
+	}
+	if err := p.Can(scopeActor(core.ScopeCaldav), ActionDAVSync, resource()); err != nil {
+		t.Errorf("an app password: %v", err)
+	}
+	if err := p.Can(scopeActor(core.ScopeCaldav), ActionTaskRead, resource()); !core.IsKind(err, core.KindForbidden) {
+		t.Errorf("an app password read tasks directly: %v", err)
+	}
+	if ActionDAVPassword.ProjectConfinable() || ActionDAVSync.ProjectConfinable() {
+		t.Error("a dav action is project-confinable")
+	}
+	if err := p.Can(roleActor(core.RoleViewer), ActionDAVPassword, resource()); err != nil {
+		t.Errorf("a viewer cannot manage their app passwords: %v", err)
 	}
 }

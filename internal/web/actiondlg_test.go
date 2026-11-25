@@ -20,8 +20,6 @@ import (
 var expanderAllowed = map[string]string{
 	"partials.html field-info":     "the (i) beside a field: a sentence about one control, opened where it is read",
 	"partials.html field-info tip": "the (i) tip beside a heading, the same pattern",
-	"board.html card-move":         "a card's Move menu, one card's control",
-	"tasks.html card-move":         "a card's Move menu on the task board, one card's control",
 	"tasks.html cform-more":        "the rarely used fields inside Add with details, a part of a form already open",
 	"task.html titleedit":          "Rename, an edit switch on the title it edits",
 	"task.html descedit":           "Edit, an edit switch on the description it edits",
@@ -162,6 +160,7 @@ func TestARefusedCreateComesBackWithItsDialogOpen(t *testing.T) {
 		{"sync source", "/sync/sources", "source-new", `value="upstream"`, url.Values{"name": {"upstream"}, "system": {"nonsense"}}},
 		{"sync settings", "/sync/sources", "source-new", `value="ops.yaml"`, url.Values{"name": {"ops"},
 			"system": {"generic"}, "mapping_path": {"ops.yaml"}, "url": {"https://jira.example"}}},
+		{"app password", "/settings/dav/passwords", "dav-new", "", url.Values{"name": {""}}},
 		{"sync page size", "/sync/sources", "source-new", `value="https://jira.example"`, url.Values{"name": {"ops"},
 			"system": {"jira"}, "url": {"https://jira.example"}, "page_size": {"0"}}},
 	} {

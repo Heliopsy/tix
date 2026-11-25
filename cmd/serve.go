@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,9 +14,10 @@ import (
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/connect"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/memlimit"
 	"github.com/heliopsy/tix/internal/server"
+	"github.com/heliopsy/tix/internal/serving"
 	"github.com/heliopsy/tix/internal/sshd"
-	"github.com/heliopsy/tix/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -40,6 +42,42 @@ type serveOptions struct {
 	sshHostKey     string
 	sshAllowPublic bool
 	sshIdleTimeout time.Duration
+
+	artifactMaxBytes int64
+	artifactTypes    []string
+
+	sessionTTL         time.Duration
+	sessionIdleTimeout time.Duration
+	sessionRememberTTL time.Duration
+	sessionMax         time.Duration
+	sessionRememberMax time.Duration
+}
+
+// serveConfigFlags are the serve flags that set a configuration key, each
+// only when typed, so a flag nobody gave never outranks the file or
+// environment.
+func serveConfigFlags(cmd *cobra.Command) map[string]string {
+	out := map[string]string{}
+	f := cmd.Flags()
+	if f.Changed("artifact-max-bytes") {
+		n, _ := f.GetInt64("artifact-max-bytes")
+		out["artifacts.max_bytes"] = strconv.FormatInt(n, 10)
+	}
+	if f.Changed("artifact-allowed-types") {
+		types, _ := f.GetStringSlice("artifact-allowed-types")
+		out["artifacts.allowed_types"] = strings.Join(types, ",")
+	}
+	for flag, key := range map[string]string{
+		"session-ttl": "session.ttl", "session-idle-timeout": "session.idle_timeout",
+		"session-remember-ttl": "session.remember_ttl", "session-max-lifetime": "session.max_lifetime",
+		"session-remember-max-lifetime": "session.remember_max_lifetime",
+	} {
+		if f.Changed(flag) {
+			d, _ := f.GetDuration(flag)
+			out[key] = d.String()
+		}
+	}
+	return out
 }
 
 // fromConfig lays the resolved configuration under the flags: server.listen is
@@ -78,18 +116,35 @@ func newServeCmd(g *globals) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&o.listen, "listen", server.DefaultAddr, "address to listen on")
+	f.StringVar(&o.listen, "listen", serving.Defaults().Listen, "address to listen on")
 	f.StringVar(&o.certFile, "tls-cert", "", "path to the tls certificate")
 	f.StringVar(&o.keyFile, "tls-key", "", "path to the tls key")
 	f.BoolVar(&o.insecure, "insecure-no-tls", false,
 		"allow binding a non-loopback address without tls")
-	f.Int64Var(&o.maxBody, "max-body-bytes", 0, "maximum request body size")
+	f.Int64Var(&o.maxBody, "max-body-bytes", 0,
+		"maximum request body size; artifact uploads take enough more to carry artifacts.max_bytes")
+	f.Int64Var(&o.artifactMaxBytes, "artifact-max-bytes", core.DefaultArtifactMaxBytes,
+		"largest artifact blob accepted, in bytes (artifacts.max_bytes); a tenant may only lower it")
+	f.DurationVar(&o.sessionTTL, "session-ttl", core.DefaultSessionTTL.D(),
+		"how long a sign-in lasts, renewed by each use (session.ttl); a tenant may only shorten it")
+	f.DurationVar(&o.sessionIdleTimeout, "session-idle-timeout", 0,
+		"end sessions unused this long, 0 for never (session.idle_timeout); a tenant may only shorten it")
+	f.DurationVar(&o.sessionRememberTTL, "session-remember-ttl", core.DefaultSessionRememberTTL.D(),
+		"how long a keep me signed in sign-in lasts, 0 to stop offering it (session.remember_ttl)")
+	f.DurationVar(&o.sessionMax, "session-max-lifetime", core.DefaultSessionMaxLifetime.D(),
+		"how long after sign-in use may keep a session alive, 0 to end it session-ttl after sign-in "+
+			"(session.max_lifetime)")
+	f.DurationVar(&o.sessionRememberMax, "session-remember-max-lifetime",
+		core.DefaultSessionRememberMaxLifetime.D(),
+		"how long after sign-in use may keep a keep me signed in session alive (session.remember_max_lifetime)")
+	f.StringSliceVar(&o.artifactTypes, "artifact-allowed-types", core.DefaultArtifactTypes,
+		"media types and patterns such as image/* an artifact blob may carry (artifacts.allowed_types)")
 	f.DurationVar(&o.requestTimeout, "request-timeout", 0, "per-request timeout")
 	f.DurationVar(&o.shutdownTimeout, "shutdown-timeout", 0,
 		"how long shutdown waits for in-flight requests")
-	f.DurationVar(&o.sweepInterval, "sweep-interval", time.Minute,
+	f.DurationVar(&o.sweepInterval, "sweep-interval", serving.DefaultSweepInterval,
 		"how often expired leases are swept")
-	f.DurationVar(&o.pruneInterval, "prune-interval", time.Hour,
+	f.DurationVar(&o.pruneInterval, "prune-interval", serving.DefaultPruneInterval,
 		"how often retention pruning runs")
 	f.BoolVar(&o.disableSweep, "no-lease-sweeper", false, "disable the lease sweeper")
 	f.BoolVar(&o.disableDispatch, "no-webhook-dispatcher", false, "disable the webhook dispatcher")
@@ -115,6 +170,7 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 		g.drainMode = connect.DrainModeServer
 	}
 	g.serving = true
+	g.configFlags = serveConfigFlags(cmd)
 	conn, _, err := g.dial(cmd)
 	if err != nil {
 		return err
@@ -131,53 +187,31 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 	if err != nil {
 		return err
 	}
+	applyMemoryLimit(log)
 	sshListener, err := buildServeSSH(conn, g, o, resolved.Config.SSH.TrustedProxies, log)
 	if err != nil {
 		return err
 	}
 
-	// Validate rejects a malformed palette at load, so a registry built here
-	// cannot fail on colour; an error would mean a themes block that Validate
-	// somehow let through, and serving the built-ins is the safe answer.
-	themes, err := resolved.Config.ThemeRegistry()
-	if err != nil {
-		return err
-	}
-	egressPolicy, err := resolved.Config.Server.Egress()
-	if err != nil {
-		return err
-	}
-
-	srv, err := server.Assemble(server.Options{
-		Logger:  log,
-		Service: conn.Service,
-		WebHandler: web.Handler(conn.Service, web.WithSecureCookies(o.certFile != ""), web.WithTimeStyle(g.configTimeStyle()), web.WithTargetDescribe(conn.Info.Target.Describe()), web.WithThemes(themes),
-			web.WithPageSize(resolved.Config.Web.PageSize), web.WithLeasePolicy(resolved.Config.Lease.Policy()),
-			web.WithSSH(o.sshListen, resolved.Config.SSH.PublicAddress), web.WithImportLimit(resolved.Config.Server.MaxImportBytes)),
-		Store:                      conn.Store,
-		Clock:                      clock.New(),
-		TenantID:                   conn.Info.TenantID,
-		Addr:                       o.listen,
-		CertFile:                   o.certFile,
-		KeyFile:                    o.keyFile,
-		AllowInsecure:              o.insecure,
-		MaxBodyBytes:               o.maxBody,
-		MaxImportBytes:             resolved.Config.Server.MaxImportBytes,
-		ImportRoutes:               web.ImportRoutes(),
-		RequestTimeout:             o.requestTimeout,
-		ShutdownTimeout:            o.shutdownTimeout,
-		TrustedProxies:             resolved.Config.Server.TrustedProxies,
-		CookieSecurity:             resolved.Config.Server.CookieSecurity,
-		AllowPrivateWebhookTargets: resolved.Config.Webhooks.AllowPrivateTargets,
-		Egress:                     egressPolicy,
-		SweepInterval:              o.sweepInterval,
-		PruneInterval:              o.pruneInterval,
-		DisableSweep:               o.disableSweep,
-		DisableDispatch:            o.disableDispatch,
-		DisablePrune:               o.disablePrune,
-		DisableRegistry:            o.disableRegistry,
-		HeartbeatInterval:          o.heartbeat,
-		SSH:                        sshListener,
+	srv, err := serving.Build(conn, resolved, serving.Params{
+		Listen:          o.listen,
+		CertFile:        o.certFile,
+		KeyFile:         o.keyFile,
+		Insecure:        o.insecure,
+		MaxBodyBytes:    o.maxBody,
+		RequestTimeout:  o.requestTimeout,
+		ShutdownTimeout: o.shutdownTimeout,
+		SweepInterval:   o.sweepInterval,
+		PruneInterval:   o.pruneInterval,
+		DisableSweep:    o.disableSweep,
+		DisableDispatch: o.disableDispatch,
+		DisablePrune:    o.disablePrune,
+		DisableRegistry: o.disableRegistry,
+		Heartbeat:       o.heartbeat,
+		SSHListen:       o.sshListen,
+		SSH:             sshListener,
+		Logger:          log,
+		Clock:           clock.New(),
 	})
 	if err != nil {
 		return err
@@ -188,6 +222,13 @@ func runServe(cmd *cobra.Command, g *globals, o serveOptions) error {
 			_, _ = fmt.Fprintf(w, "tix ssh listening on %s\n", addr)
 		}
 	})
+}
+
+// applyMemoryLimit sets the runtime's soft memory limit from the container's
+// and logs what it chose.
+func applyMemoryLimit(log *slog.Logger) {
+	d := memlimit.Apply()
+	log.Info("memory limit", "soft_limit_bytes", d.Limit, "container_limit_bytes", d.Container, "reason", d.Reason)
 }
 
 // buildServeSSH constructs the SSH listener the serve command runs beside the
@@ -217,7 +258,7 @@ func buildServeSSH(conn *connect.Conn, g *globals, o serveOptions, trustedProxie
 		IdleTimeout:    o.sshIdleTimeout,
 		Commands:       RunHosted,
 		CommandWords:   CommandWords(),
-		MaxInputBytes:  g.maxImportBytes(),
+		MaxInputBytes:  g.maxInputBytes(),
 		TimeStyle:      g.configTimeStyle(),
 		Logger:         log,
 	})

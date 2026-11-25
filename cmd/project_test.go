@@ -175,3 +175,56 @@ func TestProjectEditRenamesTheKeyAndOldRefsResolve(t *testing.T) {
 		}
 	}
 }
+
+// Deleting a project with its tasks reports how many went, trashed ones
+// included, and a dry run reports what it would delete while saying it
+// deleted nothing. Production once printed "deleted": 0 after removing 868
+// tasks, because the field counted the trash.
+func TestProjectRmDeleteTasksReportsTheCount(t *testing.T) {
+	engines := []struct {
+		name string
+		db   func(t *testing.T) []string
+	}{
+		{"sqlite", func(*testing.T) []string { return nil }},
+		{"postgres", func(t *testing.T) []string { return []string{"--db", freshPostgresDSN(t)} }},
+	}
+	for _, engine := range engines {
+		t.Run(engine.name, func(t *testing.T) {
+			c := newCLI(t)
+			db := engine.db(t)
+			run := func(args ...string) string { return c.mustRun(append(append([]string{}, db...), args...)...).out }
+			run("project", "create", "old", "Old")
+			for _, title := range []string{"one", "two", "three"} {
+				run("task", "add", title, "-p", "old")
+			}
+			run("task", "rm", "old-3")
+
+			var plan core.ProjectDeletion
+			out := run("project", "rm", "old", "--delete-tasks", "--dry-run", "-o", "json")
+			if err := json.Unmarshal([]byte(out), &plan); err != nil {
+				t.Fatalf("decoding %q: %v", out, err)
+			}
+			if !plan.DryRun || plan.Tasks != 2 || plan.Trashed != 1 || plan.Deleted != 0 || plan.WouldDelete != 3 {
+				t.Errorf("the dry run reported %+v, want 2 live, 1 trashed, 0 deleted, 3 would delete", plan)
+			}
+			if !strings.Contains(out, `"would_delete": 3`) || !strings.Contains(out, `"deleted": 0`) {
+				t.Errorf("the dry run's JSON does not carry would_delete and deleted: %s", out)
+			}
+
+			var done core.ProjectDeletion
+			out = run("project", "rm", "old", "--delete-tasks", "-o", "json")
+			if err := json.Unmarshal([]byte(out), &done); err != nil {
+				t.Fatalf("decoding %q: %v", out, err)
+			}
+			if done.DryRun || done.Deleted != 3 || done.WouldDelete != 0 {
+				t.Errorf("rm reported %+v, want 3 deleted", done)
+			}
+			if strings.Contains(out, "would_delete") {
+				t.Errorf("a real deletion carries would_delete: %s", out)
+			}
+			if got := c.run(append(append([]string{}, db...), "project", "show", "old")...); got.code != core.ExitNotFound {
+				t.Errorf("project show after rm exited %d, want %d", got.code, core.ExitNotFound)
+			}
+		})
+	}
+}

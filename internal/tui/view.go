@@ -5,6 +5,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -189,12 +190,15 @@ func (m Model) bodyLines(layout Layout) []string {
 // projectLines renders the project picker, scrolled so the selection is always
 // on screen and so a list that runs past the terminal says that it does.
 func (m Model) projectLines() []string {
+	if m.starredOnly && len(m.projects) == 0 && len(m.allProjects) > 0 {
+		return m.emptyLines(StarredEmptyState(m.keys.Filter.Help().Key, m.keys.Star.Help().Key))
+	}
 	if empty := ProjectsEmptyState(len(m.projects)); !empty.Zero() {
 		return m.emptyLines(empty)
 	}
 	// A count, because a scrolling list with no total cannot tell you whether
 	// you have seen all of it.
-	head := []string{m.theme.Header.Render(fmt.Sprintf("  %d projects", len(m.projects))), ""}
+	head := []string{m.theme.Header.Render(ProjectsHeading(len(m.projects), m.starredOnly)), ""}
 	rows := m.projectRows()
 	offset := ScrollWindow(m.projectOff, m.projectSel, rows, len(m.projects))
 	lines := make([]string, 0, rows+1)
@@ -306,7 +310,7 @@ func ProjectKeyColumn(projects []core.Project) int {
 
 // projectRow renders one project of the picker.
 func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
-	label := SelectionMarker(selected) + ProjectIcon(p) + pad(output.ShowKey(p.Key), keyCol) + "  " + p.Name
+	label := SelectionMarker(selected) + ProjectStarMark(p) + ProjectIcon(p) + pad(output.ShowKey(p.Key), keyCol) + "  " + p.Name
 	if p.Archived() {
 		label += "  (archived)"
 	}
@@ -315,6 +319,24 @@ func (m Model) projectRow(p core.Project, keyCol int, selected bool) string {
 		return m.selection().Render(label)
 	}
 	return m.theme.Project(p.Color).Render(label)
+}
+
+// ProjectStarMark leads a project's row: a star when the reader starred it,
+// the same width of space when not, so the keys stay in one column.
+func ProjectStarMark(p core.Project) string {
+	if p.Starred {
+		return "★ "
+	}
+	return "  "
+}
+
+// ProjectsHeading counts the projects listed and says when only the starred
+// ones are.
+func ProjectsHeading(n int, starredOnly bool) string {
+	if starredOnly {
+		return fmt.Sprintf("  %d starred projects", n)
+	}
+	return fmt.Sprintf("  %d projects", n)
 }
 
 // emptyLines fills a body with an empty state, centred enough to read as a
@@ -506,7 +528,7 @@ func (m Model) quiet(style lipgloss.Style) lipgloss.Style {
 // gathering an answer.
 func (m Model) inputOpen() bool {
 	return m.paletteOpen || m.prompt != promptNone || m.choice != choiceNone ||
-		m.confirm.Open() || m.form.Open()
+		m.confirm.Open() || m.form.Open() || m.shared != nil
 }
 
 // DeletedMarker is what a card carries once the task behind it is deleted.
@@ -848,8 +870,20 @@ func commentLines(comments []core.Comment, actors map[string]string, style outpu
 		for _, l := range Wrap(c.Body, width) {
 			out = append(out, strings.Repeat(" ", CommentIndent)+l)
 		}
+		if line := ReactionLine(c.Reactions); line != "" {
+			out = append(out, strings.Repeat(" ", CommentIndent)+line)
+		}
 	}
 	return out
+}
+
+// ReactionLine writes a comment's reactions as each emoji and how many left it.
+func ReactionLine(rs []core.Reaction) string {
+	parts := make([]string, len(rs))
+	for i, r := range rs {
+		parts[i] = r.Emoji + " " + strconv.Itoa(r.Count)
+	}
+	return strings.Join(parts, "  ")
 }
 
 // CommentTarget names one comment the way the thread shows it, which is what a
@@ -908,7 +942,7 @@ func (m Model) helpLines(layout Layout) []string {
 // any due date at all was removed once for appearing on nearly every card,
 // which is why "due" here means this week and not "has a date".
 var CardLegend = []string{
-	strings.TrimSpace(StarMarker) + " starred by you", "@ claimed", "@me claimed by you", "! blocked", "+ dependencies",
+	strings.TrimSpace(StarMarker) + " starred by you", "@ claimed", "@me claimed by you", "! waiting on another task", "+ dependencies",
 	RepeatMarker + " repeats when done",
 	DeletedMarker + " deleted",
 	SnoozedMarker + " snoozed",
@@ -969,6 +1003,8 @@ func (m Model) inputPanel() []string {
 		return m.panel(m.confirmPanel())
 	case m.form.Open():
 		return m.panel(m.formPanel())
+	case m.shared != nil:
+		return m.panel(m.sharedPanel())
 	}
 	return nil
 }
@@ -1053,6 +1089,7 @@ func (m Model) choicePanel() Panel {
 	row := "  " + pad(m.choice.Field(), FormLabelWidth) + strings.Join(ChoiceLabels(m.choices), "   ")
 	return Panel{
 		Title: strings.TrimSuffix(strings.TrimSpace(m.choice.Prompt()), ":"),
+		Note:  m.choiceNote,
 		Rows:  []string{m.fit(m.theme.Style().Render(row))},
 		Keys:  ChoiceHelp(len(m.choices)) + "   " + m.keys.Cancel.Help().Key + " cancel",
 	}
@@ -1089,6 +1126,16 @@ func (m Model) formPanel() Panel {
 		}
 		rows = append(rows, m.fit(m.theme.Dim.Render(row)))
 	}
+	if about := m.form.About(); len(about) > 0 {
+		rows = append(rows, "")
+		for i, line := range about {
+			if i == 0 {
+				rows = append(rows, m.fit("  "+line))
+				continue
+			}
+			rows = append(rows, m.fit(m.theme.Dim.Render("  "+line)))
+		}
+	}
 	return Panel{Title: m.form.Title, Note: m.form.Note, Rows: rows, Keys: m.formHelp()}
 }
 
@@ -1122,6 +1169,9 @@ func (m Model) statusBar() string {
 		visible := LayoutFor(m.width, m.height, len(m.columns)).VisibleColumns
 		if start, end := VisibleRange(len(m.columns), visible, m.sel.Col); end-start < len(m.columns) {
 			count += fmt.Sprintf(", showing %d-%d", start+1, end)
+		}
+		if label := m.paged.Label(); label != "" {
+			count += ", " + label
 		}
 		segments = append(segments, m.theme.Dim.Render(count))
 	}

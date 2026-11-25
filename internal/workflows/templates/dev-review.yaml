@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-dev-review
+name: Development with review
+purpose: Code goes through review and QA before it's done.
+definition:
+  initial: triage
+  states:
+    - {key: triage, label: Triage, category: todo}
+    - {key: ready, label: Ready, category: todo}
+    - {key: in_progress, label: In progress, category: in_progress, revert_on_lease_expiry: true, revert_to: ready}
+    - {key: in_review, label: In review, category: in_progress}
+    - {key: qa, label: QA, category: in_progress}
+    - {key: done, label: Done, category: done, terminal: true}
+    - {key: cancelled, label: Cancelled, category: cancelled, terminal: true}
+  transitions:
+    - {from: triage, to: ready}
+    - {from: ready, to: triage}
+    - {from: ready, to: in_progress}
+    - {from: in_progress, to: ready}
+    - {from: in_progress, to: in_review}
+    - {from: in_review, to: in_progress, requires_comment: true}
+    - {from: in_review, to: qa}
+    - {from: qa, to: in_progress, requires_comment: true}
+    - {from: qa, to: done}
+    - {from: triage, to: cancelled}
+    - {from: ready, to: cancelled}
+    - {from: in_progress, to: cancelled}
+    - {from: in_review, to: cancelled}
+    - {from: qa, to: cancelled}
+    - {from: done, to: ready}
+    - {from: cancelled, to: triage}
+fields:
+  - {key: pr, label: PR link, type: string, position: 1}
+  - {key: size, label: Size, type: enum, enum_options: [xs, s, m, l, xl], position: 2}

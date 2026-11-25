@@ -153,7 +153,7 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("registering the webhook endpoint: %v", err)
 	}
-	if endpoint.Secret == "" {
+	if endpoint.SigningSecret == "" {
 		t.Fatal("registering an endpoint without a secret returned no generated secret")
 	}
 
@@ -175,20 +175,20 @@ func TestDirectDatabaseWriteProducesASignedWebhookDelivery(t *testing.T) {
 	if _, err := time.Parse(webhook.TimestampLayout, got.timestamp); err != nil {
 		t.Errorf("%s %q is not a %s instant: %v", webhook.HeaderTimestamp, got.timestamp, webhook.TimestampLayout, err)
 	}
-	if !webhook.Verify(endpoint.Secret, got.timestamp, got.body, got.signature) {
+	if !webhook.Verify(endpoint.SigningSecret, got.timestamp, got.body, got.signature) {
 		t.Errorf("%s %q does not verify as sha256 hmac over timestamp %q and the body",
 			webhook.HeaderSignature, got.signature, got.timestamp)
 	}
-	if webhook.Verify(endpoint.Secret, got.timestamp, append(got.body, '!'), got.signature) {
+	if webhook.Verify(endpoint.SigningSecret, got.timestamp, append(got.body, '!'), got.signature) {
 		t.Error("the signature verified against a modified body")
 	}
 	// The timestamp is inside the signed material, so a body captured now
 	// cannot be replayed under a later one: the receiver's check fails.
 	replayed := webhook.FormatTimestamp(time.Now().Add(time.Hour))
-	if webhook.Verify(endpoint.Secret, replayed, got.body, got.signature) {
+	if webhook.Verify(endpoint.SigningSecret, replayed, got.body, got.signature) {
 		t.Error("the signature verified under a different timestamp, so a replay is undetectable")
 	}
-	if webhook.Verify(endpoint.Secret+"x", got.timestamp, got.body, got.signature) {
+	if webhook.Verify(endpoint.SigningSecret+"x", got.timestamp, got.body, got.signature) {
 		t.Error("the signature verified under a secret the endpoint never issued")
 	}
 

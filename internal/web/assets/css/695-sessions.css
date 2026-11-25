@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* A user agent is one long unbroken string; let it wrap inside its row
+   rather than push the Revoke button off a phone-width screen. */
+.session-row .setname {
+  overflow-wrap: anywhere;
+}

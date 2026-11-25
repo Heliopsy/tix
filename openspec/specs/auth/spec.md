@@ -572,17 +572,19 @@ was spent.
 
 ### Requirement: Administrative reset
 
-A tenant administrator SHALL be able to clear another user's TOTP enrolment,
-which removes the secret and every outstanding recovery code and returns the
-user to an unenrolled state.
+A tenant administrator SHALL be able to clear another user's TOTP enrolment, which removes the secret and every outstanding recovery code and returns the user to an unenrolled state, when that user is a member of the administrator's tenant only. For a user who is also a member of another tenant, only a global admin SHALL be able to clear it.
 
-The reset SHALL be recorded in the audit log naming the administrator who
-performed it and the user affected.
+The reset SHALL be recorded in the audit log naming the administrator who performed it and the user affected.
 
 #### Scenario: Reset returns the user to unenrolled
 
-- **WHEN** an administrator clears a user's enrolment
+- **WHEN** an administrator clears the enrolment of a user who is a member of that tenant only
 - **THEN** that user's next sign-in asks for no code, and is sent through enrolment if the tenant requires a factor
+
+#### Scenario: Reset of a person in several tenants
+
+- **WHEN** a tenant administrator who is not a global admin clears the enrolment of a user who is also a member of another tenant
+- **THEN** it is refused as forbidden and the enrolment is unchanged
 
 #### Scenario: The reset is attributed
 
@@ -895,3 +897,277 @@ the same message, on every surface.
 - **GIVEN** an invite whose expiry has passed
 - **WHEN** its link and a made-up link are opened
 - **THEN** both answers have the same status and the same body
+
+### Requirement: An unchanged forced password change is not an account change
+
+An update that sets the forced password change to the value the account already holds SHALL be treated
+as leaving it alone, so for a person who belongs to several tenants it is not refused with
+`account_in_other_tenants` and the rest of the update applies.
+
+#### Scenario: Role change carrying the current flag
+
+- **GIVEN** a tenant admin who is not a global admin, and a person in that tenant and another who has no forced password change
+- **WHEN** the admin changes the person's role with the forced password change set to false
+- **THEN** the role is changed and nothing is refused
+
+### Requirement: Account credentials of a person in several tenants belong to that person
+
+The password, email, required password change and second factor of an account that holds a membership in more than one tenant SHALL be changed only by the person or by a global admin. A tenant admin's attempt SHALL be refused as forbidden with reason `account_in_other_tenants`, naming no other tenant.
+
+#### Scenario: Tenant admin of test resets a password
+
+- **WHEN** an admin of tenant `test` who is not a global admin sets the password of a person who is also a member of HO
+- **THEN** it is refused as forbidden, the password is unchanged, and the refusal names no tenant
+
+#### Scenario: Person in one tenant only
+
+- **WHEN** a tenant admin sets the password of a person who is a member of that tenant only
+- **THEN** the password is changed, as it is today
+
+#### Scenario: Global admin resets it
+
+- **WHEN** a global admin sets the password of a person who is a member of several tenants
+- **THEN** the password is changed and the change is recorded in the tenant the global admin acted in
+
+### Requirement: An invite to an existing account is accepted with that account's own credentials
+
+Accepting an invite addressed to an existing account SHALL require that account's password and, when one is enrolled, its second factor. Holding the invite link SHALL NOT be enough to accept it.
+
+#### Scenario: The issuing admin opens the link
+
+- **WHEN** the admin who issued an invite to an existing account opens the link and submits a wrong password
+- **THEN** acceptance is refused and no membership is granted
+
+#### Scenario: The person accepts
+
+- **WHEN** the person opens the link and gives their password and a valid second factor code
+- **THEN** the membership is granted and their password and enrolment are unchanged
+
+### Requirement: A switch satisfies the target tenant's second factor policy
+
+A tenant switch SHALL require a second factor code when the target tenant requires one on the surface and the current session was minted without one. Each session SHALL record whether its sign-in passed a second factor.
+
+#### Scenario: Target requires a code the session did not give
+
+- **WHEN** a person whose HO session was minted with a password only switches to a tenant that requires a second factor in the browser
+- **THEN** they are asked for a code and no session is minted until a valid one is given
+
+#### Scenario: No second factor set up
+
+- **WHEN** a person whose account has no second factor switches to a tenant that requires one in the browser
+- **THEN** the switch is refused as forbidden with reason `second_factor_required` and no session is minted
+
+#### Scenario: Session already passed one
+
+- **WHEN** a person whose session was minted with a second factor switches to such a tenant
+- **THEN** the switch completes without asking again
+
+### Requirement: Disabled state is read on every request
+
+The session and token verifiers SHALL refuse a credential whose account or actor is disabled, read on each request, so that disabling an account stops every tenant at once.
+
+#### Scenario: Account disabled while signed in to two tenants
+
+- **WHEN** a global admin disables an account that holds live sessions in two tenants
+- **THEN** the next request on either session is refused
+
+### Requirement: An API token can be rotated
+
+The system SHALL rotate an API token in one step: it SHALL mint a token for the same actor with the same name, scopes and project, return its value exactly once, and retire the old token in the same transaction. A token addressed by its identifier or by its live name SHALL be rotatable.
+
+#### Scenario: Rotating replaces the token
+
+- **GIVEN** a live token named "worker"
+- **WHEN** it is rotated with no grace
+- **THEN** a new token named "worker" with the same scopes and project is returned with its value
+- **AND** the old token's value is refused as unauthenticated
+
+#### Scenario: Rotating by name
+
+- **WHEN** a token is rotated by its live name
+- **THEN** the token carrying that name is the one rotated
+
+### Requirement: A rotated token keeps its lifetime
+
+The new token SHALL expire after the old token's lifetime counted from the rotation, and SHALL NOT expire when the old token did not.
+
+#### Scenario: A 90 day token is good for another 90 days
+
+- **GIVEN** a token issued with a 90 day expiry, 80 days ago
+- **WHEN** it is rotated
+- **THEN** the new token expires 90 days after the rotation
+
+#### Scenario: A non-expiring token stays non-expiring
+
+- **WHEN** a token without an expiry is rotated
+- **THEN** the new token has no expiry
+
+### Requirement: A rotation can leave the old token working for a grace period
+
+A rotation SHALL accept a grace period from zero to 24 hours, zero by default, during which the old token SHALL still authenticate. The end of the window SHALL be stored on the old token and SHALL NOT depend on a background job. A grace outside the range SHALL be refused as invalid.
+
+#### Scenario: The old token works inside the window
+
+- **GIVEN** a token rotated with a grace of ten minutes
+- **WHEN** the old value is presented five minutes later
+- **THEN** it authenticates
+- **AND** when it is presented eleven minutes after the rotation it is refused
+
+#### Scenario: A grace over the cap is refused
+
+- **WHEN** a rotation asks for a grace of 25 hours
+- **THEN** it is refused as invalid naming the grace field
+
+### Requirement: A retiring token can still be cut short
+
+A token inside its grace window SHALL be listed as retiring, SHALL stop at once when revoked, SHALL stop at once when its user is disabled, and SHALL NOT be rotated again.
+
+#### Scenario: Revoking a retiring token
+
+- **GIVEN** a token inside its grace window
+- **WHEN** it is revoked
+- **THEN** its value is refused from that moment
+
+#### Scenario: A retiring token is not rotated twice
+
+- **WHEN** a token inside its grace window is rotated
+- **THEN** the rotation is refused as a conflict
+
+### Requirement: A token's own actor may rotate it
+
+The actor a token acts as SHALL be allowed to rotate it without `token:admin`, so an agent can rotate its own credential. A project-restricted caller SHALL rotate only a token restricted to its own project. Rotating a token of another actor SHALL require `token:admin`.
+
+#### Scenario: An agent rotates its own token
+
+- **GIVEN** an agent token holding only task scopes
+- **WHEN** the agent rotates that token
+- **THEN** the rotation succeeds
+
+#### Scenario: Another actor's token needs token:admin
+
+- **GIVEN** a member without `token:admin`
+- **WHEN** they rotate an agent's token
+- **THEN** the rotation is refused naming `token:admin`
+
+### Requirement: A rotated token never exceeds its rotator
+
+A rotation SHALL be refused when the token carries a scope the rotator does not hold, applying the same `global:admin` and `account:read` rules as issuing a token.
+
+#### Scenario: An administrator token without a scope cannot rotate a token carrying it
+
+- **GIVEN** a token carrying `export` and a rotator holding `token:admin` but not `export`
+- **WHEN** the rotator rotates it
+- **THEN** the rotation is refused naming `export`
+
+### Requirement: A rotation is audited without its secret
+
+A rotation SHALL write one audit entry and one `token.rotated` event naming the old and new token identifiers, the actor the token acts as and when the old token stops. Rotating another actor's token SHALL be recorded under a different action from rotating your own. No token value SHALL appear in either.
+
+#### Scenario: Rotating another actor's token
+
+- **WHEN** an administrator rotates an agent's token
+- **THEN** the trail records `token.rotate_other` naming both token identifiers and the agent
+- **AND** neither value appears in the entry
+
+### Requirement: A native app starts a sign-in through a provider in the browser
+
+A sign-in through any enabled provider SHALL accept `app_redirect`, `code_challenge`, `code_challenge_method` and `app_state` at `/login/sso/KEY`. `app_redirect` SHALL match an entry of `auth.sso_app_redirects` exactly, `code_challenge` SHALL be required and S256 only, and `app_state` SHALL be at most 256 characters; otherwise the start SHALL be refused on the sign-in error screen. The values SHALL be sealed into the flow.
+
+#### Scenario: Redirect off the list
+
+- **WHEN** the app opens `/login/sso/kc` with an `app_redirect` that only begins with a listed entry
+- **THEN** the browser gets the sign-in error screen and is not redirected
+
+#### Scenario: Feature off
+
+- **WHEN** `auth.sso_app_redirects` is empty and the app starts a sign-in
+- **THEN** it is refused as turned off
+
+### Requirement: An app sign-in hands a one-time code to the app
+
+Where the web flow would set its session, an app flow SHALL set no session cookie and SHALL store a code of at least 32 random bytes, hashed, bound to the challenge, the account, the tenant and the provider, valid two minutes, and send the browser to `app_redirect` with `code` and `state`. The provider, the linking rules and the second factor SHALL run as on the web.
+
+#### Scenario: OIDC
+
+- **WHEN** an app signs in through an OIDC provider
+- **THEN** the callback answers 302 to `red.tix.mobile:/sso?code=CODE&state=STATE` without a session cookie
+
+#### Scenario: SAML after a POST
+
+- **WHEN** an app signs in through a SAML provider
+- **THEN** the ACS answers a page that navigates to and links the app's redirect with the code
+
+### Requirement: The second factor of an app sign-in is asked in the browser
+
+An app sign-in SHALL ask the tenant's second factor in the browser when the tenant requires it on the web or on the command line, its second factor policy is required, or the person holds one, and SHALL hand over the code only once it passed. An unenrolled person SHALL enrol inside the sign-in once the requirement or the enforced policy applies, rather than get a session confined to enrolment.
+
+#### Scenario: Cli requirement
+
+- **WHEN** the tenant requires a second factor on the command line only and an app signs in
+- **THEN** the browser asks for it before the code is handed over
+
+#### Scenario: Enforced policy
+
+- **WHEN** the tenant's second factor policy is required and past its grace and an unenrolled person signs in from an app
+- **THEN** the browser enrols them before any code is handed over, and the exchanged session is not confined to enrolment
+
+### Requirement: A refused app sign-in returns to the app
+
+Once `app_redirect` was validated, a refused sign-in, at the start, the provider's answer or the second factor step, SHALL send the browser to `app_redirect` with `error` set to one of `access_denied`, `not_linked`, `expired`, `provider_error` or `server_error` and the app's `state`, and no code. A wrong or rate limited code SHALL stay on the code form.
+
+#### Scenario: Not linked
+
+- **WHEN** the provider vouches for an email no account here holds
+- **THEN** the browser goes to the app's redirect with `error=not_linked`
+
+#### Scenario: Second factor step expired
+
+- **WHEN** the second factor step of an app sign-in is posted after its ticket expired
+- **THEN** the browser goes to the app's redirect with `error=expired`
+
+#### Scenario: Wrong code
+
+- **WHEN** a wrong code is posted at the second factor step of an app sign-in
+- **THEN** the code form is drawn again and the browser does not go to the app
+
+### Requirement: The app exchanges the code once
+
+`POST /api/v1/auth/sso/exchange` SHALL take `code` and `code_verifier` without a credential and answer as a completed `POST /api/v1/auth/login` does, with a remembered session of method `sso:KEY` and a `user.login` audit entry. An unknown, used or expired code or a verifier whose S256 is not the challenge SHALL be 401 invalid credentials, logged as `sso_code_invalid`. A code SHALL be taken once across replicas, and a take SHALL delete the tenant's expired codes.
+
+#### Scenario: Wrong verifier
+
+- **WHEN** an exchange sends the right code with another verifier
+- **THEN** it is 401 and the code cannot be exchanged afterwards
+
+#### Scenario: Race
+
+- **WHEN** several exchanges of one code run at once
+- **THEN** exactly one gets a session
+
+#### Scenario: Expired codes pruned
+
+- **WHEN** an exchange runs after other codes in the tenant expired unexchanged
+- **THEN** those codes are deleted whether or not the exchange succeeds
+
+### Requirement: An enrolling app sign-in hands over the code when the app is opened
+
+When an app sign-in completes by enrolling, the browser SHALL show the recovery codes with Open the app as a CSRF protected form carrying a signed handoff valid fifteen minutes, and no code. Posting it SHALL store the code then and answer 302 to `app_redirect` with it. An expired handoff SHALL send the browser to the app with `error=expired`. A handoff SHALL NOT pass as a second factor ticket, nor the reverse.
+
+#### Scenario: Slow reader
+
+- **WHEN** a person enrols during an app sign-in and presses Open the app five minutes later
+- **THEN** the browser goes to the app's redirect with a code the app can still exchange
+
+#### Scenario: Handoff expired
+
+- **WHEN** Open the app is pressed sixteen minutes after the enrolment
+- **THEN** the browser goes to the app's redirect with `error=expired`
+
+### Requirement: An app sign-in finishes only in the browser
+
+An app's sealed flow, second factor ticket or handoff SHALL be completed only through the browser interface. Presented to the HTTP API, it SHALL be refused as invalid naming `flow`, `ticket` or `app_handoff`, and no code SHALL be stored.
+
+#### Scenario: Flow sent to the API
+
+- **WHEN** `POST /api/v1/auth/sso/complete` carries the flow of an app sign-in
+- **THEN** it is 400 naming `flow` and no code is stored

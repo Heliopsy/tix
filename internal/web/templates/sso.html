@@ -1,0 +1,217 @@
+{{define "content"}}
+<div class="pagehead">
+  <div class="pagehead-title">
+    <div class="headtip"><h1>{{t "Single sign-on"}}</h1>{{template "tip" (tip "Single sign-on" "A provider lets people sign in to this tenant with an account they already have: an OpenID Connect or SAML identity provider such as Keycloak, Authentik, Entra ID, Google or Okta, or GitHub. Each enabled provider is a Sign in with button on the sign-in screen." "docs/sso.md")}}<span class="setscope" data-scope="tenant" title="{{t "Settings here apply to everyone in this tenant."}}">{{t "Whole tenant"}}</span></div>
+    <p class="lede">{{t "Register this address as the redirect URL with every OIDC and GitHub provider:"}} <code class="sso-redirect">{{.Data.RedirectURL}}</code></p>
+  </div>
+  <div class="pagehead-tools">{{template "dlg-open" (opener "sso-new" (t "Add a provider") "plus" "" .Here)}}</div>
+  {{template "help" $}}
+</div>
+
+<ul class="reclist rows">
+{{range .Data.Providers}}
+  <li class="recrow{{if not .Enabled}} is-off{{end}}">
+    <span class="recrow-main">
+      <span class="recrow-title">{{.DisplayName}} <code>{{.Key}}</code></span>
+      <span class="recrow-meta">
+        <code class="evchip">{{.Kind}}</code>
+        {{if .Issuer}}<span class="mono">{{.Issuer}}</span>{{end}}
+        {{if eq (printf "%s" .Kind) "saml"}}
+        <span class="mono">{{.IdPEntityID}}</span>
+        <span class="muted">{{t "%d signing certificates" (len .IdPCertificates)}}</span>
+        {{if .AllowIdPInitiated}}<span class="muted">{{t "accepts IdP-initiated sign-in"}}</span>{{end}}
+        {{else}}
+        <span class="muted">{{t "client"}} <code>{{.ClientID}}</code></span>
+        <span class="muted">{{if .SecretSet}}{{t "secret set"}}{{with .SecretHint}} (&hellip;{{.}}){{end}}{{else}}{{t "no secret"}}{{end}}</span>
+        {{end}}
+        <span class="muted">{{if .AutoCreate}}{{t "creates accounts as %s" (printf "%s" .DefaultRole)}}{{else}}{{t "invited people only"}}{{end}}</span>
+        {{if .TrustMFA}}<span class="muted">{{t "trusts the provider's second factor"}}</span>{{end}}
+        {{range .AllowedDomains}}<code class="evchip">@{{.}}</code>{{end}}
+        {{range .AllowedOrgs}}<code class="evchip">{{.}}</code>{{end}}
+      </span>
+      {{if .ACSURL}}
+      <span class="recrow-meta sso-saml-addr">
+        <span class="muted">{{t "ACS URL"}} <code class="sso-acs">{{.ACSURL}}</code></span>
+        <span class="muted">{{t "SP entity ID"}} <code class="sso-entity">{{.EntityID}}</code></span>
+        <span class="muted">{{t "Metadata"}} <a class="sso-metadata" href="{{.MetadataURL}}"><code>{{.MetadataURL}}</code></a></span>
+      </span>
+      {{end}}
+      {{if .IdPMetadataURL}}
+      <span class="recrow-meta sso-refresh">
+        {{with .MetadataRefresh}}
+        {{if eq .Result "failed"}}<span class="sso-refresh-failed">{{t "IdP metadata read failed"}} {{when .At}}: <span class="mono">{{.Error}}</span></span><span class="muted">{{t "the stored certificates keep working"}}</span>
+        {{else if eq .Result "updated"}}<span class="muted">{{t "IdP metadata read, certificates updated"}} {{when .At}}</span>
+        {{else}}<span class="muted">{{t "IdP metadata read, nothing changed"}} {{when .At}}</span>{{end}}
+        {{with .Next}}<span class="muted">{{t "next read"}} {{when .}}</span>{{else}}<span class="muted">{{t "not read on a schedule"}}</span>{{end}}
+        {{else}}<span class="muted">{{t "IdP metadata not read yet"}}</span>
+        {{end}}
+        {{with .IdPRetiring}}<span class="muted">{{t "%d retiring certificates" (len .)}}</span>{{end}}
+      </span>
+      {{end}}
+    </span>
+    <span class="pill status {{if .Enabled}}done{{else}}cancelled{{end}}">{{if .Enabled}}{{t "enabled"}}{{else}}{{t "off"}}{{end}}</span>
+    {{if .IdPMetadataURL}}
+    <form method="post" action="/admin/sso/refresh" class="recrow-act">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="secondary small" type="submit" title="{{t "Read the IdP metadata again now and merge its signing certificates"}}">{{t "Refresh metadata"}}</button>
+    </form>
+    {{end}}
+    <span class="recrow-act">{{template "dlg-open" ((opener (print "sso-edit-" .ID) (t "Edit") "" "secondary small" $.Here).Named (t "Edit %s" .DisplayName))}}</span>
+    <span class="recrow-act">{{template "dlg-open" ((opener (print "sso-delete-" .ID) (t "Delete") "" "danger small" $.Here).Named (t "Delete %s" .DisplayName))}}</span>
+  </li>
+{{else}}
+  <li class="empty">
+    <p class="empty-title">{{t "No providers"}}</p>
+    <p>{{t "People sign in to this tenant with a password."}}</p>
+    {{template "dlg-open" (opener "sso-new" (t "Add a provider") "plus" "" $.Here)}}
+  </li>
+{{end}}
+</ul>
+<p class="meta">{{t "A stored client secret is never displayed; to replace one, type the new secret into the provider's edit dialog."}}</p>
+
+<div class="headtip"><h2>{{t "Password sign-in"}}</h2>{{template "tip" (tip "Password sign-in" "Disabled, people of this tenant sign in only through its providers. A global admin can still sign in with a password, which is the way back in if a provider breaks. API tokens and SSH keys keep working either way." "docs/sso.md")}}</div>
+<form method="post" action="/admin/sso/password" class="sso-password">
+  {{template "csrf" .CSRF}}
+  <label for="password_login">{{t "Password sign-in"}}</label>
+  <select id="password_login" name="password_login">
+    <option value="allowed"{{if not .Data.PasswordLogin.Disabled}} selected{{end}}>{{t "allowed"}}</option>
+    <option value="disabled"{{if .Data.PasswordLogin.Disabled}} selected{{end}}>{{t "providers only"}}</option>
+  </select>
+  <div class="actions"><button type="submit">{{t "Save"}}</button></div>
+</form>
+
+{{$d := .Dialog.For "sso-new"}}
+{{$sh := shell "sso-new" (t "Add a provider") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/sso">
+  {{template "csrf" .CSRF}}
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <label for="new-key">{{t "Key"}}</label>
+  <input id="new-key" name="key" value="{{$d.Value "key"}}" required pattern="[a-z0-9][a-z0-9-]*" maxlength="32"{{$d.Errors.Attrs "key"}}>
+  {{with $d.Errors.On "key"}}{{template "field-error" .}}{{end}}
+  <label for="new-kind">{{t "Kind"}}</label>
+  <select id="new-kind" name="kind">{{range $.Data.Kinds}}<option value="{{.}}"{{if eq (printf "%s" .) ($d.Value "kind")}} selected{{end}}>{{.}}</option>{{end}}</select>
+  {{with $d.Errors.On "kind"}}{{template "field-error" .}}{{end}}
+  <label for="new-display_name">{{t "Button name"}}</label>
+  <input id="new-display_name" name="display_name" value="{{$d.Value "display_name"}}"{{$d.Errors.Attrs "display_name"}}>
+  {{with $d.Errors.On "display_name"}}{{template "field-error" .}}{{end}}
+  {{template "sso-fields" (ssoForm $d "new" .Data.Roles nil)}}
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Add provider"}}</button></div>
+</form>
+{{template "dlg-end"}}
+
+{{range .Data.Providers}}
+{{$d := $.Dialog.For (print "sso-edit-" .ID)}}
+{{$sh := shell (print "sso-edit-" .ID) (t "Edit %s" .DisplayName) "" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/sso/update">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  <input type="hidden" name="kind" value="{{.Kind}}">
+  {{with $d.Errors.On ""}}{{template "field-error" .}}{{end}}
+  <label for="{{.ID}}-display_name">{{t "Button name"}}</label>
+  <input id="{{.ID}}-display_name" name="display_name" value="{{$d.Or "display_name" .DisplayName}}"{{$d.Errors.Attrs "display_name"}}>
+  {{with $d.Errors.On "display_name"}}{{template "field-error" .}}{{end}}
+  {{template "sso-fields" (ssoForm $d .ID $.Data.Roles .)}}
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save provider"}}</button></div>
+</form>
+{{template "dlg-end"}}
+
+{{$sh := shell (print "sso-delete-" .ID) (t "Delete %s?" .DisplayName) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" action="/admin/sso/delete">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="id" value="{{.ID}}">
+  {{with ($.Dialog.For (print "sso-delete-" .ID)).Errors.On ""}}{{template "field-error" .}}{{end}}
+  <p>{{t "The Sign in with button goes, and every account linked through this provider loses the link. The accounts stay; signing in through a provider again links them anew."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Delete %s" .DisplayName}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{end}}
+
+{{/* sso-fields are the settings the new and edit dialogs share. The
+     protocol fields of both kinds are drawn; the ones the kind does not take
+     say so in their hints and are refused if filled in. */}}
+{{define "sso-fields"}}{{$d := .Dialog}}{{$p := .Provider}}{{$id := .ID}}
+  <label for="{{$id}}-issuer">{{t "Issuer URL (OIDC)"}}</label>
+  <input id="{{$id}}-issuer" name="issuer" type="url" value="{{$d.Or "issuer" $p.Issuer}}"{{$d.Errors.Attrs "issuer"}}>
+  {{with $d.Errors.On "issuer"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-client_id">{{t "Client ID"}}</label>
+  <input id="{{$id}}-client_id" name="client_id" value="{{$d.Or "client_id" $p.ClientID}}"{{$d.Errors.Attrs "client_id"}}>
+  {{with $d.Errors.On "client_id"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="{{$id}}-client_secret">{{t "Client secret"}}</label>
+    {{template "field-info" "Sealed with the server's key as soon as it is saved and never shown again. Leave it blank when editing to keep the stored one."}}
+  </div>
+  <input id="{{$id}}-client_secret" name="client_secret" type="password" autocomplete="new-password"{{$d.Errors.Attrs "client_secret"}}>
+  {{with $d.Errors.On "client_secret"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-scopes">{{t "Scopes, comma separated (OIDC)"}}</label>
+  <input id="{{$id}}-scopes" name="scopes" value="{{$d.Or "scopes" (join $p.Scopes)}}" placeholder="{{"openid, profile, email"}}"{{$d.Errors.Attrs "scopes"}}>
+  {{with $d.Errors.On "scopes"}}{{template "field-error" .}}{{end}}
+  <div class="sso-claims">
+    <label for="{{$id}}-email_claim">{{t "Email claim"}}<input id="{{$id}}-email_claim" name="email_claim" value="{{$d.Or "email_claim" $p.EmailClaim}}" placeholder="{{"email"}}"></label>
+    <label for="{{$id}}-name_claim">{{t "Name claim"}}<input id="{{$id}}-name_claim" name="name_claim" value="{{$d.Or "name_claim" $p.NameClaim}}" placeholder="{{"name"}}"></label>
+    <label for="{{$id}}-username_claim">{{t "Username claim"}}<input id="{{$id}}-username_claim" name="username_claim" value="{{$d.Or "username_claim" $p.UsernameClaim}}" placeholder="{{"preferred_username"}}"></label>
+    <label for="{{$id}}-groups_claim">{{t "Groups claim"}}<input id="{{$id}}-groups_claim" name="groups_claim" value="{{$d.Or "groups_claim" $p.GroupsClaim}}" placeholder="{{"groups"}}"></label>
+  </div>
+  <p class="meta">{{t "For a SAML provider these name the assertion's attributes, by Name or FriendlyName; empty reads the names common identity providers send."}}</p>
+  {{with $d.Errors.On "email_claim"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-allowed_orgs">{{t "Allowed GitHub organisations, comma separated"}}</label>
+  <input id="{{$id}}-allowed_orgs" name="allowed_orgs" value="{{$d.Or "allowed_orgs" (join $p.AllowedOrgs)}}"{{$d.Errors.Attrs "allowed_orgs"}}>
+  {{with $d.Errors.On "allowed_orgs"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-web_url">{{t "GitHub Enterprise address and API address"}}</label>
+  <div class="sso-claims">
+    <input id="{{$id}}-web_url" name="web_url" type="url" value="{{$d.Or "web_url" $p.WebURL}}" placeholder="{{"https://github.example.com"}}" aria-label="{{t "GitHub Enterprise address"}}">
+    <input id="{{$id}}-api_url" name="api_url" type="url" value="{{$d.Or "api_url" $p.APIURL}}" placeholder="{{"https://github.example.com/api/v3"}}" aria-label="{{t "GitHub Enterprise API address"}}">
+  </div>
+  {{with $d.Errors.On "web_url"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="{{$id}}-idp_metadata_url">{{t "IdP metadata URL (SAML)"}}</label>
+    {{template "field-info" "The identity provider's SAML metadata address. Saving reads its entity ID, sign-in URL and signing certificates, and the server reads it again on a schedule to pick up a new certificate; anything you fill in below wins over it."}}
+  </div>
+  <input id="{{$id}}-idp_metadata_url" name="idp_metadata_url" type="url" value="{{$d.Or "idp_metadata_url" $p.IdPMetadataURL}}"{{$d.Errors.Attrs "idp_metadata_url"}}>
+  <input type="hidden" name="idp_metadata_url_was" value="{{$p.IdPMetadataURL}}">
+  {{with $d.Errors.On "idp_metadata_url"}}{{template "field-error" .}}{{end}}
+  {{if $p.IdPMetadataURL}}<label for="{{$id}}-refresh_metadata"><input id="{{$id}}-refresh_metadata" type="checkbox" name="refresh_metadata" value="1"> {{t "Read the IdP metadata again on save"}}</label>{{end}}
+  <label for="{{$id}}-idp_metadata_xml">{{t "Or paste the IdP metadata XML (SAML)"}}</label>
+  <textarea id="{{$id}}-idp_metadata_xml" name="idp_metadata_xml" rows="3"{{$d.Errors.Attrs "idp_metadata_xml"}}></textarea>
+  {{with $d.Errors.On "idp_metadata_xml"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-idp_entity_id">{{t "IdP entity ID (SAML)"}}</label>
+  <input id="{{$id}}-idp_entity_id" name="idp_entity_id" value="{{$d.Or "idp_entity_id" $p.IdPEntityID}}"{{$d.Errors.Attrs "idp_entity_id"}}>
+  {{with $d.Errors.On "idp_entity_id"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-idp_sso_url">{{t "IdP sign-in URL, HTTP-Redirect (SAML)"}}</label>
+  <input id="{{$id}}-idp_sso_url" name="idp_sso_url" type="url" value="{{$d.Or "idp_sso_url" $p.IdPSSOURL}}"{{$d.Errors.Attrs "idp_sso_url"}}>
+  {{with $d.Errors.On "idp_sso_url"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="{{$id}}-idp_certificates">{{t "IdP signing certificates, PEM (SAML)"}}</label>
+    {{template "field-info" "One or more certificates the identity provider signs with. Add the next one before the IdP rolls its key over, and remove the old one after."}}
+  </div>
+  <textarea id="{{$id}}-idp_certificates" name="idp_certificates" rows="3" class="mono"{{$d.Errors.Attrs "idp_certificates"}}>{{$d.Or "idp_certificates" .Certificates}}</textarea>
+  {{with $d.Errors.On "idp_certificates"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-sp_entity_id">{{t "SP entity ID override (SAML)"}}</label>
+  <input id="{{$id}}-sp_entity_id" name="sp_entity_id" value="{{$d.Or "sp_entity_id" $p.SPEntityID}}" placeholder="{{t "the metadata address"}}"{{$d.Errors.Attrs "sp_entity_id"}}>
+  <label for="{{$id}}-name_id_format">{{t "NameID format to request (SAML)"}}</label>
+  <input id="{{$id}}-name_id_format" name="name_id_format" value="{{$d.Or "name_id_format" $p.NameIDFormat}}" placeholder="{{"urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"}}"{{$d.Errors.Attrs "name_id_format"}}>
+  {{with $d.Errors.On "name_id_format"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-allow_idp_initiated"><input id="{{$id}}-allow_idp_initiated" type="checkbox" name="allow_idp_initiated" value="1"{{if $d.Checked "allow_idp_initiated" $p.AllowIdPInitiated}} checked{{end}}> {{t "Accept sign-ins started at the identity provider (SAML)"}}</label>
+  <label for="{{$id}}-allowed_domains">{{t "Allowed email domains, comma separated"}}</label>
+  <input id="{{$id}}-allowed_domains" name="allowed_domains" value="{{$d.Or "allowed_domains" (join $p.AllowedDomains)}}" placeholder="{{"example.com"}}"{{$d.Errors.Attrs "allowed_domains"}}>
+  {{with $d.Errors.On "allowed_domains"}}{{template "field-error" .}}{{end}}
+  <div class="field-label">
+    <label for="{{$id}}-role_mapping">{{t "Groups to roles"}}</label>
+    {{template "field-info" "One group=role per line, for example tix-admins=admin. A person in a mapped group gets the highest role mapped, at every sign-in. For GitHub a group is an organisation."}}
+  </div>
+  <textarea id="{{$id}}-role_mapping" name="role_mapping" rows="3"{{$d.Errors.Attrs "role_mapping"}}>{{$d.Or "role_mapping" .Mapping}}</textarea>
+  {{with $d.Errors.On "role_mapping"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-default_role">{{t "Role for a new account"}}</label>
+  <select id="{{$id}}-default_role" name="default_role">{{$role := $d.Or "default_role" (printf "%s" $p.DefaultRole)}}{{range .Roles}}<option value="{{.}}"{{if eq (printf "%s" .) $role}} selected{{end}}>{{.}}</option>{{end}}</select>
+  <label for="{{$id}}-auto_create"><input id="{{$id}}-auto_create" type="checkbox" name="auto_create" value="1"{{if $d.Checked "auto_create" $p.AutoCreate}} checked{{end}}> {{t "Create an account for a verified email nobody holds"}}</label>
+  <label for="{{$id}}-trust_mfa"><input id="{{$id}}-trust_mfa" type="checkbox" name="trust_mfa" value="1"{{if $d.Checked "trust_mfa" $p.TrustMFA}} checked{{end}}> {{t "Skip the tenant's second factor when the provider reports one (OIDC, SAML)"}}</label>
+  {{with $d.Errors.On "trust_mfa"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-mfa_values">{{t "Second factor amr, acr or SAML AuthnContextClassRef values, comma separated"}}</label>
+  <input id="{{$id}}-mfa_values" name="mfa_values" value="{{$d.Or "mfa_values" (join $p.MFAValues)}}" placeholder="{{"mfa"}}"{{$d.Errors.Attrs "mfa_values"}}>
+  {{with $d.Errors.On "mfa_values"}}{{template "field-error" .}}{{end}}
+  <label for="{{$id}}-enabled"><input id="{{$id}}-enabled" type="checkbox" name="enabled" value="1"{{if $d.Checked "enabled" $p.Enabled}} checked{{end}}> {{t "Enabled"}}</label>
+{{end}}

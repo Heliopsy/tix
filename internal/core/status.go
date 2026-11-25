@@ -236,6 +236,20 @@ type Work struct {
 	WebhooksPending int `json:"webhooks_pending" yaml:"webhooks_pending"`
 	// WebhooksFailed is how many webhook deliveries have failed for good.
 	WebhooksFailed int `json:"webhooks_failed" yaml:"webhooks_failed"`
+	// NumberingBehind lists the projects whose task number counter reads below
+	// the highest number one of their tasks holds, trashed ones included.
+	// Empty on a sound store.
+	NumberingBehind []NumberingLag `json:"numbering_behind,omitempty" yaml:"numbering_behind,omitempty"`
+}
+
+// NumberingLag is one project whose task number counter is behind its tasks.
+type NumberingLag struct {
+	// Project is the project's key.
+	Project string `json:"project" yaml:"project"`
+	// Counter is the last number the project's counter issued.
+	Counter int64 `json:"counter" yaml:"counter"`
+	// Highest is the highest number a task of the project holds.
+	Highest int64 `json:"highest" yaml:"highest"`
 }
 
 // StatusReport is the whole answer to "what exists and what is running".

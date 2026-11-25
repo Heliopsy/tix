@@ -197,12 +197,13 @@ func assertTenantUserTable(t *testing.T, out, id string) {
 	if len(rows) != 2 {
 		t.Fatalf("tix tenant user ls acme =\n%s\nwant a header and one row", out)
 	}
-	if got := strings.Join(rows[0], ","); got != "ID,EMAIL,NAME,ROLE,GLOBAL ADMIN,CREATED,DISABLED" {
+	if got := strings.Join(rows[0], ","); got != "ID,EMAIL,NAME,ROLE,GLOBAL ADMIN,2FA,CREATED,DISABLED" {
 		t.Errorf("header = %q", got)
 	}
 	row := rows[1]
-	if len(row) != 7 || row[0] != id || row[1] != "carol@acme.test" || row[2] != "Carol" || row[3] != "viewer" || row[4] != "no" || row[6] != "" {
-		t.Errorf("carol's row = %q, want id, address, name, role viewer, global admin no, not disabled", row)
+	if len(row) != 8 || row[0] != id || row[1] != "carol@acme.test" || row[2] != "Carol" || row[3] != "viewer" ||
+		row[4] != "no" || row[5] != "no" || row[7] != "" {
+		t.Errorf("carol's row = %q, want id, address, name, role viewer, global admin no, no 2FA, not disabled", row)
 	}
 	if strings.ContainsAny(out, "{}") {
 		t.Errorf("the table prints a struct:\n%s", out)

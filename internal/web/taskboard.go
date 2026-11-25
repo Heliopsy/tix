@@ -249,7 +249,7 @@ func buildBoard(groups []boardGroup, tasks []core.Task, moves map[string]core.Wo
 	out.Columns = make([]column, 0, len(def.States))
 	placed := make(map[string]bool, len(tasks))
 	for _, state := range def.States {
-		col := column{State: state}
+		col := column{State: state, Category: def.CategoryOf(state.Key)}
 		for _, task := range tasks {
 			if task.Status != state.Key || !within[task.ProjectID] {
 				continue
@@ -270,13 +270,14 @@ func buildBoard(groups []boardGroup, tasks []core.Task, moves map[string]core.Wo
 // narrowHref is the task screen filtered to the named projects, keeping the
 // reader's own filter, deadline window, sort and page size.
 //
-// The cursor and its trail are dropped: they address positions in one ordered
-// result set, and under a narrower filter they name rows this reader was
-// never on, which is why the filter form drops them too.
+// The cursor, its trail and the page number are dropped: they address
+// positions in one ordered result set, and under a narrower filter they name
+// rows this reader was never on, which is why the filter form drops them too.
 func narrowHref(r *http.Request, keys []string) string {
 	query := r.URL.Query()
 	query.Del(CursorParam)
 	query.Del(TrailParam)
+	query.Del(PageParam)
 	query.Del("flash")
 	query.Del(FlashUndoParam)
 	terms := make([]string, 0, len(keys))
@@ -291,7 +292,11 @@ func narrowHref(r *http.Request, keys []string) string {
 // taskBoardFor resolves the board for this request: which projects the
 // listing may draw from, which workflows they run, and either the columns or
 // the disagreement.
-func (h *handler) taskBoardFor(r *http.Request, projects []core.Project, filter core.TaskFilter,
+//
+// An agreed board reads its columns one by one (boardTasks) rather than
+// drawing the page the list would show, so no column is ever empty because
+// its tasks sit on another page.
+func (h *handler) taskBoardFor(r *http.Request, route string, projects []core.Project, filter core.TaskFilter,
 	tasks []core.Task, moves map[string]core.WorkflowDefinition) (taskBoard, error) {
 	workflows, err := h.workflowsByID(r)
 	if err != nil {
@@ -301,7 +306,15 @@ func (h *handler) taskBoardFor(r *http.Request, projects []core.Project, filter 
 	for i := range groups {
 		groups[i].Href = narrowHref(r, groups[i].Keys())
 	}
-	return buildBoard(groups, tasks, moves), nil
+	var counts map[string]columnCount
+	if len(groups) == 1 && groups[0].Known {
+		if tasks, counts, err = h.boardTasks(r, route, groups[0].Workflow.Definition, filter); err != nil {
+			return taskBoard{}, err
+		}
+	}
+	board := buildBoard(groups, tasks, moves)
+	countColumns(&board, counts)
+	return board, nil
 }
 
 // workflowsByID is every workflow this tenant has, by identifier. A project

@@ -5,7 +5,6 @@ package i18n
 // The settings screen, its saved toasts and the shortcut overlay.
 func init() {
 	register(Bulgarian, map[string]string{ // #nosec G101 -- interface text keyed by its English, not credentials
-		"Display preferences for this browser, stored in cookies rather than on the tenant, so two people sharing a tenant can choose differently.": "Настройки на показването за този браузър. Пазят се в бисквитки, а не в тенанта, така че двама души в един тенант могат да изберат различно.",
 		"Settings sections": "Раздели на настройките",
 		"Appearance":        "Изглед и поведение",
 		"Listings":          "Списъци",
@@ -14,7 +13,7 @@ func init() {
 		"Database":          "База данни",
 
 		"Colour scheme": "Цветова схема",
-		"Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark and Low contrast. System follows what your device asks for.": "Сменя се с превключвателя в долния край на страничната лента, на всеки екран. Всяко натискане минава към следващата от Система, Светла, Тъмна и Нисък контраст. Система следва настройката на устройството ти.",
+		"Changed with the switch at the foot of the sidebar, on every screen. One press moves to the next of System, Light, Dark, OLED, Low contrast and System, OLED when dark. System follows what your device asks for; System, OLED when dark draws OLED where it would draw Dark.": "Сменя се с превключвателя в долния край на страничната лента, на всеки екран. Всяко натискане минава към следващата от Система, Светла, Тъмна, OLED, Нисък контраст и Система, OLED на тъмно. Система следва настройката на устройството ти; Система, OLED на тъмно показва OLED там, където би показала Тъмна.",
 		"Use the switch at the foot of the sidebar.": "Използвай превключвателя в долния край на страничната лента.",
 
 		"Language": "Език",
@@ -45,9 +44,7 @@ func init() {
 		"Drag a card between board columns to move it. Each card's own Move menu always works, drag or no drag, so turning this off costs nothing for keyboard or touch use.": "Влачи карта между колоните на таблото, за да я преместиш. Менюто „Премести“ на всяка карта работи винаги, с или без влачене, така че изключването не пречи при работа с клавиатура или с докосване.",
 		"Drag board cards between columns.": "Влачи картите между колоните на таблото.",
 
-		"Task opens in": "Задачата се отваря в",
-		"Page leaves the listing for the task's own screen. Dialog opens the task over the listing you are on: the address changes so a reload or a copied link opens the full page, Back or Escape closes it, and saves made in it update the listing underneath. A ctrl-click or a middle click still opens a new tab.": "Страница напуска списъка и отваря собствения екран на задачата. Диалог отваря задачата върху списъка, в който си: адресът се сменя, така че презареждане или копирана връзка отварят цялата страница, Назад или Escape го затварят, а промените, запазени в него, обновяват списъка отдолу. Ctrl-щракване или щракване със средния бутон все така отваря нов раздел.",
-		"Open a task as its own page, or in a dialog over the list.": "Отваряй задачата като отделна страница или в диалог върху списъка.",
+		"Task opens in":    "Задачата се отваря в",
 		"Page":             "Страница",
 		"Dialog":           "Диалог",
 		"Clicking a title": "Щракване върху заглавие",
@@ -77,18 +74,14 @@ func init() {
 		"Vim":                 "Vim",
 		"Emacs":               "Emacs",
 
-		"Move selection up":        "Премести избора нагоре",
-		"Move selection down":      "Премести избора надолу",
-		"Jump to the first task":   "Към първата задача",
-		"Jump to the last task":    "Към последната задача",
-		"Open the selected task":   "Отвори избраната задача",
-		"Go back":                  "Назад",
-		"Focus the new task field": "Към полето за нова задача",
-		"Focus the title field":    "Към полето за заглавие",
-		"Focus the comment field":  "Към полето за коментар",
-		"Open the move menu":       "Отвори менюто за преместване",
-		"Focus the filter field":   "Към полето за филтър",
-		"Show this help":           "Покажи тази помощ",
+		"Move selection up":      "Премести избора нагоре",
+		"Move selection down":    "Премести избора надолу",
+		"Jump to the first task": "Към първата задача",
+		"Jump to the last task":  "Към последната задача",
+		"Open the selected task": "Отвори избраната задача",
+		"Go back":                "Назад",
+		"Focus the filter field": "Към полето за филтър",
+		"Show this help":         "Покажи тази помощ",
 
 		"Timezone":          "Часова зона",
 		"Apply timezone":    "Приложи зоната",
@@ -125,8 +118,8 @@ func init() {
 		"Not shown": "Не се показва",
 
 		"%s saved": "%s: запазено",
-		"Adds the configuration screens to the sidebar's Admin group, under Trash: workflows, templates, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them.": "Добавя екраните за конфигурация в групата „Администрация“ на страничната лента, под „Кошче“: работни процеси, шаблони, тенант, домейни, потребители, токени, SSH ключове, състояние, връзки, уебкуки, внос и износ, и синхронизация. Включено по подразбиране за администратор на тенанта, който трябва да може да ги намери, и изключено за всички останали, защото всеки от тези екрани им отказва.",
-		"Show the configuration screens in the sidebar's Admin group.": "Показвай екраните за конфигурация в групата „Администрация“ на страничната лента.",
+		"Adds the configuration screens to the sidebar's Manage group, under Trash: workflows, tenant, domains, users, tokens, SSH keys, status, connections, webhooks, import and export, and sync. On by default for a tenant administrator, who has to be able to find them, and off for everybody else, since every one of those screens refuses them.": "Добавя екраните за конфигурация в групата „Управление“ на страничната лента, под „Кошче“: работни процеси, тенант, домейни, потребители, токени, SSH ключове, състояние, връзки, уебкуки, внос и износ, и синхронизация. Включено по подразбиране за администратор на тенанта, който трябва да може да ги намери, и изключено за всички останали, защото всеки от тези екрани им отказва.",
+		"Show the configuration screens in the sidebar's Manage group.": "Показвай екраните за конфигурация в групата „Управление“ на страничната лента.",
 		"Edit the title turns a task's title in the list, on a board card or on a lane card into a text field: Enter or clicking away saves, Escape cancels. The small open link beside each title still opens the task. Enter or F2 on a selected row edits its title too.": "„Редактирай заглавието“ превръща заглавието на задачата в списъка, в картата на таблото или в картата в лентата в текстово поле: Enter или щракване встрани запазва, Escape отказва. Малката връзка за отваряне до всяко заглавие пак отваря задачата. Enter или F2 върху избран ред също редактира заглавието му.",
 		"Open the task":  "Отвори задачата",
 		"Edit the title": "Редактирай заглавието",

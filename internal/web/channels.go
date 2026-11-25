@@ -164,8 +164,16 @@ func (h *handler) renderChannel(w http.ResponseWriter, r *http.Request, status i
 		return core.NotFound("inbox channel %q", id)
 	}
 	c := channels[i]
-	deliveries, next, err := h.svc.ListChannelDeliveries(r.Context(), core.ChannelDeliveryFilter{ChannelID: c.ID,
-		Page: core.Page{Limit: h.rowsPerPage(r), Cursor: r.URL.Query().Get(CursorParam)}})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.ChannelDelivery, string, error) {
+		return h.svc.ListChannelDeliveries(r.Context(), core.ChannelDeliveryFilter{ChannelID: c.ID,
+			Page: core.Page{Limit: limit, Cursor: cursor}})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	deliveries, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
@@ -182,7 +190,7 @@ func (h *handler) renderChannel(w http.ResponseWriter, r *http.Request, status i
 			Kinds: inboxKindChoices(nil)},
 		Secret:     issuedChannelSecret(secret),
 		Deliveries: deliveries, Format: formatLabel(c.Format),
-		Pager: newPager(r, channelPath(c.ID), next, len(deliveries), "deliveries"),
+		Pager: newPager(r, channelPath(c.ID), next, len(deliveries), "deliveries").counted(pos, size),
 	})
 }
 

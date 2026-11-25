@@ -126,3 +126,19 @@ func applyMarkers(b *Builder, col string, markers []string, want core.TriState) 
 	}
 	b.Where(cond, args...)
 }
+
+// TaskColumns is cols, the engine's task columns, with tasks.body read as
+// empty text when omitBody is set.
+func TaskColumns(cols []string, omitBody bool) []string {
+	if !omitBody {
+		return cols
+	}
+	out := make([]string, len(cols))
+	for i, c := range cols {
+		if c == "tasks.body" {
+			c = "'' AS body"
+		}
+		out[i] = c
+	}
+	return out
+}

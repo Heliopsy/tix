@@ -40,13 +40,14 @@ func (l *Local) inTenant(ctx context.Context, ref string) (context.Context, erro
 	return withGlobalStanding(core.WithActor(ctx, &stand), by), nil
 }
 
-// ListTenantUsers lists the users of any tenant with their role there.
-func (l *Local) ListTenantUsers(ctx context.Context, tenant string, page core.Page) ([]core.TenantUser, string, error) {
+// ListTenantUsers lists the users of any tenant with their role there,
+// leaving out people removed from it unless the filter asks for them.
+func (l *Local) ListTenantUsers(ctx context.Context, tenant string, f core.UserFilter) ([]core.TenantUser, string, error) {
 	inner, err := l.inTenant(ctx, tenant)
 	if err != nil {
 		return nil, "", err
 	}
-	users, next, err := l.ListUsers(inner, page)
+	users, next, err := l.ListUsers(inner, f)
 	if err != nil {
 		return nil, "", err
 	}

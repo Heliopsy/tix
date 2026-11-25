@@ -259,7 +259,7 @@ func runSSH(cmd *cobra.Command, g *globals, o sshOptions) error {
 
 		Commands:      RunHosted,
 		CommandWords:  CommandWords(),
-		MaxInputBytes: resolved.Config.Server.MaxImportBytes,
+		MaxInputBytes: max(resolved.Config.Server.MaxImportBytes, resolved.Config.Artifacts.MaxBytes),
 
 		TimeStyle: g.configTimeStyle(),
 	})

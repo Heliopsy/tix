@@ -23,6 +23,10 @@
   </select>
   <input name="token" value="{{$v.Query.Token}}" placeholder="{{t "Token name"}}" aria-label="{{t "API token name"}}" list="activity-tokens" autocomplete="off">
   <datalist id="activity-tokens">{{range $v.TokenNames}}<option value="{{.}}">{{end}}</datalist>
+  <input name="action" value="{{$v.Query.Action}}" placeholder="{{t "Action, for example task.update"}}" aria-label="{{t "Action"}}" list="activity-actions" autocomplete="off">
+  <datalist id="activity-actions">{{range $v.Actions}}<option value="{{.}}">{{end}}</datalist>
+  <label class="windowbound"><span>{{t "From"}}</span> <input type="datetime-local" name="from" value="{{$v.Query.FromInput}}"></label>
+  <label class="windowbound"><span>{{t "To"}}</span> <input type="datetime-local" name="to" value="{{$v.Query.ToInput}}"></label>
   {{if $v.Query.Source}}<input type="hidden" name="source" value="{{$v.Query.Source}}">{{end}}
   {{if $v.Query.Actor}}<input type="hidden" name="actor" value="{{$v.Query.Actor}}">{{end}}
   <button class="secondary" type="submit">{{t "Filter"}}</button>
@@ -37,6 +41,9 @@
   {{if $v.Query.Source}}<a class="chip removable" href="{{$v.Query.Without "source"}}">{{t "from %s" $v.Query.Source}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
   {{if $v.Query.Via}}<a class="chip removable" href="{{$v.Query.Without "via"}}">{{t "via %s" (t $v.Query.ViaLabel)}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
   {{if $v.Query.Token}}<a class="chip removable" href="{{$v.Query.Without "token"}}">{{t "token %s" $v.Query.Token}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.Action}}<a class="chip removable" href="{{$v.Query.Without "action"}}">{{t "action %s" $v.Query.Action}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.From}}<a class="chip removable" href="{{$v.Query.Without "from"}}">{{t "on or after %s" ($v.Query.WindowLabel $v.Query.From)}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
+  {{if $v.Query.To}}<a class="chip removable" href="{{$v.Query.Without "to"}}">{{t "on or before %s" ($v.Query.WindowLabel $v.Query.To)}}{{template "icon" "x"}}<span class="sr-only"> {{t "(remove this filter)"}}</span></a>{{end}}
   <a class="clear" href="/activity">{{t "Clear all"}}</a>
 </p>
 {{end}}

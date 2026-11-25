@@ -124,7 +124,7 @@ func TestTheDarkSchemeGetsTheThemesOwnDarkAccent(t *testing.T) {
 	page := newFixture(t).as("alice").page("/projects")
 
 	light := between(t, page, "\n:root { --accent: ", ";")
-	dark := between(t, page, `:root[data-theme="dark"], :root[data-theme="dim"] { --accent: `, ";")
+	dark := between(t, page, `:root[data-theme="dark"], :root[data-theme="dim"], :root[data-theme="oled"] { --accent: `, ";")
 	if light == "" || dark == "" {
 		t.Fatalf("the page emits no accent rules:\n%s", between(t, page, "<style>", "</style>"))
 	}
@@ -196,7 +196,7 @@ func TestACustomColourIsSavedFromTheBrowserAndDrawn(t *testing.T) {
 	if !strings.Contains(list, "proj-custom") || !strings.Contains(list, style) {
 		t.Errorf("the project list entry is not drawn in the custom colour: %s", list)
 	}
-	card := between(t, b.page("/projects/infra"), `<article class="card`, ">")
+	card := between(t, b.page("/projects/infra"), `<article id="t-`, ">")
 	if !strings.Contains(card, "proj-custom") || !strings.Contains(card, style) {
 		t.Errorf("the board card is not drawn in the custom colour: %s", card)
 	}

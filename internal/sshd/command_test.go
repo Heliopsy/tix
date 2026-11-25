@@ -27,17 +27,26 @@ import (
 )
 
 // hostedListener serves enrolled keys with the real command runner, the way
-// tix ssh and tix serve --ssh wire it.
+// tix ssh and tix serve --ssh wire it. The store and the service run on clk,
+// which a test computes its codes from; the listener keeps a real clock.
 type hostedListener struct {
 	addr string
 	svc  core.Service
 	st   store.Store
+	clk  *clock.Fake
 }
 
 func newHostedListener(t *testing.T, tune func(*sshd.Options)) hostedListener {
 	t.Helper()
+	return newHostedListenerWith(t, tune)
+}
+
+// newHostedListenerWith is newHostedListener over a service built with
+// further options, as connect.Dial builds it from the server's configuration.
+func newHostedListenerWith(t *testing.T, tune func(*sshd.Options), with ...service.Option) hostedListener {
+	t.Helper()
 	ctx := context.Background()
-	clk := clock.New()
+	clk := clock.NewFakeAt()
 	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
@@ -46,13 +55,13 @@ func newHostedListener(t *testing.T, tune func(*sshd.Options)) hostedListener {
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatalf("migrating: %v", err)
 	}
-	svc := service.New(st, service.WithClock(clk), service.WithTOTPKey(sshd.FactorTestKey))
+	svc := service.New(st, append([]service.Option{service.WithClock(clk), service.WithTOTPKey(sshd.FactorTestKey)}, with...)...)
 	t.Cleanup(func() { _ = svc.Close() })
 
 	opts := sshd.Options{
 		Service:      svc,
 		Store:        st,
-		Clock:        clk,
+		Clock:        clock.New(),
 		Addr:         "127.0.0.1:0",
 		HostKeyPath:  filepath.Join(t.TempDir(), "host_key"),
 		RatePerHour:  100000,
@@ -75,7 +84,7 @@ func newHostedListener(t *testing.T, tune func(*sshd.Options)) hostedListener {
 	done := make(chan struct{})
 	go func() { _ = srv.Serve(runCtx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
-	return hostedListener{addr: srv.Addr(), svc: svc, st: st}
+	return hostedListener{addr: srv.Addr(), svc: svc, st: st, clk: clk}
 }
 
 // dial opens one authenticated client, which the test runs every session on.
@@ -267,6 +276,8 @@ func TestEveryExcludedClassIsRefused(t *testing.T) {
 		{"project icon --out", "project icon tob --out " + written, "--out", core.ExitUsage},
 		{"user key --file", "user key add --file " + secret, "--file", core.ExitUsage},
 		{"project edit --icon-file", "project edit tob --icon-file " + secret, "--icon-file", core.ExitUsage},
+		{"tenant edit --icon-file", "tenant edit default --icon-file " + secret, "--icon-file", core.ExitUsage},
+		{"tenant icon --out", "tenant icon default --out " + written, "--out", core.ExitUsage},
 		{"domain --cert on the server", "domain add t.example.test --cert-mode file --cert " + secret + " --key " + secret, "--cert", core.ExitUsage},
 		{"sync --mapping-file", "sync source add generic x --file x.csv --mapping-file " + secret, "over ssh", core.ExitUsage},
 		{"sync --file on the server", "sync source add generic x --file " + secret, "--file", core.ExitUsage},
@@ -358,7 +369,7 @@ func TestADemoListenerRunsNoCommands(t *testing.T) {
 func TestACommandOwesTheFactorABoardSessionOwes(t *testing.T) {
 	l, p, client := enrolled(t, nil)
 	sshd.RequireFactor(t, l.st, p.TenantID, core.SurfaceSSH)
-	secret := sshd.EnrolFactor(t, l.svc, p)
+	secret := sshd.EnrolFactor(t, l.svc, l.clk, p)
 
 	refused := run(t, client, "task ls -p tob", nil, nil)
 	if refused.code == 0 || !strings.Contains(refused.err, sshd.EnvCode) || !strings.Contains(refused.err, "ssh -t") {
@@ -368,7 +379,7 @@ func TestACommandOwesTheFactorABoardSessionOwes(t *testing.T) {
 	if wrong.code == 0 {
 		t.Fatalf("a wrong code ran the command: %q", wrong.out)
 	}
-	ok := run(t, client, "task ls -p tob -o json", nil, map[string]string{sshd.EnvCode: sshd.TOTPNow(t, secret)})
+	ok := run(t, client, "task ls -p tob -o json", nil, map[string]string{sshd.EnvCode: sshd.TOTPNow(t, l.clk, secret)})
 	if ok.code != 0 {
 		t.Fatalf("a current code: exit %d, err %q", ok.code, ok.err)
 	}
@@ -379,8 +390,8 @@ func TestACommandOwesTheFactorABoardSessionOwes(t *testing.T) {
 func TestRemovingTheFactorOverSSHIsJudgedOnTheSSHSurface(t *testing.T) {
 	l, p, client := enrolled(t, nil)
 	sshd.RequireFactor(t, l.st, p.TenantID, core.SurfaceSSH)
-	secret := sshd.EnrolFactor(t, l.svc, p)
-	r := run(t, client, "user totp rm", nil, map[string]string{sshd.EnvCode: sshd.TOTPNow(t, secret)})
+	secret := sshd.EnrolFactor(t, l.svc, l.clk, p)
+	r := run(t, client, "user totp rm", nil, map[string]string{sshd.EnvCode: sshd.TOTPNow(t, l.clk, secret)})
 	if r.code != core.ExitPrecondtion || !strings.Contains(r.err, "ssh") {
 		t.Fatalf("user totp rm over ssh: exit %d, err %q", r.code, r.err)
 	}

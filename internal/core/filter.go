@@ -131,6 +131,51 @@ func (p Page) Normalize() (Page, error) {
 type TaskPage struct {
 	Tasks      []Task `json:"tasks" yaml:"tasks"`
 	NextCursor string `json:"next_cursor,omitempty" yaml:"next_cursor,omitempty"`
+	// Total is how many tasks the filter selects, counted up to TaskCountCap.
+	Total int `json:"total" yaml:"total"`
+	// TotalCapped is true when the count stopped at TaskCountCap, so Total is
+	// a floor rather than the whole.
+	TotalCapped bool `json:"total_capped,omitempty" yaml:"total_capped,omitempty"`
+	// Number is the page answered, from one, when the filter asked by
+	// PageNumber; a number past the end is answered with the last page.
+	Number int `json:"page,omitempty" yaml:"page,omitempty"`
+	// Tally counts the whole selection, every page of it, when the filter
+	// asked with Tally. Absent otherwise.
+	Tally *TaskTally `json:"tally,omitempty" yaml:"tally,omitempty"`
+}
+
+// TaskTally counts every task a filter selects, not one page of them.
+type TaskTally struct {
+	// States counts the selection per project and status. A state is done or
+	// open by its project's workflow, which the reader already holds.
+	States []StateCount `json:"states" yaml:"states"`
+	// Blocked counts the tasks waiting on an unfinished dependency.
+	Blocked int `json:"blocked" yaml:"blocked"`
+	// Held counts the tasks under a live claim.
+	Held int `json:"held" yaml:"held"`
+}
+
+// StateCount is how many selected tasks of one project sit in one status.
+type StateCount struct {
+	// ProjectID is the project the tasks belong to.
+	ProjectID string `json:"project_id" yaml:"project_id"`
+	// Status is the workflow state they sit in.
+	Status string `json:"status" yaml:"status"`
+	// Count is how many of them there are.
+	Count int `json:"count" yaml:"count"`
+}
+
+// TaskCountCap is where a task listing's count stops. Past it a total is
+// reported as a floor, and a page number cannot reach further than it.
+const TaskCountCap = 10000
+
+// PagesOf is how many pages of size a listing of total rows fills, never
+// fewer than one.
+func PagesOf(total, size int) int {
+	if size < 1 || total <= size {
+		return 1
+	}
+	return (total + size - 1) / size
 }
 
 // TriState expresses an optional boolean filter, distinguishing "not filtered"
@@ -193,6 +238,16 @@ type TaskFilter struct {
 	// listing with no reader neither groups nor filters by stars.
 	StarredBy string `json:"-" yaml:"-"`
 
+	// OmitBody leaves each task's Body and Checklist empty, for an in-process
+	// caller that only counts the tasks: a description can be a megabyte. It
+	// does not travel on the wire, so a remote listing always carries bodies.
+	OmitBody bool `json:"-" yaml:"-"`
+
+	// Tally asks for TaskPage.Tally, the counts of the whole selection. It is
+	// the shape of the answer rather than a set of tasks, so it travels as the
+	// tally query parameter rather than in a filter expression.
+	Tally bool `json:"-" yaml:"-"`
+
 	Query string `json:"query,omitempty" yaml:"query,omitempty"`
 
 	// Text holds the explicit title and body predicates: exact equality, or
@@ -217,6 +272,11 @@ type TaskFilter struct {
 	IncludeSnoozed bool     `json:"include_snoozed,omitempty" yaml:"include_snoozed,omitempty"`
 
 	Page Page `json:"page,omitempty" yaml:"page,omitempty"`
+
+	// PageNumber reads the listing from page N, counting from one, instead of
+	// from Page.Cursor. The service seeks the cursor that page starts at, so
+	// the page is still keyset-addressed. Zero reads from the cursor.
+	PageNumber int `json:"page_number,omitempty" yaml:"page_number,omitempty"`
 }
 
 // ListsDeleted reports whether the filter admits soft-deleted tasks.
@@ -290,6 +350,12 @@ func (f TaskFilter) Validate() (TaskFilter, error) {
 		return f, err
 	}
 	f.Page = page
+	if f.PageNumber < 0 {
+		return f, Invalid("page number must not be negative")
+	}
+	if f.PageNumber > 0 && f.Page.Cursor != "" {
+		return f, Invalid("a page number and a cursor are mutually exclusive")
+	}
 
 	if f.Page.Cursor != "" {
 		c, err := DecodeCursor(f.Page.Cursor)
@@ -317,6 +383,21 @@ type EventFilter struct {
 	ProjectIDs []string    `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
 	Types      []EventType `json:"types,omitempty" yaml:"types,omitempty"`
 	SinceSeq   int64       `json:"since_seq,omitempty" yaml:"since_seq,omitempty"`
+}
+
+// EventPollInput asks for the events after a cursor, waiting for one when none is there yet.
+type EventPollInput struct {
+	SinceSeq   int64       `json:"since_seq,omitempty" yaml:"since_seq,omitempty"`
+	Types      []EventType `json:"types,omitempty" yaml:"types,omitempty"`
+	ProjectIDs []string    `json:"project_ids,omitempty" yaml:"project_ids,omitempty"`
+	Limit      int         `json:"limit,omitempty" yaml:"limit,omitempty"`
+	Wait       Duration    `json:"wait,omitempty" yaml:"wait,omitempty"`
+}
+
+// EventPage is one poll's events in sequence order and the cursor that resumes after them.
+type EventPage struct {
+	Events  []Event `json:"events" yaml:"events"`
+	NextSeq int64   `json:"next_seq" yaml:"next_seq"`
 }
 
 // Matches reports whether an event satisfies the filter.
@@ -384,6 +465,15 @@ type ProjectFilter struct {
 	Keys            []string `json:"keys,omitempty" yaml:"keys,omitempty"`
 	IncludeArchived bool     `json:"include_archived,omitempty" yaml:"include_archived,omitempty"`
 	Page            Page     `json:"page,omitempty" yaml:"page,omitempty"`
+}
+
+// UserFilter selects the users a listing returns. People removed from the
+// tenant are left out unless IncludeRemoved asks for them.
+type UserFilter struct {
+	IncludeRemoved bool `json:"include_removed,omitempty" yaml:"include_removed,omitempty"`
+	// WithoutTOTP lists only people who hold no confirmed second factor.
+	WithoutTOTP bool `json:"without_totp,omitempty" yaml:"without_totp,omitempty"`
+	Page        Page `json:"page,omitempty" yaml:"page,omitempty"`
 }
 
 // DeliveryFilter selects webhook deliveries.

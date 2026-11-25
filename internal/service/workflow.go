@@ -33,6 +33,11 @@ func (l *Local) PutWorkflow(ctx context.Context, in core.WorkflowInput) (*core.W
 		if err != nil {
 			return err
 		}
+		if before == nil && core.ReservedWorkflowKey(in.Key) {
+			return core.Invalid("workflow keys starting with %q are reserved for the built-in templates; "+
+				"apply one with tix workflow template apply, or choose another key", core.WorkflowTemplatePrefix).
+				WithDetail(core.DetailField, "key")
+		}
 		builtin := false
 		if before != nil {
 			builtin = before.Builtin

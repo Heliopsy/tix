@@ -112,9 +112,13 @@ type Operation struct {
 	// Method is the core.Service method the operation maps to.
 	Method string
 	// CLI is the full command path, such as "tix task add".
-	CLI  string
-	HTTP Route
-	Web  Route
+	CLI string
+	// Formats are further command paths that only format this operation's
+	// result on the client, such as "tix task link" over GetTask. They are
+	// hosted over SSH wherever the operation is, and nowhere else.
+	Formats []string
+	HTTP    Route
+	Web     Route
 	// TUI names the terminal view the operation is reachable from.
 	TUI string
 	// Scope is the scope an actor must hold for the service to permit this
@@ -219,7 +223,8 @@ func (o Operation) ExemptionFor(s Surface) (Exemption, bool) {
 }
 
 // SSHCommands lists the command paths an SSH session may run, without the
-// leading "tix", sorted: the CLI binding of every operation that binds SSH.
+// leading "tix", sorted: the CLI binding and the Formats of every operation
+// that binds SSH.
 // It is the listener's allowlist, so a command the registry does not bind is
 // never on it, however the command tree grows.
 func SSHCommands() []string {
@@ -228,9 +233,11 @@ func SSHCommands() []string {
 		if !op.Binds(SurfaceSSH) {
 			continue
 		}
-		path := strings.TrimPrefix(op.CLI, "tix ")
-		if !slices.Contains(out, path) {
-			out = append(out, path)
+		for _, cli := range append([]string{op.CLI}, op.Formats...) {
+			path := strings.TrimPrefix(cli, "tix ")
+			if !slices.Contains(out, path) {
+				out = append(out, path)
+			}
 		}
 	}
 	sort.Strings(out)

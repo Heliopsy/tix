@@ -148,7 +148,7 @@ func TestARenameReadsBackAsThePersonsNameInThatTenant(t *testing.T) {
 	if err != nil || got.DisplayName != name {
 		t.Errorf("GetUser in the other tenant = %+v, %v; want %q", got, err, name)
 	}
-	listed, _, err := f.l.ListUsers(other, core.Page{})
+	listed, _, err := f.l.ListUsers(other, core.UserFilter{})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -376,4 +376,138 @@ func withdrawn(t *testing.T, l *Local, scope core.TenantScope, actorID string) b
 		t.Fatalf("reading the standing of %q: %v", actorID, err)
 	}
 	return out
+}
+
+// listedIDs maps the identifiers a user listing returned to whether each was
+// marked removed.
+func listedIDs(users []core.User) map[string]bool {
+	out := make(map[string]bool, len(users))
+	for _, u := range users {
+		out[u.ID] = u.Removed
+	}
+	return out
+}
+
+func TestAPersonRemovedFromATenantLeavesItsUserListing(t *testing.T) {
+	f := newTwoTenants(t)
+	other := authContext(f.otherAdmin)
+	kim, err := f.l.CreateUser(other, core.CreateUserInput{Email: "kim@example.com", Password: testPassword, Role: core.RoleMember})
+	if err != nil {
+		t.Fatalf("creating kim: %v", err)
+	}
+	if err := f.l.DeleteUser(other, f.otherPat.ID); err != nil {
+		t.Fatalf("removing pat from the other tenant: %v", err)
+	}
+
+	current, _, err := f.l.ListUsers(other, core.UserFilter{})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if _, listed := listedIDs(current)[f.otherPat.ID]; listed {
+		t.Error("pat is still listed as a user of the tenant she was removed from")
+	}
+	if _, listed := listedIDs(current)[kim.ID]; !listed {
+		t.Error("the listing lost the tenant's remaining member")
+	}
+
+	all, _, err := f.l.ListUsers(other, core.UserFilter{IncludeRemoved: true})
+	if err != nil {
+		t.Fatalf("ListUsers including removed: %v", err)
+	}
+	if removed, listed := listedIDs(all)[f.otherPat.ID]; !listed || !removed {
+		t.Errorf("including removed people lists pat = %v, marked removed = %v; want both", listed, removed)
+	}
+	if removed, listed := listedIDs(all)[kim.ID]; !listed || removed {
+		t.Errorf("a current member: listed %v, marked removed %v; want listed, not removed", listed, removed)
+	}
+	if got, err := f.l.GetUser(other, f.otherPat.ID); err != nil || !got.Removed {
+		t.Errorf("GetUser of the removed pat = %+v, %v; want marked removed", got, err)
+	}
+
+	home, _, err := f.l.ListUsers(authContext(f.homeAdmin), core.UserFilter{})
+	if err != nil {
+		t.Fatalf("ListUsers at home: %v", err)
+	}
+	if removed, listed := listedIDs(home)[f.homePat.ID]; !listed || removed {
+		t.Errorf("pat in the tenant she still belongs to: listed %v, marked removed %v; want listed, not removed",
+			listed, removed)
+	}
+
+	tenantUsers, _, err := f.l.ListTenantUsers(f.global, f.otherKey, core.UserFilter{})
+	if err != nil {
+		t.Fatalf("ListTenantUsers: %v", err)
+	}
+	for _, u := range tenantUsers {
+		if u.ID == f.otherPat.ID {
+			t.Error("the global admin's listing of the tenant still names pat")
+		}
+	}
+	tenantAll, _, err := f.l.ListTenantUsers(f.global, f.otherKey, core.UserFilter{IncludeRemoved: true})
+	if err != nil {
+		t.Fatalf("ListTenantUsers including removed: %v", err)
+	}
+	found := false
+	for _, u := range tenantAll {
+		if u.ID == f.otherPat.ID {
+			found = true
+			if !u.Removed || u.Role != "" {
+				t.Errorf("pat in the global admin's listing = removed %v, role %q; want removed, no role", u.Removed, u.Role)
+			}
+		}
+	}
+	if !found {
+		t.Error("including removed people in the global admin's listing does not name pat")
+	}
+}
+
+func TestARevokedMembershipLeavesTheUserListing(t *testing.T) {
+	l, _, _, admin := newLocalWith(t)
+	ctx := authContext(admin)
+	gone, err := l.CreateUser(ctx, core.CreateUserInput{Email: "gone@example.com", Password: testPassword, Role: core.RoleMember})
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if err := l.RemoveMember(ctx, gone.ID); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+	users, _, err := l.ListUsers(ctx, core.UserFilter{})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if _, listed := listedIDs(users)[gone.ID]; listed {
+		t.Error("a person whose membership was revoked is still listed")
+	}
+	all, _, err := l.ListUsers(ctx, core.UserFilter{IncludeRemoved: true})
+	if err != nil {
+		t.Fatalf("ListUsers including removed: %v", err)
+	}
+	if removed, listed := listedIDs(all)[gone.ID]; !listed || !removed {
+		t.Errorf("including removed people: listed %v, marked removed %v; want both", listed, removed)
+	}
+}
+
+// Inviting somebody with an account elsewhere creates their actor here with no
+// membership until they accept. That person is an invite, not a removed user,
+// so the user listing leaves them out even when asked for removed people.
+func TestAPendingInviteOfAnotherTenantsPersonIsNotAUser(t *testing.T) {
+	f := newTwoTenants(t)
+	sam, err := f.l.CreateUser(authContext(f.homeAdmin), core.CreateUserInput{
+		Email: "sam@example.com", Password: testPassword, Role: core.RoleMember,
+	})
+	if err != nil {
+		t.Fatalf("creating sam: %v", err)
+	}
+	other := authContext(f.otherAdmin)
+	if _, err := f.l.CreateInvite(other, core.CreateInviteInput{Email: "sam@example.com", Role: core.RoleMember}); err != nil {
+		t.Fatalf("inviting sam to the other tenant: %v", err)
+	}
+	all, _, err := f.l.ListUsers(other, core.UserFilter{IncludeRemoved: true})
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	for _, u := range all {
+		if u.Email == sam.Email {
+			t.Errorf("sam, invited and not yet accepted, is listed as a user (removed %v)", u.Removed)
+		}
+	}
 }

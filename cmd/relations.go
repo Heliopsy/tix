@@ -264,7 +264,7 @@ func newCommentCmd(g *globals) *cobra.Command {
 		Args:    noArgs,
 		RunE:    helpRunner,
 	}
-	cmd.AddCommand(commentAddCmd(g), commentLsCmd(g), commentEditCmd(g), commentRmCmd(g))
+	cmd.AddCommand(commentAddCmd(g), commentLsCmd(g), commentEditCmd(g), commentRmCmd(g), commentReactCmd(g))
 	return cmd
 }
 
@@ -400,6 +400,40 @@ func commentRmCmd(g *globals) *cobra.Command {
 			return g.render(cmd, outcome{Ref: args[0], Status: statusOK})
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
+	return cmd
+}
+
+func commentReactCmd(g *globals) *cobra.Command {
+	var remove, dryRun bool
+	cmd := &cobra.Command{
+		Use:   "react ID EMOJI",
+		Short: "React to a comment with an emoji",
+		Long: "Add your emoji reaction to a comment, or take it back with --remove. You can leave several\n" +
+			"different emoji on one comment, each once; reacting twice with the same one changes nothing.\n\n" +
+			"Exit codes: 2 not a single emoji, 3 unknown comment, 5 permission denied.",
+		Example: "  tix comment react 01J0000000000000000000 👍\n  tix comment react 01J0000000000000000000 👍 --remove",
+		Args:    exactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conn, ctx, err := g.dial(cmd)
+			if err != nil {
+				return err
+			}
+			op, act := "comment.react", conn.Service.AddReaction
+			if remove {
+				op, act = "comment.unreact", conn.Service.RemoveReaction
+			}
+			if dryRun {
+				return g.render(cmd, newPlan(op, args[0], nil))
+			}
+			comment, err := act(ctx, args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return g.render(cmd, comment)
+		},
+	}
+	cmd.Flags().BoolVar(&remove, "remove", false, "remove your reaction instead of adding it")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would change without writing")
 	return cmd
 }

@@ -85,7 +85,7 @@ func newSwitchWorld(t *testing.T) *switchWorld {
 		w.patIDs[key] = u.ID
 	}
 	router, err := httpapi.New(httpapi.Config{
-		Service: local, Authenticator: server.NewAuthenticator(st, clk), DefaultTenantID: w.home.ID,
+		Service: local, Authenticator: server.NewAuthenticator(st, clk, core.SessionPolicy{}), DefaultTenantID: w.home.ID,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), WebHandler: web.Handler(local),
 	})
 	if err != nil {

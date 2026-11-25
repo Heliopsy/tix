@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,18 +14,22 @@ import (
 // projectRoutes are the project list, board and field definition screens.
 func (h *handler) projectRoutes() []route {
 	return []route{
-		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListWorkflows"),
+		get(RouteProjects, "projects.html", h.showProjects, "ListProjects", "ListStarredProjects", "ListWorkflows",
+			"ListWorkflowTemplates", "ListTasks"),
 		post(RouteProjects, h.createProject, "CreateProject"),
-		get(RouteProject, "board.html", h.showBoard, "GetProject", "ListGroupPrefs"),
+		get(RouteProject, "tasks.html", h.showProjectTasks, "GetProject", "ListTasks", "ListProjects", "ListTags",
+			"ListGroupPrefs", "ListSavedFilters", "ListTemplates", "TrashStatus"),
 		get(RouteProjectSettings, "projectsettings.html", h.showProjectSettings,
 			"GetProject", "ListWorkflows", "GetHousekeeping"),
-		// The board's live fragment renders through the same template set,
-		// and the same block, the full board does. See showBoardLive.
-		get(RouteBoardLive, "board.html", h.showBoardLive, "GetProject"),
+		// The project page's live fragment renders through the same template
+		// set, and the same block, the page does. See showProjectTasksLive.
+		get(RouteBoardLive, "tasks.html", h.showProjectTasksLive, "GetProject", "ListTasks"),
 		post(RouteProjectEdit, h.updateProject, "UpdateProject"),
 		post(RouteProjectLease, h.updateProjectLease, "UpdateProject"),
 		getFile(RouteProjectIcon, h.showProjectIcon, "GetProjectIcon"),
 		post(RouteProjectArch, h.archiveProject, "ArchiveProject"),
+		post(RouteProjectStar, h.starProject, "StarProject"),
+		post(RouteProjectUnstar, h.unstarProject, "UnstarProject"),
 		get(RouteProjectDel, "projectdelete.html", h.showProjectDelete,
 			"GetProject", "ListProjects", "PlanProjectDeletion"),
 		post(RouteProjectDel, h.deleteProject, "DeleteProject"),
@@ -36,7 +41,7 @@ func (h *handler) projectRoutes() []route {
 }
 
 // projectsView is what the project list renders. Editing a project, and
-// archiving or deleting it, happen on the project's own page (board.html),
+// archiving or deleting it, happen on the project's settings screen,
 // which has carried a full settings disclosure and a danger zone since the
 // board rework; the listing only ever needs to link to it, not to carry a
 // second copy of that form. Workflows and Colors are still needed here for
@@ -44,6 +49,9 @@ func (h *handler) projectRoutes() []route {
 type projectsView struct {
 	Projects  []core.Project
 	Workflows []core.Workflow
+	// Templates are the built-in workflow templates the New project picker
+	// offers beside the tenant's workflows.
+	Templates []templateCard
 	Colors    []core.ProjectColor
 	Picker    iconPicker
 	Pager     pager
@@ -51,9 +59,14 @@ type projectsView struct {
 	// Taken is every key in use, so the key the form suggests from a name is
 	// one the service will accept.
 	Taken []string
-	// Pinned are the keys the reader pinned to the sidebar, upper-cased: a
-	// project lane the reader starred (see pinnedProjects).
-	Pinned map[string]bool
+	// Starred are the reader's starred projects, drawn first, on the first
+	// page or when StarredOnly asks for nothing else. Projects then leaves
+	// them out, so a project is listed once.
+	Starred     []core.Project
+	StarredOnly bool
+	// Open counts each project's unfinished tasks by project ID, nil when the
+	// count could not be read.
+	Open map[string]int
 	// Form, Errors and Refused redraw a refused create in place, holding what
 	// was typed.
 	Form    projectForm
@@ -73,15 +86,24 @@ func (h *handler) showProjects(w http.ResponseWriter, r *http.Request) error {
 // buildProjectsView answers the project list, for the page and for a refused
 // create drawn over it.
 func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
-	filter := core.ProjectFilter{
-		IncludeArchived: true,
-		Page:            core.Page{Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r)},
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.Project, string, error) {
+		return h.svc.ListProjects(r.Context(), core.ProjectFilter{
+			IncludeArchived: true, Page: core.Page{Cursor: cursor, Limit: limit}})
 	}
-	projects, next, err := h.svc.ListProjects(r.Context(), filter)
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return projectsView{}, err
+	}
+	projects, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return projectsView{}, err
 	}
 	workflows, err := h.svc.ListWorkflows(r.Context())
+	if err != nil {
+		return projectsView{}, err
+	}
+	templates, err := h.svc.ListWorkflowTemplates(r.Context())
 	if err != nil {
 		return projectsView{}, err
 	}
@@ -93,16 +115,122 @@ func (h *handler) buildProjectsView(r *http.Request) (projectsView, error) {
 	for _, p := range all {
 		taken = append(taken, p.Key)
 	}
-	pinned := map[string]bool{}
-	for _, p := range h.groupPrefs(r, core.ViewLanes) {
-		if p.Starred {
-			pinned[strings.ToUpper(p.Group)] = true
+	starredOnly := r.URL.Query().Get(StarredParam) == "1"
+	var starred []core.Project
+	if starredOnly || pos.Cursor == "" {
+		if starred, err = h.svc.ListStarredProjects(r.Context()); err != nil {
+			return projectsView{}, err
 		}
 	}
-	return projectsView{Projects: projects, Workflows: workflows,
-		Colors: core.ProjectColors(), Taken: taken, Pinned: pinned,
+	rest := make([]core.Project, 0, len(projects))
+	for _, p := range projects {
+		if !p.Starred && !starredOnly {
+			rest = append(rest, p)
+		}
+	}
+	pg := newPager(r, RouteProjects, next, len(projects), "projects", SizeParam).counted(pos, size)
+	if starredOnly {
+		pg = pager{}
+	}
+	return projectsView{Projects: rest, Workflows: workflows,
+		Templates: templateCards(langOf(r), templates, workflows),
+		Colors:    core.ProjectColors(), Taken: taken,
+		Starred: starred, StarredOnly: starredOnly,
+		Open:   h.openCounts(r),
 		Picker: newIconPicker(core.Project{}),
-		Pager:  newPager(r, RouteProjects, next, len(projects), "projects", SizeParam)}, nil
+		Pager:  pg}, nil
+}
+
+// openCounts is how many unfinished tasks each project holds, by project ID,
+// from one tallied listing of the open work the task list opens on. A count is
+// a courtesy beside the name, so a read that fails draws no counts rather than
+// failing the screen.
+func (h *handler) openCounts(r *http.Request) map[string]int {
+	open, err := h.unfinishedStatuses(r.Context())
+	if err != nil || len(open) == 0 {
+		return nil
+	}
+	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{Statuses: open, Tally: true, OmitBody: true,
+		Page: core.Page{Limit: 1}})
+	if err != nil || page.Tally == nil {
+		return nil
+	}
+	out := map[string]int{}
+	for _, c := range page.Tally.States {
+		out[c.ProjectID] += c.Count
+	}
+	return out
+}
+
+// StarredParam asks the projects screen for the reader's starred projects
+// alone.
+const StarredParam = "starred"
+
+// starProject sets the reader's own star on a project.
+func (h *handler) starProject(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleProjectStar(w, r, h.svc.StarProject, "starred ")
+}
+
+// unstarProject clears the reader's own star on a project.
+func (h *handler) unstarProject(w http.ResponseWriter, r *http.Request) error {
+	return h.toggleProjectStar(w, r, h.svc.UnstarProject, "unstarred ")
+}
+
+// toggleProjectStar applies one star call and sends the reader back to the
+// screen the toggle was on, at the project's row. The page is boosted, so
+// with scripting the answer swaps in place, sidebar included.
+func (h *handler) toggleProjectStar(w http.ResponseWriter, r *http.Request, call func(context.Context, string) error, verb string) error {
+	key := r.PathValue("key")
+	if err := call(r.Context(), key); err != nil {
+		return err
+	}
+	back := safeNext(field(r, "next"))
+	if back == RouteProjects && field(r, "next") != RouteProjects {
+		back = strings.Replace(RouteProject, "{key}", key, 1)
+	}
+	if (back == RouteProjects || strings.HasPrefix(back, RouteProjects+"?")) && !strings.Contains(back, "#") {
+		back += "#p-" + url.PathEscape(strings.ToUpper(key))
+	}
+	redirectTo(w, r, back, "", verb+strings.ToUpper(key))
+	return nil
+}
+
+// projectStar is what the "project-star" partial draws: one project's star
+// toggle, the state it shows and where pressing it returns the reader to.
+type projectStar struct {
+	P       core.Project
+	Key     string
+	Name    string
+	Starred bool
+	Next    string
+	CSRF    string
+	// Open is how many unfinished tasks the project holds, drawn on its row
+	// when Counted.
+	Open    int
+	Counted bool
+}
+
+// WithOpen is the row with its open task count from counts, or unchanged when
+// there are none to give.
+func (s projectStar) WithOpen(counts map[string]int) projectStar {
+	if counts != nil {
+		s.Open, s.Counted = counts[s.P.ID], true
+	}
+	return s
+}
+
+// Action is the route the toggle posts to: a starred project's unstars it.
+func (s projectStar) Action() string {
+	route := RouteProjectStar
+	if s.Starred {
+		route = RouteProjectUnstar
+	}
+	return strings.Replace(route, "{key}", s.Key, 1)
+}
+
+// newProjectStar builds a project's star toggle for a template.
+func newProjectStar(p core.Project, next, csrf string) projectStar {
+	return projectStar{P: p, Key: p.Key, Name: p.Name, Starred: p.Starred, Next: next, CSRF: csrf}
 }
 
 // projectScanPages bounds how many pages allProjects will walk. At
@@ -144,12 +272,14 @@ func (h *handler) allProjects(r *http.Request, includeArchived bool) ([]core.Pro
 // createProject creates a project from the list screen's form.
 func (h *handler) createProject(w http.ResponseWriter, r *http.Request) error {
 	form := readProjectForm(r)
+	workflow, template := splitWorkflowChoice(form.Workflow)
 	in := core.CreateProjectInput{
-		Key:         form.Key,
-		Name:        form.Name,
-		Description: form.Description,
-		WorkflowKey: form.Workflow,
-		Color:       form.Color,
+		Key:              form.Key,
+		Name:             form.Name,
+		Description:      form.Description,
+		WorkflowKey:      workflow,
+		WorkflowTemplate: template,
+		Color:            form.Color,
 	}
 	choice, err := iconChoiceOf(r, false)
 	if err != nil {
@@ -298,30 +428,16 @@ type card struct {
 // column is one workflow state and the tasks sitting in it.
 type column struct {
 	State core.State
-	Tasks []card
+	// Category is the state's resolved category, which colours the heading.
+	Category core.StateCategory
+	Tasks    []card
+	// Total is how many tasks the state holds under the filter, which may be
+	// more than Tasks draws; More and MoreHref offer the next step of them.
+	Total    int
+	More     int
+	MoreHref string
 	// Head is the column's heading as the reader arranged it.
 	Head groupHead
-}
-
-// boardView is what the project board renders: the columns and nothing
-// else. The project's settings are a screen of their own; see
-// projectSettingsView.
-type boardView struct {
-	Project  core.Project
-	Workflow core.Workflow
-	Columns  []column
-
-	// Arrange is the reader's own arrangement of this board's columns.
-	Arrange arrangement
-
-	// Live is what keeps the columns current while the board is open. See
-	// live.go.
-	Live liveScreen
-
-	// Export is the Export dialog, nil for a reader who may not export.
-	Export *exportForm
-	// Import offers the import steps to a reader who may import.
-	Import bool
 }
 
 // projectSettingsView is what a project's settings screen renders.
@@ -346,18 +462,6 @@ type projectSettingsView struct {
 	// Housekeeping is the project's cleanup overrides, nil for a reader who
 	// may not change them.
 	Housekeeping *housekeepingForm
-}
-
-// showBoard renders one column per workflow state.
-func (h *handler) showBoard(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildBoardView(r)
-	if err != nil {
-		return err
-	}
-	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
-		return nil
-	}
-	return h.render(w, r, "board.html", data.Project.Name, data)
 }
 
 // showProjectSettings renders a project's settings, its claims, its
@@ -400,62 +504,6 @@ func (h *handler) buildSettingsView(r *http.Request) (projectSettingsView, error
 // settingsPath is a project's settings screen.
 func settingsPath(key string) string { return RouteProjects + "/" + key + "/settings" }
 
-// showBoardLive renders only the columns, from the same block the whole
-// board is drawn by, so a card that arrives live carries the moves its own
-// workflow allows rather than a set this file would have to guess at.
-func (h *handler) showBoardLive(w http.ResponseWriter, r *http.Request) error {
-	data, err := h.buildBoardView(r)
-	if err != nil {
-		return err
-	}
-	if redirectOldKey(w, r, r.PathValue("key"), &data.Project) {
-		return nil
-	}
-	return h.renderFragment(w, r, "board.html", "board-live", data.Project.Name, data)
-}
-
-// buildBoardView answers one request for a project board, for the page and
-// for its live fragment alike.
-func (h *handler) buildBoardView(r *http.Request) (boardView, error) {
-	key := r.PathValue("key")
-	project, err := h.svc.GetProject(r.Context(), key)
-	if err != nil {
-		return boardView{}, err
-	}
-	workflows, err := h.svc.ListWorkflows(r.Context())
-	if err != nil {
-		return boardView{}, err
-	}
-	workflow, err := workflowFor(project, workflows)
-	if err != nil {
-		return boardView{}, err
-	}
-	page, err := h.svc.ListTasks(r.Context(), core.TaskFilter{
-		ProjectKeys: []string{project.Key},
-		Page:        core.Page{Limit: core.MaxPageLimit},
-	})
-	if err != nil {
-		return boardView{}, err
-	}
-	columns, arrange := h.arrangeProjectBoard(r, *project, workflow.Definition, buildColumns(workflow.Definition, page.Tasks))
-	view := boardView{Project: *project, Workflow: *workflow,
-		Columns: columns,
-		Arrange: arrange,
-		Live:    h.liveBoard(*project),
-	}
-	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeExport) {
-		defs, err := h.svc.ListFieldDefs(r.Context(), project.Key)
-		if err != nil {
-			return boardView{}, err
-		}
-		view.Export = newExportForm(defs)
-	}
-	if actor, ok := core.ActorFrom(r.Context()); ok && actor.HasScope(core.ScopeImport) {
-		view.Import = true
-	}
-	return view, nil
-}
-
 // workflowOf resolves the workflow a project is assigned.
 func (h *handler) workflowOf(r *http.Request, project *core.Project) (*core.Workflow, error) {
 	workflows, err := h.svc.ListWorkflows(r.Context())
@@ -473,21 +521,6 @@ func workflowFor(project *core.Project, workflows []core.Workflow) (*core.Workfl
 		}
 	}
 	return nil, core.NotFound("workflow for project %q", project.Key)
-}
-
-// buildColumns groups tasks into the workflow's states, in declared order.
-func buildColumns(def core.WorkflowDefinition, tasks []core.Task) []column {
-	columns := make([]column, 0, len(def.States))
-	for _, state := range def.States {
-		col := column{State: state}
-		for _, task := range tasks {
-			if task.Status == state.Key {
-				col.Tasks = append(col.Tasks, card{Task: task, Routes: flowRoutes(def, task.Status)})
-			}
-		}
-		columns = append(columns, col)
-	}
-	return columns
 }
 
 // moveCard applies a board move, which is a route of one hop or of several.
@@ -572,6 +605,3 @@ func (h *handler) deleteField(w http.ResponseWriter, r *http.Request) error {
 	redirect(w, r, RouteProjects+"/"+key+"/fields", "field deleted")
 	return nil
 }
-
-// IsPinned reports whether the reader pinned a project to the sidebar.
-func (v projectsView) IsPinned(key string) bool { return v.Pinned[strings.ToUpper(key)] }

@@ -123,8 +123,8 @@ nav .group {
    Each piece was defensible on a desktop and none of them were together on a
    phone, where the screen's whole subject is the list.
 
-   The heading and its summary share a line, the filter form moves behind the
-   button beside View, the quick-add field stops being 49px tall when every
+   The heading and its summary share a line, the filter controls are one
+   toolbar (730-filter-toolbar.css), the quick-add field stops being 49px tall when every
    other control is 36, and the pager goes under the rows it describes. The
    pager was put above deliberately, because on a wide screen the list is a
    frame that scrolls its own contents and a pager below it sat in a dead
@@ -149,31 +149,6 @@ nav .group {
      exactly where it is. */
   #tasks-listing { display: flex; flex-direction: column; }
   #tasks-listing > nav.pager { order: 2; margin-top: var(--space-3); }
-
-  .filterpop {
-    max-width: min(26rem, calc(100vw - 24px));
-    padding: var(--space-4);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    background: var(--bg);
-    box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
-  }
-  .filterpop .filterbar { flex-wrap: wrap; }
-  .filterclose { width: 100%; margin-top: var(--space-3); }
-}
-
-@media (min-width: 900px) {
-  .filterbtn,
-  .filterclose { display: none; }
-  /* Not a popover on a wide screen: the form sits inline where it always has. */
-  .filterpop {
-    display: contents;
-    max-width: none;
-    padding: 0;
-    border: 0;
-    background: none;
-    box-shadow: none;
-  }
 }
 
 /* The bar a phone gets: brand on the left, the menu button on the right. */

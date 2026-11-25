@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/heliopsy/tix/internal/id"
 	"strconv"
 	"strings"
@@ -16,8 +17,8 @@ import (
 	sqlb "github.com/heliopsy/tix/internal/store/sql"
 )
 
-// CreateTask creates a task, defaulting every attribute except its title.
-func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
+// createTask creates a task, defaulting every attribute except its title.
+func (l *Local) createTask(ctx context.Context, in core.CreateTaskInput) (*core.Task, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -147,8 +148,8 @@ func (l *Local) CreateTask(ctx context.Context, in core.CreateTaskInput) (*core.
 	return out, nil
 }
 
-// GetTask returns one live task by identifier or human reference.
-func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+// getTask returns one live task by identifier or human reference.
+func (l *Local) getTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -179,8 +180,8 @@ func (l *Local) GetTask(ctx context.Context, ref core.TaskRef) (*core.Task, erro
 	return out, nil
 }
 
-// ListTasks returns one keyset-paginated page of tasks.
-func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
+// listTasks returns one keyset-paginated page of tasks.
+func (l *Local) listTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return core.TaskPage{}, err
@@ -206,6 +207,8 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	}
 
 	var tasks []core.Task
+	var total, number int
+	var tally *core.TaskTally
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		if f.Trashed == core.Yes {
 			if off, err := trashOff(ctx, tx); err != nil {
@@ -218,6 +221,19 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 			return err
 		}
 		var err error
+		if total, err = tx.CountTasks(ctx, probe, core.TaskCountCap+1); err != nil {
+			return err
+		}
+		if f.PageNumber > 0 {
+			if number, err = seekPage(ctx, tx, &probe, total, limit); err != nil {
+				return err
+			}
+		}
+		if f.Tally {
+			if tally, err = tallyTasks(ctx, tx, probe); err != nil {
+				return err
+			}
+		}
 		tasks, err = tx.ListTasks(ctx, probe)
 		return err
 	}); err != nil {
@@ -230,24 +246,79 @@ func (l *Local) ListTasks(ctx context.Context, f core.TaskFilter) (core.TaskPage
 	} else if limit >= core.MaxPageLimit && len(tasks) == limit {
 		more = true
 	}
-	markChecklistsIn(tasks)
-	page := core.TaskPage{Tasks: tasks}
+	if !f.OmitBody {
+		markChecklistsIn(tasks)
+	}
+	page := core.TaskPage{Tasks: tasks, Total: min(total, core.TaskCountCap),
+		TotalCapped: total > core.TaskCountCap, Number: number, Tally: tally}
 	if more && len(tasks) > 0 {
-		last := tasks[len(tasks)-1]
-		page.NextCursor = core.Cursor{
-			SortValue:  taskSortValue(f.Page.Sort, last),
-			SortValue2: taskSortValue2(f.Page.Sort, last),
-			Starred:    last.Starred,
-			ID:         last.ID,
-			Sort:       f.Page.Sort,
-			Direction:  f.Page.Direction,
-		}.Encode()
+		page.NextCursor = taskCursor(f.Page, tasks[len(tasks)-1])
 	}
 	return page, nil
 }
 
-// UpdateTask changes only the attributes the input supplies.
-func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
+// tallyTasks counts the whole of f's selection, ignoring its page: per
+// project and status, waiting on a dependency, and held under a claim.
+func tallyTasks(ctx context.Context, tx store.Tx, f core.TaskFilter) (*core.TaskTally, error) {
+	f.Page.Cursor, f.PageNumber = "", 0
+	states, err := tx.TallyTasks(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	out := &core.TaskTally{States: states}
+	if f.Blocked != core.No {
+		waiting := f
+		waiting.Blocked = core.Yes
+		if out.Blocked, err = tx.CountTasks(ctx, waiting, core.TaskCountCap); err != nil {
+			return nil, err
+		}
+	}
+	if f.Claimed != core.No {
+		held := f
+		held.Claimed = core.Yes
+		if out.Held, err = tx.CountTasks(ctx, held, core.TaskCountCap); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// taskCursor is the cursor that resumes a walk under page after task.
+func taskCursor(page core.Page, task core.Task) string {
+	return core.Cursor{
+		SortValue:  taskSortValue(page.Sort, task),
+		SortValue2: taskSortValue2(page.Sort, task),
+		Starred:    task.Starred,
+		ID:         task.ID,
+		Sort:       page.Sort,
+		Direction:  page.Direction,
+	}.Encode()
+}
+
+// seekPage turns probe's page number into the cursor that page starts at, and
+// answers the page it will read. A number past the end, or past what the
+// capped count reaches, reads the last page it does reach. The cursor comes
+// from the last row of the page before, found by a keyset seek, so the page
+// itself is read exactly as Next would have read it.
+func seekPage(ctx context.Context, tx store.Tx, probe *core.TaskFilter, total, limit int) (int, error) {
+	number := min(probe.PageNumber, core.PagesOf(min(total, core.TaskCountCap), limit))
+	probe.PageNumber = 0
+	if number <= 1 {
+		return 1, nil
+	}
+	before, err := tx.SeekTask(ctx, *probe, (number-1)*limit)
+	if err != nil {
+		return 0, err
+	}
+	if before == nil {
+		return 1, nil
+	}
+	probe.Page.Cursor = taskCursor(probe.Page, *before)
+	return number, nil
+}
+
+// updateTask changes only the attributes the input supplies.
+func (l *Local) updateTask(ctx context.Context, ref core.TaskRef, in core.UpdateTaskInput) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskUpdate, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -260,6 +331,9 @@ func (l *Local) UpdateTask(ctx context.Context, ref core.TaskRef, in core.Update
 			return err
 		}
 		if err := l.authorizeTask(ctx, authz.ActionTaskUpdate, task); err != nil {
+			return err
+		}
+		if err := m.requireClaim(ctx, task); err != nil {
 			return err
 		}
 		if err := checkVersion(task, in.Version); err != nil {
@@ -442,8 +516,10 @@ func changedTaskFields(before, after *core.Task) []string {
 	return out
 }
 
-// TransitionTask moves a task along an edge its project's workflow permits.
-func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
+// transitionTask moves a task along an edge its project's workflow permits.
+// A dry run makes the move and rolls it back, so it refuses exactly what the
+// move refuses and answers the task the move would leave.
+func (l *Local) transitionTask(ctx context.Context, ref core.TaskRef, in core.TransitionInput) (*core.Task, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
@@ -458,96 +534,135 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 		if err != nil {
 			return err
 		}
-		if err := l.authorizeTask(ctx, authz.ActionTaskTransition, task); err != nil {
-			return err
+		out, err = l.applyTransition(ctx, m, task, in)
+		if err == nil && in.DryRun {
+			return errDryRun
 		}
-		if err := checkVersion(task, in.Version); err != nil {
-			return err
-		}
-		def, err := workflowForTask(ctx, m.tx, task)
-		if err != nil {
-			return err
-		}
-		if !def.HasState(in.To) {
-			return core.Invalid("status %q is not a state of this project's workflow", in.To)
-		}
-		edge, ok := def.CanTransition(task.Status, in.To)
-		if !ok {
-			return core.Precondition("cannot move task %q from %q to %q; allowed targets are %s",
-				task.Ref, task.Status, in.To, strings.Join(allowedTargets(def, task.Status), ", "))
-		}
-		comment := strings.TrimSpace(in.Comment)
-		if edge.RequiresComment && comment == "" {
-			return core.Invalid("moving from %q to %q requires a comment", task.Status, in.To)
-		}
-		if len(comment) > core.MaxCommentLength {
-			return core.Invalid("comment must be at most %d characters", core.MaxCommentLength)
-		}
-		if edge.RequiresScope != "" && !actor.HasScope(edge.RequiresScope) {
-			return core.Forbidden("moving from %q to %q requires scope %q",
-				task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
-		}
-		if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now); err != nil {
-			return err
-		}
-
-		if in.CustomFields != nil {
-			defs, err := m.tx.ListFieldDefs(ctx, task.ProjectID)
-			if err != nil {
-				return err
-			}
-			fields, err := mergeTaskFields(defs, task.CustomFields, in.CustomFields)
-			if err != nil {
-				return err
-			}
-			task.CustomFields = fields
-		}
-
-		before := *task
-		task.Status = in.To
-		now := m.now
-		if def.IsTerminal(in.To) {
-			task.CompletedAt = &now
-		} else {
-			task.CompletedAt = nil
-			if task.StartedAt == nil && in.To != def.Initial {
-				task.StartedAt = &now
-			}
-		}
-		next, err := spawnOccurrence(ctx, m, def, task, in.To)
-		if err != nil {
-			return err
-		}
-		if err := m.tx.UpdateTask(ctx, task); err != nil {
-			return err
-		}
-		if comment != "" {
-			c := &core.Comment{TaskID: task.ID, AuthorActorID: actor.ID, Body: comment}
-			if err := m.tx.CreateComment(ctx, c); err != nil {
-				return err
-			}
-			if err := m.notifyComment(ctx, task, c); err != nil {
-				return err
-			}
-		}
-		m.notifyStatus(task, before.Status, task.Status)
-		if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
-			before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
-			return err
-		}
-		if err := recordOccurrence(m, task, next); err != nil {
-			return err
-		}
-		out, err = m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
 		return err
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errDryRun) {
 		return nil, err
 	}
 	return out, nil
 }
 
-// TransitionRoute walks a task through a route of states, one ordinary
+// errDryRun rolls back a write that was only being judged.
+var errDryRun = errors.New("dry run")
+
+// applyTransition moves a loaded task inside an open write, with every check
+// a transition makes. A move into a terminal state under the caller's live
+// lease token also gives the lease up, since nothing is left to hold it for.
+func (l *Local) applyTransition(ctx context.Context, m *mutation, task *core.Task, in core.TransitionInput) (*core.Task, error) {
+	if err := l.authorizeTask(ctx, authz.ActionTaskTransition, task); err != nil {
+		return nil, err
+	}
+	if err := m.requireClaim(ctx, task); err != nil {
+		return nil, err
+	}
+	if err := checkVersion(task, in.Version); err != nil {
+		return nil, err
+	}
+	def, err := workflowForTask(ctx, m.tx, task)
+	if err != nil {
+		return nil, err
+	}
+	if !def.HasState(in.To) {
+		return nil, def.UnknownState(in.To)
+	}
+	edge, ok := def.CanTransition(task.Status, in.To)
+	if !ok {
+		return nil, core.Precondition("cannot move task %q from %q to %q; allowed targets are %s",
+			task.Ref, task.Status, in.To, strings.Join(allowedTargets(def, task.Status), ", "))
+	}
+	comment := strings.TrimSpace(in.Comment)
+	if edge.RequiresComment && comment == "" {
+		return nil, core.Invalid("moving from %q to %q requires a comment", task.Status, in.To)
+	}
+	if len(comment) > core.MaxCommentLength {
+		return nil, core.Invalid("comment must be at most %d characters", core.MaxCommentLength)
+	}
+	if !l.mayCross(m.actor, edge, task.ProjectID) {
+		return nil, core.Forbidden("moving from %q to %q requires scope %q",
+			task.Status, in.To, edge.RequiresScope).WithDetail("scope", string(edge.RequiresScope))
+	}
+	if err := requireLeaseToken(ctx, m.tx, task, in.LeaseToken, m.now, m.actor.ID); err != nil {
+		return nil, err
+	}
+
+	if in.CustomFields != nil {
+		defs, err := m.tx.ListFieldDefs(ctx, task.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		fields, err := mergeTaskFields(defs, task.CustomFields, in.CustomFields)
+		if err != nil {
+			return nil, err
+		}
+		task.CustomFields = fields
+	}
+
+	before := *task
+	task.Status = in.To
+	now := m.now
+	if def.IsTerminal(in.To) {
+		task.CompletedAt = &now
+	} else {
+		task.CompletedAt = nil
+		if task.StartedAt == nil && in.To != def.Initial {
+			task.StartedAt = &now
+		}
+	}
+	next, err := spawnOccurrence(ctx, m, def, task, in.To)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.tx.UpdateTask(ctx, task); err != nil {
+		return nil, err
+	}
+	if comment != "" {
+		c := &core.Comment{TaskID: task.ID, AuthorActorID: m.actor.ID, Body: comment}
+		if err := m.tx.CreateComment(ctx, c); err != nil {
+			return nil, err
+		}
+		if err := m.notifyComment(ctx, task, c); err != nil {
+			return nil, err
+		}
+	}
+	m.notifyStatus(task, before.Status, task.Status)
+	if err := m.Record("task.transition", core.EventTaskTransitioned, "task", task.ID, task.ProjectID,
+		before, task, withNext(map[string]any{"ref": task.Ref, "from": before.Status, "to": task.Status}, next)); err != nil {
+		return nil, err
+	}
+	if err := recordOccurrence(m, task, next); err != nil {
+		return nil, err
+	}
+	if def.IsTerminal(in.To) && in.LeaseToken != "" {
+		if err := releaseFinished(ctx, m, task, in.LeaseToken); err != nil {
+			return nil, err
+		}
+	}
+	return m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+}
+
+// releaseFinished gives up the lease a move into a terminal state was made
+// under. The token was proved by requireLeaseToken in this same transaction.
+func releaseFinished(ctx context.Context, m *mutation, task *core.Task, token string) error {
+	ok, err := m.tx.ReleaseLease(ctx, task.ID, token)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return staleLease(task)
+	}
+	released, err := m.tx.GetTask(ctx, core.TaskRef{ID: task.ID})
+	if err != nil {
+		return err
+	}
+	return m.Record("task.release", core.EventTaskReleased, "task", task.ID, task.ProjectID,
+		task, released, map[string]any{"status": released.Status, "reason": "terminal"})
+}
+
+// transitionRoute walks a task through a route of states, one ordinary
 // transition per hop.
 //
 // Each hop is its own TransitionTask call and therefore its own transaction,
@@ -559,7 +674,7 @@ func (l *Local) TransitionTask(ctx context.Context, ref core.TaskRef, in core.Tr
 // A route that stops halfway is not an error. The hops that landed are real
 // and the task is somewhere, so the result names where it stopped and why, and
 // only a route whose very first hop is refused comes back as a failure.
-func (l *Local) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
+func (l *Local) transitionRoute(ctx context.Context, ref core.TaskRef, in core.RouteInput) (*core.RouteResult, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
@@ -593,15 +708,11 @@ func (l *Local) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.R
 	}
 
 	out := &core.RouteResult{From: task.Status, Route: steps, Task: task}
+	if in.DryRun {
+		return l.dryRoute(ctx, actor, task, in, out)
+	}
 	for i, to := range steps {
-		hop := core.TransitionInput{To: to, Comment: in.Comment, LeaseToken: in.LeaseToken}
-		if i == 0 {
-			hop.Version = in.Version
-		}
-		if i == len(steps)-1 {
-			hop.CustomFields = in.CustomFields
-		}
-		moved, err := l.TransitionTask(ctx, core.TaskRef{ID: task.ID}, hop)
+		moved, err := l.TransitionTask(ctx, core.TaskRef{ID: task.ID}, routeHop(in, steps, i))
 		if err != nil {
 			if i == 0 {
 				return nil, err
@@ -611,6 +722,51 @@ func (l *Local) TransitionRoute(ctx context.Context, ref core.TaskRef, in core.R
 		}
 		out.Applied = append(out.Applied, to)
 		out.Task = moved
+	}
+	return out, nil
+}
+
+// routeHop is the transition for one hop of a route: the version is checked
+// on the first, and the custom fields land on the last.
+func routeHop(in core.RouteInput, steps []string, i int) core.TransitionInput {
+	hop := core.TransitionInput{To: steps[i], Comment: in.Comment, LeaseToken: in.LeaseToken}
+	if i == 0 {
+		hop.Version = in.Version
+	}
+	if i == len(steps)-1 {
+		hop.CustomFields = in.CustomFields
+	}
+	return hop
+}
+
+// dryRoute walks a route in one write and rolls it back, so each hop is judged
+// against what the hops before it would leave, and reports it the way the
+// real route would.
+func (l *Local) dryRoute(ctx context.Context, actor *core.Actor, task *core.Task, in core.RouteInput,
+	out *core.RouteResult,
+) (*core.RouteResult, error) {
+	out.DryRun = true
+	err := l.write(ctx, actor, func(m *mutation) error {
+		current, err := liveTask(ctx, m.tx, core.TaskRef{ID: task.ID})
+		if err != nil {
+			return err
+		}
+		for i, to := range out.Route {
+			moved, err := l.applyTransition(ctx, m, current, routeHop(in, out.Route, i))
+			if err != nil {
+				if i == 0 {
+					return err
+				}
+				out.Stopped, out.Reason = to, err.Error()
+				return errDryRun
+			}
+			out.Applied = append(out.Applied, to)
+			out.Task, current = moved, moved
+		}
+		return errDryRun
+	})
+	if err != nil && !errors.Is(err, errDryRun) {
+		return nil, err
 	}
 	return out, nil
 }
@@ -647,6 +803,9 @@ func (l *Local) DeleteTask(ctx context.Context, ref core.TaskRef, in core.Delete
 		for i := range subtree {
 			t := &subtree[i]
 			if err := l.authorizeTask(ctx, authz.ActionTaskDelete, t); err != nil {
+				return err
+			}
+			if err := m.requireClaim(ctx, t); err != nil {
 				return err
 			}
 			if err := m.tx.DeleteTask(ctx, t.ID, in.Hard); err != nil {
@@ -695,8 +854,8 @@ func deleteOrder(ctx context.Context, tx store.Tx, root *core.Task) ([]core.Task
 // unbounded number of rows inside a write transaction.
 const maxSubtreeSize = 10000
 
-// RestoreTask clears a task's soft deletion.
-func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
+// restoreTask clears a task's soft deletion.
+func (l *Local) restoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskDelete, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -731,8 +890,8 @@ func (l *Local) RestoreTask(ctx context.Context, ref core.TaskRef) (*core.Task, 
 	return out, nil
 }
 
-// TaskTree returns a task and its live descendants in pre-order.
-func (l *Local) TaskTree(ctx context.Context, ref core.TaskRef, depth int) ([]core.Task, error) {
+// taskTree returns a task and its live descendants in pre-order.
+func (l *Local) taskTree(ctx context.Context, ref core.TaskRef, depth int) ([]core.Task, error) {
 	actor, err := l.authorize(ctx, authz.ActionTaskRead, authz.Resource{})
 	if err != nil {
 		return nil, err
@@ -1268,4 +1427,20 @@ func resolveAssigneeRefs(ctx context.Context, tx store.Tx, refs []string, cache 
 		out = append(out, resolved)
 	}
 	return out, nil
+}
+
+// mayCross reports whether the actor may move a task across an edge. An edge
+// naming task:approve is the policy's task.approve decision, which also holds
+// a pinned token inside its own project; any other scope an edge names only
+// has to be held.
+func (l *Local) mayCross(actor *core.Actor, edge core.Transition, projectID string) bool {
+	switch edge.RequiresScope {
+	case "":
+		return true
+	case core.ScopeTaskApprove:
+		res := authz.Resource{TenantID: actor.TenantID, ProjectID: projectID}
+		return l.policy.Can(actor, authz.ActionTaskApprove, res) == nil
+	default:
+		return actor.HasScope(edge.RequiresScope)
+	}
 }

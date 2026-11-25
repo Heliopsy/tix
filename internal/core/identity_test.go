@@ -21,7 +21,7 @@ func TestActorHasScopeExplicit(t *testing.T) {
 func TestActorHasScopeWildcard(t *testing.T) {
 	a := &Actor{Scopes: []Scope{ScopeAll}}
 	for _, s := range AllScopes {
-		if s == ScopeGlobalAdmin || s == ScopeAccountRead {
+		if s.NamedOnly() {
 			continue
 		}
 		if !a.HasScope(s) {
@@ -34,7 +34,7 @@ func TestActorHasScopeWildcard(t *testing.T) {
 // role minted before they existed gained authority over other tenants or
 // learned about them.
 func TestNamedOnlyScopesAreOnlyHeldWhenNamed(t *testing.T) {
-	for _, scope := range []Scope{ScopeGlobalAdmin, ScopeAccountRead} {
+	for _, scope := range []Scope{ScopeGlobalAdmin, ScopeAccountRead, ScopeSCIMProvision, ScopeCaldav} {
 		for name, a := range map[string]*Actor{
 			"wildcard":   {Scopes: []Scope{ScopeAll}},
 			"admin role": {Role: RoleAdmin},
@@ -61,7 +61,7 @@ func TestActorHasScopeFromRole(t *testing.T) {
 
 	admin := &Actor{Role: RoleAdmin}
 	for _, s := range AllScopes {
-		if s == ScopeGlobalAdmin || s == ScopeAccountRead {
+		if s.NamedOnly() {
 			continue
 		}
 		if !admin.HasScope(s) {

@@ -113,11 +113,11 @@ func TestTheTaskListFragmentKeepsThePageTheReaderIsOn(t *testing.T) {
 	first := b.page("/tasks?limit=1")
 	next := strings.ReplaceAll(between(t, first, `class="pager-step pager-next" href="`, `"`), "&amp;", "&")
 	if next == "" {
-		t.Fatal("the list does not page, so there is no cursor to preserve")
+		t.Fatal("the list does not page, so there is no position to preserve")
 	}
 	second := b.page(next)
 	href := liveAttr(t, second, "data-live")
-	if !strings.Contains(href, "cursor=") || !strings.Contains(href, "limit=1") {
+	if !strings.Contains(href, "page=2") || !strings.Contains(href, "limit=1") {
 		t.Fatalf("a refresh from page two would jump back to page one: %q", href)
 	}
 	if !sameRows(b.page(href), second) {
@@ -196,11 +196,11 @@ func TestTheBoardFragmentIsOnlyTheColumns(t *testing.T) {
 
 	page := b.page("/projects/infra")
 	href := liveAttr(t, page, "data-live")
-	if href != "/projects/infra/live" {
+	if href != "/projects/infra/live" && !strings.HasPrefix(href, "/projects/infra/live?") {
 		t.Fatalf("the board refreshes from %q", href)
 	}
 	fragment := b.page(href)
-	if !strings.Contains(fragment, `id="project-board"`) || !strings.Contains(fragment, ref) {
+	if !strings.Contains(fragment, `id="tasks-listing"`) || !strings.Contains(fragment, ref) {
 		t.Fatal("the board fragment does not carry the columns")
 	}
 	for _, kept := range []string{"Project settings", "Danger zone"} {

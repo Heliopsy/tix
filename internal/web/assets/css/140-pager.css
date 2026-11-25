@@ -12,8 +12,67 @@
   margin: var(--space-2) 0;
 }
 
-.pager-prev { grid-column: 1; justify-self: start; }
-.pager-next { grid-column: 3; justify-self: end; }
+.pager-back { grid-column: 1; justify-self: start; display: inline-flex; gap: 6px; }
+.pager-forward { grid-column: 3; justify-self: end; display: inline-flex; gap: 6px; }
+
+/* A counted listing's second row: the numbered pages with their gaps, and
+   the go-to field beside them. */
+.pager-nums {
+  grid-column: 1 / -1;
+  justify-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.pager-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h-sm);
+  min-height: var(--control-h-sm);
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+a.pager-num:hover { color: var(--accent); }
+
+.pager-num[aria-current="page"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.pager-gap { color: var(--muted); padding: 0 2px; }
+
+.pager-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.pager-jump label { display: inline-flex; align-items: center; gap: 6px; }
+.pager-jump input[type="number"] { width: 5.5em; min-height: var(--control-h-sm); }
+.pager-jump button.pager-step { background: transparent; cursor: pointer; }
 
 .pager-at {
   grid-column: 2;

@@ -234,7 +234,7 @@ the `schema_migrations` table. The system SHALL NOT provide automatic down migra
 #### Scenario: Migration applied once
 
 - **WHEN** migrations run against a database that already recorded migration 5
-- **THEN** migration 5 is skipped and only later migrations are applied
+- **THEN** migration 5 is skipped and every migration the database has not recorded is applied
 
 #### Scenario: Failing migration
 
@@ -690,3 +690,63 @@ Migration 0033 SHALL add via_kind defaulting to unknown, via_token and via_detai
 
 - **WHEN** a database holding audit entries migrates to 0033
 - **THEN** every existing entry reads as unknown and new entries carry their channel
+
+### Requirement: Migrations are named by their creation time
+
+A migration added after 0034 SHALL be named `YYYYMMDDHHMMSS_name.sql`, its version being the UTC
+time it was created. The numbered migrations 0001 to 0034 SHALL keep their versions and sort before
+every timestamped one. A numbered migration after 0034 SHALL be refused.
+
+#### Scenario: Existing database upgrades without rewriting
+
+- **GIVEN** a database that recorded every migration up to 0034
+- **WHEN** a binary with timestamped migrations opens it
+- **THEN** only the timestamped migrations are applied and the recorded versions are kept as they were
+
+#### Scenario: A numbered migration after the last one
+
+- **WHEN** the migration set holds `0035_name.sql`
+- **THEN** loading the migrations fails and names the file
+
+### Requirement: Every unrecorded migration is applied
+
+The runner SHALL apply every migration whose version the database has not recorded, in version
+order, rather than only versions above the highest recorded one.
+
+#### Scenario: Parallel branches merge out of timestamp order
+
+- **GIVEN** a database that applied a migration from one branch
+- **WHEN** a second branch with an earlier timestamp merges and the database migrates
+- **THEN** the second branch's migration is applied
+
+### Requirement: Actors reference their account
+
+Every actor of kind user SHALL reference its account, unique per tenant. The upgrade SHALL set that reference on every existing user actor to the account with the same identifier, and SHALL change no existing identifier.
+
+#### Scenario: Upgrade of an existing installation
+
+- **WHEN** a database with users created before this change is migrated
+- **THEN** each user actor references the account sharing its identifier, and every task, comment, token and audit entry still names the same actor
+
+#### Scenario: Second actor for one account in one tenant
+
+- **WHEN** a second actor referencing the same account is written in a tenant that already holds one
+- **THEN** the store refuses it as a conflict
+
+### Requirement: Sessions record how they were minted
+
+Each session SHALL record its sign-in method (`password`, `ssh-key` or `switch`, as the sign-in's audit entry names it) and whether a second factor was passed. Sessions existing before the upgrade SHALL read as `password` without a second factor.
+
+#### Scenario: Old session after upgrade
+
+- **WHEN** a session minted before the upgrade is used to switch to a tenant requiring a second factor
+- **THEN** a code is asked for
+
+### Requirement: Tenant domains carry a shared flag
+
+Each tenant domain SHALL carry a shared flag. Domains existing before the upgrade SHALL read as not shared.
+
+#### Scenario: Existing domain after upgrade
+
+- **WHEN** a database with a domain bound to HO is migrated
+- **THEN** the domain is not shared, and its host serves HO alone as before

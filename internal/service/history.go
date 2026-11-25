@@ -99,6 +99,9 @@ func (l *Local) Subscribe(ctx context.Context, f core.EventFilter) (<-chan core.
 	if f.SinceSeq < 0 {
 		return nil, core.Invalid("since_seq must not be negative")
 	}
+	if f.ProjectIDs, err = NarrowEventProjects(actor, f.ProjectIDs); err != nil {
+		return nil, err
+	}
 	reader := &eventReader{local: l, actor: actor}
 	if f.SinceSeq == 0 {
 		latest, err := reader.Latest(ctx)
@@ -170,10 +173,7 @@ func (r *eventReader) checkRetained(ctx context.Context, sinceSeq int64) error {
 	if err != nil {
 		return err
 	}
-	if oldest > 0 && sinceSeq+1 < oldest {
-		return core.Invalid("cursor %d is no longer available; the oldest retained event is %d", sinceSeq, oldest)
-	}
-	return nil
+	return CheckCursorRetained(sinceSeq, oldest)
 }
 
 // oldest reports the lowest retained sequence number, or zero when the tenant

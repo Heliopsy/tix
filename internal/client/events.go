@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/coder/websocket"
 
@@ -181,4 +183,29 @@ func (c *Client) eventsURL() string {
 		u.Scheme = "ws"
 	}
 	return u.String()
+}
+
+// PollEvents asks once for the events after a cursor, waiting as long as in.Wait allows.
+func (c *Client) PollEvents(ctx context.Context, in core.EventPollInput) (*core.EventPage, error) {
+	q := url.Values{}
+	if in.SinceSeq != 0 {
+		q.Set("since_seq", strconv.FormatInt(in.SinceSeq, 10))
+	}
+	if len(in.Types) > 0 {
+		types := make([]string, len(in.Types))
+		for i, t := range in.Types {
+			types[i] = string(t)
+		}
+		q.Set("types", strings.Join(types, ","))
+	}
+	if len(in.ProjectIDs) > 0 {
+		q.Set("project_ids", strings.Join(in.ProjectIDs, ","))
+	}
+	if in.Limit != 0 {
+		q.Set("limit", strconv.Itoa(in.Limit))
+	}
+	if in.Wait != 0 {
+		q.Set("wait", in.Wait.String())
+	}
+	return call[core.EventPage](ctx, c, http.MethodGet, wire.RouteEventsPoll, q, nil)
 }

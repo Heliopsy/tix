@@ -29,6 +29,13 @@
     {{if $.Columns.Show "webhooks" "active"}}
     <span class="pill status {{if .Active}}done{{else}}cancelled{{end}}">{{if .Active}}{{t "active"}}{{else}}{{t "off"}}{{end}}</span>
     {{end}}
+    {{if .Active}}
+    <form method="post" action="/admin/webhooks/ping" class="recrow-act">
+      {{template "csrf" $.CSRF}}
+      <input type="hidden" name="id" value="{{.ID}}">
+      <button class="secondary" type="submit" title="{{t "Send this endpoint a signed webhook.ping event"}}">{{t "Ping"}}</button>
+    </form>
+    {{end}}
     <form method="post" action="/admin/webhooks/delete" class="recrow-act">
       {{template "csrf" $.CSRF}}
       <input type="hidden" name="id" value="{{.ID}}">

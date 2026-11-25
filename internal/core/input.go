@@ -199,6 +199,16 @@ type UpdateTenantInput struct {
 	// the empty string clears it, which returns the tenant to the accent
 	// derived from its own identity; nil leaves it alone.
 	Theme *string `json:"theme,omitempty" yaml:"theme,omitempty"`
+	// Icon sets a text icon, one emoji or a one or two letter monogram,
+	// replacing any icon; empty clears the icon and omitted leaves it. At most
+	// one of Icon, IconName and IconFile may be set.
+	Icon *string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	// IconName sets a built-in icon, the same set a project offers, replacing
+	// any icon; empty clears the icon and omitted leaves it.
+	IconName *string `json:"icon_name,omitempty" yaml:"icon_name,omitempty"`
+	// IconFile sets an uploaded image icon, replacing any icon; omitted leaves
+	// the icon alone.
+	IconFile *ProjectIconFile `json:"icon_file,omitempty" yaml:"icon_file,omitempty"`
 	// RequireTOTPWeb turns the second-factor requirement for browser sign-in
 	// on or off; omitted leaves it alone.
 	//
@@ -213,6 +223,17 @@ type UpdateTenantInput struct {
 	// RequireTOTPSSH turns the second-factor requirement for SSH sign-in on or
 	// off; omitted leaves it alone.
 	RequireTOTPSSH *bool `json:"require_totp_ssh,omitempty" yaml:"require_totp_ssh,omitempty"`
+	// MFAPolicy sets the second factor policy, "off" or "required"; omitted
+	// leaves it. Turning it required is refused while the caller is a person
+	// who holds no second factor, so nobody locks themselves out.
+	MFAPolicy *MFAPolicy `json:"mfa_policy,omitempty" yaml:"mfa_policy,omitempty"`
+	// MFAGrace is how long after the policy turned required people without a
+	// factor may still work, a duration such as "7d"; zero gates at once and
+	// omitted leaves it.
+	MFAGrace *Duration `json:"mfa_grace,omitempty" yaml:"mfa_grace,omitempty"`
+	// PasswordLogin turns password sign-in "allowed" or "disabled"; omitted
+	// leaves it. Disabling needs an enabled single sign-on provider.
+	PasswordLogin *PasswordLogin `json:"password_login,omitempty" yaml:"password_login,omitempty"`
 	// LeaseDefault is the lease a claim on this tenant gets when nothing more
 	// specific names one, a duration such as "30m". Zero clears it back to the
 	// deployment configuration and omitted leaves it alone. A default longer
@@ -222,6 +243,28 @@ type UpdateTenantInput struct {
 	// duration such as "4h". Zero clears it back to the deployment
 	// configuration and omitted leaves it alone.
 	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
+	// ArtifactMaxBytes lowers the largest artifact blob this tenant accepts
+	// below the server's limit. Zero inherits the server's and omitted leaves
+	// it; a value above the server's is refused.
+	ArtifactMaxBytes *int64 `json:"artifact_max_bytes,omitempty" yaml:"artifact_max_bytes,omitempty"`
+	// ArtifactTypes narrows the media types an artifact blob may carry, such
+	// as ["image/*", "application/pdf"]. An empty list inherits the server's
+	// and omitted leaves it; a type the server does not accept is refused.
+	ArtifactTypes *[]string `json:"artifact_types,omitempty" yaml:"artifact_types,omitempty"`
+	// SessionTTL shortens how long a sign-in on this tenant lasts, a duration
+	// such as "8h". Zero inherits the server's session.ttl and omitted leaves
+	// it; a value above the server's is refused. Existing sessions keep their
+	// expiry.
+	SessionTTL *Duration `json:"session_ttl,omitempty" yaml:"session_ttl,omitempty"`
+	// SessionIdleTimeout ends sessions unused for this long, such as "30m".
+	// Zero inherits the server's session.idle_timeout and omitted leaves it; a
+	// value above the server's is refused. It applies to existing sessions.
+	SessionIdleTimeout *Duration `json:"session_idle_timeout,omitempty" yaml:"session_idle_timeout,omitempty"`
+	// SessionRememberTTL is how long a "keep me signed in" sign-in lasts: a
+	// duration such as "7d", "off" (or "0") to stop offering it, or "" to
+	// inherit the server's session.remember_ttl. Omitted leaves it; a value
+	// above the server's is refused.
+	SessionRememberTTL *string `json:"session_remember_ttl,omitempty" yaml:"session_remember_ttl,omitempty"`
 	// TrashOff turns the trash off (true) or back on (false); nil leaves it
 	// alone. Turning it off keeps the tasks already in the trash.
 	TrashOff *bool `json:"trash_off,omitempty" yaml:"trash_off,omitempty"`
@@ -240,11 +283,52 @@ func (in UpdateTenantInput) Validate() error {
 	if err := ValidateTimePrefs(in.TimeFormat, in.Timezone); err != nil {
 		return err
 	}
+	if in.IconChanged() {
+		if err := ValidateTenantIconChoice(deref(in.Icon), deref(in.IconName), in.IconFile); err != nil {
+			return OnField(err, "icon")
+		}
+	}
+	if in.MFAPolicy != nil && !in.MFAPolicy.Valid() {
+		return Invalid("second factor policy %q is not one of off, required", *in.MFAPolicy).
+			WithDetail(DetailField, "mfa_policy")
+	}
+	if in.PasswordLogin != nil && (*in.PasswordLogin == "" || !in.PasswordLogin.Valid()) {
+		return Invalid("password login %q is not one of allowed, disabled", *in.PasswordLogin).
+			WithDetail(DetailField, "password_login")
+	}
+	if in.MFAGrace != nil && *in.MFAGrace < 0 {
+		return Invalid("second factor grace must not be negative").WithDetail(DetailField, "mfa_grace")
+	}
 	if in.LeaseDefault != nil && *in.LeaseDefault < 0 {
 		return Invalid("lease default must not be negative")
 	}
 	if in.LeaseMax != nil && *in.LeaseMax < 0 {
 		return Invalid("lease maximum must not be negative")
+	}
+	if in.ArtifactMaxBytes != nil && *in.ArtifactMaxBytes < 0 {
+		return Invalid("artifact size limit must not be negative").WithDetail(DetailField, "artifact_max_bytes")
+	}
+	if in.ArtifactTypes != nil {
+		if _, err := ParseArtifactTypes(*in.ArtifactTypes); err != nil {
+			return err
+		}
+	}
+	if err := validateSessionDuration(in.SessionTTL, "session lifetime", "session_ttl"); err != nil {
+		return err
+	}
+	if err := validateSessionDuration(in.SessionIdleTimeout, "session idle timeout", "session_idle_timeout"); err != nil {
+		return err
+	}
+	if in.SessionRememberTTL != nil {
+		d, off, err := ParseSessionRemember(*in.SessionRememberTTL)
+		if err != nil {
+			return err
+		}
+		if !off {
+			if err := validateSessionDuration(&d, "keep me signed in", "session_remember_ttl"); err != nil {
+				return err
+			}
+		}
 	}
 	// A default above the tenant's own ceiling is refused here rather than
 	// clamped, because both figures are in front of whoever is setting them:
@@ -254,6 +338,20 @@ func (in UpdateTenantInput) Validate() error {
 	if in.LeaseDefault != nil && in.LeaseMax != nil &&
 		*in.LeaseDefault > 0 && *in.LeaseMax > 0 && *in.LeaseDefault > *in.LeaseMax {
 		return Invalid("lease default %s is longer than the lease maximum %s", *in.LeaseDefault, *in.LeaseMax)
+	}
+	return nil
+}
+
+// validateSessionDuration refuses a negative session setting or a positive one
+// shorter than a minute; zero inherits.
+func validateSessionDuration(d *Duration, what, field string) error {
+	switch {
+	case d == nil || *d == 0:
+		return nil
+	case *d < 0:
+		return Invalid("%s must not be negative", what).WithDetail(DetailField, field)
+	case *d < MinSessionDuration:
+		return Invalid("%s must be at least %s", what, MinSessionDuration.Human()).WithDetail(DetailField, field)
 	}
 	return nil
 }
@@ -287,6 +385,12 @@ type CreateProjectInput struct {
 	// WorkflowKey names the workflow the project's tasks follow; empty uses the
 	// builtin workflow.
 	WorkflowKey string `json:"workflow_key,omitempty" yaml:"workflow_key,omitempty"`
+	// WorkflowTemplate names a built-in workflow template instead of a
+	// workflow: the project runs on the workflow the template creates under
+	// its own key, reused when the tenant already holds it, and gets the
+	// template's custom fields. At most one of WorkflowKey and
+	// WorkflowTemplate may be set.
+	WorkflowTemplate string `json:"workflow_template,omitempty" yaml:"workflow_template,omitempty"`
 	// Color is a palette colour name or a custom "#rrggbb"; empty means none.
 	Color string `json:"color,omitempty" yaml:"color,omitempty"`
 	// Icon is a text icon: one emoji or a monogram of at most two characters.
@@ -308,6 +412,9 @@ func (in CreateProjectInput) Validate() error {
 	}
 	if err := ValidateProjectKey(in.Key); err != nil {
 		return OnField(err, "key")
+	}
+	if strings.TrimSpace(in.WorkflowKey) != "" && strings.TrimSpace(in.WorkflowTemplate) != "" {
+		return Invalid("name a workflow or a workflow template, not both").WithDetail(DetailField, "workflow_template")
 	}
 	if _, err := NormalizeProjectColor(in.Color); err != nil {
 		return OnField(err, "color")
@@ -357,6 +464,11 @@ type UpdateProjectInput struct {
 	LeaseMax *Duration `json:"lease_max,omitempty" yaml:"lease_max,omitempty"`
 }
 
+// IconChanged reports whether the update names the tenant's icon at all.
+func (in UpdateTenantInput) IconChanged() bool {
+	return in.Icon != nil || in.IconName != nil || in.IconFile != nil
+}
+
 // IconChanged reports whether the update names the project's icon at all.
 func (in UpdateProjectInput) IconChanged() bool {
 	return in.Icon != nil || in.IconName != nil || in.IconFile != nil
@@ -397,8 +509,14 @@ type ProjectDeletion struct {
 	Project string `json:"project" yaml:"project"`
 	// Tasks counts the project's live tasks.
 	Tasks int `json:"tasks" yaml:"tasks"`
-	// Deleted counts the project's soft deleted tasks, in the trash.
+	// Trashed counts the project's soft deleted tasks, in the trash.
+	Trashed int `json:"trashed" yaml:"trashed"`
+	// Deleted counts the tasks the deletion removed permanently, trashed ones
+	// included. It is zero for a move and for a plan, which deletes nothing.
 	Deleted int `json:"deleted" yaml:"deleted"`
+	// WouldDelete counts the tasks a planned deletion would remove
+	// permanently, trashed ones included. Only a plan sets it.
+	WouldDelete int `json:"would_delete,omitempty" yaml:"would_delete,omitempty"`
 	// MoveTo is the target's key when the tasks move.
 	MoveTo string `json:"move_to,omitempty" yaml:"move_to,omitempty"`
 	// DeleteTasks reports that the tasks go permanently with the project.
@@ -410,7 +528,7 @@ type ProjectDeletion struct {
 }
 
 // Total is every task the deletion reaches, soft deleted ones included.
-func (d ProjectDeletion) Total() int { return d.Tasks + d.Deleted }
+func (d ProjectDeletion) Total() int { return d.Tasks + d.Trashed }
 
 // StatusMove is one source status, the target status it maps to and how many
 // tasks it carries.
@@ -587,7 +705,6 @@ const (
 	MaxTitleLength   = 500
 	MaxBodyLength    = 1 << 20
 	MaxCommentLength = 1 << 16
-	MaxBlobSize      = 1 << 20
 )
 
 // DeleteTaskInput says how far a delete reaches. Cascade is required to
@@ -630,6 +747,41 @@ func (in CopyTaskInput) Validate() error {
 		return Invalid("task title must be at most %d characters", MaxTitleLength).WithDetail(DetailField, "title")
 	}
 	return nil
+}
+
+// MoveTaskInput names the project a task moves to.
+type MoveTaskInput struct {
+	// ProjectRef is the key or identifier of the project to move into.
+	ProjectRef string `json:"project_ref" yaml:"project_ref"`
+}
+
+// Validate checks the input.
+func (in MoveTaskInput) Validate() error {
+	if strings.TrimSpace(in.ProjectRef) == "" {
+		return Invalid("a target project is required").WithDetail(DetailField, "project_ref")
+	}
+	return nil
+}
+
+// TaskMove is what moving a task did: the task as it landed and what changed
+// on the way.
+type TaskMove struct {
+	// Task is the moved task under its new reference.
+	Task Task `json:"task" yaml:"task"`
+	// FromRef is the reference the task had, which keeps resolving to it.
+	FromRef string `json:"from_ref" yaml:"from_ref"`
+	// FromProject is the key of the project the task left.
+	FromProject string `json:"from_project" yaml:"from_project"`
+	// Project is the key of the project the task moved into.
+	Project string `json:"project" yaml:"project"`
+	// FromStatus is the status the task had before the move.
+	FromStatus string `json:"from_status" yaml:"from_status"`
+	// StatusKept reports that the target's workflow had the same state; when
+	// false the task starts in the target's initial state.
+	StatusKept bool `json:"status_kept" yaml:"status_kept"`
+	// DroppedFields names the custom fields the target does not define or
+	// would not accept, whose values were left behind.
+	DroppedFields []string `json:"dropped_fields,omitempty" yaml:"dropped_fields,omitempty"`
 }
 
 // UpdateTaskInput changes a task.
@@ -706,6 +858,9 @@ type TransitionInput struct {
 	// Version is the task version the caller last read. When set and stale the
 	// move is refused as a conflict; 0 skips the check.
 	Version int `json:"version,omitempty" yaml:"version,omitempty"`
+	// DryRun runs every check the move runs and writes nothing; the answer is
+	// the task as the move would leave it, and a refusal is the move's own.
+	DryRun bool `json:"dry_run,omitempty" yaml:"dry_run,omitempty"`
 }
 
 // Validate checks the input.
@@ -727,8 +882,9 @@ type ArtifactInput struct {
 	Payload map[string]any `json:"payload,omitempty" yaml:"payload,omitempty"`
 	// ContentType is the media type of Blob.
 	ContentType string `json:"content_type,omitempty" yaml:"content_type,omitempty"`
-	// Blob is inline content, base64 in JSON, at most 1 MiB; larger content
-	// belongs elsewhere, referenced from Payload.
+	// Blob is inline content, base64 in JSON, held to the tenant's artifact
+	// limits on size and media type; larger content belongs elsewhere,
+	// referenced from Payload.
 	Blob []byte `json:"blob,omitempty" yaml:"blob,omitempty"`
 	// LeaseToken is the claim's token, required while the task is claimed.
 	LeaseToken string `json:"lease_token,omitempty" yaml:"lease_token,omitempty"`
@@ -738,9 +894,6 @@ type ArtifactInput struct {
 func (in ArtifactInput) Validate() error {
 	if in.Kind == "" {
 		return Invalid("artifact kind is required")
-	}
-	if len(in.Blob) > MaxBlobSize {
-		return Invalid("inline artifact blob must be at most %d bytes; store large content externally and reference it from the payload", MaxBlobSize)
 	}
 	return nil
 }
@@ -761,6 +914,12 @@ type ClaimInput struct {
 	// ActorID claims on behalf of another actor, by identifier or handle;
 	// empty claims for the caller.
 	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Start moves the task, in the claim's own transaction, to the first
+	// in-progress state its workflow allows from where it is. A task already
+	// in progress stays put; no such state refuses the claim.
+	Start bool `json:"start,omitempty" yaml:"start,omitempty"`
+	// StartStatus names the state Start moves the task to, and implies Start.
+	StartStatus string `json:"start_status,omitempty" yaml:"start_status,omitempty"`
 }
 
 // ClaimNextInput claims the next eligible task.
@@ -779,7 +938,19 @@ type ClaimNextInput struct {
 	// ActorID claims on behalf of another actor, by identifier or handle;
 	// empty claims for the caller.
 	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+	// Start moves the task, in the claim's own transaction, to the first
+	// in-progress state its workflow allows from where it is. A task already
+	// in progress stays put; no such state refuses the claim.
+	Start bool `json:"start,omitempty" yaml:"start,omitempty"`
+	// StartStatus names the state Start moves the task to, and implies Start.
+	StartStatus string `json:"start_status,omitempty" yaml:"start_status,omitempty"`
 }
+
+// Starts reports whether the claim moves the task as it takes it.
+func (in ClaimInput) Starts() bool { return in.Start || in.StartStatus != "" }
+
+// Starts reports whether the claim moves the task as it takes it.
+func (in ClaimNextInput) Starts() bool { return in.Start || in.StartStatus != "" }
 
 // ForceReclaimInput carries the administrator's reason for taking a lease.
 // The reason is optional and is recorded on the audit entry, because the
@@ -880,6 +1051,10 @@ type CreateTokenInput struct {
 	// ExpiresAt is when the token stops working, an RFC 3339 timestamp; omitted
 	// means it does not expire.
 	ExpiresAt *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
+	// RequireClaim mints a token that changes a task only while its actor
+	// holds a live claim on it: moves, edits, project moves and deletes are
+	// refused otherwise. Claiming, creating, commenting and reading are not.
+	RequireClaim bool `json:"require_claim,omitempty" yaml:"require_claim,omitempty"`
 }
 
 // Validate checks the input.
@@ -893,6 +1068,36 @@ func (in CreateTokenInput) Validate() error {
 	}
 	if len(in.Scopes) == 0 {
 		return Invalid("a token requires at least one scope").WithDetail(DetailField, "scopes")
+	}
+	for _, s := range in.Scopes {
+		if s.Alone() && (len(in.Scopes) > 1 || in.ProjectID != "" || in.RequireClaim) {
+			return Invalid("a %s token carries that scope alone, with no project and no claim requirement",
+				s).WithDetail(DetailField, "scopes")
+		}
+	}
+	return nil
+}
+
+// MaxTokenRotateGrace is the longest a rotated token may keep working beside
+// its replacement. A longer window would keep a leaked value alive.
+const MaxTokenRotateGrace = 24 * time.Hour
+
+// RotateTokenInput replaces a live token with a new one of the same name,
+// scopes and project.
+type RotateTokenInput struct {
+	// Grace is how long the old token keeps working beside the new one, from
+	// 0 (it stops at once, the default) up to 24h.
+	Grace Duration `json:"grace,omitempty" yaml:"grace,omitempty"`
+	// ActorID, when set, is the actor the token must belong to, by identifier
+	// or handle; a token of anybody else is reported missing.
+	ActorID string `json:"actor_id,omitempty" yaml:"actor_id,omitempty"`
+}
+
+// Validate checks the input.
+func (in RotateTokenInput) Validate() error {
+	if in.Grace < 0 || in.Grace.D() > MaxTokenRotateGrace {
+		return Invalid("a rotated token keeps working for between 0 and 24h, not %s", in.Grace).
+			WithDetail(DetailField, "grace")
 	}
 	return nil
 }

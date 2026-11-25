@@ -108,6 +108,14 @@ type TOTPStatus struct {
 	RequiredCLI bool `json:"required_cli" yaml:"required_cli"`
 	// RequiredSSH is true when the tenant requires a second factor over SSH.
 	RequiredSSH bool `json:"required_ssh" yaml:"required_ssh"`
+	// Policy is the tenant's second factor policy, off or required.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
+	// EnrollmentRequired is true while the policy refuses the caller
+	// everything but enrolment, because they hold no factor.
+	EnrollmentRequired bool `json:"enrollment_required" yaml:"enrollment_required"`
+	// EnrollmentDue is when the policy starts refusing the caller, RFC 3339,
+	// set while it is required and the caller holds no factor.
+	EnrollmentDue *time.Time `json:"enrollment_due,omitempty" yaml:"enrollment_due,omitempty"`
 	// VerificationLocked is true while too many wrong codes have locked verification.
 	VerificationLocked bool `json:"verification_locked" yaml:"verification_locked"`
 	// VerificationLockEnd is when the lock lifts, RFC 3339, set only while locked.
@@ -190,6 +198,14 @@ type LoginInput struct {
 	Ticket string `json:"ticket,omitempty" yaml:"ticket,omitempty"`
 	// Code is the TOTP or recovery code, in the second step.
 	Code string `json:"code,omitempty" yaml:"code,omitempty"`
+	// Remember asks for a "keep me signed in" session, which lasts the
+	// tenant's session remember_ttl rather than its ttl. Send it with the
+	// step that completes the sign-in; it is ignored where not offered.
+	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
+	// AppHandoff is the signed handoff a native app's sign-in that completed
+	// by enrolling left on its recovery codes page, sent back by Open the
+	// app to mint the app's code. Only the browser sends it.
+	AppHandoff string `json:"-" yaml:"-"`
 }
 
 // LoginResult is either a session or the challenge standing between the caller
@@ -202,6 +218,25 @@ type LoginResult struct {
 	// RecoveryCodes is set once, when a sign-in completed by enrolling. The
 	// caller must show them and cannot ask for them again.
 	RecoveryCodes []string `json:"recovery_codes,omitempty" yaml:"recovery_codes,omitempty"`
+	// SecondFactorDue is set on a session minted for a person who holds no
+	// factor under the tenant's second factor policy: when the policy starts
+	// refusing them, RFC 3339. A time already past means the session can do
+	// nothing but enrol.
+	SecondFactorDue *time.Time `json:"second_factor_due,omitempty" yaml:"second_factor_due,omitempty"`
+	// Next is the screen a browser sign-in through a provider returns to, as
+	// the sign-in began with it.
+	Next string `json:"next,omitempty" yaml:"next,omitempty"`
+	// Remember carries a provider sign-in's keep me signed in choice to the
+	// second factor step that completes it.
+	Remember bool `json:"remember,omitempty" yaml:"remember,omitempty"`
+	// AppRedirect is where the browser goes when a native app's sign-in
+	// finished in it: the app's redirect carrying a one-time code. It never
+	// travels on the wire.
+	AppRedirect string `json:"-" yaml:"-"`
+	// AppHandoff is set instead of AppRedirect when the sign-in completed by
+	// enrolling: the browser shows the recovery codes and sends this back
+	// when the reader opens the app, which mints the code then.
+	AppHandoff string `json:"-" yaml:"-"`
 }
 
 // TOTPReport is what diagnostics say about the second factor. It names no
@@ -226,6 +261,10 @@ type TOTPReport struct {
 	RequireCLI bool `json:"require_cli" yaml:"require_cli"`
 	// RequireSSH is true when the tenant requires a second factor over SSH.
 	RequireSSH bool `json:"require_ssh" yaml:"require_ssh"`
+	// Policy is the tenant's second factor policy, off or required. Required
+	// covers every surface and refuses tokens minted for a person without a
+	// factor; agent tokens stay exempt.
+	Policy MFAPolicy `json:"policy" yaml:"policy"`
 	// Admins is how many members of the tenant hold the admin role.
 	Admins int `json:"admins" yaml:"admins"`
 	// EnrolledAdmins is how many of those admins hold a confirmed second factor.
@@ -234,12 +273,12 @@ type TOTPReport struct {
 
 // RequiresAnywhere reports whether this tenant demands a factor on any surface.
 func (r TOTPReport) RequiresAnywhere() bool {
-	return r.RequireWeb || r.RequireCLI || r.RequireSSH
+	return r.RequireWeb || r.RequireCLI || r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // RequiresEverywhere reports whether this tenant demands a factor on all three.
 func (r TOTPReport) RequiresEverywhere() bool {
-	return r.RequireWeb && r.RequireCLI && r.RequireSSH
+	return r.RequireWeb && r.RequireCLI && r.RequireSSH || r.Policy == MFAPolicyRequired
 }
 
 // LockedOutRisk is the configuration that ends with nobody able to sign in: a

@@ -219,7 +219,7 @@ func TestNoErrorLeaksCredentials(t *testing.T) {
 		Name: "agent", ActorID: "actor-1", Scopes: []core.Scope{core.ScopeTaskRead}, ExpiresAt: &expires,
 	})
 	minted := mintSessionInto(t, sessionStore, clk)
-	hashed, err := NewHasherWithParams(TestParams()).Hash(testPassword)
+	hashed, err := NewHasherWithParams(TestParams()).Hash(t.Context(), testPassword)
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestNoErrorLeaksCredentials(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: minted.Session.Token})
 
 	_, chainErr := chain.Authenticate(context.Background(), req)
-	verifyErr := Verify(hashed, "the wrong password entirely")
+	verifyErr := Verify(t.Context(), hashed, "the wrong password entirely")
 
 	secrets := []string{issued.Token, minted.Session.Token, testPassword}
 	for _, err := range []error{chainErr, verifyErr, ErrNoCredential} {

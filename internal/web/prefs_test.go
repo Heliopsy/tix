@@ -322,6 +322,9 @@ func apply(t *testing.T, b *browser, route string, form url.Values) {
 func selected(form, value string) bool {
 	i := strings.Index(form, `value="`+value+`"`)
 	if i < 0 {
+		i = strings.Index(form, `data-view="`+value+`"`)
+	}
+	if i < 0 {
 		return false
 	}
 	rest := form[i:]
@@ -329,7 +332,7 @@ func selected(form, value string) bool {
 	if end < 0 {
 		return false
 	}
-	return strings.Contains(rest[:end], `aria-current="true"`)
+	return strings.Contains(rest[:end], `aria-current="true"`) || strings.Contains(rest[:end], `aria-current="page"`)
 }
 
 // projectChoices returns the visibility form's own markup.

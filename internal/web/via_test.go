@@ -166,6 +166,15 @@ func TestATaskHistoryShowsTheChannelColumn(t *testing.T) {
 	if !ok || !strings.Contains(c.title, "User agent: curl/8") {
 		t.Errorf("the channel column shows %+v, want the ci-agent token with its user agent in the hover", cells)
 	}
+	var linked bool
+	for _, m := range channelCell.FindAllStringSubmatch(region, -1) {
+		if strings.Contains(m[1], `<a class="via-link" href="/activity?token=ci-agent&amp;via=api"`) {
+			linked = true
+		}
+	}
+	if !linked {
+		t.Errorf("the channel cell does not link to the feed narrowed to the ci-agent token:\n%s", region)
+	}
 }
 
 // An entry written before channels were recorded says so, rather than
@@ -180,5 +189,38 @@ func TestAnOldEntryReadsAsAnUnknownChannel(t *testing.T) {
 	feed := between(t, f.as("alice").page("/activity"), `id="live-feed"`, `</ul>`)
 	if c, ok := findChip(chipsIn(feed), "via unknown channel"); !ok || c.kind != "unknown" {
 		t.Errorf("an entry with no channel shows %+v", chipsIn(feed))
+	}
+}
+
+// An import or sync started with a token names it in the history, the same
+// way a change made directly with one does.
+func TestAHistoryRowNamesTheTokenAnImportOrSyncRanWith(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		kind  core.ViaKind
+		label string
+	}{
+		{core.ViaImport, "via import (token ci-runner)"},
+		{core.ViaSync, "via sync (token ci-runner)"},
+	} {
+		t.Run(string(tc.kind), func(t *testing.T) {
+			t.Parallel()
+			f := newFixture(t)
+			via := core.Via{Kind: core.ViaAPI, TokenID: "tok-9", TokenName: "ci-runner"}.Derive(tc.kind)
+			ctx := core.WithVia(core.WithActor(context.Background(), &f.actorA), via)
+			task, err := f.svc.CreateTask(ctx, core.CreateTaskInput{ProjectRef: "infra", Title: "brought in"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			region := historyRegion(t, f.as("alice").page("/tasks/"+task.Ref))
+			var cells []chip
+			for _, m := range channelCell.FindAllStringSubmatch(region, -1) {
+				cells = append(cells, chipsIn(m[1])...)
+			}
+			c, ok := findChip(cells, tc.label)
+			if !ok || c.kind != string(tc.kind) || !strings.Contains(c.title, "Started from: api") {
+				t.Errorf("the channel column shows %+v, want %q started from api", cells, tc.label)
+			}
+		})
 	}
 }

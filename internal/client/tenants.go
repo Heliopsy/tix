@@ -4,7 +4,9 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -19,6 +21,31 @@ func (c *Client) CreateTenant(ctx context.Context, in core.CreateTenantInput) (*
 // GetTenant returns one tenant.
 func (c *Client) GetTenant(ctx context.Context, ref string) (*core.Tenant, error) {
 	return call[core.Tenant](ctx, c, http.MethodGet, routePath(wire.RouteTenant, "ref", tenantRef(ref)), nil, nil)
+}
+
+// GetTenantIcon fetches a tenant's uploaded icon image.
+func (c *Client) GetTenantIcon(ctx context.Context, ref string) (*core.TenantIconImage, error) {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	req, err := c.newRequest(ctx, http.MethodGet, routePath(wire.RouteTenantIcon, "ref", tenantRef(ref)), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(wire.HeaderAccept, "image/*, "+wire.ContentJSON)
+	resp, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, core.MaxProjectIconBytes+1))
+	if err != nil {
+		return nil, core.Internal("reading the icon of tenant %q: %v", ref, err).Wrap(err)
+	}
+	return &core.TenantIconImage{
+		ContentType: resp.Header.Get(wire.HeaderContentType),
+		Digest:      strings.Trim(resp.Header.Get("ETag"), `"`),
+		Data:        data,
+	}, nil
 }
 
 // tenantRef renders a tenant reference for a URL.
@@ -99,8 +126,16 @@ func (c *Client) RemoveMember(ctx context.Context, actorID string) error {
 }
 
 // ListTenantUsers returns one page of a tenant's users.
-func (c *Client) ListTenantUsers(ctx context.Context, tenant string, page core.Page) ([]core.TenantUser, string, error) {
-	return list[core.TenantUser](ctx, c, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), pageQuery(page))
+func (c *Client) ListTenantUsers(ctx context.Context, tenant string, f core.UserFilter) ([]core.TenantUser, string, error) {
+	return list[core.TenantUser](ctx, c, routePath(wire.RouteTenantUsers, "ref", tenantRef(tenant)), userQuery(f))
+}
+
+// userQuery is a user listing's filter as query parameters.
+func userQuery(f core.UserFilter) url.Values {
+	q := pageQuery(f.Page)
+	setBool(q, "include_removed", f.IncludeRemoved)
+	setBool(q, "without_totp", f.WithoutTOTP)
+	return q
 }
 
 // CreateTenantUser creates a user in a tenant.

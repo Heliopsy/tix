@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-agent-review
+name: Agent queue with sign-off
+purpose: Agents do the work, a human approves it.
+definition:
+  initial: queued
+  states:
+    - {key: queued, label: Queued, category: todo}
+    - {key: claimed, label: Claimed, category: in_progress, revert_on_lease_expiry: true, revert_to: queued}
+    - {key: needs_review, label: Needs review, category: in_progress}
+    - {key: approved, label: Approved, category: done, terminal: true}
+    - {key: rejected, label: Rejected, category: cancelled, terminal: true}
+  transitions:
+    - {from: queued, to: claimed}
+    - {from: claimed, to: queued}
+    - {from: claimed, to: needs_review}
+    - {from: needs_review, to: approved, requires_scope: "task:approve"}
+    - {from: needs_review, to: rejected, requires_scope: "task:approve"}
+    - {from: rejected, to: queued, requires_comment: true}
+fields:
+  - {key: agent, label: Agent, type: actor, position: 1}
+  - {key: output, label: Output link, type: string, position: 2}

@@ -90,7 +90,7 @@ func TestEveryKeyHasOneUniqueEnvVar(t *testing.T) {
 	}
 	for _, want := range []string{"database.dsn", "server.url", "server.token", "tenant", "project",
 		"auth.mode", "hooks.mode", "discovery.enabled", "discovery.filenames",
-		"retention.audit", "retention.events", "retention.webhook_deliveries",
+		"retention.audit", "retention.events", "retention.webhook_deliveries", "retention.idempotency_keys",
 		"log.level", "server.listen"} {
 		if _, ok := Lookup(want); !ok {
 			t.Fatalf("required key %q is missing from the registry", want)
@@ -477,7 +477,8 @@ func TestContextValidate(t *testing.T) {
 		{"bad auth mode", Context{Server: "https://a", AuthMode: "magic"}, false},
 		{"bad hook mode", Context{Server: "https://a", HookMode: "always"}, false},
 		{"good modes", Context{Server: "https://a", AuthMode: "token", HookMode: "off"}, true},
-		{"unimplemented auth mode", Context{Server: "https://a", AuthMode: "oidc"}, false},
+		{"unimplemented auth mode", Context{Server: "https://a", AuthMode: "none"}, false},
+		{"per-tenant auth mode", Context{Server: "https://a", AuthMode: "oidc"}, false},
 		{"unimplemented hook mode", Context{Server: "https://a", HookMode: "warn"}, false},
 	}
 	for _, tc := range cases {
@@ -702,6 +703,7 @@ func TestValidationErrors(t *testing.T) {
 		{"invalid env value", "", map[string]string{"TIX_HOOKS_MODE": "always"}, "hooks.mode"},
 		{"negative retention", "", map[string]string{"TIX_RETENTION_EVENTS": "-1h"}, "retention.events"},
 		{"negative delivery retention", "", map[string]string{"TIX_RETENTION_WEBHOOK_DELIVERIES": "-1h"}, "retention.webhook_deliveries"},
+		{"negative idempotency window", "", map[string]string{"TIX_RETENTION_IDEMPOTENCY_KEYS": "-1h"}, "retention.idempotency_keys"},
 		{"invalid log level", "", map[string]string{"TIX_LOG_LEVEL": "loud"}, "log.level"},
 		{"invalid output format", "", map[string]string{"TIX_OUTPUT_FORMAT": "xml"}, "output.format"},
 		{"empty tenant", "", map[string]string{"TIX_TENANT": " "}, "tenant"},
@@ -713,6 +715,10 @@ func TestValidationErrors(t *testing.T) {
 		{"zero web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "0"}, "web.page_size"},
 		{"negative web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "-5"}, "web.page_size"},
 		{"absurd web page size", "", map[string]string{"TIX_WEB_PAGE_SIZE": "100000"}, "web.page_size"},
+		{"caldav bound too large", "", map[string]string{"TIX_CALDAV_MAX_OBJECTS": "50000"}, "caldav.max_objects"},
+		{"caldav bound zero", "", map[string]string{"TIX_CALDAV_MAX_OBJECTS": "0"}, "caldav.max_objects"},
+		{"caldav window past a year", "", map[string]string{"TIX_CALDAV_COMPLETED_WINDOW": "400d"}, "caldav.completed_window"},
+		{"caldav window negative", "", map[string]string{"TIX_CALDAV_COMPLETED_WINDOW": "-1h"}, "caldav.completed_window"},
 		{"zero import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "0"}, "server.max_import_bytes"},
 		{"negative import limit", "", map[string]string{"TIX_SERVER_MAX_IMPORT_BYTES": "-1"}, "server.max_import_bytes"},
 		{"unreadable egress entry", "", map[string]string{"TIX_SERVER_EGRESS_ALLOW": "10.0.0.0/8,http://jira"}, "server.egress_allow"},
@@ -1042,7 +1048,6 @@ func TestUnimplementedEnumValuesAreRefused(t *testing.T) {
 		key       string
 		supported []string
 	}{
-		{"auth mode oidc", map[string]string{"TIX_AUTH_MODE": "oidc"}, "auth.mode", AuthModes},
 		{"auth mode none", map[string]string{"TIX_AUTH_MODE": "none"}, "auth.mode", AuthModes},
 		{"hook mode warn", map[string]string{"TIX_HOOKS_MODE": "warn"}, "hooks.mode", HookModes},
 		{"hook mode enforce", map[string]string{"TIX_HOOKS_MODE": "enforce"}, "hooks.mode", HookModes},
@@ -1082,7 +1087,7 @@ current_context: work
 contexts:
   work:
     database: sqlite://work.db
-    auth_mode: oidc
+    auth_mode: none
 `
 	home := t.TempDir()
 	env := map[string]string{"HOME": home, EnvConfigFile: write(t, filepath.Join(home, "config.yaml"), body)}
@@ -1346,6 +1351,20 @@ func TestDefaultedReadsNothing(t *testing.T) {
 	for _, e := range r.SourcesRaw() {
 		if e.Source != LayerDefault {
 			t.Errorf("%s reports layer %q", e.Key, e.Source)
+		}
+	}
+}
+
+func TestAuthModeOIDCPointsToTenantProviders(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, "TIX_AUTH_MODE": "oidc"}
+	_, err := Load(Options{Dir: t.TempDir(), Home: home, Environ: environ(env)})
+	if !core.IsKind(err, core.KindInvalid) {
+		t.Fatalf("err = %v, want an invalid-kind error", err)
+	}
+	for _, want := range []string{"auth.mode", "tix tenant sso add", "token"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v, want it to name %q", err, want)
 		}
 	}
 }

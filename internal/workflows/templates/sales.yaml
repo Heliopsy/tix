@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-sales
+name: Sales or BizDev pipeline
+purpose: Track deals from first contact to signed.
+definition:
+  initial: lead
+  states:
+    - {key: lead, label: Lead, category: todo}
+    - {key: contacted, label: Contacted, category: in_progress}
+    - {key: qualified, label: Qualified, category: in_progress}
+    - {key: proposal, label: Proposal, category: in_progress}
+    - {key: negotiation, label: Negotiation, category: in_progress}
+    - {key: won, label: Won, category: done, terminal: true}
+    - {key: lost, label: Lost, category: cancelled, terminal: true}
+  transitions:
+    - {from: lead, to: contacted}
+    - {from: contacted, to: qualified}
+    - {from: qualified, to: proposal}
+    - {from: proposal, to: negotiation}
+    - {from: negotiation, to: won}
+    - {from: proposal, to: won}
+    - {from: qualified, to: contacted}
+    - {from: proposal, to: qualified}
+    - {from: negotiation, to: proposal}
+    - {from: lead, to: lost, requires_comment: true}
+    - {from: contacted, to: lost, requires_comment: true}
+    - {from: qualified, to: lost, requires_comment: true}
+    - {from: proposal, to: lost, requires_comment: true}
+    - {from: negotiation, to: lost, requires_comment: true}
+    - {from: lost, to: lead}
+fields:
+  - {key: company, label: Company, type: string, position: 1}
+  - {key: deal_value, label: Deal value, type: float, position: 2}
+  - {key: expected_close, label: Expected close, type: date, position: 3}

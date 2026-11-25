@@ -17,14 +17,18 @@ import (
 // request has already been pinned to.
 type StoreCredentials struct {
 	store store.Store
+	// sessions are the server's session settings, which the tenant narrows
+	// into the idle timeout and renewal a session is held to.
+	sessions core.SessionPolicy
 }
 
 // NewStoreCredentials returns a credential lookup over the store.
-func NewStoreCredentials(st store.Store) *StoreCredentials {
-	return &StoreCredentials{store: st}
+func NewStoreCredentials(st store.Store, sessions core.SessionPolicy) *StoreCredentials {
+	return &StoreCredentials{store: st, sessions: sessions}
 }
 
-// TokenByHash returns the token behind a hash, or nil when there is none.
+// TokenByHash returns the token behind a hash, or nil when there is none. A
+// token whose actor is disabled is refused with auth.Withdrawn.
 func (c *StoreCredentials) TokenByHash(ctx context.Context, hash string) (*core.APIToken, error) {
 	scope, ok := core.TenantFrom(ctx)
 	if !ok {
@@ -40,8 +44,11 @@ func (c *StoreCredentials) TokenByHash(ctx context.Context, hash string) (*core.
 			return err
 		}
 		withdrawn, err := service.StandingWithdrawn(ctx, tx, token.ActorID)
-		if err != nil || withdrawn {
+		if err != nil {
 			return err
+		}
+		if withdrawn {
+			return auth.Withdrawn(token.ID, token.Name)
 		}
 		out = token
 		return nil
@@ -64,6 +71,7 @@ func (c *StoreCredentials) TouchToken(ctx context.Context, id string, at time.Ti
 }
 
 // SessionByHash returns the session behind a hash, or nil when there is none.
+// A session whose actor is disabled is refused with auth.Withdrawn.
 func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*auth.StoredSession, error) {
 	scope, ok := core.TenantFrom(ctx)
 	if !ok {
@@ -78,8 +86,12 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 		if err != nil {
 			return err
 		}
-		if withdrawn, err := service.StandingWithdrawn(ctx, tx, actorID); err != nil || withdrawn {
+		withdrawn, err := service.StandingWithdrawn(ctx, tx, actorID)
+		if err != nil {
 			return err
+		}
+		if withdrawn {
+			return auth.Withdrawn("", "")
 		}
 		session := auth.StoredSession{
 			TokenHash: hash,
@@ -87,6 +99,22 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 			TenantID:  scope.TenantID,
 			ExpiresAt: expires,
 		}
+		if session.LastSeenAt, err = tx.GetSessionLastSeen(ctx, hash); err != nil {
+			return err
+		}
+		origin, err := tx.GetSessionOrigin(ctx, hash)
+		if err != nil {
+			return err
+		}
+		session.CreatedAt, session.Remembered = origin.SignedInAt, origin.Remembered
+		tenant, err := tx.GetTenant(ctx)
+		if err != nil {
+			return err
+		}
+		policy := core.EffectiveSessionPolicy(c.sessions, *tenant)
+		session.IdleTimeout = policy.IdleTimeout.D()
+		window, limit := policy.Renewal(origin.Remembered)
+		session.Window, session.Limit = window.D(), limit.D()
 		if actor, err := tx.GetActor(ctx, actorID); err == nil {
 			session.Handle = actor.Handle
 		}
@@ -105,12 +133,64 @@ func (c *StoreCredentials) SessionByHash(ctx context.Context, hash string) (*aut
 	return out, nil
 }
 
+// TouchSession records that a session authenticated a request and, when
+// expires is not zero, the expiry that use renewed it to.
+func (c *StoreCredentials) TouchSession(ctx context.Context, hash string, at, expires time.Time) error {
+	scope, ok := core.TenantFrom(ctx)
+	if !ok {
+		return nil
+	}
+	return c.store.Update(ctx, scope, func(tx store.Tx) error {
+		return tx.TouchSession(ctx, hash, at, expires)
+	})
+}
+
 // NewAuthenticator returns the bearer and cookie chain the API authenticates
-// with, in that order.
-func NewAuthenticator(st store.Store, clk clock.Clock) auth.Authenticator {
-	creds := NewStoreCredentials(st)
+// with, in that order. sessions are the server's session settings.
+func NewAuthenticator(st store.Store, clk clock.Clock, sessions core.SessionPolicy) auth.Authenticator {
+	creds := NewStoreCredentials(st, sessions)
 	return auth.NewChain(
 		auth.NewBearerAuthenticator(auth.NewTokenVerifier(creds, clk)),
 		auth.NewCookieAuthenticator(auth.NewSessionVerifier(creds, clk)),
 	)
+}
+
+// DAVOwner returns the sign-in email and handle of an app password's owner,
+// which the Basic username is compared with.
+func (c *StoreCredentials) DAVOwner(ctx context.Context, actorID string) (*auth.DAVOwner, error) {
+	scope, ok := core.TenantFrom(ctx)
+	if !ok {
+		return nil, core.NotFound("actor not found")
+	}
+	var out auth.DAVOwner
+	err := c.store.View(ctx, scope, func(tx store.Tx) error {
+		actor, err := tx.GetActor(ctx, actorID)
+		if err != nil {
+			return err
+		}
+		out.Handle = actor.Handle
+		if actor.UserID == "" {
+			return nil
+		}
+		user, err := tx.GetUser(ctx, actor.UserID)
+		if core.IsKind(err, core.KindNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out.Email = user.Email
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// NewDAVAuthenticator returns the authenticator /dav/ uses alone: HTTP Basic
+// carrying an app password.
+func NewDAVAuthenticator(st store.Store, clk clock.Clock, sessions core.SessionPolicy) auth.Authenticator {
+	creds := NewStoreCredentials(st, sessions)
+	return auth.NewBasicDAVAuthenticator(auth.NewTokenVerifier(creds, clk), creds)
 }

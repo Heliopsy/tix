@@ -42,11 +42,13 @@ func TestTokenCreateDefaultsToNinetyDays(t *testing.T) {
 	if got == nil {
 		t.Fatalf("token create with no --expires minted a token that never expires")
 	}
+	after := time.Now().UTC()
 	// The day, not the instant: the expiry is counted from the wall clock on
-	// the way through, so only the date is predictable.
-	want := before.AddDate(0, 0, 90).Format("2006-01-02")
-	if day := got.UTC().Format("2006-01-02"); day != want {
-		t.Errorf("the default expiry falls on %s, want %s (ninety days)", day, want)
+	// the way through, so only the date is predictable, and a run that crosses
+	// midnight may land on either side of it.
+	early, late := before.AddDate(0, 0, 90).Format("2006-01-02"), after.AddDate(0, 0, 90).Format("2006-01-02")
+	if day := got.UTC().Format("2006-01-02"); day != early && day != late {
+		t.Errorf("the default expiry falls on %s, want %s (ninety days)", day, early)
 	}
 }
 

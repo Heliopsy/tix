@@ -60,6 +60,7 @@ type apiService struct {
 	sources  map[string]*core.SyncSource
 	sessions map[string]*core.Session
 	block    chan struct{}
+	fail     error
 }
 
 var _ core.Service = (*apiService)(nil)
@@ -95,7 +96,7 @@ func (s *apiService) GetUser(_ context.Context, id string) (*core.User, error) {
 	return u, nil
 }
 
-func (s *apiService) ListUsers(_ context.Context, _ core.Page) ([]core.User, string, error) {
+func (s *apiService) ListUsers(_ context.Context, _ core.UserFilter) ([]core.User, string, error) {
 	out := make([]core.User, 0, len(s.users))
 	for _, u := range s.users {
 		out = append(out, *u)
@@ -202,7 +203,28 @@ func (s *apiService) RevokeToken(_ context.Context, id string) error {
 	return core.NotFound("token %q", id)
 }
 
-func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.WebhookEndpoint, error) {
+func (s *apiService) RotateToken(ctx context.Context, id string, in core.RotateTokenInput) (*core.IssuedToken, error) {
+	actor, err := core.RequireActor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	for actorID, list := range s.tokens {
+		for i, tok := range list {
+			if tok.ID == id || tok.Name == id {
+				next := core.APIToken{ID: tok.ID + "-rotated", TenantID: actor.TenantID, ActorID: actorID,
+					Name: tok.Name, Scopes: tok.Scopes}
+				s.tokens[actorID] = append(append(list[:i:i], next), list[i+1:]...)
+				return &core.IssuedToken{APIToken: next, Token: "tix_pat_rotated"}, nil
+			}
+		}
+	}
+	return nil, core.NotFound("token %q", id)
+}
+
+func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*core.IssuedWebhook, error) {
 	if _, err := core.RequireActor(ctx); err != nil {
 		return nil, err
 	}
@@ -213,9 +235,30 @@ func (s *apiService) PutWebhook(ctx context.Context, in core.WebhookInput) (*cor
 	if id == "" {
 		id = "hook-1"
 	}
-	hook := &core.WebhookEndpoint{ID: id, URL: in.URL, EventTypes: in.EventTypes, Active: in.Active}
+	hook := &core.WebhookEndpoint{ID: id, URL: in.URL, Secret: in.Secret, EventTypes: in.EventTypes, Active: in.Active}
+	issued := &core.IssuedWebhook{WebhookEndpoint: *hook}
+	if hook.Secret == "" {
+		hook.Secret = fixtureWebhookSecret
+		issued.SigningSecret = fixtureWebhookSecret
+	}
+	issued.Secret = ""
 	s.hooks[id] = hook
-	return hook, nil
+	return issued, nil
+}
+
+// fixtureWebhookSecret is the secret the fixture "generates" for an endpoint
+// registered without one.
+const fixtureWebhookSecret = "fixture-generated-secret"
+
+func (s *apiService) PingWebhook(ctx context.Context, id string) (*core.WebhookDelivery, error) {
+	if _, err := core.RequireActor(ctx); err != nil {
+		return nil, err
+	}
+	if _, ok := s.hooks[id]; !ok {
+		return nil, core.NotFound("webhook %q", id)
+	}
+	return &core.WebhookDelivery{ID: "ping-1", EndpointID: id, EventSeq: 1, Attempts: 1,
+		Status: core.DeliveryDelivered, LastStatusCode: http.StatusOK}, nil
 }
 
 func (s *apiService) ListWebhooks(_ context.Context) ([]core.WebhookEndpoint, error) {
@@ -312,8 +355,12 @@ func (m mapTokens) TokenByHash(_ context.Context, hash string) (*core.APIToken, 
 	return m.byHash[hash], nil
 }
 
-// ListTags blocks while the fixture is exercising the request timeout.
+// ListTags blocks while the fixture is exercising the request timeout, and
+// fails with fail when one is set.
 func (s *apiService) ListTags(ctx context.Context) ([]core.Tag, error) {
+	if s.fail != nil {
+		return nil, s.fail
+	}
 	if s.block != nil {
 		select {
 		case <-ctx.Done():
@@ -330,6 +377,12 @@ func newFixture(t *testing.T) *apiFixture { return newFixtureWith(t) }
 // newFixtureWith builds a fixture whose router configuration the caller may
 // adjust before the server starts.
 func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)) *apiFixture {
+	t.Helper()
+	return newFixtureOver(t, nil, mutators...)
+}
+
+// newFixtureOver is newFixtureWith over a service built with further options.
+func newFixtureOver(t *testing.T, with []service.Option, mutators ...func(*apiFixture, *httpapi.Config)) *apiFixture {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFakeAt()
@@ -348,8 +401,8 @@ func newFixtureWith(t *testing.T, mutators ...func(*apiFixture, *httpapi.Config)
 	f.tenantB = seedTenant(t, st, "other", "Other", f.hostB)
 
 	f.live = connections.New(connections.WithClock(clk), connections.WithServerID("srv-test"))
-	f.local = service.New(st, service.WithClock(clk), service.WithHooks(service.HookOff),
-		service.WithConnections(f.live), service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir()}))
+	f.local = service.New(st, append([]service.Option{service.WithClock(clk), service.WithHooks(service.HookOff),
+		service.WithConnections(f.live), service.WithSyncHost(service.SyncHost{FileRoot: t.TempDir()})}, with...)...)
 	f.actorA = seedActor(t, st, f.tenantA.ID, "alice")
 	f.actorB = seedActor(t, st, f.tenantB.ID, "bob")
 

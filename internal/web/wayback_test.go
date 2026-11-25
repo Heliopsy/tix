@@ -140,6 +140,25 @@ func TestEveryScreenStateHasAWayBack(t *testing.T) {
 			},
 			want: state{http.StatusOK, `<div class="delsheet">`, `</form>`, ""},
 		},
+		"live events filter naming no project": {
+			walk: func(t *testing.T, b *browser) *http.Response {
+				return b.get("/events?project=nope&type=task.*")
+			},
+			want: state{http.StatusOK, `<p class="flash error liveevents-problem"`, `</p>`, ""},
+		},
+		"app password issued": {
+			walk: func(t *testing.T, b *browser) *http.Response {
+				user := b.fix.person("dav@example.com", "correct horse battery")
+				return b.fix.asActor(user.ID).post("/settings/dav/passwords", url.Values{"name": {"iPhone"}})
+			},
+			want: state{http.StatusOK, `<section class="secret dav-issued"`, `data-way-back>`, ""},
+		},
+		"app password refused": {
+			walk: func(t *testing.T, b *browser) *http.Response {
+				return b.post("/settings/dav/passwords", url.Values{"name": {""}})
+			},
+			want: state{http.StatusBadRequest, `<dialog id="dav-new"`, `</dialog>`, "/settings?dialog=dav-new"},
+		},
 		"project delete refused": {
 			walk: func(t *testing.T, b *browser) *http.Response {
 				return b.post("/projects/infra/delete", url.Values{"intent": {"delete"}, "choice": {"delete"}, "confirm": {"ops"}})

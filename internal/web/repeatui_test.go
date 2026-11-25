@@ -142,9 +142,10 @@ func TestRowsAndCardsMarkARecurringTask(t *testing.T) {
 // boardCard returns the one card on a board that names a task.
 func boardCard(t *testing.T, page, title string) string {
 	t.Helper()
-	for _, card := range strings.Split(page, `<article class="card`)[1:] {
+	for _, card := range strings.Split(page, `<article `)[1:] {
 		card, _, _ = strings.Cut(card, "</article>")
-		if strings.Contains(card, ">"+title+"<") {
+		head, _, _ := strings.Cut(card, ">")
+		if strings.Contains(head, `class="card`) && strings.Contains(card, ">"+title+"<") {
 			return card
 		}
 	}

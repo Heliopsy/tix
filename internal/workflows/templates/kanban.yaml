@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+key: tix-kanban
+name: Simple Kanban
+purpose: Move cards left to right, nothing else.
+definition:
+  initial: backlog
+  states:
+    - {key: backlog, label: Backlog, category: todo}
+    - {key: todo, label: To do, category: todo}
+    - {key: doing, label: Doing, category: in_progress}
+    - {key: done, label: Done, category: done, terminal: true}
+  transitions:
+    - {from: backlog, to: todo}
+    - {from: todo, to: doing}
+    - {from: doing, to: done}
+    - {from: todo, to: backlog}
+    - {from: doing, to: todo}
+    - {from: done, to: doing}

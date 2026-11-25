@@ -7,6 +7,9 @@ web UI.
 tix serve --listen 127.0.0.1:8080
 ```
 
+[examples.md](examples.md) walks one client through the common calls in curl, Python, TypeScript and Go, from
+signing in to reading the events it caused, with a version conflict handled on the way.
+
 ## Authentication
 
 Bearer token:
@@ -21,15 +24,33 @@ curl -H "Authorization: Bearer $TIX_TOKEN" http://127.0.0.1:8080/api/v1/whoami
 ```
 
 Browsers use a session cookie obtained from `POST /api/v1/auth/login`. The cookie is marked `Secure` when the
-server is reached over TLS.
+server is reached over TLS. It ends when the browser closes, unless the step that completes the sign-in sent
+`"remember": true` and the tenant offers Keep me signed in: then the session lasts the tenant's remember_ttl,
+the answer's session carries `"remembered": true`, and the cookie persists with a `Max-Age` ending with the
+session. Each use renews a session to its `ttl` (or `remember_ttl`) past that use, at most once a minute and
+never past `max_lifetime` (or `remember_max_lifetime`) after the sign-in; a remembered session's cookie is
+sent again with the new `Max-Age` when that happens, and `GET /whoami` with a session carries
+`session_expires_at`. `GET /api/v1/auth/session-policy` needs no credential and answers the tenant's `ttl`,
+`idle_timeout`, `remember_ttl`, `max_lifetime` and `remember_max_lifetime` in force, beside the server's; `0s`
+means off. A session left unused past the idle timeout answers `401` like an expired one. See
+[configuration.md](configuration.md#sign-in-sessions).
 
 A missing or invalid credential is `401`. A valid credential without the required scope is `403`.
+A token created with `"require_claim": true` on `POST /api/v1/tokens` also gets `403` for a move, edit, tag
+change, project move or delete of a task its actor holds no live claim on, with `details.claim_required`
+naming the task; token listings carry `require_claim`. See
+[agents.md](agents.md#tokens-that-require-a-claim).
 
 A client may name itself in `X-Tix-Client`: `cli` or `mcp`. The tix client and `tix mcp` send it. It only
 changes how a token request is recorded in the audit log (`cli-remote` or `mcp` instead of `api`) and grants
 nothing; a session cookie is recorded as `web` whatever the header says. Every audit entry carries `via`, the
 access channel and what identified the caller, and `GET /api/v1/audit` filters it with `via` and `token`. See
 [audit-log.md](audit-log.md).
+
+A client that draws who did something reads `via.kind`, `via.token_name` and `via.token_id` from each entry of
+`GET /api/v1/audit` and `GET /api/v1/tasks/{ref}/audit`, and from each event. `token_name` is the name the token
+had when the change was made; a token's secret is never recorded. A comment carries no `via`: its channel is on
+the `comment.add` audit entry and the `comment.added` event.
 
 ### Several tenants on one host
 
@@ -46,11 +67,18 @@ to one tenant refuses a header naming another with `403`. The tix client sends t
 `tix login --tenant`, which trades the session for a token (`POST /tokens` with the session cookie and the
 same header) and stores that. See [tenancy.md](tenancy.md#switching-tenant) for the whole resolution order.
 
-`GET /whoami` lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
+`GET /whoami` names the caller's tenant (`tenant_key`, `tenant_name`) and carries its resolved `theme` for every
+credential. It lists the caller's `memberships` for a session and for a token carrying `account:read`; `*` does
 not imply it, so an agent's token does not learn where else its owner works. `POST /ssh-keys` with
 `"all_tenants": true` enrols the caller's own key in each of those tenants, one audited enrolment per tenant,
 and answers the enrolment in the caller's tenant with `enrolled_in` listing the tenants it was added to; a
 token needs `account:read` for it, and it takes no `actor_id`.
+
+`GET /account/sessions` lists the caller's own unexpired sessions in this tenant, newest first, as
+`{"items":[{"id","created_at","expires_at","method","second_factor","user_agent","current"}],"next_cursor"}`.
+`current` is true for the session whose cookie the request carried, and never for a token request.
+`DELETE /account/sessions/ID` ends one of them and answers `204`; another person's session, or none, is `404`.
+Neither returns a session token or its hash. A session may call both; a token needs `account:read`.
 
 ## Health
 
@@ -64,6 +92,27 @@ Neither requires authentication, which is what a load balancer needs.
 ```json
 {"ready":true,"checks":[{"name":"database","ok":true},{"name":"migrations","ok":true}]}
 ```
+
+## Release
+
+`GET /api/v1/release` answers what the web's [release screen](web-ui.md#the-release-screen) shows, to any
+signed-in caller, so a client can draw the same screen. It reads the server's own six-hourly release check,
+the one the browser reads, and never waits on it.
+
+```json
+{"running":"0.58.0","latest":"0.59.0","status":"newer","newer":true,"checked":true,"failed":false,
+ "notes":"### Features\n\n* ...",
+ "methods":[{"id":"binary","name":"Release binary","help":"...","command":"tix update"},
+  {"id":"container","name":"Container image","help":"...","command":"podman pull ghcr.io/heliopsy/tix:0.59.0"},
+  {"id":"go","name":"Go toolchain","help":"...","command":"go install github.com/heliopsy/tix@v0.59.0"}],
+ "changes":{"running":{"version":"0.58.0","date":"2026-11-10","notes":"..."},"earlier":[],"untagged":false}}
+```
+
+`status` is `newer`, `current`, `unknown` (a version this build cannot order), `failed` (the last check got
+no answer) or `pending` (none has finished). `notes` and `methods` are empty unless `newer`. `changes` is the
+`CHANGELOG.md` embedded in the binary: the running version's entry, left out for a build that is not a tagged
+release (`untagged`), and up to ten entries before it, or the eleven newest without it. Every note is Markdown
+with its links taken out, for the client to render. `tix update --check` asks GitHub from the client instead.
 
 ## OpenAPI
 
@@ -94,16 +143,17 @@ the routes the server registers. The areas are the first segment of each operati
 | account | `GET /account/log`, `GET /accounts/{email}/log` |
 | actor | `GET /actors`, `GET /actors/{id}` |
 | api | `GET /openapi.json` |
-| artifact | `GET /tasks/{ref}/artifacts`, `PUT /tasks/{ref}/artifacts` |
+| artifact | `GET /artifact-limits`, `GET /tasks/{ref}/artifacts`, `PUT /tasks/{ref}/artifacts` |
 | audit | `GET /audit` |
 | bundle | `POST /bundles/export`, `POST /bundles/import` |
 | calendar | `GET /calendar`, `POST /calendar`, `PATCH /calendar`, `DELETE /calendar`, `GET /calendar/feeds/{file}`, `POST /calendar/rotate` |
 | claim | `POST /claims/next`, `POST /claims/sweep`, `POST /tasks/{ref}/claim`, `POST /tasks/{ref}/claim/reclaim`, `POST /tasks/{ref}/claim/release`, `POST /tasks/{ref}/claim/renew` |
-| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
+| comment | `PATCH /comments/{id}`, `DELETE /comments/{id}`, `PUT /comments/{id}/reactions/{emoji}`, `DELETE /comments/{id}/reactions/{emoji}`, `GET /tasks/{ref}/comments`, `POST /tasks/{ref}/comments` |
 | connection | `GET /connections`, `DELETE /connections/{id}` |
+| dav | `GET /dav`, `GET /dav/passwords`, `POST /dav/passwords`, `DELETE /dav/passwords/{id}` |
 | dependency | `GET /tasks/{ref}/deps`, `POST /tasks/{ref}/deps`, `DELETE /tasks/{ref}/deps/{dep}` |
 | domain | `GET /domains`, `POST /domains`, `GET /domains/{hostname}`, `PATCH /domains/{hostname}`, `DELETE /domains/{hostname}` |
-| event | `GET /events` |
+| event | `GET /events`, `GET /events/poll` |
 | field | `GET /projects/{ref}/fields`, `PUT /projects/{ref}/fields`, `DELETE /projects/{ref}/fields/{key}` |
 | filter | `GET /filters`, `POST /filters`, `PUT /filters/order`, `GET /filters/{filter}`, `PATCH /filters/{filter}`, `DELETE /filters/{filter}` |
 | global_admin | `GET /global-admins`, `POST /global-admins`, `DELETE /global-admins/{email}` |
@@ -112,26 +162,29 @@ the routes the server registers. The areas are the first segment of each operati
 | inbox | `POST /channel-deliveries/{id}/redeliver`, `GET /channels`, `POST /channels`, `PATCH /channels/{id}`, `DELETE /channels/{id}`, `GET /channels/{id}/deliveries`, `POST /channels/{id}/test`, `GET /inbox`, `GET /inbox/count`, `GET /inbox/prefs`, `PUT /inbox/prefs`, `POST /inbox/read-all`, `PUT /inbox/{id}/read`, `DELETE /inbox/{id}/read` |
 | invite | `GET /auth/invites/{token}`, `POST /auth/invites/{token}`, `GET /invites`, `POST /invites`, `DELETE /invites/{id}`, `POST /invites/{id}/reissue` |
 | member | `GET /members`, `POST /members`, `DELETE /members/{actorID}` |
-| project | `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon` |
+| project | `GET /me/starred-projects`, `GET /projects`, `POST /projects`, `GET /projects/{ref}`, `PATCH /projects/{ref}`, `DELETE /projects/{ref}`, `GET /projects/{ref}/deletion`, `GET /projects/{ref}/icon`, `PUT /projects/{ref}/star`, `DELETE /projects/{ref}/star` |
 | retention | `POST /prune`, `GET /retention`, `PUT /retention` |
-| session | `POST /auth/login`, `POST /auth/logout`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
+| scim | `GET /scim`, `POST /scim/disable`, `POST /scim/enable`, `PUT /scim/groups`, `DELETE /scim/groups/{group}`, `POST /scim/token` |
+| server | `GET /release` |
+| session | `GET /account/sessions`, `DELETE /account/sessions/{id}`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session-policy`, `POST /auth/ssh/challenge`, `POST /auth/ssh/verify`, `POST /auth/switch` |
 | snapshot | `POST /export`, `POST /import` |
 | sshkey | `GET /ssh-keys`, `POST /ssh-keys`, `DELETE /ssh-keys/{id}` |
+| sso | `POST /auth/sso/begin`, `POST /auth/sso/complete`, `POST /auth/sso/exchange`, `GET /auth/sso/options`, `GET /auth/sso/providers/{id}/saml-metadata`, `GET /sso/providers`, `POST /sso/providers`, `GET /sso/providers/{id}`, `PATCH /sso/providers/{id}`, `DELETE /sso/providers/{id}`, `POST /sso/providers/{id}/refresh` |
 | stats | `GET /stats` |
 | status | `GET /status` |
 | sync | `POST /sync/run`, `GET /sync/sources`, `PUT /sync/sources`, `DELETE /sync/sources/{id}` |
 | tag | `GET /tags`, `POST /tasks/{ref}/tags`, `DELETE /tasks/{ref}/tags/{name}` |
-| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `GET /tasks/{ref}/tree` |
+| task | `POST /projects/{ref}/tasks/export`, `POST /projects/{ref}/tasks/import`, `POST /snoozes/wake`, `GET /tasks`, `POST /tasks`, `POST /tasks/bulk`, `GET /tasks/{ref}`, `PATCH /tasks/{ref}`, `DELETE /tasks/{ref}`, `GET /tasks/{ref}/audit`, `POST /tasks/{ref}/checklist`, `POST /tasks/{ref}/copy`, `GET /tasks/{ref}/lease`, `POST /tasks/{ref}/move`, `POST /tasks/{ref}/restore`, `POST /tasks/{ref}/route`, `PUT /tasks/{ref}/snooze`, `DELETE /tasks/{ref}/snooze`, `PUT /tasks/{ref}/star`, `DELETE /tasks/{ref}/star`, `GET /tasks/{ref}/tags`, `POST /tasks/{ref}/transition`, `DELETE /tasks/{ref}/trash`, `GET /tasks/{ref}/tree` |
 | template | `GET /templates`, `POST /templates`, `GET /templates/{ref}`, `PATCH /templates/{ref}`, `DELETE /templates/{ref}`, `POST /templates/{ref}/use` |
-| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
+| tenant | `GET /tenants`, `POST /tenants`, `GET /tenants/{ref}`, `PATCH /tenants/{ref}`, `DELETE /tenants/{ref}`, `GET /tenants/{ref}/domains`, `GET /tenants/{ref}/icon`, `POST /tenants/{ref}/members`, `GET /tenants/{ref}/users`, `POST /tenants/{ref}/users`, `PATCH /tenants/{ref}/users/{id}`, `DELETE /tenants/{ref}/users/{id}` |
 | time | `GET /me/time`, `PATCH /me/time` |
-| token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}` |
+| token | `GET /tokens`, `POST /tokens`, `DELETE /tokens/{id}`, `POST /tokens/{id}/rotate` |
 | totp | `GET /auth/totp`, `POST /auth/totp`, `DELETE /auth/totp`, `POST /auth/totp/confirm`, `POST /auth/totp/recovery-codes`, `POST /auth/totp/verify`, `DELETE /users/{id}/totp` |
 | trash | `GET /trash` |
 | user | `GET /users`, `POST /users`, `GET /users/{id}`, `PATCH /users/{id}`, `DELETE /users/{id}` |
 | view | `GET /views/{view}/groups`, `DELETE /views/{view}/groups`, `PATCH /views/{view}/groups/{group}`, `PUT /views/{view}/order` |
-| webhook | `GET /webhooks`, `PUT /webhooks`, `GET /webhooks/deliveries`, `POST /webhooks/deliveries/{id}/redeliver`, `DELETE /webhooks/{id}` |
-| workflow | `GET /workflows`, `PUT /workflows`, `GET /workflows/{key}`, `PUT /workflows/{key}`, `DELETE /workflows/{key}` |
+| webhook | `GET /webhooks`, `PUT /webhooks`, `GET /webhooks/deliveries`, `POST /webhooks/deliveries/{id}/redeliver`, `DELETE /webhooks/{id}`, `POST /webhooks/{id}/ping` |
+| workflow | `GET /workflow-templates`, `POST /workflow-templates/{key}/apply`, `GET /workflows`, `PUT /workflows`, `GET /workflows/{key}`, `PUT /workflows/{key}`, `DELETE /workflows/{key}` |
 <!-- END ROUTES -->
 
 `GET /events` is the WebSocket event stream, see [The event stream](#the-event-stream). The calendar feed
@@ -144,6 +197,39 @@ live connections in [deployment.md](deployment.md#live-connections), [Calendar f
 Every route above has a command: `tix doctor`, `tix login`, `tix user totp`, `tix user key`, `tix actor`,
 `tix stats`, `tix status` and `tix connection` among the less obvious ones. [commands.md](commands.md)
 lists them.
+
+### SCIM provisioning
+
+`tix serve` also answers SCIM 2.0 under `/scim/v2`, beside `/api/v1`, for an identity provider holding a
+token with the `scim:provision` scope. Those endpoints are not in the routes table above, the OpenAPI document
+or `tix mcp`: SCIM describes itself through its own `ServiceProviderConfig`, `ResourceTypes` and `Schemas`. The
+`/api/v1/scim` routes in the table are the tenant admin's switch, token and group mappings. See
+[scim.md](scim.md).
+
+### CalDAV
+
+`tix serve` also answers CalDAV under `/dav/`, with `/.well-known/caldav` redirecting there, for calendar and
+reminders apps. Like SCIM, it describes itself through its own discovery and is not in the routes table, the
+OpenAPI document or `tix mcp`. A client signs in there with HTTP Basic: the username is the person's sign-in
+email or handle, the password an app password, which is an API token carrying the named-only `caldav` scope.
+`*` and roles never imply `caldav`, a token holding it holds nothing else, and it is refused with `403`
+(`caldav_only`) on every route outside `/dav/`, `/api/v1` included. Under `/dav/` a session cookie, a bearer
+header, an account password and any other token are refused with `401` (`dav_password_required`).
+`PUT` and `DELETE` there change tasks through the ordinary task operations, as the password's owner within
+their current role, and are recorded on the `caldav` access channel.
+
+The `/api/v1/dav` routes in the table manage the caller's own app passwords and need `task:read` and a
+person caller; an agent is `403`. They work from a session and from a personal API token, without
+`token:admin`. `POST /api/v1/tokens` refuses the `caldav` scope.
+
+| Route | Does |
+| --- | --- |
+| `GET /dav` | `enabled`, the absolute `url` of `/dav/`, the exact Basic `username`, `write` (whether the caller's role holds task write and task transition), the `collections` choices, and a `reason` when it is off |
+| `GET /dav/passwords` | the caller's app passwords, revoked ones included: `id`, `name`, `scopes`, `collections`, `read_only`, `created_at`, `expires_at`, `last_used_at`, `revoked_at`; never the secret |
+| `POST /dav/passwords` | from `name` and optional `collections` (`assigned`, the default, `projects` or `all`), `read_only` and `expires_at` (default never), answers `201` with the `password` once, `username` and `url`. A live name already in use is `409` |
+| `DELETE /dav/passwords/ID` | revokes one of the caller's own, `204`; a client using it is refused from its next request |
+
+[caldav.md](caldav.md) covers the collections, the field mapping and setting up each client.
 
 ### Calendar feed
 
@@ -211,6 +297,27 @@ nosniff`, a `Content-Security-Policy` that forbids script and sandboxes the docu
 `If-None-Match` revalidates to `304`. A project whose icon is not an uploaded image answers `404`. Snapshots
 and bundles carry `icon` and `icon_name`, never the image bytes.
 
+### Tenant icons
+
+A tenant carries an icon the same way, so a switcher listing several tenants tells them apart: `icon`,
+`icon_name` or `icon_image` on the tenant, at most one set, with the same built-in names and the same image
+checks as a project. `PATCH /tenants/{ref}` takes `icon`, `icon_name` and `icon_file` exactly as a project
+update does, and needs the same `tenant:admin` as the rest of the tenant settings. Each of `whoami`'s
+`memberships` carries the tenant's `icon`, `icon_name` and `icon_image`, and `whoami` itself carries its own
+tenant's as `tenant_icon`, `tenant_icon_name` and `tenant_icon_image`. A tenant with none is drawn with a
+monogram of its name, the first letter of its first two words.
+
+```console
+$ curl -s -X PATCH -H "Authorization: Bearer $TIX_TOKEN" -H 'Content-Type: application/json' \
+    -d '{"icon_name":"rocket"}' http://127.0.0.1:8080/api/v1/tenants/~
+$ curl -s -H "Authorization: Bearer $TIX_TOKEN" -o acme.png http://127.0.0.1:8080/api/v1/tenants/acme/icon
+```
+
+`GET /tenants/{ref}/icon` answers like the project icon route, and any member of the tenant may read it, even
+from a session or token in another of their tenants, since the switcher draws them all. A token reaches
+another tenant's icon only when it carries `account:read`. A tenant the caller does not belong to, or one
+without an uploaded image, answers `404`.
+
 ### Deleting a project
 
 `DELETE /projects/{ref}` is permanent. A project holding tasks, soft deleted ones included, needs one of two
@@ -222,13 +329,15 @@ query parameters, and without either the answer is `422` with code `precondition
   initial state. It needs `task:write` on the target, and an archived target is `422`.
 - `delete_tasks=true` deletes them permanently with the project.
 
-Both at once is `400`. A deletion answers `200` with what it did. `GET /projects/{ref}/deletion` takes the
-same parameters and returns the same shape without writing, which is how to see the mapping first:
+Both at once is `400`. A deletion answers `200` with what it did: `tasks` live tasks and `trashed` ones in the
+trash, and `deleted`, how many tasks it removed permanently (zero for a move). `GET /projects/{ref}/deletion`
+takes the same parameters and returns the same shape without writing, with `deleted` at zero and
+`would_delete` saying how many tasks `delete_tasks=true` would remove. It is how to see the mapping first:
 
 ```console
 $ curl -s -H "Authorization: Bearer $TIX_TOKEN" \
     'http://127.0.0.1:8080/api/v1/projects/old/deletion?move_tasks_to=ops'
-{"project":"old","tasks":3,"deleted":0,"move_to":"ops",
+{"project":"old","tasks":3,"trashed":0,"deleted":0,"move_to":"ops",
  "statuses":[{"from":"todo","to":"todo","tasks":2},{"from":"review","to":"doing","tasks":1}],"dry_run":true}
 ```
 
@@ -334,6 +443,57 @@ that does not verify or was made under another namespace, a key that is not enro
 (`details.reason` `ssh_key_not_enrolled`) or was revoked (`ssh_key_revoked`), or a challenge already used.
 [deployment.md](deployment.md#signing-in-from-the-command-line-with-a-key) has the reasoning.
 
+### Single sign-on
+
+`GET /auth/sso/options` needs no credential and answers what the tenant's sign-in screen offers: its
+`password_login` policy, its enabled `providers`, each with `key`, `display_name` and `kind`, and `app_sign_in`,
+true when a native app may sign in through those providers (the server lists an address in
+`auth.sso_app_redirects`).
+
+A sign-in through a provider is two calls, neither needing a credential. `POST /auth/sso/begin` takes
+`provider` (the key), `redirect_uri` and `surface`, optionally `remember`, and answers `auth_url` to open,
+`state`, and `flow`, a sealed value to keep. The redirect URI is the browser callback
+`PUBLIC_URL/login/sso/callback` or a loopback address such as `http://127.0.0.1:PORT/callback`; anything else is
+refused. After the provider redirects back, `POST /auth/sso/complete` takes `flow`, `code` and `state` (or
+`error`) and answers as `POST /auth/login` does: a session, also set as a cookie, or a second factor challenge
+finished on `POST /auth/login`. A refusal after the provider vouched for someone is `403` with a
+`reason` such as `sso_not_member` or `sso_email_unverified`.
+
+#### Signing in from an app
+
+A native app signs in through a provider in the system browser, by opening `/login/sso/KEY` with
+`app_redirect`, `code_challenge`, `code_challenge_method=S256` and `app_state`; the browser comes back to the
+app's redirect with `code` and `state`, or with `error` and `state` (see
+[sso.md](sso.md#signing-in-from-the-app)). The app then trades the code, without a credential:
+
+```http
+POST /api/v1/auth/sso/exchange
+Content-Type: application/json
+
+{"code": "CODE", "code_verifier": "VERIFIER"}
+```
+
+The answer is exactly what `POST /auth/login` gives for a completed sign-in: `200` with `session` (`token`,
+`actor_id`, `tenant_id`, `expires_at`, `remembered`, which is always true here), `second_factor_due` when the
+tenant's policy applies, and the same session cookie. Send `session.token` as the cookie, as after a password
+sign-in. A body that is not JSON, or lacks `code` or `code_verifier`, is `400`. An unknown, used or expired
+code, or a verifier whose S256 is not the challenge, is `401` `invalid credentials`; the code is spent either
+way. A code lives two minutes and is taken once.
+
+`/sso/providers` lists and creates providers and `/sso/providers/{id}` (a key or an ID) reads, changes
+(`PATCH`, omitted fields unchanged) and deletes one; all need `sso:admin`. `client_secret` is accepted on create
+and change and never returned: `secret_set` and `secret_hint` say what is stored. `PATCH /tenants/{ref}`
+takes `password_login` (`allowed` or `disabled`). See [sso.md](sso.md).
+
+`POST /sso/providers/{id}/refresh` reads a SAML provider's IdP metadata again from its stored
+`idp_metadata_url` and answers the provider, as `tix serve` does every `auth.saml_metadata_refresh`. A
+provider carries how the last read went in `metadata_refresh` (`at`, `result` of `updated`, `unchanged` or
+`failed`, `error`, the `added` and `removed` certificate counts, and `next` when the server reads it on a
+schedule), the certificates the metadata stopped naming in `idp_certificates_retiring` with the `until` they
+are trusted, and the settings an admin set in `idp_pinned`. A failed read is recorded and answered `502` for an
+unreachable IdP, `400` for metadata that is not valid; the provider keeps its certificates. A provider with no
+metadata URL is `422`. See [sso.md](sso.md#certificate-rollover).
+
 ### Second factor
 
 When the tenant requires a code on the surface a sign-in names, `POST /auth/login` answers the password
@@ -426,6 +586,32 @@ curl -H "Authorization: Bearer $TIX_TOKEN" \
 ```
 
 Pass `next_cursor` back as `cursor` for the following page. An empty or absent `next_cursor` means the last page.
+
+The task listing also says how many tasks its filter selects:
+
+```json
+{"items":[ ... ],"next_cursor":"...","total":437}
+```
+
+`total` is counted with the same filter, tenant and token scope as the page. The count stops at 10,000; past
+that `total` is 10000 and `total_capped` is `true`, so read it as a floor. `page=N` (from 1) reads page N of
+`limit` tasks instead of starting from a cursor, and the response carries the `page` it served; a number past
+the end serves the last page. `page` and `cursor` together are `400`. A page number is found by a keyset seek
+over the same ordering, not by `OFFSET`, and its `next_cursor` continues from there like any other. A
+numbered page is a position rather than a snapshot: a task created ahead of it shifts its rows. Walk a
+listing with the cursor; use `page` to land where a person asked. Other listings carry neither field, and
+an ndjson stream carries no envelope and so no total.
+
+`tally=true` adds a count of the whole selection, every page of it, for a heading that summarises the list:
+
+```json
+{"items":[ ... ],"total":437,"tally":{"states":[{"project_id":"...","status":"todo","count":12}],"blocked":5,"held":2}}
+```
+
+`states` counts the tasks per project and status; whether a state is done is its project's workflow's answer.
+`blocked` counts the tasks waiting on an unfinished dependency and `held` the ones under a live claim. It costs
+one grouped count, so it is only answered when asked.
+
 `due_before` and `due_after` narrow a task listing to a deadline window. Both take `YYYY-MM-DD`, `YYYY-MM-DD
 HH:MM` or RFC 3339, both ends are inclusive, and both drop a task carrying no deadline. There is no
 `overdue` parameter: a caller holds a clock, so "overdue" is `due_before` set to now. The filter expression's
@@ -437,7 +623,8 @@ shared priority, soonest deadline leading. A task with no due date sorts after e
 priority, as if its deadline were the most distant. An unparseable cursor or limit is `400` with the standard
 envelope.
 
-The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, and `--all` to follow cursors until exhausted.
+The CLI equivalents are `--cursor`, `--limit`, `--sort`, `--desc`, `--all` to follow cursors until exhausted, and
+`--page N` on `tix task ls`, which reports `page N of M, T tasks` on standard error.
 
 ### Checklists
 
@@ -457,6 +644,29 @@ item already in the asked-for state answers `200` and writes nothing.
 and `checklist_open=true|false` to those that do or do not carry an unticked one. See
 [filtering.md](filtering.md#checklists).
 
+### Reactions
+
+`PUT /comments/{id}/reactions/{emoji}` adds the caller's emoji reaction to a comment and
+`DELETE /comments/{id}/reactions/{emoji}` takes it back. The emoji is percent-encoded in the path, for
+example `/comments/ID/reactions/%F0%9F%91%8D` for 👍, and must be a single emoji grapheme, or the call is
+`invalid`. Both answer `200` with the comment, whether or not anything changed, and only a call that changed
+something writes an audit entry and emits `comment.reacted` or `comment.unreacted`, whose payload carries
+`ref`, `task_id`, `emoji` and `reacted`. An unknown or deleted comment is `not_found`. Both need
+`comment:write`. Reactions notify nobody.
+
+A comment read, from `GET /tasks/{ref}/comments` or any call that returns a comment, carries its reactions,
+grouped by emoji in the order each was first used and omitted when there are none:
+
+```json
+"reactions": [
+  {"emoji": "👍", "count": 2, "actor_ids": ["01J...ADA", "01J...BOB"]},
+  {"emoji": "🎉", "count": 1, "actor_ids": ["01J...ADA"]}
+]
+```
+
+`actor_ids` lists who reacted, earliest first; the caller reacted when its own actor ID is among them.
+Deleting a comment removes its reactions.
+
 ### Stars
 
 `PUT /tasks/{ref}/star` stars a task for the caller and `DELETE /tasks/{ref}/star` clears it. Both answer
@@ -471,6 +681,13 @@ continues into the unstarred one without skipping or repeating a row. A task sta
 somebody pages moves between the groups, like a task whose priority changed under a priority sort: the cursor
 stays valid and the moved task may be seen twice or not at all. A cursor issued before stars existed resumes
 among the unstarred tasks.
+
+Projects take a star the same way. `PUT /projects/{ref}/star` stars a project for the caller and
+`DELETE /projects/{ref}/star` clears it, both answering `204`; `GET /me/starred-projects` lists the
+caller's starred projects in the order their lanes are drawn. A project read carries `"starred": true`
+for the caller who starred it and omits the field otherwise. A project star is the `starred` flag of the
+caller's `lanes` group preference for that project (see `/views/lanes/groups`), so a change writes the
+same `view.group.set` audit entry and `view.arranged` event a lane star does.
 
 ### Snoozing
 
@@ -491,12 +708,24 @@ default made explicit), and `snoozed=any` both. Reading one task by reference al
 A snoozed task is not claimable: `/claims/next` skips it, and `POST /tasks/{ref}/claim` answers
 `precondition` with the wake time in `details.snoozed_until` until it wakes or is unsnoozed.
 
+### Claiming, starting and finishing
+
+`{"start": true}` on `POST /claims/next` or `POST /tasks/{ref}/claim` also moves the task, in the claim's
+transaction, to the first in-progress state its workflow allows from where it is; `"start_status"` names the
+state and implies `start`. The answer carries `started_from` when the task moved. A refused move refuses the
+claim, so nothing is held. `POST /tasks/{ref}/transition` into a terminal state with the caller's own
+`lease_token` releases the lease in the same write. `"dry_run": true` on `/transition` and `/route` makes every
+check the move makes and writes nothing, answering the task as the move would leave it. See
+[agents.md](agents.md#claiming-and-starting-in-one-call).
+
 ### Arranging views
 
-Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of
-the task screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the
-task screen grouped by project, groups are project keys), `mine` (My work, grouped by deadline: `overdue`,
-`today`, `week`, `later` and `none`) or `project:KEY` (one project's board, groups are the states of its
+Each actor keeps their own arrangement of the groups a view draws: the columns of a board and the lanes of the task
+screen. A view is `board` (the task screen grouped by status, groups are state keys), `lanes` (the task screen grouped
+by project, groups are project keys), `lanes:assignee`, `lanes:priority`, `lanes:tag` and `lanes:due` (the lanes
+grouped by person, priority, tag or deadline; groups are handles, priority names from `highest` to `lowest`, tags of
+the tenant or deadline buckets, and `-` is the Unassigned or No tag lane), `mine` (My work, grouped by deadline:
+`overdue`, `today`, `week`, `later` and `none`) or `project:KEY` (one project's board, groups are the states of its
 workflow). Anything else is `invalid`, and so is a group the view cannot hold.
 
 | Route | Does |
@@ -558,7 +787,7 @@ muted creates nothing. Editing a comment or a description mentions only handles 
 
 | Route | Does |
 | --- | --- |
-| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `limit` and `cursor` as every listing |
+| `GET /inbox` | The caller's items, newest first; `?unread=true` for unread only, `?kind=` (repeatable: `mention`, `assigned`, `status`, `comment`) for some kinds only, `limit` and `cursor` as every listing |
 | `GET /inbox/count` | `{"unread": N}` |
 | `PUT /inbox/{id}/read` | Marks one item read and answers it |
 | `DELETE /inbox/{id}/read` | Marks one item unread and answers it |
@@ -655,6 +884,42 @@ never travel. The whole copy is one transaction: each new task writes a `task.co
 `task.created` with `copied_from` in its payload. An unknown project is `404`, a required field the target
 lacks `400`, and copying out of the project a token is pinned to `403`.
 
+### Moving a task
+
+`POST /tasks/{ref}/move` moves a task into another project and answers `200` with what happened:
+
+```json
+{"project_ref": "web"}
+```
+
+```json
+{
+  "task": {"id": "01J...", "ref": "web-12", "status": "todo", "...": "..."},
+  "from_ref": "infra-4",
+  "from_project": "infra",
+  "project": "web",
+  "from_status": "triage",
+  "status_kept": false,
+  "dropped_fields": ["severity"]
+}
+```
+
+The task keeps its `id`, comments, artifacts, history, dependencies, tags, assignee, claim and stars, and takes
+the next number in the target project. The old reference keeps resolving: `GET /tasks/infra-4` answers the task
+under its new reference, and so does every other route that takes a `{ref}`. A project never reissues a number,
+so an old reference cannot reach another task later.
+
+The status is kept when the target workflow has a state of the same key (`status_kept: true`), else the task
+starts in the target's initial state. Custom fields the target defines and accepts keep their value; the others
+are left behind and listed in `dropped_fields`, and the target's defaults fill in as on a create. Tags scoped
+to the old project are recreated in the target. Subtasks stay where they are and keep their parent.
+
+The caller needs to be able to edit the task and to create tasks in the target. A task claimed by somebody
+else is `409` until the claim is released or expires; the caller's own claim moves with the task. The move
+writes one `task.move` audit entry with `from_ref`, `ref`, `from_project`, `project`, `from_status` and
+`status`, and emits `task.updated` in both projects so open boards on either side refresh. Moving to the
+task's own project or a missing `project_ref` is `400`, an unknown project `404`, an archived one `422`.
+
 ### Bulk actions
 
 `POST /tasks/bulk` applies one action to up to 500 tasks in one request and answers `200` with an outcome per
@@ -685,12 +950,14 @@ distinct reference, in the order given, also when some were refused:
 | `assign` | `assignee_actor_id`, a handle or id; empty clears | `PATCH /tasks/{ref}` |
 | `star`, `unstar` | none | `PUT`, `DELETE /tasks/{ref}/star` |
 | `copy` | `project_ref` | `POST /tasks/{ref}/copy` with `link` |
+| `move_project` | `project_ref` | `POST /tasks/{ref}/move` |
 | `delete` | `cascade` (optional) | `DELETE /tasks/{ref}`, soft unless the [trash](#trash) is off |
 | `restore` | none | `POST /tasks/{ref}/restore` |
 
 Each task is changed through the single-task operation in its own transaction, with its own audit entry and
 event, so a refused task never holds back or undoes another; a copy's outcome names the new task in
-`copy_ref`. A reference named twice is acted on once. An unknown action, no references, more than 500, or a
+`copy_ref`, and a `move_project` outcome the task's new reference in `moved_ref`. A reference named twice
+is acted on once. An unknown action, no references, more than 500, or a
 missing argument is `400` before any task changes, and a caller without the scope the action needs (for
 example `task:delete` for a bulk delete) gets one `403` for the request.
 
@@ -868,12 +1135,60 @@ One envelope everywhere:
 
 An empty claim queue is a `no_task_available` error rather than an empty success, matching the CLI's exit 3.
 
-Every response carries `X-Request-Id`, which also appears in the server log line for that request.
+Every response carries `X-Request-Id`, which also appears in the server log line for that request. A request
+whose client disconnected before the answer is logged with status `499` and gets no response; see
+[Logs](deployment.md#logs).
 
 Request bodies must be `application/json` (`415` otherwise) and are capped at 1 MiB by default (`413` beyond it,
 adjustable with `--max-body-bytes`). A project task import is the exception: it takes a file, and is capped by
 `server.max_import_bytes` instead, 32 MiB by default. Each request has a 30 second timeout by default
 (`--request-timeout`).
+
+## Retrying safely
+
+A client that may send a write twice, such as an app replaying the writes it queued while offline, sends an
+`Idempotency-Key` header with it. Any authenticated `POST`, `PUT`, `PATCH` or `DELETE` under `/api/v1` takes one;
+reads and the routes that run without a credential ignore it. The key is any string of 1 to 200 printable ASCII
+characters the client chooses, a UUID per logical write being the usual choice. Without the header nothing
+changes.
+
+```sh
+curl -X POST https://tix.example.com/api/v1/tasks \
+  -H "Authorization: Bearer $TIX_TOKEN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6f1c2a0e-6c55-4c3e-9a51-3d1f0b7f2a10" \
+  -d '{"project_ref":"infra","title":"Rotate the certificate"}'
+```
+
+A key belongs to the tenant and the actor the credential resolves to, so two actors, or two tenants, never see
+each other's keys. The server compares a SHA-256 of the method, the path with its query, and the body; headers are
+not part of it.
+
+| The key was | Answer |
+| --- | --- |
+| Not seen before | The request runs, and its answer is kept |
+| Kept, same request | The kept status, content type and body, with `Idempotent-Replayed: true`; nothing runs |
+| Kept, different request | `422`, code `invalid`: "idempotency key reused with a different request" |
+| Sent with a request still running | `409`, code `conflict`, with `Retry-After` in seconds |
+| Applied, but its answer was lost | `409`, code `conflict`, without `Retry-After`; read the resource to see the outcome |
+| Malformed, or sent twice | `400`, code `invalid`, before anything runs |
+
+What is kept: an answer to a request that committed a write is kept whatever its status, a `5xx` included,
+because running it again would apply the change twice. A request that committed nothing keeps a `2xx` answer and
+releases the key on anything else, so a validation error, a conflict or a server error can be retried with the
+same key once the cause is fixed. An answer over 1 MiB is not kept.
+
+The write and the record that the request ran commit in one transaction, so a crash between the write and the
+answer never lets a retry apply the change twice; that is the "applied, but its answer was lost" row. A request that
+died before committing anything holds its key for twice the request timeout, then a retry runs it.
+
+Keys are kept for `retention.idempotency_keys`, 24 hours by default (see
+[configuration](configuration.md#retention)). The retention pruner deletes them once they expire, and `tix prune`
+reports how many as `idempotency_keys`.
+
+The `422` for a reused key is a deliberate exception to the table above: `invalid` is otherwise `400`, and the
+different status lets a client tell a malformed key from one that belongs to another request without reading the
+message. The CLI does not retry requests, so it sends no key, and `tix mcp` does not offer the header as a tool
+argument.
 
 ## The event stream
 
@@ -909,10 +1224,10 @@ one connection. `{"type":"unsubscribe","id":"s1"}` ends one.
 Event types are matched as glob patterns, so `task.*` selects every task event. The vocabulary is closed:
 `task.created`, `task.updated`, `task.transitioned`, `task.claimed`, `task.released`, `task.lease_expired`,
 `task.reclaimed`, `task.deleted`, `task.starred`, `task.unstarred`, `task.snoozed`, `task.unsnoozed`,
-`task.woke`, `comment.added`, `artifact.added`,
+`task.woke`, `comment.added`, `comment.reacted`, `comment.unreacted`, `artifact.added`,
 `dependency.added`, `tag.added`, `project.created`, `project.updated`, `workflow.updated`, `field.updated`,
 `webhook.delivered`, `import.completed`, `view.arranged`, `filter.saved`, `filter.updated`, `filter.deleted`,
-`inbox.updated`, `template.updated`. A type outside it is an error rather than a filter that silently matches
+`inbox.updated`, `template.updated`, `webhook.ping`. A type outside it is an error rather than a filter that silently matches
 nothing.
 
 A project-scoped token has its subscription narrowed to that project automatically, and naming a different
@@ -996,6 +1311,49 @@ asyncio.run(main(os.environ["TIX_TOKEN"]))
 
 Persist `cursor` alongside whatever the handler wrote, and a restart loses nothing.
 
+## Following events over HTTP
+
+For a client whose network breaks WebSockets (a proxy, a captive portal, some mobile carriers),
+`GET /api/v1/events/poll` answers the same events from the same cursor over a plain request. A client can
+fall back to it after a few failed WebSocket attempts and switch back later without missing anything.
+
+```text
+GET /api/v1/events/poll?since_seq=41&types=task.*,comment.added&project_ids=ID&limit=200&wait=25s
+```
+
+```json
+{"events":[{"seq":42, ...},{"seq":44, ...}],"next_seq":47}
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `since_seq` | Exclusive cursor, as on the WebSocket. Absent or `0` starts at the newest event and returns only the cursor. |
+| `types` | Event types, comma separated or repeated, with the WebSocket's vocabulary and `*` suffix. An unknown type is `invalid`. |
+| `project_ids` | Project IDs, comma separated or repeated. |
+| `limit` | At most this many events, default 200, at most 1000. |
+| `wait` | When no event is available, hold the request this long for one: `25s`, or a number of seconds. Default `0`, at most `25s`, and shorter than the server's request timeout. |
+
+The events are the objects the WebSocket sends under `event`, in `seq` order. Pass `next_seq` back as
+`since_seq`. It is the last sequence number the server read for you, so it can be past the last event in
+`events` when the filter or your credential left later events out, and it equals `since_seq` when nothing
+followed it. Resuming from it never skips an event your filter would have matched.
+
+A poll with `wait` that finds nothing returns as soon as a matching event commits, woken by the same commit
+signal that drives the WebSocket, or after the wait with `"events":[]`. It answers at once when it has
+events or when there is more to read than one request reads.
+
+Everything else is the WebSocket's rule: `event:subscribe` and the extra scopes for administrative events,
+a project-scoped token narrowed to its project and `forbidden` for naming another, and a cursor older than
+retention refused with the same `invalid` error and message:
+
+```json
+{"error":{"code":"invalid","message":"cursor 12 is no longer available; the oldest retained event is 4000"}}
+```
+
+Switching transports is lossless both ways: subscribe with `since_seq` set to the last `next_seq`, or poll
+with `since_seq` set to the last `seq` the WebSocket delivered. `tix events` runs one poll from the command
+line, and `tix mcp` offers it without `wait`.
+
 ## Webhooks
 
 For a receiver that cannot hold a connection open, register an endpoint instead:
@@ -1005,6 +1363,7 @@ tix webhook put https://ci.example.com/hooks/tix --event task.created --event ta
 tix webhook ls
 tix webhook deliveries --endpoint 01J000... --status failed
 tix webhook redeliver 01J000...
+tix webhook ping 01J000...
 ```
 
 Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-Signature`, the last being
@@ -1012,10 +1371,27 @@ Deliveries carry `X-Tix-Event`, `X-Tix-Delivery`, `X-Tix-Timestamp` and `X-Tix-S
 trusting a delivery.
 
 A signing secret is stored write-only: no read of an endpoint ever returns it. Register one without a secret
-and tix generates one, returned in the response to that registration alone. In the browser, `/admin/webhooks`
+and tix generates one, returned in the response to that registration alone, as `secret` beside the
+endpoint's fields:
+
+```json
+{"id":"01J000...","tenant_id":"01J...","url":"https://ci.example.com/hooks/tix","event_types":["task.*"],"active":true,"created_at":"2026-11-08T09:00:00Z","secret":"k3j..."}
+```
+
+`secret` is absent when you supplied the secret or kept the existing one. There is no separate rotate:
+`PUT /api/v1/webhooks` with the endpoint's `id` and a new `secret` replaces it. In the browser, `/admin/webhooks`
 renders it once, in the same one-time secret region the token screen uses for a freshly minted token, and
 never again. Supply your own and nothing is shown back to you, since you already hold it. Saving an existing
 endpoint with the secret field blank keeps the secret it already has rather than rotating it.
+
+`POST /api/v1/webhooks/ID/ping` (`tix webhook ping ID`, the Ping button on `/admin/webhooks`, `enter` on
+an endpoint in the terminal's integrations view) sends one active endpoint a test delivery: a real
+`webhook.ping` event, signed and sent by the same dispatcher as every other delivery, to that endpoint only
+and whatever its event type filter. The answer is the delivery. When the process delivers inline it has been
+attempted already, so `status` says `delivered`, or `pending` with `last_error` and `last_status_code` after a
+failed first attempt; in the server mode it is `pending` until the server's next pass. It appears in the
+delivery log and can be redelivered like any other. An inactive endpoint, or a process with delivery turned
+off, is refused with `precondition_failed`.
 
 Inbox items reach a person's own URL through their [notification channels](#notification-channels),
 not through these endpoints, which are tenant configuration filtered by event type. One subscribed to
@@ -1023,6 +1399,9 @@ not through these endpoints, which are tenant configuration filtered by event ty
 
 ## Related
 
+- [examples.md](examples.md) for a runnable client in curl, Python, TypeScript and Go
 - [agents.md](agents.md) for claiming and leases
 - [deployment.md](deployment.md) for TLS, proxies and the bind guard
 - [scripting.md](scripting.md) for the CLI equivalents
+- [scim.md](scim.md) for SCIM 2.0 provisioning under `/scim/v2`
+- [caldav.md](caldav.md) for tasks over CalDAV under `/dav/`

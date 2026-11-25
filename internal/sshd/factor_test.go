@@ -48,6 +48,10 @@ type person struct {
 type watchedService struct {
 	core.Service
 
+	// clk is the service's clock, which every code a test types is computed
+	// from, so a step boundary on the wall clock cannot reject one.
+	clk *clock.Fake
+
 	mu    sync.Mutex
 	calls []string
 }
@@ -111,10 +115,14 @@ func (w *watchedService) ConfirmTOTPEnrolment(ctx context.Context, code string) 
 
 // factorListener binds a listener serving enrolled keys over a service that
 // can seal a second factor, and returns everything a test drives it with.
+//
+// The store and the service run on a fake clock, so the codes a test computes
+// are judged at the instant they were computed for. The listener keeps a real
+// one, because its idle watchdog is what some of these tests wait out.
 func factorListener(t *testing.T, idle time.Duration) (*Server, *watchedService, store.Store) {
 	t.Helper()
 	ctx := context.Background()
-	clk := clock.New()
+	clk := clock.NewFakeAt()
 
 	st, err := sqlite.Open(sqlitetest.Path(t), clk)
 	if err != nil {
@@ -126,12 +134,12 @@ func factorListener(t *testing.T, idle time.Duration) (*Server, *watchedService,
 	}
 	svc := service.New(st, service.WithClock(clk), service.WithTOTPKey(factorTestKey))
 	t.Cleanup(func() { _ = svc.Close() })
-	watched := &watchedService{Service: svc}
+	watched := &watchedService{Service: svc, clk: clk}
 
 	srv, err := New(Options{
 		Service:     watched,
 		Store:       st,
-		Clock:       clk,
+		Clock:       clock.New(),
 		Addr:        "127.0.0.1:0",
 		HostKeyPath: filepath.Join(t.TempDir(), "host_key"),
 		IdleTimeout: idle,
@@ -253,8 +261,9 @@ func requireFactor(t *testing.T, st store.Store, tenantID string, surface core.S
 }
 
 // enrolFactor takes a person through enrolment and returns the secret their
-// authenticator holds and the recovery codes issued once.
-func enrolFactor(t *testing.T, svc core.Service, p person) (string, []string) {
+// authenticator holds and the recovery codes issued once. clk is the clock
+// svc runs on.
+func enrolFactor(t *testing.T, svc core.Service, clk clock.Clock, p person) (string, []string) {
 	t.Helper()
 	ctx := sessionContext(p.actor)
 	enrolment, err := svc.BeginTOTPEnrolment(ctx)
@@ -266,23 +275,24 @@ func enrolFactor(t *testing.T, svc core.Service, p person) (string, []string) {
 	// high-water mark. Confirming with the current one would make every code
 	// the test then types a replay, and the test would be asserting the
 	// replay guard rather than the prompt.
-	codes, err := svc.ConfirmTOTPEnrolment(ctx, totpAt(t, enrolment.Secret, -1))
+	codes, err := svc.ConfirmTOTPEnrolment(ctx, totpAt(t, clk, enrolment.Secret, -1))
 	if err != nil {
 		t.Fatalf("confirming enrolment: %v", err)
 	}
 	return enrolment.Secret, codes.Codes
 }
 
-// totpNow produces the code an authenticator holding secret shows now.
-func totpNow(t *testing.T, secret string) string {
+// totpNow produces the code an authenticator holding secret shows at clk's
+// current instant.
+func totpNow(t *testing.T, clk clock.Clock, secret string) string {
 	t.Helper()
-	return totpAt(t, secret, 0)
+	return totpAt(t, clk, secret, 0)
 }
 
-// totpAt produces the code for a step relative to the current one.
-func totpAt(t *testing.T, secret string, offset int64) string {
+// totpAt produces the code for a step relative to clk's current one.
+func totpAt(t *testing.T, clk clock.Clock, secret string, offset int64) string {
 	t.Helper()
-	code, err := auth.TOTPCode(secret, auth.TOTPStep(time.Now())+offset)
+	code, err := auth.TOTPCode(secret, auth.TOTPStep(clk.Now())+offset)
 	if err != nil {
 		t.Fatalf("producing a code: %v", err)
 	}
@@ -391,7 +401,7 @@ func TestTheCodeIsAskedForBeforeAnyTenantDataIsDrawn(t *testing.T) {
 	srv, watched, st := factorListener(t, time.Hour)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	secret, _ := enrolFactor(t, watched.Service, alice)
+	secret, _ := enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 
 	sess := openPromptSession(t, srv.Addr(), "acme", alice.signer)
@@ -406,7 +416,7 @@ func TestTheCodeIsAskedForBeforeAnyTenantDataIsDrawn(t *testing.T) {
 		t.Fatalf("the tenant's work was read before the prompt: %v", watched.seen())
 	}
 
-	sess.answer(t, totpNow(t, secret))
+	sess.answer(t, totpNow(t, watched.clk, secret))
 	sess.waitFor(t, boardMarker)
 
 	before, verified := watched.boardReadBefore("VerifySecondFactor")
@@ -424,7 +434,7 @@ func TestAWrongCodeEndsTheSessionWithNothingDrawn(t *testing.T) {
 	srv, watched, st := factorListener(t, time.Hour)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	enrolFactor(t, watched.Service, alice)
+	enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 	watched.calls = nil
 
@@ -469,7 +479,7 @@ func TestTheRequirementAndAVoluntaryEnrolmentBothDrawThePrompt(t *testing.T) {
 			seedBoard(t, st, watched.Service, alice)
 			var secret string
 			if tc.enrolled {
-				secret, _ = enrolFactor(t, watched.Service, alice)
+				secret, _ = enrolFactor(t, watched.Service, watched.clk, alice)
 			}
 			if tc.require != "" {
 				requireFactor(t, st, alice.tenantID, tc.require)
@@ -487,7 +497,7 @@ func TestTheRequirementAndAVoluntaryEnrolmentBothDrawThePrompt(t *testing.T) {
 			if strings.Contains(sess.text(), boardMarker) {
 				t.Fatalf("the board was drawn before the prompt: %q", sess.text())
 			}
-			sess.answer(t, totpNow(t, secret))
+			sess.answer(t, totpNow(t, watched.clk, secret))
 			sess.waitFor(t, boardMarker)
 		})
 	}
@@ -499,7 +509,7 @@ func TestARecoveryCodeIsAcceptedAtThePrompt(t *testing.T) {
 	srv, watched, st := factorListener(t, time.Hour)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	_, codes := enrolFactor(t, watched.Service, alice)
+	_, codes := enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 
 	sess := openPromptSession(t, srv.Addr(), "acme", alice.signer)
@@ -515,7 +525,7 @@ func TestALockedVerifierIsToldToWait(t *testing.T) {
 	srv, watched, st := factorListener(t, time.Hour)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	enrolFactor(t, watched.Service, alice)
+	enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 
 	ctx := sessionContext(alice.actor)
@@ -556,7 +566,7 @@ func TestAnUnenrolledPersonIsTakenThroughEnrolment(t *testing.T) {
 	}
 
 	secret := secretFromURI(t, sess.text())
-	sess.answer(t, totpNow(t, secret))
+	sess.answer(t, totpNow(t, watched.clk, secret))
 
 	// The codes are shown exactly once and nothing can produce them again, so
 	// a terminal that did not print them has lost them.
@@ -610,7 +620,7 @@ func TestAnUnenrolledKeyIsRefusedBeforeAnyPrompt(t *testing.T) {
 	srv, watched, st := factorListener(t, time.Hour)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	enrolFactor(t, watched.Service, alice)
+	enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 
 	stranger, _ := newSigner(t)
@@ -631,7 +641,7 @@ func TestAnUnansweredPromptCannotHoldTheConnection(t *testing.T) {
 	srv, watched, st := factorListener(t, 2*time.Second)
 	alice := seedPerson(t, st, "acme", "alice", "alice@example.com")
 	seedBoard(t, st, watched.Service, alice)
-	enrolFactor(t, watched.Service, alice)
+	enrolFactor(t, watched.Service, watched.clk, alice)
 	requireFactor(t, st, alice.tenantID, core.SurfaceSSH)
 
 	sess := openPromptSession(t, srv.Addr(), "acme", alice.signer)

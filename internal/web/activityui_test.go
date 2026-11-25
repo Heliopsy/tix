@@ -218,7 +218,7 @@ func TestATaskRowDistinguishesItsMarkingsByShape(t *testing.T) {
 		}
 	}
 	board := b.page("/projects/infra")
-	if !strings.Contains(board, `<span class="prio p-highest"`) {
+	if !strings.Contains(listing(t, board), `class="prio p-highest"`) {
 		t.Errorf("the board renders a priority differently from the list:\n%s", board)
 	}
 }

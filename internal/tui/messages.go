@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/heliopsy/tix/internal/core"
@@ -50,6 +51,8 @@ const (
 	actionUndepend
 	actionEditComment
 	actionDeleteComment
+	actionReact
+	actionUnreact
 	actionDelete
 	actionRenew
 	actionReclaim
@@ -67,6 +70,7 @@ const (
 	actionUnsnooze
 	actionArrange
 	actionCopy
+	actionMove
 	actionUseTemplate
 	actionSaveTemplate
 	actionRenameTemplate
@@ -79,6 +83,8 @@ const (
 	actionRemoveMember
 	actionSaveFilter
 	actionCheck
+	actionStarProject
+	actionUnstarProject
 )
 
 // actionLabels name each action in the present tense, for a refusal, and in
@@ -96,6 +102,8 @@ var actionLabels = map[actionKind][2]string{
 	actionUndepend:      {"remove the dependency", "removed a dependency from"},
 	actionEditComment:   {"edit the comment", "edited a comment on"},
 	actionDeleteComment: {"delete the comment", "deleted a comment on"},
+	actionReact:         {"react to the comment", "reacted to a comment on"},
+	actionUnreact:       {"take back the reaction", "took back a reaction on"},
 	actionDelete:        {"delete the task", "deleted"},
 	actionRenew:         {"renew the lease", "renewed the lease on"},
 	actionReclaim:       {"reclaim the lease", "reclaimed the lease on"},
@@ -119,6 +127,7 @@ var actionLabels = map[actionKind][2]string{
 	actionUnsnooze: {"unsnooze the task", "unsnoozed"},
 	actionArrange:  {"arrange the board", "arranged the board"},
 	actionCopy:     {"copy the task", "copied"},
+	actionMove:     {"move the task", "moved"},
 
 	actionUseTemplate:    {"create a task from the template", "created"},
 	actionSaveTemplate:   {"save the template", "saved template"},
@@ -136,6 +145,9 @@ var actionLabels = map[actionKind][2]string{
 	actionRemoveMember: {"remove the member", "removed member"},
 
 	actionSaveFilter: {"save the filter", "saved filter"},
+
+	actionStarProject:   {"star the project", "starred"},
+	actionUnstarProject: {"unstar the project", "unstarred"},
 }
 
 // Label renders an action for a message.
@@ -198,6 +210,36 @@ type boardMsg struct {
 	workflow *core.WorkflowDefinition
 	tasks    []core.Task
 	prefs    []core.GroupPref
+	paged    boardPage
+}
+
+// boardPage is where in a project's tasks one read of the board landed: the
+// page number answered and the total the listing counted.
+type boardPage struct {
+	number int
+	total  int
+	capped bool
+}
+
+// pages is how many board reads the counted total fills.
+func (p boardPage) pages() int { return core.PagesOf(p.total, core.MaxPageLimit) }
+
+// Label is the board's position, "page 2/7", with a trailing + on a count
+// that stopped at its cap. It is empty when the tasks fit one read.
+func (p boardPage) Label() string {
+	if p.pages() < 2 {
+		return ""
+	}
+	label := fmt.Sprintf("page %d/%d", max(p.number, 1), p.pages())
+	if p.capped {
+		label += "+"
+	}
+	return label
+}
+
+// pageOf is the position a task page answered.
+func pageOf(p core.TaskPage) boardPage {
+	return boardPage{number: max(p.Number, 1), total: p.Total, capped: p.TotalCapped}
 }
 
 // tasksMsg carries a refreshed task listing for the open project.
@@ -208,6 +250,7 @@ type tasksMsg struct {
 	// was not read, which leaves the arrangement already held in place.
 	prefs    []core.GroupPref
 	arranged bool
+	paged    boardPage
 }
 
 // detailMsg carries everything the detail view shows.
@@ -252,11 +295,13 @@ type tenantInfoMsg struct {
 	handles map[string]string
 	// memberships are the reader's own tenants, as whoami lists them.
 	memberships []core.AccountMembership
+	providers   []core.SSOProvider
 
 	tenantErr  string
 	tenantsErr string
 	domainErr  string
 	memberErr  string
+	ssoErr     string
 }
 
 // eventMsg carries one event from the subscription. gen names the connection
@@ -305,6 +350,10 @@ type actionMsg struct {
 	// line is the quick-add line a create was typed as, so a refused create
 	// reopens the prompt holding it.
 	line string
+
+	// released reports a move into a finished state that gave up the lease
+	// this session held, so the session stops offering to renew or release it.
+	released bool
 }
 
 // name is what an action calls its subject on screen. A task's identifier is

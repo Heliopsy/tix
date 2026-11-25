@@ -99,14 +99,20 @@ type actorsView struct {
 
 // showActors renders this tenant's directory.
 func (h *handler) showActors(w http.ResponseWriter, r *http.Request) error {
-	actors, next, err := h.svc.ListActors(r.Context(), core.Page{
-		Cursor: r.URL.Query().Get(CursorParam), Limit: h.rowsPerPage(r),
-	})
+	size := h.rowsPerPage(r)
+	read := func(cursor string, limit int) ([]core.Actor, string, error) {
+		return h.svc.ListActors(r.Context(), core.Page{Cursor: cursor, Limit: limit})
+	}
+	pos, err := locate(r, size, walkOf(read))
+	if err != nil {
+		return err
+	}
+	actors, next, err := read(pos.Cursor, size)
 	if err != nil {
 		return err
 	}
 	return h.render(w, r, "actors.html", "Directory", actorsView{
-		Actors: actors, Pager: newPager(r, RouteActors, next, len(actors), "actors", SizeParam)})
+		Actors: actors, Pager: newPager(r, RouteActors, next, len(actors), "actors", SizeParam).counted(pos, size)})
 }
 
 // actorNames labels the actor identifiers one screen shows. A handle is used

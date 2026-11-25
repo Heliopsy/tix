@@ -167,6 +167,7 @@ func Load(opts Options) (*Resolved, error) {
 		return nil, err
 	}
 	resolved.Config.Contexts = contexts
+	resolved.Config.Themes = mergeThemes(global.Themes, local.Themes)
 	resolved.Config.Database.DSN = expandDSNHome(resolved.Config.Database.DSN, home)
 
 	if err := Validate(&resolved.Config, resolved.sources); err != nil {
@@ -345,6 +346,22 @@ func mergeContexts(base, overlay map[string]Context) map[string]Context {
 	}
 	for name, ctx := range overlay {
 		out[name] = ctx
+	}
+	return out
+}
+
+// mergeThemes lays a discovered file's themes over the global file's, name by
+// name, as contexts are.
+func mergeThemes(base, overlay map[string]Theme) map[string]Theme {
+	if base == nil && overlay == nil {
+		return nil
+	}
+	out := make(map[string]Theme, len(base)+len(overlay))
+	for name, t := range base {
+		out[name] = t
+	}
+	for name, t := range overlay {
+		out[name] = t
 	}
 	return out
 }

@@ -14,94 +14,50 @@
      at the end of it rather than in rows of their own. */}}
 <div class="pagehead">
   <div class="pagehead-title">
+    {{/* A project's page is this screen narrowed to the project, so its
+         heading is the project and the line under it says what it runs. */}}
+    {{/* One muted line under the name says what the project runs and how
+         much is left: the workflow (a link to its editor), the summary and
+         the field definitions. They were three lines of their own, and the
+         board repeated the workflow in a fourth, which put the first card
+         290px down a desktop. The (i) that explained the page went too:
+         the (?) help beside the header says the same. */}}
+    {{with $v.Scope}}
+    <div class="headtip"><h1>{{with projIcon .Project false}}{{if .Any}}{{template "proj-icon" .}} {{end}}{{end}}{{.Project.Name}}</h1>{{template "project-star" (projectStar .Project $.Here $.CSRF)}}</div>
+    <div class="meta projhead-meta pagehead-sub">
+      <a class="projhead-flow" href="/workflows/{{.Workflow.Key}}" title="{{t "Workflow editor"}}">{{t "Workflow %s" .Workflow.Name}}</a>
+      <div id="tasks-summary">{{template "tasks-summary" $}}</div>
+      <a class="projhead-fields" href="/projects/{{.Project.Key}}/fields">{{t "Field definitions"}}</a>
+    </div>
+    {{else}}
     <h1>{{if $v.Mine}}{{t "My work"}}{{else if $v.Trash}}{{t "Trash"}}{{else}}{{t "Tasks"}}{{end}}</h1>
     <div id="tasks-summary">{{template "tasks-summary" .}}</div>
+    {{end}}
   </div>
   <div class="pagehead-tools">
+    {{/* A project's own actions lead: the screen is that project. */}}
+    {{with $v.Scope}}
+    {{if .Import}}<a class="btn secondary projact" href="/projects/{{.Project.Key}}/import" title="{{t "Import"}}">{{template "icon" "upload"}}<span class="btn-label">{{t "Import"}}</span></a>{{end}}
+    {{if .Export}}{{template "dlg-open" (opener "export" (t "Export") "download" "secondary projact" $.Here)}}{{end}}
+    <a class="btn secondary projact" href="/projects/{{.Project.Key}}/settings" title="{{t "Settings"}}">{{template "icon" "settings"}}<span class="btn-label">{{t "Settings"}}</span></a>
+    {{end}}
     {{/* My work is always the list grouped by deadline, so the view switch
          would offer a choice it ignores. Its own switch takes in the tasks
          the reader holds a claim on, as well as the ones assigned to them. */}}
     {{if $v.Mine}}
     <a class="secondary heldswitch" href="{{$v.HeldHref}}" role="switch" aria-checked="{{if $v.Held}}true{{else}}false{{end}}">{{t "Include tasks I hold"}}</a>{{template "tip" (tip "My work" "Tasks assigned to you that are still open, under a heading per deadline: overdue, today, this week, later and no date. Include tasks I hold adds the ones you have claimed. The same list is tix task ls --mine, or assignee:me in any filter." "docs/web-ui.md")}}
-    {{else if not $v.Trash}}
-    {{/* The trash is always the list: a board's columns are moves a deleted
-         card cannot make, so the switch would offer a drawing it ignores. */}}
-    {{template "taskview-switch" $v.Prefs.TaskView}}
     {{end}}
-    {{/* A menu, like the columns control on every other listing and like the
-         status and priority menus on a row. It was a disclosure that opened
-         downwards and pushed the whole task list down by its own height, so
-         choosing what the list shows moved the list. */}}
-    {{/* Filter opens the same form that sits inline on a wide screen. On a
-         phone that form was two rows and 80px of the 521px standing between
-         the heading and the first task, with its second row less than half
-         full. It is one button there and unchanged everywhere else. */}}
-    <button type="button" class="secondary filterbtn" popovertarget="filterpop">
-      <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-      {{t "Filter"}}{{if or $v.Query $v.Project}} &middot; {{t "on"}}{{end}}
-    </button>
-    <div class="colmenu listprefs">
-      <button type="button" class="secondary colmenu-open" popovertarget="viewprefs">
-        <svg class="nav-icon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#columns"/></svg>
-        {{t "View"}}{{if $v.Hidden}} &middot; {{t "%d hidden" $v.Hidden}}{{end}}
-      </button>
-      <div id="viewprefs" class="flowmenu colpop viewpop" popover>
-        <div class="body viewgrid">
-          {{/* A label, not a heading. This panel is a menu that hangs off a
-               button in the page header, so its sections are not sections of
-               the document: rendered as h3 they followed the screen's h1
-               with no h2 between them, which is a reader using headings to
-               move through the page being told a level is missing. The
-               Columns menu's own heading is already a p.flowhead; this is
-               the same thing. */}}
-          {{if .ColumnForm.Configurable}}
-          <section>
-            <p class="viewhead">{{t "Columns"}}</p>
-            {{template "column-choices" .ColumnForm}}
-            {{/* Export takes what this screen shows: the filter, the
-                 deadline window, the sort, the visible projects and the
-                 columns ticked just above. */}}
-            <div class="headtip viewexport"><a class="secondary exportlink" href="{{$v.ExportHref}}" download>{{t "Export CSV"}}</a>{{template "tip" (tip "Export CSV" "Downloads every task this filter selects, up to 10000, with the title and the columns ticked above. A cell a spreadsheet would read as a formula starts with a quote." "docs/web-ui.md")}}</div>
-          </section>
-          {{end}}
-          <section class="viewstack">
-          {{if and (eq $v.View "list") (not $v.Mine)}}
-          <div class="viewblock">
-            <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
-            {{template "listgroup-switch" $v.Prefs.ListGroup}}
-          </div>
-          {{end}}
-          {{/* The groups this reader hid on the view in force, the same Show
-               forms as the Hidden control at the end of the view. Replaced
-               out of band when a heading menu changes the arrangement. */}}
-          <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
-            {{if $v.Arrange.View}}
-            <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else if eq $v.Arrange.View "mine"}}{{t "Hidden groups"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
-            {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
-            {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
-            {{if $v.Arrange.Stored}}
-            <form method="post" action="/view/reset" hx-post="/view/reset" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-swap="outerHTML" hx-select-oob="#view-groups">
-              {{template "csrf" .CSRF}}
-              <input type="hidden" name="view" value="{{$v.Arrange.View}}">
-              <input type="hidden" name="next" value="{{$v.Self}}">
-              <button type="submit" class="secondary">{{t "Reset the arrangement"}}</button>
-            </form>
-            {{end}}
-            {{end}}
-          </div>
-          <div class="viewblock">
-            <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
-            {{template "project-choices" $v.Prefs.Projects}}
-          </div>
-          </section>
-        </div>
-        <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>
-      </div>
-    </div>
   </div>
   {{template "help" $}}
 </div>
+{{with $v.Scope}}{{with .Export}}{{template "export-dialog" (exportDlg $ .)}}{{end}}{{end}}
 
+{{/* Quick add and the filter toolbar share one row where the column is
+     wide enough for both (130-quick-add-and-filters.css), and stack where
+     it is not. What either one draws under itself (the quick-add preview,
+     the chips, a refusal) comes after the row, so nothing pushes the other
+     half of the row down. */}}
+<div class="taskbar"><div class="taskbar-row">
 {{if not $v.Trash}}
 <form method="post" action="/tasks" class="quickadd">
   {{template "csrf" .CSRF}}
@@ -112,18 +68,37 @@
        instead of the heading, and on a phone it raised the keyboard over the
        rows. The shortcut layer already focuses this field, and says so in
        the "?" overlay, so the cost of reaching it without a click is one
-       keystroke rather than a click. */}}
+       keystroke rather than a click. Add another, a share and the Quick add
+       launcher shortcut (pwa.go) are the exceptions: arriving to type is the
+       point. */}}
   {{/* The line is read as quick-add syntax, so "Fix login !high #auth" sets
        a priority and a tag. The row under the box says what the line will
        set while it is typed, from the same parser the add runs; a refused
        add comes back with the line still in the box and the reason there. */}}
   <input type="hidden" name="quick" value="1">
-  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Add a task and press Enter"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview">
+  <input name="title" value="{{$v.QuickLine}}" placeholder="{{t "Fix login"}} {{"!high #auth @raj due:fri +web ^web-3"}}" aria-label="{{t "New task"}}" data-shortcut-target="new" required autocomplete="off" aria-describedby="quickadd-preview"{{if $v.Quick.Error}} aria-invalid="true"{{end}} data-quickadd="/tasks/quickadd" data-quickadd-target="quickadd-preview" data-suggest="quickadd-suggest" data-suggest-mode="quick"{{if $v.QuickFocus}} autofocus{{end}}>
+  {{/* The box completes #tag, @handle and +project from this data with the
+       filter box's suggester (filterbar.js). It names every project, also on
+       a project page, where +key still adds to another one. */}}
+  <script type="application/json" id="quickadd-suggest">{{$v.QuickSuggest}}</script>
+  {{/* Drawn hidden: quickadd.js reveals it where the browser can read the
+       clipboard, so no browser shows a button that cannot work. */}}
+  <button type="button" class="secondary quickpaste" data-quickpaste hidden aria-label="{{t "Quick add from the clipboard"}}" title="{{t "Quick add from the clipboard"}}">{{template "icon" "clipboard"}}</button>
   {{template "tip" (examples (tip "Quick add" "Type the attributes into the line: !high or !1 to !5 for the priority, #tag, @handle for the assignee, due: and a day, +project, ^infra-3 for the parent, status:doing. They are taken out of the title. Put a backslash before one, or quotes around it, to keep it as text." "docs/features.md") quickDueExamples)}}
+  {{/* A project's page adds to its project, so it offers no picker: the
+       select took a third of the row on a phone to say what the heading
+       says. +key in the line still adds to another project. */}}
+  {{with $v.Scope}}<input type="hidden" name="project_ref" value="{{.Project.Key}}">{{else}}
   <select name="project_ref" aria-label="{{t "Project"}}">
     {{range $v.Projects}}<option value="{{.Key}}"{{if eq .Key $v.Form.Project}} selected{{end}}{{with projShort $.ProjectLabel .}} data-short="{{.}}"{{end}}>{{projLabel $.ProjectLabel .}}</option>{{end}}
-  </select>
-  <button type="submit">{{t "Add"}}</button>
+  </select>{{end}}
+  {{/* On a phone the words go and the plus stays, so the box keeps its width;
+       the words stay the button's name. */}}
+  <button type="submit" class="quicksubmit">{{template "icon" "plus"}}<span class="quicksubmit-label">{{t "Add"}}</span></button>
+  {{/* Posted with the line and remembered by the add, so it works with
+       scripting off: ticked, an add comes back to this listing with the box
+       empty and focused rather than opening the task. */}}
+  <label class="quickanother" title="{{t "Stay open for the next line"}}"><input type="checkbox" name="another" value="1"{{if $v.QuickAnother}} checked{{end}}> <span>{{t "Add another"}}</span></label>
   {{/* The fuller form opens from the row it extends, at the height of the
        buttons beside it. It was a disclosure on a line of its own under the
        row, a second strip of chrome above the list for one button. */}}
@@ -144,6 +119,10 @@
   </button>
   {{end}}
 </form>
+{{end}}
+{{template "filter-toolbar" .}}
+</div></div>
+{{if not $v.Trash}}
 {{if $v.Templates}}
 <div id="addtpl" class="flowmenu lanepop lanemore-menu addtpl-menu" popover data-lane-menu>
   <p class="flowhead">{{t "New from template"}}</p>
@@ -170,116 +149,19 @@
 </div>
 {{end}}
 {{end}}
+{{template "filter-under" .}}
 
-<div id="filterpop" class="filterpop" popover>
-<form method="get" action="/tasks" class="filterbar">
-  <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example status:todo tag:ops"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter">{{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
-  {{/* The deadline control. "What is overdue" was answerable over the API and
-       nowhere a reader could click, so the one question a due date exists to
-       answer needed a filter expression typed by hand. What it selects is
-       answered as a due: term by the shared parser rather than as a bound of
-       its own, so it is sayable in the box beside it, shareable as a link, and
-       refused with the same message when it names something the language does
-       not have. */}}
-  <select name="due" aria-label="{{t "Due"}}">
-    <option value="">{{t "any deadline"}}</option>
-    {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
-  </select>{{template "tip" (tip "Deadline" "Overdue lists tasks whose deadline has passed; today, week and month look ahead from now. Tasks with no deadline are left out." "docs/filtering.md")}}
-  {{/* The project control. The board and the lanes had no way to narrow to
-       a project short of typing project:KEY into the box, which nobody looking
-       at a board thinks to do. It sits in the one filter bar every drawing
-       shares, and like the deadline control it is folded into the expression
-       as project: terms, so the list, the board and the lanes answer it the
-       same way and the view switch, which keeps the address, keeps it. */}}
-  <select name="project" aria-label="{{t "Project"}}">
-    <option value="">{{t "any project"}}</option>
-    {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
-  </select>{{template "tip" (tip "Project filter" "Shows only the tasks of the chosen project, in the list, the board and the lanes alike. On the board the columns are that project's own workflow." "docs/web-ui.md")}}
-  <select name="sort" aria-label="{{t "Sort"}}">
-    {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
-  </select>{{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
-  <button class="secondary" type="submit">{{t "Apply"}}</button>
-  {{/* Clearing a filter had no control: the only way back to the whole list
-       was to select the text in the box and delete it. A project chip on a row
-       writes a filter into that box in one click, so getting out of it should
-       cost one click too. The sort is kept, because a sort is not a filter. */}}
-  {{if or $v.Query $v.Due $v.Project}}<a class="secondary clear" href="/tasks{{if $v.Sort}}?sort={{$v.Sort}}{{end}}">{{t "Clear"}}</a>{{end}}
-</form>
-{{/* Keeps what the bar is answering under a name, listed in the sidebar
-     under Tasks. The button opens the naming form over the screen; the form
-     itself is drawn after this menu, outside it, because a dialog inside a
-     closed popover would be hidden with it. */}}
-{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
-{{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
-{{end}}
-<button type="button" class="flowclose filterclose" popovertarget="filterpop" popovertargetaction="hide">{{t "Close"}}</button>
-</div>
-{{/* A filter that names something this tenant does not have is a typo in a
-     box, not a missing page. It used to be answered with the full-page error
-     screen, which threw the query away and made the reader retype it to find
-     out what was wrong. The message belongs under the box it is about, with
-     the expression still in the box. */}}
-{{if $v.FilterError}}
-<p class="filterfault" role="alert">{{$v.FilterError}}</p>
-{{end}}
-{{if and (or $v.Query $v.Due $v.Project) (not $v.FilterError)}}
-{{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
-{{template "dlg-start" $sh}}
-<form method="post" class="savefilter-form" action="/filters">
-  {{template "csrf" .CSRF}}
-  <input type="hidden" name="q" value="{{$v.Query}}">
-  <input type="hidden" name="due" value="{{$v.Due}}">
-  <input type="hidden" name="project" value="{{$v.Project}}">
-  <input type="hidden" name="sort" value="{{$v.Sort}}">
-  <input type="hidden" name="view" value="{{$v.View}}">
-  <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>
-  <label for="savefilter-name">{{t "Name"}}</label>
-  <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
-  <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>
-  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save"}}</button></div>
-</form>
-{{template "dlg-end"}}
-{{end}}
-
-{{/* The view switch. One screen, two drawings of the same tasks: the filter,
-     the deadline window, the sort, the page and the project visibility choice
-     are all answered once and then either listed or laid out in columns, so
-     pressing this changes how the page looks and never which tasks are on it.
-     It sits beside the filter bar rather than inside the View panel because a
-     reader looking for the board should not have to open a disclosure to find
-     out it exists; the panel below decides what is on screen, this decides
-     how it is drawn.
-
-     The switch itself is the shared partial the settings screen renders, so
-     the two cannot disagree about which position the reader is in. */}}
-
-{{/* One panel, not two. Columns and Projects were separate disclosures sitting
-     side by side, so deciding what the list shows meant opening one, applying,
-     then opening the other: two clicks and two page loads for one decision.
-     They are the same decision -- what is on screen -- so they share a panel
-     and each keeps its own form, because they are applied by different
-     handlers and either can be used without the other. */}}
-
-
-{{if $v.Filtered}}
+{{if $v.Scope}}
+{{else if $v.Filtered}}
 <p class="lede">{{t "The filter names a project explicitly, so it is shown even though project visibility hides %d of them." $v.Hidden}}</p>
 {{else if $v.Empty}}
-<p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects above to bring one back."}}</p>
+<p class="lede">{{t "Every project is hidden, so there is nothing to show. Use Projects under More to bring one back."}}</p>
 {{else if $v.Hidden}}
-<p class="lede">{{tn "%d project is hidden. Use Projects above to change that." "%d projects are hidden. Use Projects above to change that." $v.Hidden}}</p>
+<p class="lede">{{tn "%d project is hidden. Use Projects under More to change that." "%d projects are hidden. Use Projects under More to change that." $v.Hidden}}</p>
 {{end}}
 
-{{if eq $v.View "lanes"}}
-{{/* Outside the region a live refresh replaces, so its state is set once
-     per page by assets/lanes.js rather than after every refresh. Rendered
-     hidden: with scripting off it could do nothing, and finished cards are
-     shown, which is its default anyway. */}}
-<div class="lanesbar">
-  <button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>{{t "Show completed"}}</button>{{template "tip" (tip "Show completed" "Shows or hides finished cards in the lanes. The choice is remembered in this browser only." "docs/web-ui.md")}}
-</div>
-{{end}}
 <div id="tasks-listing">{{template "tasks-listing" .}}</div>
-{{if and (eq $v.View "list") $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
+{{if and $v.Bulk.Any $v.Tasks}}{{template "bulk-bar" .}}{{end}}
 
 {{template "live-screen" $v.Live}}
 {{end}}
@@ -307,7 +189,7 @@
   {{if and (eq .Total 0) $v.OpenOnly}}{{t "Nothing open."}}
   {{else if eq .Total 0}}{{t "Nothing on the list."}}
   {{else if .AllDone}}{{t "All clear. Everything here is done."}}
-  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if .Projects}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; {{t "%d blocked" .Blocked}}{{end}}
+  {{else}}<strong>{{.Open}}</strong> {{t "to go"}}{{if .Done}}, {{t "%d done" .Done}}{{end}}{{if and .Projects (not $v.Scope)}} &middot; {{tn "across %d project" "across %d projects" .Projects}}{{end}}{{if .Held}} &middot; <span class="held">{{t "%d held by an agent" .Held}}</span>{{end}}{{if .Blocked}} &middot; <a class="waitcount" href="{{$v.WaitingHref}}" title="{{t "Only tasks waiting on an unfinished dependency"}}">{{tn "%d waiting on another task" "%d waiting on other tasks" .Blocked}}</a>{{end}}
   {{end}}
   {{/* A list that quietly shows a subset is worse than one showing the wrong
        thing, because the reader cannot tell which they have. So the default
@@ -335,6 +217,7 @@
      of the screen, and a menu near the last row flips upwards on its own
      because there is no longer any room beneath it. */}}
 {{template "pager" $v.Pager}}
+{{if and $v.Bulk.Write (not $v.Trash)}}<datalist id="row-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
 {{if and (eq $v.View "board") $v.Board.Agreed}}
 {{/* The board draws this same page of tasks into the columns of the one
      workflow every selected project runs. Columns may only be merged when
@@ -352,10 +235,16 @@
      A screen reader user learns a drag-and-drop move happened here, since
      nothing else narrates it: the move patches the DOM in place
      (assets/live.js) rather than navigating. Visually hidden, never removed. */}}
-<p class="meta boardmeta">
+{{/* Said only for a board that is several projects' at once. A board of
+     one project is that project's workflow, which the project page's header
+     already names, and the line under the toolbar repeated it with its (i)
+     stranded on a row of its own. */}}
+{{if $v.Board.Merged}}
+<div class="headtip boardmeta"><p class="meta">
   {{t "Workflow %s" $v.Board.Workflow}} &middot; {{tn "%d column" "%d columns" (len $v.Board.Columns)}}
   {{- with index $v.Board.Groups 0}} &middot; {{tn "%d project sharing it: %s" "%d projects sharing it: %s" (len .Projects) (joinKeys .Keys)}}{{end}}
-</p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}
+</p>{{template "tip" (tip "Board" "Projects share one board only when their workflows have the same states in the same order and the same moves. Each card still moves only the way its own project allows." "docs/web-ui.md")}}</div>
+{{end}}
 <p class="sr-only" aria-live="polite" id="board-status"></p>
 <div class="board{{if $v.Board.Merged}} is-merged{{end}}" data-drag="{{if .DragMove}}1{{else}}0{{end}}">
 {{range $v.Board.Columns}}
@@ -363,7 +252,7 @@
     {{/* The menu sits beside the heading, never inside it: live.js names a
          column by its h2 when it announces a drop. */}}
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{len .Tasks}})</span></h2>
+      <h2{{with categoryClass .Category}} class="{{.}}"{{end}}>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{stateLabel .State}} <span class="meta">({{.Total}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}
@@ -373,19 +262,26 @@
       {{if eq $.Tint "project"}}{{with projClass $acc.Color}}{{$mark = printf " is-accented %s" .}}{{end}}
       {{else if eq $.Tint "status"}}{{$mark = printf " is-accented tint-status-%s" (slug .Task.Status)}}
       {{else if eq $.Tint "priority"}}{{$mark = printf " is-accented tint-prio-%s" (prio .Task.Priority)}}{{end}}
-      <article id="t-{{.Task.Ref}}" class="card{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}">
+      <article id="t-{{.Task.Ref}}" class="card{{$mark}}{{if eq $.FlashRef .Task.Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} draggable="{{if $.DragMove}}true{{else}}false{{end}}" data-task="{{.Task.Ref}}" data-project="{{$acc.Key}}" tabindex="-1" data-shortcut-row data-shortcut-href="/tasks/{{.Task.Ref}}" data-inplace>
+        {{if $v.Bulk.Any}}{{template "rowpick" .Task.Ref}}{{end}}
         {{/* The fields under View apply to a card as they do to a row, so
              hiding tags or the star once hides them in every drawing. */}}
         {{$showPrio := and ($.Columns.Show "tasks" "priority") (ne (prio .Task.Priority) "normal")}}
         {{$showTags := and ($.Columns.Show "tasks" "tags") .Task.Tags}}
         {{$showRepeat := and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}
-        <div class="ref">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}{{if $.Columns.Show "tasks" "ref"}}{{ref .Task.Ref}}{{end}}</div>
-        <div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div>
+        {{/* The star leads the title's line and the reference starts the
+             small line under it, so a card is the title and one line of
+             marks rather than a reference line, a title line and a line
+             for its Move. */}}
+        {{$showRef := $.Columns.Show "tasks" "ref"}}
+        <div class="card-top">{{if and $.CanStar ($.Columns.Show "tasks" "star")}}{{template "star" (star .Task.Ref .Task.Starred $v.Self $.CSRF)}}{{end}}<div class="card-title">{{template "tasktitle" (titleLink .Task.Ref .Task.Title .Task.Version (print "/tasks/" .Task.Ref "?next=" ($v.Self | urlquery)) "" $.TitleEdit)}}</div></div>
         {{/* A merged board mixes projects in one column, so each card says
              which list it belongs to. A board of one project does not: the
              heading already said it, and repeating it on every card is noise. */}}
-        {{if or $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist}}
+        {{if or $showRef $v.Board.Merged $showPrio $showTags $showRepeat (snoozed .Task) .Task.Checklist .Task.WaitingOn}}
         <div class="card-meta">
+          {{if $showRef}}<span class="ref">{{ref .Task.Ref}}</span>{{end}}
+          {{template "waitmark" .Task}}
           {{if $v.Board.Merged}}<a class="projref{{with projClass $acc.Color}} {{.}}{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} href="/tasks?q=project:{{$acc.Key}}" title="{{t "Only tasks in %s" $acc.Name}}">{{template "proj-icon" (projIcon $acc true)}}{{key $acc.Key}}</a>{{end}}
           {{if $showPrio}}<a class="prio p-{{prio .Task.Priority}}" href="/tasks?q=priority:{{prio .Task.Priority}}" title="{{t "Only %s priority tasks" (t (prio .Task.Priority))}}"><span class="caret" aria-hidden="true"></span>{{t (prio .Task.Priority)}}</a>{{end}}
           {{if $showRepeat}}{{template "repeatmark" .Task.Recurrence}}{{end}}
@@ -395,26 +291,21 @@
         </div>
         {{end}}
         {{with .Task.Checklist}}{{template "checkbar" .}}{{end}}
-        {{if .Routes}}
-        <details class="card-move">
-          <summary aria-label="{{t "Move %s" (ref .Task.Ref)}}">{{t "Move"}}</summary>
-          <div class="body">
-            <form method="post" action="/tasks/{{.Task.Ref}}/transition">
-              {{template "csrf" $.CSRF}}
-              <input type="hidden" name="ref" value="{{.Task.Ref}}">
-              <input type="hidden" name="next" value="{{$v.Self}}">
-              <select id="to-{{.Task.Ref}}" name="route" aria-label="{{t "Move %s to" (ref .Task.Ref)}}">
-                {{range .Routes}}<option value="{{.Value}}">{{.Option}}</option>{{end}}
-              </select>
-              <button type="submit">{{t "Move"}}</button>
-            </form>
-          </div>
-        </details>
-        {{end}}
+        {{/* The three dots sit in the card's corner, drawn on hover or
+             focus with a mouse and always on a touch screen
+             (805-task-menu.css): the task menu every view draws
+             (partials.html task-menu). The card is data-inplace, so a form
+             in it swaps the card and the toast and nothing else. */}}
+        {{$m := taskMenu $ .Task "board"}}
+        <div class="cardmore">
+          {{template "task-menu-button" $m}}
+          {{template "task-menu" $m}}
+        </div>
       </article>
     {{else}}
       <p class="meta column-empty">{{t "No tasks."}}</p>
     {{end}}
+    {{if .MoreHref}}<a class="colmore" href="{{.MoreHref}}" hx-get="{{.MoreHref}}" hx-select="section.column[data-state='{{.State.Key}}']" hx-target="closest section" hx-swap="outerHTML">{{tn "Show %d more" "Show %d more" .More}}</a>{{end}}
     {{end}}
   </section>
 {{end}}
@@ -442,12 +333,18 @@
      completed choice, so the choice survives this block being replaced by a
      live refresh. */}}
 {{if $v.Lanes.Write}}<datalist id="lane-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>{{end}}
-<div class="lanes">
+{{/* A lane heading never splits a word: the name takes the line and is cut
+     with an ellipsis, its full text in the title, and the count is one unit
+     beside it (420-lanes.css). */}}
+{{/* Lanes grouped by tag draw each card once (lanegroup.go tagSlots), so
+     the rule is said where the reader sees the cards. */}}
+{{if eq $v.Lanes.By "tag"}}<p class="meta lanes-note">{{t "A task with several tags is drawn once, in the first lane among its tags. Its card lists them all."}}</p>{{end}}
+<div class="lanes" data-lanes-by="{{$v.Lanes.By}}">
 {{range $v.Lanes.Lanes}}
   {{$acc := index $v.Accent .Project.ID}}
-  <section class="lane{{with projClass $acc.Color}} {{.}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} id="lane-{{.Project.Key}}" data-lane="{{.Project.Key}}" data-group="{{.Head.Key}}">
+  <section class="lane{{if .Project.ID}}{{with projClass $acc.Color}} {{.}}{{end}}{{end}}{{if .Head.Collapsed}} is-collapsed{{end}}{{if .Head.Starred}} is-starred{{end}}"{{if .Project.ID}}{{with projStyle $acc.Color}} style="{{.}}"{{end}}{{end}} id="lane-{{.DOMKey}}" data-lane="{{.Head.Key}}" data-group="{{.Head.Key}}">
     <div class="grouphead">
-      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{template "proj-icon" (projIcon $acc true)}}<a href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a> <span class="meta">({{t "%d open" .Open}})</span></h2>
+      <h2>{{if .Head.Starred}}<svg class="icon groupstar" role="img" aria-label="{{t "Starred"}}" width="16" height="16"><title>{{t "Starred"}}</title><use href="/assets/icons.svg#star-filled"/></svg>{{end}}{{if .Project.ID}}{{template "proj-icon" (projIcon $acc true)}}<a class="lane-name" href="/tasks?q=project:{{.Project.Key}}" title="{{t "Only tasks in %s" .Project.Name}}">{{.Project.Name}}</a>{{else if .Head.Filter}}<a class="lane-name" href="{{.Head.Filter}}" title="{{t "Only tasks in %s" .Head.Name}}">{{.Head.Name}}</a>{{else}}<span class="lane-name" title="{{.Head.Name}}">{{.Head.Name}}</span>{{end}} <span class="meta lane-count">({{t "%d open" .Open}})</span></h2>
       {{template "group-menu" (groupMenu $v.Arrange .Head)}}
     </div>
     {{if not .Head.Collapsed}}
@@ -470,6 +367,7 @@
            assets/lanes.js puts focus back on the pressed control, and shows a
            refusal in the card instead of letting the error page replace it. */}}
       {{$card := printf "#t-%s" .Task.Ref}}
+      {{if $v.Bulk.Any}}{{template "rowpick" .Task.Ref}}{{end}}
       {{if .Tickable}}
       <form method="post" action="/tasks/{{.Task.Ref}}/transition" class="tick"
             hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
@@ -530,7 +428,7 @@
             <div id="lflow-{{.Task.Ref}}" class="flowmenu lanepop" popover>
               <p class="flowhead">{{t "Move"}} <span class="mono">{{ref .Task.Ref}}</span> {{t "from"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                    hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="status">
                 {{template "csrf" $.CSRF}}
                 <input type="hidden" name="next" value="{{$v.Self}}">
@@ -550,14 +448,14 @@
           {{$p := prio .Task.Priority}}
           {{if and ($.Columns.Show "tasks" "priority") .Prioritise}}
           <span class="priomenu">
-            <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio"
+            <button type="button" class="priobtn lanepill" popovertarget="lprio-{{.Task.Ref}}" data-focus="prio" data-shortcut-target="priority"
                     aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Task.Ref)}}" title="{{t "Change the priority of %s" (ref .Task.Ref)}}">
               <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
             </button>
             <div id="lprio-{{.Task.Ref}}" class="flowmenu priopop lanepop" popover>
               <p class="flowhead">{{t "Priority of"}} <span class="mono">{{ref .Task.Ref}}</span></p>
               <form method="post" action="/tasks/{{.Task.Ref}}/priority"
-                    hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
+                    hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
                     hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="prio">
                 {{template "csrf" $.CSRF}}
                 <input type="hidden" name="next" value="{{$v.Self}}">
@@ -573,6 +471,7 @@
             </div>
           </span>
           {{else if and ($.Columns.Show "tasks" "priority") (ne $p "normal")}}<a class="prio p-{{$p}}" href="/tasks?q=priority:{{$p}}" title="{{t "Only %s priority tasks" (t $p)}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</a>{{end}}
+          {{template "waitmark" .Task}}
           {{if and ($.Columns.Show "tasks" "repeat") .Task.Recurrence}}{{template "repeatmark" .Task.Recurrence}}{{end}}
           {{with .Task.Checklist}}{{template "checkmark" .}}{{end}}
           {{if $.Columns.Show "tasks" "tags"}}{{range .Task.Tags}}<a class="tagref" href="/tasks?q=tag:{{.}}" title="{{t "Only tasks tagged %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}}</a>{{end}}{{end}}
@@ -582,162 +481,12 @@
       </div>
       {{/* More actions: the one control the View menu cannot hide, so a
            reader who drew the cards down to titles still has the whole task
-           in reach. Everything in it is a form or a link to a route that
-           already exists, swapped into this card like the controls above. */}}
-      {{$ref := .Task.Ref}}
+           in reach. The same menu every view draws (partials.html
+           task-menu). */}}
+      {{$m := taskMenu $ .Task "lane"}}
       <div class="lanemore">
-        <button type="button" class="lanemore-btn" popovertarget="lmore-{{.Task.Ref}}" data-focus="more"
-                aria-label="{{t "More actions for %s" (ref .Task.Ref)}}" title="{{t "More actions"}}">
-          <svg aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#more"/></svg>
-        </button>
-        <div id="lmore-{{.Task.Ref}}" class="flowmenu lanepop lanemore-menu" popover data-lane-menu>
-          <p class="flowhead"><span class="mono">{{ref .Task.Ref}}</span></p>
-          <a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}">{{t "Open the task"}}</a>
-          <button type="button" class="flowgo" data-copy-link="/tasks/{{.Task.Ref}}">{{t "Copy link"}}</button>
-          <button type="button" class="flowgo" data-copy-text="{{ref .Task.Ref}}">{{t "Copy reference"}}</button>
-          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}?next={{$v.Self | urlquery}}" data-rename="{{.Task.Ref}}" data-version="{{.Task.Version}}" data-no-press>{{t "Rename"}}</a>{{end}}
-          {{if .Write}}<a class="flowgo" href="/tasks/{{.Task.Ref}}/copy?next={{$v.Self | urlquery}}" data-dialog-load data-copy-to>{{t "Copy to…"}}</a>
-          <a class="flowgo" href="/tasks/{{.Task.Ref}}/template" data-dialog-load>{{t "Save as template"}}</a>{{end}}
-          {{if $.CanStar}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}"
-                hx-post="/tasks/{{.Task.Ref}}/star{{if .Task.Starred}}/remove{{end}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            <button type="submit" class="flowgo">{{if .Task.Starred}}{{t "Unstar"}}{{else}}{{t "Star"}}{{end}}</button>
-          </form>
-          {{end}}
-
-          {{if .Write}}
-          {{if snoozed .Task}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/snooze/remove"
-                hx-post="/tasks/{{.Task.Ref}}/snooze/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            <button type="submit" class="flowgo">{{t "Unsnooze"}}</button>
-          </form>
-          {{else}}
-          <p class="flowhead lanemore-sect">{{t "Snooze"}}</p>
-          {{template "snooze-choices" (snoozeForm .Task.Ref $v.Self $.CSRF (print "lsnooze-" .Task.Ref) $card)}}
-          {{end}}
-          {{end}}
-
-          {{if or .Tick .Locked.Key}}
-          <p class="flowhead lanemore-sect">{{if .Finished}}{{t "Reopen"}}{{else}}{{t "Complete"}}{{end}}</p>
-          {{if .Tick}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            {{range .Tick}}
-            <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
-              <span class="flowto">{{.To.Label}}</span>
-              {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
-            </button>
-            {{end}}
-          </form>
-          {{else}}
-          {{$why := t .Locked.Key}}{{if .Locked.Arg}}{{$why = t .Locked.Key .Locked.Arg}}{{end}}
-          <p class="flowwhy">{{t "Not from the lane: %s." $why}}</p>
-          {{end}}
-          {{end}}
-
-          {{if or .Moves .Commented}}
-          <p class="flowhead lanemore-sect">{{t "Move"}} <span class="pill status {{categoryClass .Category}}">{{.Label}}</span></p>
-          {{if .Moves}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/transition"
-                hx-post="/tasks/{{.Task.Ref}}/transition" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            {{range .Moves}}
-            <button type="submit" name="route" value="{{.Value}}" class="flowgo{{if .MultiHop}} is-multi{{end}}">
-              <span class="flowto">{{.To.Label}}</span>
-              {{if .MultiHop}}<span class="flowvia">{{.Path}}</span>{{end}}
-              <span class="flowhops">{{tn "%d step" "%d steps" .Hops}}</span>
-            </button>
-            {{end}}
-          </form>
-          {{end}}
-          {{range .Commented}}
-          <a class="flowgo" href="/tasks/{{$ref}}?next={{$v.Self | urlquery}}" data-commented>
-            <span class="flowto">{{.To.Label}}</span>
-            <span class="flowhops">{{t "needs a comment"}}</span>
-          </a>
-          {{end}}
-          {{end}}
-
-          {{if .Prioritise}}
-          {{$p := prio .Task.Priority}}
-          <p class="flowhead lanemore-sect">{{t "Priority"}}</p>
-          <form method="post" action="/tasks/{{.Task.Ref}}/priority" class="lanemore-prio"
-                hx-post="/tasks/{{.Task.Ref}}/priority" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            {{range $.Data.Priorities}}
-            <button type="submit" name="priority" value="{{.Value}}" class="flowgo{{if eq .Label $p}} is-current{{end}}"{{if eq .Label $p}} aria-current="true"{{end}}>
-              <span class="prio p-{{.Label}}"><span class="caret" aria-hidden="true"></span>{{t .Label}}</span>
-            </button>
-            {{end}}
-          </form>
-          {{end}}
-
-          {{if .Write}}
-          <form method="post" action="/tasks/{{.Task.Ref}}" class="lanemore-field"
-                hx-post="/tasks/{{.Task.Ref}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            <input type="hidden" name="version" value="{{.Task.Version}}">
-            <input type="hidden" name="title" value="{{.Task.Title}}">
-            <label class="flowhead lanemore-sect" for="lwho-{{.Task.Ref}}">{{t "Assignee"}}</label>
-            <span class="lanemore-row">
-              <input id="lwho-{{.Task.Ref}}" name="assignee" list="lane-handles" autocomplete="off" value="{{$v.Names.Label .Task.AssigneeActorID}}">
-              <button type="submit" class="secondary">{{t "Save"}}</button>
-            </span>
-          </form>
-          <p class="flowhead lanemore-sect">{{t "Tags"}}</p>
-          {{if .Task.Tags}}
-          <ul class="tagchips lanemore-tags">
-            {{range .Task.Tags}}
-            <li>
-              <form method="post" action="/tasks/{{$ref}}/tags/remove"
-                    hx-post="/tasks/{{$ref}}/tags/remove" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                    hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-                {{template "csrf" $.CSRF}}
-                <input type="hidden" name="next" value="{{$v.Self}}">
-                <input type="hidden" name="tag" value="{{.}}">
-                <button class="tagdrop" type="submit" aria-label="{{t "Remove the tag %s" .}}" title="{{t "Remove the tag %s" .}}"><span class="hash" aria-hidden="true">#</span>{{.}} {{template "icon" "x"}}</button>
-              </form>
-            </li>
-            {{end}}
-          </ul>
-          {{end}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/tags" class="lanemore-field"
-                hx-post="/tasks/{{.Task.Ref}}/tags" hx-target="{{$card}}" hx-select="{{$card}}" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <input type="hidden" name="next" value="{{$v.Self}}">
-            <span class="lanemore-row">
-              <input id="ltag-{{.Task.Ref}}" name="tag" required placeholder="{{t "Add a tag"}}" aria-label="{{t "Add a tag"}}">
-              <button type="submit" class="secondary">{{t "Add"}}</button>
-            </span>
-          </form>
-          {{end}}
-
-          {{if .Delete}}
-          <form method="post" action="/tasks/{{.Task.Ref}}/delete?next={{$v.Self | urlquery}}" class="lanemore-delete"
-                hx-post="/tasks/{{.Task.Ref}}/delete?next={{$v.Self | urlquery}}" hx-target="{{$card}}" hx-select="{{$card}}" hx-select-oob="#toast" hx-swap="outerHTML"
-                hx-indicator="{{$card}}" hx-sync="closest .lane-card:drop" data-lane-control="more">
-            {{template "csrf" $.CSRF}}
-            <button type="submit" class="flowgo is-danger">{{t "Delete task"}}</button>
-          </form>
-          {{end}}
-          <button type="button" class="flowclose" popovertarget="lmore-{{.Task.Ref}}" popovertargetaction="hide">{{t "Close"}}</button>
-        </div>
+        {{template "task-menu-button" $m}}
+        {{template "task-menu" $m}}
       </div>
     </article>
     {{else}}
@@ -757,6 +506,10 @@
   {{range $v.Lanes.Stray}}<a href="/tasks/{{.Ref}}">{{ref .Ref}}</a> {{end}}
 </p>
 {{end}}
+{{/* Lanes are never paged: every lane would be cut at the same row of one
+     shared listing. They draw the first step of the selection and offer the
+     next here instead. */}}
+{{if $v.LanesMoreHref}}<a class="colmore lanes-more" href="{{$v.LanesMoreHref}}">{{tn "Show %d more" "Show %d more" $v.LanesMore}}</a>{{end}}
 {{else}}
 {{if eq $v.View "board"}}
 {{/* The reader asked for a board and is getting the list, so the screen says
@@ -827,6 +580,21 @@
   </li>
 {{end}}
 </ul>
+{{/* Purging cannot be undone, so a trash row's button only asks: the
+     dialog names the task and its red button is the one that deletes it for
+     good. The dialogs sit outside the list so one drawn in place without
+     scripting is not squeezed into a row. */}}
+{{if $v.Trash}}{{range $v.Tasks}}{{if .DeletedAt}}
+{{$sh := shell (print "task-purge-" .Ref) (t "Delete %s permanently?" (ref .Ref)) "confirm" $.Dialog $.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="purgeform" action="/tasks/{{.Ref}}/purge">
+  {{template "csrf" $.CSRF}}
+  <input type="hidden" name="next" value="{{$v.Self}}">
+  <p>{{t "%s and its subtasks in the trash are deleted for good, with their comments, links and attachments. It cannot be undone; the audit log keeps the record." (ref .Ref)}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button class="danger" type="submit">{{t "Delete permanently"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}{{end}}{{end}}
 {{end}}
 {{end}}
 
@@ -851,16 +619,20 @@
   {{/* data-inplace: the star, status and priority forms in this row swap
        this row and nothing else, the way the tick does. assets/feel.js
        reads it; without it they post and redirect like any form. */}}
-  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace>
+  {{$done := ""}}{{if not .DeletedAt}}{{$done = index $v.CompleteState .ProjectID}}{{end}}
+  {{/* data-swipe-*: what a finger swiping this row does on a touch screen
+       (assets/swipe.js): complete it, or snooze it until tomorrow morning.
+       Only a row with a tick gets either, and each only for a reader who
+       may do it, so every other row stays still under a finger. */}}
+  <li id="t-{{.Ref}}" class="task{{if .Blocked}} is-blocked{{end}}{{if .DeletedAt}} is-deleted{{end}}{{$mark}}{{if eq $r.FlashRef .Ref}} is-flashed{{end}}"{{with projStyle $acc.Color}} style="{{.}}"{{end}} tabindex="-1" data-shortcut-row{{if not .DeletedAt}} data-shortcut-href="/tasks/{{.Ref}}"{{end}} data-inplace{{if $done}}{{if and $v.Bulk.Move (not .CompletedAt)}} data-swipe-complete="/tasks/{{.Ref}}/complete"{{end}}{{if $v.Bulk.Write}} data-swipe-snooze="/tasks/{{.Ref}}/snooze" data-swipe-until="tomorrow"{{end}}{{end}}>
     {{/* The selection box belongs to the bar's form through its form
          attribute, so ticking rows and pressing an action posts the
          selection with scripting off too. assets/select.js adds the range,
          the keys and the count. The trash has no bar. */}}
-    {{if and (eq $v.View "list") $v.Bulk.Any (not .DeletedAt)}}<input type="checkbox" class="rowpick" name="ref" value="{{.Ref}}" form="bulkbar" aria-label="{{t "Select %s" (ref .Ref)}}" data-pick>{{end}}
+    {{if and $v.Bulk.Any (not .DeletedAt)}}{{template "rowpick" .Ref}}{{end}}
     {{/* A deleted task cannot be completed, moved or reprioritised, so its
          row offers none of that: no tick, plain status and priority, and
          Restore at the end, which is the one thing that can be done to it. */}}
-    {{$done := ""}}{{if not .DeletedAt}}{{$done = index $v.CompleteState .ProjectID}}{{end}}
     {{if $done}}
     {{/* Only this row is swapped, never the page.
 
@@ -975,7 +747,7 @@
       {{if .DeletedAt}}<span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
       {{else}}
       <span class="priomenu">
-        <button type="button" class="priobtn" data-focus="prio" popovertarget="prio-{{.Ref}}"
+        <button type="button" class="priobtn" data-focus="prio" data-shortcut-target="priority" popovertarget="prio-{{.Ref}}"
                 aria-label="{{t "Priority %s; change it for %s" (t $p) (ref .Ref)}}" title="{{t "Change the priority of %s" (ref .Ref)}}">
           <span class="prio p-{{$p}}{{if eq $p "normal"}} is-normal{{end}}"><span class="caret" aria-hidden="true"></span>{{t $p}}</span>
         </button>
@@ -1046,6 +818,7 @@
            or within the week and for nothing else. The word carries the
            meaning and the colour only reinforces it. */}}
       {{if $r.Columns.Show "tasks" "due"}}{{$due := due .}}{{if $due}}<a class="duemark is-{{$due}}" href="/tasks?due={{if eq $due "overdue"}}overdue{{else}}week{{end}}" title="{{t "Due %s" (stamp .DueAt)}}">{{if eq $due "overdue"}}{{t "overdue"}}{{else}}{{t "due this week"}}{{end}}</a>{{end}}{{end}}
+      {{template "waitmark" .}}
       {{if and .Recurrence ($r.Columns.Show "tasks" "repeat")}}{{template "repeatmark" .Recurrence}}{{end}}
       {{with .Checklist}}{{template "checkmark" .}}{{end}}
       {{if snoozed .}}<a class="snoozemark" href="/tasks?q=is:snoozed" title="{{t "Snoozed until %s" (stamp .SnoozedUntil)}}{{with $r.Data.Names.Label .SnoozedByActorID}}, {{t "snoozed by %s" .}}{{end}}">{{t "until %s" (stamp .SnoozedUntil)}}</a>{{end}}
@@ -1053,17 +826,38 @@
       {{if $r.Columns.Show "tasks" "updated"}}<span class="tm tm-when"><span class="when"><span class="when-label">{{t "updated"}}</span> {{when .UpdatedAt}}</span></span>{{end}}
       {{if $r.Columns.Show "tasks" "ref"}}<span class="tm tm-ref"><span class="ref mono">{{ref .Ref}}</span></span>{{end}}
     </span>
-    {{/* The whole listing and its count are swapped, not the row: a restored
-         task leaves the trash, and the count above it has to say so. */}}
-    {{if .DeletedAt}}<form method="post" class="restoreform"
-          hx-post="/tasks/{{.Ref}}/restore" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-select-oob="#tasks-summary,#toast" hx-swap="outerHTML"
-          action="/tasks/{{.Ref}}/restore">
-      {{template "csrf" $r.CSRF}}
-      <input type="hidden" name="next" value="{{$v.Self}}">
-      <button type="submit" class="secondary" aria-label="{{t "Restore %s" (ref .Ref)}}">{{t "Restore"}}</button>
-    </form>{{end}}
+    {{/* A trash row's three dots are the task menu's frame with the two
+         things that can be done to a deleted task. Restore swaps the whole
+         listing and its count, not the row: a restored task leaves the
+         trash, and the count above it has to say so. */}}
+    {{if .DeletedAt}}{{$m := taskMenu $r . "list"}}
+    <span class="rowmore">
+      {{template "task-menu-button" $m}}
+      {{template "task-menu-start" $m}}
+      <form method="post" class="restoreform"
+            hx-post="/tasks/{{.Ref}}/restore" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-select-oob="#tasks-summary,#toast" hx-swap="outerHTML"
+            action="/tasks/{{.Ref}}/restore">
+        {{template "csrf" $r.CSRF}}
+        <input type="hidden" name="next" value="{{$v.Self}}">
+        <button type="submit" class="flowgo" data-menu-item="restore" aria-label="{{t "Restore %s" (ref .Ref)}}">{{t "Restore"}}</button>
+      </form>
+      <div class="lanemore-delete">{{template "dlg-open" ((opener (print "task-purge-" .Ref) (t "Delete permanently") "trash" "flowgo is-danger purgeopen" $r.Here).Named (t "Delete %s permanently" (ref .Ref)))}}</div>
+      {{template "task-menu-end" $m}}
+    </span>
+    {{else}}{{template "row-more" (taskRow $r .)}}{{end}}
   </li>
 {{end}}{{end}}
+
+{{/* row-more is a list row's three dots: the task menu every view draws
+     (partials.html task-menu), with Select added for the list's selection.
+     The row is data-inplace, so a form in it swaps the row and the toast
+     and nothing else. */}}
+{{define "row-more"}}{{$m := taskMenu .Root .Task "list"}}
+  <span class="rowmore">
+    {{template "task-menu-button" $m}}
+    {{template "task-menu" $m}}
+  </span>
+{{end}}
 
 {{/* Add with details. The title leads and is the one large control, because
      it is the only thing the form needs; the description is under it, and
@@ -1148,7 +942,7 @@
         {{with $e.On "parent"}}{{template "field-error" .}}{{end}}
       </div>
       <div class="cfield">
-        <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as blocked until they are.")}}</div>
+        <div class="cfield-label"><label for="new-depends">{{t "Depends on"}}</label>{{template "tip" (tip "Dependencies" "Tasks that have to be finished before this one can start, comma separated. The task is shown as waiting on them until they are.")}}</div>
         <input id="new-depends" name="depends_on" value="{{$f.DependsOn}}" class="mono" autocomplete="off" placeholder="{{"proj-42, proj-7"}}"{{$e.Attrs "depends_on"}}>
         {{with $e.On "depends_on"}}{{template "field-error" .}}{{end}}
       </div>
@@ -1177,6 +971,17 @@
      only the one the action needs is read. Drawn with scripting off and
      usable then; assets/select.js hides it until a row is selected and
      counts the selection. */}}
+{{/* rowpick is a row's or a card's selection box. It belongs to the bar's
+     form through its form attribute, so ticking and pressing an action
+     posts the selection with scripting off too. Shown only in select mode. */}}
+{{/* A task waiting on an unfinished dependency says which one, on every
+     card and row: the first reference, or a count when there are several,
+     with all of them in the tooltip. A blocked workflow state is a column;
+     this is a property of the task, so it is worded differently. */}}
+{{define "waitmark"}}{{with .WaitingOn}}<a class="waitmark" href="/tasks/{{index . 0}}" title="{{t "Waiting on"}} {{range $i, $d := .}}{{if $i}}, {{end}}{{ref $d}}{{end}}">{{template "icon" "hourglass"}}{{if eq (len .) 1}}{{t "waiting on %s" (ref (index . 0))}}{{else}}{{tn "waiting on %d task" "waiting on %d tasks" (len .)}}{{end}}</a>{{end}}{{end}}
+
+{{define "rowpick"}}<input type="checkbox" class="rowpick" name="ref" value="{{.}}" form="bulkbar" aria-label="{{t "Select %s" (ref .)}}" data-pick>{{end}}
+
 {{define "bulk-bar"}}{{$v := .Data}}{{$b := $v.Bulk}}
 <form id="bulkbar" class="bulkbar" method="post" action="/tasks/bulk" data-bulkbar aria-label="{{t "Selected tasks"}}">
   {{template "csrf" .CSRF}}
@@ -1219,6 +1024,7 @@
       <datalist id="bulk-handles">{{range $v.Names.Handles}}<option value="{{.}}"></option>{{end}}</datalist>
       <div class="bulkpair">
         <button type="submit" id="bulk-who-set" formaction="/tasks/bulk?action=assign">{{t "Assign"}}</button>
+        <button type="submit" class="secondary" formaction="/tasks/bulk?action=assign" name="assign_me" value="1">{{t "Assign to me"}}</button>
       </div>
       <button type="button" class="flowclose" popovertarget="bulk-who" popovertargetaction="hide">{{t "Close"}}</button>
     </div>
@@ -1239,10 +1045,21 @@
       </div>
       <button type="button" class="flowclose" popovertarget="bulk-copy" popovertargetaction="hide">{{t "Close"}}</button>
     </div>
+    <button type="button" class="secondary" popovertarget="bulk-rehome">{{t "Move to…"}}</button>
+    <div id="bulk-rehome" class="flowmenu bulkpop" popover>
+      <label class="flowhead" for="bulk-rehome-project">{{t "Move the selected tasks to"}}</label>
+      <select id="bulk-rehome-project" name="move_project">
+        {{range $v.Projects}}<option value="{{.Key}}">{{projLabel $.ProjectLabel .}}</option>{{end}}
+      </select>
+      <div class="bulkpair">
+        <button type="submit" formaction="/tasks/bulk?action=move_project">{{t "Move"}}</button>
+      </div>
+      <button type="button" class="flowclose" popovertarget="bulk-rehome" popovertargetaction="hide">{{t "Close"}}</button>
+    </div>
     {{end}}
     {{if $b.Delete}}<button type="submit" class="secondary" formaction="/tasks/bulk?action=delete">{{t "Delete"}}</button>{{end}}
-    <button type="reset" class="secondary" data-bulk-clear>{{t "Clear"}}</button>
-    {{template "tip" (tip "Bulk actions" "Tick rows, or press x on a focused row; shift-click ticks a range, Ctrl+A ticks every row while the list has focus and Escape clears. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
+    <a class="btn secondary" href="{{$v.SelectHref}}" data-select-exit data-no-press>{{t "Cancel"}}</a>
+    {{template "tip" (tip "Bulk actions" "Select turns on the boxes; so do x on a focused row, Shift- or Ctrl-click on a row's empty space, and a long press on a touch screen. Shift-click ticks a range, Shift+arrows extend it, Ctrl+A ticks every row, and Escape or Cancel leaves. Each action is one request; every task is changed on its own, and the toast names any that were refused and why. A bulk delete can be undone from the toast." "docs/web-ui.md")}}
   </div>
 </form>
 {{end}}
@@ -1266,3 +1083,351 @@
   </li>{{end}}
 </ul>{{end}}
 {{end}}
+
+{{/* Export writes this project's tasks to a file. The download streams, so
+     a project of any size costs the server a page of tasks at a time. A
+     refusal, a filter that does not parse, comes back with the dialog open,
+     every choice kept and the reason under the field. */}}
+{{define "export-dialog"}}{{$p := .Page}}{{$f := .Form}}{{$d := $p.Dialog.For "export"}}{{$e := $d.Errors}}
+{{$sh := shell "export" (t "Export tasks of %s" $p.Data.Scope.Project.Name) "wide" $p.Dialog $p.Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="exportform" hx-boost="false" action="/projects/{{$p.Data.Scope.Project.Key}}/tasks/export">
+  {{template "csrf" $p.CSRF}}
+  <p class="note"><strong>{{t "Looking at one task?"}}</strong> {{t "Open it, or run tix task show REF -o json. No export needed."}}</p>
+  {{with $e.On ""}}{{template "field-error" .}}{{end}}
+  <div class="exportgrid">
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-format">{{t "Format"}}</label></div>
+      <select id="export-format" name="format"{{$e.Attrs "format"}}>
+        {{range $f.Formats}}<option value="{{.}}"{{if $d.Chose "format" (print .)}} selected{{end}}>{{t (exportFormat .)}}</option>{{end}}
+      </select>
+      {{with $e.On "format"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-dates">{{t "Dates"}}</label></div>
+      <select id="export-dates" name="dates"{{$e.Attrs "dates"}}>
+        <option value="iso"{{if $d.Chose "dates" "iso"}} selected{{end}}>{{t "ISO 8601, for programs"}}</option>
+        <option value="date"{{if $d.Chose "dates" "date"}} selected{{end}}>{{t "Day only, YYYY-MM-DD"}}</option>
+        <option value="display"{{if $d.Chose "dates" "display"}} selected{{end}}>{{t "As I read them, for a spreadsheet"}}</option>
+      </select>
+      {{with $e.On "dates"}}{{template "field-error" .}}{{end}}
+    </div>
+    <div class="cfield">
+      <div class="cfield-label"><label for="export-delimiter">{{t "CSV separator"}}</label></div>
+      <select id="export-delimiter" name="delimiter"{{$e.Attrs "delimiter"}}>
+        {{range $f.Delimiters}}<option value="{{.}}"{{if $d.Chose "delimiter" .}} selected{{end}}>{{t (delimiterLabel .)}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div class="cfield">
+    <div class="cfield-label"><label for="export-q">{{t "Filter"}}</label></div>
+    <input id="export-q" name="q" class="mono" value="{{$d.Value "q"}}" placeholder="{{t "tag:infra priority:high"}}" autocomplete="off" aria-describedby="export-q-hint"{{$e.Attrs "query"}}>
+    <p class="cfield-hint" id="export-q-hint">{{t "The same filter the task list takes. Empty exports every task of the project."}}</p>
+    {{with $e.On "query"}}{{template "field-error" .}}{{end}}
+  </div>
+  <fieldset class="cform-group exportwhich">
+    <legend>{{t "Include"}}</legend>
+    <label for="export-finished"><input id="export-finished" type="checkbox" name="finished" value="1"{{if $d.Checked "finished" true}} checked{{end}}> {{t "Finished tasks"}}</label>
+    <label for="export-subtasks"><input id="export-subtasks" type="checkbox" name="subtasks" value="1"{{if $d.Checked "subtasks" true}} checked{{end}}> {{t "Subtasks"}}</label>
+    <label for="export-trashed"><input id="export-trashed" type="checkbox" name="trashed" value="1"{{if $d.Checked "trashed" false}} checked{{end}}> {{t "Tasks in the trash"}}</label>
+  </fieldset>
+  <fieldset class="cform-group exportcols"{{$e.Attrs "columns"}}>
+    <legend>{{t "Columns"}}</legend>
+    <p class="cfield-hint">{{t "Ticked columns are written in this order. Move a column up or down with its arrows."}}</p>
+    <ol class="colorder" data-colorder>
+      {{range $f.Columns}}<li><label for="export-col-{{.Key}}"><input id="export-col-{{.Key}}" type="checkbox" name="column" value="{{.Key}}"{{if $d.Refused}}{{if $d.Chose "column" .Key}} checked{{end}}{{else if .Checked}} checked{{end}}> <span>{{t .Label}}</span> <code class="meta">{{.Key}}</code></label><span class="colmove" data-needs-js><button type="button" class="ghost" data-colmove="up" aria-label="{{t "Move %s up" (t .Label)}}" title="{{t "Move up"}}">{{template "icon" "arrow-up"}}</button><button type="button" class="ghost" data-colmove="down" aria-label="{{t "Move %s down" (t .Label)}}" title="{{t "Move down"}}">{{template "icon" "arrow-down"}}</button></span></li>{{end}}
+    </ol>
+    {{with $e.On "columns"}}{{template "field-error" .}}{{end}}
+  </fieldset>
+  <p class="cfield-hint">{{t "A CSV cell that starts with = + - or @ gets a leading quote, so a spreadsheet shows it as text instead of running it."}}</p>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{template "icon" "download"}}<span>{{t "Download"}}</span></button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+
+{{/* The view switch on a task screen: one link per drawing, each carrying
+     the query the screen was drawn under with its own view, so the filter,
+     the sort and the project survive the press, the address says what is
+     drawn, and it works without scripting. The settings screen keeps the
+     form that sets the remembered view (partials.html taskview-switch).
+     Replaced after an in-place filter (assets/feel.js), never by a live
+     refresh. The swap keeps the scroll where it was. */}}
+{{define "taskview-links"}}
+<nav class="viewswitch viewlinks" id="tasks-views" data-shortcut-target="switchView" aria-label="{{t "How to draw the tasks"}}" hx-swap="innerHTML show:none">
+  <span class="viewswitch-label" id="viewswitch-label">{{t "View as"}}</span>
+  <div class="segmented" role="group" aria-labelledby="viewswitch-label">
+    {{range .Views}}<a class="segment{{if .Selected}} is-on{{end}}" href="{{.Href}}" data-view="{{.Value}}"{{if .Selected}} aria-current="page"{{end}}>{{t .Label}}</a>{{end}}
+  </div>
+  {{template "tip" (tip "Views" "The same tasks, drawn three ways. List is one row per task. Board is one column per workflow state, so it needs the listed projects to share their states. Lanes is one lane per project, person, priority, tag or deadline, with finished tasks ticked in place. Switching keeps the filter, the sort and the project." "docs/web-ui.md")}}
+</nav>
+{{end}}
+
+{{/* What each lane is, only where there are lanes. A GET form carrying the
+     rest of the address, so it works without scripting and keeps the filter;
+     assets/lanes.js submits it on change and hides Apply. Beside the switch
+     rather than in it, which stays links; feel.js redraws it with the switch
+     after an in-place filter, so its fields carry what was just typed. */}}
+{{define "lanesby"}}
+<div id="tasks-lanesby" class="lanesby-wrap">
+  {{if eq .View "lanes"}}
+  <form method="get" action="{{.LanesForm.Route}}" class="lanesby" data-lanesby>
+    {{range .LanesForm.Keep}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+    <label class="viewswitch-label" for="lanesby-pick">{{t "Group lanes by"}}</label>
+    <select id="lanesby-pick" name="lanes">{{range .LanesForm.Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}</select>
+    <button type="submit" class="secondary" data-lanesby-apply>{{t "Apply"}}</button>
+    {{template "tip" (tip "Group lanes by" "Each lane is a project, a person, a priority, a tag or a deadline. A task with several tags is drawn once, in the first lane among its tags. The choice is in the address, so a link keeps it; the task list also remembers it in this browser." "docs/web-ui.md")}}
+  </form>
+  {{end}}
+</div>
+{{end}}
+
+{{/* The filter toolbar, the one strip of controls above the task list and a
+     project's page. It replaced a filter row, a Save this filter row, a lanes
+     bar and the header's view switch, Group lanes by and View menu, which on
+     a laptop stood between the heading and the first row at the same weight
+     and on a phone wrapped into rows of their own.
+
+     One GET form (display: contents, so its box and the buttons after it are
+     one flex row). Filters is a popover inside it, so its pickers are fields of
+     the form. Sort and More are popovers outside it because they hold forms of
+     their own; the filter fields in them name the form with form="filterbar".
+     Every popover opens from popovertarget, so all of it works with scripting
+     off. The pickers that edit the expression submit pick_ fields, which the
+     screen folds into q and redirects (filterbar.go). */}}
+{{define "filter-toolbar"}}{{$v := .Data}}
+<div class="tbar" id="tasks-toolbar" data-filter-toolbar>
+<form method="get" action="{{$v.Route}}" class="filterbar" id="filterbar" role="search">
+  {{/* The view the address named rides along, so Apply keeps the drawing. */}}
+  {{with $v.ViewAsked}}<input type="hidden" name="view" value="{{.}}">{{end}}
+  {{with $v.LanesAsked}}<input type="hidden" name="lanes" value="{{.}}">{{end}}
+  {{if $v.Selecting}}<input type="hidden" name="select" value="1">{{end}}
+  <span class="tbar-q">
+    <svg class="tbar-qicon" aria-hidden="true" width="16" height="16"><use href="/assets/icons.svg#search"/></svg>
+    <input name="q" value="{{$v.Query}}" placeholder="{{t "Filter, for example tag:ops due:week @raj"}}" aria-label="{{t "Filter"}}" data-shortcut-target="filter" autocomplete="off" spellcheck="false" data-suggest="filter-suggest">
+    {{/* The form's default button, so Enter in any of its fields applies. */}}
+    <button type="submit" class="sr-only">{{t "Apply"}}</button>
+  </span>
+  <button type="button" class="secondary tbar-btn filterbtn" popovertarget="fb-filters" title="{{t "Filters"}}">
+    {{template "icon" "filter"}}<span class="tbar-label">{{t "Filters"}}</span><span id="tasks-filtercount" class="tbar-countwrap">{{template "filter-count" $v}}</span>{{template "icon" "chevron-down"}}
+  </button>
+  <div id="fb-filters" class="flowmenu tbarpop" popover>
+    <p class="flowhead">{{t "Filters"}}</p>
+    <div class="tbar-fields">
+      {{/* A project's page is its project, so it offers no project. */}}
+      {{if not $v.Scope}}
+      <label class="tbar-field"><span>{{t "Project"}}</span>
+        <select name="project">
+          <option value="">{{t "any project"}}</option>
+          {{range $v.ProjectPicks}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      {{end}}
+      <label class="tbar-field"><span>{{t "Assignee"}}</span>
+        <input name="pick_assignee" value="{{$v.Pickers.Assignee}}" list="fb-people" placeholder="{{t "a handle, or me"}}" autocomplete="off">
+      </label>
+      <input type="hidden" name="was_assignee" value="{{$v.Pickers.Assignee}}">
+      <datalist id="fb-people">{{range $v.Suggest.Person}}<option value="{{.}}"></option>{{end}}</datalist>
+      <label class="tbar-field"><span>{{t "Tag"}}</span>
+        <input name="pick_tag" list="fb-tags" placeholder="{{t "add a tag"}}" autocomplete="off">
+      </label>
+      <datalist id="fb-tags">{{range $v.Tags}}<option value="{{.Name}}"></option>{{end}}</datalist>
+      <label class="tbar-field"><span>{{t "Status"}}</span>
+        <select name="pick_status">
+          <option value="">{{t "any status"}}</option>
+          {{if index $v.Pickers.Several "status"}}<option value="*" selected>{{t "as typed"}}</option>{{end}}
+          {{range $v.Pickers.Status}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <input type="hidden" name="was_status" value="{{$v.Pickers.StatusWas}}">
+      <label class="tbar-field"><span>{{t "Priority"}}</span>
+        <select name="pick_priority">
+          <option value="">{{t "any priority"}}</option>
+          {{if index $v.Pickers.Several "priority"}}<option value="*" selected>{{t "as typed"}}</option>{{end}}
+          {{range $v.Pickers.Priority}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{t .Label}}</option>{{end}}
+        </select>
+      </label>
+      <input type="hidden" name="was_priority" value="{{$v.Pickers.PriorityWas}}">
+      {{/* The deadline control. What it selects is answered as a due: term by
+           the shared parser, so it is sayable in the box too. */}}
+      <label class="tbar-field"><span>{{t "Due"}}</span>
+        <select name="due">
+          <option value="">{{t "any deadline"}}</option>
+          {{range $v.DueWindows}}<option value="{{.}}" {{if eq . $v.Due}}selected{{end}}>{{t .}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    {{if not (or $v.Mine $v.Trash)}}
+    <label class="tbar-check"><input type="checkbox" name="all" value="1"{{if $v.AllAsked}} checked{{end}}> {{t "Include finished tasks"}}</label>
+    {{end}}
+    {{if eq $v.View "lanes"}}
+    {{/* Rendered hidden: with scripting off it could do nothing, and finished
+         cards are shown, which is its default anyway. assets/lanes.js. */}}
+    <div class="tbar-check"><button type="button" class="secondary lanes-completed" data-lanes-completed aria-pressed="true" hidden>{{t "Show completed"}}</button>{{template "tip" (tip "Show completed" "Shows or hides finished cards in the lanes. The choice is remembered in this browser only." "docs/web-ui.md")}}</div>
+    {{end}}
+    <div class="tbar-foot">
+      <button type="submit">{{t "Apply"}}</button>
+      {{if $v.Filtering}}<a class="secondary clear" href="{{$v.ClearHref}}">{{t "Clear all"}}</a>{{end}}
+      {{template "tip" (tip "Filter" "Terms are combined: status:todo tag:ops assignee:lena is:starred is:recurring is:snoozed due:overdue. A leading - excludes a term, as in -tag:chore, title~api matches part of a title, and a bare word searches titles and descriptions." "docs/filtering.md")}}
+    </div>
+    <button type="button" class="flowclose" popovertarget="fb-filters" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</form>
+
+<button type="button" class="secondary tbar-btn sortbtn" popovertarget="fb-sort" title="{{t "Sort"}}">
+  {{template "icon" "sort"}}<span class="tbar-label">{{t "Sort"}}</span>{{template "icon" "chevron-down"}}
+</button>
+{{/* The view switch: one selection, three drawings. The trash is always
+     the list and My work always the list by deadline, so neither has it. */}}
+{{if not (or $v.Mine $v.Trash)}}{{template "taskview-links" $v}}{{end}}
+{{/* Select mode. The boxes and the bar are drawn always and shown only
+     while this is pressed (470-bulk-select.css), so every redraw of the rows
+     keeps the mode: the toggle sits outside every swapped region. A link
+     without scripting; select.js presses it in place. */}}
+{{if and $v.Bulk.Any $v.Tasks}}
+<a class="btn secondary selecttoggle" id="select-toggle" href="{{$v.SelectHref}}" role="button" aria-pressed="{{if $v.Selecting}}true{{else}}false{{end}}" data-select-toggle data-no-press title="{{t "Select"}}">{{template "icon" "checklist"}}<span class="btn-label tbar-label">{{t "Select"}}</span></a>
+{{end}}
+
+<div class="colmenu listprefs">
+  <button type="button" class="secondary tbar-btn colmenu-open morebtn" popovertarget="viewprefs" aria-label="{{t "More"}}" title="{{if $v.Hidden}}{{t "%d hidden" $v.Hidden}}{{else}}{{t "More"}}{{end}}">
+    {{template "icon" "more"}}{{if $v.Hidden}}<span class="tbar-count">{{$v.Hidden}}</span>{{end}}
+  </button>
+  <div id="viewprefs" class="flowmenu colpop viewpop" popover>
+    <div class="body viewgrid">
+      {{if .ColumnForm.Configurable}}
+      <section>
+        <p class="viewhead">{{t "Columns"}}</p>
+        {{template "column-choices" .ColumnForm}}
+        {{/* Export takes what this screen shows: the filter, the deadline
+             window, the sort, the visible projects and the columns ticked
+             just above. */}}
+        <div class="headtip viewexport"><a class="secondary exportlink" href="{{$v.ExportHref}}" download>{{t "Export CSV"}}</a>{{template "tip" (tip "Export CSV" "Downloads every task this filter selects, up to 10000, with the title and the columns ticked above. A cell a spreadsheet would read as a formula starts with a quote." "docs/web-ui.md")}}</div>
+      </section>
+      {{end}}
+      <section class="viewstack">
+        {{if not $v.Mine}}
+        <div class="viewblock">
+          <p class="viewhead">{{t "Page size"}}</p>
+          <div class="tbar-inline">
+            <select name="limit" form="filterbar" aria-label="{{t "Page size"}}">
+              <option value="">{{t "%d per page (default)" $v.DefaultSize}}</option>
+              {{range $v.PageSizes}}<option value="{{.}}"{{if eq (print .) $v.PageSize}} selected{{end}}>{{t "%d per page" .}}</option>{{end}}
+            </select>
+            <button type="submit" class="secondary" form="filterbar">{{t "Apply page size"}}</button>
+          </div>
+        </div>
+        {{end}}
+        <div class="viewblock">
+          <p class="viewhead">{{t "Saved filters"}}</p>
+          {{if and $v.Filtering (not $v.FilterError)}}
+          {{template "dlg-open" (opener "savefilter" (t "Save this filter") "filter" "secondary savefilter-open" .Here)}}
+          {{end}}
+          {{if .Saved.Items}}
+          <ul class="tbar-saved">{{range .Saved.Items}}<li><a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{.Name}}</a></li>{{end}}</ul>
+          <p class="meta">{{t "Rename, share, reorder or delete them in the sidebar, under Tasks."}}</p>
+          {{else if not (and $v.Filtering (not $v.FilterError))}}<p class="meta">{{t "Filter the list, then save it here."}}</p>{{end}}
+        </div>
+        {{/* The groups this reader hid on the view in force, the same Show
+             forms as the Hidden control at the end of the view. Replaced out
+             of band when a heading menu changes the arrangement. */}}
+        <div class="viewblock{{if not $v.Arrange.View}} is-empty{{end}}" id="view-groups">
+          {{if $v.Arrange.View}}
+          <div class="headtip"><p class="viewhead">{{if eq $v.Arrange.View "lanes"}}{{t "Hidden lanes"}}{{else if eq $v.Arrange.View "mine"}}{{t "Hidden groups"}}{{else}}{{t "Hidden columns"}}{{end}}</p>{{template "tip" (tip "Arranging columns and lanes" "The three dots on a column, lane or group heading hide, star, collapse or move it. The arrangement is yours, kept with your account, so it follows you to any browser and changes nothing anybody else sees." "docs/web-ui.md")}}</div>
+          {{if $v.Arrange.Hidden}}<div class="viewgroups">{{template "group-shows" (groupMenu $v.Arrange (groupHeadNone))}}</div>
+          {{else}}<p class="meta">{{t "None hidden."}}</p>{{end}}
+          {{if $v.Arrange.Stored}}
+          <form method="post" action="/view/reset" hx-post="/view/reset" hx-target="#tasks-listing" hx-select="#tasks-listing" hx-swap="outerHTML" hx-select-oob="#view-groups">
+            {{template "csrf" .CSRF}}
+            <input type="hidden" name="view" value="{{$v.Arrange.View}}">
+            <input type="hidden" name="next" value="{{$v.Self}}">
+            <button type="submit" class="secondary">{{t "Reset the arrangement"}}</button>
+          </form>
+          {{end}}
+          {{end}}
+        </div>
+        <div class="viewblock">
+          <div class="headtip"><p class="viewhead">{{t "Projects"}}</p>{{template "tip" (tip "Project visibility" "Untick a project to leave its tasks out of this screen. The choice is kept in this browser only, and a filter that names a project shows it anyway." "docs/web-ui.md")}}</div>
+          {{template "project-choices" $v.Prefs.Projects}}
+        </div>
+      </section>
+    </div>
+    <button type="button" class="flowclose" popovertarget="viewprefs" popovertargetaction="hide">{{t "Close"}}</button>
+  </div>
+</div>
+{{/* After the switch in the document, though it opens from Sort: a
+     popover hangs off its button wherever it is written. */}}
+<div id="fb-sort" class="flowmenu tbarpop" popover>
+  <p class="flowhead">{{t "Sort"}}</p>
+  <div class="tbar-fields">
+    <label class="tbar-field"><span>{{t "Sort by"}}</span>
+      <select name="sort" form="filterbar">
+        {{range $v.SortFields}}<option value="{{.}}" {{if eq . $v.Sort}}selected{{end}}>{{t .}}</option>{{end}}
+      </select>
+    </label>
+    <label class="tbar-field"><span>{{t "Order"}}</span>
+      <select name="order" form="filterbar">
+        <option value="">{{t "ascending"}}</option>
+        <option value="desc"{{if eq $v.Order "desc"}} selected{{end}}>{{t "descending"}}</option>
+      </select>
+    </label>
+  </div>
+  <div class="tbar-foot">
+    <button type="submit" form="filterbar">{{t "Apply"}}</button>
+    {{template "tip" (tip "Stars" "Your starred tasks always come first, under every sort. A star is yours alone: it never reorders anyone else's list. Filter with is:starred to see only them." "docs/filtering.md")}}
+  </div>
+  {{if and (eq $v.View "list") (not $v.Mine)}}
+  <div class="tbar-section">
+    <div class="headtip"><p class="viewhead">{{t "Group the list"}}</p>{{template "tip" (tip "Grouping" "Draws a heading per project or per status over the rows of this page. Each heading has the same menu as a lane or a board column, and shares its arrangement." "docs/web-ui.md")}}</div>
+    {{template "listgroup-switch" $v.Prefs.ListGroup}}
+  </div>
+  {{end}}
+  {{if not (or $v.Mine $v.Trash)}}{{template "lanesby" $v}}{{end}}
+  <button type="button" class="flowclose" popovertarget="fb-sort" popovertargetaction="hide">{{t "Close"}}</button>
+</div>
+
+<script type="application/json" id="filter-suggest">{{$v.Suggest}}</script>
+</div>
+{{end}}
+
+{{/* What the toolbar draws under the row it shares with quick add: the
+     terms in force, a refused filter and the Save this filter dialog. */}}
+{{define "filter-under"}}{{$v := .Data}}
+<div id="tasks-chips">{{template "filter-chips" $v}}</div>
+{{/* A filter that names something this tenant does not have is a typo in a
+     box, not a missing page: the message sits under the bar, with the
+     expression still in the box. */}}
+{{if $v.FilterError}}
+<p class="filterfault" role="alert">{{$v.FilterError}}</p>
+{{end}}
+{{if and $v.Filtering (not $v.FilterError)}}
+{{$sh := shell "savefilter" (t "Save this filter") "" .Dialog .Here}}
+{{template "dlg-start" $sh}}
+<form method="post" class="savefilter-form" action="/filters">
+  {{template "csrf" .CSRF}}
+  <input type="hidden" name="q" value="{{$v.Query}}">
+  <input type="hidden" name="due" value="{{$v.Due}}">
+  <input type="hidden" name="project" value="{{$v.Project}}">
+  <input type="hidden" name="sort" value="{{$v.Sort}}">
+  <input type="hidden" name="view" value="{{$v.View}}">
+  <p class="meta">{{t "A saved filter keeps this filter, its sort and the view under a name in the sidebar, under Tasks. It is yours; a shared one is listed for everybody in the tenant, and only you or an administrator can change it."}}</p>
+  <label for="savefilter-name">{{t "Name"}}</label>
+  <input id="savefilter-name" name="name" required maxlength="80" placeholder="{{t "For example, my overdue work"}}">
+  <label class="savefilter-share"><input type="checkbox" name="shared" value="1"> {{t "Share with everyone in the tenant"}}</label>
+  <div class="actiondlg-foot">{{template "dlg-cancel" $sh.Back}}<button type="submit">{{t "Save"}}</button></div>
+</form>
+{{template "dlg-end"}}
+{{end}}
+{{end}}
+
+{{/* How many terms the toolbar is answering, on the Filters button. Redrawn
+     with the listing when the box narrows it in place. */}}
+{{define "filter-count"}}{{with len .Chips}}<span class="tbar-count" aria-label="{{tn "%d filter in force" "%d filters in force" .}}">{{.}}</span>{{end}}{{end}}
+
+{{/* The terms in force, one chip each, under the toolbar. A chip's x is a
+     plain link to the same screen without that one term, so removing it
+     works without scripting and the address stays what a link shares. */}}
+{{define "filter-chips"}}{{if .Chips}}
+<ul class="fbchips" aria-label="{{t "Filters in force"}}">
+  {{range .Chips}}<li class="fbchip{{if .Negated}} is-negated{{end}}"><span class="fbchip-text">{{if eq .Key "all"}}{{t "including finished"}}{{else}}{{.Label}}{{end}}</span><a class="fbchip-x" href="{{.Href}}" aria-label="{{t "Remove %s" .Raw}}" title="{{t "Remove %s" .Raw}}">{{template "icon" "x"}}</a></li>{{end}}
+  <li><a class="fbchips-clear" href="{{.ClearHref}}">{{t "Clear all"}}</a></li>
+</ul>
+{{end}}{{end}}

@@ -57,7 +57,7 @@ func TestARenamedTwoTenantPersonReadsBackUnderTheNewName(t *testing.T) {
 	if err != nil || got.DisplayName != "Pat Renamed" {
 		t.Errorf("GetUser after the rename = %+v, %v; want \"Pat Renamed\"", got, err)
 	}
-	listed, _, err := h.server.ListUsers(h.adminCtx, core.Page{})
+	listed, _, err := h.server.ListUsers(h.adminCtx, core.UserFilter{})
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}

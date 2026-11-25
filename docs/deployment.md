@@ -17,7 +17,14 @@ service code, so a direct write is visible to a subscriber on the server immedia
 | `--listen` | `127.0.0.1:8080` | address to bind |
 | `--tls-cert, --tls-key` | (none) | serve HTTPS |
 | `--insecure-no-tls` | off | allow a non-loopback bind without TLS |
-| `--max-body-bytes` | 1 MiB | request body cap, except a task import, which `server.max_import_bytes` caps (32 MiB) |
+| `--max-body-bytes` | 1 MiB | request body cap, except a task import, which `server.max_import_bytes` caps (32 MiB), and an artifact upload, which takes room for `artifacts.max_bytes` |
+| `--artifact-max-bytes` | 1 MiB | largest artifact blob, `artifacts.max_bytes`; a tenant may only lower it |
+| `--session-ttl` | 12h | how long a sign-in lasts, renewed by each use, `session.ttl`; a tenant may only shorten it |
+| `--session-max-lifetime` | 720h (30d) | how long after sign-in use can keep a session alive, `session.max_lifetime`; 0 turns renewal off |
+| `--session-remember-max-lifetime` | 2160h (90d) | the same for Keep me signed in, `session.remember_max_lifetime` |
+| `--session-idle-timeout` | 0 (off) | end sessions unused this long, `session.idle_timeout` |
+| `--session-remember-ttl` | 720h (30d) | how long Keep me signed in lasts, `session.remember_ttl`; 0 stops offering it |
+| `--artifact-allowed-types` | images, PDF, text, data, archives | media types an artifact blob may carry, `artifacts.allowed_types` |
 | `--request-timeout` | 30s | per-request timeout |
 | `--shutdown-timeout` | | how long shutdown waits for in-flight requests |
 | `--sweep-interval` | `1m` | how often expired leases are swept |
@@ -41,9 +48,10 @@ The four `--ssh-*` flags belong to the same command and are listed with the list
 [Both listeners in one process](#both-listeners-in-one-process). Together the two tables are every flag
 `tix serve` registers, and a test asserts it.
 
-Two settings that shape how the server is reached have no flag and are set from configuration only:
-`server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES` and `server.cookie_security` /
-`TIX_SERVER_COOKIE_SECURITY`. See [configuration.md](configuration.md).
+Three settings that shape how the server is reached have no flag and are set from configuration only:
+`server.trusted_proxies` / `TIX_SERVER_TRUSTED_PROXIES`, `server.cookie_security` /
+`TIX_SERVER_COOKIE_SECURITY` and `server.public_url` / `TIX_SERVER_PUBLIC_URL`. See
+[configuration.md](configuration.md).
 
 The `--log-*` flags are global rather than serve's own, so they are not in the table above. See
 [Logs](#logs).
@@ -52,6 +60,113 @@ The `--log-*` flags are global rather than serve's own, so they are not in the t
 
 `tix serve` logs to stderr in text at `info`, which is what a supervisor collects and what `journalctl -u tix`
 shows. Nothing needs configuring for that.
+
+Every HTTP request gets one `request` record at `info` with `request_id`, `method`, `path`, `status`,
+`duration_ms`, `tenant`, the identifier of the tenant the request was served in, `client_ip` and
+`user_agent`. `client_ip` is the peer's address, or the address an `X-Forwarded-For` header names when the
+peer is one of `server.trusted_proxies`, exactly as rate limits and the activity log resolve it. `user_agent`
+is cut at 160 bytes, and empty when the client sent none. A request whose credential was refused also carries
+`auth_reason`; see [Refused authentication](#refused-authentication). `tenant` is empty only for a
+request answered before a tenant was resolved, such as one refused for naming a tenant its host does not serve,
+or on a path that belongs to no tenant, such as `/healthz`. A request the client abandoned before it was
+answered, such as a long poll from a phone that dropped off the network, is recorded with status `499` and
+`note="client closed request"`, as nginx does. The client never sees that status, and it is not a server error:
+alert on `5xx`, not on `499`. A request that ran past `--request-timeout` is still a `504`.
+
+### Refused authentication
+
+A refused credential reads `invalid credentials` to the client whatever the cause, so that a stranger learns
+nothing from it. The cause goes to the log instead, as one `auth refused` record at `warn` beside the request
+line (one line in the log, wrapped here):
+
+```text
+level=WARN msg="auth refused" request_id=01JD4M3K8Q2V7 method=GET path=/api/v1/projects status=401
+  reason=token_expired tenant=01HZX0TENANT client_ip=192.168.1.40 user_agent="" via=api
+  token_id=01J9Y2TOKEN token_name=nas-backup
+```
+
+| Field | Carries |
+| --- | --- |
+| `request_id` | The `X-Request-Id` the client received, to find the request line |
+| `method`, `path`, `status`, `tenant` | As on the request line |
+| `reason` | Why, one of the codes below |
+| `client_ip`, `user_agent` | As on the request line |
+| `via` | `api`, `cli`, `mcp`, `web` or `scim`, from the path and the `X-Tix-Client` header |
+| `token_id`, `token_name` | The stored token, once one was found |
+| `token_ref` | `t-` and 16 hex for a well formed token that matched nothing |
+| `session` | The `s-` session reference the activity log names a browser session by |
+| `fingerprint` | The SSH key's fingerprint, for an SSH sign-in |
+| `suppressed` | How many records for this client, reason and token were held back since the last one |
+
+No field carries the token, the cookie, the password or a stored hash. `token_ref` is a digest of the stored
+hash under a label of its own, so it groups attempts with one token without being something a lookup accepts.
+A value that is not a token's shape gets no reference at all, since it may be a password pasted into the wrong
+place; `client_ip` groups those.
+
+The record is written at most once a minute for one `client_ip`, `reason` and `token_id`, counting an IPv6
+address by its `/64`; the next one carries `suppressed`. A client that stops instead gets one `auth refusals held
+back` record at `warn` within the next minute or at shutdown, with `client_ip` (the `/64` for IPv6), `reason`,
+`token_id` and `suppressed`, so no count is lost. Once 4096 clients are being counted, any further one shares a
+single record a minute, reported with `overflow=true`, rather than pushing out a client already counted. Nothing
+is written to the database for a failed attempt.
+
+Without `server.trusted_proxies` behind a proxy, `client_ip` is the proxy's address, so every client behind it
+shares one key and one record a minute.
+
+| Reason | Status | Meaning |
+| --- | --- | --- |
+| `no_credentials` | 401 | A request under `/api/v1` or `/scim/v2` presented nothing |
+| `unsupported_scheme` | 401 | The `Authorization` header is not `Bearer` |
+| `malformed_token` | 401 | The bearer value is empty or not the shape of a `tix_pat_` token |
+| `unknown_token` | 401 | A well formed token no token in this tenant matches, including another tenant's |
+| `token_expired` | 401 | The token is past its expiry |
+| `token_revoked` | 401 | The token was revoked, or rotated and its grace window is over |
+| `actor_disabled` | 401 | The token's or session's actor or account is disabled |
+| `scim_only` | 403 | A `scim:provision` token used outside `/scim/v2` |
+| `caldav_only` | 403 | An app password (a `caldav` token) used outside `/dav/` |
+| `dav_password_required` | 401 | A request under `/dav/` that presented anything but an app password over Basic: an account password, a session cookie, a bearer header or another API token. No password hash is computed for it |
+| `dav_user_mismatch` | 401 | An app password presented with a Basic username other than its owner's sign-in email or handle |
+| `wrong_tenant` | 401 | A credential of another tenant than the one this shared host resolved |
+| `unknown_session` | any | A session cookie no session matches; a signed out session is deleted, so it reads the same |
+| `session_expired` | any | The session is past its expiry |
+| `session_idle` | any | The session went unused for longer than its idle timeout |
+| `session_invalid` | any | The session's stored role is not one tix knows |
+| `bad_password` | 401 | The account exists and is usable here, the password did not match |
+| `unknown_account` | 401 | No usable account: none, disabled, not a member, or without a password |
+| `signin_expired` | 401 | The second-factor step came with an expired or unreadable sign-in ticket |
+| `totp_invalid` | 401 | The second-factor code did not verify |
+| `totp_locked` | 401 | A code arrived while verification is locked after repeated failures |
+| `sso_code_invalid` | 401 | An app's single sign-on code is unknown, used or expired, or its verifier did not match |
+| `scope_denied` | 403 | The caller's scopes or role do not cover the action |
+| `project_denied` | 403 | A project-pinned token reached outside its project |
+| `require_claim` | 403 | A `require_claim` token changed a task it holds no claim on |
+| `second_factor_required` | 403 | The tenant requires a second factor and the caller has none |
+| `ssh_unknown_key` | ssh | The key is enrolled nowhere |
+| `ssh_wrong_tenant` | ssh | The username names no tenant, or one this key is not enrolled in |
+| `ssh_ambiguous_key` | ssh | The key is enrolled in several tenants and the username chose none |
+| `ssh_no_actor` | ssh | The key's actor is gone or holds an unknown role |
+| `ssh_key_revoked` | 401 | An SSH sign-in to the API with a revoked key |
+| `ssh_agent_key` | 401 | An SSH sign-in to the API with a key enrolled for an agent |
+| `ssh_second_factor` | ssh | The SSH session did not prove its second factor |
+| `ssh_rate_limited` | ssh | The source is over the SSH connection rate limit |
+| `ssh_capacity` | ssh | The listener or the key is at its concurrency cap |
+
+A session refusal on a browser page is logged whatever the page answers, since the browser is sent to sign in
+rather than given a `401`. A refusal by the policy, the `403` reasons, is logged only when the request was
+answered `403`: a page that asks for something optional and goes on without it is not a refusal.
+
+The SSH listener writes its own `refusing an ssh session` records, with `reason`, `fingerprint` and `source`,
+which honours the PROXY protocol. Its per-source rate limit already bounds them, so they are not held back.
+
+To trace a client that keeps being refused:
+
+1. Find its records: `journalctl -u tix | grep 'msg="auth refused"' | grep client_ip=192.168.1.40`, or with
+   `--log-format json`, `jq 'select(.msg=="auth refused" and .client_ip=="192.168.1.40")'`.
+2. `reason` says what to fix. `token_expired` and `token_revoked` come with `token_id` and `token_name`, which
+   `tix token list` shows, so you know which credential the client holds. `unknown_token` with one `token_ref`
+   is one stale value retried; many refs from one address is a client guessing.
+3. An empty `user_agent` with `via=api` is a script or a client that sets no agent, rather than the CLI or MCP.
+4. Behind a proxy, `client_ip` is the proxy's address until the proxy is listed in `server.trusted_proxies`.
 
 Point `log.output` at a path instead and tix owns that file, so tix bounds it:
 
@@ -138,6 +253,17 @@ certificate, and the flag follows the scheme the client used rather than the sch
 `server.cookie_security` to `always` or `never` to override the derivation; see
 [configuration.md](configuration.md).
 
+Set `server.public_url` to the address the proxy answers as. A request carries the host the proxy forwards,
+which is right for a page, but nothing outside a request knows the address: without the key an SSH session
+cannot run `tix task link`, the API's tasks carry no `web_url` and a notification channel message for a
+tenant without a domain carries no link. A request on an internal name, such as a health check or a
+colleague on the backend port, also builds its links under the key rather than under the name it used.
+
+```sh
+TIX_SERVER_PUBLIC_URL=https://tix.example.com \
+TIX_SERVER_TRUSTED_PROXIES=127.0.0.1,::1 tix serve --listen 127.0.0.1:8080
+```
+
 nginx:
 
 ```nginx
@@ -218,14 +344,60 @@ for the second server is told it is gone.
 Rows nobody has seen for a week are deleted by the next server to register, so an installation that restarts
 often does not accumulate them. Nothing you read depends on that having happened.
 
+## Password hashing memory
+
+Every password sign-in, password change, new account with a password and accepted invite runs one argon2id
+derivation, and each derivation holds its memory parameter in one allocation for the time it runs. That cost
+times the number running at once is a peak of its own on top of what the server otherwise holds. At the
+default of m=64 MiB, t=3, p=4:
+
+| Slots | Hashing peak |
+| --- | --- |
+| 1 | 64 MiB |
+| 2 | 128 MiB |
+| 3 | 192 MiB |
+| 4 | 256 MiB |
+
+`tix serve` caps how many run at once (`auth.max_concurrent_hashes`). Left at `0`, the cap is a quarter of the
+Go runtime's soft memory limit (`GOMEMLIMIT`, or the one tix derives from the container's limit) divided by the
+per-hash memory, at least 1 and at most the number of cores; without a soft limit it is 2. At 64 MiB and 85% of
+the container's limit that is 1 slot on 256 MiB and 512 MiB pods, 3 on 1 GiB and 6 on 2 GiB. Sign-ins past the
+cap queue for up to ten seconds, or until their request ends, and are then refused with `precondition_failed`
+and `reason: password_hashing_busy`. Nobody is let in without the check.
+
+Size the container for the idle server plus 64 MiB times the cap. A 256 MiB pod with one slot has its idle
+server, about 100 MiB with a modest dataset, plus 64 MiB for one sign-in at a time; give it more if sign-ins
+queue, or set `auth.max_concurrent_hashes` once you have measured with `just load`.
+
+In earlier releases the first sign-in after a start also minted the hash it compares unknown addresses against,
+so it derived twice. That hash is now made without deriving, and still costs a real derivation to check against,
+so an address nobody holds still takes as long as a wrong password.
+
+### Why the cost was kept
+
+OWASP's password storage guidance lists argon2id configurations of equal strength, from m=46 MiB t=1 p=1 to
+m=7 MiB t=5 p=1, with m=19 MiB t=2 p=1 as the minimum. The default of 64 MiB with three passes is about four
+times the work per guess of the first of those. The out-of-memory kills came from how many hashes ran at once,
+not from the cost of one, so the fix bounds concurrency and leaves the cost of a stolen hash where it was. A
+cheaper default would have weakened every hash in every database to save memory a cap already saves.
+
+An operator on a very small server can lower the cost for new hashes with `auth.argon2_memory_kib`,
+`auth.argon2_time` and `auth.argon2_threads`, for example m=46 MiB t=1 (`47104` and `1`) or m=19 MiB t=2
+(`19456` and `2`), and should raise `auth.max_concurrent_hashes` only with memory to match. A setting below
+every OWASP configuration is refused at start-up. Stored hashes are never rehashed down: a hash weaker than the
+setting is upgraded on its owner's next sign-in, and a stronger one is kept. See
+[configuration.md](configuration.md#password-hashing).
+
 ## Outbound requests to tenant urls
 
-Three things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
-channels, and external sync sources (Jira and OpenProject). A tenant administrator is a lower-privilege party
-than whoever runs the server, and the request leaves from inside your network, so the url is untrusted input
-rather than configuration. A sync run in particular imports what it reads into tasks the tenant can see.
+Four things make the server send a request to a url a tenant administrator chose: webhook endpoints, inbox
+channels, external sync sources (Jira and OpenProject), and single sign-on providers (discovery, the key set, the
+token endpoint, the GitHub API and SAML IdP metadata; see [sso.md](sso.md)). A tenant administrator is a
+lower-privilege party than whoever runs the server, and the request leaves from inside your network, so the url
+is untrusted input rather than configuration. A sync run in particular imports what it reads into tasks the
+tenant can see.
 
-All three go through one egress guard (`internal/egress`). By default it refuses a destination that resolves to:
+All of them go through one egress guard (`internal/egress`). By default it refuses a destination that resolves to:
 
 - loopback, including `localhost`, `127.0.0.0/8` and `::1`
 - link-local, which is where the cloud metadata endpoint lives at `169.254.169.254` and `fe80::/10`, and the
@@ -275,6 +447,23 @@ A command run against the database directly, such as `tix sync run` without a se
 process: its sync reaches whatever the operator's network allows, whatever these keys say. Webhook and channel
 deliveries it drains stay held to them, because those urls are a tenant's whichever process sends to them. See
 [configuration.md](configuration.md#keys).
+
+## Single sign-on
+
+Providers are per tenant and configured by tenant admins (`tix tenant sso add`), so there is nothing to turn on
+in `tix serve` beyond three things:
+
+- `auth.totp_key` must be set: it seals each provider's client secret and the sign-in between its two steps.
+  Every replica needs the same value, and losing it means storing every client secret again.
+- `server.public_url` should be set, so the redirect URL to register, `PUBLIC_URL/login/sso/callback`, and a SAML
+  provider's `PUBLIC_URL/login/sso/saml/KEY/acs` and `PUBLIC_URL/login/sso/saml/KEY/metadata`, are known and
+  printed. SAML needs HTTPS, because the IdP's post back to tix is cross-site. Behind a proxy, the forwarded
+  scheme decides whether the callback is `https`; see [Behind a reverse proxy](#behind-a-reverse-proxy).
+- An identity provider on an internal address needs its host in `server.egress_allow`, as an internal webhook
+  target does.
+
+`auth.mode` stays `token`; `oidc` there is refused. Keep at least one global admin with a password, which is the
+way back in to a tenant that turned passwords off. See [sso.md](sso.md).
 
 ## systemd
 
@@ -458,6 +647,8 @@ one process may have them enabled against a given database, so this is a single 
 `strategy: Recreate` rather than a Deployment you scale. A second replica would sweep the same leases twice and,
 on SQLite, would be a second writer on a volume that only one node can mount. To run more than one, move to
 PostgreSQL and disable the workers on all but one process with `--no-lease-sweeper` and `--no-retention-pruner`.
+The SAML metadata refresher is safe on several, since a provider one process read is not due on another, but
+`auth.saml_metadata_refresh: 0` on the others keeps it to one reader.
 
 ```yaml
 apiVersion: v1
@@ -502,6 +693,9 @@ spec:
             httpGet: { path: /healthz, port: 8080 }
           readinessProbe:
             httpGet: { path: /readyz, port: 8080 }
+          resources:
+            requests: { memory: 128Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -534,6 +728,39 @@ See [Health checks](#health-checks).
 
 Keep `terminationGracePeriodSeconds` above `--shutdown-timeout` for the same reason systemd needs
 `TimeoutStopSec` above it.
+
+### Memory limit
+
+`tix serve` reads the container's memory limit at start, from cgroup v2's `/sys/fs/cgroup/memory.max` or
+cgroup v1's `memory.limit_in_bytes`, and sets the Go runtime's soft memory limit to 85% of it. Without that the
+collector lets the heap grow to twice what is live before it runs, so a burst of requests that each allocate
+briefly can take the process past the container's limit and have the kernel kill it while most of that memory
+was already garbage. With the soft limit the collector runs harder as the heap nears it instead. The other 15%
+is for what the container is charged and the runtime does not count, such as the binary and socket buffers.
+
+The start log says what was chosen:
+
+```text
+level=INFO msg="memory limit" soft_limit_bytes=456340275 container_limit_bytes=536870912 reason="85% of the container's limit in /sys/fs/cgroup/memory.max"
+```
+
+Set `GOMEMLIMIT` to choose the limit yourself, for example `GOMEMLIMIT=400MiB`, or `GOMEMLIMIT=off` for none.
+When it is set the runtime reads it and tix leaves it alone. A container without a limit, and a process outside
+a container, get no soft limit unless `GOMEMLIMIT` gives one.
+
+The soft limit is not a cap. A server whose live heap really does need more than the container allows is still
+killed, after spending its last stretch collecting; give it a larger limit.
+
+#### Sizing memory
+
+The example sets no memory limit, because the right one depends on your team and your data. Measure before
+you set one: `just load --users N --max-rss 0` seeds a scratch copy, drives N simulated people at it and
+reports the server's steady and peak resident memory. Set the limit above the peak, not the steady figure,
+since the kernel kills on the peak. Each password sign-in holds 64 MiB of argon2id memory while it runs, and
+the number allowed at once is sized from the soft limit above, so the limit you set also decides how many
+sign-ins run together: see [Password hashing memory](#password-hashing-memory). `just load --target URL`
+drives a running instance read-only while you watch `kubectl top pod`. See
+[testing.md](testing.md#load-testing).
 
 ### Building your own
 
@@ -797,6 +1024,25 @@ tix: this key is not enrolled here: ask an operator to enrol it with `tix user k
 Naming a tenant that exists and naming one that does not are answered the same way, and the ambiguity message
 names only tenants that key is already enrolled in.
 
+A global admin is no exception: the flag does not make them a member of any tenant, so their key is "not
+enrolled here" in a tenant until they join it and enrol the key there. See
+[Global admins](tenancy.md#global-admins).
+
+Connections are rate limited per source address: a burst of 5 back to back, then one more a minute (60 an
+hour), set with `--rate-per-hour` and `--rate-burst`. A connection over the limit still authenticates and is
+then refused with exit status 1 and how long to wait:
+
+```console
+$ ssh -p 2222 acme@tix.example.com
+tix: too many connections from this address; try again in 42 seconds
+```
+
+Every connection counts, enrolled key or not, including each `ssh host COMMAND`. The wait is until the next
+token, so a script that opens a connection per command and hits the limit can run one more command a minute
+until it stops for a few minutes. Raise `--rate-burst` and `--rate-per-hour` for such a script.
+Behind a load balancer, name it in `ssh.trusted_proxies` so the limit counts clients and not the balancer
+(see below).
+
 ### Commands over ssh
 
 An enrolled key can run tix commands with nothing configured on the client: no context, no token. The
@@ -819,7 +1065,10 @@ so quote a title with spaces twice, as in the second line.
 
 What runs:
 
-- **Exactly the CLI bindings of the capability registry**, less the ones exempted for ssh. `login` and
+- **Exactly the CLI bindings of the capability registry**, and the commands that only format one of their
+  results, less the ones exempted for ssh. `task link` formats `task show` and runs wherever it does: it
+  prints the task's `web_url`, refuses `--base`, and exits 2 naming `server.public_url` on a server that
+  does not set it. `login` and
   `logout` are exempted: the key is the credential, and there is no local configuration to write. Commands
   the registry does not bind at all, `config`, `ctx`, `serve`, `init`, `tui`, `mcp`, `docs`, `completion`,
   `update`, `doctor`, `demo`, `claim exec` and the rest, are cut from the command tree before it runs, and

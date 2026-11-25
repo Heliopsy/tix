@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ---------------------------------------------------------------------------
+   The OLED scheme beyond its tokens (010-tokens.css). Every rule here comes
+   twice: once for data-theme="oled", and once for system-oled under a dark
+   device, which is OLED only while the device asks for dark.
+   ------------------------------------------------------------------------ */
+
+/* A custom project colour's shade, shaded against the black page and the
+   near-black surface (colour.go colourSchemes). */
+:root[data-theme="oled"] .proj-custom { --proj: var(--proj-o); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system-oled"] .proj-custom { --proj: var(--proj-o); }
+}
+
+/* No accent glow behind the sign-in card. On black it is the one large lit
+   area on the screen, which is what the scheme exists to avoid. */
+:root[data-theme="oled"] .auth .authcard::before { background: none; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system-oled"] .auth .authcard::before { background: none; }
+}

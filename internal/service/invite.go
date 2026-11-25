@@ -95,6 +95,7 @@ func (l *Local) CreateInvite(ctx context.Context, in core.CreateInviteInput) (*c
 	if err != nil {
 		return nil, err
 	}
+	l.linkInvite(ctx, out)
 	return out, nil
 }
 
@@ -364,6 +365,7 @@ func (l *Local) ReissueInvite(ctx context.Context, inviteID string, in core.Reis
 	if err != nil {
 		return nil, err
 	}
+	l.linkInvite(ctx, out)
 	return out, nil
 }
 
@@ -488,7 +490,7 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 	if live.invite.GrantsMembership {
 		return l.acceptMembership(ctx, live, surface, in)
 	}
-	hash, err := l.inviteePassword(live, in.Password)
+	hash, err := l.inviteePassword(ctx, live, in.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +555,13 @@ func (l *Local) AcceptInvite(ctx context.Context, token string, in core.AcceptIn
 func (l *Local) acceptMembership(ctx context.Context, live liveInvite, surface core.Surface,
 	in core.AcceptInviteInput,
 ) (*core.LoginResult, error) {
-	if live.hash == "" || auth.Verify(live.hash, in.Password) != nil {
+	if live.hash == "" {
+		return nil, errInvalidCredentials()
+	}
+	if err := auth.Verify(ctx, live.hash, in.Password); err != nil {
+		if auth.IsHashBusy(err) {
+			return nil, err
+		}
 		return nil, errInvalidCredentials()
 	}
 	scope := core.TenantScope{TenantID: live.tenant.ID}
@@ -621,9 +629,12 @@ func (l *Local) acceptMembership(ctx context.Context, live liveInvite, surface c
 // inviteePassword checks the password an acceptance carries. A new account's
 // is hashed for storing; an existing account's must match the one it has and
 // is kept, so the answer is "".
-func (l *Local) inviteePassword(live liveInvite, password string) (string, error) {
+func (l *Local) inviteePassword(ctx context.Context, live liveInvite, password string) (string, error) {
 	if live.hash != "" {
-		if auth.Verify(live.hash, password) != nil {
+		if err := auth.Verify(ctx, live.hash, password); err != nil {
+			if auth.IsHashBusy(err) {
+				return "", err
+			}
 			return "", errInvalidCredentials()
 		}
 		return "", nil
@@ -632,5 +643,5 @@ func (l *Local) inviteePassword(live liveInvite, password string) (string, error
 		return "", core.Invalid("password must be at least %d characters", core.MinPasswordLength).
 			WithDetail(core.DetailField, "password")
 	}
-	return l.hasher.Hash(password)
+	return l.hasher.Hash(ctx, password)
 }

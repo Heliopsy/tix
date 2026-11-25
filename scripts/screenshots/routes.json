@@ -17,17 +17,22 @@
   "routes": [
     { "pattern": "/", "skip": "redirects to /projects, which is captured" },
     { "pattern": "/login", "public": true },
+    { "pattern": "/login/sso/{key}", "skip": "redirects to the identity provider; nothing is drawn" },
+    { "pattern": "/login/sso/callback", "skip": "answers an identity provider's redirect, which needs a live sign-in; the web tests draw it" },
+    { "pattern": "/login/sso/saml/{key}/metadata", "skip": "answers SAML metadata XML for an identity provider, not a screen" },
     { "pattern": "/invite/{token}", "skip": "opens only with a live invite token, which no page links to; the invite tests draw it" },
     { "pattern": "/settings" },
     { "pattern": "/account" },
     { "pattern": "/switch" },
     { "pattern": "/settings/notifications" },
+    { "pattern": "/settings/totp", "skip": "the second factor policy's enrolment screen: an enrolled reader is redirected to /settings, and the web tests draw it for one without a factor" },
     { "pattern": "/release" },
     {
       "pattern": "/activity",
       "states": [{ "name": "raw-entry", "click": "a.rawopen", "wait": "dialog.rawdlg[open]" }]
     },
     { "pattern": "/activity/feed", "skip": "htmx fragment of /activity" },
+    { "pattern": "/events" },
     { "pattern": "/stats" },
     { "pattern": "/admin/status" },
     {
@@ -37,10 +42,20 @@
     {
       "pattern": "/projects/{key}",
       "params": { "key": "project" },
-      "states": [{ "name": "lanes", "cookies": { "tix_task_view": "lanes" } }]
+      "states": [
+        { "name": "list", "query": "?view=list" },
+        { "name": "list-filtered", "query": "?view=list&q=priority:high&sort=title" },
+        { "name": "lanes", "query": "?view=lanes" },
+        { "name": "lanes-tag", "query": "?view=lanes&lanes=tag" },
+        { "name": "filters-many", "query": "?view=list&q=tag:ops%20-tag:chore%20priority:high%20is:starred&due=week&all=1" },
+        { "name": "filters-open", "query": "?view=list", "click": "[popovertarget='fb-filters']", "wait": "#fb-filters:popover-open" },
+        { "name": "bulgarian", "cookies": { "tix_lang": "bg" }, "query": "?view=list&q=tag:ops&due=week" }
+      ]
     },
-    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the board" },
+    { "pattern": "/projects/{key}/live", "skip": "htmx fragment of the project page" },
     { "pattern": "/projects/{key}/icon", "skip": "image file, not a screen" },
+    { "pattern": "/tenants/{key}/icon", "skip": "image file, not a screen" },
+    { "pattern": "/tasks/{ref}/artifacts/{id}/file", "skip": "a download, not a screen" },
     { "pattern": "/projects/{key}/settings", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/delete", "params": { "key": "project" } },
     { "pattern": "/projects/{key}/fields", "params": { "key": "project" } },
@@ -71,7 +86,17 @@
         { "name": "lanes", "cookies": { "tix_task_view": "lanes" } },
         { "name": "board-project", "cookies": { "tix_task_view": "board" }, "query": "?project=infra" },
         { "name": "lanes-project", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infra,web" },
-        { "name": "selected", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
+        { "name": "lanes-priority", "cookies": { "tix_task_view": "lanes", "tix_lanes_group": "priority" } },
+        { "name": "lanes-long-names", "cookies": { "tix_task_view": "lanes" }, "query": "?project=infrastructureplatform,mrezhi,infra,web,qa" },
+        { "name": "select-mode", "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
+        { "name": "selected", "query": "?select=1", "click": "input.rowpick[data-pick]", "wait": "[data-bulk-count]" },
+        { "name": "select-mode-board", "cookies": { "tix_task_view": "board" }, "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
+        { "name": "select-mode-lanes", "cookies": { "tix_task_view": "lanes" }, "query": "?select=1", "wait": "[data-select-toggle][aria-pressed='true']" },
+        { "name": "filters-many", "query": "?q=tag:ops%20-tag:chore%20priority:high%20is:starred%20title~api&due=week&project=infra,web&all=1&sort=title&order=desc" },
+        { "name": "filters-open", "click": "[popovertarget='fb-filters']", "wait": "#fb-filters:popover-open" },
+        { "name": "sort-open", "cookies": { "tix_task_view": "lanes" }, "click": "[popovertarget='fb-sort']", "wait": "#fb-sort:popover-open" },
+        { "name": "bulgarian", "cookies": { "tix_lang": "bg" } },
+        { "name": "bulgarian-filtered", "cookies": { "tix_lang": "bg" }, "query": "?q=tag:ops%20priority:high&due=week&project=infra" },
         {
           "name": "task-dialog",
           "cookies": { "tix_task_open": "dialog" },
@@ -88,18 +113,32 @@
     { "pattern": "/tasks/{ref}/history", "skip": "htmx fragment of the task screen's history" },
     { "pattern": "/tasks/{ref}/tree", "skip": "htmx fragment of the task screen's subtask tree" },
     { "pattern": "/tasks/{ref}/copy", "params": { "ref": "task" } },
+    { "pattern": "/tasks/{ref}/move", "params": { "ref": "task" } },
     { "pattern": "/actors" },
     { "pattern": "/actors/{id}", "params": { "id": "actor" } },
     { "pattern": "/admin/tenant" },
+    { "pattern": "/admin/sso" },
     { "pattern": "/admin/domains" },
     { "pattern": "/admin/users" },
     { "pattern": "/admin/global" },
     { "pattern": "/admin/global/tenants/{key}", "params": { "key": "tenant" } },
     { "pattern": "/admin/global/accounts/{email}", "params": { "email": "account" } },
     { "pattern": "/admin/tokens" },
-    { "pattern": "/connect" },
+    { "pattern": "/admin/scim" },
+    {
+      "pattern": "/connect",
+      "states": [
+        { "name": "tab-mcp-codex", "query": "?tab=mcp&client=codex" },
+        { "name": "tab-ssh", "query": "?tab=ssh" },
+        { "name": "tab-api", "query": "?tab=api" },
+        { "name": "tab-skill", "query": "?tab=skill" }
+      ]
+    },
     { "pattern": "/docs", "skip": "redirects to the documentation, off this server" },
     { "pattern": "/docs/{page}", "skip": "redirects to one documentation page, off this server" },
+    { "pattern": "/manifest.webmanifest", "skip": "the web app manifest, JSON rather than a screen" },
+    { "pattern": "/sw.js", "skip": "the service worker script, not a screen" },
+    { "pattern": "/share", "skip": "the share target, which redirects to quick add on /tasks" },
     { "pattern": "/admin/ssh-keys" },
     { "pattern": "/admin/connections" },
     { "pattern": "/admin/webhooks" },
@@ -108,6 +147,7 @@
     { "pattern": "/sync/runs" },
     { "pattern": "/bundles" },
     { "pattern": "/palette/tasks", "skip": "JSON the command palette reads" },
-    { "pattern": "/palette/projects", "skip": "JSON the command palette reads" }
+    { "pattern": "/palette/projects", "skip": "JSON the command palette reads" },
+    { "pattern": "/palette/templates", "skip": "JSON the command palette reads" }
   ]
 }

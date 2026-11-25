@@ -106,14 +106,28 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 	if workflowKey == "" {
 		workflowKey = BuiltinWorkflowKey
 	}
+	var tpl *core.WorkflowTemplate
+	if ref := strings.TrimSpace(in.WorkflowTemplate); ref != "" {
+		found, err := workflowTemplate(ref)
+		if err != nil {
+			return nil, core.OnField(err, "workflow_template")
+		}
+		tpl = &found
+	}
 
 	var out *core.Project
 	err = l.write(ctx, actor, func(m *mutation) error {
 		if err := keyAvailable(ctx, m.tx, key, ""); err != nil {
 			return err
 		}
-		wf, err := lookupWorkflow(ctx, m.tx, workflowKey)
-		if err != nil {
+		var wf *core.Workflow
+		var err error
+		if tpl != nil {
+			wf, err = l.projectTemplateWorkflow(ctx, m, *tpl)
+			if err != nil {
+				return core.OnField(err, "workflow_template")
+			}
+		} else if wf, err = lookupWorkflow(ctx, m.tx, workflowKey); err != nil {
 			return core.OnField(err, "workflow_key")
 		}
 		p := &core.Project{
@@ -131,8 +145,14 @@ func (l *Local) CreateProject(ctx context.Context, in core.CreateProjectInput) (
 			return err
 		}
 		out = p
-		return m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, p,
-			map[string]any{"key": p.Key, "workflow_key": wf.Key})
+		if err := m.Record(auditProjectCreate, core.EventProjectCreated, "project", p.ID, p.ID, nil, p,
+			map[string]any{"key": p.Key, "workflow_key": wf.Key}); err != nil {
+			return err
+		}
+		if tpl == nil {
+			return nil
+		}
+		return l.putTemplateFields(ctx, m, p, *tpl)
 	})
 	if err != nil {
 		return nil, err
@@ -149,8 +169,15 @@ func (l *Local) GetProject(ctx context.Context, ref string) (*core.Project, erro
 	var out *core.Project
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		p, err := lookupProject(ctx, tx, ref)
-		out = p
-		return err
+		if err != nil {
+			return err
+		}
+		one := []core.Project{*p}
+		if err := markProjectsStarred(ctx, tx, actor.ID, one); err != nil {
+			return err
+		}
+		out = &one[0]
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -174,8 +201,11 @@ func (l *Local) ListProjects(ctx context.Context, f core.ProjectFilter) ([]core.
 	out := []core.Project{}
 	if err := l.read(ctx, actor, func(tx store.Tx) error {
 		found, err := tx.ListProjects(ctx, f)
+		if err != nil {
+			return err
+		}
 		out = found
-		return err
+		return markProjectsStarred(ctx, tx, actor.ID, out)
 	}); err != nil {
 		return nil, "", err
 	}

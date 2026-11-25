@@ -58,6 +58,8 @@ type accountMsg struct {
 	log       []core.AccountLogEntry
 	logMore   bool
 	logErr    string
+	sessions  []core.SessionInfo
+	sessErr   string
 }
 
 // accountDoneMsg reports one of the screen's writes.
@@ -93,12 +95,14 @@ type AccountLine struct {
 // AccountRowKind names what a selectable row of the account screen stands for.
 type AccountRowKind int
 
-// The selectable rows: the second factor, then tokens, keys and log entries.
+// The selectable rows: the second factor, then tokens, keys, sessions and
+// log entries.
 const (
 	accountRowFactor AccountRowKind = iota
 	accountRowToken
 	accountRowKey
 	accountRowLog
+	accountRowSession
 )
 
 // AccountRow is one row the cursor can rest on.
@@ -111,6 +115,9 @@ type AccountRow struct {
 	// Active is false for a revoked or expired credential, which has nothing
 	// left to revoke.
 	Active bool
+	// Retiring marks a rotated token still inside its grace window: it can be
+	// revoked, but its replacement is the one to rotate.
+	Retiring bool
 }
 
 // AccountState is everything the account screen renders from.
@@ -132,6 +139,8 @@ type AccountState struct {
 	Log       []core.AccountLogEntry
 	LogMore   bool
 	LogErr    string
+	Sessions  []core.SessionInfo
+	SessErr   string
 }
 
 // accountLabelWidth aligns the attribute names of the identity and factor
@@ -149,10 +158,14 @@ func AccountRows(s AccountState) []AccountRow {
 		out = append(out, AccountRow{Kind: accountRowFactor, Label: "your second factor", Active: s.TOTP.Enrolled})
 	}
 	for _, t := range s.Tokens {
-		out = append(out, AccountRow{Kind: accountRowToken, ID: t.ID, Label: "token " + t.Name, Active: t.Active(s.Now)})
+		out = append(out, AccountRow{Kind: accountRowToken, ID: t.ID, Label: "token " + t.Name,
+			Active: t.Active(s.Now), Retiring: t.Retiring(s.Now)})
 	}
 	for _, k := range s.Keys {
 		out = append(out, AccountRow{Kind: accountRowKey, ID: k.ID, Label: "key " + keyName(k), Active: k.Active()})
+	}
+	for _, se := range s.Sessions {
+		out = append(out, AccountRow{Kind: accountRowSession, ID: se.ID, Label: SessionLabel(se), Active: true})
 	}
 	for range s.Log {
 		out = append(out, AccountRow{Kind: accountRowLog})
@@ -170,7 +183,7 @@ func keyName(k core.SSHKey) string {
 }
 
 // AccountView renders the screen: a value shown once, then who the session is,
-// the second factor, the tokens, the keys and the account log.
+// the second factor, the tokens, the keys, the sessions and the account log.
 func AccountView(s AccountState) []AccountLine {
 	var out []AccountLine
 	if s.Reveal != nil {
@@ -189,6 +202,8 @@ func AccountView(s AccountState) []AccountLine {
 	out = append(out, tokenLines(s, mark)...)
 	out = append(out, AccountLine{})
 	out = append(out, keyLines(s, mark)...)
+	out = append(out, AccountLine{})
+	out = append(out, sessionLines(s, mark)...)
 	out = append(out, AccountLine{})
 	return append(out, logLines(s, mark)...)
 }
@@ -290,7 +305,12 @@ func TokenSummary(t core.APIToken, now time.Time, style output.TimeStyle) string
 	if t.ProjectID != "" {
 		parts = append(parts, "one project")
 	}
+	if t.RequireClaim {
+		parts = append(parts, "claim required")
+	}
 	switch {
+	case t.Retiring(now):
+		parts = append(parts, "rotated, stops "+style.Format(*t.RevokedAt))
 	case t.RevokedAt != nil:
 		parts = append(parts, "revoked "+style.Format(*t.RevokedAt))
 	case t.ExpiresAt == nil:
@@ -336,6 +356,48 @@ func KeySummary(k core.SSHKey, style output.TimeStyle) string {
 	parts := []string{k.Fingerprint, "added " + style.Format(k.CreatedAt), "last used " + usedAt(k.LastUsedAt, style)}
 	if k.RevokedAt != nil {
 		parts = append(parts, "revoked "+style.Format(*k.RevokedAt))
+	}
+	return strings.Join(parts, " · ")
+}
+
+// sessionLines list the reader's own browser and terminal sign-ins in this
+// tenant, the one this interface presented marked.
+func sessionLines(s AccountState, mark func() bool) []AccountLine {
+	out := []AccountLine{{Text: "sessions (" + strconv.Itoa(len(s.Sessions)) + "):", Heading: true}}
+	if len(s.Sessions) == 0 {
+		return append(out, accountAbsent(s.SessErr, s.Loaded)...)
+	}
+	for _, se := range s.Sessions {
+		selected := mark()
+		out = append(out, AccountLine{Text: SelectionMarker(selected) + SessionSummary(se, s.Time), Selected: selected})
+	}
+	return out
+}
+
+// SessionLabel names a session the way a confirmation has to say it.
+func SessionLabel(se core.SessionInfo) string {
+	if se.Current {
+		return "session " + se.ID + " (this one)"
+	}
+	return "session " + se.ID
+}
+
+// SessionSummary states a session on one line: how and when it signed in,
+// when it expires and the user agent it signed in with.
+func SessionSummary(se core.SessionInfo, style output.TimeStyle) string {
+	method := se.Method
+	if se.SecondFactor {
+		method += " + second factor"
+	}
+	parts := []string{method, "signed in " + style.Format(se.CreatedAt), "expires " + style.Format(se.ExpiresAt)}
+	if se.Remembered {
+		parts = append(parts, "kept signed in")
+	}
+	if se.UserAgent != "" {
+		parts = append(parts, se.UserAgent)
+	}
+	if se.Current {
+		parts = append(parts, "this one")
 	}
 	return strings.Join(parts, " · ")
 }
@@ -440,6 +502,9 @@ type ScopePicker struct {
 	Ticked map[core.Scope]bool
 	// Sel indexes Rows, and only ever rests on a scope.
 	Sel int
+	// RequireClaim mints a token that changes a task only while its actor
+	// holds a live claim on it, as chosen on the token form.
+	RequireClaim bool
 }
 
 // everythingGroup is the group * is offered under, to a reader who holds it.
@@ -554,6 +619,9 @@ func (p ScopePicker) Lines() []AccountLine {
 	if p.Expiry.Days == 0 {
 		expiry = "never expires"
 	}
+	if p.RequireClaim {
+		expiry += " and requires a claim before changing a task"
+	}
 	out := []AccountLine{{Text: "scopes for token " + p.Name + ", which " + expiry + ":", Heading: true}}
 	for i, r := range p.Rows {
 		if r.Scope == "" {
@@ -637,9 +705,18 @@ func TokenForm(actor *core.Actor) Form {
 			{Key: "name", Label: "name", Kind: FieldText, Limit: 128},
 			{Key: "expires", Label: "expires in", Options: expiries, Value: value},
 			{Key: "preset", Label: "start from", Options: presets, Value: presetNone},
+			{Key: "claim", Label: "require a claim", Options: []string{claimNotRequired, claimRequired},
+				Value: claimNotRequired},
 		},
 	}
 }
+
+// The token form's claim choices: "yes" mints a token that changes a task
+// only while its actor holds a live claim on it.
+const (
+	claimNotRequired = "no"
+	claimRequired    = "yes"
+)
 
 // heldAll reports whether the actor holds every scope.
 func heldAll(actor *core.Actor, scopes []core.Scope) bool {
@@ -715,7 +792,7 @@ func (m Model) loadAccount() tea.Cmd {
 	svc, ctx, may := m.svc, m.ctx, m.mayPerform
 	const refused = "your authority does not reach it"
 	return func() tea.Msg {
-		out := accountMsg{tokensErr: refused, keysErr: refused, totpErr: refused, logErr: refused}
+		out := accountMsg{tokensErr: refused, keysErr: refused, totpErr: refused, logErr: refused, sessErr: refused}
 		if may("ListTokens") {
 			out.tokens, out.tokensErr = nil, ""
 			if tokens, err := svc.ListTokens(ctx, ""); err != nil {
@@ -738,6 +815,14 @@ func (m Model) loadAccount() tea.Cmd {
 				out.totpErr = err.Error()
 			} else {
 				out.totp = status
+			}
+		}
+		if may("ListSessions") {
+			out.sessErr = ""
+			if sessions, _, err := svc.ListSessions(ctx, core.Page{Limit: accountLogLimit}); err != nil {
+				out.sessErr = err.Error()
+			} else {
+				out.sessions = sessions
 			}
 		}
 		if may("GetAccountLog") {
@@ -770,6 +855,7 @@ func (m Model) accountState() AccountState {
 		s.Loaded = true
 		s.Tokens, s.TokensErr, s.Keys, s.KeysErr = r.tokens, r.tokensErr, r.keys, r.keysErr
 		s.TOTP, s.TOTPErr, s.Log, s.LogMore, s.LogErr = r.totp, r.totpErr, r.log, r.logMore, r.logErr
+		s.Sessions, s.SessErr = r.sessions, r.sessErr
 	}
 	return s
 }
@@ -843,8 +929,46 @@ func (m Model) handleAccountAction(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.Delete):
 		return m.confirmAccountRemoval()
+	case key.Matches(msg, m.keys.Renew):
+		return m.openRotateToken()
 	}
 	return m, nil
+}
+
+// openRotateToken asks how long the selected token's old value may keep
+// working, refusing a row that is not a live token with nothing to replace.
+func (m Model) openRotateToken() (Model, tea.Cmd) {
+	row, ok := m.selectedAccountRow()
+	switch {
+	case !ok || row.Kind != accountRowToken:
+		m.err = "select a token to rotate"
+		return m, nil
+	case row.Retiring:
+		m.err = row.Label + " was already rotated; rotate its replacement"
+		return m, nil
+	case !row.Active:
+		m.err = row.Label + " no longer works, so there is nothing to rotate"
+		return m, nil
+	case !m.mayPerform("RotateToken"):
+		m.err = "this session may not rotate tokens"
+		return m, nil
+	}
+	m.err = ""
+	return m.openForm(RotateTokenForm(row.Label))
+}
+
+// RotateTokenForm asks how long a rotated token's old value keeps working,
+// from the browser's choices, stopping it at once unless told otherwise.
+func RotateTokenForm(label string) Form {
+	graces := make([]string, 0, len(onboard.RotateGraces))
+	for _, g := range onboard.RotateGraces {
+		graces = append(graces, g.Label)
+	}
+	return Form{
+		Kind: formRotateToken, Title: "rotate " + label,
+		Note:   "a new token with the same name, scopes and lifetime replaces it; its value is shown once",
+		Fields: []FormField{{Key: "grace", Label: "old token", Options: graces, Value: graces[0]}},
+	}
 }
 
 // confirmAccountRemoval names the selected token, key or factor and waits for
@@ -853,7 +977,7 @@ func (m Model) confirmAccountRemoval() (Model, tea.Cmd) {
 	row, ok := m.selectedAccountRow()
 	switch {
 	case !ok, row.Kind == accountRowLog:
-		m.err = "select a token, a key or the second factor to remove"
+		m.err = "select a token, a key, a session or the second factor to remove"
 		return m, nil
 	case !row.Active && row.Kind == accountRowFactor:
 		m.err = "no second factor is on, so there is nothing to remove"
@@ -876,6 +1000,12 @@ func (m Model) confirmAccountRemoval() (Model, tea.Cmd) {
 			return m, nil
 		}
 		c.Kind = confirmRevokeToken
+	case accountRowSession:
+		if !m.mayPerform("RevokeSession") {
+			m.err = "this session may not revoke sessions"
+			return m, nil
+		}
+		c.Kind, c.Note = confirmRevokeSession, "whatever holds it is signed out at once"
 	default:
 		if !m.mayPerform("RevokeSSHKey") {
 			m.err = "this session may not revoke keys"
@@ -912,8 +1042,22 @@ func (m Model) submitAccountForm(form Form) (Model, tea.Cmd) {
 		}
 		expiry, _ := TokenExpiryFor(form.Value("expires"))
 		picker := NewScopePicker(m.actor, name, expiry, PresetScopes(form.Value("preset")))
+		picker.RequireClaim = form.Value("claim") == claimRequired
 		m.acct.picker, m.err = &picker, ""
 		return m, nil
+	case formRotateToken:
+		row, ok := m.selectedAccountRow()
+		if !ok || row.Kind != accountRowToken {
+			m.err = "select a token to rotate"
+			return m, nil
+		}
+		grace, _ := onboard.RotateGraceFor(form.Value("grace"))
+		note := "the old value stops at once"
+		if grace.Grace > 0 {
+			note = "the old value keeps working for " + strings.ToLower(strings.TrimPrefix(grace.Label, "Keep it working for "))
+		}
+		return m.askConfirm(Confirm{Kind: confirmRotateToken, Target: row.Label, Note: note,
+			credential: row.ID, grace: grace.Grace}, "there is nothing named to rotate")
 	case formSSHKey:
 		in := core.EnrolSSHKeyInput{PublicKey: strings.TrimSpace(form.Value("key")), Label: strings.TrimSpace(form.Value("label"))}
 		return m, m.accountCall("enrolling the key", func(svc core.Service, ctx context.Context) accountDoneMsg {
@@ -945,6 +1089,20 @@ func (m Model) runAccountConfirm(c Confirm) tea.Cmd {
 	case confirmRevokeToken:
 		return m.accountCall("revoking the token", func(svc core.Service, ctx context.Context) accountDoneMsg {
 			return accountDoneMsg{err: svc.RevokeToken(ctx, id), status: c.Target + " revoked"}
+		})
+	case confirmRotateToken:
+		in := core.RotateTokenInput{Grace: core.Duration(c.grace)}
+		return m.accountCall("rotating the token", func(svc core.Service, ctx context.Context) accountDoneMsg {
+			issued, err := svc.RotateToken(ctx, id, in)
+			if err != nil {
+				return accountDoneMsg{err: err}
+			}
+			return accountDoneMsg{status: "token " + issued.Name + " rotated",
+				reveal: &AccountReveal{Title: "token " + issued.Name + ", rotated and shown once; copy it now:", Lines: []string{issued.Token}}}
+		})
+	case confirmRevokeSession:
+		return m.accountCall("revoking the session", func(svc core.Service, ctx context.Context) accountDoneMsg {
+			return accountDoneMsg{err: svc.RevokeSession(ctx, id), status: c.Target + " revoked"}
 		})
 	case confirmRevokeKey:
 		return m.accountCall("revoking the key", func(svc core.Service, ctx context.Context) accountDoneMsg {
@@ -1052,7 +1210,7 @@ func (m Model) handlePickerKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // issueToken asks the service for the token the picker describes. The expiry is
 // resolved against now here, as the browser resolves it when the form arrives.
 func (m Model) issueToken(p ScopePicker) tea.Cmd {
-	in := core.CreateTokenInput{Name: p.Name, Scopes: p.Scopes()}
+	in := core.CreateTokenInput{Name: p.Name, Scopes: p.Scopes(), RequireClaim: p.RequireClaim}
 	if p.Expiry.Days > 0 {
 		at := m.now().UTC().AddDate(0, 0, p.Expiry.Days)
 		in.ExpiresAt = &at

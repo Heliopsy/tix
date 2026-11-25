@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"github.com/heliopsy/tix/internal/auth"
+	"github.com/heliopsy/tix/internal/clock"
 	"github.com/heliopsy/tix/internal/config"
 	"github.com/heliopsy/tix/internal/core"
+	"github.com/heliopsy/tix/internal/logging"
 	"github.com/heliopsy/tix/internal/output"
 	"github.com/heliopsy/tix/internal/wire"
 )
@@ -44,6 +46,9 @@ type Config struct {
 	Authenticator auth.Authenticator
 	Resolver      TenantResolver
 	Logger        *slog.Logger
+	// Clock paces the refusal log's once a minute per client. Nil is the
+	// real clock.
+	Clock clock.Clock
 
 	// DefaultTenantID pins requests whose Host maps to no tenant. When it is
 	// empty an unknown host is answered with not found.
@@ -58,6 +63,12 @@ type Config struct {
 	MaxImportBytes int64
 	ImportRoutes   []string
 
+	// MaxArtifactBytes is the largest artifact blob the service takes. The
+	// artifact route and ArtifactRoutes accept a body sized to carry one, so
+	// --max-body-bytes never refuses an upload the limit would allow.
+	MaxArtifactBytes int64
+	ArtifactRoutes   []string
+
 	// SecureCookies forces the session and CSRF cookies Secure regardless of
 	// the scheme a request arrived on. It is the floor, not the ceiling: a
 	// request whose effective scheme is https gets a Secure cookie anyway.
@@ -69,6 +80,11 @@ type Config struct {
 	// validated; this package names those constants rather than restating them.
 	CookieSecurity string
 
+	// PublicURL is server.public_url, the address people reach the browser
+	// interface at. Links built from a request on a host that serves several
+	// tenants use it in place of the request's own host; see Origin.
+	PublicURL string
+
 	// TrustedProxies lists the proxy addresses, as IPs or CIDR blocks, whose
 	// X-Forwarded-Proto and X-Forwarded-For are believed. Leaving it empty
 	// believes neither header from anybody, because any client can send them.
@@ -77,8 +93,33 @@ type Config struct {
 	Probe          DBProbe
 	ExpectedSchema int
 
+	// Idempotency keeps the answers of writes sent with an Idempotency-Key.
+	// Left nil, the router uses its service when the service provides it.
+	Idempotency Idempotency
+
 	// EventHandler serves the WebSocket event route when it is supplied.
 	EventHandler http.Handler
+
+	// SCIM serves SCIM 2.0 provisioning under core.SCIMPath when it is
+	// supplied. It is its own protocol, described by its own discovery
+	// endpoints rather than by the OpenAPI document.
+	SCIM http.Handler
+
+	// CalDAV serves tasks over CalDAV under core.DAVPath, and /.well-known/caldav
+	// redirects there, when it is supplied. Like SCIM it is its own protocol,
+	// described by its own discovery rather than by the OpenAPI document.
+	// Left nil, both answer not found.
+	CalDAV http.Handler
+
+	// DAVAuthenticator is the only authenticator consulted under core.DAVPath:
+	// HTTP Basic carrying an app password. Cookies and bearer tokens are never
+	// read there.
+	DAVAuthenticator auth.Authenticator
+
+	// Releases answers what the release check knows. The browser interface
+	// shares the same one, so the route and the release screen agree. Left
+	// nil, the route reports the running version alone.
+	Releases ReleaseSource
 
 	// WebHandler serves the browser interface at the root when it is supplied.
 	// It is registered last and only for paths the API does not claim, so an
@@ -88,12 +129,17 @@ type Config struct {
 
 // Router serves the tix REST API.
 type Router struct {
-	cfg     Config
-	proxies *auth.ProxyPolicy
-	mux     *routeMux
-	handler http.Handler
+	cfg       Config
+	publicURL string
+	proxies   *auth.ProxyPolicy
+	mux       *routeMux
+	handler   http.Handler
 	// imports matches the routes that take MaxImportBytes; it serves nothing.
 	imports *http.ServeMux
+	// artifacts matches the routes that carry an artifact blob.
+	artifacts *http.ServeMux
+	// refusals holds back repeats of one refusal record.
+	refusals *logging.Dedupe
 }
 
 // routeMux is a ServeMux that remembers every pattern registered on it, so
@@ -132,14 +178,23 @@ func New(cfg Config) (*Router, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = clock.New()
+	}
 	if cfg.MaxBodyBytes <= 0 {
 		cfg.MaxBodyBytes = DefaultMaxBodyBytes
 	}
 	if cfg.MaxImportBytes <= 0 {
 		cfg.MaxImportBytes = config.DefaultMaxImportBytes
 	}
+	if cfg.MaxArtifactBytes <= 0 {
+		cfg.MaxArtifactBytes = core.DefaultArtifactMaxBytes
+	}
 	if cfg.RequestTimeout <= 0 {
 		cfg.RequestTimeout = DefaultRequestTimeout
+	}
+	if cfg.Idempotency == nil {
+		cfg.Idempotency, _ = cfg.Service.(Idempotency)
 	}
 
 	if cfg.CookieSecurity == "" {
@@ -154,12 +209,20 @@ func New(cfg Config) (*Router, error) {
 		return nil, err
 	}
 
-	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux()}
+	rt := &Router{cfg: cfg, proxies: proxies, mux: &routeMux{ServeMux: http.NewServeMux()}, imports: http.NewServeMux(),
+		publicURL: strings.TrimRight(strings.TrimSpace(cfg.PublicURL), "/"),
+	}
+	rt.refusals = logging.NewDedupe(cfg.Clock, refusalWindow, refusalMaxKeys, rt.logHeldBack)
 	for _, pattern := range append([]string{http.MethodPost + " " + wire.RouteProjectTaskImport}, cfg.ImportRoutes...) {
 		rt.imports.Handle(pattern, http.NotFoundHandler())
 	}
+	rt.artifacts = http.NewServeMux()
+	for _, pattern := range append([]string{http.MethodPut + " " + wire.RouteTaskArtifacts}, cfg.ArtifactRoutes...) {
+		rt.artifacts.Handle(pattern, http.NotFoundHandler())
+	}
 	rt.register()
 	rt.handler = chain(rt.mux,
+		rt.idempotent,
 		rt.authenticate,
 		rt.resolveTenant,
 		rt.withTimeout,
@@ -192,6 +255,7 @@ func (rt *Router) register() {
 	rt.mux.HandleFunc("GET "+wire.RouteHealth, rt.handleHealth)
 	rt.mux.HandleFunc("GET "+wire.RouteReady, rt.handleReady)
 	rt.mux.HandleFunc("GET "+wire.RouteWhoAmI, rt.handleWhoAmI)
+	rt.mux.HandleFunc("GET "+wire.RouteRelease, rt.handleRelease)
 	rt.mux.HandleFunc("GET "+wire.RouteOpenAPI, rt.handleOpenAPI)
 
 	rt.registerAuthRoutes()
@@ -202,6 +266,7 @@ func (rt *Router) register() {
 	rt.registerTaskRoutes()
 	rt.registerClaimRoutes()
 	rt.registerHistoryRoutes()
+	rt.registerEventRoutes()
 	rt.registerStatsRoutes()
 	rt.registerStatusRoutes()
 	rt.registerWebhookRoutes()
@@ -214,9 +279,19 @@ func (rt *Router) register() {
 	rt.registerInboxRoutes()
 	rt.registerTimeRoutes()
 	rt.registerTemplateRoutes()
+	rt.registerSCIMRoutes()
+	rt.registerDAVRoutes()
 
 	if rt.cfg.EventHandler != nil {
 		rt.mux.Handle(wire.RouteEvents, rt.cfg.EventHandler)
+	}
+	if rt.cfg.SCIM != nil {
+		rt.mux.Handle(core.SCIMPath+"/", rt.cfg.SCIM)
+	}
+	if rt.cfg.CalDAV != nil {
+		rt.mux.Handle(core.DAVRoot, rt.cfg.CalDAV)
+		rt.mux.Handle(core.DAVPath, rt.cfg.CalDAV)
+		rt.mux.HandleFunc(core.DAVWellKnownPath, handleDAVWellKnown)
 	}
 	if rt.cfg.WebHandler != nil {
 		rt.mux.Handle("/", rt.cfg.WebHandler)
@@ -302,11 +377,19 @@ func wantsNDJSON(r *http.Request) bool {
 
 // writeList renders a page of items, streaming as ndjson when negotiated.
 func writeList[T any](w http.ResponseWriter, r *http.Request, items []T, next string) {
+	writePage(w, r, wire.Page[T]{Items: items, NextCursor: next})
+}
+
+// writePage renders a whole page envelope, streaming its items as ndjson when
+// negotiated, which carries no envelope and so no total.
+func writePage[T any](w http.ResponseWriter, r *http.Request, page wire.Page[T]) {
+	items := page.Items
 	if items == nil {
 		items = []T{}
 	}
 	if !wantsNDJSON(r) {
-		WriteJSON(w, http.StatusOK, wire.Page[T]{Items: items, NextCursor: next})
+		page.Items = items
+		WriteJSON(w, http.StatusOK, page)
 		return
 	}
 	w.Header().Set(wire.HeaderContentType, wire.ContentNDJSON)

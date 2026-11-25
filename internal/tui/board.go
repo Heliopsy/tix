@@ -185,7 +185,7 @@ func TaskBadges(t core.Task, now time.Time) []string {
 		badges = append(badges, "@"+shortID(t.ClaimedByActorID))
 	}
 	if t.Blocked {
-		badges = append(badges, "!blocked")
+		badges = append(badges, "!waiting")
 	}
 	if len(t.DependsOn) > 0 {
 		badges = append(badges, "deps")

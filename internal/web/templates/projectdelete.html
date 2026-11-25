@@ -30,7 +30,7 @@
        intent=delete deletes anything; see deleteProject. */}}
   <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true" name="intent" value="delete">{{t "Delete project"}}</button>
   {{with .Data.Errors.On ""}}{{template "field-error" .}}{{end}}
-  <p class="delform-lead">{{tn "%[2]s holds %[1]d task." "%[2]s holds %[1]d tasks." .Data.Plan.Total (key $p.Key)}}{{if .Data.Plan.Deleted}} {{tn "%d of them is already deleted and can still be restored." "%d of them are already deleted and can still be restored." .Data.Plan.Deleted}}{{end}}</p>
+  <p class="delform-lead">{{tn "%[2]s holds %[1]d task." "%[2]s holds %[1]d tasks." .Data.Plan.Total (key $p.Key)}}{{if .Data.Plan.Trashed}} {{tn "%d of them is already deleted and can still be restored." "%d of them are already deleted and can still be restored." .Data.Plan.Trashed}}{{end}}</p>
   <p class="cfield-hint">{{t "Deleting the project is permanent and cannot be undone. Choose what happens to its tasks."}}</p>
   <fieldset class="delchoices"{{with .Data.Errors.On "choice"}} aria-invalid="true" aria-describedby="{{.ID}}"{{end}}>
     <legend>{{t "What happens to the tasks"}}</legend>

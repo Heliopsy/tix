@@ -36,6 +36,15 @@ func ProjectsEmptyState(projects int) EmptyState {
 	}
 }
 
+// StarredEmptyState is what the projects view says when only the starred
+// projects are asked for and the reader starred none.
+func StarredEmptyState(filterKey, starKey string) EmptyState {
+	return EmptyState{
+		Title: "No starred projects.",
+		Hint:  "Press " + filterKey + " for every project, then " + starKey + " to star one.",
+	}
+}
+
 // BoardEmptyState decides what a board says when no card is drawn on it. It
 // distinguishes a board with no workflow, a board every task was filtered out
 // of, and a project that genuinely holds no tasks, because the three call for

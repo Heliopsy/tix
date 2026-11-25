@@ -327,7 +327,7 @@ func TestRenamingATitleLeavesTheDescriptionAndAssigneeAlone(t *testing.T) {
 	_ = cleared.Body.Close()
 	wantStatus(t, cleared, http.StatusSeeOther)
 	page = b.page("/tasks/" + ref)
-	if strings.Contains(page, "kept across the rename") {
+	if strings.Contains(page, ">kept across the rename</textarea>") {
 		t.Error("a save naming an empty description no longer clears it")
 	}
 	if got := inputValue(t, page, "assignee"); got != "" {

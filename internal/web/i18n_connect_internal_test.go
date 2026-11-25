@@ -19,7 +19,12 @@ func init() {
 			out = append(out, p.Name, p.Note)
 		}
 		t := onboard.Target{URL: "u", Tenant: "t", Token: "k", SSH: "h:1"}
+		for _, p := range connectPanes {
+			out = append(out, p.Title)
+		}
+		out = append(out, "Install with", "MCP client", "Install for")
 		snips := append(onboard.Install(t), onboard.CLI(t)...)
+		snips = append(snips, *onboard.Login(t, "e"), onboard.Rotate())
 		snips = append(snips, onboard.MCPPreview())
 		snips = append(snips, onboard.Skill()...)
 		snips = append(snips, onboard.SSH(t)...)

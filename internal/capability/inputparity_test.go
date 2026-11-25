@@ -31,17 +31,26 @@ var inputReaches = []inputReach{
 	{"tix global-admin grant", core.GlobalAdminInput{}, map[string]string{"email": "arg"}},
 	{"tix tenant edit", core.UpdateTenantInput{}, map[string]string{
 		"name": "--name", "theme": "--theme",
+		"icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
 		"require_totp_web": "--require-totp-web", "require_totp_cli": "--require-totp-cli",
-		"require_totp_ssh": "--require-totp-ssh",
-		"lease_default":    "--lease-default", "lease_max": "--lease-max",
-		"trash_off": "--trash", "time_format": "--time-format", "timezone": "--timezone",
+		"require_totp_ssh": "--require-totp-ssh", "mfa_policy": "--mfa-policy", "mfa_grace": "--mfa-grace",
+		"password_login": "--password-login",
+		"lease_default":  "--lease-default", "lease_max": "--lease-max",
+		"artifact_max_bytes": "--artifact-max-bytes", "artifact_types": "--artifact-types",
+		"session_ttl": "--session-ttl", "session_idle_timeout": "--session-idle-timeout",
+		"session_remember_ttl": "--session-remember-ttl",
+		"trash_off":            "--trash", "time_format": "--time-format", "timezone": "--timezone",
 	}},
 	{"tix domain add", core.AddDomainInput{}, map[string]string{
 		"hostname": "arg", "cert_mode": "--cert-mode", "cert_path": "--cert", "key_path": "--key",
 	}},
 	{"tix project create", core.CreateProjectInput{}, map[string]string{
 		"key": "arg", "name": "arg", "description": "--description", "workflow_key": "--workflow",
-		"color": "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
+		"workflow_template": "--workflow-template",
+		"color":             "--color", "icon": "--icon", "icon_name": "--icon-name", "icon_file": "--icon-file",
+	}},
+	{"tix workflow template apply", core.ApplyWorkflowTemplateInput{}, map[string]string{
+		"as": "--as", "on_collision": "--on-collision",
 	}},
 	{"tix project edit", core.UpdateProjectInput{}, map[string]string{
 		"key": "--key", "name": "--name", "description": "--description", "workflow_key": "--workflow",
@@ -76,11 +85,11 @@ var inputReaches = []inputReach{
 	{"tix task rm", core.DeleteTaskInput{}, map[string]string{"hard": "--hard", "cascade": "--cascade"}},
 	{"tix task mv", core.TransitionInput{}, map[string]string{
 		"to": "arg", "comment": "--comment", "lease_token": "--lease-token",
-		"custom_fields": "--field", "version": "--version",
+		"custom_fields": "--field", "version": "--version", "dry_run": "--dry-run",
 	}},
 	{"tix task mv", core.RouteInput{}, map[string]string{
 		"route": "arg", "to": "arg", "comment": "--comment", "lease_token": "--lease-token",
-		"custom_fields": "--field", "version": "--version",
+		"custom_fields": "--field", "version": "--version", "dry_run": "--dry-run",
 	}},
 	{"tix task bulk", core.BulkTaskInput{}, map[string]string{
 		"action": "arg", "refs": "arg", "to": "--to", "priority": "--priority", "tag": "--tag",
@@ -90,9 +99,12 @@ var inputReaches = []inputReach{
 		"kind": "--kind", "name": "--name", "payload": "--payload", "content_type": "--content-type",
 		"blob": "--file", "lease_token": "--lease-token",
 	}},
-	{"tix claim task", core.ClaimInput{}, map[string]string{"ttl": "--ttl", "actor_id": "--actor"}},
+	{"tix claim task", core.ClaimInput{}, map[string]string{
+		"ttl": "--ttl", "actor_id": "--actor", "start": "--start", "start_status": "--start-status",
+	}},
 	{"tix claim next", core.ClaimNextInput{}, map[string]string{
 		"project_refs": "--project", "tags": "--tag", "statuses": "--status", "ttl": "--ttl", "actor_id": "--actor",
+		"start": "--start", "start_status": "--start-status",
 	}},
 	{"tix claim reclaim", core.ForceReclaimInput{}, map[string]string{"reason": "--reason"}},
 	{"tix claim release", core.ReleaseInput{}, map[string]string{
@@ -123,7 +135,7 @@ var inputReaches = []inputReach{
 		"actor_id": "--actor", "public_key": "--file", "label": "--label", "all_tenants": "--all-tenants",
 	}},
 	{"tix login", core.LoginInput{}, map[string]string{
-		"email": "--email", "password": "--password",
+		"email": "--email", "password": "--password", "remember": "--remember",
 		"surface": "!the command line names itself; a caller choosing its surface would choose which second-factor rule applies",
 		"ticket":  "!carried from the password step to the code prompt inside one tix login",
 		"code":    "!prompted for, never a flag, so a live second factor stays out of shell history",
@@ -132,6 +144,7 @@ var inputReaches = []inputReach{
 	}},
 	{"tix token create", core.CreateTokenInput{}, map[string]string{
 		"name": "arg", "actor_id": "--actor", "scopes": "--scope", "project_id": "--project", "expires_at": "--expires",
+		"require_claim": "--require-claim",
 	}},
 	{"tix webhook put", core.WebhookInput{}, map[string]string{
 		"id": "--id", "url": "arg", "secret": "--secret", "event_types": "--event", "active": "--inactive",
@@ -171,6 +184,9 @@ var inputReaches = []inputReach{
 		"subject_type": "--subject-type", "subject_id": "--subject-id", "actor_ids": "--actor",
 		"actions": "--action", "sources": "--filter", "vias": "--via", "tokens": "--token", "since": "--since", "until": "--until",
 		"text": "--filter", "page": "--cursor",
+	}},
+	{"tix events", core.EventPollInput{}, map[string]string{
+		"since_seq": "--since", "types": "--type", "project_ids": "--project", "limit": "--limit", "wait": "--wait",
 	}},
 	{"tix watch", core.EventFilter{}, map[string]string{
 		"project_ids": "--project", "types": "--type", "since_seq": "--since",
@@ -233,9 +249,10 @@ func TestEveryAPIInputFieldIsReachableFromTheCommandLine(t *testing.T) {
 }
 
 // hasFlag reports whether a help text lists a flag in its own right, so that
-// --repeat is not found inside --no-repeat.
+// --repeat is not found inside --no-repeat. pflag 1.1 prints a bool flag as
+// --repeat[=true|false], so a bracket may follow the name.
 func hasFlag(usage, flag string) bool {
-	return regexp.MustCompile(`(?m)^\s+(-\w, )?` + regexp.QuoteMeta(flag) + `(\s|$)`).MatchString(usage)
+	return regexp.MustCompile(`(?m)^\s+(-\w, )?` + regexp.QuoteMeta(flag) + `(\s|\[|$)`).MatchString(usage)
 }
 
 // TestTheReachCheckSeesAMissingFlag pins hasFlag to a real absence, so the

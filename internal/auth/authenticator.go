@@ -64,10 +64,12 @@ func (a *BearerAuthenticator) Authenticate(ctx context.Context, r *http.Request)
 	}
 	scheme, value, found := strings.Cut(header, " ")
 	if !found || !strings.EqualFold(scheme, "bearer") {
+		NoteRefusal(ctx, Refusal{Reason: RefusedUnsupportedScheme})
 		return nil, ErrNoCredential
 	}
 	value = strings.TrimSpace(value)
 	if value == "" {
+		NoteRefusal(ctx, Refusal{Reason: RefusedMalformedToken})
 		return nil, ErrNoCredential
 	}
 	return a.verifier.Verify(ctx, value)
